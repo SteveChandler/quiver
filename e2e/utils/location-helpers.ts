@@ -9,8 +9,8 @@ import { expect, type Page } from "@playwright/test";
 import {
   LOCATION_PAGE_SELECTORS,
   LOCATION_PAGE_TIMEOUTS,
-  type LocationIdentifier,
 } from "../fixtures/location-data";
+import type { LocationIdentifier } from "@/types/location";
 import { buildLocationUrl } from "@/lib/utils/location-slug";
 
 /**

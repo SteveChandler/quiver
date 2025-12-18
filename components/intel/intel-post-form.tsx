@@ -382,8 +382,8 @@ export function IntelPostForm({
 
       // Create intel post
       const result = await createIntelPost({
-        latitude: location.latitude,
-        longitude: location.longitude,
+        lat: location.latitude,
+        lon: location.longitude,
         ...(beachId ? { beach_id: beachId } : {}),
         tag: data.tag,
         title: data.title,
@@ -593,8 +593,8 @@ export function IntelPostForm({
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground">
-                        {location.latitude?.toFixed(4) ?? 'N/A'},{" "}
-                        {location.longitude?.toFixed(4) ?? 'N/A'}
+                        {location.latitude?.toFixed(4) ?? "N/A"},{" "}
+                        {location.longitude?.toFixed(4) ?? "N/A"}
                       </div>
                     </div>
                   ) : (

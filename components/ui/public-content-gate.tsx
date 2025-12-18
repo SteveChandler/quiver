@@ -9,10 +9,13 @@ import { track } from "@/lib/analytics";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { AuthBlockingOverlay } from "@/components/auth/auth-blocking-overlay";
-import { trackAuthModalOpened, trackAuthModalReappeared } from "@/lib/analytics/auth-events";
+import {
+  trackAuthModalOpened,
+  trackAuthModalReappeared,
+} from "@/lib/analytics/auth-events";
 
 interface PublicContentGateProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   ctaTitle: string;
   ctaDescription?: string;
   blurLevel?: "sm" | "md" | "lg";
@@ -57,7 +60,7 @@ export function PublicContentGate({
   // If user is authenticated OR still loading auth, show full content without blur
   // This prevents the auth gate from flashing during session restoration
   if (user || isLoading) {
-    return <>{children}</>;
+    return <>{children ?? null}</>;
   }
 
   // Map blur levels to Tailwind classes
@@ -74,7 +77,10 @@ export function PublicContentGate({
     });
     setAuthMode("signup");
     setAuthModalOpen(true);
-    trackAuthModalOpened({ mode: "signup", source: `public-content-gate-${source}` });
+    trackAuthModalOpened({
+      mode: "signup",
+      source: `public-content-gate-${source}`,
+    });
   };
 
   const handleSignInClick = () => {
@@ -84,16 +90,21 @@ export function PublicContentGate({
     });
     setAuthMode("login");
     setAuthModalOpen(true);
-    trackAuthModalOpened({ mode: "login", source: `public-content-gate-${source}` });
+    trackAuthModalOpened({
+      mode: "login",
+      source: `public-content-gate-${source}`,
+    });
   };
 
   // Public user: show blurred content with CTA overlay
   return (
     <div className={`relative ${className}`}>
       {/* Blurred content */}
-      <div className={`${blurClass} pointer-events-none select-none`}>
-        {children}
-      </div>
+      {children ? (
+        <div className={`${blurClass} pointer-events-none select-none`}>
+          {children}
+        </div>
+      ) : null}
 
       {/* CTA Overlay */}
       <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-t from-background/95 via-background/80 to-background/40">

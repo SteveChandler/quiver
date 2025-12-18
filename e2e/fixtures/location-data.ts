@@ -258,9 +258,9 @@ export function createMockBeachWithMetrics(
     break_type: "Beach Break",
     crowd_level: "Moderate",
     description: "Test beach description",
-    composite_score: 0.7,
-    recent_intel_count: 2,
-    avg_confirmations: 2.0,
+    compositeScore: 0.7,
+    recentIntelCount: 2,
+    avgConfirmations: 2.0,
     rank: 1,
     is_private: false,
     created_at: new Date().toISOString(),
@@ -297,10 +297,10 @@ export function createMockRankedBeaches(count: number): BeachWithMetrics[] {
       id: `beach-${i + 1}`,
       name: `Beach ${i + 1}`,
       slug: `beach-${i + 1}`,
-      composite_score: 0.9 - i * 0.1, // Descending scores
+      compositeScore: 0.9 - i * 0.1, // Descending scores
       rank: i + 1,
       review_count: 20 - i * 2, // Descending review count
-      recent_intel_count: 5 - i,
+      recentIntelCount: 5 - i,
     })
   );
 }

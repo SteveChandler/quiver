@@ -22,21 +22,11 @@ interface FollowersModalProps {
   onClose: () => void;
 }
 
-interface UserConnection {
+interface ConnectionProfile {
   id: string;
-  created_at: string;
-  follower?: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-    email: string | null;
-  };
-  following?: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-    email: string | null;
-  };
+  full_name: string | null;
+  avatar_url: string | null;
+  email: string | null;
 }
 
 export function FollowersModal({
@@ -46,7 +36,7 @@ export function FollowersModal({
   onClose,
 }: FollowersModalProps) {
   const { user } = useAuth();
-  const [connections, setConnections] = useState<UserConnection[]>([]);
+  const [connections, setConnections] = useState<ConnectionProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +54,7 @@ export function FollowersModal({
             : await getUserFollowing(userId, 100);
 
         if (result.success) {
-          setConnections(result.data);
+          setConnections((result.data ?? []) as ConnectionProfile[]);
         } else {
           setError(result.error || "Failed to load connections");
         }
@@ -78,10 +68,6 @@ export function FollowersModal({
 
     fetchConnections();
   }, [isOpen, userId, type]);
-
-  const getDisplayUser = (connection: UserConnection) => {
-    return type === "followers" ? connection.follower : connection.following;
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -114,13 +100,10 @@ export function FollowersModal({
             </div>
           ) : (
             <div className="space-y-4">
-              {connections.map((connection) => {
-                const displayUser = getDisplayUser(connection);
-                if (!displayUser) return null;
-
+              {connections.map((displayUser) => {
                 return (
                   <div
-                    key={connection.id}
+                    key={displayUser.id}
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">

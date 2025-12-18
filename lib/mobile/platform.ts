@@ -50,3 +50,17 @@ export function getNativePlatform(): NativePlatform {
 export function canUseCapacitorPlugin(): boolean {
   return isNativeApp();
 }
+
+/**
+ * Detect current platform for analytics and feature detection
+ * Simple UA-based detection for tracking purposes
+ * 
+ * @returns "ios" | "android" | "desktop"
+ */
+export function currentPlatform(): "ios" | "android" | "desktop" {
+  if (typeof navigator === "undefined") return "desktop";
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+  if (/android/i.test(ua)) return "android";
+  if (/iPad|iPhone|iPod/.test(ua)) return "ios";
+  return "desktop";
+}

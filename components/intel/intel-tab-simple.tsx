@@ -46,7 +46,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
     // Persist view mode preference in localStorage
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("intel_view_mode");
-      return (saved === "map" || saved === "feed") ? saved : "feed";
+      return saved === "map" || saved === "feed" ? saved : "feed";
     }
     return "feed";
   });
@@ -93,7 +93,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       });
 
       if (result.success) {
-        setPosts(result.data.posts);
+        setPosts(result.data?.posts ?? []);
       } else {
         setError(result.error || "Failed to load intel posts");
       }
@@ -228,7 +228,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             action: isCurrentlyConfirmed ? "unconfirm" : "confirm",
             post_id: postId,
           });
-          
+
           // Update the post in the list
           setPosts((prev) =>
             prev.map((post) => {
@@ -373,8 +373,8 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 )}
               </Button>
               {canPost ? (
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={() => {
                     track("share_intel_button_clicked", {
                       user_authenticated: true,
@@ -468,7 +468,11 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 </div>
               ) : (
                 <>
-                  {console.log("[IntelTab] Rendering IntelMap component with", filteredPosts.length, "posts")}
+                  {console.log(
+                    "[IntelTab] Rendering IntelMap component with",
+                    filteredPosts.length,
+                    "posts"
+                  )}
                   <IntelMap
                     key={`intel-map-${selectedTag}`}
                     posts={filteredPosts}

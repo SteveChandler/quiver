@@ -22,11 +22,13 @@ components/home-screen/
 ```typescript
 HomeScreen (Container)
 ├── TabsComponent (UI Framework)
-├── ForecastTab (Lazy Loaded)
-└── CommunityTab (Lazy Loaded)
+├── ForecastTab (Direct Import - see note below)
+└── CommunityTab (Direct Import - see note below)
 ```
 
-### **Lazy Loading Pattern**
+### **Lazy Loading Pattern** (CURRENT STATUS: DISABLED)
+
+**Target Architecture:**
 
 ```typescript
 // Performance optimization with dynamic imports
@@ -39,6 +41,33 @@ const ForecastTab = lazy(() =>
   <ForecastTab profile={profile} homeBeach={homeBeach} />
 </Suspense>;
 ```
+
+**Current Implementation:**
+
+```typescript
+// Temporary direct imports to debug lazy loading issue (lines 19-22 in index.tsx)
+import { ForecastTab } from "./forecast-tab";
+import { CommunityTab } from "./community-tab";
+
+// Lazy loading disabled for debugging
+// TODO: Re-enable lazy loading once issue is resolved
+```
+
+**Status Notes:**
+
+- Lazy loading is currently disabled via direct imports
+- Original lazy loading pattern caused loading/rendering issues
+- Direct imports provide immediate component availability
+- Performance impact is minimal due to component size
+- Target: Re-enable lazy loading after identifying root cause
+- Tracking: See index.tsx lines 19-22 for current implementation
+
+**Investigation Needed:**
+
+- Root cause of lazy loading failure
+- Impact on bundle size and load performance
+- Alternative lazy loading strategies (route-level vs component-level)
+- Suspense boundary configuration
 
 ### **Shared Data Strategy**
 
@@ -54,7 +83,7 @@ const { profile, homeBeach, profileLoading, hasCachedData } =
 ### **Location-Permissioned Nearby Chips**
 
 ```typescript
-// Follows useDataFetcher pattern and useGeo for permissioned location
+// Follows useDataFetcher pattern and `useGeolocation({ autoRequest: false })` for permissioned location
 <NearbyBeachChips onSelect={(b) => setSelectedBeachOverride(b)} />
 
 // Chip click sets override beach to immediately preview Today at <beach>
@@ -69,7 +98,7 @@ Behavior:
 
 Constraints:
 
-- Uses `useDataFetcher` and `useGeo` per hooks/ARCHITECTURE.md.
+- Uses `useDataFetcher` and `useGeolocation` (manual request) per hooks/ARCHITECTURE.md.
 - No new data fetching patterns introduced.
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
@@ -79,7 +108,8 @@ Constraints:
 - **Purpose**: Tab orchestration and layout management
 - **State Management**: Active tab state, user authentication
 - **Features**:
-  - Lazy loading of tab components
+  - ~~Lazy loading of tab components~~ (disabled - see note above)
+  - Direct component imports for stability
   - Shared data distribution
   - Responsive welcome section
   - Bottom navigation integration
@@ -90,10 +120,12 @@ Constraints:
 // Tab management
 const [activeTab, setActiveTab] = useState("forecast");
 
-// Lazy loading with error boundaries
-<Suspense fallback={<TabSkeleton />}>
-  <ForecastTab profile={profile} homeBeach={homeBeach} />
-</Suspense>;
+// Direct imports (lazy loading disabled)
+import { ForecastTab } from "./forecast-tab";
+import { CommunityTab } from "./community-tab";
+
+// Components rendered directly (no Suspense wrapper currently)
+<ForecastTab profile={profile} homeBeach={homeBeach} />;
 
 // Welcome personalization
 {
@@ -241,11 +273,13 @@ const { loading, refetch } = useDataFetcher(performSearch, {
 // Component-level loading
 if (forecastLoading) return <SkeletonAnimation />;
 
-// Tab-level loading
-<Suspense fallback={<TabSkeleton />}>
+// Tab-level loading (currently disabled - see lazy loading notes)
+// <Suspense fallback={<TabSkeleton />}>
 
 // Data-level loading
-{loading && <Loader2 className="animate-spin" />}
+{
+  loading && <Loader2 className="animate-spin" />;
+}
 ```
 
 ### **Color-Coded Information Architecture**
@@ -268,15 +302,25 @@ if (forecastLoading) return <SkeletonAnimation />;
 
 ## 🚀 **PERFORMANCE OPTIMIZATIONS**
 
-### **Lazy Loading Strategy**
+### **Lazy Loading Strategy** (CURRENTLY DISABLED)
 
 ```typescript
-// Dynamic imports for heavy components
+// Target pattern (currently not in use):
 const ForecastTab = lazy(() => import("./forecast-tab"));
 
-// Code splitting by tab
+// Current pattern (direct import for stability):
+import { ForecastTab } from "./forecast-tab";
+
+// Code splitting by tab - PLANNED, not active
 // Only loads tab components when accessed
 ```
+
+**Performance Notes:**
+
+- Direct imports bundle tab components with main chunk
+- Minimal performance impact due to component size
+- Future optimization: Re-enable lazy loading after debugging
+- Alternative: Route-level code splitting instead of component-level
 
 ### **Memoization Patterns**
 
@@ -352,7 +396,7 @@ const { beachAccuracy } = useForecastCalibration({
 ### **Component Testing**
 
 - Tab switching functionality
-- Lazy loading behavior
+- ~~Lazy loading behavior~~ (not currently active)
 - Loading state displays
 - Error state handling
 
@@ -373,13 +417,80 @@ const { beachAccuracy } = useForecastCalibration({
 
 ### **Performance Improvements**
 
+- **Re-enable lazy loading** (top priority for code splitting)
 - Service worker caching
 - Background data sync
 - Optimistic UI updates
 
+### **Technical Debt**
+
+- [ ] Resolve lazy loading issue and re-enable dynamic imports
+- [ ] Investigate Suspense boundary configuration
+- [ ] Measure performance impact of direct imports vs lazy loading
+- [ ] Consider route-level code splitting as alternative
+
 ---
 
-**Last Updated**: November 18, 2025
-**Status**: Production-ready with lazy loading and caching optimizations
-**Next Review**: After push notifications implementation
-**Recent Changes**: Removed Best Conditions and Nearby Tab features (Nov 18, 2025)
+**Last Updated**: December 17, 2025
+**Status**: Production-ready with lazy loading temporarily disabled for debugging
+**Next Review**: After lazy loading issue is resolved
+**Recent Changes**:
+
+- Documented lazy loading disabled status (Dec 17, 2025)
+- Added technical debt tracking for lazy loading re-enablement
+- Removed Best Conditions and Nearby Tab features (Nov 18, 2025)
+
+## 🔮 **Personalized Insights Integration (December 2025)**
+
+### **PersonalizedForecastCard** - Enhanced with Insights
+
+- **File**: `components/home-screen/personalized-forecast-card.tsx`
+- **New Features**:
+  - Displays personalized insights comparing forecast to user's session history
+  - "For You" KPI tile shows match label (Perfect/Great/Good) or personalization boost
+  - Board recommendations displayed in amber tip box when detected
+  - Similar sessions drawer accessible via button or clicking "For You" tile
+  - Three states: ready (insights shown), onboarding (encouragement message), degraded (graceful fallback)
+- **Props**:
+  - `insights`: PersonalizedInsights from useInsights hook
+  - `insightsLoading`: boolean loading state
+  - `onViewSimilarSessions`: callback to open drawer
+- **UI Elements**:
+  - Match percentage badge (e.g., "85% Match")
+  - Reason bullets in summary section
+  - Board tip in amber box with ruler icon
+  - "View X similar sessions" button when available
+  - Clickable "For You" tile opens similar sessions drawer
+
+### **SimilarSessionsDrawer** - Session History Comparison
+
+- **File**: `components/home-screen/similar-sessions-drawer.tsx`
+- **Purpose**: Display user's past sessions with similar conditions
+- **Features**:
+  - Current forecast conditions summary at top
+  - List of similar sessions sorted by similarity score
+  - Match quality badges (Perfect green, Great blue, Good yellow, Low outline)
+  - Session details: beach name, date, rating (stars), conditions (wave/wind), board used
+  - Empty state when no similar sessions found
+  - Touch-friendly mobile design
+- **Props**:
+  - `open`: boolean drawer state
+  - `onOpenChange`: state setter callback
+  - `sessions`: SimilarSessionInsight[] array
+  - `currentConditions`: { waveHeight, wavePeriod, wind } for comparison header
+- **Design**:
+  - Max height 85vh with scrollable content
+  - Color-coded match badges
+  - Icon-based condition indicators (Waves, Wind, Ruler for board)
+  - Close button in header
+
+---
+
+**Last Updated**: December 17, 2025
+**Status**: Production-ready with lazy loading temporarily disabled, includes personalized insights feature
+**Next Review**: After lazy loading issue is resolved and push notifications implementation
+**Recent Changes**:
+
+- Documented lazy loading disabled status with debugging context (Dec 17, 2025)
+- Added PersonalizedInsights integration with ML-powered session matching (Dec 16, 2025)
+- Added technical debt tracking for lazy loading re-enablement (Dec 17, 2025)

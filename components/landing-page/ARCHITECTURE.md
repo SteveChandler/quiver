@@ -940,6 +940,88 @@ npm run lighthouse:ci
 
 ---
 
-**Last Updated:** November 2025
+## Recent Updates (December 2025)
+
+### AllTrails-Style Design Patterns
+
+The landing page was redesigned with AllTrails-inspired visual patterns:
+
+**Color Palette:**
+- Background: `#F3EEE6` (warm neutral), `#d7e1ea` (cool blue-grey)
+- Text: `text-dark-grey` for headers, `text-gray-600` for body
+- Accent: `bg-ocean-blue` for CTAs and icons
+
+**Typography:**
+- Editorial headlines: `font-roboto font-bold` with `tracking-tight`
+- Body text: `font-open-sans` with `leading-relaxed`
+- Reduced font weights for lighter feel
+
+**Component Patterns:**
+- Rounded panels: `rounded-3xl` with subtle `shadow-sm`
+- Decorative gradients: Neutral charcoal overlays (`from-black/60 via-black/20`)
+- Circular photo chips for activity navigation
+
+### UpgradeSessionSection Component
+
+**File:** `components/landing-page/upgrade-session-section.tsx`
+
+A promotional section encouraging sign-up, featuring AllTrails-style animated icons:
+
+```typescript
+// Key features:
+// 1. Animated icon cycling (Waves → MapPin → Users)
+// 2. Rounded panel with image + copy layout
+// 3. Accessible with prefers-reduced-motion support
+
+<UpgradeSessionSection />
+```
+
+**Animation Pattern:**
+```css
+@keyframes iconCycle {
+  0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+  8% { opacity: 1; transform: translateY(0) scale(1); }
+  25% { opacity: 1; transform: translateY(0) scale(1); }
+  33% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+
+/* Staggered delays for 3 icons */
+.iconCycle0 { animation-delay: 0s; }
+.iconCycle1 { animation-delay: 2.2s; }
+.iconCycle2 { animation-delay: 4.4s; }
+```
+
+**Props:** None (uses `CONTENT.sections.upgradeSession` for copy)
+
+**Usage:**
+```tsx
+// In landing-page-server.tsx or similar
+<UpgradeSessionSection />
+```
+
+### ForecastSection Redesign
+
+**File:** `components/landing-page/forecast-section.tsx`
+
+Redesigned with modern card-based forecast display:
+
+**Layout:**
+- 3-column grid on desktop (`grid-cols-1 md:grid-cols-3`)
+- Gradient background (`from-blue-50 via-cyan-50 to-blue-100`)
+- Decorative blur elements for depth
+
+**Forecast Cards:**
+- Hover effects (`hover:shadow-lg`, `hover:scale-105`)
+- Condition badges with color coding (Excellent/Good/Fair)
+- Icon-based metrics (Waves, Wind, Temperature)
+
+**Animation:**
+- Staggered `animate-fade-in-up` with delay per card
+- Uses Tailwind CSS animations (no Framer Motion)
+
+---
+
+**Last Updated:** December 2025
 **Maintainer:** Engineering Team
-**Next Review:** January 2026
+**Next Review:** February 2026

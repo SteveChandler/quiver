@@ -39,11 +39,23 @@ import type { Beach, Profile } from "@/types/database";
 const preferencesFormSchema = z.object({
   home_beach_id: z.string().uuid().nullable().optional(),
   // Surf preferences
-  experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
+  experience_level: z
+    .enum(["beginner", "intermediate", "advanced", "expert"])
+    .nullable()
+    .optional(),
   surf_styles: z.array(z.string()).nullable().optional(),
-  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).nullable().optional(),
-  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).nullable().optional(),
-  crowd_preference: z.enum(['social', 'moderate', 'solitude']).nullable().optional(),
+  preferred_wave_size: z
+    .enum(["small", "medium", "large", "any"])
+    .nullable()
+    .optional(),
+  preferred_break_type: z
+    .enum(["beach", "point", "reef", "any"])
+    .nullable()
+    .optional(),
+  crowd_preference: z
+    .enum(["social", "moderate", "solitude"])
+    .nullable()
+    .optional(),
   // Notification preferences
   notif_reminders: z.boolean().default(false),
   digest_session_invites: z.boolean().default(false),
@@ -70,15 +82,38 @@ export function ProfilePreferences({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<PreferencesFormValues>({
-    resolver: zodResolver(preferencesFormSchema),
+    resolver: zodResolver(preferencesFormSchema) as any,
     defaultValues: {
       home_beach_id: profile?.home_beach_id ?? null,
       // Surf preferences - cast to proper enum types
-      experience_level: (profile?.experience_level as 'beginner' | 'intermediate' | 'advanced' | 'expert' | null) ?? null,
+      experience_level:
+        (profile?.experience_level as
+          | "beginner"
+          | "intermediate"
+          | "advanced"
+          | "expert"
+          | null) ?? null,
       surf_styles: profile?.surf_styles ?? [],
-      preferred_wave_size: (profile?.preferred_wave_size as 'small' | 'medium' | 'large' | 'any' | null) ?? null,
-      preferred_break_type: (profile?.preferred_break_type as 'beach' | 'point' | 'reef' | 'any' | null) ?? null,
-      crowd_preference: (profile?.crowd_preference as 'social' | 'moderate' | 'solitude' | null) ?? null,
+      preferred_wave_size:
+        (profile?.preferred_wave_size as
+          | "small"
+          | "medium"
+          | "large"
+          | "any"
+          | null) ?? null,
+      preferred_break_type:
+        (profile?.preferred_break_type as
+          | "beach"
+          | "point"
+          | "reef"
+          | "any"
+          | null) ?? null,
+      crowd_preference:
+        (profile?.crowd_preference as
+          | "social"
+          | "moderate"
+          | "solitude"
+          | null) ?? null,
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
       digest_session_invites: profile?.digest_session_invites || false,
@@ -144,14 +179,14 @@ export function ProfilePreferences({
           Customize your surfing experience and notification settings
         </CardDescription>
       </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+      <Form {...(form as any)}>
+        <form onSubmit={(form.handleSubmit as any)(onSubmit)}>
           <CardContent className="space-y-6">
             {/* Home Beach */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Home Beach Settings</h3>
-              <FormField<PreferencesFormValues>
-                control={form.control}
+              <FormField
+                control={form.control as any}
                 name="home_beach_id"
                 render={({ field }) => (
                   <FormItem>
@@ -176,31 +211,31 @@ export function ProfilePreferences({
               <h3 className="text-sm font-medium">Surf Preferences</h3>
 
               <ExperienceLevelField
-                control={form.control}
+                control={form.control as any}
                 name="experience_level"
                 disabled={isSubmitting}
               />
 
               <SurfStylesField
-                control={form.control}
+                control={form.control as any}
                 name="surf_styles"
                 disabled={isSubmitting}
               />
 
               <PreferredWaveSizeField
-                control={form.control}
+                control={form.control as any}
                 name="preferred_wave_size"
                 disabled={isSubmitting}
               />
 
               <PreferredBreakTypeField
-                control={form.control}
+                control={form.control as any}
                 name="preferred_break_type"
                 disabled={isSubmitting}
               />
 
               <CrowdPreferenceField
-                control={form.control}
+                control={form.control as any}
                 name="crowd_preference"
                 disabled={isSubmitting}
               />
@@ -210,32 +245,32 @@ export function ProfilePreferences({
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Notification Settings</h3>
 
-              <FormSwitch<PreferencesFormValues>
-                control={form.control}
+              <FormSwitch
+                control={form.control as any}
                 name="notif_reminders"
                 label="Session Reminders"
                 description="Receive reminders to log your surf sessions"
                 disabled={isSubmitting}
               />
 
-              <FormSwitch<PreferencesFormValues>
-                control={form.control}
+              <FormSwitch
+                control={form.control as any}
                 name="digest_session_invites"
                 label="Session Invite Digests"
                 description="Get periodic digest of session invitations"
                 disabled={isSubmitting}
               />
 
-              <FormSwitch<PreferencesFormValues>
-                control={form.control}
+              <FormSwitch
+                control={form.control as any}
                 name="inapp_session_invites"
                 label="In‑app Session Invites"
                 description="Show session invitations in your activity feed"
                 disabled={isSubmitting}
               />
 
-              <FormSwitch<PreferencesFormValues>
-                control={form.control}
+              <FormSwitch
+                control={form.control as any}
                 name="email_session_invites"
                 label="Email Session Invites"
                 description="Receive email when someone invites you to a surf session"

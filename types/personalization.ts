@@ -203,6 +203,12 @@ export interface SurfDiscoveryOptions {
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles (default: 25, Phase 2) */
   radiusMiles?: number;
+  /**
+   * Hard cap for how far in the future a "best window" may start (in hours).
+   * If provided, discovery will ignore forecast slots beyond this horizon when
+   * selecting each beach’s best window. Intended for "next 24 hours" UX.
+   */
+  horizonHours?: number;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
   /** Include home beach in results (default: true) */
@@ -213,5 +219,105 @@ export interface SurfDiscoveryOptions {
   timeout?: number;
   /** Overall batch timeout in ms (default: 12000) */
   overallTimeout?: number;
+}
+
+// ============================================================================
+// Personalized Insights Types
+// ============================================================================
+
+/**
+ * Board snapshot captured at session time
+ *
+ * Preserves board details even if the board is later modified or deleted.
+ * Stored in sessions.board_snapshot JSONB column.
+ */
+export interface BoardSnapshot {
+  /** Board name (e.g., "Fish") */
+  name: string;
+  /** Board type (e.g., "shortboard", "longboard", "fish") */
+  board_type: string;
+  /** Size category */
+  size: string | null;
+  /** Board volume in liters */
+  volume: number | null;
+  /** Board dimensions (e.g., "5'8\" x 19\" x 2.5\"") */
+  dimensions: string;
+}
+
+/**
+ * Similar session from user's history for insights comparison
+ *
+ * Represents a past session with conditions similar to the current forecast.
+ */
+export interface SimilarSessionInsight {
+  /** Session ID */
+  id: string;
+  /** Beach name where session occurred */
+  beachName: string;
+  /** Beach ID for comparison with recommended spot */
+  beachId: string;
+  /** ISO timestamp of session */
+  sessionDate: string;
+  /** User's rating (1-5) */
+  rating: number;
+  /** Wave height in feet during session */
+  waveHeight: number | null;
+  /** Wave period in seconds during session */
+  wavePeriod: number | null;
+  /** Wind speed in mph during session */
+  windSpeed: number | null;
+  /** Board name used (from board_snapshot) */
+  boardName: string | null;
+  /** Board type used (from board_snapshot) */
+  boardType: string | null;
+  /** Similarity score to current forecast (0-100) */
+  similarityScore: number;
+}
+
+/**
+ * Personalized insights computed from user's session history
+ *
+ * Shows how current recommended conditions compare to the user's
+ * historically high-rated sessions, including board recommendations.
+ */
+export interface PersonalizedInsights {
+  /** Overall match percentage (0-100) */
+  matchPercent: number;
+  /** Match quality label */
+  label: 'Perfect' | 'Great' | 'Good' | 'Low' | 'Insufficient Data';
+  /** Explanation bullets (2-4 reasons) */
+  reasonBullets: string[];
+  /** Top similar sessions from user's history */
+  similarSessions: SimilarSessionInsight[];
+  /** Board recommendation based on similar sessions (if clear pattern) */
+  boardTip: string | null;
+  /** Total number of rated sessions found */
+  sessionCount: number;
+  /** Current state of insights computation */
+  state: 'ready' | 'onboarding' | 'degraded';
+}
+
+/**
+ * Input parameters for similarity computation
+ */
+export interface SimilarityInsightsInput {
+  /** Beach ID for the recommended spot */
+  beachId: string;
+  /** Beach name for the recommended spot */
+  beachName: string;
+  /** Forecast wave height in feet */
+  waveHeight: number;
+  /** Forecast wave period in seconds */
+  wavePeriod: number;
+  /** Forecast wind speed in mph */
+  windSpeed: number;
+  /** Forecast wind direction in degrees (optional) */
+  windDirection?: number;
+  /** Forecast tide height in feet (optional) */
+  tideHeight?: number;
+  /** Forecast tide status (optional) */
+  tideStatus?: string;
+  /** Window start time (optional) */
+  windowStart?: string;
 }
 

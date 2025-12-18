@@ -4,6 +4,10 @@ import {
   getBeachForecastAccuracy,
   getMultipleBeachAccuracy,
   createForecastSnapshot,
+  getUserForecastHistory,
+  analyzePreferredConditions,
+  getDataSourceDistribution,
+  getMonthlyCoverage,
   updateBeachAccuracy,
   updateAllBeachAccuracy,
   getForecastAccuracyTrends,
@@ -33,6 +37,21 @@ const {
   withAuthenticatedAction,
   withDatabaseOperation,
 } = require("@/lib/server-action-utils");
+
+function createThenableQueryBuilder(result: { data: any; error: any }) {
+  return {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    gte: jest.fn().mockReturnThis(),
+    lte: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockReturnThis(),
+    then: jest.fn((resolve: any) => {
+      resolve(result);
+      return Promise.resolve(result);
+    }),
+  };
+}
 
 describe("Forecast Calibration Actions", () => {
   beforeEach(() => {
@@ -435,9 +454,9 @@ describe("Forecast Calibration Actions", () => {
         .mockReturnValueOnce({
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({
+              maybeSingle: jest.fn().mockResolvedValue({
                 data: null,
-                error: { code: "PGRST116" }, // No rows found
+                error: null,
               }),
             }),
           }),
@@ -496,7 +515,7 @@ describe("Forecast Calibration Actions", () => {
       expect(result.error).toContain("Session not found");
     });
 
-    it("should reject duplicate snapshot creation", async () => {
+    it("should update existing snapshot instead of rejecting duplicate", async () => {
       const mockSession = {
         id: "session-1",
         user_id: "user-1",
@@ -506,14 +525,21 @@ describe("Forecast Calibration Actions", () => {
 
       withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
-        try {
-          await action(mockUser, mockSupabaseClient);
-        } catch (error) {
-          return { success: false, error: error instanceof Error ? error.message : String(error) };
-        }
+        const result = await action(mockUser, mockSupabaseClient);
+        return { success: true, data: result };
       });
 
+      const updatedSnapshot = {
+        id: "existing-snapshot",
+        session_id: "session-1",
+        user_id: "user-1",
+        beach_id: "beach-1",
+        forecast_snapshot: { wave_height: "4-5 ft", confidence_score: 90 },
+        actual_conditions: { wave_height: "5", rating: 5 },
+      };
+
       mockSupabaseClient.from
+        // Session lookup
         .mockReturnValueOnce({
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
@@ -526,21 +552,164 @@ describe("Forecast Calibration Actions", () => {
             }),
           }),
         })
+        // Existing snapshot check (found)
         .mockReturnValueOnce({
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({
+              maybeSingle: jest.fn().mockResolvedValue({
                 data: { id: "existing-snapshot" },
                 error: null,
               }),
             }),
           }),
+        })
+        // Update existing snapshot
+        .mockReturnValueOnce({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                select: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: updatedSnapshot,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
         });
 
-      const result = await createForecastSnapshot("session-1", {}, {});
+      const result = await createForecastSnapshot(
+        "session-1",
+        { wave_height: "4-5 ft", confidence_score: 90, data_source: "CDIP" },
+        { wave_height: "5", rating: 5 }
+      );
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("already exists");
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(updatedSnapshot);
+    });
+  });
+
+  describe("migrated session forecast analysis actions", () => {
+    it("getUserForecastHistory: returns snapshots and applies minRating filter", async () => {
+      const mockSnapshots = [
+        {
+          id: "s1",
+          user_id: "user-1",
+          actual_conditions: { rating: 5 },
+          session_date: "2024-01-02",
+        },
+        {
+          id: "s2",
+          user_id: "user-1",
+          actual_conditions: { rating: 2 },
+          session_date: "2024-01-01",
+        },
+      ];
+
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
+        const mockUser = { id: "user-1" };
+        const result = await action(mockUser, mockSupabaseClient);
+        return { success: true, data: result };
+      });
+
+      const builder = createThenableQueryBuilder({ data: mockSnapshots, error: null });
+      mockSupabaseClient.from.mockReturnValue(builder);
+
+      const result = await getUserForecastHistory({ minRating: 4 });
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data?.[0].id).toBe("s1");
+      expect(builder.eq).toHaveBeenCalledWith("user_id", "user-1");
+    });
+
+    it("getDataSourceDistribution: counts sources with UNKNOWN fallback", async () => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
+        const mockUser = { id: "user-1" };
+        const result = await action(mockUser, mockSupabaseClient);
+        return { success: true, data: result };
+      });
+
+      const builder = createThenableQueryBuilder({
+        data: [{ data_source: "CDIP" }, { data_source: "CDIP" }, { data_source: null }],
+        error: null,
+      });
+      mockSupabaseClient.from.mockReturnValue(builder);
+
+      const result = await getDataSourceDistribution();
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ CDIP: 2, UNKNOWN: 1 });
+    });
+
+    it("getMonthlyCoverage: groups by YYYY-MM", async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2024-02-15T12:00:00Z"));
+
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
+        const mockUser = { id: "user-1" };
+        const result = await action(mockUser, mockSupabaseClient);
+        return { success: true, data: result };
+      });
+
+      const builder = createThenableQueryBuilder({
+        data: [
+          { session_date: "2024-02-01" },
+          { session_date: "2024-02-02" },
+          { session_date: "2024-01-10" },
+        ],
+        error: null,
+      });
+      mockSupabaseClient.from.mockReturnValue(builder);
+
+      const result = await getMonthlyCoverage(12);
+      expect(result.success).toBe(true);
+      expect(result.data).toContainEqual({ month: "2024-02", count: 2 });
+      expect(result.data).toContainEqual({ month: "2024-01", count: 1 });
+
+      jest.useRealTimers();
+    });
+
+    it("analyzePreferredConditions: computes averages + tide status counts", async () => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
+        const mockUser = { id: "user-1" };
+        const result = await action(mockUser, mockSupabaseClient);
+        return { success: true, data: result };
+      });
+
+      const snapshots = [
+        {
+          beach_id: "beach-1",
+          data_source: "CDIP",
+          forecast_confidence_score: 80,
+          forecast_snapshot: { wave_height: 4, wave_period: 12, wind_speed: 8, tide_status: "rising" },
+          actual_conditions: { rating: 5 },
+        },
+        {
+          beach_id: "beach-1",
+          data_source: "CDIP",
+          forecast_confidence_score: 90,
+          forecast_snapshot: { wave_height: 2, wave_period: 10, wind_speed: 6, tide_status: "rising" },
+          actual_conditions: { rating: 4 },
+        },
+        {
+          beach_id: "beach-2",
+          data_source: "NOAA_NWS",
+          forecast_confidence_score: 50,
+          forecast_snapshot: { wave_height: 1, wave_period: 8, wind_speed: 12, tide_status: "falling" },
+          actual_conditions: { rating: 2 },
+        },
+      ];
+
+      const builder = createThenableQueryBuilder({ data: snapshots, error: null });
+      mockSupabaseClient.from.mockReturnValue(builder);
+
+      const result = await analyzePreferredConditions(4);
+      expect(result.success).toBe(true);
+      expect(result.data?.highlyRatedSessions).toBe(2);
+      expect(result.data?.averageConditions.tideStatus).toEqual({ rising: 2 });
+      expect(result.data?.averageConditions.waveHeight).toBe(3); // avg(4,2)
+      expect(result.data?.preferredDataSource).toBe("CDIP");
+      expect(result.data?.averageConfidence).toBe(85); // avg(80,90)
     });
   });
 

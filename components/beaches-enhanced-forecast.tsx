@@ -89,7 +89,7 @@ export function BeachesEnhancedForecast({
         showTransparency={showTransparency}
         showTransparencySummary={showQualitySummary}
         allowToggleTransparency={allowToggleTransparency}
-        highlightQualityVariations={highlightQualityVariations}
+        highlightLowConfidence={highlightQualityVariations}
         showFallbackInfo={true}
         expandableTransparency={true}
         showQualityChart={showQualitySummary}
@@ -103,7 +103,15 @@ export function BeachesEnhancedForecast({
   }
 
   if (error) {
-    return <ErrorDisplay error={error} onRetry={refetch} />;
+    return (
+      <div className="space-y-3">
+        <ErrorDisplay message={error} />
+        <Button variant="outline" size="sm" onClick={refetch}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   if (!beachId) {

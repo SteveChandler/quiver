@@ -2,6 +2,41 @@
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
+type __CacheEntry<T> = { value: T; expiresAt: number };
+const __TTL_XP_MS = 30_000;
+const __TTL_USER_BADGES_MS = 30_000;
+const __TTL_BADGE_DEFS_MS = 10 * 60_000;
+
+const __cache = {
+  xpStatusByUserId: new Map<string, __CacheEntry<any>>(),
+  userBadgesByUserId: new Map<string, __CacheEntry<any[]>>(),
+  badgeDefinitions: new Map<string, __CacheEntry<any[]>>(),
+  inflight: new Map<string, Promise<any>>(),
+};
+
+function __now() {
+  return Date.now();
+}
+
+function __getCached<T>(map: Map<string, __CacheEntry<T>>, key: string): T | null {
+  const entry = map.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= __now()) {
+    map.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function __setCached<T>(map: Map<string, __CacheEntry<T>>, key: string, value: T, ttlMs: number) {
+  map.set(key, { value, expiresAt: __now() + ttlMs });
+}
+
+function __invalidateUserCaches(userId: string) {
+  __cache.xpStatusByUserId.delete(userId);
+  __cache.userBadgesByUserId.delete(userId);
+}
+
 // XP action mapping - defines XP values for each user action
 const XP_ACTION_MAP = {
   plan_session: 50,
@@ -158,6 +193,9 @@ export async function trackXP(
   // Check for new badge unlocks
   const newBadges = await evaluateBadgeUnlocks(user.id, supabase);
 
+    // Invalidate cached reads for this user (XP and badges can change here)
+    __invalidateUserCaches(user.id);
+
     return {
       xp_gained: xpGained,
       total_xp: newTotalXP,
@@ -174,6 +212,16 @@ export async function trackXP(
 export async function getUserXPStatus() {
   const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
+  const cached = __getCached(__cache.xpStatusByUserId, user.id);
+  if (cached) {
+    return cached;
+  }
+
+  const inflightKey = `xpStatus:${user.id}`;
+  const inflight = __cache.inflight.get(inflightKey);
+  if (inflight) return inflight;
+
+  const p = (async () => {
   await initializeUserXP(user.id, supabase);
   
   const { data, error } = await supabase
@@ -203,13 +251,24 @@ export async function getUserXPStatus() {
     xpToNext = nextLevelThreshold.xp_required - data.xp_total;
   }
 
-    return {
+    const result = {
       ...data,
       level_title: title,
       progress_to_next: progressToNext,
       xp_to_next_level: xpToNext,
       next_level_title: nextLevelThreshold?.title || "Max Level",
     };
+    __setCached(__cache.xpStatusByUserId, user.id, result, __TTL_XP_MS);
+
+    return result;
+  })();
+
+  __cache.inflight.set(inflightKey, p);
+  try {
+    return await p;
+  } finally {
+    __cache.inflight.delete(inflightKey);
+  }
   });
 }
 
@@ -525,6 +584,16 @@ async function getUserStatsForBadges(
 export async function getUserBadges() {
   const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
+    const cached = __getCached(__cache.userBadgesByUserId, user.id);
+    if (cached) {
+      return cached;
+    }
+
+    const inflightKey = `userBadges:${user.id}`;
+    const inflight = __cache.inflight.get(inflightKey);
+    if (inflight) return inflight;
+
+    const p = (async () => {
     const { data, error } = await supabase
       .from("user_badges")
       .select(`
@@ -546,7 +615,16 @@ export async function getUserBadges() {
       throw new Error(`Failed to fetch user badges: ${error.message}`);
     }
 
+    __setCached(__cache.userBadgesByUserId, user.id, data, __TTL_USER_BADGES_MS);
     return data;
+    })();
+
+    __cache.inflight.set(inflightKey, p);
+    try {
+      return await p;
+    } finally {
+      __cache.inflight.delete(inflightKey);
+    }
   });
 }
 
@@ -554,6 +632,17 @@ export async function getUserBadges() {
 export async function getAllBadgeDefinitions() {
   const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
+    const cacheKey = "all";
+    const cached = __getCached(__cache.badgeDefinitions, cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const inflightKey = "badgeDefinitions:all";
+    const inflight = __cache.inflight.get(inflightKey);
+    if (inflight) return inflight;
+
+    const p = (async () => {
     const { data, error } = await supabase
       .from("badge_definitions")
       .select("*")
@@ -564,7 +653,16 @@ export async function getAllBadgeDefinitions() {
       throw new Error(`Failed to fetch badge definitions: ${error.message}`);
     }
 
+    __setCached(__cache.badgeDefinitions, cacheKey, data, __TTL_BADGE_DEFS_MS);
     return data;
+    })();
+
+    __cache.inflight.set(inflightKey, p);
+    try {
+      return await p;
+    } finally {
+      __cache.inflight.delete(inflightKey);
+    }
   });
 }
 

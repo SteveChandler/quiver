@@ -247,6 +247,15 @@ export class NOAAWaveWatchService {
       }
 
       const pointData: NOAAWavePoint = await pointResponse.json();
+      if (!pointData?.properties) {
+        if (this.isVerbose()) {
+          console.log(
+            `❌ NOAA Point API returned missing properties for ${latitude}, ${longitude}`
+          );
+        }
+        return null;
+      }
+
       if (this.isVerbose()) {
         console.log(`✅ Got NOAA NWS grid point data:`, {
           gridId: pointData.properties.gridId,
@@ -257,7 +266,33 @@ export class NOAAWaveWatchService {
       }
 
       // Step 2: Get the grid data which includes wave information
-      const gridUrl = pointData.properties.forecastGridData;
+      /**
+       * NOTE: Some NWS points return a null/empty `forecastGridData` URL.
+       * Passing null into fetch() throws in production ("Cannot read properties of null (reading 'toString')").
+       * We can safely reconstruct the grid endpoint from gridId/gridX/gridY when needed.
+       */
+      const gridUrl =
+        pointData.properties.forecastGridData ||
+        (pointData.properties.gridId &&
+        typeof pointData.properties.gridX === "number" &&
+        typeof pointData.properties.gridY === "number"
+          ? `${NWS_POINT_FORECAST_BASE}/${pointData.properties.gridId}/${pointData.properties.gridX},${pointData.properties.gridY}`
+          : null);
+
+      if (!gridUrl || typeof gridUrl !== "string") {
+        if (this.isVerbose()) {
+          console.log(
+            `❌ NOAA Point API did not provide a usable grid URL for ${latitude}, ${longitude}`,
+            {
+              forecastGridData: pointData.properties.forecastGridData,
+              gridId: pointData.properties.gridId,
+              gridX: pointData.properties.gridX,
+              gridY: pointData.properties.gridY,
+            }
+          );
+        }
+        return null;
+      }
       if (this.isVerbose()) {
         console.log(`📊 Fetching NOAA NWS grid data from: ${gridUrl}`);
       }

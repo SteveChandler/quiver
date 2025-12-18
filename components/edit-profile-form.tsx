@@ -21,7 +21,8 @@ import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { useProfileContext } from "@/context/profile-context";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { NotificationsSection } from "@/components/profile/notifications-section";
 import {
   profileFormSchema,

@@ -127,7 +127,9 @@ export async function getUserFollowing(userId?: string, limit: number = 50) {
         created_at,
         following:profiles!user_follows_following_id_fkey(
           id,
-          full_name
+          full_name,
+          avatar_url,
+          email
         )
       `
       )
@@ -143,10 +145,7 @@ export async function getUserFollowing(userId?: string, limit: number = 50) {
       .map((f: any) => f.following)
       .filter(Boolean);
 
-    return {
-      success: true,
-      data: followingList,
-    };
+    return followingList;
   });
 }
 
@@ -165,7 +164,9 @@ export async function getUserFollowers(userId?: string, limit: number = 50) {
         created_at,
         follower:profiles!user_follows_follower_id_fkey(
           id,
-          full_name
+          full_name,
+          avatar_url,
+          email
         )
       `
       )
@@ -181,10 +182,7 @@ export async function getUserFollowers(userId?: string, limit: number = 50) {
       .map((f: any) => f.follower)
       .filter(Boolean);
 
-    return {
-      success: true,
-      data: followersList,
-    };
+    return followersList;
   });
 }
 

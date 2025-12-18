@@ -32,13 +32,14 @@ export function preloadImage(src: string, sizes?: string) {
 
 // Critical resource preloading for homepage
 export function preloadCriticalResources() {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return () => {};
 
-  // Note: logoQuiver.png preload removed to prevent unused preload warnings on non-landing pages
-  // The logo is loaded via Next.js Image component with priority on landing page
-
-  // Preload critical images for LCP optimization
-  preloadImage("/logo-word (2).png", "(max-width: 768px) 100vw, 50vw");
+  // Note: logo preloads removed to prevent unused preload warnings on non-landing pages
+  // - logoQuiver.png: loaded via Next.js Image with priority on landing page
+  // - logo-word (2).png: 39KB PNG loads fast enough without preload optimization
+  //
+  // If landing-page-specific preload is needed in the future, make this function
+  // accept an opts param: preloadCriticalResources({ isLandingPage: true })
 
   // Preconnect to critical third-party domains for faster resource loading
   if (typeof window !== "undefined") {
@@ -48,6 +49,9 @@ export function preloadCriticalResources() {
     link.crossOrigin = "anonymous";
     document.head.appendChild(link);
   }
+
+  // Preconnects are idempotent, return no-op cleanup
+  return () => {};
 }
 
 // Lazy load images with intersection observer
@@ -156,15 +160,24 @@ export function withPerformanceLogging<P extends object>(
   };
 }
 
+// Optional debug flag for performance logging
+const DEBUG_PERF = process.env.NEXT_PUBLIC_DEBUG_PERF === "true";
+
+// Track if vitals have been initialized to prevent duplicates
+let vitalsInitialized = false;
+
 // Core Web Vitals tracking
 export function trackWebVitals() {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return () => {};
+  if (vitalsInitialized) return () => {};
+
+  vitalsInitialized = true;
 
   import("web-vitals")
     .then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
       const vitalsHandler = (metric: any) => {
-        // Log to console in development
-        if (process.env.NODE_ENV === "development") {
+        // Optional: log if debug flag is set
+        if (DEBUG_PERF) {
           console.log(`📊 ${metric.name}:`, metric.value);
         }
 
@@ -194,6 +207,11 @@ export function trackWebVitals() {
     .catch((error) => {
       console.warn("Web Vitals tracking failed:", error);
     });
+
+  return () => {
+    // Cleanup: reset flag if needed for re-initialization
+    vitalsInitialized = false;
+  };
 }
 
 // Memory usage monitoring
@@ -207,11 +225,15 @@ export function monitorMemoryUsage() {
   }
 
   const memory = (window.performance as any).memory;
-  console.log("💾 Memory Usage:", {
-    used: `${Math.round(memory.usedJSHeapSize / 1048576)} MB`,
-    total: `${Math.round(memory.totalJSHeapSize / 1048576)} MB`,
-    limit: `${Math.round(memory.jsHeapSizeLimit / 1048576)} MB`,
-  });
+  
+  // Only log if debug flag is enabled
+  if (DEBUG_PERF) {
+    console.log("💾 Memory Usage:", {
+      used: `${Math.round(memory.usedJSHeapSize / 1048576)} MB`,
+      total: `${Math.round(memory.totalJSHeapSize / 1048576)} MB`,
+      limit: `${Math.round(memory.jsHeapSizeLimit / 1048576)} MB`,
+    });
+  }
 }
 
 // Export all utilities

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Coordinates } from "@/lib/types/coordinates";
 
 // Default to Ocean Beach, San Diego coordinates (ultimate fallback)
@@ -10,30 +10,83 @@ const OCEAN_BEACH_COORDS: Coordinates = {
 // Safety timeout for iOS/mobile where geolocation can hang
 const SAFETY_TIMEOUT_MS = 10000; // 10 seconds
 
+type GeoSource = "browser" | "lastUsedBeach" | "default";
+
+const DEFAULT_LAST_BEACH_KEY = "quiver:lastBeach";
+
+type LastBeachMeta = Coordinates & {
+  id?: string;
+  name?: string;
+};
+
 interface GeolocationState {
   userLocation: Coordinates | null;
   locationError: string | null;
   usingDefaultLocation: boolean;
   loading: boolean;
   hasTimedOut: boolean;
+  source: GeoSource;
 }
 
 interface UseGeolocationOptions {
   defaultLocation?: Coordinates | null;
+  /** If false, do NOT auto-request browser geolocation on mount (home screen behavior). */
+  autoRequest?: boolean;
+  /** localStorage key for "last used beach" fallback. */
+  lastBeachStorageKey?: string;
 }
 
 export function useGeolocation(options: UseGeolocationOptions = {}) {
-  const { defaultLocation } = options;
+  const {
+    defaultLocation,
+    autoRequest = true,
+    lastBeachStorageKey = DEFAULT_LAST_BEACH_KEY,
+  } = options;
 
-  // Fallback chain: user's home beach → Ocean Beach
-  const fallbackCoords: Coordinates = defaultLocation ?? OCEAN_BEACH_COORDS;
+  const readLastBeach = useCallback((): LastBeachMeta | null => {
+    try {
+      if (typeof window === "undefined") return null;
+      const raw = window.localStorage.getItem(lastBeachStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        parsed &&
+        typeof parsed.lat === "number" &&
+        typeof parsed.lon === "number"
+      ) {
+        return parsed as LastBeachMeta;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [lastBeachStorageKey]);
+
+  const setLastBeach = useCallback(
+    (beach: LastBeachMeta) => {
+      try {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem(lastBeachStorageKey, JSON.stringify(beach));
+      } catch {
+        // ignore
+      }
+    },
+    [lastBeachStorageKey]
+  );
+
+  const lastBeach = useMemo(() => readLastBeach(), [readLastBeach]);
+
+  // Fallback chain: last used beach → provided default → Ocean Beach
+  const fallbackCoords: Coordinates = lastBeach ?? defaultLocation ?? OCEAN_BEACH_COORDS;
+  const fallbackSource: GeoSource = lastBeach ? "lastUsedBeach" : "default";
 
   const [state, setState] = useState<GeolocationState>({
     userLocation: fallbackCoords, // Start with fallback
     locationError: null,
     usingDefaultLocation: true, // Start as default
-    loading: true,
+    loading: autoRequest, // Only loading if we'll auto-request
     hasTimedOut: false,
+    source: fallbackSource,
   });
 
   const hasAttemptedRef = useRef(false);
@@ -48,8 +101,9 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       locationError: null,
       loading: false,
       hasTimedOut: false,
+      source: fallbackSource,
     }));
-  }, [fallbackCoords]);
+  }, [fallbackCoords, fallbackSource]);
 
   const resetAttempt = useCallback(() => {
     hasAttemptedRef.current = false;
@@ -70,6 +124,9 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     if (hasAttemptedRef.current && !forceRetry) return;
     hasAttemptedRef.current = true;
     isRequestInFlightRef.current = true;
+
+    // Mark as loading for explicit requests too
+    setState((prev) => ({ ...prev, loading: true }));
 
     // Safety timeout - force fallback if geolocation hangs (common on iOS simulator)
     safetyTimeoutRef.current = setTimeout(() => {
@@ -92,6 +149,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         locationError: "Location request timed out - using fallback location",
         loading: false,
         hasTimedOut: true,
+        source: fallbackSource,
       }));
     }, SAFETY_TIMEOUT_MS);
 
@@ -101,6 +159,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         ...prev,
         locationError: "Location services not supported",
         loading: false,
+        source: fallbackSource,
       }));
       return;
     }
@@ -124,6 +183,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           locationError: null,
           loading: false,
           hasTimedOut: false,
+          source: "browser",
         }));
       },
       (error) => {
@@ -147,14 +207,20 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           usingDefaultLocation: true,
           userLocation: fallbackCoords,
           hasTimedOut: false, // Distinguish from safety timeout
+          source: fallbackSource,
         }));
       },
       options
     );
-  }, [fallbackCoords]);
+  }, [fallbackCoords, fallbackSource]);
 
   useEffect(() => {
-    getUserLocation();
+    if (autoRequest) {
+      getUserLocation();
+    } else {
+      // Mirror HomeScreen behavior: no auto prompt, but we should ensure loading is false.
+      setState((prev) => ({ ...prev, loading: false }));
+    }
 
     // Cleanup safety timeout on unmount
     return () => {
@@ -170,5 +236,12 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     getUserLocation,
     useDefaultLocation,
     resetAttempt,
+    // Compatibility layer for `useGeo` consumers (Home / Nearby chips)
+    coords: state.userLocation,
+    error: state.locationError,
+    requestLocation: () => {
+      void getUserLocation(true);
+    },
+    setLastBeach,
   };
 }

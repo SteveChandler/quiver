@@ -5,6 +5,24 @@ import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logge
 const COOPS_BASE_URL =
   "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
 
+/**
+ * CO-OPS returns timestamps like "YYYY-MM-DD HH:mm" (no timezone suffix).
+ * We request `time_zone=gmt` and parse explicitly as UTC to avoid server-local
+ * timezone interpretation drift.
+ */
+function parseCOOPSTimestampToUnixSecondsUTC(timestamp: string): number | null {
+  const match = timestamp.match(
+    /^(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})$/
+  );
+  if (!match) return null;
+
+  const [, datePart, hourPart, minutePart] = match;
+  const isoUtc = `${datePart}T${hourPart}:${minutePart}:00Z`;
+  const ms = Date.parse(isoUtc);
+  if (Number.isNaN(ms)) return null;
+  return Math.floor(ms / 1000);
+}
+
 // CO-OPS station data for major surf locations
 // Station lookup: https://tidesandcurrents.noaa.gov/stations.html
 const COOPS_STATIONS: Record<string, string> = {
@@ -536,7 +554,7 @@ export class NOAACOOPSService {
       url.searchParams.set("product", "predictions");
       url.searchParams.set("datum", "MLLW"); // Mean Lower Low Water
       url.searchParams.set("units", "english");
-      url.searchParams.set("time_zone", "lst_ldt"); // Local time
+      url.searchParams.set("time_zone", "gmt"); // UTC timestamps
       url.searchParams.set("interval", "hilo"); // High and low tides only
       url.searchParams.set("format", "json");
 
@@ -571,7 +589,9 @@ export class NOAACOOPSService {
       }
 
       const tideData = data.predictions.map((prediction: TideExtreme) => ({
-        time: new Date(prediction.t).getTime() / 1000,
+        time:
+          parseCOOPSTimestampToUnixSecondsUTC(prediction.t) ??
+          Math.floor(new Date(prediction.t).getTime() / 1000),
         height: parseFloat(prediction.v),
         name: prediction.type === "H" ? "High Tide" : "Low Tide",
         type: prediction.type === "H" ? "high" : "low",
@@ -610,15 +630,22 @@ export class NOAACOOPSService {
       url.searchParams.set("product", "water_level");
       url.searchParams.set("datum", "MLLW");
       url.searchParams.set("units", "english");
-      url.searchParams.set("time_zone", "lst_ldt");
+      url.searchParams.set("time_zone", "gmt");
       url.searchParams.set("format", "json");
+
+      const timeoutSignal =
+        typeof AbortSignal !== "undefined" &&
+        "timeout" in AbortSignal &&
+        typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(5000)
+          : undefined;
 
       const response = await fetch(url.toString(), {
         headers: {
           "User-Agent": "quiver-surf-app (contact@quiver.com)",
         },
         // Short timeout since this is optional data
-        signal: AbortSignal.timeout(5000),
+        ...(timeoutSignal ? { signal: timeoutSignal } : {}),
       });
 
       if (!response.ok) {
@@ -653,12 +680,19 @@ export class NOAACOOPSService {
       // Use new NOAA Metadata API (old datums endpoint returns HTTP 400)
       const url = `https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/${stationId}.json`;
 
+      const timeoutSignal =
+        typeof AbortSignal !== "undefined" &&
+        "timeout" in AbortSignal &&
+        typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(5000)
+          : undefined;
+
       const response = await fetch(url, {
         headers: {
           "User-Agent": "quiver-surf-app (contact@quiver.com)",
         },
         // Short timeout since this is optional metadata
-        signal: AbortSignal.timeout(5000),
+        ...(timeoutSignal ? { signal: timeoutSignal } : {}),
       });
 
       if (!response.ok) {

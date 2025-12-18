@@ -19,6 +19,7 @@ This plan implements two high-priority growth features to enhance user engagemen
 **Key Innovation:** Integrate surf preference questions into existing onboarding to capture explicit preferences upfront, then refine with learned behavior over time.
 
 **Infrastructure Status:**
+
 - Forecast transparency: ✅ 100% complete (fully integrated into UI)
 - Personalization: ✅ 98% complete
   - Onboarding UI: ✅ Complete (3 preference questions with emoji buttons)
@@ -64,6 +65,7 @@ Phase 1 is **complete**. Upon investigation, 80% of the forecast transparency in
 ### Background
 
 Quiver already has comprehensive multi-source forecast infrastructure:
+
 - **Sources:** NOAA WaveWatch III, CDIP buoys, NDBC, CO-OPS tides
 - **Confidence scoring:** 0-100 based on data sources, freshness, and time ahead
 - **Quality validation:** Outlier detection, sensor glitch rejection
@@ -79,16 +81,19 @@ Quiver already has comprehensive multi-source forecast infrastructure:
 
 **Implementation Notes:**
 Upon codebase audit, we discovered that **most requested components already exist** in production:
+
 - **ForecastSourceBadge** → Implemented as `ForecastDataSourceIndicator`
 - **ConfidenceIndicator** → Implemented within `ForecastDataSourceIndicator` (confidenceScore prop)
 - **DataFreshnessIndicator** → Implemented within `ForecastDataSourceIndicator` (isStaleData, lastUpdated props)
 - **BuoyStationLink** → ✅ **CREATED** as new component with 3 variants
 
 **Files created:**
+
 - `components/forecast/BuoyStationLink.tsx` (NEW)
 - `__tests__/components/forecast/buoy-station-link.test.tsx` (NEW - 35 tests passing)
 
 **Files modified:**
+
 - `components/forecast/forecast-data-source-indicator.tsx` (integrated BuoyStationLink)
 - `__tests__/components/forecast/forecast-data-source-indicator.test.tsx` (updated tests)
 - `components/forecast/index.ts` (added exports)
@@ -99,21 +104,24 @@ Upon codebase audit, we discovered that **most requested components already exis
 **Purpose:** Display data source with icon and color coding
 
 **Props:**
+
 ```typescript
 interface ForecastSourceBadgeProps {
-  source: 'CDIP' | 'NOAA_NWS' | 'FALLBACK';
+  source: "CDIP" | "NOAA_NWS" | "FALLBACK";
   confidence?: number; // 0-100
   className?: string;
 }
 ```
 
 **UI Behavior:**
+
 - CDIP: Blue badge with buoy icon (🌊)
 - NOAA: Green badge with satellite icon (🛰️)
 - Fallback: Gray badge with estimate icon (📊)
 - Hover: Tooltip explaining source
 
 **Example:**
+
 ```tsx
 <ForecastSourceBadge source="CDIP" confidence={85} />
 // Renders: [🌊 CDIP Data] (blue, high confidence)
@@ -124,6 +132,7 @@ interface ForecastSourceBadgeProps {
 **Purpose:** Visual confidence score with explanation
 
 **Props:**
+
 ```typescript
 interface ConfidenceIndicatorProps {
   score: number; // 0-100
@@ -137,19 +146,21 @@ interface ConfidenceIndicatorProps {
 ```
 
 **UI Behavior:**
-- >75: Green dot + "High confidence"
+
+- > 75: Green dot + "High confidence"
 - 50-75: Yellow dot + "Medium confidence"
 - <50: Red dot + "Low confidence"
 - Click to expand: Show factor breakdown
 
 **Example:**
+
 ```tsx
 <ConfidenceIndicator
   score={82}
   factors={{
-    dataSources: ['CDIP', 'NOAA'],
+    dataSources: ["CDIP", "NOAA"],
     hoursAhead: 2,
-    hasBuoyData: true
+    hasBuoyData: true,
   }}
   showDetails
 />
@@ -160,22 +171,25 @@ interface ConfidenceIndicatorProps {
 **Purpose:** Show how recent the forecast data is
 
 **Props:**
+
 ```typescript
 interface DataFreshnessIndicatorProps {
   updatedAt: Date;
-  format?: 'relative' | 'absolute';
+  format?: "relative" | "absolute";
 }
 ```
 
 **UI Behavior:**
+
 - Use `date-fns` `formatDistanceToNow()`
 - <30 min: "Updated just now" (green)
 - 30-120 min: "Updated X min ago" (yellow)
-- >120 min: "Updated X hours ago" (orange)
+- > 120 min: "Updated X hours ago" (orange)
 
 **Example:**
+
 ```tsx
-<DataFreshnessIndicator updatedAt={new Date('2025-11-03T10:45:00Z')} />
+<DataFreshnessIndicator updatedAt={new Date("2025-11-03T10:45:00Z")} />
 // Renders: "Updated 15 minutes ago"
 ```
 
@@ -184,18 +198,21 @@ interface DataFreshnessIndicatorProps {
 **Purpose:** Link to buoy station details with distance
 
 **Implementation Details:**
+
 - **File:** `components/forecast/buoy-station-link.tsx`
 - **Tests:** `__tests__/components/forecast/buoy-station-link.test.tsx` (35 tests, all passing)
 - **Variants:** 3 display modes (default, compact, inline)
 - **Integration:** Used in `ForecastDataSourceIndicator` with compact variant
 
 **Props (Actual Implementation):**
+
 ```typescript
 interface BuoyStationLinkProps {
-  stationId: string;           // e.g., "220" for CDIP 220
-  stationName: string;         // e.g., "Scripps Pier"
-  distance?: number;           // kilometers (optional)
-  beachLocation?: {            // optional
+  stationId: string; // e.g., "220" for CDIP 220
+  stationName: string; // e.g., "Scripps Pier"
+  distance?: number; // kilometers (optional)
+  beachLocation?: {
+    // optional
     latitude: number;
     longitude: number;
   };
@@ -206,6 +223,7 @@ interface BuoyStationLinkProps {
 ```
 
 **Features Implemented:**
+
 - ✅ Clickable links to `/buoys/[stationId]`
 - ✅ Distance formatting (auto km/m based on distance)
 - ✅ Three display variants for different contexts
@@ -215,6 +233,7 @@ interface BuoyStationLinkProps {
 - ✅ Miles-to-km conversion support
 
 **Test Coverage:**
+
 - ✅ All 3 variants render correctly
 - ✅ Distance formatting (km for >1km, m for <1km)
 - ✅ Zero distance handled correctly
@@ -232,7 +251,9 @@ interface BuoyStationLinkProps {
 Forecast transparency has been fully integrated into beach detail pages and map components. The implementation leveraged existing transparency components and enriched forecast data with metadata at the action layer.
 
 **Files Modified:**
+
 1. **`actions/forecast-actions.ts`** - Added metadata extraction and enrichment
+
    - `ForecastMetadata` interface for structured transparency data
    - `extractForecastMetadata()` helper function
    - `EnhancedForecastWithMetadata` type
@@ -240,6 +261,7 @@ Forecast transparency has been fully integrated into beach detail pages and map 
    - `getBeachForecastPreview()` includes metadata for map components
 
 2. **`components/beach-detail/tabs/forecast-tab.tsx`** - Beach detail integration
+
    - New transparency section above "Current Conditions"
    - `ForecastDataSourceIndicator` with full configuration
    - `ForecastFreshnessBadge` with refresh capability
@@ -252,14 +274,17 @@ Forecast transparency has been fully integrated into beach detail pages and map 
    - Primary data source display (NOAA_NWS, CDIP, FALLBACK)
 
 **Files Created:**
+
 - `e2e/forecast-transparency.spec.ts` - E2E test suite (5 test scenarios)
 
 **Components Used:**
+
 - `ForecastDataSourceIndicator` - Existing component (provides ForecastSourceBadge + ConfidenceIndicator + DataFreshnessIndicator functionality)
 - `ForecastFreshnessBadge` - Existing component
 - `BuoyStationLink` - Created in Workpath 1.1
 
 **Test Coverage:**
+
 - ✅ All existing unit tests passing
 - ✅ E2E tests created for transparency features
 - ✅ Integration verified on beach detail and map pages
@@ -270,6 +295,7 @@ Forecast transparency has been fully integrated into beach detail pages and map 
 **File:** `actions/forecast-actions.ts`
 
 **Metadata Interface (Added):**
+
 ```typescript
 export interface ForecastMetadata {
   primarySource: "NOAA_NWS" | "CDIP" | "FALLBACK" | string;
@@ -285,6 +311,7 @@ export interface ForecastMetadata {
 ```
 
 **Helper Function (Added):**
+
 ```typescript
 function extractForecastMetadata(
   forecast: EnhancedForecastEntity
@@ -309,6 +336,7 @@ function extractForecastMetadata(
 ```
 
 **Enhanced Function (Modified):**
+
 ```typescript
 export async function getEnhancedBeachForecasts(
   beachId: string,
@@ -333,6 +361,7 @@ export async function getEnhancedBeachForecasts(
 **File:** `components/beach-detail/tabs/forecast-tab.tsx`
 
 **Imports (Added):**
+
 ```typescript
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { ForecastFreshnessBadge } from "@/components/ui/forecast-freshness-badge";
@@ -340,6 +369,7 @@ import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
 ```
 
 **Metadata Extraction (Added):**
+
 ```typescript
 const forecastMetadata = useMemo(() => {
   if (!currentForecast) return null;
@@ -364,41 +394,46 @@ const forecastMetadata = useMemo(() => {
 ```
 
 **UI Rendering (Added):**
+
 ```tsx
-{/* Forecast Transparency Section */}
-{currentForecast && forecastMetadata && (
-  <section className="rounded-2xl bg-blue-50/50 border border-blue-100 p-4 space-y-3">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="flex-1 space-y-3">
-        <ForecastDataSourceIndicator
-          dataSource={forecastMetadata.dataSource}
-          confidenceScore={forecastMetadata.confidenceScore}
-          dataSources={forecastMetadata.dataSources}
-          isRealTimeData={forecastMetadata.isRealTimeData}
-          isStaleData={forecastMetadata.isStaleData}
-          lastUpdated={forecastMetadata.lastUpdated}
-          expandable={true}
-        />
-        {forecastMetadata.cdipStation && forecastMetadata.cdipStationName && (
-          <BuoyStationLink
-            stationId={forecastMetadata.cdipStation}
-            stationName={forecastMetadata.cdipStationName}
-            beachLocation={{
-              latitude: beach.latitude,
-              longitude: beach.longitude,
-            }}
-            variant="compact"
+{
+  /* Forecast Transparency Section */
+}
+{
+  currentForecast && forecastMetadata && (
+    <section className="rounded-2xl bg-blue-50/50 border border-blue-100 p-4 space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex-1 space-y-3">
+          <ForecastDataSourceIndicator
+            dataSource={forecastMetadata.dataSource}
+            confidenceScore={forecastMetadata.confidenceScore}
+            dataSources={forecastMetadata.dataSources}
+            isRealTimeData={forecastMetadata.isRealTimeData}
+            isStaleData={forecastMetadata.isStaleData}
+            lastUpdated={forecastMetadata.lastUpdated}
+            expandable={true}
           />
-        )}
+          {forecastMetadata.cdipStation && forecastMetadata.cdipStationName && (
+            <BuoyStationLink
+              stationId={forecastMetadata.cdipStation}
+              stationName={forecastMetadata.cdipStationName}
+              beachLocation={{
+                latitude: beach.latitude,
+                longitude: beach.longitude,
+              }}
+              variant="compact"
+            />
+          )}
+        </div>
+        <ForecastFreshnessBadge
+          updatedAt={new Date(forecastMetadata.lastUpdated)}
+          showRefresh={true}
+          variant="default"
+        />
       </div>
-      <ForecastFreshnessBadge
-        updatedAt={new Date(forecastMetadata.lastUpdated)}
-        showRefresh={true}
-        variant="default"
-      />
-    </div>
-  </section>
-)}
+    </section>
+  );
+}
 ```
 
 #### Map Component Integration
@@ -406,23 +441,28 @@ const forecastMetadata = useMemo(() => {
 **File:** `components/map/selected-beach-card.tsx`
 
 **Implementation (Added):**
+
 ```tsx
-{/* Data Source Badge (Transparency) */}
-{forecastPreview && forecastPreview.metadata && (
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    {forecastPreview.metadata.isRealTimeData ? (
-      <div className="flex items-center gap-1 text-green-600">
-        <Activity className="h-3 w-3" />
-        <span className="font-medium">Real-time Data</span>
-      </div>
-    ) : (
-      <div className="flex items-center gap-1 text-blue-600">
-        <Database className="h-3 w-3" />
-        <span>{forecastPreview.metadata.primarySource}</span>
-      </div>
-    )}
-  </div>
-)}
+{
+  /* Data Source Badge (Transparency) */
+}
+{
+  forecastPreview && forecastPreview.metadata && (
+    <div className="mt-2 flex items-center gap-2 text-xs">
+      {forecastPreview.metadata.isRealTimeData ? (
+        <div className="flex items-center gap-1 text-green-600">
+          <Activity className="h-3 w-3" />
+          <span className="font-medium">Real-time Data</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 text-blue-600">
+          <Database className="h-3 w-3" />
+          <span>{forecastPreview.metadata.primarySource}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 ```
 
 **E2E Tests Created:**
@@ -430,6 +470,7 @@ const forecastMetadata = useMemo(() => {
 **File:** `e2e/forecast-transparency.spec.ts`
 
 Test Scenarios:
+
 1. ✅ Beach page displays forecast data source indicator
 2. ✅ Beach page shows confidence score
 3. ✅ Beach page shows data freshness indicator
@@ -437,6 +478,7 @@ Test Scenarios:
 5. ✅ Map selected beach card shows data source
 
 **Test Results:**
+
 - All unit tests passing
 - E2E tests created (some skip pending CDIP data availability)
 - No breaking changes to existing functionality
@@ -451,6 +493,7 @@ Test Scenarios:
 **Status:** ✅ Complete (All workpaths finished)
 
 **Completed Workpaths:**
+
 - ✅ Workpath 2.1: Database Schema (migrations applied)
 - ✅ Workpath 2.2: UI Components (3 preference questions with emoji SelectCards)
 - ✅ Workpath 2.3: Update Onboarding Save Action (32 tests passing)
@@ -460,6 +503,7 @@ Test Scenarios:
 ### Background
 
 **Current Onboarding Flow (7 steps):**
+
 1. Welcome
 2. Profile (full name, display name)
 3. Home Beach (search + select)
@@ -469,6 +513,7 @@ Test Scenarios:
 7. Completion (summary + save)
 
 **Critical Bugs Found:**
+
 - ❌ `display_name` is collected but NOT saved to database
 - ❌ `surf_styles` is collected but NOT saved to database
 - ⚠️ `display_name` column doesn't even exist in profiles table
@@ -479,6 +524,7 @@ Test Scenarios:
 **Agent:** `supabase-db-expert`
 
 **Migrations Applied:**
+
 - **Phase 1:** `20251103000000_fix_onboarding_data_loss.sql` (URGENT bug fix)
 - **Phase 2:** `20251103000001_add_personalization_preferences.sql` (Enhancement)
 
@@ -522,6 +568,7 @@ COMMENT ON COLUMN profiles.crowd_preference IS 'Social preference: social (love 
 ```
 
 **Rollback Migration:**
+
 ```sql
 -- If needed to rollback
 ALTER TABLE profiles DROP COLUMN IF EXISTS display_name;
@@ -535,6 +582,7 @@ DROP INDEX IF EXISTS idx_profiles_break_type;
 ```
 
 **Test Results:** ✅ All Passed
+
 - ✅ Migration test: Apply and rollback successfully
 - ✅ Constraint test: display_name uniqueness enforced (prevented duplicate 'riley_rips')
 - ✅ Constraint test: Invalid wave_size rejected (rejected 'huge', only allows small/medium/large/any)
@@ -544,6 +592,7 @@ DROP INDEX IF EXISTS idx_profiles_break_type;
 - ✅ Data insertion: Successfully saved test data with all new fields
 
 **Database Verification:**
+
 ```sql
 -- New columns confirmed in profiles table:
 display_name: text (UNIQUE where not null)
@@ -555,16 +604,19 @@ crowd_preference: text (CHECK: social|moderate|solitude)
 
 **TypeScript Types:**
 All new fields now appear in `types/database.generated.ts`:
+
 - Correct nullability (`string | null`, `string[] | null`)
 - Available in Row, Insert, and Update types
 
 **Files Created:**
+
 - `supabase/migrations/20251103000000_fix_onboarding_data_loss.sql`
 - `supabase/migrations/20251103000001_add_personalization_preferences.sql`
 - `supabase/rollbacks/20251103000000_fix_onboarding_data_loss_rollback.sql`
 - `supabase/rollbacks/20251103000001_add_personalization_preferences_rollback.sql`
 
 **Next Steps:**
+
 1. Test onboarding flow end-to-end (start dev server)
 2. Verify display_name and surf_styles now save correctly
 3. Push to production when ready: `npx supabase db push`
@@ -578,18 +630,22 @@ All new fields now appear in `types/database.generated.ts`:
 Successfully implemented all 3 new preference questions in the onboarding flow with emoji-based SelectCard buttons.
 
 **Files Modified:**
+
 - `components/onboarding/steps/preferences-step.tsx` (lines 154-249)
 - `lib/schemas/onboarding-schemas.ts` (lines 30-32)
 - `store/onboarding-store.ts` (preference fields added)
 
 **UI Questions Implemented:**
+
 1. **Preferred Wave Size** (lines 154-183)
+
    - Small (1-3ft) 🌊
    - Medium (3-6ft) 🌊🌊
    - Large (6ft+) 🌊🌊🌊
    - I'll surf anything! 🤙
 
 2. **Preferred Break Type** (lines 185-214)
+
    - Beach break 🏖️
    - Point break 🪨
    - Reef break 🪸
@@ -601,6 +657,7 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
    - Prefer solitude 🏝️
 
 **Test Coverage:**
+
 - ✅ E2E tests: `e2e/onboarding.spec.ts` (lines 74-80 test wave size/break type selection)
 - ✅ Component tests: `__tests__/components/onboarding/preferences-step.test.tsx` (507 lines)
 - ✅ Schema validation tests passing
@@ -610,6 +667,7 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
 **Original Specification (for reference):**
 
 **Files to modify:**
+
 - `components/onboarding/steps/preferences-step.tsx`
 - `lib/schemas/onboarding-schemas.ts`
 - `store/onboarding-store.ts`
@@ -620,12 +678,14 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
 **File:** `components/onboarding/steps/preferences-step.tsx`
 
 **Current Questions (Keep Unchanged):**
+
 1. Experience Level (required)
 2. Surf Styles (required)
 
 **Add 3 New Questions Below:**
 
 **Question 3: Preferred Wave Size**
+
 ```tsx
 <div className="space-y-3">
   <label className="text-sm font-medium">
@@ -633,29 +693,29 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
   </label>
   <div className="grid grid-cols-2 gap-3">
     <SelectCard
-      selected={data.preferredWaveSize === 'small'}
-      onClick={() => updateData({ preferredWaveSize: 'small' })}
+      selected={data.preferredWaveSize === "small"}
+      onClick={() => updateData({ preferredWaveSize: "small" })}
       icon="🌊"
       title="Small waves"
       description="1-3 ft - Perfect for learning"
     />
     <SelectCard
-      selected={data.preferredWaveSize === 'medium'}
-      onClick={() => updateData({ preferredWaveSize: 'medium' })}
+      selected={data.preferredWaveSize === "medium"}
+      onClick={() => updateData({ preferredWaveSize: "medium" })}
       icon="🌊🌊"
       title="Medium waves"
       description="3-6 ft - The sweet spot"
     />
     <SelectCard
-      selected={data.preferredWaveSize === 'large'}
-      onClick={() => updateData({ preferredWaveSize: 'large' })}
+      selected={data.preferredWaveSize === "large"}
+      onClick={() => updateData({ preferredWaveSize: "large" })}
       icon="🌊🌊🌊"
       title="Large waves"
       description="6+ ft - For experienced surfers"
     />
     <SelectCard
-      selected={data.preferredWaveSize === 'any'}
-      onClick={() => updateData({ preferredWaveSize: 'any' })}
+      selected={data.preferredWaveSize === "any"}
+      onClick={() => updateData({ preferredWaveSize: "any" })}
       icon="🤙"
       title="I'll surf anything!"
       description="Any size is fun"
@@ -665,6 +725,7 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
 ```
 
 **Question 4: Preferred Beach Type**
+
 ```tsx
 <div className="space-y-3">
   <label className="text-sm font-medium">
@@ -672,29 +733,29 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
   </label>
   <div className="grid grid-cols-2 gap-3">
     <SelectCard
-      selected={data.preferredBreakType === 'beach'}
-      onClick={() => updateData({ preferredBreakType: 'beach' })}
+      selected={data.preferredBreakType === "beach"}
+      onClick={() => updateData({ preferredBreakType: "beach" })}
       icon="🏖️"
       title="Beach break"
       description="Sandy bottom, forgiving"
     />
     <SelectCard
-      selected={data.preferredBreakType === 'point'}
-      onClick={() => updateData({ preferredBreakType: 'point' })}
+      selected={data.preferredBreakType === "point"}
+      onClick={() => updateData({ preferredBreakType: "point" })}
       icon="🪨"
       title="Point break"
       description="Long, consistent rides"
     />
     <SelectCard
-      selected={data.preferredBreakType === 'reef'}
-      onClick={() => updateData({ preferredBreakType: 'reef' })}
+      selected={data.preferredBreakType === "reef"}
+      onClick={() => updateData({ preferredBreakType: "reef" })}
       icon="🪸"
       title="Reef break"
       description="Powerful, hollow waves"
     />
     <SelectCard
-      selected={data.preferredBreakType === 'any'}
-      onClick={() => updateData({ preferredBreakType: 'any' })}
+      selected={data.preferredBreakType === "any"}
+      onClick={() => updateData({ preferredBreakType: "any" })}
       icon="✨"
       title="No preference"
       description="I love them all"
@@ -704,6 +765,7 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
 ```
 
 **Question 5: Crowd Tolerance**
+
 ```tsx
 <div className="space-y-3">
   <label className="text-sm font-medium">
@@ -711,22 +773,22 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
   </label>
   <div className="grid grid-cols-1 gap-3">
     <SelectCard
-      selected={data.crowdPreference === 'social'}
-      onClick={() => updateData({ crowdPreference: 'social' })}
+      selected={data.crowdPreference === "social"}
+      onClick={() => updateData({ crowdPreference: "social" })}
       icon="👥"
       title="Love the crew"
       description="More people, more fun"
     />
     <SelectCard
-      selected={data.crowdPreference === 'moderate'}
-      onClick={() => updateData({ crowdPreference: 'moderate' })}
+      selected={data.crowdPreference === "moderate"}
+      onClick={() => updateData({ crowdPreference: "moderate" })}
       icon="🧘"
       title="A few people is fine"
       description="I can share the lineup"
     />
     <SelectCard
-      selected={data.crowdPreference === 'solitude'}
-      onClick={() => updateData({ crowdPreference: 'solitude' })}
+      selected={data.crowdPreference === "solitude"}
+      onClick={() => updateData({ crowdPreference: "solitude" })}
       icon="🏝️"
       title="Prefer solitude"
       description="Dawn patrol warrior"
@@ -736,9 +798,11 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
 ```
 
 **Helper Text:**
+
 ```tsx
 <p className="text-xs text-muted-foreground mt-4">
-  ℹ️ These preferences are optional. We'll also learn from your surf sessions over time to personalize recommendations.
+  ℹ️ These preferences are optional. We'll also learn from your surf sessions
+  over time to personalize recommendations.
 </p>
 ```
 
@@ -747,19 +811,19 @@ Successfully implemented all 3 new preference questions in the onboarding flow w
 **File:** `lib/schemas/onboarding-schemas.ts`
 
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 export const preferencesSchema = z.object({
   // Existing required fields
-  experienceLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert'], {
-    required_error: 'Please select your experience level'
+  experienceLevel: z.enum(["beginner", "intermediate", "advanced", "expert"], {
+    required_error: "Please select your experience level",
   }),
-  surfStyles: z.array(z.string()).min(1, 'Select at least one surf style'),
+  surfStyles: z.array(z.string()).min(1, "Select at least one surf style"),
 
   // NEW: All optional
-  preferredWaveSize: z.enum(['small', 'medium', 'large', 'any']).optional(),
-  preferredBreakType: z.enum(['beach', 'point', 'reef', 'any']).optional(),
-  crowdPreference: z.enum(['social', 'moderate', 'solitude']).optional(),
+  preferredWaveSize: z.enum(["small", "medium", "large", "any"]).optional(),
+  preferredBreakType: z.enum(["beach", "point", "reef", "any"]).optional(),
+  crowdPreference: z.enum(["social", "moderate", "solitude"]).optional(),
 });
 
 export type PreferencesFormData = z.infer<typeof preferencesSchema>;
@@ -773,19 +837,19 @@ export type PreferencesFormData = z.infer<typeof preferencesSchema>;
 interface OnboardingData {
   // Existing fields
   fullName?: string;
-  displayName?: string;  // Will now be saved!
+  displayName?: string; // Will now be saved!
   homeBeachId?: string;
   homeBeachName?: string;
-  experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  surfStyles?: string[];  // Will now be saved!
+  experienceLevel?: "beginner" | "intermediate" | "advanced" | "expert";
+  surfStyles?: string[]; // Will now be saved!
   referralCode?: string;
   pushEnabled?: boolean;
   emailEnabled?: boolean;
 
   // NEW: Optional preference fields
-  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
-  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
-  crowdPreference?: 'social' | 'moderate' | 'solitude';
+  preferredWaveSize?: "small" | "medium" | "large" | "any";
+  preferredBreakType?: "beach" | "point" | "reef" | "any";
+  crowdPreference?: "social" | "moderate" | "solitude";
 }
 
 interface OnboardingStore {
@@ -802,25 +866,29 @@ export const useOnboardingStore = create<OnboardingStore>()(
     (set) => ({
       data: {},
       currentStep: 0,
-      updateData: (newData) => set((state) => ({
-        data: { ...state.data, ...newData }
-      })),
-      nextStep: () => set((state) => ({
-        currentStep: Math.min(state.currentStep + 1, 6)
-      })),
-      prevStep: () => set((state) => ({
-        currentStep: Math.max(state.currentStep - 1, 0)
-      })),
+      updateData: (newData) =>
+        set((state) => ({
+          data: { ...state.data, ...newData },
+        })),
+      nextStep: () =>
+        set((state) => ({
+          currentStep: Math.min(state.currentStep + 1, 6),
+        })),
+      prevStep: () =>
+        set((state) => ({
+          currentStep: Math.max(state.currentStep - 1, 0),
+        })),
       reset: () => set({ data: {}, currentStep: 0 }),
     }),
     {
-      name: 'onboarding-storage',
+      name: "onboarding-storage",
     }
   )
 );
 ```
 
 **Tests:**
+
 - Unit test: Schema validation with new optional fields
 - Unit test: Schema rejects invalid enum values
 - Component test: Preferences step renders all 5 questions
@@ -833,17 +901,20 @@ export const useOnboardingStore = create<OnboardingStore>()(
 **Status:** Completed 2025-11-03
 
 **Files Modified:**
+
 - `actions/onboarding-actions.ts` - Updated saveOnboardingData()
 - `store/onboarding-store.ts` - Added preference fields
 - `lib/gamification-actions.ts` - Added missing XP actions
 
 **Files Created:**
+
 - `__tests__/actions/onboarding-actions.test.ts` - 18 integration tests
 - `e2e/onboarding.spec.ts` - E2E onboarding flow tests
 
 **Implementation Summary:**
 
 **Key Changes to `saveOnboardingData()`:**
+
 ```typescript
 // Now saves ALL preference fields to database:
 preferred_wave_size: data.preferredWaveSize || null,
@@ -857,6 +928,7 @@ notif_email_enabled: data.emailEnabled ?? true,
 
 **XP System Fix:**
 Added missing XP actions to `lib/gamification-actions.ts`:
+
 - `onboarding_completed: 100` XP
 - `referral_signup: 50` XP
 - `successful_referral: 100` XP
@@ -864,16 +936,18 @@ Added missing XP actions to `lib/gamification-actions.ts`:
 Previously these actions would throw "Unknown XP action" errors.
 
 **OnboardingData Interface:**
+
 ```typescript
 interface OnboardingData {
   // ... existing fields
-  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
-  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
-  crowdPreference?: 'social' | 'moderate' | 'solitude';
+  preferredWaveSize?: "small" | "medium" | "large" | "any";
+  preferredBreakType?: "beach" | "point" | "reef" | "any";
+  crowdPreference?: "social" | "moderate" | "solitude";
 }
 ```
 
 **Test Coverage:** ✅ 32 new tests
+
 - Unit tests: 3 new XP action tests (all 14 gamification tests passing)
 - Integration tests: 18 comprehensive tests for saveOnboardingData (80.8% coverage)
   - All field persistence (required + optional)
@@ -894,11 +968,13 @@ interface OnboardingData {
 **Status:** Completed 2025-11-03
 
 **Command:**
+
 ```bash
 npx supabase gen types typescript --local > types/database.generated.ts
 ```
 
 **Verified new fields in generated types:**
+
 ```typescript
 export interface Database {
   public: {
@@ -908,15 +984,15 @@ export interface Database {
           // ... existing fields
           display_name: string | null;
           surf_styles: string[] | null;
-          preferred_wave_size: 'small' | 'medium' | 'large' | 'any' | null;
-          preferred_break_type: 'beach' | 'point' | 'reef' | 'any' | null;
-          crowd_preference: 'social' | 'moderate' | 'solitude' | null;
+          preferred_wave_size: "small" | "medium" | "large" | "any" | null;
+          preferred_break_type: "beach" | "point" | "reef" | "any" | null;
+          crowd_preference: "social" | "moderate" | "solitude" | null;
           notif_push_enabled: boolean;
           notif_email_enabled: boolean;
-        }
-      }
-    }
-  }
+        };
+      };
+    };
+  };
 }
 ```
 
@@ -930,6 +1006,7 @@ export interface Database {
 **Goal:** Allow users to view and edit surf preferences from their profile page
 
 **Problem:** Surf preferences were captured during onboarding but users had no way to:
+
 - View their current preferences
 - Update preferences as their skills/interests change
 - Access preferences without re-onboarding
@@ -937,25 +1014,30 @@ export interface Database {
 **Implementation:**
 
 **Files Modified:**
+
 - `components/profile/profile-preferences.tsx` - Added surf preference UI sections
 - `actions/profile-actions.ts` - Updated schema to validate preference fields
 
 **New UI Sections Added:**
 
 1. **Experience Level** (single select)
+
    - Beginner 🏄‍♂️ | Intermediate 🌊 | Advanced 🏆 | Expert 🔥
    - Emoji SelectCard buttons matching onboarding style
 
 2. **Surf Styles** (multi-select)
+
    - Longboard 🏄 | Shortboard 🏄‍♀️ | Funboard 🏄‍♂️
    - Bodyboard 🏊 | SUP 🚣 | Foil ✨
    - Toggle selection with visual feedback
 
 3. **Preferred Wave Size** (single select)
+
    - Small 🌊 (1-3ft) | Medium 🌊🌊 (3-6ft)
    - Large 🌊🌊🌊 (6ft+) | Any Size 🤙
 
 4. **Preferred Break Type** (single select)
+
    - Beach Break 🏖️ | Point Break 🪨
    - Reef Break 🪸 | Any Type ✨
 
@@ -963,19 +1045,33 @@ export interface Database {
    - Love the crew 👥 | A few people is fine 🧘 | Prefer solitude 🏝️
 
 **Validation:**
+
 ```typescript
 const preferencesFormSchema = z.object({
   home_beach_id: z.string().uuid().nullable().optional(),
-  experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
+  experience_level: z
+    .enum(["beginner", "intermediate", "advanced", "expert"])
+    .nullable()
+    .optional(),
   surf_styles: z.array(z.string()).nullable().optional(),
-  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).nullable().optional(),
-  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).nullable().optional(),
-  crowd_preference: z.enum(['social', 'moderate', 'solitude']).nullable().optional(),
+  preferred_wave_size: z
+    .enum(["small", "medium", "large", "any"])
+    .nullable()
+    .optional(),
+  preferred_break_type: z
+    .enum(["beach", "point", "reef", "any"])
+    .nullable()
+    .optional(),
+  crowd_preference: z
+    .enum(["social", "moderate", "solitude"])
+    .nullable()
+    .optional(),
   // ... notification preferences
 });
 ```
 
 **User Experience:**
+
 1. Navigate to **Profile → Preferences** tab
 2. View current preferences (populated from database)
 3. Click any emoji card to change selection
@@ -984,6 +1080,7 @@ const preferencesFormSchema = z.object({
 6. Page refreshes to show updated values
 
 **Technical Details:**
+
 - Uses `react-hook-form` with `Controller` for form state management
 - Matches exact UI pattern from onboarding (`SelectCard` style buttons)
 - Type-safe with Zod validation and TypeScript
@@ -991,6 +1088,7 @@ const preferencesFormSchema = z.object({
 - Updates Profile type interface to match database schema
 
 **Testing:**
+
 - ✅ TypeScript compilation passes
 - ✅ Production build succeeds
 - ✅ Form validation works correctly
@@ -1000,6 +1098,7 @@ const preferencesFormSchema = z.object({
 **Access:** `http://localhost:3000/profile` → **Preferences** tab
 
 **Benefits:**
+
 - Users can refine preferences as skills evolve
 - No need to re-onboard to update choices
 - Consistent UI with onboarding flow
@@ -1081,6 +1180,7 @@ CREATE POLICY "Users can delete their own session forecast snapshots"
 **JSONB Schema Structure:**
 
 `forecast_snapshot` contains all forecast data:
+
 ```typescript
 {
   wave_height: number,        // ft
@@ -1100,6 +1200,7 @@ CREATE POLICY "Users can delete their own session forecast snapshots"
 ```
 
 `actual_conditions` contains session feedback:
+
 ```typescript
 {
   wave_quality: string,       // "poor", "fair", "good", "epic"
@@ -1114,12 +1215,14 @@ CREATE POLICY "Users can delete their own session forecast snapshots"
 ```
 
 **Why JSONB?**
+
 - ✅ No schema migrations needed to add new forecast fields
 - ✅ Efficient querying with GIN indexes
 - ✅ Can store entire forecast object without field mapping
 - ✅ Flexible for future data source changes
 
 **Validation:**
+
 - ✅ Migration applied: `20250822190000_forecast_calibration_tables.sql`
 - ✅ Trigger improvements: `20251028000000_fix_snapshot_trigger_for_insert.sql`
 - ✅ Error handling added: `20251028000001_improve_snapshot_function.sql`
@@ -1237,26 +1340,24 @@ CREATE TRIGGER trigger_create_session_forecast_snapshot
 
 #### Query Service Functions
 
-**File:** `lib/services/session-forecast-service.ts` (to be created in Workpath 3.2b)
+**File:** `actions/forecast-calibration-actions.ts` (implemented)
 
-Service functions for querying existing snapshots:
+Authenticated server actions for querying existing snapshots:
+
 ```typescript
-// Get snapshot for a specific session
-async function getSessionForecastSnapshot(sessionId: string)
-
 // Get user's historical snapshots with filters
-async function getUserForecastHistory(userId: string, filters?: {
+async function getUserForecastHistory(filters?: {
   startDate?: Date;
   endDate?: Date;
   beachId?: string;
   dataSource?: string;
-})
+});
 
 // Analyze user's preferred conditions from high-rated sessions
-async function analyzePreferredConditions(userId: string)
+async function analyzePreferredConditions(minRating?: number);
 ```
 
-**Note:** These query functions will be implemented in a separate workpath (3.2b) as they're for reading snapshots, not creating them.
+**Note:** Snapshot creation is still trigger-backed, and post-session feedback can update/enrich the existing snapshot row with user-reported actuals.
 
 #### Benefits of Trigger-Based Approach
 
@@ -1268,6 +1369,7 @@ async function analyzePreferredConditions(userId: string)
 - ✅ **Retroactive backfill** - Historical snapshots already created via migration
 
 **Validation:**
+
 - ✅ Trigger fires on INSERT: `20251028000000_fix_snapshot_trigger_for_insert.sql`
 - ✅ Improved error handling: `20251028000001_improve_snapshot_function.sql`
 - ✅ Historical backfill completed: `20251028000002_backfill_session_snapshots.sql`
@@ -1289,12 +1391,12 @@ Since snapshot capture is handled by the database trigger (see Workpath 3.2), **
 export async function createLoggedSession(data: SessionInput) {
   return withAuthenticatedAction(async (user, supabase) => {
     const { data: session, error } = await supabase
-      .from('sessions')
+      .from("sessions")
       .insert({
         user_id: user.id,
         beach_id: data.beach_id,
         arrival_time: data.arrival_time,
-        status: 'completed',  // ← Trigger fires automatically here
+        status: "completed", // ← Trigger fires automatically here
         rating: data.rating,
         notes: data.notes,
         // ... other fields
@@ -1326,15 +1428,16 @@ export async function createLoggedSession(data: SessionInput) {
 
 #### Edge Cases Handled
 
-| Scenario | Behavior |
-|----------|----------|
-| Session created with `status='planned'` | No snapshot created (expected) |
-| Session updated to `status='completed'` | Snapshot created on status change |
-| Session already has snapshot | Duplicate prevention, no error |
-| No matching forecast data | Warning logged, session creation succeeds |
-| Forecast query fails | Warning logged, session creation succeeds |
+| Scenario                                | Behavior                                  |
+| --------------------------------------- | ----------------------------------------- |
+| Session created with `status='planned'` | No snapshot created (expected)            |
+| Session updated to `status='completed'` | Snapshot created on status change         |
+| Session already has snapshot            | Duplicate prevention, no error            |
+| No matching forecast data               | Warning logged, session creation succeeds |
+| Forecast query fails                    | Warning logged, session creation succeeds |
 
 **Validation:**
+
 - ✅ No manual service calls needed
 - ✅ Existing session actions work unchanged
 - ✅ Trigger handles all edge cases
@@ -1351,6 +1454,7 @@ Historical session snapshots have been **automatically created** for all complet
 #### Backfill Strategy
 
 The backfill migration uses a similar approach to the trigger:
+
 1. Query all completed sessions without snapshots
 2. For each session, find the closest forecast in `enhanced_forecasts`
 3. Create snapshot with `forecast_snapshot` and `actual_conditions`
@@ -1359,6 +1463,7 @@ The backfill migration uses a similar approach to the trigger:
 #### Backfill Statistics
 
 The backfill process:
+
 - ✅ Processed all completed sessions with `arrival_time` data
 - ✅ Matched forecasts within same day as session
 - ✅ Skipped sessions with no matching forecast (logged for investigation)
@@ -1416,13 +1521,13 @@ Or create a one-time backfill script for bulk processing:
 // Only needed if systematic gaps are discovered
 async function backfillMissingSessions() {
   const { data: sessions } = await supabase
-    .from('sessions')
-    .select('id')
-    .eq('status', 'completed')
-    .not('id', 'in',
-      supabase
-        .from('session_forecast_snapshots')
-        .select('session_id')
+    .from("sessions")
+    .select("id")
+    .eq("status", "completed")
+    .not(
+      "id",
+      "in",
+      supabase.from("session_forecast_snapshots").select("session_id")
     );
 
   // Process each session...
@@ -1430,6 +1535,7 @@ async function backfillMissingSessions() {
 ```
 
 **Validation:**
+
 - ✅ Migration applied: `20251028000002_backfill_session_snapshots.sql`
 - ✅ Historical sessions processed
 - ✅ Duplicate handling verified
@@ -1448,6 +1554,7 @@ async function backfillMissingSessions() {
 **Concept:** Track which beaches users surf most frequently to boost familiarity in recommendations.
 
 **Algorithm:**
+
 - Base score: 10 points per session (capped at 50)
 - Recency bonus: 30 points max, decays exponentially over 180 days
 - Frequency bonus: +20 points if 5+ sessions
@@ -1463,6 +1570,7 @@ async function backfillMissingSessions() {
 
 **Implementation Notes:**
 Implemented complete beach affinity tracking infrastructure with automatic trigger-based updates:
+
 - Created `user_beach_affinity` table with proper constraints and indexes
 - Implemented `compute_beach_affinity()` function with scoring algorithm
 - Created database trigger for automatic maintenance on session changes
@@ -1592,6 +1700,7 @@ COMMENT ON FUNCTION compute_beach_affinity IS 'Calculates beach affinity: base (
 ```
 
 **Rollback:**
+
 ```sql
 DROP TRIGGER IF EXISTS update_beach_affinity_trigger ON sessions;
 DROP FUNCTION IF EXISTS update_beach_affinity_on_session_change();
@@ -1600,6 +1709,7 @@ DROP TABLE IF EXISTS user_beach_affinity CASCADE;
 ```
 
 **Tests:**
+
 - Unit test: `compute_beach_affinity` function logic
   - 1 session → base 10, no frequency bonus
   - 5 sessions → base 50, +20 frequency bonus
@@ -1621,6 +1731,7 @@ Created one-time backfill script to populate the `user_beach_affinity` table fro
 #### Files Implemented
 
 **1. SQL Function** (added to `supabase/migrations/20251103000002_beach_affinity.sql`)
+
 ```sql
 -- Initial bulk computation function (Workpath 4.2)
 -- Purpose: One-time backfill of user_beach_affinity table from existing session history
@@ -1651,6 +1762,7 @@ COMMENT ON FUNCTION compute_all_affinities_initial IS 'One-time bulk computation
 **2. TypeScript Script** (`scripts/compute-initial-affinities.ts`)
 
 **Key Features:**
+
 - Environment validation with clear error messages
 - Service role authentication for admin operations
 - Summary statistics output (total records, unique users/beaches, avg score)
@@ -1659,11 +1771,13 @@ COMMENT ON FUNCTION compute_all_affinities_initial IS 'One-time bulk computation
 - Exported main function for testing
 
 **3. Package.json Script**
+
 ```json
 "affinity:compute": "tsx scripts/compute-initial-affinities.ts"
 ```
 
 **4. Unit Tests** (`scripts/__tests__/compute-initial-affinities.test.ts`)
+
 - ✅ 11 tests passing
 - File structure validation
 - Function export verification
@@ -1753,6 +1867,7 @@ Once the trigger is active (from Workpath 4.1), affinity scores automatically up
 ### Background
 
 **Concept:** Analyze sessions with captured conditions to learn:
+
 - Preferred wave height range (10th-90th percentile)
 - Preferred wave period range
 - Maximum wind tolerance
@@ -1773,6 +1888,7 @@ Successfully created the `user_surf_preferences` table with comprehensive test c
 **Rollback:** `supabase/rollbacks/20251103000003_user_surf_preferences_rollback.sql`
 
 **Files Created:**
+
 - `supabase/migrations/20251103000003_user_surf_preferences.sql`
 - `supabase/rollbacks/20251103000003_user_surf_preferences_rollback.sql`
 - `__tests__/database/user-surf-preferences-infrastructure.test.ts` (12 tests)
@@ -1781,10 +1897,12 @@ Successfully created the `user_surf_preferences` table with comprehensive test c
 - `__tests__/integration/user-surf-preferences-storage.test.ts` (11 tests)
 
 **Files Modified:**
+
 - `types/database.generated.ts` (regenerated with new table types)
 - `CHANGELOG.md` (documented Phase 5 Workpath 5.1 completion)
 
 **Test Results:**
+
 ```
 Test Suites: 4 passed, 4 total
 Tests:       67 passed, 67 total
@@ -1843,11 +1961,13 @@ COMMENT ON COLUMN user_surf_preferences.sample_size IS 'Number of rated sessions
 ```
 
 **Rollback:**
+
 ```sql
 DROP TABLE IF EXISTS user_surf_preferences CASCADE;
 ```
 
 **Key Features:**
+
 - **Preference Learning Algorithm**: Percentile-based approach (10th-90th) for wave ranges, mode detection for categorical preferences (wind directions, tide states)
 - **Confidence Scoring**: Sigmoid function based on sample size prevents overconfidence from small datasets (5 sessions = 0.5, 20+ = 0.95)
 - **Data Validation**: CHECK constraints ensure data integrity (non-negative values, logical ranges, array length limits)
@@ -1857,12 +1977,14 @@ DROP TABLE IF EXISTS user_surf_preferences CASCADE;
 - **Performance Indexes**: Efficient queries by user_id and confidence score
 
 **Design Decisions:**
+
 - **Flat Schema**: Numeric and array fields (not JSONB) for straightforward querying and type safety
 - **Sample-Size Based Confidence**: Prevents premature recommendations from insufficient data
 - **User Updateable**: Future support for manual preference tuning while learning continues
 - **Minimum Threshold**: Requires 5 rated sessions before computing preferences to ensure statistical validity
 
 **Next Steps:**
+
 - Workpath 5.2: Implement preference learning service to compute preferences from session history
 - Workpath 5.3: Create nightly cron job for automated preference updates
 - Workpath 5.4: Integrate preferences into personalized forecast scoring
@@ -1879,13 +2001,16 @@ DROP TABLE IF EXISTS user_surf_preferences CASCADE;
 Successfully implemented the preference learning service with comprehensive statistical algorithms and extensive test coverage (51 unit tests, all passing). The service analyzes user session history to learn surf preferences using percentile-based ranges for continuous values and mode detection for categorical preferences.
 
 **Files Created:**
+
 - `lib/services/preference-learning-service.ts` (374 lines)
 - `__tests__/services/preference-learning-service.test.ts` (51 tests passing)
 
 **Files Modified:**
+
 - `CHANGELOG.md` (documented Workpath 5.2 completion)
 
 **Test Results:**
+
 ```
 PASS __tests__/services/preference-learning-service.test.ts
   Helper Functions: percentile
@@ -1913,11 +2038,12 @@ Time:        2.156 s
 ```
 
 **Algorithm Implementation:**
+
 - **Wave Ranges**: 10th-90th percentile of rated sessions (rating >= 3)
 - **Wind Tolerance**: 90th percentile of wind speeds
 - **Wind Directions**: Mode detection with cardinal clustering (45° tolerance, 15% frequency threshold)
 - **Tide Preferences**: Mode detection (20% frequency threshold)
-- **Confidence Scoring**: Sigmoid function 1 / (1 + exp(-0.2 * (n - 5)))
+- **Confidence Scoring**: Sigmoid function 1 / (1 + exp(-0.2 \* (n - 5)))
   - 5 sessions → 0.5 confidence
   - 10 sessions → 0.73 confidence
   - 20+ sessions → 0.95 confidence
@@ -1926,6 +2052,7 @@ Time:        2.156 s
 Queries `session_forecast_snapshots` table (Phase 3) for last 50 sessions, filters to rating >= 3, requires minimum 5 sessions for statistical validity.
 
 **Key Features:**
+
 - **Type-Safe Interfaces**: Full TypeScript typing matching database schema
 - **Graceful Error Handling**: Returns null on errors, logs issues, never throws
 - **Service Role Authentication**: Uses createSupabaseServiceRoleClient() for admin access
@@ -1934,6 +2061,7 @@ Queries `session_forecast_snapshots` table (Phase 3) for last 50 sessions, filte
 - **Statistical Validity**: Enforces minimum sample size to prevent unreliable predictions
 
 **Next Steps:**
+
 - ✅ Workpath 5.3: Nightly cron job implemented (see below)
 - ✅ Workpath 5.4: Integrated into personalized forecast scoring (Phase 6)
 
@@ -1948,16 +2076,20 @@ Queries `session_forecast_snapshots` table (Phase 3) for last 50 sessions, filte
 Successfully implemented production-ready cron job for automated nightly preference updates with batch processing, authentication, and comprehensive error handling.
 
 **Files Created:**
+
 - `app/api/cron/update-user-preferences/route.ts` (311 lines)
 - `__tests__/integration/preference-update-cron.test.ts` (382 lines)
 
 **Files Modified:**
+
 - `vercel.json` (lines 19-22: added cron schedule)
 
 **Implementation Details:**
 
 **Cron Route Features:**
+
 - **POST Endpoint** (lines 47-218): Nightly batch processing
+
   - Batch size: 10 users per batch with 1s delays (rate limiting)
   - Calls `computeUserPreferences()` for each user
   - Production-only enforcement
@@ -1968,26 +2100,32 @@ Successfully implemented production-ready cron job for automated nightly prefere
   - Useful for monitoring/debugging
 
 **Authentication:**
+
 - Vercel Cron secret header validation
 - Bearer token support for manual triggers
 - Production environment enforcement
 
 **Vercel Cron Configuration:**
+
 ```json
 {
-  "crons": [{
-    "path": "/api/cron/update-user-preferences",
-    "schedule": "0 3 * * *"  // Daily at 3:00 AM UTC
-  }]
+  "crons": [
+    {
+      "path": "/api/cron/update-user-preferences",
+      "schedule": "0 3 * * *" // Daily at 3:00 AM UTC
+    }
+  ]
 }
 ```
 
 **Error Handling:**
+
 - Graceful failures (logs errors, continues processing)
 - Skips users without sufficient data (< 5 sessions)
 - Returns detailed batch results with success/failure counts
 
 **Test Coverage:**
+
 - ✅ Integration tests: 382 lines covering:
   - Authentication validation
   - Batch processing logic
@@ -1996,6 +2134,7 @@ Successfully implemented production-ready cron job for automated nightly prefere
   - Production-only enforcement
 
 **Monitoring Recommendations:**
+
 - Monitor cron job execution logs in Vercel dashboard
 - Track preference computation success rates
 - Alert on consecutive failures (future enhancement)
@@ -2005,7 +2144,7 @@ Successfully implemented production-ready cron job for automated nightly prefere
 **Original Specification (Workpath 5.2):** `lib/services/preference-learning-service.ts`
 
 ```typescript
-import { createApiServerClient } from '@/lib/supabase/api-server-client';
+import { createApiServerClient } from "@/lib/supabase/api-server-client";
 
 interface UserSurfPreferences {
   wave_min_ft: number | null;
@@ -2031,8 +2170,9 @@ export async function computeUserPreferences(
 
   // 1. Get sessions with conditions (last 50, rating >= 3)
   const { data: sessions, error } = await supabase
-    .from('sessions')
-    .select(`
+    .from("sessions")
+    .select(
+      `
       id,
       rating,
       arrival_time,
@@ -2043,59 +2183,64 @@ export async function computeUserPreferences(
         wind_direction_deg,
         tide_status
       )
-    `)
-    .eq('user_id', userId)
-    .gte('rating', 3) // Only learn from good sessions
-    .not('session_conditions', 'is', null)
-    .order('arrival_time', { ascending: false })
+    `
+    )
+    .eq("user_id", userId)
+    .gte("rating", 3) // Only learn from good sessions
+    .not("session_conditions", "is", null)
+    .order("arrival_time", { ascending: false })
     .limit(50);
 
   if (error || !sessions || sessions.length < 5) {
-    console.log(`Not enough data for user ${userId}: ${sessions?.length || 0} sessions`);
+    console.log(
+      `Not enough data for user ${userId}: ${sessions?.length || 0} sessions`
+    );
     return null;
   }
 
   // 2. Extract arrays of values
   const waveHeights = sessions
-    .map(s => s.session_conditions?.[0]?.wave_height_ft)
+    .map((s) => s.session_conditions?.[0]?.wave_height_ft)
     .filter((v): v is number => v != null);
 
   const wavePeriods = sessions
-    .map(s => s.session_conditions?.[0]?.wave_period_s)
+    .map((s) => s.session_conditions?.[0]?.wave_period_s)
     .filter((v): v is number => v != null);
 
   const windSpeeds = sessions
-    .map(s => s.session_conditions?.[0]?.wind_speed_mph)
+    .map((s) => s.session_conditions?.[0]?.wind_speed_mph)
     .filter((v): v is number => v != null);
 
   const windDirections = sessions
-    .map(s => s.session_conditions?.[0]?.wind_direction_deg)
+    .map((s) => s.session_conditions?.[0]?.wind_direction_deg)
     .filter((v): v is number => v != null);
 
   const tideStatuses = sessions
-    .map(s => s.session_conditions?.[0]?.tide_status)
+    .map((s) => s.session_conditions?.[0]?.tide_status)
     .filter((v): v is string => v != null);
 
   // 3. Compute statistics
   const preferences: UserSurfPreferences = {
     wave_min_ft: waveHeights.length >= 5 ? percentile(waveHeights, 10) : null,
     wave_max_ft: waveHeights.length >= 5 ? percentile(waveHeights, 90) : null,
-    wave_period_min_s: wavePeriods.length >= 5 ? percentile(wavePeriods, 10) : null,
-    wave_period_max_s: wavePeriods.length >= 5 ? percentile(wavePeriods, 90) : null,
+    wave_period_min_s:
+      wavePeriods.length >= 5 ? percentile(wavePeriods, 10) : null,
+    wave_period_max_s:
+      wavePeriods.length >= 5 ? percentile(wavePeriods, 90) : null,
     max_wind_mph: windSpeeds.length >= 5 ? percentile(windSpeeds, 90) : null,
-    preferred_wind_directions: windDirections.length >= 5
-      ? findModeDirections(windDirections, 45)
-      : null,
-    preferred_tide_statuses: tideStatuses.length >= 5
-      ? findModes(tideStatuses, 0.2)
-      : null,
+    preferred_wind_directions:
+      windDirections.length >= 5
+        ? findModeDirections(windDirections, 45)
+        : null,
+    preferred_tide_statuses:
+      tideStatuses.length >= 5 ? findModes(tideStatuses, 0.2) : null,
     confidence: calculateConfidence(sessions.length),
     sample_size: sessions.length,
   };
 
   // 4. Upsert to database
   const { error: upsertError } = await supabase
-    .from('user_surf_preferences')
+    .from("user_surf_preferences")
     .upsert({
       user_id: userId,
       ...preferences,
@@ -2106,7 +2251,9 @@ export async function computeUserPreferences(
     throw new Error(`Failed to save preferences: ${upsertError.message}`);
   }
 
-  console.log(`✅ Computed preferences for user ${userId} (${sessions.length} sessions)`);
+  console.log(
+    `✅ Computed preferences for user ${userId} (${sessions.length} sessions)`
+  );
 
   return preferences;
 }
@@ -2120,9 +2267,9 @@ export async function getUserSurfPreferences(
   const supabase = createApiServerClient();
 
   const { data, error } = await supabase
-    .from('user_surf_preferences')
-    .select('*')
-    .eq('user_id', userId)
+    .from("user_surf_preferences")
+    .select("*")
+    .eq("user_id", userId)
     .single();
 
   if (error || !data) return null;
@@ -2158,7 +2305,10 @@ function percentile(arr: number[], p: number): number {
  * Find most common wind directions (within tolerance)
  * Returns up to 3 mode directions
  */
-function findModeDirections(directions: number[], tolerance: number = 45): number[] {
+function findModeDirections(
+  directions: number[],
+  tolerance: number = 45
+): number[] {
   // Normalize directions to 8 cardinal directions (N, NE, E, SE, S, SW, W, NW)
   const cardinals = [0, 45, 90, 135, 180, 225, 270, 315];
   const counts = new Map<number, number>();
@@ -2211,6 +2361,7 @@ function calculateConfidence(n: number): number {
 ```
 
 **Tests:**
+
 - Unit test: `percentile` calculation (10th, 50th, 90th)
 - Unit test: `findModeDirections` with clustered data
 - Unit test: `findModes` with varied frequency
@@ -2225,6 +2376,7 @@ function calculateConfidence(n: number): number {
 **Status:** Completed 2025-11-03
 
 **Implemented Files:**
+
 - **API Route**: `/app/api/cron/update-user-preferences/route.ts` (POST + GET handlers)
 - **Vercel Config**: `vercel.json` (cron schedule added)
 - **Unit Tests**: `__tests__/app/api/cron/update-user-preferences.test.ts` (30+ tests, all passing)
@@ -2237,17 +2389,17 @@ Complete nightly cron job that automatically updates user surf preferences by an
 **Original Specification:** `app/api/cron/preferences/route.ts`
 
 ```typescript
-import { NextRequest } from 'next/server';
-import { computeUserPreferences } from '@/lib/services/preference-learning-service';
-import { createApiServerClient } from '@/lib/supabase/api-server-client';
+import { NextRequest } from "next/server";
+import { computeUserPreferences } from "@/lib/services/preference-learning-service";
+import { createApiServerClient } from "@/lib/supabase/api-server-client";
 
 export async function GET(request: NextRequest) {
   // Verify cron secret
-  const authHeader = request.headers.get('Authorization');
+  const authHeader = request.headers.get("Authorization");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const supabase = createApiServerClient();
@@ -2258,19 +2410,21 @@ export async function GET(request: NextRequest) {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data: recentUsers, error } = await supabase
-      .from('sessions')
-      .select('user_id')
-      .gte('created_at', sevenDaysAgo.toISOString())
-      .order('user_id');
+      .from("sessions")
+      .select("user_id")
+      .gte("created_at", sevenDaysAgo.toISOString())
+      .order("user_id");
 
     if (error) {
       throw new Error(`Failed to fetch users: ${error.message}`);
     }
 
     // Deduplicate user IDs
-    const uniqueUserIds = [...new Set(recentUsers.map(s => s.user_id))];
+    const uniqueUserIds = [...new Set(recentUsers.map((s) => s.user_id))];
 
-    console.log(`Processing ${uniqueUserIds.length} users with recent activity`);
+    console.log(
+      `Processing ${uniqueUserIds.length} users with recent activity`
+    );
 
     const results = {
       success: 0,
@@ -2293,7 +2447,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log('✅ Preference computation complete:', results);
+    console.log("✅ Preference computation complete:", results);
 
     return Response.json({
       success: true,
@@ -2301,7 +2455,7 @@ export async function GET(request: NextRequest) {
       processed: uniqueUserIds.length,
     });
   } catch (error) {
-    console.error('❌ Cron job failed:', error);
+    console.error("❌ Cron job failed:", error);
     return Response.json(
       { success: false, error: String(error) },
       { status: 500 }
@@ -2328,11 +2482,13 @@ export async function GET(request: NextRequest) {
 **Schedule:** Daily at 3:00 AM (UTC)
 
 **Environment Variable Required:**
+
 ```bash
 CRON_SECRET="your-random-secret-here"
 ```
 
 **Tests:**
+
 - Integration test: Cron endpoint processes users
 - Integration test: Cron endpoint requires auth
 - Integration test: Cron handles failures gracefully
@@ -2351,16 +2507,17 @@ CRON_SECRET="your-random-secret-here"
 **Agent:** `backend-developer`
 **Status:** ✅ Implemented November 3, 2025
 **Files:**
+
 - [lib/services/personalized-scoring-service.ts](../../lib/services/personalized-scoring-service.ts)
-- [__tests__/services/personalized-scoring-service.test.ts](../../__tests__/services/personalized-scoring-service.test.ts)
-**Test Coverage:** 33 comprehensive tests, all passing ✅
+- [**tests**/services/personalized-scoring-service.test.ts](../../__tests__/services/personalized-scoring-service.test.ts)
+  **Test Coverage:** 33 comprehensive tests, all passing ✅
 
 **File:** `lib/services/personalized-scoring-service.ts`
 
 ```typescript
-import { getUserSurfPreferences } from './preference-learning-service';
-import { createApiServerClient } from '@/lib/supabase/api-server-client';
-import type { EnhancedForecast } from '@/types/forecast';
+import { getUserSurfPreferences } from "./preference-learning-service";
+import { createApiServerClient } from "@/lib/supabase/api-server-client";
+import type { EnhancedForecast } from "@/types/forecast";
 
 export interface PersonalizedScore {
   score: number;
@@ -2399,14 +2556,14 @@ export async function scoreBeachForUser(
 
   // 1. Get user profile (onboarding preferences)
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('preferred_wave_size, preferred_break_type, crowd_preference')
-    .eq('id', userId)
+    .from("profiles")
+    .select("preferred_wave_size, preferred_break_type, crowd_preference")
+    .eq("id", userId)
     .single();
 
   if (profile) {
     // Match wave size preference
-    if (profile.preferred_wave_size && profile.preferred_wave_size !== 'any') {
+    if (profile.preferred_wave_size && profile.preferred_wave_size !== "any") {
       if (matchesWaveSize(forecast, profile.preferred_wave_size)) {
         score += 10;
         breakdown.onboardingPrefs += 10;
@@ -2415,11 +2572,14 @@ export async function scoreBeachForUser(
     }
 
     // Match break type preference
-    if (profile.preferred_break_type && profile.preferred_break_type !== 'any') {
+    if (
+      profile.preferred_break_type &&
+      profile.preferred_break_type !== "any"
+    ) {
       const { data: beach } = await supabase
-        .from('beaches')
-        .select('break_type')
-        .eq('id', beachId)
+        .from("beaches")
+        .select("break_type")
+        .eq("id", beachId)
         .single();
 
       if (beach?.break_type === profile.preferred_break_type) {
@@ -2461,10 +2621,10 @@ export async function scoreBeachForUser(
 
   // 3. Beach affinity bonus
   const { data: affinity } = await supabase
-    .from('user_beach_affinity')
-    .select('affinity_score, session_count')
-    .eq('user_id', userId)
-    .eq('beach_id', beachId)
+    .from("user_beach_affinity")
+    .select("affinity_score, session_count")
+    .eq("user_id", userId)
+    .eq("beach_id", beachId)
     .single();
 
   if (affinity && affinity.affinity_score > 10) {
@@ -2489,11 +2649,11 @@ function matchesWaveSize(forecast: EnhancedForecast, pref: string): boolean {
   const height = forecast.wave_height || 0;
 
   switch (pref) {
-    case 'small':
+    case "small":
       return height >= 1 && height <= 3;
-    case 'medium':
+    case "medium":
       return height > 3 && height <= 6;
-    case 'large':
+    case "large":
       return height > 6;
     default:
       return false;
@@ -2518,7 +2678,10 @@ function matchesLearnedWaveRange(
  */
 function matchesLearnedWindPrefs(
   forecast: EnhancedForecast,
-  prefs: { max_wind_mph: number | null; preferred_wind_directions: number[] | null }
+  prefs: {
+    max_wind_mph: number | null;
+    preferred_wind_directions: number[] | null;
+  }
 ): boolean {
   const windSpeed = forecast.wind_speed;
   const windDir = forecast.wind_direction;
@@ -2530,8 +2693,9 @@ function matchesLearnedWindPrefs(
 
   // Check wind direction preference (within ±30 degrees)
   if (prefs.preferred_wind_directions && windDir) {
-    return prefs.preferred_wind_directions.some(prefDir =>
-      Math.abs(windDir - prefDir) <= 30 || Math.abs(windDir - prefDir) >= 330
+    return prefs.preferred_wind_directions.some(
+      (prefDir) =>
+        Math.abs(windDir - prefDir) <= 30 || Math.abs(windDir - prefDir) >= 330
     );
   }
 
@@ -2552,6 +2716,7 @@ function matchesLearnedTidePrefs(
 ```
 
 **Tests:**
+
 - Unit test: `matchesWaveSize` with all preferences
 - Unit test: `matchesLearnedWaveRange` boundary cases
 - Unit test: `matchesLearnedWindPrefs` direction tolerance
@@ -2573,11 +2738,13 @@ The implementation follows the spec with these key adjustments:
 4. **Error Handling:** Graceful degradation with try-catch block. On any error, the service returns the base score with `personalized: false`, ensuring the system never breaks even if personalization fails.
 
 5. **Wind Direction Logic:** Enhanced `matchesLearnedWindPrefs()` to properly handle edge cases:
+
    - Only checks speed if `max_wind_mph` is present
    - Only checks direction if `preferred_wind_directions` has values
    - Returns `true` if only direction prefs exist and match (even without speed constraint)
 
 6. **Test Coverage:** 33 comprehensive tests:
+
    - 23 helper function tests (all edge cases, null handling, boundary conditions)
    - 10 integration tests (scoring scenarios, combinations, caps)
    - All tests passing ✅
@@ -2591,12 +2758,14 @@ The implementation follows the spec with these key adjustments:
 **Agent:** `fullstack-engineer`
 **Status:** ✅ Completed 2025-11-03
 **Files:**
+
 - [app/api/recommendations/morning/route.ts](../../app/api/recommendations/morning/route.ts) (Enhanced with personalization)
-- [__tests__/api/recommendations/morning.test.ts](../../__tests__/api/recommendations/morning.test.ts) (NEW - 10 test scenarios)
-**Test Coverage:** 10 comprehensive tests created ✅
+- [**tests**/api/recommendations/morning.test.ts](../../__tests__/api/recommendations/morning.test.ts) (NEW - 10 test scenarios)
+  **Test Coverage:** 10 comprehensive tests created ✅
 
 **Implementation Summary:**
 Enhanced the existing morning recommendations API to integrate personalized scoring while maintaining backward compatibility with anonymous users. The implementation includes:
+
 - Optional user authentication with graceful fallback
 - Batch loading of user preferences for performance (3 parallel queries)
 - Personalized score calculation using scoreBeachForUser service
@@ -2607,26 +2776,26 @@ Enhanced the existing morning recommendations API to integrate personalized scor
 **Original File:** `app/api/recommendations/morning/route.ts`
 
 ```typescript
-import { NextRequest } from 'next/server';
-import { createApiServerClient } from '@/lib/supabase/api-server-client';
-import { createSuccessResponse, handleApiError } from '@/lib/api-utils';
-import { scoreBeachForUser } from '@/lib/services/personalized-scoring-service';
-import { getUser } from '@/lib/auth-utils';
+import { NextRequest } from "next/server";
+import { createApiServerClient } from "@/lib/supabase/api-server-client";
+import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { scoreBeachForUser } from "@/lib/services/personalized-scoring-service";
+import { getUser } from "@/lib/auth-utils";
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getUser();
     if (!user) {
-      return new Response('Unauthorized', { status: 401 });
+      return new Response("Unauthorized", { status: 401 });
     }
 
     const supabase = createApiServerClient();
 
     // 1. Get user's home beach
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('home_beach_id')
-      .eq('id', user.id)
+      .from("profiles")
+      .select("home_beach_id")
+      .eq("id", user.id)
       .single();
 
     if (!profile?.home_beach_id) {
@@ -2634,12 +2803,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Get base recommendations (existing coach picks logic)
-    const { data: baseRecs, error } = await supabase
-      .rpc('get_coach_picks', {
-        _beach_id: profile.home_beach_id,
-        _radius_km: 16, // 10 miles
-        _limit: 10, // Get more than needed for re-ranking
-      });
+    const { data: baseRecs, error } = await supabase.rpc("get_coach_picks", {
+      _beach_id: profile.home_beach_id,
+      _radius_km: 16, // 10 miles
+      _limit: 10, // Get more than needed for re-ranking
+    });
 
     if (error) {
       throw new Error(`Failed to get coach picks: ${error.message}`);
@@ -2647,22 +2815,22 @@ export async function GET(request: NextRequest) {
 
     // 3. Get current forecasts for each beach
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = now.toISOString().split("T")[0];
     const currentHour = now.getHours();
 
-    const beachIds = baseRecs.map(r => r.beach_id);
+    const beachIds = baseRecs.map((r) => r.beach_id);
 
     const { data: forecasts } = await supabase
-      .from('enhanced_forecasts')
-      .select('*')
-      .in('beach_id', beachIds)
-      .eq('forecast_date', today)
-      .gte('forecast_hour', currentHour)
-      .lte('forecast_hour', currentHour + 2);
+      .from("enhanced_forecasts")
+      .select("*")
+      .in("beach_id", beachIds)
+      .eq("forecast_date", today)
+      .gte("forecast_hour", currentHour)
+      .lte("forecast_hour", currentHour + 2);
 
     // Create forecast map
     const forecastMap = new Map();
-    forecasts?.forEach(f => {
+    forecasts?.forEach((f) => {
       if (!forecastMap.has(f.beach_id)) {
         forecastMap.set(f.beach_id, f);
       }
@@ -2710,7 +2878,7 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse({
       recommendations: topRecs,
-      personalized: topRecs.some(r => r.personalized),
+      personalized: topRecs.some((r) => r.personalized),
     });
   } catch (error) {
     return handleApiError(error);
@@ -2719,6 +2887,7 @@ export async function GET(request: NextRequest) {
 ```
 
 **Tests:**
+
 - Integration test: Morning API returns personalized scores
 - Integration test: Morning API works without preferences (base scores)
 - Integration test: Scores are re-ranked correctly
@@ -2734,15 +2903,18 @@ export async function GET(request: NextRequest) {
 Successfully created the PersonalizedBadge component with comprehensive test coverage (25 tests, all passing). The component provides visual indicators for personalized recommendations with score breakdowns and beach affinity badges.
 
 **Files Created:**
+
 - `components/recommendations/PersonalizedBadge.tsx` (159 lines)
 - `components/recommendations/index.ts` (export file)
 - `__tests__/components/recommendations/PersonalizedBadge.test.tsx` (25 tests passing)
 
 **Files Modified:**
+
 - `CHANGELOG.md` (added Workpath 6.3 completion entry)
 - `docs/features/PERSONALIZATION_FORECAST_IMPLEMENTATION.md` (updated status)
 
 **Component Features Implemented:**
+
 - ✅ "Personalized for you" badge with Sparkles icon
 - ✅ Score breakdown tooltip (base score, preferences, learned behavior, affinity)
 - ✅ Beach affinity badge ("You've surfed here X×")
@@ -2752,6 +2924,7 @@ Successfully created the PersonalizedBadge component with comprehensive test cov
 - ✅ Edge case handling (negative values, large session counts, custom className)
 
 **Test Coverage:** 25 tests (100% passing)
+
 - Rendering states: 5 tests
 - Score breakdown tooltip: 4 tests
 - Affinity badge: 5 tests
@@ -2762,8 +2935,13 @@ Successfully created the PersonalizedBadge component with comprehensive test cov
 **Original Specification:** `components/recommendations/PersonalizedBadge.tsx`
 
 ```tsx
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PersonalizedBadgeProps {
   personalized: boolean;
@@ -2782,7 +2960,7 @@ interface PersonalizedBadgeProps {
 export function PersonalizedBadge({
   personalized,
   breakdown,
-  affinityData
+  affinityData,
 }: PersonalizedBadgeProps) {
   if (!personalized) return null;
 
@@ -2804,10 +2982,16 @@ export function PersonalizedBadge({
                 <>
                   <p>Base: {breakdown.base.toFixed(0)} pts</p>
                   {breakdown.onboardingPrefs > 0 && (
-                    <p>Your preferences: +{breakdown.onboardingPrefs.toFixed(0)} pts</p>
+                    <p>
+                      Your preferences: +{breakdown.onboardingPrefs.toFixed(0)}{" "}
+                      pts
+                    </p>
                   )}
                   {breakdown.learnedPrefs > 0 && (
-                    <p>Learned from history: +{breakdown.learnedPrefs.toFixed(0)} pts</p>
+                    <p>
+                      Learned from history: +{breakdown.learnedPrefs.toFixed(0)}{" "}
+                      pts
+                    </p>
                   )}
                   {breakdown.affinity > 0 && (
                     <p>Familiarity: +{breakdown.affinity.toFixed(0)} pts</p>
@@ -2832,8 +3016,9 @@ export function PersonalizedBadge({
 ```
 
 **Usage:**
+
 ```tsx
-import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadge';
+import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 
 <div className="recommendation-card">
   <h3>{rec.beachName}</h3>
@@ -2842,18 +3027,21 @@ import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadg
     personalized={rec.personalized}
     breakdown={rec.breakdown}
     affinityData={
-      rec.affinity ? {
-        sessionCount: rec.affinity.session_count,
-        lastSurfed: new Date(rec.affinity.last_surfed_at)
-      } : undefined
+      rec.affinity
+        ? {
+            sessionCount: rec.affinity.session_count,
+            lastSurfed: new Date(rec.affinity.last_surfed_at),
+          }
+        : undefined
     }
   />
 
   {/* Rest of recommendation card */}
-</div>
+</div>;
 ```
 
 **Tests:**
+
 - Unit test: Badge renders when personalized
 - Unit test: Badge hidden when not personalized
 - Unit test: Tooltip shows breakdown
@@ -2867,6 +3055,7 @@ import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadg
 **Status:** Component exists but is **NOT INTEGRATED** into any user-facing UI
 
 **Evidence:**
+
 - Grep search shows only test files import `PersonalizedBadge`
 - Home screen component (`components/home-screen/index.tsx`) does not use the badge
 - Beach detail components do not use the badge
@@ -2875,12 +3064,14 @@ import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadg
 **Missing Integration Points:**
 
 1. **Home Screen Morning Recommendations** (PRIMARY) ⭐
+
    - **File:** `components/home-screen/index.tsx`
    - **Data Available:** Morning API already returns `personalized`, `breakdown`, `affinityData`
    - **Action Needed:** Import badge, pass data to recommendation cards
    - **Impact:** HIGH - Makes personalization visible to users
 
 2. **Beach Detail Forecast Display** (SECONDARY)
+
    - **Files:** `components/beach-detail/tabs/forecast-tab.tsx`
    - **Action Needed:** Show personalized badge when viewing forecast
    - **Impact:** MEDIUM - Reinforces personalization
@@ -2891,6 +3082,7 @@ import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadg
    - **Impact:** LOW - Nice-to-have for map exploration
 
 **Next Steps Required:**
+
 1. Import `PersonalizedBadge` in home screen component
 2. Extract personalization data from morning API response
 3. Conditionally render badge when `personalized: true`
@@ -2902,6 +3094,7 @@ import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadg
 **Impact:** ✨ **CRITICAL** - Completes the personalization feature end-to-end
 
 **Why This Matters:**
+
 - Backend has been computing personalized scores since Workpath 6.2
 - Users cannot tell their recommendations are personalized
 - All the infrastructure is ready, just needs UI polish
@@ -2912,33 +3105,36 @@ import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadg
 ## Testing Strategy
 
 ### Unit Tests (Jest + Testing Library)
+
 **Coverage Target:** 95%+
 
 **Priority Files:**
+
 - All service functions (`lib/services/*-service.ts`)
 - Algorithm logic (percentiles, scoring, confidence)
 - UI components (badges, indicators)
 - Schema validation (`lib/schemas/onboarding-schemas.ts`)
 
 **Example:**
+
 ```typescript
-describe('preference-learning-service', () => {
-  describe('percentile', () => {
-    it('calculates 50th percentile correctly', () => {
+describe("preference-learning-service", () => {
+  describe("percentile", () => {
+    it("calculates 50th percentile correctly", () => {
       expect(percentile([1, 2, 3, 4, 5], 50)).toBe(3);
     });
 
-    it('handles 10th percentile', () => {
+    it("handles 10th percentile", () => {
       expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 10)).toBe(1.9);
     });
   });
 
-  describe('calculateConfidence', () => {
-    it('returns 0.5 for 5 sessions', () => {
+  describe("calculateConfidence", () => {
+    it("returns 0.5 for 5 sessions", () => {
       expect(calculateConfidence(5)).toBeCloseTo(0.5, 1);
     });
 
-    it('returns 0.95+ for 20+ sessions', () => {
+    it("returns 0.95+ for 20+ sessions", () => {
       expect(calculateConfidence(20)).toBeGreaterThan(0.95);
     });
   });
@@ -2946,9 +3142,11 @@ describe('preference-learning-service', () => {
 ```
 
 ### Integration Tests
+
 **Coverage Target:** All server actions + API routes
 
 **Priority Tests:**
+
 - Session creation captures conditions
 - Onboarding saves all fields (including previously missing ones)
 - Preference computation from sessions
@@ -2956,11 +3154,12 @@ describe('preference-learning-service', () => {
 - Morning API returns personalized recommendations
 
 **Example:**
+
 ```typescript
-describe('session-actions', () => {
-  it('creates session and captures conditions', async () => {
+describe("session-actions", () => {
+  it("creates session and captures conditions", async () => {
     const session = await createSession({
-      beach_id: 'test-beach-id',
+      beach_id: "test-beach-id",
       arrival_time: new Date().toISOString(),
       duration_minutes: 60,
       rating: 4,
@@ -2977,56 +3176,65 @@ describe('session-actions', () => {
 ```
 
 ### E2E Tests (Playwright)
+
 **Coverage Target:** Critical user flows
 
 **Priority Tests:**
 
 1. **Forecast Transparency**
+
 ```typescript
-test('beach page displays forecast source badges', async ({ page }) => {
-  await page.goto('/beaches/mission-beach');
+test("beach page displays forecast source badges", async ({ page }) => {
+  await page.goto("/beaches/mission-beach");
 
   // Verify source badge visible
-  await expect(page.locator('[data-testid="forecast-source-badge"]')).toBeVisible();
+  await expect(
+    page.locator('[data-testid="forecast-source-badge"]')
+  ).toBeVisible();
 
   // Verify confidence indicator
-  await expect(page.locator('[data-testid="confidence-indicator"]')).toBeVisible();
+  await expect(
+    page.locator('[data-testid="confidence-indicator"]')
+  ).toBeVisible();
 
   // Verify last updated timestamp
-  await expect(page.locator('[data-testid="data-freshness"]')).toContainText(/Updated .* ago/);
+  await expect(page.locator('[data-testid="data-freshness"]')).toContainText(
+    /Updated .* ago/
+  );
 });
 ```
 
 2. **Enhanced Onboarding**
+
 ```typescript
-test('complete onboarding with surf preferences', async ({ page }) => {
-  await page.goto('/onboarding');
+test("complete onboarding with surf preferences", async ({ page }) => {
+  await page.goto("/onboarding");
 
   // Step 1: Welcome
   await page.click('button:has-text("Get Started")');
 
   // Step 2: Profile
-  await page.fill('input[name="fullName"]', 'Test User');
-  await page.fill('input[name="displayName"]', 'testuser');
+  await page.fill('input[name="fullName"]', "Test User");
+  await page.fill('input[name="displayName"]', "testuser");
   await page.click('button:has-text("Continue")');
 
   // Step 3: Home Beach
-  await page.fill('input[placeholder*="Search"]', 'Mission Beach');
-  await page.click('text=Mission Beach');
+  await page.fill('input[placeholder*="Search"]', "Mission Beach");
+  await page.click("text=Mission Beach");
   await page.click('button:has-text("Continue")');
 
   // Step 4: Preferences (existing + new)
-  await page.click('text=Intermediate');
-  await page.click('text=Shortboard');
+  await page.click("text=Intermediate");
+  await page.click("text=Shortboard");
 
   // NEW: Wave size preference
-  await page.click('text=Medium waves');
+  await page.click("text=Medium waves");
 
   // NEW: Break type preference
-  await page.click('text=Beach break');
+  await page.click("text=Beach break");
 
   // NEW: Crowd preference
-  await page.click('text=A few people is fine');
+  await page.click("text=A few people is fine");
 
   await page.click('button:has-text("Continue")');
 
@@ -3035,59 +3243,61 @@ test('complete onboarding with surf preferences', async ({ page }) => {
 
   // Verify profile saved correctly
   const profile = await getProfile(userId);
-  expect(profile.display_name).toBe('testuser');
-  expect(profile.surf_styles).toContain('shortboard');
-  expect(profile.preferred_wave_size).toBe('medium');
-  expect(profile.preferred_break_type).toBe('beach');
-  expect(profile.crowd_preference).toBe('moderate');
+  expect(profile.display_name).toBe("testuser");
+  expect(profile.surf_styles).toContain("shortboard");
+  expect(profile.preferred_wave_size).toBe("medium");
+  expect(profile.preferred_break_type).toBe("beach");
+  expect(profile.crowd_preference).toBe("moderate");
 });
 ```
 
 3. **Session Conditions Capture**
+
 ```typescript
-test('create session and verify conditions captured', async ({ page }) => {
-  await page.goto('/sessions/new');
+test("create session and verify conditions captured", async ({ page }) => {
+  await page.goto("/sessions/new");
 
-  await page.fill('input[name="beach"]', 'Mission Beach');
-  await page.click('text=Mission Beach');
+  await page.fill('input[name="beach"]', "Mission Beach");
+  await page.click("text=Mission Beach");
 
-  await page.fill('input[name="arrivalTime"]', '2025-11-03T08:00');
-  await page.fill('input[name="duration"]', '90');
+  await page.fill('input[name="arrivalTime"]', "2025-11-03T08:00");
+  await page.fill('input[name="duration"]', "90");
   await page.click('button:has-text("5 stars")');
 
   await page.click('button:has-text("Save Session")');
 
   // Verify session created
-  await expect(page.locator('text=Session saved')).toBeVisible();
+  await expect(page.locator("text=Session saved")).toBeVisible();
 
   // Navigate to session details
-  await page.click('text=View Session');
+  await page.click("text=View Session");
 
   // Verify conditions displayed (future feature)
-  await expect(page.locator('text=Wave Height')).toBeVisible();
-  await expect(page.locator('text=Wind Speed')).toBeVisible();
+  await expect(page.locator("text=Wave Height")).toBeVisible();
+  await expect(page.locator("text=Wind Speed")).toBeVisible();
 });
 ```
 
 4. **Personalized Recommendations**
+
 ```typescript
-test('morning recommendations show personalized badge', async ({ page }) => {
+test("morning recommendations show personalized badge", async ({ page }) => {
   // User with preferences and history
   await setupUserWithPreferences(userId);
   await createSessions(userId, 10); // Create history
 
-  await page.goto('/');
+  await page.goto("/");
 
   // Check morning recommendations
-  await expect(page.locator('text=Best for you this morning')).toBeVisible();
+  await expect(page.locator("text=Best for you this morning")).toBeVisible();
 
   // Verify personalized badge
   const firstRec = page.locator('[data-testid="recommendation-card"]').first();
-  await expect(firstRec.locator('text=✨ Personalized for you')).toBeVisible();
+  await expect(firstRec.locator("text=✨ Personalized for you")).toBeVisible();
 
   // Hover to see breakdown
   await firstRec.locator('[data-testid="personalized-badge"]').hover();
-  await expect(page.locator('text=Your preferences:')).toBeVisible();
+  await expect(page.locator("text=Your preferences:")).toBeVisible();
 });
 ```
 
@@ -3096,14 +3306,17 @@ test('morning recommendations show personalized badge', async ({ page }) => {
 ## Deployment Strategy (Simplified)
 
 ### No Feature Flags
+
 With 400 users, deploy directly in phases:
 
 ### Week 1: Forecast Transparency
+
 - ✅ Deploy UI components (read-only changes)
 - ✅ No data changes
 - ✅ Low risk
 
 ### Week 2: Onboarding + Session Conditions
+
 - ⚠️ Apply migrations during low-traffic hours (3am PT)
 - ⚠️ Backup database before push: `supabase db dump > backup.sql`
 - ✅ Deploy enhanced onboarding
@@ -3111,11 +3324,13 @@ With 400 users, deploy directly in phases:
 - ✅ Run backfill script manually
 
 ### Week 3: Affinity + Preferences
+
 - ⚠️ Apply migrations
 - ✅ Run initial affinity computation
 - ✅ Enable preference learning cron
 
 ### Week 4: Personalized Scoring
+
 - ✅ Deploy personalized scoring service
 - ✅ Update morning API
 - ✅ Monitor for performance impact
@@ -3123,6 +3338,7 @@ With 400 users, deploy directly in phases:
 ### Migration Safety Protocol
 
 **Before Every Migration:**
+
 ```bash
 # 1. Test locally
 supabase db reset
@@ -3135,6 +3351,7 @@ supabase db push
 ```
 
 **Rollback Plan:**
+
 - Each migration has rollback SQL
 - Keep backups for 30 days
 - Test rollbacks locally before production use
@@ -3142,12 +3359,14 @@ supabase db push
 ### Monitoring
 
 **Key Metrics to Watch:**
+
 - Session creation success rate (should stay >99%)
 - Morning API response time (target: <150ms p50)
 - Preference computation success rate
 - User onboarding completion rate
 
 **Alerts:**
+
 - Sentry for error tracking
 - Supabase dashboard for query performance
 - Vercel analytics for API latency
@@ -3157,17 +3376,20 @@ supabase db push
 ## Success Metrics
 
 ### Week 1-2: Transparency + Onboarding
+
 - ✅ 100% forecast displays show source badges
 - ✅ 80%+ new users complete enhanced onboarding
 - ✅ 0 data loss on display_name/surf_styles
 - ✅ <5% increase in onboarding drop-off rate
 
 ### Week 3: Conditions + Affinity
+
 - ✅ 90%+ new sessions capture conditions
 - ✅ Affinity scores computed for all active users
 - ✅ 70%+ historical sessions backfilled
 
 ### Week 4: Personalization
+
 - **Target:** +15% session creation rate
 - **Target:** +20% morning notification CTR
 - **Target:** +10% DAU (daily active users)
@@ -3175,6 +3397,7 @@ supabase db push
 - **Target:** No performance regression (API <150ms p50)
 
 ### User Feedback
+
 - Monitor app store reviews for sentiment
 - Track support requests related to recommendations
 - Survey users: "Do recommendations feel personalized?"
@@ -3255,22 +3478,22 @@ vercel.json                                         # MODIFIED (add cron)
 
 ## Agent Assignment Summary
 
-| Week | Phase | Agent | Primary Workpath | Estimated Hours | Actual |
-|------|-------|-------|------------------|-----------------|--------|
-| 1 | Transparency | frontend-developer | Forecast UI components | 8-10h | ✅ 2h (BuoyStationLink only) |
-| 1 | Transparency | nextjs-developer | Data integration | 6-8h | ✅ 0h (already complete) |
-| 1-2 | Onboarding | supabase-db-expert | Migration (fix + new fields) | 4-6h |
-| 1-2 | Onboarding | fullstack-engineer | Enhance preferences step | 10-12h |
-| 2 | Conditions | supabase-db-expert | Session conditions schema | 4-6h |
-| 2 | Conditions | backend-developer | Snapshot service + backfill | 12-15h |
-| 2 | Conditions | fullstack-engineer | Session action integration | 4-6h |
-| 2-3 | Affinity | supabase-db-expert | Affinity table + trigger + function | 6-8h |
-| 2-3 | Affinity | backend-developer | Initial computation script | 2-4h |
-| 3 | Preferences | supabase-db-expert | Preferences schema | 3-4h |
-| 3 | Preferences | backend-developer | Learning service + cron | 15-18h |
-| 4 | Scoring | backend-developer | Personalized scoring service | 10-12h |
-| 4 | Integration | fullstack-engineer | Morning API + UI badges | 8-10h |
-| 4 | Testing | qa-expert | E2E test suite | 8-10h |
+| Week | Phase        | Agent              | Primary Workpath                    | Estimated Hours | Actual                       |
+| ---- | ------------ | ------------------ | ----------------------------------- | --------------- | ---------------------------- |
+| 1    | Transparency | frontend-developer | Forecast UI components              | 8-10h           | ✅ 2h (BuoyStationLink only) |
+| 1    | Transparency | nextjs-developer   | Data integration                    | 6-8h            | ✅ 0h (already complete)     |
+| 1-2  | Onboarding   | supabase-db-expert | Migration (fix + new fields)        | 4-6h            |
+| 1-2  | Onboarding   | fullstack-engineer | Enhance preferences step            | 10-12h          |
+| 2    | Conditions   | supabase-db-expert | Session conditions schema           | 4-6h            |
+| 2    | Conditions   | backend-developer  | Snapshot service + backfill         | 12-15h          |
+| 2    | Conditions   | fullstack-engineer | Session action integration          | 4-6h            |
+| 2-3  | Affinity     | supabase-db-expert | Affinity table + trigger + function | 6-8h            |
+| 2-3  | Affinity     | backend-developer  | Initial computation script          | 2-4h            |
+| 3    | Preferences  | supabase-db-expert | Preferences schema                  | 3-4h            |
+| 3    | Preferences  | backend-developer  | Learning service + cron             | 15-18h          |
+| 4    | Scoring      | backend-developer  | Personalized scoring service        | 10-12h          |
+| 4    | Integration  | fullstack-engineer | Morning API + UI badges             | 8-10h           |
+| 4    | Testing      | qa-expert          | E2E test suite                      | 8-10h           |
 
 **Total Estimated Effort:** ~120-140 hours (~3-4 weeks for 1 developer, ~2 weeks for 2 developers)
 
@@ -3279,19 +3502,23 @@ vercel.json                                         # MODIFIED (add cron)
 ## Risk Assessment & Mitigation
 
 ### Low Risk ✅
+
 - Forecast transparency UI (read-only)
 - Beach affinity computation (aggregation only)
 - Personalized badges (UI only)
 
 ### Medium Risk ⚠️
+
 - Onboarding migration (fixes critical bugs, must test thoroughly)
 - Session conditions capture (non-blocking, graceful failure)
 - Preference learning (algorithm complexity, requires validation)
 
 ### High Risk 🔴
+
 - None (simplified rollout removes feature flag complexity)
 
 ### Mitigation Strategies
+
 1. **Test migrations locally:** `supabase db reset` before every push
 2. **Backup before migrations:** Automated + manual backups
 3. **Non-blocking captures:** Session creation succeeds even if conditions fail
@@ -3303,18 +3530,21 @@ vercel.json                                         # MODIFIED (add cron)
 ## Appendix: Key Decisions
 
 ### Why No Feature Flags?
+
 - 400 users is small enough for direct deployment
 - Feature flags add complexity (code, config, monitoring)
 - Gradual rollout not needed for this user base
 - Faster iteration without flag management overhead
 
 ### Why Enhance Existing Onboarding vs New Step?
+
 - Avoids increasing total steps (risk of fatigue)
 - Questions are contextually related (all about surf preferences)
 - Maintains "Takes less than 2 minutes" promise
 - Reuses existing UI patterns
 
 ### Why 3 New Onboarding Questions?
+
 - Wave size: Most critical for recommendations
 - Break type: Already in beaches table, easy to filter
 - Crowd: Unique social dimension, differentiator
@@ -3322,16 +3552,19 @@ vercel.json                                         # MODIFIED (add cron)
 - **Rejected:** Time of day (can infer from session patterns)
 
 ### Why Learn from Rating ≥3 Sessions Only?
+
 - Bad sessions (rating 1-2) teach us what to AVOID, harder to model
 - Good sessions (3-5) teach us what user ENJOYS, clearer signal
 - Reduces noise from forced sessions (e.g., bad conditions but only day off)
 
 ### Why Percentile Ranges vs Simple Average?
+
 - Percentiles robust to outliers (one epic 10ft day doesn't skew range)
 - 10th-90th captures "typical range" while excluding extremes
 - Handles varied data better than mean±stddev
 
 ### Why Sigmoid Confidence Function?
+
 - Reflects diminishing returns (20 → 21 sessions less informative than 5 → 6)
 - Smooth curve (no hard cutoffs)
 - Industry standard for confidence modeling
@@ -3352,6 +3585,7 @@ vercel.json                                         # MODIFIED (add cron)
 ## Documentation Updates Required
 
 After implementation:
+
 - [ ] `CHANGELOG.md` — Add Phase 1 completion to `[Unreleased]` section
 - [ ] `README.md` — Update features list (if needed)
 - [ ] `docs/PERSONALIZATION_STRATEGY.md` — Mark Phase 1 as complete
@@ -3374,6 +3608,7 @@ After implementation:
 **Completed:** 2025-11-03 (1 day vs 3-4 day estimate)
 
 **What Was Delivered:**
+
 - ✅ BuoyStationLink component (3 variants, 35 tests)
 - ✅ Integration with ForecastDataSourceIndicator
 - ✅ Full test coverage and documentation
@@ -3383,6 +3618,7 @@ After implementation:
 The forecast transparency feature was **already 80% complete** in the codebase. The `ForecastDataSourceIndicator` component already provided all functionality planned for separate ForecastSourceBadge, ConfidenceIndicator, and DataFreshnessIndicator components. Only BuoyStationLink was missing and has now been implemented.
 
 **Technical Highlights:**
+
 - Zero-distance edge case handling (0 km → "0m" not empty)
 - Miles-to-km conversion at integration point
 - Progressive enhancement with 3 display variants

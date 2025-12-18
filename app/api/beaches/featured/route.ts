@@ -18,7 +18,10 @@ import {
 } from "@/lib/constants/featured-beaches-config";
 
 // Type for beach data selected from database
-type BeachSelect = Pick<Beach, 'id' | 'name' | 'city' | 'state' | 'slug'>;
+type BeachSelect = Pick<
+  Beach,
+  "id" | "name" | "city" | "state" | "slug" | "average_rating" | "review_count" | "skill_level"
+>;
 
 // Type for enriched beach with photo URL
 interface EnrichedBeach extends BeachSelect {
@@ -62,6 +65,9 @@ const mapBeachRecord = (
     city: sanitizeOptional(beach.city),
     state: sanitizeOptional(beach.state),
     slug: sanitizeOptional(beach.slug),
+    average_rating: beach.average_rating ?? null,
+    review_count: beach.review_count ?? null,
+    skill_level: sanitizeOptional(beach.skill_level),
     photo_url: photoUrl,
     has_real_photo: hasRealPhoto && Boolean(photoUrl),
   };
@@ -125,7 +131,7 @@ async function fetchBeachesWithPhotos(
 
   const { data: beachesWithPhotos, error: beachesError } = await supabase
     .from("beaches")
-    .select("id, name, city, state, slug")
+    .select("id, name, city, state, slug, average_rating, review_count, skill_level")
     .eq("is_private", false)
     .in("id", beachIdsWithPhotos);
 
@@ -170,7 +176,7 @@ async function fetchBeachesWithoutPhotos(
 
   let query = supabase
     .from("beaches")
-    .select("id, name, city, state, slug")
+    .select("id, name, city, state, slug, average_rating, review_count, skill_level")
     .eq("is_private", false);
 
   if (exclusionSet.size > 0) {

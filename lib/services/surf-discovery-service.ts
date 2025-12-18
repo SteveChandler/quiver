@@ -81,6 +81,7 @@ export async function discoverSurfSpots(
   const {
     userLocation,
     radiusMiles = 25,
+    horizonHours,
     maxResults = DEFAULT_MAX_RESULTS,
     includeHome = true,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
@@ -147,7 +148,7 @@ export async function discoverSurfSpots(
     ]);
 
     for (const { beach, forecasts } of beachForecasts) {
-      const bestWindow = selectBestWindow(forecasts, beach, userPrefs);
+      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours);
       if (!bestWindow) {
         console.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
@@ -827,7 +828,8 @@ function scoreForecastWindow(
 function selectBestWindow(
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
-  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null
+  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
+  horizonHours?: number
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
@@ -867,6 +869,16 @@ function selectBestWindow(
 
     // 4. Apply time-decay penalty
     const hoursAhead = (forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    // Optional hard horizon for "next 24 hours" UX: ignore windows beyond the horizon.
+    if (
+      typeof horizonHours === "number" &&
+      Number.isFinite(horizonHours) &&
+      hoursAhead > horizonHours
+    ) {
+      continue;
+    }
+
     const cappedHours = Math.min(hoursAhead, MAX_TIME_DECAY_HOURS);
     const timeDecay = cappedHours * TIME_DECAY_PER_HOUR;
     const adjustedScore = composite - timeDecay;
@@ -897,6 +909,7 @@ function selectBestWindow(
   // Build window from best forecast
   // Parse as UTC since forecast times are stored in UTC
   const windowStart = new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}Z`);
+
   return {
     start: windowStart,
     end: new Date(windowStart.getTime() + WINDOW_HOURS * 60 * 60 * 1000),

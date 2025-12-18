@@ -13,7 +13,8 @@ import {
 } from "@/lib/utils/wave-height-formatter";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { getFavoriteBeaches } from "@/actions/beach/beach-favorite-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
@@ -367,7 +368,7 @@ export function InteractiveMap({
                     ...b,
                     _d: calculateDistanceInMiles(
                       { lat: latitude, lon: longitude },
-                      { lat: b.lat, lon: b.lon }
+                      { lat: b.lat ?? NaN, lon: b.lon ?? NaN }
                     ),
                   }))
                   .filter((b: any) => isFinite(b._d) && b._d <= 30)
@@ -428,8 +429,9 @@ export function InteractiveMap({
           isFinite(lon);
 
         // Filter out beaches with invalid coordinates before creating markers
-        const validLocations = locations.filter((location) =>
-          hasValidCoordinates(location.lat, location.lon)
+        const validLocations = locations.filter(
+          (location): location is Beach & { lat: number; lon: number } =>
+            hasValidCoordinates(location.lat, location.lon)
         );
 
         // Create markers for each beach with valid coordinates

@@ -3,12 +3,18 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import {
   parseUTMParams,
   parseAttributionFromRequestCookies,
   generateAttributionCookieHeaders,
   type AttributionData,
 } from "@/lib/attribution";
+import {
+  extractIPLocation,
+  serializeIPLocation,
+  getIPLocationCookieName,
+} from "@/lib/location/ip-location";
 
 // Only enable verbose logging in development
 const isDev = process.env.NODE_ENV === "development";
@@ -33,15 +39,58 @@ function log(message: string, data?: any) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Legacy California city route redirect
-  // Redirect /ca/san-diego and /ca/orange-county to new /beaches/usa/ca/* routes
-  const legacyCaMatch = pathname.match(/^\/ca\/(san-diego|orange-county)$/);
-  if (legacyCaMatch) {
-    const city = legacyCaMatch[1];
-    return NextResponse.redirect(
-      new URL(`/beaches/usa/ca/${city}`, request.url),
-      { status: 301 }
-    );
+  /**
+   * Canonical city pages (SEO)
+   *
+   * Canonical: /{state}/{city}
+   * Legacy:    /beaches/usa/{state}/{city}
+   *
+   * We keep the legacy URLs working via a 301 to the canonical, while rewriting
+   * canonical requests to the existing location page implementation.
+   */
+
+  // Redirect legacy location page URLs to canonical short URLs
+  // Example: /beaches/usa/hi/haleiwa -> /hi/haleiwa
+  const legacyLocationMatch = pathname.match(
+    /^\/beaches\/usa\/([^/]+)\/([^/]+)$/
+  );
+  if (legacyLocationMatch) {
+    const state = legacyLocationMatch[1]?.toLowerCase() || "";
+    const city = legacyLocationMatch[2]?.toLowerCase() || "";
+
+    if (isValidStateSlug(state)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/${state}/${city}`;
+      return NextResponse.redirect(redirectUrl, { status: 301 });
+    }
+  }
+
+  // Location page shortcut redirect
+  // Redirect /beaches/ca/san-diego -> /ca/san-diego
+  const beachesStateCityMatch = pathname.match(/^\/beaches\/([^/]+)\/([^/]+)$/);
+  if (beachesStateCityMatch) {
+    const state = beachesStateCityMatch[1]?.toLowerCase() || "";
+    const city = beachesStateCityMatch[2]?.toLowerCase() || "";
+
+    if (isValidStateSlug(state)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/${state}/${city}`;
+      return NextResponse.redirect(redirectUrl, { status: 308 });
+    }
+  }
+
+  // Rewrite canonical short city URLs to the existing location page route
+  // Example: /hi/haleiwa -> internally serve /beaches/usa/hi/haleiwa
+  const canonicalCityMatch = pathname.match(/^\/([^/]+)\/([^/]+)$/);
+  if (canonicalCityMatch) {
+    const state = canonicalCityMatch[1]?.toLowerCase() || "";
+    const city = canonicalCityMatch[2]?.toLowerCase() || "";
+
+    if (isValidStateSlug(state)) {
+      const rewriteUrl = request.nextUrl.clone();
+      rewriteUrl.pathname = `/beaches/usa/${state}/${city}`;
+      return NextResponse.rewrite(rewriteUrl);
+    }
   }
 
   // Classify the route to determine access requirements
@@ -116,6 +165,9 @@ function createSecureResponse(request: NextRequest): NextResponse {
   // Capture UTM attribution parameters
   captureAttributionParams(request, response);
 
+  // Capture IP-based location for dynamic content
+  captureIPLocation(request, response);
+
   return response;
 }
 
@@ -184,6 +236,62 @@ function captureAttributionParams(
     // Don't let attribution errors break the middleware
     if (isDev) {
       console.warn("[Middleware] Attribution capture error:", error);
+    }
+  }
+}
+
+/**
+ * Capture IP-based location from Vercel geolocation headers.
+ * Sets a cookie for client-side access to enable dynamic location display.
+ *
+ * In production (Vercel), headers like x-vercel-ip-city are populated automatically.
+ * In development, uses fallback values for testing.
+ */
+function captureIPLocation(
+  request: NextRequest,
+  response: NextResponse
+): void {
+  try {
+    const cookieName = getIPLocationCookieName();
+
+    // Skip if cookie already exists (don't overwrite on every request)
+    const existingCookie = request.cookies.get(cookieName);
+    if (existingCookie?.value) {
+      return;
+    }
+
+    // Extract IP location from Vercel headers (or use dev fallback)
+    let ipLocation = extractIPLocation(request.headers);
+
+    // In development, use fallback values since Vercel headers aren't available
+    if (isDev && !ipLocation.city) {
+      ipLocation = {
+        city: process.env.DEV_IP_CITY || 'San Diego',
+        region: process.env.DEV_IP_REGION || 'CA',
+        country: process.env.DEV_IP_COUNTRY || 'US',
+        latitude: parseFloat(process.env.DEV_IP_LAT || '32.7157'),
+        longitude: parseFloat(process.env.DEV_IP_LON || '-117.1611'),
+      };
+    }
+
+    // Only set cookie if we have location data
+    if (ipLocation.city || ipLocation.latitude) {
+      response.cookies.set({
+        name: cookieName,
+        value: serializeIPLocation(ipLocation),
+        httpOnly: false, // Must be readable by client-side JS
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60, // 1 hour - refreshes on each new session
+        path: '/',
+      });
+
+      log(`[Middleware] IP location captured: ${ipLocation.city}, ${ipLocation.region}`);
+    }
+  } catch (error) {
+    // Don't let IP location errors break the middleware
+    if (isDev) {
+      console.warn("[Middleware] IP location capture error:", error);
     }
   }
 }

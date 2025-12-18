@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { useGeo } from "@/hooks/useGeo";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
@@ -12,7 +12,7 @@ import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 interface NearbyBeach {
   id: string;
   name: string;
-  latitude: number;  // Mapped from lat in API response
+  latitude: number; // Mapped from lat in API response
   longitude: number; // Mapped from lon in API response
   slug: string | null;
   city: string | null;
@@ -31,13 +31,14 @@ export function NearbyBeachChips({
   onSelect,
 }: NearbyBeachChipsProps) {
   const router = useRouter();
+  // Never auto-prompt on home; only request on explicit CTA click.
   const {
     coords,
     loading: geoLoading,
     error: geoError,
     requestLocation,
     setLastBeach,
-  } = useGeo();
+  } = useGeolocation({ autoRequest: false });
 
   const fetchNearby = useCallback(async (): Promise<NearbyBeach[] | null> => {
     if (!coords?.lat || !coords?.lon) return null;

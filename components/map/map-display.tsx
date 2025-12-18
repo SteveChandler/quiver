@@ -47,23 +47,23 @@ export function MapDisplay({
   const mapCoordinates = useMemo(
     () => ({
       lat:
-        selectedBeach?.latitude ||
+        selectedBeach?.lat ||
         (searchQuery && filteredBeaches.length > 0
-          ? filteredBeaches[0].latitude
+          ? filteredBeaches[0].lat
           : null) ||
         userLocation?.lat ||
         OCEAN_BEACH_LAT,
       lon:
-        selectedBeach?.longitude ||
+        selectedBeach?.lon ||
         (searchQuery && filteredBeaches.length > 0
-          ? filteredBeaches[0].longitude
+          ? filteredBeaches[0].lon
           : null) ||
         userLocation?.lon ||
         OCEAN_BEACH_LNG,
     }),
     [
-      selectedBeach?.latitude,
-      selectedBeach?.longitude,
+      selectedBeach?.lat,
+      selectedBeach?.lon,
       searchQuery,
       filteredBeaches,
       userLocation?.lat,

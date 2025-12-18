@@ -1,12 +1,11 @@
 // This file imports from the auto-generated database.generated.ts
 // and exports convenience type aliases for common usage patterns
 
-import type { Database } from './database.generated'
+import type { Database, Json } from './database.generated'
 import type { EnhancedForecastEntity as ForecastEnhancedForecastEntity } from './forecast'
 
 // Re-export the full Database type and JSON type
-export type { Database }
-export type Json = Database['public']['Tables']['beaches']['Row']['features']
+export type { Database, Json }
 
 // ===================================================
 // TABLE ROW TYPES - Direct database table types
@@ -97,6 +96,20 @@ export interface SessionWithDetails extends Session {
   beaches: Beach | null
   boards: Board | null
   profiles: SessionUserProfile | null
+
+  /**
+   * Back-compat fields used across UI/components.
+   *
+   * Note: `sessions` table no longer has a dedicated `session_date` column; most queries
+   * alias `arrival_time` → `session_date` for older components/tests.
+   */
+  session_date?: string | null
+
+  /**
+   * Enriched at read-time (see actions/session-actions.ts addFeaturedPhotoToSessions).
+   * Not a physical column on `sessions`.
+   */
+  featured_photo_url?: string | null
 
   // Aliases for backward compatibility with existing code
   // These are optional since queries may return either naming convention

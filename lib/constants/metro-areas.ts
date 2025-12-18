@@ -31,6 +31,12 @@ export interface MetroAreaConfig {
    */
   cities: string[];
 
+  /** Center coordinates of the metro area for distance calculations */
+  centerCoordinates: {
+    lat: number;
+    lon: number;
+  };
+
   /** Optional: SEO description for meta tags */
   description?: string;
 
@@ -55,6 +61,7 @@ const METRO_AREAS: Record<string, MetroAreaConfig> = {
     state: 'CA',
     country: 'USA',
     cities: ['La Jolla', 'Pacific Beach', 'San Diego'],
+    centerCoordinates: { lat: 32.7157, lon: -117.1611 },
     description:
       'Explore the best surf beaches across the San Diego metro area, from the world-class breaks of La Jolla to the vibrant beach scene of Pacific Beach and the iconic waves of Ocean Beach.',
     pageTitle: 'San Diego Area Surf Spots',
@@ -87,10 +94,23 @@ const METRO_AREAS: Record<string, MetroAreaConfig> = {
     state: 'CA',
     country: 'USA',
     cities: ['Huntington Beach', 'Newport Beach', 'Newport Coast', 'San Clemente', 'Laguna Beach', 'Dana Point'],
+    centerCoordinates: { lat: 33.7175, lon: -117.8311 },
     description: 'Surf the famous beaches of Orange County, California\'s premier surf destination.',
     pageTitle: 'Orange County Surf Spots',
   },
-} as const;
+};
+
+/**
+ * Export metro areas for use in location matching
+ */
+export { METRO_AREAS };
+
+/**
+ * Get all metro areas as an array
+ */
+export function getAllMetroAreas(): MetroAreaConfig[] {
+  return Object.values(METRO_AREAS);
+}
 
 /**
  * Check if a city slug corresponds to a metro area

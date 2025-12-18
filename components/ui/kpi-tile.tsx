@@ -10,15 +10,25 @@ type KpiTileProps = {
   className?: string;
   valueClassName?: string;
   labelClassName?: string;
+  onClick?: () => void;
 };
 
-export function KpiTile({ value, unit, label, className, valueClassName, labelClassName }: KpiTileProps) {
+export function KpiTile({ value, unit, label, className, valueClassName, labelClassName, onClick }: KpiTileProps) {
   return (
     <div
       className={cn(
         "flex flex-col items-center justify-center text-center w-full p-3 rounded-xl bg-card",
         className
       )}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      } : undefined}
     >
       <div className="flex items-baseline justify-center gap-1 font-semibold tabular-nums whitespace-nowrap">
         <span className={cn("text-2xl md:text-3xl leading-none", valueClassName)}>{value}</span>

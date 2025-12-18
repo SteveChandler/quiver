@@ -53,10 +53,24 @@ export function RecentSessionsList({
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium">{session.beach.name}</h3>
+                    <h3 className="font-medium">
+                      {session.beach?.name ??
+                        session.beaches?.name ??
+                        session.beach_name ??
+                        "Unknown Beach"}
+                    </h3>
                     <div className="text-sm text-muted-foreground">
-                      {session.session_date
-                        ? format(new Date(session.session_date), "MMM d, yyyy")
+                      {session.session_date ||
+                      session.arrival_time ||
+                      session.created_at
+                        ? format(
+                            new Date(
+                              session.session_date ||
+                                session.arrival_time ||
+                                session.created_at
+                            ),
+                            "MMM d, yyyy"
+                          )
                         : "No date"}
                     </div>
                   </div>

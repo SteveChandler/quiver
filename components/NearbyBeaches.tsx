@@ -38,13 +38,11 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
         const hasDestinationCoords =
           Number.isFinite(destinationLat) && Number.isFinite(destinationLon);
 
+        const destination = hasDestinationCoords
+          ? { lat: destinationLat as number, lon: destinationLon as number }
+          : null;
         const distanceMiles =
-          origin && hasDestinationCoords
-            ? milesBetween(origin, {
-                lat: destinationLat as number,
-                lon: destinationLon as number,
-              })
-            : null;
+          origin && destination ? milesBetween(origin, destination) : null;
 
         if (process.env.NODE_ENV !== "production") {
           console.debug("[NearbyBeaches] computed distance", {
@@ -75,7 +73,10 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
 
   if (!selectedBeach) return null;
 
-  const headerLabel = `${Math.min(limit, Math.max(0, otherBeaches.length))} other nearby beaches`;
+  const headerLabel = `${Math.min(
+    limit,
+    Math.max(0, otherBeaches.length)
+  )} other nearby beaches`;
 
   return (
     <section className="space-y-4">

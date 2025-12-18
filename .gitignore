@@ -126,3 +126,7 @@ supabase/backup_*.sql
 docs/*.csv
 docs/*_surf_spots.json
 ios/surf_spots_data.json
+
+# Cursor (keep config tracked, ignore logs)
+.cursor/*.log
+.cursor/debug.log

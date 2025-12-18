@@ -423,6 +423,65 @@ export class NOAACOOPSService {
 - Beach affinity: +affinity_score * 0.15 (max 15 pts)
 - Final score capped at 100
 
+### **SimilarityInsightsService** (ML-Powered Session Matching)
+
+- **Purpose**: Compares current forecast conditions to user's past high-rated sessions using ML-powered similarity scoring
+- **Status**: Active (December 2025)
+- **Features**:
+  - Bucket-based similarity scoring for robustness against exact value matching
+  - Weighted multi-factor comparison (wave height 35%, period 25%, wind speed 20%, direction 10%, tide 10%)
+  - Match quality labels: Perfect (≥80%), Great (60-79%), Good (40-59%), Low (<40%)
+  - Board tip generation when ≥60% of similar sessions used the same board
+  - Cross-spot explanations when >50% of matches come from different beaches
+  - Three insight states: ready (≥3 sessions), onboarding (<3 sessions), degraded (no snapshots)
+
+**Service Location:** `lib/services/similarity-insights-service.ts`
+
+**Algorithm Overview:**
+
+1. **Data Fetching**: Query user's rated sessions (rating ≥3) from last 12 months with forecast/board snapshots
+2. **Similarity Scoring**: Compute bucket-based similarity using weighted factors:
+   - Wave height buckets: 0-2 ft, 2-4 ft, 4-6 ft, 6-8 ft, 8+ ft (35% weight)
+   - Wave period buckets: 0-8s, 8-12s, 12-16s, 16+s (25% weight)
+   - Wind speed buckets: 0-5 mph, 5-10 mph, 10-15 mph, 15+ mph (20% weight)
+   - Wind direction: 8 cardinal directions, 45° each (10% weight)
+   - Tide height: simple range-based (10% weight)
+3. **Match Filtering**: Select top 5 sessions above 60% similarity threshold
+4. **Insight Generation**:
+   - Calculate average match percent
+   - Generate match quality label
+   - Create 2-4 reason bullets explaining the match
+   - Detect board patterns (≥60% threshold for tip)
+   - Identify cross-spot opportunities (>50% threshold)
+
+**Bucket Matching Details:**
+- Exact bucket match: 100% score
+- Adjacent bucket match: 50% score (provides tolerance for near-misses)
+- Non-adjacent or missing: 0% score
+
+**Dependencies:**
+- `sessions` table with `board_snapshot` JSONB column
+- `idx_sessions_user_rated_completed` composite index for performance
+- `createSupabaseServiceRoleClient()` for data access (userId pre-validated in API layer)
+
+**Response States:**
+- **ready**: User has ≥3 rated sessions, insights computed successfully
+- **onboarding**: User has <3 rated sessions, encouragement to log more
+- **degraded**: User has rated sessions but no forecast snapshots available
+
+**Integration:**
+- Called by `/api/surf/insights` endpoint
+- Consumed by `useInsights` hook
+- Displayed in `PersonalizedForecastCard` component
+- Board tips shown in amber UI element when detected
+- Similar sessions viewable in drawer component
+
+**Performance:**
+- Single database query with composite index
+- Lookback limited to 12 months for relevance
+- Top-K filtering (5 sessions) reduces computation
+- Fast bucket lookups vs. continuous distance calculations
+
 ### **Cache-Backed Forecast Architecture** (November 2025)
 
 #### **Operational Model**

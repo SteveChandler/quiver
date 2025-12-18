@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +31,15 @@ import {
   ForecastLoadingSkeleton,
 } from "@/components/forecast/forecast-error-state";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { useInsights } from "@/hooks/use-insights";
 import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
 import { PersonalizedForecastCard } from "@/components/home-screen/personalized-forecast-card";
 import { BeachDiscoveryList } from "@/components/discover/beach-discovery-list";
+import { SimilarSessionsDrawer } from "@/components/home-screen/similar-sessions-drawer";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -60,6 +63,7 @@ export function ForecastTab({
     hasRecommendations,
   } = useSurfDiscovery({
     maxResults: 3, // Fetch 3 recommendations - first goes to personalized card, all to list
+    horizonHours: 24, // Home screen: only consider windows in next 24 hours
     enabled: !!profile, // Only fetch when user has profile
     immediate: true, // Fetch on mount
   });
@@ -70,7 +74,43 @@ export function ForecastTab({
   const personalizedError = discoveryError;
   const hasRecommendation = hasRecommendations;
 
+  // Get top recommendation for insights
+  const topRecommendation = discovery?.recommendations[0];
+
+  // Defer insights loading by 500ms to prioritize main content rendering
+  const [insightsEnabled, setInsightsEnabled] = useState(false);
+  useEffect(() => {
+    if (!topRecommendation || !profile) return;
+
+    const timer = setTimeout(() => {
+      setInsightsEnabled(true);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [topRecommendation, profile]);
+
+  // Fetch insights for the top recommendation (deferred for performance)
+  const {
+    insights,
+    loading: insightsLoading,
+    error: insightsError,
+  } = useInsights({
+    beachId: topRecommendation?.beach.id || "",
+    beachName: topRecommendation?.beach.name || "",
+    waveHeight: topRecommendation?.window.waveHeight
+      ? parseFloat(topRecommendation.window.waveHeight.replace(/[^\d.]/g, ""))
+      : 0,
+    wavePeriod: topRecommendation?.window.wavePeriod
+      ? parseFloat(topRecommendation.window.wavePeriod.replace(/[^\d.]/g, ""))
+      : 0,
+    windSpeed: topRecommendation?.window.wind
+      ? parseFloat(topRecommendation.window.wind.split(" ")[0])
+      : 0,
+    enabled: insightsEnabled && !!topRecommendation && !!profile,
+  });
+
   const [showAdjusted, setShowAdjusted] = useState(false);
+  const [showSimilarSessions, setShowSimilarSessions] = useState(false);
   const [forecastState, setForecastState] =
     useState<ForecastDataState>("loading");
   const [forecastError, setForecastError] = useState<Error | null>(null);
@@ -127,10 +167,6 @@ export function ForecastTab({
     setForecastState("loading");
     setForecastError(null);
 
-    console.log(
-      `🏠 Home page fetching forecast for beach: ${effectiveBeach.name} (${effectiveBeach.id})`
-    );
-
     try {
       // Use the same API endpoint as beach detail page for consistency
       const response = await fetch(
@@ -159,8 +195,6 @@ export function ForecastTab({
       // Extract forecasts from the API response
       const forecasts = data?.data?.forecasts || data?.forecasts || [];
 
-      console.log(`📊 Home page received ${forecasts.length} forecasts`);
-
       if (forecasts.length === 0) {
         setForecastState("no_coverage");
         return null;
@@ -174,10 +208,6 @@ export function ForecastTab({
         getCurrentForecast<EnhancedForecastEntity>(forecasts);
 
       if (currentForecast) {
-        console.log(
-          `✅ Home page selected forecast: ${currentForecast.forecast_time}, wave: ${currentForecast.wave_height}, updated: ${currentForecast.updated_at}`
-        );
-
         // Check if data is stale
         const dataSource = currentForecast.data_source;
         const isStale = isDataStale(currentForecast.updated_at, dataSource);
@@ -192,7 +222,7 @@ export function ForecastTab({
       setForecastError(error as Error);
       return null;
     }
-  }, [effectiveBeach?.id, effectiveBeach?.name]);
+  }, [effectiveBeach?.id]);
 
   const {
     data: todaysForecast,
@@ -442,10 +472,13 @@ export function ForecastTab({
       {profile && (
         <PersonalizedForecastCard
           recommendation={recommendation}
+          insights={insights}
+          insightsLoading={insightsLoading}
           loading={personalizedLoading}
           error={personalizedError ? new Error(personalizedError) : null}
           onPlanSession={handlePlanSession}
           onViewBeach={handleViewBeachFromPersonalized}
+          onViewSimilarSessions={() => setShowSimilarSessions(true)}
         />
       )}
       {/* Surf Discovery - Top Spots for You (uses same data as personalized card) */}
@@ -706,6 +739,22 @@ export function ForecastTab({
           </CardContent>
         </Card>
       )}
+
+      {/* Similar Sessions Drawer */}
+      <SimilarSessionsDrawer
+        open={showSimilarSessions}
+        onOpenChange={setShowSimilarSessions}
+        sessions={insights?.similarSessions || []}
+        currentConditions={
+          topRecommendation
+            ? {
+                waveHeight: topRecommendation.window.waveHeight,
+                wavePeriod: topRecommendation.window.wavePeriod,
+                wind: topRecommendation.window.wind,
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

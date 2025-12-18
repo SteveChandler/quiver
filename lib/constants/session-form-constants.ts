@@ -185,7 +185,9 @@ export const VALIDATION_MESSAGES = {
 } as const;
 
 // Helper functions
-export function getFormText(mode: SessionFormMode) {
+export function getFormText<M extends SessionFormMode>(
+  mode: M
+): (typeof SESSION_FORM_TEXT)[M] {
   return SESSION_FORM_TEXT[mode];
 }
 

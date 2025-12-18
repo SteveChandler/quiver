@@ -173,8 +173,8 @@ describe("PersonalizedForecastCard", () => {
   });
 
   describe("No Recommendation State", () => {
-    it("renders no recommendation message when recommendation is null", () => {
-      render(
+    it("renders nothing when recommendation is null", () => {
+      const { container } = render(
         <PersonalizedForecastCard
           recommendation={null}
           loading={false}
@@ -184,9 +184,8 @@ describe("PersonalizedForecastCard", () => {
         />
       );
 
-      expect(
-        screen.getByText("No personalized recommendation available.")
-      ).toBeInTheDocument();
+      // Component returns null when no recommendation
+      expect(container.firstChild).toBeNull();
     });
   });
 

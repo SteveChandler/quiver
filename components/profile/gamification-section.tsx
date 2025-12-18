@@ -5,7 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserXPCard } from "@/components/gamification/user-xp-card";
 import { BadgeGallery } from "@/components/gamification/badge-gallery";
-import { getUserXPStatus, getUserBadges, getAllBadgeDefinitions } from "@/lib/gamification-actions";
+import {
+  getUserXPStatus,
+  getUserBadges,
+  getAllBadgeDefinitions,
+} from "@/lib/gamification-actions";
 import { Trophy, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/use-toast";
@@ -20,7 +24,25 @@ interface GamificationSectionProps {
   isOwnProfile?: boolean;
 }
 
-export function GamificationSection({ user, isOwnProfile = false }: GamificationSectionProps) {
+type __GamificationCached = {
+  xpData: any;
+  userBadges: any[];
+  allBadges: any[];
+  expiresAt: number;
+};
+
+// Achievements (XP/badges) are not highly volatile; cache to make back/forward fast.
+const __GAMIFICATION_CACHE_TTL_MS = 5 * 60_000;
+const __gamificationCacheByUserId = new Map<string, __GamificationCached>();
+const __gamificationInflightByUserId = new Map<
+  string,
+  Promise<__GamificationCached>
+>();
+
+export function GamificationSection({
+  user,
+  isOwnProfile = false,
+}: GamificationSectionProps) {
   const [xpData, setXpData] = useState<any>(null);
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [allBadges, setAllBadges] = useState<any[]>([]);
@@ -33,30 +55,57 @@ export function GamificationSection({ user, isOwnProfile = false }: Gamification
 
   const loadGamificationData = async () => {
     setLoading(true);
-    try {
+
+    const cacheKey = user.id;
+    const cached = __gamificationCacheByUserId.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      setXpData(cached.xpData);
+      setUserBadges(cached.userBadges || []);
+      setAllBadges(cached.allBadges || []);
+      setLoading(false);
+      return;
+    }
+
+    const inflight = __gamificationInflightByUserId.get(cacheKey);
+    if (inflight) {
+      try {
+        const shared = await inflight;
+        setXpData(shared.xpData);
+        setUserBadges(shared.userBadges || []);
+        setAllBadges(shared.allBadges || []);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const p = (async (): Promise<__GamificationCached> => {
       const [xpResult, badgesResult, allBadgesResult] = await Promise.all([
         getUserXPStatus(),
         getUserBadges(),
         getAllBadgeDefinitions(),
       ]);
 
-      if (xpResult.success) {
-        setXpData(xpResult.data);
-      } else {
-        console.error("Failed to load XP data:", xpResult.error);
-      }
+      const next: __GamificationCached = {
+        xpData: xpResult.success ? xpResult.data : null,
+        userBadges: badgesResult.success ? badgesResult.data || [] : [],
+        allBadges: allBadgesResult.success ? allBadgesResult.data || [] : [],
+        expiresAt: Date.now() + __GAMIFICATION_CACHE_TTL_MS,
+      };
+      __gamificationCacheByUserId.set(cacheKey, next);
+      return next;
+    })();
 
-      if (badgesResult.success) {
-        setUserBadges(badgesResult.data || []);
-      } else {
-        console.error("Failed to load user badges:", badgesResult.error);
-      }
+    __gamificationInflightByUserId.set(cacheKey, p);
+    try {
+      const cachedResult = await p;
 
-      if (allBadgesResult.success) {
-        setAllBadges(allBadgesResult.data || []);
-      } else {
-        console.error("Failed to load badge definitions:", allBadgesResult.error);
+      if (!cachedResult.xpData) {
+        console.error("Failed to load XP data");
       }
+      setXpData(cachedResult.xpData);
+      setUserBadges(cachedResult.userBadges || []);
+      setAllBadges(cachedResult.allBadges || []);
     } catch (error) {
       console.error("Error loading gamification data:", error);
       toast({
@@ -65,6 +114,7 @@ export function GamificationSection({ user, isOwnProfile = false }: Gamification
         variant: "destructive",
       });
     } finally {
+      __gamificationInflightByUserId.delete(cacheKey);
       setLoading(false);
     }
   };
@@ -106,7 +156,7 @@ export function GamificationSection({ user, isOwnProfile = false }: Gamification
       {showBadgeGallery && (
         <BadgeGallery
           badges={allBadges}
-          userBadges={userBadges.map(b => b.badge_slug)}
+          userBadges={userBadges.map((b) => b.badge_slug)}
         />
       )}
 
@@ -170,7 +220,7 @@ export function GamificationSection({ user, isOwnProfile = false }: Gamification
                   </div>
                 </div>
               ))}
-              
+
               {getUpcomingBadges(allBadges, userBadges).length === 0 && (
                 <p className="text-center text-muted-foreground py-4">
                   Complete more actions to unlock new badges!
@@ -186,9 +236,9 @@ export function GamificationSection({ user, isOwnProfile = false }: Gamification
 
 // Helper function to get the next 3 badges the user can unlock
 function getUpcomingBadges(allBadges: any[], userBadges: any[]) {
-  const unlockedSlugs = new Set(userBadges.map(b => b.badge_slug));
-  
+  const unlockedSlugs = new Set(userBadges.map((b) => b.badge_slug));
+
   return allBadges
-    .filter(badge => !unlockedSlugs.has(badge.badge_slug))
+    .filter((badge) => !unlockedSlugs.has(badge.badge_slug))
     .slice(0, 3);
 }

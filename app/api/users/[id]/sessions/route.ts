@@ -42,7 +42,7 @@ async function fetchUserSessions(request: NextRequest, targetUserId: string): Pr
       .select(
         `
         *,
-        beach:beaches(id, name, lat, lon, location),
+        beach:beaches(id, name, lat, lon),
         user:profiles(id, full_name, avatar_url)
       `
       )
@@ -86,7 +86,7 @@ async function fetchUserSessions(request: NextRequest, targetUserId: string): Pr
             try {
               const { data: beachData } = await supabase
                 .from("beaches")
-                .select("id, name, lat, lon, location")
+                .select("id, name, lat, lon")
                 .eq("id", session.beach_id)
                 .single();
               beach = beachData;

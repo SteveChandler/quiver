@@ -23,6 +23,7 @@ The beach detail page is the core content page in Quiver, displaying comprehensi
 ### AllTrails Pattern Adoption
 
 We adopted the following patterns from AllTrails:
+
 - **Breadcrumb navigation** - Easy return to map
 - **Compact hero** - Single line with rating, difficulty, location
 - **Photo/map gallery** - Visual-first presentation
@@ -64,6 +65,7 @@ We adopted the following patterns from AllTrails:
 ### Navigation Components
 
 #### BeachBreadcrumb
+
 **File:** `components/beach-detail/beach-breadcrumb.tsx`
 **Purpose:** Hierarchical navigation
 
@@ -72,6 +74,7 @@ We adopted the following patterns from AllTrails:
 ```
 
 **Features:**
+
 - Back to Map link with left arrow
 - Location hierarchy (Map > Region > Beach)
 - Responsive labels (hides "Back to" on mobile)
@@ -80,6 +83,7 @@ We adopted the following patterns from AllTrails:
 ---
 
 #### BeachTabs
+
 **File:** `components/beach-detail/beach-tabs.tsx`
 **Purpose:** Main content navigation
 
@@ -96,19 +100,17 @@ useEffect(() => {
   }
 }, [searchParams]);
 
-<BeachTabs
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
->
+<BeachTabs activeTab={activeTab} onTabChange={setActiveTab}>
   <BeachTabContent value="overview">...</BeachTabContent>
   <BeachTabContent value="forecast">...</BeachTabContent>
   <BeachTabContent value="reviews">...</BeachTabContent>
   <BeachTabContent value="intel">...</BeachTabContent>
   <BeachTabContent value="sessions">...</BeachTabContent>
-</BeachTabs>
+</BeachTabs>;
 ```
 
 **Important:** Uses controlled mode to support:
+
 - Deep-linking (e.g., `/beach/slug?section=intel`)
 - Programmatic tab switching
 - Tab state tracking for analytics
@@ -123,6 +125,7 @@ useEffect(() => {
 | **Sessions** | Recent sessions, forecast accuracy comparison |
 
 **Mobile Behavior:**
+
 - Full-width tabs with horizontal scroll
 - Active tab highlighted with ocean-blue underline
 - Touch-friendly 44px minimum target size
@@ -132,6 +135,7 @@ useEffect(() => {
 ### Hero Components
 
 #### BeachHeroCompact
+
 **File:** `components/beach-detail/beach-hero-compact.tsx`
 **Purpose:** Compact beach title and metadata
 
@@ -140,6 +144,7 @@ useEffect(() => {
 ```
 
 **Displays:**
+
 - Beach name (h1)
 - Rating (⭐ 4.5)
 - Review count (23 reviews)
@@ -153,6 +158,7 @@ All metadata on a single line, wraps on mobile.
 ---
 
 #### BeachPhotoGallery
+
 **File:** `components/beach-detail/beach-photo-gallery.tsx`
 **Purpose:** Visual presentation of beach
 
@@ -161,6 +167,7 @@ All metadata on a single line, wraps on mobile.
 ```
 
 **Layout:**
+
 ```
 ┌─────────────┬──────┐
 │             │ sm 1 │
@@ -171,6 +178,7 @@ All metadata on a single line, wraps on mobile.
 ```
 
 **Features:**
+
 - Fetches 5 best beach photos
 - Hero image (left/top)
 - 2 smaller images + map (right/bottom)
@@ -183,6 +191,7 @@ All metadata on a single line, wraps on mobile.
 ### Stats & Actions Components
 
 #### BeachStatsGrid
+
 **File:** `components/beach-detail/beach-stats-grid.tsx`
 **Purpose:** Key metrics at a glance
 
@@ -191,12 +200,14 @@ All metadata on a single line, wraps on mobile.
 ```
 
 **Cards:**
+
 1. **Break Type** - Beach Break, Point, Reef, etc.
 2. **Best Swell** - Ideal swell direction (from calibration data)
 3. **Best Wind** - Offshore wind direction
 4. **Preferred Tide** - Optimal tide range in feet
 
 **Layout:**
+
 - 2x2 grid on mobile
 - 4 columns on desktop
 - Icon + label + value format
@@ -205,6 +216,7 @@ All metadata on a single line, wraps on mobile.
 ---
 
 #### BeachActions
+
 **File:** `components/beach-detail/beach-actions.tsx`
 **Purpose:** Primary and secondary actions
 
@@ -217,6 +229,7 @@ All metadata on a single line, wraps on mobile.
 ```
 
 **Buttons:**
+
 - **Get Directions** - Opens Google Maps (secondary)
 - **Log Session** - Opens modal to record a session (primary, blue)
 - **Plan Session** - Opens modal to plan future session (primary, blue)
@@ -224,6 +237,7 @@ All metadata on a single line, wraps on mobile.
 - **Set as Home Beach** - Set as default beach
 
 **Layout:**
+
 - Stacks vertically on mobile
 - Horizontal row on desktop
 - Blue buttons for session planning (primary actions)
@@ -234,6 +248,7 @@ All metadata on a single line, wraps on mobile.
 ### Modal Components
 
 #### SessionPlanningModal
+
 **File:** `components/beach-detail/session-planning-modal.tsx`
 **Purpose:** Log or plan surf sessions
 
@@ -247,10 +262,12 @@ All metadata on a single line, wraps on mobile.
 ```
 
 **Modes:**
+
 - **Log Session** - Record a past or current session
 - **Plan Session** - Schedule a future session
 
 **Features:**
+
 - Tabbed interface (Log vs Plan)
 - Dynamic SessionForm component
 - Closes on success
@@ -261,8 +278,10 @@ All metadata on a single line, wraps on mobile.
 ### Tab Content Components
 
 #### OverviewTab
+
 **File:** `components/beach-detail/tabs/overview-tab.tsx`
 **Content:**
+
 - Beach description and etiquette
 - Feature tags (parking, restrooms, showers)
 - Practical tips (parking, access, wave tips)
@@ -273,8 +292,10 @@ All metadata on a single line, wraps on mobile.
 ---
 
 #### ForecastTab
+
 **File:** `components/beach-detail/tabs/forecast-tab.tsx`
 **Content:**
+
 - **Current Conditions** - Real-time tide, wind, swell cards
 - **Live Cam** - Video feed (if available)
 - **5-Day Outlook** - Interactive forecast cards
@@ -286,8 +307,10 @@ All metadata on a single line, wraps on mobile.
 ---
 
 #### ReviewsTab
+
 **File:** `components/beach-detail/tabs/reviews-tab.tsx`
 **Content:**
+
 - Rating summary (5-category breakdown)
 - Write review button
 - Review list with pagination
@@ -297,8 +320,10 @@ All metadata on a single line, wraps on mobile.
 ---
 
 #### IntelTab
+
 **File:** `components/beach-detail/tabs/intel-tab.tsx`
 **Content:**
+
 - Community condition reports
 - Tag filters (conditions, parking, crowd, access)
 - Deduplication for similar posts
@@ -310,8 +335,10 @@ All metadata on a single line, wraps on mobile.
 ---
 
 #### SessionsTab
+
 **File:** `components/beach-detail/tabs/sessions-tab.tsx`
 **Content:**
+
 - Recent sessions at this beach
 - Forecast accuracy comparison
 - Session statistics and trends
@@ -323,15 +350,16 @@ All metadata on a single line, wraps on mobile.
 
 ### Responsive Breakpoints
 
-| Breakpoint | Width | Layout Changes |
-|------------|-------|---------------|
-| Mobile | < 640px | Single column, stacked actions, horizontal scroll tabs |
-| Tablet | 640-1024px | 2-column grid, some horizontal layouts |
-| Desktop | > 1024px | 4-column stats, side-by-side layouts |
+| Breakpoint | Width      | Layout Changes                                         |
+| ---------- | ---------- | ------------------------------------------------------ |
+| Mobile     | < 640px    | Single column, stacked actions, horizontal scroll tabs |
+| Tablet     | 640-1024px | 2-column grid, some horizontal layouts                 |
+| Desktop    | > 1024px   | 4-column stats, side-by-side layouts                   |
 
 ### Touch Targets
 
 All interactive elements meet minimum 44px touch target size:
+
 - Tab triggers: 44px height
 - Action buttons: 48px height
 - Photo gallery items: Full card clickable
@@ -352,9 +380,9 @@ All interactive elements meet minimum 44px touch target size:
 
 ```typescript
 interface BeachDetailProps {
-  id: string;                    // Beach UUID
-  publicMode?: boolean;          // Guest vs authenticated view
-  initialBeach?: Beach;          // SSR data
+  id: string; // Beach UUID
+  publicMode?: boolean; // Guest vs authenticated view
+  initialBeach?: Beach; // SSR data
 }
 ```
 
@@ -363,27 +391,30 @@ interface BeachDetailProps {
 ```typescript
 // Modal states
 const [sessionPlanningOpen, setSessionPlanningOpen] = useState(false);
-const [sessionPlanningMode, setSessionPlanningMode] = useState<"log" | "plan">("log");
+const [sessionPlanningMode, setSessionPlanningMode] = useState<"log" | "plan">(
+  "log"
+);
 const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
 const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
 
 // Forecast states
 const [selectedDay, setSelectedDay] = useState<string | null>(null);
-const [selectedForecastEntry, setSelectedForecastEntry] = useState<EnhancedForecastEntity | null>(null);
+const [selectedForecastEntry, setSelectedForecastEntry] =
+  useState<EnhancedForecastEntity | null>(null);
 const [isModalOpen, setIsModalOpen] = useState(false);
 ```
 
 ### Data Fetching
 
-| Data | Method | Timing |
-|------|--------|--------|
-| Beach | SSR + API | Initial page load |
-| Forecasts | API | Client-side, immediate |
-| Photos | Action + Hook | Lazy, on component mount |
-| Calibration | Action + Hook | Lazy, for stats |
-| Reviews | API | On tab switch |
-| Intel | API | On tab switch |
-| Sessions | API | On tab switch |
+| Data        | Method        | Timing                   |
+| ----------- | ------------- | ------------------------ |
+| Beach       | SSR + API     | Initial page load        |
+| Forecasts   | API           | Client-side, immediate   |
+| Photos      | Action + Hook | Lazy, on component mount |
+| Calibration | Action + Hook | Lazy, for stats          |
+| Reviews     | API           | On tab switch            |
+| Intel       | API           | On tab switch            |
+| Sessions    | API           | On tab switch            |
 
 ---
 
@@ -457,17 +488,19 @@ export async function generateMetadata({ params }): Promise<Metadata> {
 Test each component in isolation:
 
 ```typescript
-describe('BeachHeroCompact', () => {
-  it('displays beach name as h1', () => {
+describe("BeachHeroCompact", () => {
+  it("displays beach name as h1", () => {
     render(<BeachHeroCompact beach={mockBeach} />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Ocean Beach');
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Ocean Beach"
+    );
   });
 
-  it('shows rating and review count', () => {
+  it("shows rating and review count", () => {
     const beach = { ...mockBeach, average_rating: 4.5, review_count: 23 };
     render(<BeachHeroCompact beach={beach} />);
-    expect(screen.getByText('4.5')).toBeInTheDocument();
-    expect(screen.getByText('(23 reviews)')).toBeInTheDocument();
+    expect(screen.getByText("4.5")).toBeInTheDocument();
+    expect(screen.getByText("(23 reviews)")).toBeInTheDocument();
   });
 });
 ```
@@ -477,6 +510,7 @@ describe('BeachHeroCompact', () => {
 See: [e2e/beach-detail.spec.ts](../e2e/beach-detail.spec.ts)
 
 Key test scenarios:
+
 - Breadcrumb navigation works
 - Tabs switch correctly
 - Session planning modal opens from buttons
@@ -519,32 +553,32 @@ Key test scenarios:
 
 ### Colors
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `ocean-blue` | `#0074D9` | Primary actions, active tabs, links |
-| `blue-600` | `#1E40AF` | Hover states |
-| `muted-foreground` | `#6B7280` | Secondary text |
-| `foreground` | `#111827` | Primary text |
+| Token              | Value     | Usage                               |
+| ------------------ | --------- | ----------------------------------- |
+| `ocean-blue`       | `#0074D9` | Primary actions, active tabs, links |
+| `blue-600`         | `#1E40AF` | Hover states                        |
+| `muted-foreground` | `#6B7280` | Secondary text                      |
+| `foreground`       | `#111827` | Primary text                        |
 
 ### Spacing
 
-| Size | Value | Usage |
-|------|-------|-------|
-| `mb-6` | `24px` | Section spacing |
-| `mb-8` | `32px` | Major section breaks |
-| `gap-2` | `8px` | Tight spacing (badges, chips) |
-| `gap-4` | `16px` | Card spacing |
-| `px-4` | `16px` | Mobile padding |
-| `px-6` | `24px` | Desktop padding |
+| Size    | Value  | Usage                         |
+| ------- | ------ | ----------------------------- |
+| `mb-6`  | `24px` | Section spacing               |
+| `mb-8`  | `32px` | Major section breaks          |
+| `gap-2` | `8px`  | Tight spacing (badges, chips) |
+| `gap-4` | `16px` | Card spacing                  |
+| `px-4`  | `16px` | Mobile padding                |
+| `px-6`  | `24px` | Desktop padding               |
 
 ### Typography
 
-| Element | Font | Size | Weight |
-|---------|------|------|--------|
-| Beach name (h1) | Roboto | 36-48px | 800 |
-| Section headings | Roboto | 20-24px | 600 |
-| Body text | System | 14px | 400 |
-| Metadata | System | 12-14px | 500 |
+| Element          | Font   | Size    | Weight |
+| ---------------- | ------ | ------- | ------ |
+| Beach name (h1)  | Roboto | 36-48px | 800    |
+| Section headings | Roboto | 20-24px | 600    |
+| Body text        | System | 14px    | 400    |
+| Metadata         | System | 12-14px | 500    |
 
 ---
 
@@ -627,32 +661,38 @@ beach-detail.tsx
 ### Phase Highlights
 
 **Phase 1-2: Stats Grid & Breadcrumb** ✅
+
 - AllTrails-inspired stats grid with 24px icons, ocean-blue branding
 - Breadcrumb navigation with › separators
 - Comprehensive unit tests (65+ tests passing)
 
 **Phase 3: Photo Gallery** ✅
+
 - 3-photo static display + map integration
 - Lazy loading, responsive layout
 - Openverse attribution
 - 19 unit tests passing
 
 **Phase 4: Hero & Metadata** ✅
+
 - Compact hero with 36px Roboto headings
 - 20px star ratings, difficulty badges
 - 46 unit tests for typography and styling
 
 **Phase 5: Tabs & Actions** ✅
+
 - 5 dedicated tabs (Overview, Forecast, Reviews, Intel, Sessions)
 - Dual action buttons (Plan/Log Session)
 - 25 unit tests for tab interactions
 
 **Phase 6: Complete Integration** ✅
+
 - All components integrated
 - E2E test coverage (13/14 passing)
 - Production-ready implementation
 
 **Test Summary:**
+
 - **Unit Tests:** 200+ passing
 - **E2E Tests:** 13/14 passing
 - **Total Coverage:** Comprehensive across all components
@@ -666,6 +706,7 @@ beach-detail.tsx
 ### January 2025 - AllTrails Redesign
 
 **Added:**
+
 - Tabbed navigation system
 - Compact hero component
 - Photo gallery with map
@@ -674,18 +715,21 @@ beach-detail.tsx
 - 5 dedicated tab content components
 
 **Changed:**
+
 - Layout from long-scroll to tab-based
 - Hero from full-width gradient to compact single-line
 - Actions moved above tabs
 - Forecast moved to dedicated tab
 
 **Removed:**
+
 - Duplicate intel sections
 - CrowdTipsSection component
 - Old accordion-style sections
 - Full-page hero design
 
 **Fixed:**
+
 - Intel displayed twice (public + auth modes)
 - Excessive vertical scrolling
 - Mobile usability issues

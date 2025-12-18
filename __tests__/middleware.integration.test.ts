@@ -42,6 +42,7 @@ describe("Middleware Integration Tests", () => {
         pathname,
         search,
         searchParams: new URLSearchParams(search.replace(/^\?/, "")),
+        clone: () => new URL(url),
       },
       url,
       method: "GET",
@@ -122,6 +123,78 @@ describe("Middleware Integration Tests", () => {
 
       expect(response.headers.get("X-Frame-Options")).toBe("DENY");
       expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    });
+  });
+
+  describe("Location Page Shortcut Redirects", () => {
+    it("should redirect /beaches/{state}/{city} to /{state}/{city} (308)", async () => {
+      const request = createMockRequest("/beaches/ca/san-diego");
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/ca/san-diego"
+      );
+    });
+
+    it("should preserve query params when redirecting shortcut URLs", async () => {
+      const request = createMockRequest("/beaches/ca/san-diego", "?utm_source=test");
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/ca/san-diego?utm_source=test"
+      );
+    });
+
+    it("should not redirect when the {state} segment is not a valid state slug", async () => {
+      const request = createMockRequest("/beaches/surf-forecast/la-jolla");
+
+      const response = await middleware(request);
+
+      // Should not be a redirect response
+      expect(response.status).not.toBe(308);
+      expect(response.headers.get("location")).toBeNull();
+    });
+  });
+
+  describe("Canonical City URL Routing", () => {
+    it("should 301 redirect /beaches/usa/{state}/{city} to /{state}/{city}", async () => {
+      const request = createMockRequest("/beaches/usa/hi/haleiwa");
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/hi/haleiwa"
+      );
+    });
+
+    it("should preserve query params when redirecting legacy /beaches/usa URLs", async () => {
+      const request = createMockRequest(
+        "/beaches/usa/hi/haleiwa",
+        "?utm_source=test"
+      );
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/hi/haleiwa?utm_source=test"
+      );
+    });
+
+    it("should rewrite /{state}/{city} to /beaches/usa/{state}/{city}", async () => {
+      const request = createMockRequest("/hi/haleiwa");
+
+      const response = await middleware(request);
+
+      // Middleware rewrite responses use the x-middleware-rewrite header
+      expect(response.headers.get("x-middleware-rewrite")).toBe(
+        "http://localhost:3000/beaches/usa/hi/haleiwa"
+      );
     });
   });
 

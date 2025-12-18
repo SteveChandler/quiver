@@ -68,9 +68,11 @@ describe("Features Constants", () => {
       });
     });
 
-    it("has forecast section link", () => {
-      expect(CONTENT.sections.forecast).toHaveProperty("link");
-      expect(typeof CONTENT.sections.forecast.link).toBe("string");
+    it("has forecast section CTAs", () => {
+      expect(CONTENT.sections.forecast).toHaveProperty("primaryCta");
+      expect(CONTENT.sections.forecast).toHaveProperty("secondaryCta");
+      expect(typeof CONTENT.sections.forecast.primaryCta).toBe("string");
+      expect(typeof CONTENT.sections.forecast.secondaryCta).toBe("string");
     });
 
     it("has non-empty content strings", () => {

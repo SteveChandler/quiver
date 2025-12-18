@@ -241,6 +241,9 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
   - Editorial content when available (curated descriptions, session timing advice)
   - Interactive map with beach markers
   - SEO-optimized with JSON-LD structured data
+- **Canonical URL**:
+  - Location pages are canonical at `/beaches/{country}/{state}/{city}` (e.g., `/beaches/usa/ca/san-diego`).
+  - The USA-only shortcut `/beaches/{state}/{city}` redirects to the canonical URL for convenience and legacy inbound links.
 - **Behavior**:
   - **Valid city with data**: Renders full city page with ranked beaches
   - **Valid city without data**: Redirects to `/map?search={cityName}` (e.g., Oceanside, Honolulu)

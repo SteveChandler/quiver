@@ -71,9 +71,9 @@ describe("LandingPage", () => {
     const sectionsContainer = container.querySelector(".space-y-0");
     expect(sectionsContainer).toBeInTheDocument();
 
-    // Should have 5 progressive section containers (one for each lazy-loaded section)
+    // Should have 6 progressive section containers (one for each lazy-loaded section)
     const progressiveSections = sectionsContainer?.children;
-    expect(progressiveSections).toHaveLength(5);
+    expect(progressiveSections).toHaveLength(6);
   });
 
   it("shows AllTrails-style sections", () => {
@@ -111,6 +111,6 @@ describe("LandingPage", () => {
 
     // Verify we have the expected number of progressive sections
     const progressiveSections = sectionsContainer?.children;
-    expect(progressiveSections).toHaveLength(5); // 5 lazy-loaded sections
+    expect(progressiveSections).toHaveLength(6); // 6 lazy-loaded sections
   });
 });

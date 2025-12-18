@@ -8,6 +8,7 @@ The `types/` directory contains comprehensive TypeScript type definitions for th
 
 ```
 types/
+├── api/                      # API request/response contract types (route payloads, RPC helpers)
 ├── database.ts              # Database schema types and interfaces
 ├── forecast.ts              # Forecast system types and domain models
 └── ARCHITECTURE.md          # This documentation file

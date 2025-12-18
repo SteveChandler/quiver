@@ -22,7 +22,7 @@ hooks/
 ├── use-beach-reviews.ts             # Beach review system
 ├── use-beach-card-data.ts           # Beach card display optimization
 ├── use-enhanced-beach-data.ts       # Comprehensive beach information
-├── useGeo.ts                         # User location services (geolocation)
+├── use-geolocation.ts                # Canonical user location services (geolocation)
 │
 ├── Session Management
 ├── use-session-form.ts              # Session creation and editing
@@ -153,8 +153,8 @@ export function createLocationCacheKey(
   precision: number = 3
 ): string {
   const lat = latitude.toFixed(precision);
-  const lng = longitude.toFixed(precision);
-  return `${prefix}-${lat}-${lng}`;
+  const lon = longitude.toFixed(precision);
+  return `${prefix}-${lat}-${lon}`;
 }
 ```
 
@@ -170,20 +170,21 @@ export function createLocationCacheKey(
 
 #### **useBeachCardData** (Display Optimization)
 
-#### **useGeo** (Geolocation)
+#### **useGeolocation** (Geolocation)
 
-- **Purpose**: Provide `{ coords: { lat, lon }, source, requestLocation }` to components.
-- **Features**:
-  - Permission-aware geolocation with graceful fallback
-  - Stable object identity for `coords` to avoid unnecessary rerenders
-  - Works with background data fetching and caching
+- **Purpose**: Canonical location hook. Supports both:
+  - **Auto-request on mount** (map screens)
+  - **Manual request only** via `requestLocation()` (home screens / explicit CTA)
+- **Compatibility**: Exposes a `useGeo()` wrapper for legacy imports (deprecated).
 
 ```typescript
-const { coords, source, requestLocation } = useGeo();
-useEffect(() => {
-  if (!coords) return;
-  // safe to use coords for background warmups
-}, [coords]);
+// Home screen (no auto prompt):
+const { coords, requestLocation, source } = useGeolocation({
+  autoRequest: false,
+});
+
+// Map screen (auto request on mount):
+const { userLocation, getUserLocation } = useGeolocation();
 ```
 
 - **Purpose**: Optimized beach card data processing
@@ -219,13 +220,17 @@ export function useBeachCardData(
       distance: userLocation
         ? calculateDistance(
             userLocation.lat,
-            userLocation.lng,
-            beach.latitude,
-            beach.longitude
+            userLocation.lon,
+            beach.center_lat, // Map from database field
+            beach.center_lng // Map from database field
           )
         : defaultLocationText,
       mapImageUrl: generateMapImageUrl(beach, mapOptions),
-      coordinates: { latitude: beach.latitude, longitude: beach.longitude },
+      // Map database fields to component prop names
+      coordinates: {
+        latitude: beach.center_lat, // center_lat -> latitude
+        longitude: beach.center_lng, // center_lng -> longitude
+      },
     }));
 
     return {
@@ -243,6 +248,8 @@ export function useBeachCardData(
   ]);
 }
 ```
+
+**Note**: See `/docs/COORDINATE_CONVENTIONS.md` for complete coordinate naming standards. Database fields use `center_lat`/`center_lng` but must be mapped to `latitude`/`longitude` for component props.
 
 ### **📊 Session Management Hooks**
 
@@ -399,7 +406,9 @@ export function usePersonalizedHomeForecast({
       params.set("homeBeachId", homeBeachId);
     }
 
-    const url = `/api/home/personalized-forecast${params.toString() ? `?${params}` : ""}`;
+    const url = `/api/home/personalized-forecast${
+      params.toString() ? `?${params}` : ""
+    }`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -432,10 +441,11 @@ export function usePersonalizedHomeForecast({
 
 ```typescript
 function HomePage() {
-  const { recommendation, loading, error, refetch } = usePersonalizedHomeForecast({
-    immediate: true,
-    enabled: true,
-  });
+  const { recommendation, loading, error, refetch } =
+    usePersonalizedHomeForecast({
+      immediate: true,
+      enabled: true,
+    });
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -452,6 +462,101 @@ function HomePage() {
   );
 }
 ```
+
+### **useInsights** (Personalized Insights Hook) - December 2025
+
+- **Purpose**: Fetch personalized insights comparing forecast conditions to user's session history
+- **Location**: `hooks/use-insights.ts`
+- **Features**:
+  - Automatic fetching when enabled with valid beach and conditions
+  - Three states: ready (≥3 sessions), onboarding (<3 sessions), degraded (no snapshots)
+  - Similar sessions list with match percentages
+  - Board recommendations when pattern detected
+  - Match quality labels (Perfect/Great/Good/Low)
+
+**TypeScript Interface:**
+
+```typescript
+interface UseInsightsOptions extends SimilarityInsightsInput {
+  beachId: string; // Beach UUID
+  beachName: string; // Beach name
+  waveHeight: number; // Wave height in feet
+  wavePeriod: number; // Wave period in seconds
+  windSpeed: number; // Wind speed in mph
+  windDirection?: number; // Wind direction in degrees (optional)
+  tideHeight?: number; // Tide height in feet (optional)
+  tideStatus?: string; // Tide status (optional)
+  windowStart?: string; // ISO timestamp (optional)
+  enabled?: boolean; // Whether hook is enabled (default: true)
+}
+
+interface UseInsightsReturn {
+  insights: PersonalizedInsights | null; // Insights data
+  loading: boolean; // Loading state
+  error: string | null; // Error message
+  refetch: () => Promise<void>; // Manual refetch function
+}
+```
+
+**Usage Example:**
+
+```typescript
+function PersonalizedForecastCard({ recommendation }) {
+  const { insights, loading, error } = useInsights({
+    beachId: recommendation.beach.id,
+    beachName: recommendation.beach.name,
+    waveHeight: parseWaveHeight(recommendation.window.waveHeight),
+    wavePeriod: parseWavePeriod(recommendation.window.wavePeriod),
+    windSpeed: parseWindSpeed(recommendation.window.wind),
+    windDirection: 270, // SW wind
+    enabled: !!recommendation,
+  });
+
+  if (loading) return <InsightsLoader />;
+  if (error) return <InsightsError message={error} />;
+  if (!insights || insights.state === "onboarding")
+    return <OnboardingMessage />;
+
+  return (
+    <div>
+      <Badge>
+        {insights.label} ({insights.matchPercent}%)
+      </Badge>
+      {insights.reasonBullets.map((reason) => (
+        <p key={reason}>{reason}</p>
+      ))}
+      {insights.boardTip && <BoardTip text={insights.boardTip} />}
+      {insights.similarSessions.length > 0 && (
+        <Button onClick={() => setDrawerOpen(true)}>
+          View {insights.similarSessions.length} similar sessions
+        </Button>
+      )}
+    </div>
+  );
+}
+```
+
+**Data Flow:**
+
+1. Hook validates required parameters (beachId, beachName, wave/wind data)
+2. Constructs query params with required + optional conditions
+3. Fetches from `/api/surf/insights?beachId=...&waveHeight=...`
+4. Parses response into PersonalizedInsights type
+5. Provides loading/error/data states via useDataFetcher pattern
+
+**Performance:**
+
+- Respects useDataFetcher caching patterns
+- Private per-user API caching (5 minutes)
+- Skip fetch when conditions invalid or user not authenticated
+- Automatic refetch capability for manual refresh
+
+**Integration:**
+
+- Used by `PersonalizedForecastCard` component
+- Drives similar sessions drawer display
+- Provides board recommendation UI
+- Shows match quality indicators
 
 ### **👥 Social & Real-time Hooks**
 
@@ -728,6 +833,6 @@ test("useSessionLike should toggle like state", async () => {
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive custom hook library  
+**Last Updated**: December 17, 2025
+**Status**: Production-ready with comprehensive custom hook library
 **Next Review**: After offline synchronization hooks implementation

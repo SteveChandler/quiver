@@ -11,6 +11,7 @@ import type {
   Board,
   Beach,
   SessionMedia,
+  SessionInsert,
   Database,
 } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/utils/session-utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { BoardSnapshot } from "@/types/personalization";
 
 // Optional XP tracking - imported dynamically to avoid circular dependency
 async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
@@ -32,10 +34,9 @@ async function trackXPOptional(action: string, entityId?: string, entityType?: s
   }
 }
 
-type SessionInput = Omit<
-  Session,
-  "id" | "created_at" | "updated_at" | "user_id" | "profile_id"
->;
+// Session writes should be typed like INSERT payloads (not Row), since Row types
+// include many non-nullable database-managed fields that callers should not supply.
+type SessionInput = Partial<SessionInsert>;
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
 /**
@@ -59,6 +60,49 @@ function sanitizePayload<T extends Record<string, any>>(input: T): T {
     cleaned[key] = value;
   }
   return cleaned as T;
+}
+
+/**
+ * Capture board snapshot for session history preservation
+ *
+ * Creates a snapshot of board details at session time to preserve the exact
+ * board configuration even if the board is later modified or deleted.
+ *
+ * @param supabase - Supabase client
+ * @param boardId - Board ID to snapshot
+ * @returns BoardSnapshot object or null if no board
+ */
+async function captureBoardSnapshot(
+  supabase: SupabaseClient<Database>,
+  boardId: string | null | undefined
+): Promise<BoardSnapshot | null> {
+  if (!boardId) return null;
+
+  try {
+    const { data: board, error } = await supabase
+      .from('boards')
+      .select('name, board_type, size, volume, dimensions')
+      .eq('id', boardId)
+      .single();
+
+    if (error) {
+      console.warn('Failed to capture board snapshot:', error);
+      return null;
+    }
+
+    if (!board) return null;
+
+    return {
+      name: board.name,
+      board_type: board.board_type,
+      size: board.size,
+      volume: board.volume,
+      dimensions: board.dimensions,
+    };
+  } catch (error) {
+    console.error('Error capturing board snapshot:', error);
+    return null;
+  }
 }
 
 type SupabaseClientType = SupabaseClient<Database>;
@@ -133,6 +177,7 @@ export async function getUserSessions(userId: string, limit?: number) {
         .select(
           `
           *,
+          session_date:arrival_time,
           beach:beaches(*),
           board:boards(*),
           user:profiles(*)
@@ -197,6 +242,7 @@ export async function getUserSessions(userId: string, limit?: number) {
           
           return {
             ...session,
+            session_date: session.arrival_time ?? null,
             beach,
             board: null,
             user,
@@ -225,6 +271,7 @@ export async function getUserSessionsByDateRange(
       .select(
         `
         *,
+        session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
         user:profiles(*)
@@ -259,6 +306,7 @@ export async function getSessionById(id: string, userId: string) {
       .select(
         `
         *,
+        session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
         user:profiles(*)
@@ -292,6 +340,7 @@ export async function getPublicSessions(limit = 10) {
       .select(
         `
         *,
+        session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
         user:profiles(*)
@@ -586,7 +635,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
     if (!cleaned.beach_id) {
       // If we have beach_name but no beach_id, try to find existing beach only
       if (cleaned.beach_name) {
-        
+
         // Try to find existing beach by name (case-insensitive)
         const { data: existingBeach, error: lookupError } = await supabase
           .from("beaches")
@@ -594,11 +643,11 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
           .ilike("name", cleaned.beach_name)
           .limit(1)
           .single();
-        
+
         if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows returned
           throw new Error(`Failed to lookup beach: ${lookupError.message}`);
         }
-        
+
         if (existingBeach) {
           cleaned.beach_id = existingBeach.id;
         } else {
@@ -622,12 +671,16 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
         throw new Error("Please select a beach from the dropdown menu.");
       }
     }
-    
+
+    // Capture board snapshot for personalization insights
+    const boardSnapshot = await captureBoardSnapshot(supabase, cleaned.board_id);
+
     const finalPayload = {
       ...cleaned,
       user_id: user.id,
       profile_id: user.id,
       status: "completed",
+      board_snapshot: boardSnapshot,
     };
 
     // Choose write client: allow dev E2E mutations for mock users via service role
@@ -746,12 +799,16 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
         throw new Error("Please select a beach from the dropdown menu.");
       }
     }
-    
+
+    // Capture board snapshot for personalization insights
+    const boardSnapshot = await captureBoardSnapshot(supabase, cleaned.board_id);
+
     const finalPayload = {
       ...cleaned,
       user_id: user.id,
       profile_id: user.id, // Add profile_id to satisfy the constraint
       status: "planned",
+      board_snapshot: boardSnapshot,
     };
 
     // Choose write client: allow dev E2E mutations for mock users via service role
@@ -1091,7 +1148,7 @@ export async function updatePlannedSessionToCompleted(
     // First verify this is a planned session owned by the user
     const { data: existingSession, error: fetchError } = await supabase
       .from("sessions")
-      .select("id, status, user_id")
+      .select("id, status, user_id, board_id")
       .eq("id", sessionId)
       .eq("user_id", user.id)
       .eq("status", "planned")
@@ -1101,12 +1158,16 @@ export async function updatePlannedSessionToCompleted(
       throw new Error("Planned session not found");
     }
 
+    // Capture board snapshot for personalization insights when converting to completed
+    const boardSnapshot = await captureBoardSnapshot(supabase, existingSession.board_id);
+
     // Update the session to completed with new data
     const { data: updatedSession, error: updateError } = await supabase
       .from("sessions")
       .update({
         status: "completed",
         ...completedData,
+        board_snapshot: boardSnapshot,
         updated_at: new Date().toISOString(),
       })
       .eq("id", sessionId)

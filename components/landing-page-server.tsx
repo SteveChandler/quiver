@@ -1,13 +1,14 @@
-import { Suspense } from 'react'
-import Link from 'next/link'
-import { Navbar } from '@/components/landing-page/navbar'
-import { HeroSection } from '@/components/landing-page/hero-section'
-import { SurfHighlightsSection } from '@/components/landing-page/surf-highlights-section'
-import { ActivitiesSection } from '@/components/landing-page/activities-section'
-import { ForecastSection } from '@/components/landing-page/forecast-section'
-import { CTASection } from '@/components/landing-page/cta-section'
-import { FooterSection } from '@/components/landing-page/footer-section'
-import { QuiverFAQSchema } from '@/components/seo/faq-schema'
+import { Suspense } from "react";
+import Link from "next/link";
+import { Navbar } from "@/components/landing-page/navbar";
+import { HeroSection } from "@/components/landing-page/hero-section";
+import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
+import { UpgradeSessionSection } from "@/components/landing-page/upgrade-session-section";
+import { ActivitiesSection } from "@/components/landing-page/activities-section";
+import { ForecastSection } from "@/components/landing-page/forecast-section";
+import { CTASection } from "@/components/landing-page/cta-section";
+import { FooterSection } from "@/components/landing-page/footer-section";
+import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
 /**
  * Server Component Landing Page
@@ -27,17 +28,17 @@ import { QuiverFAQSchema } from '@/components/seo/faq-schema'
  */
 
 interface Beach {
-  id: string
-  name: string
-  city?: string | null
-  state?: string | null
-  slug?: string | null
-  photo_url?: string | null
-  has_real_photo?: boolean
+  id: string;
+  name: string;
+  city?: string | null;
+  state?: string | null;
+  slug?: string | null;
+  photo_url?: string | null;
+  has_real_photo?: boolean;
 }
 
 interface LandingPageServerProps {
-  beaches: Beach[]
+  beaches: Beach[];
 }
 
 /**
@@ -54,12 +55,15 @@ function SurfHighlightsSkeleton() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="h-80 bg-gray-200 rounded-xl animate-pulse" />
+            <div
+              key={i}
+              className="h-80 bg-gray-200 rounded-xl animate-pulse"
+            />
           ))}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -76,12 +80,15 @@ function ForecastSkeleton() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-64 bg-gray-200 rounded-lg animate-pulse" />
+            <div
+              key={i}
+              className="h-64 bg-gray-200 rounded-lg animate-pulse"
+            />
           ))}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -123,6 +130,8 @@ export default function LandingPageServer({ beaches }: LandingPageServerProps) {
           <SurfHighlightsSection />
         </Suspense>
 
+        <UpgradeSessionSection />
+
         {/* Activities Section - Static content, renders immediately */}
         <ActivitiesSection />
 
@@ -138,5 +147,5 @@ export default function LandingPageServer({ beaches }: LandingPageServerProps) {
         <FooterSection />
       </div>
     </div>
-  )
+  );
 }

@@ -15,6 +15,7 @@ lib/utils/
 ├── date-utils.ts               # Date manipulation and formatting
 ├── distance-utils.ts           # Geographic distance calculations
 ├── forecast-analytics.ts       # Forecast accuracy analysis and metrics
+├── forecast-freshness.ts       # Forecast data recency + freshness/confidence helpers
 ├── forecast-service-utils.ts   # Forecast service orchestration
 ├── forecast-ui-utils.tsx       # Forecast UI formatting and components
 ├── loading-utils.tsx           # Loading state management utilities

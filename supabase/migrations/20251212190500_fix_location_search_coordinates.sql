@@ -95,3 +95,4 @@ GRANT EXECUTE ON FUNCTION get_beaches_by_location_with_scores TO anon;
 
 COMMIT;
 
+

@@ -209,6 +209,52 @@ export class ApiError extends ForecastError {
   }
 }
 
+/**
+ * NOAA Weather Service can return 404 InvalidPoint when a lat/lon is outside its supported coverage.
+ * We treat this as "no coverage" (non-retryable, expected for some regions) rather than a hard failure.
+ */
+export function isNoaaInvalidPointError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+
+  const status = error.context?.statusCode;
+  const apiUrl = error.context?.apiUrl || "";
+  if (status !== 404) return false;
+
+  // This is the NWS "points" endpoint that returns gridpoint metadata.
+  if (!apiUrl.includes("api.weather.gov/points/")) return false;
+
+  const msg = (error.message || "").toLowerCase();
+  return (
+    msg.includes("invalidpoint") ||
+    msg.includes("data unavailable for requested point") ||
+    msg.includes("https://api.weather.gov/problems/invalidpoint")
+  );
+}
+
+/**
+ * NOAA Weather Service sometimes returns a 404 for gridpoint hourly forecasts in marine areas:
+ * "Marine Forecast Not Supported". This is expected for some coast/offshore points and should
+ * be treated as "no hourly coverage" rather than a hard failure.
+ */
+export function isNoaaMarineForecastNotSupportedError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+
+  const status = error.context?.statusCode;
+  const apiUrl = error.context?.apiUrl || "";
+  if (status !== 404) return false;
+
+  // This is the NWS gridpoints forecast endpoint (hourly variant).
+  if (!apiUrl.includes("api.weather.gov/gridpoints/")) return false;
+  if (!apiUrl.includes("/forecast/hourly")) return false;
+
+  const msg = (error.message || "").toLowerCase();
+  return (
+    msg.includes("marine forecast not supported") ||
+    msg.includes("marineforecastnotsupported") ||
+    msg.includes("https://api.weather.gov/problems/marineforecastnotsupported")
+  );
+}
+
 export class StorageError extends ForecastError {
   constructor(
     operation: string,

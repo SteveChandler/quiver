@@ -220,9 +220,9 @@ export function SessionDetailsSection({
     loading: forecastLoading,
     error: forecastError,
   } = useSessionForecast(
-    formState.selectedBeachId,
-    formState.selectedDate,
-    formState.selectedTime
+    formState.selectedBeachId ?? null,
+    formState.selectedDate ?? null,
+    formState.selectedTime ?? null
   );
 
   // Photo upload helpers
@@ -799,8 +799,8 @@ export function SessionDetailsSection({
             maxLength={2000}
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Include wave details, new skills learned, or local knowledge to
-            help other surfers
+            Include wave details, new skills learned, or local knowledge to help
+            other surfers
           </p>
         </div>
 

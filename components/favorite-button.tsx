@@ -12,12 +12,14 @@ interface FavoriteButtonProps {
   beachId: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
+  className?: string;
 }
 
 export function FavoriteButton({
   beachId,
   variant = "ghost",
   size = "sm",
+  className,
 }: FavoriteButtonProps) {
   const { user } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -155,7 +157,7 @@ export function FavoriteButton({
 
   if (loading) {
     return (
-      <Button variant={variant} size={size} disabled>
+      <Button variant={variant} size={size} disabled className={className}>
         <Loader2 className="h-4 w-4 animate-spin" />
       </Button>
     );
@@ -177,6 +179,7 @@ export function FavoriteButton({
     <Button
       variant={variant}
       size={size}
+      className={className}
       onClick={toggleFavorite}
       disabled={false}
       aria-pressed={ariaPressed}

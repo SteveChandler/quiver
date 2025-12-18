@@ -24,6 +24,8 @@ import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { buildCityUrl } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -300,7 +302,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
           {/* Beaches List (2/3 width on desktop) */}
           <div className="lg:col-span-2 space-y-4">
             {beaches.map((beach) => {
-              const tier = getRankingTier(beach.composite_score);
+              const tier = getRankingTier(beach.compositeScore);
               const badgeLabel = getRankingBadgeLabel(tier);
 
               return (
@@ -364,10 +366,10 @@ export default async function LocationPage({ params }: LocationPageProps) {
                             {beach.break_type}
                           </span>
                         )}
-                        {beach.recent_intel_count > 0 && (
+                        {beach.recentIntelCount > 0 && (
                           <span className="text-green-600 font-medium">
-                            {beach.recent_intel_count} recent intel post
-                            {beach.recent_intel_count !== 1 ? "s" : ""}
+                            {beach.recentIntelCount} recent intel post
+                            {beach.recentIntelCount !== 1 ? "s" : ""}
                           </span>
                         )}
                       </div>
@@ -487,7 +489,12 @@ export async function generateMetadata({ params }: LocationPageProps) {
           stats.totalReviews
         } reviews.`;
 
-    const url = `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}`;
+    const isUsa = params.country.toLowerCase() === "usa";
+    const canonicalPath =
+      isUsa && isValidStateSlug(params.state)
+        ? `/${params.state}/${params.city}`
+        : `/beaches/${params.country}/${params.state}/${params.city}`;
+    const url = `${SITE_ORIGIN}${canonicalPath}`;
 
     return {
       title,

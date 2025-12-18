@@ -277,7 +277,7 @@ export function OptimalTimesSection({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error.message ||
+              {error ||
                 "Failed to analyze surf conditions. You can still manually select a time."}
             </AlertDescription>
           </Alert>

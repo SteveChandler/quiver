@@ -38,12 +38,12 @@ export const dynamic = 'force-dynamic';
  */
 
 /**
- * Allowed image source domains
+ * Base allowed domains for production
  *
  * Only images from these exact domains (or their legitimate subdomains) are allowed.
  * Prevents SSRF attacks by restricting proxy to trusted sources.
  */
-const ALLOWED_DOMAINS = [
+const BASE_ALLOWED_DOMAINS = [
   "api.openverse.org",
   "upload.wikimedia.org",
   "live.staticflickr.com",
@@ -52,6 +52,27 @@ const ALLOWED_DOMAINS = [
   "i2.wp.com",
   "files.wordpress.com",
 ];
+
+/**
+ * Additional domains allowed only in development/test environments
+ *
+ * placehold.co: Used by E2E tests for placeholder images
+ *
+ * Note: These domains are NOT allowed in production to maintain security.
+ * Consider migrating to local test assets (/public/test-images/) in the future.
+ */
+const DEV_TEST_ALLOWED_DOMAINS = ["placehold.co"];
+
+/**
+ * Allowed image source domains (environment-aware)
+ *
+ * In production: Only BASE_ALLOWED_DOMAINS
+ * In dev/test: BASE_ALLOWED_DOMAINS + DEV_TEST_ALLOWED_DOMAINS
+ */
+const ALLOWED_DOMAINS =
+  process.env.NODE_ENV === "production"
+    ? BASE_ALLOWED_DOMAINS
+    : [...BASE_ALLOWED_DOMAINS, ...DEV_TEST_ALLOWED_DOMAINS];
 
 /**
  * Maximum allowed response size: 10MB

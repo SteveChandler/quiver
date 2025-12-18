@@ -49,7 +49,6 @@ export function PhotoSelectionSection({
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const text = getFormText(mode);
 
   // Hooks must be called unconditionally; gate rendering later
 
@@ -181,6 +180,8 @@ export function PhotoSelectionSection({
   if (mode !== "log") {
     return null;
   }
+
+  const text = getFormText(mode);
 
   return (
     <SimpleCardLayout

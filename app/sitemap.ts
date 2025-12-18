@@ -7,7 +7,7 @@ import {
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { buildLocationUrl } from "@/lib/utils/location-slug";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { buildBeachUrl, buildCityUrl } from "@/lib/utils/beach-url-utils";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -34,8 +34,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const cityRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.map((slug) => {
     const city = getCityBySlug(slug)!;
-    // All curated cities are in California - using buildLocationUrl for consistency
-    const cityUrl = buildLocationUrl(city.name, 'CA', 'USA');
+    // All curated cities are in California - use canonical short URL (/ca/{city})
+    const cityUrl = buildCityUrl("CA", city.name);
     return {
       url: `${baseUrl}${cityUrl}`,
       lastModified: lastmod,
@@ -63,11 +63,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const response = await getAllBeachLocations();
     if (response.success && response.data) {
       locationRoutes = response.data.map((location) => {
-        const locationUrl = buildLocationUrl(
-          location.city,
-          location.state,
-          location.country
-        );
+        // Canonical city URL for US locations: /{state}/{city}
+        // Keep /beaches/{country}/{state}/{city} for non-US/international.
+        const isUsa =
+          !location.country ||
+          String(location.country).toLowerCase() === "usa" ||
+          String(location.country).toLowerCase() === "us";
+        const locationUrl = isUsa
+          ? buildCityUrl(location.state, location.city)
+          : buildLocationUrl(location.city, location.state, location.country);
         return {
           url: `${baseUrl}${locationUrl}`,
           lastModified: lastmod,
@@ -83,7 +87,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Dynamic beaches and forecasts
   let beachEntries: MetadataRoute.Sitemap = [];
-  let forecastEntries: MetadataRoute.Sitemap = [];
   
   // Use direct DB call instead of fetch to avoid self-request issues
   const beachesResponse = await getBeaches();
@@ -93,24 +96,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Generate hierarchical URLs for beaches
     beachEntries = beaches
       .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
-      .map((beach) => {
-        // getBeaches() can return a subset of columns; prefer updated_at when present.
-        const updatedAt = (beach as { updated_at?: string | null }).updated_at;
-        return {
-          url: `${baseUrl}${buildBeachUrl(beach)}`,
-          lastModified: updatedAt || beach.created_at || lastmod,
-          changeFrequency: "weekly",
-          priority: 0.6,
-        };
-      });
-
-    // Add forecast pages for each beach (still using ID for now)
-    forecastEntries = beaches.map((b) => ({
-      url: `${baseUrl}/forecast/${b.id}`,
-      lastModified: lastmod, // Use current date for forecasts as they update frequently
-      changeFrequency: "daily",
-      priority: 0.8, // High priority for forecast pages
-    }));
+      .map((beach) => ({
+        url: `${baseUrl}${buildBeachUrl(beach)}`,
+        // Prefer updated_at when present so the sitemap reflects freshness.
+        lastModified:
+          // getBeaches() selects a subset; treat updated_at as optional.
+          (beach as { updated_at?: string | null }).updated_at ||
+          beach.created_at ||
+          lastmod,
+        changeFrequency: "weekly",
+        priority: 0.6,
+      }));
   }
 
   return [
@@ -119,6 +115,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...intentRoutes,
     ...locationRoutes,
     ...beachEntries,
-    ...forecastEntries,
   ];
 }

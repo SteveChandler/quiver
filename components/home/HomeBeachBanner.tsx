@@ -11,7 +11,8 @@ interface HomeBeachBannerProps {
   selectedBeachName?: string;
 }
 
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 
 export function HomeBeachBanner({
   selectedBeachId,

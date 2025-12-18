@@ -146,4 +146,38 @@ describe("EnhancedForecastService (unit)", () => {
     // Without CDIP, data source falls back to NOAA_NWS or FALLBACK
     expect(["NOAA_NWS", "FALLBACK"]).toContain(forecasts[0].data_source);
   });
+
+  it("treats NOAA weather InvalidPoint (404) as no coverage (empty periods)", async () => {
+    const originalFetch = (globalThis as any).fetch;
+
+    try {
+      (globalThis as any).fetch = jest.fn(async (url: any) => {
+        // NOAAWeatherDataSource should hit the NWS points endpoint first.
+        expect(String(url)).toContain("https://api.weather.gov/points/");
+
+        return {
+          ok: false,
+          status: 404,
+          text: async () =>
+            JSON.stringify({
+              correlationId: "test",
+              title: "Data Unavailable For Requested Point",
+              type: "https://api.weather.gov/problems/InvalidPoint",
+              status: 404,
+              detail:
+                "Unable to provide data for requested point 32.2041,-116.9093",
+              instance: "https://api.weather.gov/requests/test",
+            }),
+        } as any;
+      });
+
+      const service = new EnhancedForecastService() as any;
+      const periods = await service.fetchWeatherDataWithRetry(beach);
+
+      expect(periods).toEqual([]);
+      expect((globalThis as any).fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      (globalThis as any).fetch = originalFetch;
+    }
+  });
 });

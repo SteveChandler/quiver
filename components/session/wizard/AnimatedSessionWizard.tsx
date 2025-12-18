@@ -50,7 +50,7 @@ interface WizardStep {
 interface AnimatedSessionWizardProps {
   initialMode: SessionFormMode;
   className?: string;
-  onComplete?: (sessionData: any) => Promise<void>;
+  onComplete?: (sessionData: any) => void | Promise<void>;
   onCancel?: () => void;
   /**
    * Optional initial form state for prefilling the wizard.
@@ -310,7 +310,9 @@ export function AnimatedSessionWizard({
   );
 
   // Select wizard steps based on feature flag
-  const WIZARD_STEPS = USE_CONSOLIDATED_WIZARD ? WIZARD_STEPS_V2 : WIZARD_STEPS_V1;
+  const WIZARD_STEPS = USE_CONSOLIDATED_WIZARD
+    ? WIZARD_STEPS_V2
+    : WIZARD_STEPS_V1;
   const steps = WIZARD_STEPS[mode];
   const currentWizardStep = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
@@ -356,7 +358,12 @@ export function AnimatedSessionWizard({
       // These steps are optional and don't block progression
       return true;
     },
-    [formState.selectedBeachId, formState.selectedDate, formState.selectedTime, mode]
+    [
+      formState.selectedBeachId,
+      formState.selectedDate,
+      formState.selectedTime,
+      mode,
+    ]
   );
 
   /**
@@ -378,7 +385,9 @@ export function AnimatedSessionWizard({
       const canJump = validateStepsUpTo(targetStepIndex);
 
       if (canJump) {
-        console.log(`Auto-jumping to step ${targetStep} (index ${targetStepIndex})`);
+        console.log(
+          `Auto-jumping to step ${targetStep} (index ${targetStepIndex})`
+        );
         setCurrentStep(targetStepIndex);
         hasJumpedRef.current = true;
       } else {
@@ -469,9 +478,7 @@ export function AnimatedSessionWizard({
         boardId: formState.boardId,
         notes: formState.notes,
         photos: selectedPhotos,
-        invitees: Array.isArray(formState.invitees)
-          ? formState.invitees
-          : [],
+        invitees: Array.isArray(formState.invitees) ? formState.invitees : [],
         invitationMessage: formState.invitationMessage,
         // Log mode specific fields
         duration: formState.duration,
@@ -480,6 +487,12 @@ export function AnimatedSessionWizard({
         crowdLevel: formState.crowdLevel,
         parkingEase: formState.parkingEase,
         overallRating: formState.overallRating,
+        // Actual conditions + calibration fields (collected in SessionDetailsSection)
+        waveHeight: formState.waveHeight,
+        windSpeed: formState.windSpeed,
+        windDirection: formState.windDirection,
+        forecastAccuracy: formState.forecastAccuracy,
+        waveTypes: formState.waveTypes,
       };
 
       if (onComplete) {
@@ -507,6 +520,10 @@ export function AnimatedSessionWizard({
 
   // Internal submission logic (fallback when no onComplete is provided)
   const handleInternalSubmit = async (sessionData: any) => {
+    if (!user?.id) {
+      throw new Error("User not authenticated");
+    }
+
     // Combine date and time into arrival_time
     let arrivalTime: string | undefined = undefined;
     if (sessionData.selectedDate && sessionData.selectedTime) {
@@ -549,6 +566,10 @@ export function AnimatedSessionWizard({
       toast.success("Session planned successfully!");
     } else {
       // Add logging-specific fields
+      const parsedWaterTemp =
+        sessionData.waterTemp && String(sessionData.waterTemp).trim().length > 0
+          ? Number.parseFloat(String(sessionData.waterTemp))
+          : null;
       const loggedSessionData = {
         ...baseSessionData,
         ...(sessionData.duration && {
@@ -557,7 +578,8 @@ export function AnimatedSessionWizard({
         ...(sessionData.waveQuality && {
           wave_quality: parseInt(sessionData.waveQuality),
         }),
-        ...(sessionData.waterTemp && { water_temp: sessionData.waterTemp }),
+        ...(typeof parsedWaterTemp === "number" &&
+          Number.isFinite(parsedWaterTemp) && { water_temp: parsedWaterTemp }),
         ...(sessionData.crowdLevel && {
           crowd_level: parseInt(sessionData.crowdLevel),
         }),

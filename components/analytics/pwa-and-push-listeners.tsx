@@ -12,22 +12,50 @@ export default function PWAAndPushListeners() {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
+    // DEV/LOCAL SAFETY:
+    // Never register the PWA service worker on localhost (even if NODE_ENV=production),
+    // because it can cache old Next.js chunks and cause hydration failures.
+    // In dev, also proactively unregister any existing /sw.js registrations.
+    const host =
+      // eslint-disable-next-line no-restricted-properties
+      window.location.hostname;
+    const isLocalhost = host === "localhost" || host === "127.0.0.1";
+    const isDev = process.env.NODE_ENV !== "production";
+
+    const unregisterQuiverSwIfPresent = async () => {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          regs
+            .filter((reg) => reg.active?.scriptURL?.includes("/sw.js"))
+            .map((reg) => reg.unregister())
+        );
+
+        // Clear caches to prevent stale HTML/chunk mismatches lingering locally
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+      } catch (error) {
+        // Silent fail in development
+      }
+    };
+
+    if (isLocalhost || isDev) {
+      void unregisterQuiverSwIfPresent();
+      return;
+    }
+
     const isSecureContext =
-      window.location.protocol === "https:" || // eslint-disable-line no-restricted-properties
-      window.location.hostname === "localhost"; // eslint-disable-line no-restricted-properties
+      // eslint-disable-next-line no-restricted-properties
+      window.location.protocol === "https:";
     if (!isSecureContext) return;
 
     const registerServiceWorker = async () => {
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js", {
+        await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
-        if (process.env.NODE_ENV !== "production") {
-          console.info(
-            "[Quiver] Service worker registered",
-            registration.scope
-          );
-        }
       } catch (error) {
         console.error("[Quiver] Failed to register service worker", error);
       }
@@ -70,19 +98,9 @@ export default function PWAAndPushListeners() {
 
         // Register for push notifications
         void registerPushNotifications();
-
-        if (process.env.NODE_ENV !== "production") {
-          console.info("[Quiver] Mobile push notifications initialized");
-        }
       })
-      .catch((error) => {
+      .catch(() => {
         // Silent fail - mobile modules may not be available on web
-        if (process.env.NODE_ENV !== "production") {
-          console.debug(
-            "[Quiver] Mobile push notifications not available:",
-            error.message
-          );
-        }
       });
   }, [user]);
 
@@ -104,19 +122,9 @@ export default function PWAAndPushListeners() {
 
         // Register for push notifications
         void registerWebPushNotifications();
-
-        if (process.env.NODE_ENV !== "production") {
-          console.info("[Quiver] Web push notifications initialized");
-        }
       })
-      .catch((error) => {
+      .catch(() => {
         // Silent fail - web push may not be available
-        if (process.env.NODE_ENV !== "production") {
-          console.debug(
-            "[Quiver] Web push notifications not available:",
-            error.message
-          );
-        }
       });
   }, [user]);
 

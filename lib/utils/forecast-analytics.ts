@@ -297,8 +297,11 @@ export function calculateAccuracyTrends(
       // Calculate average wave height for the day
       const avgWaveHeight =
         daySnapshots.reduce((sum: number, s: SessionForecastSnapshot) => {
+          const rawWaveHeight = (s.actual_conditions as Record<string, unknown>)?.wave_height;
           const height = extractNumericValue(
-            (s.actual_conditions as Record<string, unknown>)?.wave_height || 0
+            typeof rawWaveHeight === "string" || typeof rawWaveHeight === "number"
+              ? rawWaveHeight
+              : 0
           );
           return sum + height;
         }, 0) / daySnapshots.length;

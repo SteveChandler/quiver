@@ -101,7 +101,9 @@ export function withApprovedPhotos<T extends PostgrestFilterBuilder<any, any, an
  * @param query - The Supabase query builder instance
  * @returns The query builder with deleted_at IS NULL filter applied
  */
-export function withNonDeleted<T extends PostgrestFilterBuilder<any, any, any>>(
+export function withNonDeleted<
+  T extends PostgrestFilterBuilder<any, any, any, any, any, any, any>
+>(
   query: T
 ): T {
   return query.is("deleted_at", null) as T;

@@ -12,6 +12,17 @@ import { forecastLogger } from '@/lib/monitoring/forecast-logger';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
+function getSupabaseProjectRef(): string | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.split(".")[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   const startTime = Date.now();
   
@@ -23,6 +34,7 @@ export async function GET(request: Request) {
     const sources = metrics.sources;
     forecastLogger.healthCheck(metrics.healthStatus, {
       totalBeaches: metrics.totalBeaches,
+      supabaseProjectRef: getSupabaseProjectRef(),
       coverage: `${(metrics.coveragePercentage * 100).toFixed(1)}%`,
       staleBeaches: metrics.beachesWithStaleData,
       criticalStale: metrics.beachesWithCriticalStaleData,

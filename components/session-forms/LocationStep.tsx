@@ -3,7 +3,8 @@
 import { SessionFormMode, SessionFormState } from "@/hooks/use-session-form";
 import { Beach } from "@/types/database";
 import { BeachSelector } from "@/components/BeachSelector";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 
 interface LocationStepProps {
   formState: SessionFormState;
