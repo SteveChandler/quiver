@@ -155,8 +155,10 @@ describe("Board Creation Event Bubbling Prevention", () => {
         name: "Test Board",
         board_type: "Shortboard",
         dimensions: "6'2 x 19.5 x 2.5",
-        description: undefined,
-        image_url: undefined,
+        description: null,
+        image_url: null,
+        size: null,
+        volume: null,
       });
     });
 

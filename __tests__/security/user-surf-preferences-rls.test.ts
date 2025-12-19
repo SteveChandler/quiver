@@ -18,12 +18,29 @@ import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const shouldRunSecurity =
+  process.env.RUN_SECURITY_TESTS === "true" &&
+  !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Restore real fetch for database tests
+// Restore real fetch for database tests.
+// jest.setup.js installs a mocked fetch for UI/server-action tests; these security tests
+// need a real fetch implementation for Supabase admin/anon calls.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const undici = require("undici");
 // @ts-ignore
-delete global.fetch;
+global.fetch = undici.fetch;
+// @ts-ignore
+global.Headers = undici.Headers;
+// @ts-ignore
+global.Request = undici.Request;
+// @ts-ignore
+global.Response = undici.Response;
 
-describe("User Surf Preferences RLS Policies", () => {
+(shouldRunSecurity ? describe : describe.skip)(
+  "User Surf Preferences RLS Policies",
+  () => {
   let supabaseAdmin: ReturnType<typeof createClient<Database>>;
   let testUser1Id: string;
   let testUser2Id: string;
@@ -374,4 +391,5 @@ describe("User Surf Preferences RLS Policies", () => {
       expect(user2Prefs?.[0]?.id).toBe(testPreference2Id);
     });
   });
-});
+  }
+);

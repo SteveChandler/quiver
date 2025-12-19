@@ -19,14 +19,30 @@ import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const shouldRunSecurity =
+  process.env.RUN_SECURITY_TESTS === "true" &&
+  !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Restore real fetch for database tests
+// Restore real fetch for database tests.
+// jest.setup.js installs a mocked fetch for UI/server-action tests; these security tests
+// need a real fetch implementation for Supabase admin/anon calls.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const undici = require("undici");
 // @ts-ignore
-delete global.fetch;
+global.fetch = undici.fetch;
+// @ts-ignore
+global.Headers = undici.Headers;
+// @ts-ignore
+global.Request = undici.Request;
+// @ts-ignore
+global.Response = undici.Response;
 
-describe("Beach Photos RLS Security Policies", () => {
+(shouldRunSecurity ? describe : describe.skip)(
+  "Beach Photos RLS Security Policies",
+  () => {
   let anonClient: ReturnType<typeof createClient<Database>>;
   let adminClient: ReturnType<typeof createClient<Database>>;
   let testBeachId: string;

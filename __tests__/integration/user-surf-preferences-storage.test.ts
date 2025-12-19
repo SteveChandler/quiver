@@ -15,7 +15,6 @@
  * @jest-environment node
  */
 
-import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -38,6 +37,11 @@ global.Headers = undici.Headers;
 global.Request = undici.Request;
 // @ts-ignore
 global.Response = undici.Response;
+
+// IMPORTANT: require supabase-js after installing a real fetch.
+// Some library code may snapshot the global fetch implementation at import time.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
 
 (shouldRunIntegration ? describe : describe.skip)(
   "User Surf Preferences Storage Integration",

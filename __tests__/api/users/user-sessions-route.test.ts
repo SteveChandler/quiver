@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 
-import { GET } from "@/app/api/users/[id]/sessions/route";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -11,12 +10,20 @@ import {
   expectSuccessResponse,
 } from "@/test-utils/api-test-helpers";
 
+jest.mock("@/lib/middleware/rate-limiter", () => ({
+  withBotBlockingAndRateLimit: (handler: any) => handler,
+}));
+
 // Mock API server client used by route handlers
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
+
+// Import after mocks
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { GET } = require("@/app/api/users/[id]/sessions/route");
 
 describe("/api/users/[id]/sessions", () => {
   beforeEach(() => {
