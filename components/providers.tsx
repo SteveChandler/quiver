@@ -94,13 +94,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
 
-  // For the landing page, we want a minimal provider tree to improve performance
-  // Unauthenticated users on the landing page don't need:
-  // - ReactQuery (mostly used for app data)
-  // - SelectedBeachProvider (used for map/forecasts)
-  // - Heavy analytics (handled by AnalyticsLoader)
-
-  // However, we DO need AuthProvider to check session status
+  // Note: We keep ReactQuery + SelectedBeachProvider mounted even on "/"
+  // so back/forward navigation doesn't destroy client caches and force refetches.
+  // We still keep the landing UI path lightweight by controlling *what renders*,
+  // not by unmounting the caching providers.
 
   return (
     <>
@@ -117,31 +114,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
 
-            {/*
-            Conditional rendering of heavy providers
-            Only load ReactQuery and SelectedBeachProvider if NOT on landing page
-            OR if we are authenticated (AuthProvider handles auth state internally,
-            but we can't easily read it here at the top level without context)
-
-            Strategy: Always load AuthProvider.
-            Inside AuthProvider, we have the auth state.
-            But here we are at the root.
-
-            Compromise: Only skip these on the exact landing page route "/"
-            This assumes most traffic to "/" is unauthenticated marketing traffic.
-            Logged-in users will quickly navigate to /home or be redirected.
-          */}
-
-            {!isLandingPage ? (
-              <ReactQueryProvider>
-                <SelectedBeachProvider>
+            <ReactQueryProvider>
+              <SelectedBeachProvider>
+                {!isLandingPage ? (
                   <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
-                </SelectedBeachProvider>
-              </ReactQueryProvider>
-            ) : (
-              /* Landing Page Optimized Path */
-              <LandingPageContent>{children}</LandingPageContent>
-            )}
+                ) : (
+                  /* Landing Page Optimized Path */
+                  <LandingPageContent>{children}</LandingPageContent>
+                )}
+              </SelectedBeachProvider>
+            </ReactQueryProvider>
           </ProfileProvider>
         </AuthProvider>
       </LocationProvider>

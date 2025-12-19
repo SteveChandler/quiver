@@ -19,6 +19,8 @@ const customJestConfig = {
     // Ignore internal mock modules stored next to tests
     "<rootDir>/__tests__/__mocks__/",
     "<rootDir>/__tests__/setup/",
+    // Fixture modules are imported by tests but are not test suites
+    "<rootDir>/__tests__/fixtures/",
     "<rootDir>/__tests__/performance/helpers/",
   ],
   moduleNameMapper: {

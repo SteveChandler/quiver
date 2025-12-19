@@ -15,6 +15,8 @@
  * @module lib/data/server/featured-beaches
  */
 
+import { unstable_cache } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import {
@@ -24,7 +26,7 @@ import {
   getPriorityIndex,
   FALLBACK_IMAGE_BY_NAME,
 } from "@/lib/constants/featured-beaches-config";
-import type { BeachPhotoSelect, Beach } from "@/types/database";
+import type { BeachPhotoSelect, Beach, Database } from "@/types/database";
 
 // Type for beach data selected from database
 type BeachSelect = Pick<
@@ -116,7 +118,7 @@ const mapBeachRecord = (
  * @param supabase - Supabase client instance
  * @returns Map of beach ID to photo URL
  */
-async function fetchBeachPhotosMap(supabase: any): Promise<Map<string, string>> {
+async function fetchBeachPhotosMap(supabase: SupabaseClient<Database>): Promise<Map<string, string>> {
   let query = withApprovedPhotos(
     supabase
       .from("beach_photos")
@@ -157,7 +159,7 @@ async function fetchBeachPhotosMap(supabase: any): Promise<Map<string, string>> 
  * @returns Array of enriched beaches with photos
  */
 async function fetchBeachesWithPhotos(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   photosMap: Map<string, string>
 ): Promise<EnrichedBeach[]> {
   const beachIdsWithPhotos = Array.from(photosMap.keys());
@@ -200,7 +202,7 @@ async function fetchBeachesWithPhotos(
  * @returns Array of enriched beaches without photos
  */
 async function fetchBeachesWithoutPhotos(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   needed: number,
   excludeIds: string[]
 ): Promise<EnrichedBeach[]> {
@@ -362,7 +364,7 @@ function sortFeaturedBeaches(beaches: EnrichedBeach[]): EnrichedBeach[] {
  *
  * @returns Promise resolving to array of enriched beach objects (up to FEATURED_BEACHES_LIMIT)
  */
-export async function getFeaturedBeaches(): Promise<EnrichedBeach[]> {
+async function _getFeaturedBeaches(): Promise<EnrichedBeach[]> {
   try {
     const supabase = createSupabaseServerClient();
 
@@ -399,5 +401,25 @@ export async function getFeaturedBeaches(): Promise<EnrichedBeach[]> {
     console.error("Error fetching featured beaches:", error);
     // Return empty array for graceful degradation
     return [];
+  }
+}
+
+/**
+ * Cached featured beaches fetcher (server-side Next.js cache).
+ *
+ * - Keeps landing SSR fast by avoiding repeated Supabase queries on every `/` request.
+ * - Tagged so we can invalidate later if/when we add admin tooling to update featured content.
+ *
+ * Note: Wrapped in try/catch to be resilient in test environments where Next cache may not be available.
+ */
+export async function getFeaturedBeaches(): Promise<EnrichedBeach[]> {
+  try {
+    const cachedFetch = unstable_cache(_getFeaturedBeaches, ["featured-beaches"], {
+      tags: ["featured-beaches"],
+      revalidate: 600, // 10 minutes
+    });
+    return await cachedFetch();
+  } catch {
+    return await _getFeaturedBeaches();
   }
 }

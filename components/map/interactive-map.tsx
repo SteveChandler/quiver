@@ -15,7 +15,6 @@ import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-util
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
-import { getFavoriteBeaches } from "@/actions/beach/beach-favorite-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 // Mapbox CSS is imported globally in app/globals.css
@@ -137,15 +136,23 @@ export function InteractiveMap({
         return;
       }
 
-      const result = await getFavoriteBeaches(user.id);
-      if (result.success && result.data) {
-        const beachIds = new Set(result.data.map((beach: Beach) => beach.id));
-        setFavoriteBeachIds(beachIds);
-      } else {
+      // Client-side fetch (avoid calling server actions from client components)
+      const res = await fetch("/api/beaches/favorites", {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!res.ok) {
         // Silently handle error - favorite beaches are non-critical for map functionality
-        console.debug("No favorite beaches found:", result.error);
         setFavoriteBeachIds(new Set());
+        return;
       }
+
+      const json = await res.json().catch(() => null);
+      const beaches = (json?.data?.beaches ?? json?.beaches ?? []) as Beach[];
+      const beachIds = new Set(
+        beaches.map((beach) => beach.id).filter(Boolean)
+      );
+      setFavoriteBeachIds(beachIds);
     } catch (e) {
       // Silently handle error - favorite beaches are non-critical for map functionality
       console.debug(

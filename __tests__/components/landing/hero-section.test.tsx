@@ -8,13 +8,14 @@ jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
 
-jest.mock("@/components/beach/beach-search-autocomplete", () => {
+jest.mock("@/components/landing-page/hero-search-lazy", () => {
   return {
-    BeachSearchAutocomplete: ({
+    __esModule: true,
+    default: ({
       onFallback,
       onQueryChange,
     }: {
-      onFallback?: (query: string) => void;
+      onFallback?: (query?: string) => void;
       onQueryChange?: (query: string) => void;
     }) => {
       // Simple mock that behaves like a text input wired to the callbacks.

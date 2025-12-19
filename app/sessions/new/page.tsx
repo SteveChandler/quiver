@@ -112,8 +112,7 @@ function NewSessionPageContent({
       const response = await fetch(
         `/api/forecasts/update-enhanced?beachId=${encodeURIComponent(
           beachId
-        )}&days=2`,
-        { cache: "no-store" }
+        )}&days=2`
       );
 
       if (!response.ok) return null;

@@ -175,7 +175,6 @@ export function createLocationCacheKey(
 - **Purpose**: Canonical location hook. Supports both:
   - **Auto-request on mount** (map screens)
   - **Manual request only** via `requestLocation()` (home screens / explicit CTA)
-- **Compatibility**: Exposes a `useGeo()` wrapper for legacy imports (deprecated).
 
 ```typescript
 // Home screen (no auto prompt):

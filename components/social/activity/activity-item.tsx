@@ -3,7 +3,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import { ActivityIcon } from "./activity-icon";
 import { ActivityText } from "./activity-text";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import Link from "next/link";
 import type { ActivityFeedItem } from "@/types/database";
 

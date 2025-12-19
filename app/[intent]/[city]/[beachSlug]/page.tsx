@@ -227,7 +227,6 @@ export async function generateStaticParams() {
     // Fetch all beaches with their location data
     const response = await fetch(`${baseUrl}/api/beaches`, {
       next: { revalidate: 86400 }, // Revalidate daily
-      cache: "no-store",
     });
 
     if (!response.ok) {

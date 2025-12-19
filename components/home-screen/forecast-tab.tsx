@@ -170,8 +170,7 @@ export function ForecastTab({
     try {
       // Use the same API endpoint as beach detail page for consistency
       const response = await fetch(
-        `/api/forecasts/update-enhanced?beachId=${effectiveBeach.id}&days=2`,
-        { cache: "no-store" }
+        `/api/forecasts/update-enhanced?beachId=${effectiveBeach.id}&days=2`
       );
 
       if (!response.ok) {

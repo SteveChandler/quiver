@@ -19,6 +19,19 @@ Analyzed 34 hook files in the `hooks/` directory. Found:
 
 ---
 
+## Completion Status (2025-12-18)
+
+- [x] **Removed** `hooks/useGeo.ts` (deprecated compatibility wrapper; no production imports).
+- [x] **Geolocation consolidation already reflected in codebase**:
+  - Canonical hook is `hooks/use-geolocation.ts` (supports `autoRequest`, last-beach localStorage, and a `source` field).
+- [x] **Caching overlap decision**:
+  - `hooks/use-data-fetcher.ts` does **not** provide caching/TTL/invalidation.
+  - Kept `hooks/use-cached-api.ts` because it provides TTL + explicit invalidation and is used by:
+    - `hooks/use-enhanced-forecast.ts`
+    - `components/map/interactive-map.tsx` (via `createCachedMapFetch`)
+
+---
+
 ## Critical Hook (DO NOT TOUCH)
 
 ### `use-data-fetcher.ts` - CANONICAL DATA FETCHING PATTERN

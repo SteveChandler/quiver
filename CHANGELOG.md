@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
 - Documented that fully-developed city pages (via `city_editorial_content`) are part of Quiver’s indexing strategy (avoid “crawled – currently not indexed” for thin city pages).
+- Updated `docs/architecture/CACHE_STRATEGY.md` with current caching philosophy, real implementation details, pitfalls, and performance recommendations.
 
 ### Added
 
@@ -22,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canonical Supabase client documentation and doc-only deprecation guidance for `lib/supabase-browser.ts`.
 - Migrated legacy session forecast history + analysis logic into authenticated server actions (`actions/forecast-calibration-actions.ts`).
 - Home personalized forecast card now renders `PersonalizedBadge` (match % + breakdown) instead of a generic "For You" pill.
-- Consolidated home/map geolocation behavior into `useGeolocation` (manual vs auto-request), with `useGeo` kept as a deprecated thin wrapper.
+- Consolidated home/map geolocation behavior into `useGeolocation` (manual vs auto-request); removed deprecated `useGeo` wrapper (no longer imported).
 
 ### Removed
 
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 
 - Improved Home → Profile → Back navigation performance by fixing `sessions` beach join schema mismatch and adding lightweight request deduping/caching for profile/session/likes and achievements data.
+- Improved `/` → Map/Beach → back navigation performance by persisting React Query across `/`, removing `no-store` from public cacheable fetches, caching featured beaches server-side, reducing nearby-beach query churn (rounded coords + staleTime), and tightening service worker runtime caching to public-only beach/forecast routes.
 
 - **Recommendations API Optimization** (December 17, 2025)
   - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)

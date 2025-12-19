@@ -338,6 +338,41 @@ const nextConfig = {
   },
 };
 
+/**
+ * Determines if a beach API path should use StaleWhileRevalidate caching.
+ * Only caches public read-only endpoints. Excludes:
+ * - Authenticated endpoints (/favorites, /favorite/toggle)
+ * - Mutation endpoints
+ * - Frequently-changing feeds (/sessions)
+ *
+ * @param {string} pathname - The URL pathname
+ * @returns {boolean} Whether to cache with StaleWhileRevalidate
+ */
+const isPublicBeachApiPath = (pathname) => {
+  if (!pathname.startsWith("/api/beaches")) return false;
+
+  // Exclude authenticated and mutation endpoints
+  if (pathname === "/api/beaches/favorites") return false;
+  if (pathname.includes("/favorite/toggle")) return false;
+  if (pathname.includes("/sessions")) return false;
+
+  // Whitelist safe public GET routes
+  const publicPaths = [
+    "/api/beaches",
+    "/api/beaches/featured",
+    "/api/beaches/search",
+    "/api/beaches/nearby",
+  ];
+  if (publicPaths.includes(pathname)) return true;
+
+  // Allow /api/beaches/:id and /api/beaches/:id/sources
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length === 3) return true;
+  if (parts.length === 4 && parts[3] === "sources") return true;
+
+  return false;
+};
+
 // Configure PWA with Workbox
 const pwaConfig = withPWA({
   dest: "public",
@@ -359,7 +394,7 @@ const pwaConfig = withPWA({
   runtimeCaching: [
     // Forecast API - NetworkFirst with 3s timeout (fresh data priority, short cache for offline)
     {
-      urlPattern: ({ url }) => url.pathname.startsWith("/api/forecast"),
+      urlPattern: ({ url }) => url.pathname.startsWith("/api/forecasts"),
       handler: "NetworkFirst",
       options: {
         cacheName: "forecast-api",
@@ -370,13 +405,12 @@ const pwaConfig = withPWA({
         },
       },
     },
-    // Beach API - NetworkFirst (similar to forecasts)
+    // Beach API (PUBLIC ONLY) - StaleWhileRevalidate for fast back/forward
     {
-      urlPattern: ({ url }) => url.pathname.startsWith("/api/beaches"),
-      handler: "NetworkFirst",
+      urlPattern: ({ url }) => isPublicBeachApiPath(url.pathname),
+      handler: "StaleWhileRevalidate",
       options: {
         cacheName: "beaches-api",
-        networkTimeoutSeconds: 3,
         expiration: {
           maxEntries: 100,
           maxAgeSeconds: 60 * 60, // 1 hour

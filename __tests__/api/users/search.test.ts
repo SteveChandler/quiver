@@ -3,6 +3,7 @@
  */
 
 import { GET } from "@/app/api/users/search/route";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 import {
   createMockSupabaseClient,
   createMockUser,
@@ -36,6 +37,10 @@ interface UserSearchResponse {
 
 // Mock the Supabase API server client
 const mockSupabaseClient = createMockSupabaseClient();
+
+jest.mock("@/lib/middleware/rate-limiter", () => ({
+  withBotBlockingAndRateLimit: (handler: any) => handler,
+}));
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
@@ -547,8 +552,13 @@ describe("/api/users/search", () => {
       );
       const responses = await Promise.all(requests.map(request => GET(request)));
 
-      responses.forEach(async (response) => {
-        const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
+      const results = await Promise.all(
+        responses.map(async (response) => {
+          return await expectSuccessResponse<UserSearchResponse>(response, 200);
+        })
+      );
+
+      results.forEach((data) => {
         expect(data.data.users).toHaveLength(1);
       });
     });

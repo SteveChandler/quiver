@@ -15,6 +15,21 @@
 
 ---
 
+## Completion Status (2025-12-18)
+
+- [x] **Deleted** `components/landing-page/interactive-hero-demo.tsx` (confirmed no production imports).
+- [x] **Resolved ProgressiveSection redundancy**:
+  - Removed unused exported component `components/landing-page/progressive-section.tsx` and cleaned the barrel export in `components/landing-page/index.ts`.
+  - Removed stale documentation `components/landing-page/PROGRESSIVE_SECTION_README.md`.
+  - Updated `components/landing-page/ARCHITECTURE.md` to reflect the current Suspense + CSS-based progressive enhancement approach.
+
+Notes:
+
+- The primary unauthenticated `/` experience is driven by `components/landing-page/auth-aware-landing-wrapper.tsx` (client) plus the SSR beach links section rendered in `app/layout.tsx`.
+- `components/landing-page.tsx` still contains an inline progressive-loading skeleton wrapper, but is not the primary `/` entrypoint.
+
+---
+
 ## High-Confidence Dead Code
 
 ### `interactive-hero-demo.tsx` (436 lines)

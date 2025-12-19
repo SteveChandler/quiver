@@ -4,6 +4,7 @@
  */
 
 import type { Beach } from "@/types/database";
+import { slugify } from "@/lib/utils/text-utils";
 
 /**
  * Map of state codes/names to URL slugs
@@ -79,19 +80,6 @@ export function stateToSlug(state: string | null | undefined): string {
 export function cityToSlug(city: string | null | undefined): string {
   if (!city) return "";
   return slugify(city);
-}
-
-/**
- * Generic slugify function for text
- * Converts text to lowercase, replaces spaces with hyphens, removes special chars
- */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "") // Remove special characters
-    .replace(/[\s_]+/g, "-") // Replace spaces and underscores with hyphens
-    .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
 }
 
 /**
