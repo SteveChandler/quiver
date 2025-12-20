@@ -222,7 +222,7 @@ describe("useForecastCalibration", () => {
         wave_height: "4-6 ft",
         wind_speed: "8 mph",
         wind_direction: "NW",
-        water_temp: undefined,
+        water_temp: "65°F",
         air_temperature: undefined,
         confidence_score: 85,
         data_source: "NOAA_NWS",

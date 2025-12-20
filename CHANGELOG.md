@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - End-to-end forecast calibration loop using real session feedback.
 - Post-session forecast feedback capture after `/sessions/new?mode=log`.
+- **Enhanced Tide Chart with Diagnostics** (December 19, 2025)
+  - Added NOAA tide data validation script (`scripts/validate-noaa-tide-accuracy.ts`) to verify data accuracy against live NOAA API
+  - Created comprehensive `TideDiagnostics` type definitions for transparent tide data reporting
+  - Added `fetchCOOPSDataWithDiagnostics()` method to NOAA service returning forecast data + metadata (station, datum, timezone, source URL, validation status)
+  - New components:
+    - `TideDiagnosticsPanel`: Collapsible panel showing station ID, datum (MLLW), timezone, raw data sample, and NOAA source links (trigger: `?tide_debug=true`)
+    - `TideVerifiedBadge`: Visual indicator for data quality (verified/partial/unverified) with confidence score
+    - `TideWarningBanner`: Non-blocking warnings for stale data, fallback stations, or data quality issues
+    - `TideNextExtreme`: Summary showing next high/low tide time, height, and duration until event
+    - `TideHourlyTable`: 18-row table with Time/Height/Trend columns, highlighting current hour and high/low points
+    - `TideChartEnhanced`: Wrapper component integrating all features with the existing TideChart
+  - Added 22 unit tests for new components
+  - Added E2E test suite for tide diagnostics (`e2e/tide-chart-enhanced.spec.ts`)
 
 ### Changed
 

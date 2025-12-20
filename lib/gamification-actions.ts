@@ -37,6 +37,17 @@ function __invalidateUserCaches(userId: string) {
   __cache.userBadgesByUserId.delete(userId);
 }
 
+// Test-only helper to avoid cross-test cache bleed.
+// This module caches results in-memory for performance, which is great in prod but
+// can make unit tests flaky if state carries across test cases.
+export async function __resetGamificationCacheForTests() {
+  if (process.env.NODE_ENV !== "test") return;
+  __cache.xpStatusByUserId.clear();
+  __cache.userBadgesByUserId.clear();
+  __cache.badgeDefinitions.clear();
+  __cache.inflight.clear();
+}
+
 // XP action mapping - defines XP values for each user action
 const XP_ACTION_MAP = {
   plan_session: 50,

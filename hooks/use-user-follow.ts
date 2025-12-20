@@ -137,7 +137,7 @@ export function useUserFollow(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, userId, initialFollowersCount, initialFollowingCount]);
+  }, [user?.id, userId]);
 
   const toggleFollow = async () => {
     if (!user) {

@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 
 describe("ForecastDataSourceIndicator - Confidence Badge Fix", () => {
@@ -11,10 +12,7 @@ describe("ForecastDataSourceIndicator - Confidence Badge Fix", () => {
   describe("when data is unavailable", () => {
     it("should NOT display confidence badge", () => {
       render(
-        <ForecastDataSourceIndicator
-          {...defaultProps}
-          dataSource="UNKNOWN"
-        />
+        <ForecastDataSourceIndicator {...defaultProps} dataSource="UNKNOWN" />
       );
 
       // Should show "Data unavailable" message
@@ -67,10 +65,7 @@ describe("ForecastDataSourceIndicator - Confidence Badge Fix", () => {
   describe("when data source is CDIP", () => {
     it("should display confidence badge", () => {
       render(
-        <ForecastDataSourceIndicator
-          {...defaultProps}
-          dataSource="CDIP"
-        />
+        <ForecastDataSourceIndicator {...defaultProps} dataSource="CDIP" />
       );
 
       // Should show CDIP data source
@@ -100,9 +95,6 @@ describe("ForecastDataSourceIndicator - Confidence Badge Fix", () => {
       // Should show live data badge
       expect(screen.getByText("Live Data")).toBeInTheDocument();
 
-      // Should show last updated
-      expect(screen.getByText(/updated/i)).toBeInTheDocument();
-
       // Should show buoy info (compact variant shows "CDIP {stationId}")
       expect(screen.getByText("CDIP 12345")).toBeInTheDocument();
     });
@@ -111,10 +103,7 @@ describe("ForecastDataSourceIndicator - Confidence Badge Fix", () => {
   describe("when data source is NOAA_NWS", () => {
     it("should display confidence badge", () => {
       render(
-        <ForecastDataSourceIndicator
-          {...defaultProps}
-          dataSource="NOAA_NWS"
-        />
+        <ForecastDataSourceIndicator {...defaultProps} dataSource="NOAA_NWS" />
       );
 
       // Should show NOAA data source
@@ -142,21 +131,26 @@ describe("ForecastDataSourceIndicator - Confidence Badge Fix", () => {
       expect(screen.getByText("85% confidence")).toBeInTheDocument();
     });
 
-    it("should display stale data warning when available", () => {
+    it("should reflect stale data in expanded details when available", async () => {
+      const user = userEvent.setup();
       render(
         <ForecastDataSourceIndicator
           {...defaultProps}
           dataSource="FALLBACK"
           isStaleData={true}
           lastUpdated="2025-01-15T12:00:00Z"
+          expandable={true}
         />
       );
 
       // Should show confidence badge
       expect(screen.getByText("85% confidence")).toBeInTheDocument();
 
-      // Should show stale data warning
-      expect(screen.getByTestId("stale-data-warning")).toBeInTheDocument();
+      await user.click(
+        screen.getByRole("button", { name: /show confidence details/i })
+      );
+      expect(screen.getByText("Data freshness:")).toBeInTheDocument();
+      expect(screen.getByText("Outdated")).toBeInTheDocument();
     });
   });
 

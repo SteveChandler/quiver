@@ -89,13 +89,15 @@ describe("SessionCard", () => {
       rating: 4,
       session_date: "2024-01-01",
       wave_quality: 4,
-      wave_height: "4-6 ft",
+      wave_height_ft: "4-6",
       water_temp: "68°F",
       crowd_level: 3,
       user: { full_name: "Test User" },
     };
 
-    render(<SessionCard {...defaultProps} session={sessionWithConditions as any} />);
+    render(
+      <SessionCard {...defaultProps} session={sessionWithConditions as any} />
+    );
 
     // Should show wave conditions section when session data is available
     expect(screen.getByText("4-6 ft")).toBeInTheDocument();
