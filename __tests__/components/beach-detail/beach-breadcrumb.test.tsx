@@ -174,7 +174,12 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     });
 
     it("should use default California if city/state/region_id unavailable", () => {
-      const beach = { ...mockBeach, city: null, state: null, region_id: null } as Beach;
+      const beach = {
+        ...mockBeach,
+        city: null,
+        state: null,
+        region_id: null,
+      } as Beach;
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("California")).toBeInTheDocument();
     });
@@ -195,12 +200,12 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
       const links = screen.getAllByRole("link");
       const locationLink = links.find(
         (link) =>
-          link.getAttribute("href")?.includes("/beaches/") &&
+          link.getAttribute("href")?.includes("/ca/") &&
           !link.getAttribute("href")?.includes("/map")
       );
 
       expect(locationLink).toBeDefined();
-      expect(locationLink).toHaveAttribute("href", "/beaches/usa/ca/la-jolla");
+      expect(locationLink).toHaveAttribute("href", "/ca/la-jolla");
     });
 
     it("should use ocean-blue color for clickable location link", () => {
@@ -208,7 +213,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       const links = screen.getAllByRole("link");
       const locationLink = links.find((link) =>
-        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+        link.getAttribute("href")?.includes("/ca/")
       );
 
       expect(locationLink).toHaveClass("text-ocean-blue");
@@ -219,7 +224,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       const links = screen.getAllByRole("link");
       const locationLink = links.find((link) =>
-        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+        link.getAttribute("href")?.includes("/ca/")
       );
 
       expect(locationLink).toHaveClass("hover:underline");
@@ -235,11 +240,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       // Should only have the "Back to Map" link, no location page link
       const links = screen.getAllByRole("link");
-      const locationPageLinks = links.filter((link) =>
-        link.getAttribute("href")?.includes("/beaches/")
-      );
-
-      expect(locationPageLinks).toHaveLength(0);
+      expect(links).toHaveLength(1);
     });
 
     it("should render location as non-clickable text when state is missing", () => {
@@ -252,11 +253,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       // Should only have the "Back to Map" link, no location page link
       const links = screen.getAllByRole("link");
-      const locationPageLinks = links.filter((link) =>
-        link.getAttribute("href")?.includes("/beaches/")
-      );
-
-      expect(locationPageLinks).toHaveLength(0);
+      expect(links).toHaveLength(1);
     });
 
     it("should generate correct URL for international locations", () => {
@@ -271,13 +268,13 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       const links = screen.getAllByRole("link");
       const locationLink = links.find((link) =>
-        link.getAttribute("href")?.includes("/beaches/mexico/")
+        link.getAttribute("href")?.includes("/mexico/")
       );
 
       expect(locationLink).toBeDefined();
       expect(locationLink).toHaveAttribute(
         "href",
-        "/beaches/mexico/baja-california/ensenada"
+        "/mexico/baja-california/ensenada"
       );
     });
 
@@ -293,13 +290,10 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       const links = screen.getAllByRole("link");
       const locationLink = links.find((link) =>
-        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+        link.getAttribute("href")?.includes("/ca/")
       );
 
-      expect(locationLink).toHaveAttribute(
-        "href",
-        "/beaches/usa/ca/pacific-beach"
-      );
+      expect(locationLink).toHaveAttribute("href", "/ca/pacific-beach");
     });
 
     it("should handle hyphenated city names in URLs", () => {
@@ -314,13 +308,10 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       const links = screen.getAllByRole("link");
       const locationLink = links.find((link) =>
-        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+        link.getAttribute("href")?.includes("/ca/")
       );
 
-      expect(locationLink).toHaveAttribute(
-        "href",
-        "/beaches/usa/ca/cardiff-by-the-sea"
-      );
+      expect(locationLink).toHaveAttribute("href", "/ca/cardiff-by-the-sea");
     });
 
     it("should default to USA when country is null", () => {
@@ -335,11 +326,11 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       const links = screen.getAllByRole("link");
       const locationLink = links.find((link) =>
-        link.getAttribute("href")?.includes("/beaches/")
+        link.getAttribute("href")?.includes("/ca/")
       );
 
       expect(locationLink).toBeDefined();
-      expect(locationLink?.getAttribute("href")).toContain("/beaches/usa/");
+      expect(locationLink?.getAttribute("href")).toBe("/ca/la-jolla");
     });
   });
 
@@ -437,7 +428,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
       const links = screen.getAllByRole("link");
       // Should have at least the "Back to Map" link, and possibly location link
       expect(links.length).toBeGreaterThanOrEqual(1);
-      links.forEach(link => {
+      links.forEach((link) => {
         expect(link).toHaveAccessibleName();
       });
     });
@@ -467,7 +458,9 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     it("should show both full and abbreviated link text", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
       expect(screen.getByText("Back to Map")).toBeInTheDocument();
-      expect(screen.getByText("Map", { selector: ".sm\\:hidden" })).toBeInTheDocument();
+      expect(
+        screen.getByText("Map", { selector: ".sm\\:hidden" })
+      ).toBeInTheDocument();
     });
 
     it("should handle very long beach names with truncation", () => {

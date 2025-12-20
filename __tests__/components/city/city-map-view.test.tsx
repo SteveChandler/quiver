@@ -199,9 +199,13 @@ describe("CityMapView Component", () => {
         />
       );
 
-      expect(screen.getAllByText("Beginner friendly").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Beginner friendly").length).toBeGreaterThan(
+        0
+      );
       expect(screen.getAllByText("Advanced").length).toBeGreaterThan(0);
-      expect(screen.getAllByText("Longboard friendly").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Longboard friendly").length).toBeGreaterThan(
+        0
+      );
     });
 
     it("should render beach descriptions", () => {
@@ -233,7 +237,7 @@ describe("CityMapView Component", () => {
       const beachCards = screen.getAllByRole("option");
       fireEvent.click(beachCards[0]);
 
-      expect(mockPush).toHaveBeenCalledWith("/spots/la-jolla-shores");
+      expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/la-jolla-shores");
     });
 
     it("should handle hover state on beach items", () => {
@@ -273,9 +277,9 @@ describe("CityMapView Component", () => {
       fireEvent.click(mapBeachButton);
 
       // The beach should be selected (checked via aria-selected)
-      const selectedItem = screen.getAllByRole("option").find(
-        (item) => item.getAttribute("aria-selected") === "true"
-      );
+      const selectedItem = screen
+        .getAllByRole("option")
+        .find((item) => item.getAttribute("aria-selected") === "true");
       expect(selectedItem).toBeDefined();
     });
   });
@@ -318,7 +322,7 @@ describe("CityMapView Component", () => {
       const mobileCards = screen.getAllByText("La Jolla Shores");
       fireEvent.click(mobileCards[0].closest("div[class*='cursor-pointer']")!);
 
-      expect(mockPush).toHaveBeenCalledWith("/spots/la-jolla-shores");
+      expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/la-jolla-shores");
     });
   });
 
@@ -392,9 +396,9 @@ describe("CityMapView Component", () => {
       fireEvent.click(listItems[0]);
 
       // Find the selected item
-      const selectedItem = screen.getAllByRole("option").find(
-        (item) => item.getAttribute("aria-selected") === "true"
-      );
+      const selectedItem = screen
+        .getAllByRole("option")
+        .find((item) => item.getAttribute("aria-selected") === "true");
       expect(selectedItem).toBeDefined();
     });
   });

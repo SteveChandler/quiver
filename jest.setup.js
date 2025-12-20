@@ -101,6 +101,15 @@ global.fetch = jest.fn(() =>
   })
 );
 
+// Some tests intentionally `delete global.fetch` (eg. to simulate environments without fetch).
+// Ensure later tests don't inherit a missing fetch implementation.
+const __mockedFetch = global.fetch;
+afterEach(() => {
+  if (typeof global.fetch === "undefined") {
+    global.fetch = __mockedFetch;
+  }
+});
+
 // Polyfill Request and Response for Node.js environment
 if (typeof Request === "undefined") {
   global.Request = class Request {

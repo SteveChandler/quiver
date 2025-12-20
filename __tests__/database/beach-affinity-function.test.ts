@@ -13,19 +13,39 @@
  * @jest-environment node
  */
 
-import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-// For admin operations in tests, use service role key from local Supabase
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+// For admin operations in tests, use service role key
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const shouldRunDatabase =
+  process.env.RUN_INTEGRATION_TESTS === "true" &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+  !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Restore real fetch for database tests (undo the global mock from jest.setup.js)
+// Restore real fetch for database tests.
+// jest.setup.js installs a mocked fetch for UI/server-action tests; these database tests
+// need a real fetch implementation for Supabase anon/admin calls.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const undici = require("undici");
 // @ts-ignore
-delete global.fetch;
+global.fetch = undici.fetch;
+// @ts-ignore
+global.Headers = undici.Headers;
+// @ts-ignore
+global.Request = undici.Request;
+// @ts-ignore
+global.Response = undici.Response;
 
-describe("Beach Affinity Computation Function", () => {
+// IMPORTANT: require supabase-js after installing a real fetch.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
+
+(shouldRunDatabase ? describe : describe.skip)(
+  "Beach Affinity Computation Function",
+  () => {
   let supabase: ReturnType<typeof createClient<Database>>;
   let adminClient: ReturnType<typeof createClient<Database>>;
   let testUserId: string;

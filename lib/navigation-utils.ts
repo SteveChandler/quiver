@@ -3,8 +3,10 @@ import { buildBeachUrl, buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils
 import type { BeachLocation } from "@/types/beach-core";
 
 /**
- * Beach navigation utilities to centralize routing logic
- * Uses hierarchical URLs: /{state}/{city}/{beach-slug}
+ * Beach navigation & routing utilities.
+ *
+ * Generates URLs and provides router helpers for beach pages (tabs, city/state slugs, etc.).
+ * For query parameter preservation during navigation, see `lib/utils/navigation-utils.ts`.
  */
 export const beachNavigation = {
   /**

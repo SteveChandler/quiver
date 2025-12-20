@@ -24,7 +24,10 @@ describe("lib/data/client gateway", () => {
       const beaches = await data.beaches.getAll();
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/beaches",
-        expect.objectContaining({ method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" })
+        expect.objectContaining({
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        })
       );
       expect(Array.isArray(beaches)).toBe(true);
       expect(beaches[0].id).toBe("1");
@@ -147,7 +150,8 @@ describe("lib/data/client gateway", () => {
 
     it("throws on non-ok", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(new Response("", { status: 401 }));
-      await expect(data.users.profile.get("u1")).rejects.toThrow("Failed to load profile: 401");
+      // Use a different userId than the prior test so the client gateway's in-memory cache can't short-circuit the fetch.
+      await expect(data.users.profile.get("u2")).rejects.toThrow("Failed to load profile: 401");
     });
   });
 
@@ -228,7 +232,8 @@ describe("lib/data/client gateway", () => {
 
     it("throws on non-ok", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(new Response("", { status: 404 }));
-      await expect(data.users.sessions.list("u1")).rejects.toThrow("Failed to load user sessions: 404");
+      // Use a different userId than the prior tests so the client gateway's in-memory cache can't short-circuit the fetch.
+      await expect(data.users.sessions.list("u2")).rejects.toThrow("Failed to load user sessions: 404");
     });
   });
 

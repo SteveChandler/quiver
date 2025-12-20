@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import { trackXP, getUserXPStatus, getUserBadges, getAllBadgeDefinitions } from '@/lib/gamification-actions';
+import { __resetGamificationCacheForTests, trackXP, getUserXPStatus, getUserBadges, getAllBadgeDefinitions } from '@/lib/gamification-actions';
 import { 
   mockStates, 
   mockBadgeDefinitions,
@@ -43,6 +43,7 @@ describe('Gamification Actions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     tracker = { selects: [], inserts: [], updates: [] };
+    __resetGamificationCacheForTests();
   });
 
   describe('trackXP', () => {

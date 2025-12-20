@@ -105,8 +105,10 @@ describe("Board Creation and Auto-Selection", () => {
         name: "Test Board",
         board_type: "Shortboard",
         dimensions: "6'2 x 19.5 x 2.5",
-        description: undefined,
-        image_url: undefined,
+        description: null,
+        image_url: null,
+        size: null,
+        volume: null,
       });
     });
 
@@ -156,8 +158,10 @@ describe("Board Creation and Auto-Selection", () => {
         name: "Test Board",
         board_type: "Shortboard",
         dimensions: "6'2 x 19.5 x 2.5",
-        description: undefined,
-        image_url: undefined,
+        description: null,
+        image_url: null,
+        size: null,
+        volume: null,
       });
     });
 
@@ -173,12 +177,12 @@ describe("Board Creation and Auto-Selection", () => {
         mockUpdateField("selectedBoard", newBoard.id);
         mockUpdateField("boardId", newBoard.id);
       }
-      
+
       // Refresh boards list after everything else is done
       if (mockOnBoardsRefresh) {
         try {
           await mockOnBoardsRefresh();
-          
+
           // Ensure the board stays selected after refresh
           if (newBoard) {
             mockUpdateField("selectedBoard", newBoard.id);
@@ -197,7 +201,7 @@ describe("Board Creation and Auto-Selection", () => {
     expect(mockUpdateField).toHaveBeenCalledWith("selectedBoard", mockBoard.id);
     expect(mockUpdateField).toHaveBeenCalledWith("boardId", mockBoard.id);
     expect(mockOnBoardsRefresh).toHaveBeenCalled();
-    
+
     // Verify it was called twice (before and after refresh)
     expect(mockUpdateField).toHaveBeenCalledTimes(4); // 2 fields × 2 times
   });
@@ -255,8 +259,10 @@ describe("Board Creation and Auto-Selection", () => {
         name: "First Board",
         board_type: "Shortboard",
         dimensions: "6'2 x 19.5 x 2.5",
-        description: undefined,
-        image_url: undefined,
+        description: null,
+        image_url: null,
+        size: null,
+        volume: null,
       });
     });
 

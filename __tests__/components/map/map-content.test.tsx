@@ -36,7 +36,10 @@ describe("MapContent", () => {
     loading: false,
     locationError: null as string | null,
     usingDefaultLocation: false,
-    userLocation: { lat: 32.7, lon: -117.2 } as { lat: number; lon: number } | null,
+    userLocation: { lat: 32.7, lon: -117.2 } as {
+      lat: number;
+      lon: number;
+    } | null,
     selectedBeach: null as any,
     filteredBeaches: mockBeaches as any,
     searchQuery: "",
@@ -136,13 +139,13 @@ describe("MapContent", () => {
     ).toBeInTheDocument();
   });
 
-  it("should show out of area message for known locations", () => {
+  it("should treat in-coverage regions like Hawaii as normal search", () => {
     render(
       <MapContent {...defaultProps} searchQuery="Hawaii" filteredBeaches={[]} />
     );
 
     expect(
-      screen.getByText('"Hawaii" is outside our coverage area')
+      screen.getByText('No beaches found for "Hawaii"')
     ).toBeInTheDocument();
   });
 
@@ -216,7 +219,9 @@ describe("MapContent", () => {
   });
 
   it("should show selected beach name in overlay", () => {
-    render(<MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />);
+    render(
+      <MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />
+    );
 
     expect(
       screen.getByText(`Showing ${mockBeaches[0].name}`)

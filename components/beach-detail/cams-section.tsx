@@ -13,9 +13,7 @@ interface CamsSectionProps {
 export function CamsSection({ beachId }: CamsSectionProps) {
   const fetchSources = useCallback(async () => {
     try {
-      const res = await fetch(`/api/beaches/${beachId}/sources`, {
-        cache: "no-store",
-      });
+      const res = await fetch(`/api/beaches/${beachId}/sources`);
       if (!res.ok) {
         return null;
       }

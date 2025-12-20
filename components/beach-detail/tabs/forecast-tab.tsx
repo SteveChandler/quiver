@@ -26,7 +26,8 @@ import {
 } from "@/components/ui/collapsible";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { SimplifiedForecastTable } from "@/components/forecast/forecast-table";
-import { TideChart } from "@/components/forecast/tide-chart-recharts";
+import { TideChartEnhanced } from "@/components/forecast/tide-chart-enhanced";
+import { generateTideDiagnosticsFromForecasts } from "@/lib/utils/tide-diagnostics-generator";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 
@@ -187,6 +188,16 @@ export function ForecastTab({
     snapshotSwellPeriod === "—"
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
+
+  // Generate tide diagnostics from forecast data for enhanced tide components
+  const tideDiagnostics = useMemo(() => {
+    if (!forecasts || forecasts.length === 0) return null;
+    return generateTideDiagnosticsFromForecasts(forecasts, {
+      beachName: beach.name,
+      stationName: beach.name,
+      isPrimaryStation: true,
+    });
+  }, [forecasts, beach.name]);
 
   // Extract transparency metadata from current forecast
   const forecastMetadata = useMemo(() => {
@@ -471,7 +482,21 @@ export function ForecastTab({
 
         {/* Tides Tab */}
         <TabsContent value="tides" className="mt-6">
-          <TideChart forecasts={forecasts} compact={false} now={new Date()} />
+          <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg backdrop-blur">
+            <h2 className="text-xl font-roboto font-semibold text-dark-grey mb-4">
+              Tide Forecast
+            </h2>
+            <TideChartEnhanced
+              forecasts={forecasts}
+              diagnostics={tideDiagnostics ?? undefined}
+              compact={false}
+              now={new Date()}
+              showNextExtreme={!!tideDiagnostics}
+              showHourlyTable={true}
+              showWarnings={true}
+              showVerifiedBadge={!!tideDiagnostics}
+            />
+          </section>
         </TabsContent>
 
         {/* Conditions Tab */}

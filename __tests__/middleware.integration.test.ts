@@ -127,12 +127,12 @@ describe("Middleware Integration Tests", () => {
   });
 
   describe("Location Page Shortcut Redirects", () => {
-    it("should redirect /beaches/{state}/{city} to /{state}/{city} (308)", async () => {
+    it("should redirect /beaches/{state}/{city} to /{state}/{city} (301)", async () => {
       const request = createMockRequest("/beaches/ca/san-diego");
 
       const response = await middleware(request);
 
-      expect(response.status).toBe(308);
+      expect(response.status).toBe(301);
       expect(response.headers.get("location")).toBe(
         "http://localhost:3000/ca/san-diego"
       );
@@ -143,7 +143,7 @@ describe("Middleware Integration Tests", () => {
 
       const response = await middleware(request);
 
-      expect(response.status).toBe(308);
+      expect(response.status).toBe(301);
       expect(response.headers.get("location")).toBe(
         "http://localhost:3000/ca/san-diego?utm_source=test"
       );
@@ -195,6 +195,36 @@ describe("Middleware Integration Tests", () => {
       expect(response.headers.get("x-middleware-rewrite")).toBe(
         "http://localhost:3000/beaches/usa/hi/haleiwa"
       );
+    });
+
+    it("should 301 redirect /beaches/{country}/{state}/{city} to /{country}/{state}/{city} for international", async () => {
+      const request = createMockRequest("/beaches/mexico/baja-california/rosarito");
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3000/mexico/baja-california/rosarito"
+      );
+    });
+
+    it("should rewrite /{country}/{state}/{city} to /beaches/{country}/{state}/{city} for international", async () => {
+      const request = createMockRequest("/mexico/baja-california/rosarito");
+
+      const response = await middleware(request);
+
+      expect(response.headers.get("x-middleware-rewrite")).toBe(
+        "http://localhost:3000/beaches/mexico/baja-california/rosarito"
+      );
+    });
+
+    it("should not rewrite 4-segment international beach URLs", async () => {
+      const request = createMockRequest("/mexico/baja-california/rosarito/teresas");
+
+      const response = await middleware(request);
+
+      expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+      expect(response.status).not.toBe(301);
     });
   });
 

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { ErrorFallback } from '@/components/error-boundaries';
-import { logErrorBoundary } from '@/components/error-boundaries';
+import { useEffect } from "react";
+import { ErrorFallback } from "@/components/error-boundaries";
+import { logErrorBoundary } from "@/components/error-boundaries";
 
 export default function Error({
   error,
@@ -13,9 +13,9 @@ export default function Error({
 }) {
   useEffect(() => {
     logErrorBoundary(error, {
-      tier: 'tier_1',
-      boundaryType: 'global',
-      route: 'root',
+      tier: "tier_1",
+      boundaryType: "global",
+      route: "root",
     });
   }, [error]);
 

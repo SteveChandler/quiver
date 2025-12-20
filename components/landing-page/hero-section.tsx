@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { HeroCarousel } from "./hero-carousel";
-import HeroSearchLazy from "./hero-search-lazy";
+import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
 import type { Beach } from "@/types/database";
 
 export function HeroSection() {

@@ -1,9 +1,32 @@
-import 'dotenv/config';
-import { config } from 'dotenv';
+import { config as dotenvConfig } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
 
-// Load Playwright-specific env file if it exists
-config({ path: '.env.playwright', override: true });
+/**
+ * Env precedence for Playwright runs:
+ * - CLI / OS env (highest)
+ * - `.env.playwright`
+ * - `.env` (lowest)
+ *
+ * We implement this explicitly so scripts like:
+ *   BASE_URL=https://dev.quiversurf.app yarn test:e2e
+ * are not overwritten by `.env.playwright`.
+ */
+const lockedEnv = new Map<string, string | undefined>(Object.entries(process.env));
+
+// Load `.env` first (fallbacks)
+dotenvConfig();
+
+// Load `.env.playwright` next (overrides `.env`, but NOT CLI/OS env)
+dotenvConfig({ path: ".env.playwright", override: true });
+
+// Restore any pre-existing env (CLI/OS) values
+for (const [key, value] of lockedEnv.entries()) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
 
 // Minimal fresh Playwright configuration
 export default defineConfig({

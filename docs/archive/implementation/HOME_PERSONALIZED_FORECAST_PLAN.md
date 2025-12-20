@@ -410,7 +410,7 @@
      // hooks/use-personalized-home-forecast.ts
      import { useCallback, useMemo } from "react";
      import { useDataFetcher } from "@/hooks/use-data-fetcher";
-     import { useGeo } from "@/hooks/useGeo";
+     import { useGeolocation } from "@/hooks/use-geolocation";
      import type { PersonalizedForecastRecommendation } from "@/types/personalization";
 
      interface UsePersonalizedHomeForecastOptions {
@@ -422,7 +422,8 @@
      export function usePersonalizedHomeForecast(
        options: UsePersonalizedHomeForecastOptions
      ) {
-       const { coords } = useGeo();
+       // Home should never auto-prompt; only use location if already available.
+       const { coords } = useGeolocation({ autoRequest: false });
 
        // Memoize fetch function per Quiver patterns
        const fetchPersonalizedForecast = useCallback(async () => {

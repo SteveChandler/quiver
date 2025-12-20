@@ -25,7 +25,15 @@ function createQueryClient() {
   });
 }
 
-function HookHarness({ lat, lon, limit }: { lat?: number; lon?: number; limit?: number }) {
+function HookHarness({
+  lat,
+  lon,
+  limit,
+}: {
+  lat?: number;
+  lon?: number;
+  limit?: number;
+}) {
   const { data } = useNearbyBeaches(lat, lon, limit ?? 4);
   return <pre data-testid="result">{JSON.stringify(data)}</pre>;
 }
@@ -91,6 +99,31 @@ describe("useNearbyBeaches", () => {
         state: null,
       },
     ]);
+  });
+
+  it("rounds coordinates for queryKey to reduce churn", async () => {
+    const queryClient = createQueryClient();
+
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <HookHarness lat={32.7504} lon={-117.2504} limit={4} />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledTimes(1);
+    });
+
+    // Small coordinate jitter that should not create a new queryKey (rounded to 3 decimals)
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <HookHarness lat={32.75049} lon={-117.25049} limit={4} />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("does not invoke Supabase when coordinates are missing", async () => {

@@ -1,16 +1,23 @@
 /**
  * Beach URL utilities for hierarchical URL structure
- * Converts beach data to SEO-friendly URLs: /{state}/{city}/{beach-slug}
+ * Converts beach data to SEO-friendly URLs.
+ *
+ * Canonical patterns:
+ * - USA:  /{state}/{city}/{beachSlug}
+ * - Intl: /{country}/{regionState}/{city}/{beachSlug}
  */
 
 import type { Beach } from "@/types/database";
+import { slugify } from "@/lib/utils/text-utils";
 
 /**
- * Map of state codes/names to URL slugs
- * Using short codes for US states for brevity
- * Handles both 2-letter codes and full state names
+ * Map of US state codes/names to URL slugs.
+ *
+ * IMPORTANT:
+ * - Keep this map USA-only. `isValidStateSlug()` is used to disambiguate routing
+ *   between state slugs and intent slugs (see `docs/architecture/URL_ROUTING.md`).
  */
-const STATE_SLUG_MAP: Record<string, string> = {
+const US_STATE_SLUG_MAP: Record<string, string> = {
   // US States (2-letter codes)
   CA: "ca",
   FL: "fl",
@@ -46,28 +53,45 @@ const STATE_SLUG_MAP: Record<string, string> = {
   "South Carolina": "sc",
   Texas: "tx",
   Washington: "wa",
-
-  // International locations
-  "Baja California": "mexico/baja-california",
-  // Add more states/regions as needed
 };
 
 /**
  * Convert state name or code to URL slug
  * Examples:
  *   "CA" → "ca"
- *   "Baja California" → "mexico/baja-california"
+ *   "Baja California" → "baja-california" (international regions are handled separately)
  */
 export function stateToSlug(state: string | null | undefined): string {
   if (!state) return "";
 
   // Check if we have a direct mapping
-  if (STATE_SLUG_MAP[state]) {
-    return STATE_SLUG_MAP[state];
+  if (US_STATE_SLUG_MAP[state]) {
+    return US_STATE_SLUG_MAP[state];
   }
 
   // Otherwise slugify the state name and lowercase
   return slugify(state).toLowerCase();
+}
+
+function isUsaCountry(country: string | null | undefined): boolean {
+  if (!country) return true; // default to USA when unknown for backward compatibility
+  const normalized = country.trim().toLowerCase();
+  return (
+    normalized === "usa" ||
+    normalized === "us" ||
+    normalized === "united states" ||
+    normalized === "united states of america"
+  );
+}
+
+export function countryToSlug(country: string | null | undefined): string {
+  if (!country) return "";
+  return slugify(country).toLowerCase();
+}
+
+export function regionToSlug(region: string | null | undefined): string {
+  if (!region) return "";
+  return slugify(region).toLowerCase();
 }
 
 /**
@@ -82,23 +106,12 @@ export function cityToSlug(city: string | null | undefined): string {
 }
 
 /**
- * Generic slugify function for text
- * Converts text to lowercase, replaces spaces with hyphens, removes special chars
- */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "") // Remove special characters
-    .replace(/[\s_]+/g, "-") // Replace spaces and underscores with hyphens
-    .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
-}
-
-/**
  * Build hierarchical URL for a beach
- * Returns: /{state-slug}/{city-slug}/{beach-slug}
+ * Returns:
+ * - USA:  /{state-slug}/{city-slug}/{beach-slug}
+ * - Intl: /{country-slug}/{region-slug}/{city-slug}/{beach-slug}
  *
- * @param beach - Beach object with slug, city, and state
+ * @param beach - Beach object with slug, city, state, and optional country
  * @returns Hierarchical URL path (without domain)
  *
  * @example
@@ -109,22 +122,58 @@ export function buildBeachUrl(beach: {
   slug: string | null;
   city: string | null;
   state: string | null;
+  country?: string | null;
 }): string {
-  const stateSlug = stateToSlug(beach.state);
-  const citySlug = cityToSlug(beach.city);
   const beachSlug = beach.slug;
+  const citySlug = cityToSlug(beach.city);
 
-  if (!stateSlug || !citySlug || !beachSlug) {
+  if (!citySlug || !beachSlug || !beach.state) {
     console.warn("Beach missing required URL components:", {
       state: beach.state,
       city: beach.city,
       slug: beach.slug,
+      country: beach.country,
     });
     // Fallback to old format if data is incomplete
     return `/beach/${beachSlug || "unknown"}`;
   }
 
-  return `/${stateSlug}/${citySlug}/${beachSlug}`;
+  if (isUsaCountry(beach.country)) {
+    const stateSlug = stateToSlug(beach.state);
+    if (!stateSlug) return `/beach/${beachSlug}`;
+    return `/${stateSlug}/${citySlug}/${beachSlug}`;
+  }
+
+  const countrySlug = countryToSlug(beach.country);
+  const regionSlug = regionToSlug(beach.state);
+  if (!countrySlug || !regionSlug) return `/beach/${beachSlug}`;
+
+  return `/${countrySlug}/${regionSlug}/${citySlug}/${beachSlug}`;
+}
+
+export function buildInternationalCityUrl(
+  country: string | null | undefined,
+  regionState: string | null | undefined,
+  city: string | null | undefined
+): string {
+  const countrySlug = countryToSlug(country);
+  const regionSlug = regionToSlug(regionState);
+  const citySlug = cityToSlug(city);
+  if (!countrySlug || !regionSlug || !citySlug) return "/";
+  return `/${countrySlug}/${regionSlug}/${citySlug}`;
+}
+
+export function buildInternationalBeachUrl(
+  country: string | null | undefined,
+  regionState: string | null | undefined,
+  city: string | null | undefined,
+  beachSlug: string | null | undefined
+): string {
+  const countrySlug = countryToSlug(country);
+  const regionSlug = regionToSlug(regionState);
+  const citySlug = cityToSlug(city);
+  if (!countrySlug || !regionSlug || !citySlug || !beachSlug) return "/";
+  return `/${countrySlug}/${regionSlug}/${citySlug}/${beachSlug}`;
 }
 
 /**
@@ -143,6 +192,7 @@ export function buildBeachUrlWithTab(
     slug: string | null;
     city: string | null;
     state: string | null;
+    country?: string | null;
   },
   tab: string
 ): string {
@@ -243,6 +293,7 @@ export function getBeachUrlSafe(beach: {
   slug?: string | null;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
 }): string | null {
   // Try hierarchical URL first if all required data is available
   if (beach.slug && beach.city && beach.state) {
@@ -250,6 +301,7 @@ export function getBeachUrlSafe(beach: {
       slug: beach.slug,
       city: beach.city,
       state: beach.state,
+      country: beach.country,
     });
   }
 
@@ -272,7 +324,7 @@ export function getBeachUrlSafe(beach: {
  * @returns Array of unique state slug strings (e.g., ["ca", "or", "wa", "hi", ...])
  */
 export function getValidStateSlugs(): string[] {
-  return [...new Set(Object.values(STATE_SLUG_MAP))];
+  return [...new Set(Object.values(US_STATE_SLUG_MAP))];
 }
 
 /**

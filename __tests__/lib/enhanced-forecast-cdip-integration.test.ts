@@ -194,7 +194,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       expect(mockCDIPService.getNearestStation).toHaveBeenCalledWith(
         mockBeach.lat,
         mockBeach.lon,
-        50 // 50km radius for nearest station
+        150 // 150km radius for nearest station
       );
       expect(mockCDIPService.fetchBuoyData).toHaveBeenCalledWith("100");
 
@@ -359,7 +359,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       expect(mockCDIPService.getNearestStation).toHaveBeenCalledWith(
         montereyBeach.lat,
         montereyBeach.lon,
-        50
+        150
       );
     });
   });

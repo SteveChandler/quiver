@@ -24,7 +24,7 @@ import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import { buildCityUrl } from "@/lib/utils/beach-url-utils";
+import { buildInternationalCityUrl } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 
 const SITE_ORIGIN = (
@@ -116,7 +116,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
     containsPlace: beaches.slice(0, 5).map((beach) => ({
       "@type": "Beach",
       name: beach.name,
-      url: `${SITE_ORIGIN}/beach/${beach.slug}`,
+      url: `${SITE_ORIGIN}${getBeachUrlSafe(beach) || `/beach/${beach.slug}`}`,
       aggregateRating:
         (beach.average_rating || 0) > 0
           ? {
@@ -493,7 +493,7 @@ export async function generateMetadata({ params }: LocationPageProps) {
     const canonicalPath =
       isUsa && isValidStateSlug(params.state)
         ? `/${params.state}/${params.city}`
-        : `/beaches/${params.country}/${params.state}/${params.city}`;
+        : buildInternationalCityUrl(params.country, params.state, params.city);
     const url = `${SITE_ORIGIN}${canonicalPath}`;
 
     return {

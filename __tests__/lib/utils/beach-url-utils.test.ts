@@ -6,6 +6,8 @@ import {
   parseBeachUrl,
   buildStateUrl,
   buildCityUrl,
+  buildInternationalCityUrl,
+  buildInternationalBeachUrl,
   getValidStateSlugs,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
@@ -40,8 +42,8 @@ describe("Beach URL Utils", () => {
       expect(stateToSlug("Hawaii")).toBe("hi");
     });
 
-    it("should convert Baja California to mexico/baja-california", () => {
-      expect(stateToSlug("Baja California")).toBe("mexico/baja-california");
+    it("should slugify international regions (country handled separately)", () => {
+      expect(stateToSlug("Baja California")).toBe("baja-california");
     });
 
     it("should handle null state", () => {
@@ -140,6 +142,7 @@ describe("Beach URL Utils", () => {
         slug: "k38",
         city: "Ensenada",
         state: "Baja California",
+        country: "Mexico",
       };
       expect(buildBeachUrl(beach)).toBe("/mexico/baja-california/ensenada/k38");
     });
@@ -316,7 +319,7 @@ describe("Beach URL Utils", () => {
     });
 
     it("should build URL for Baja California", () => {
-      expect(buildStateUrl("Baja California")).toBe("/mexico/baja-california");
+      expect(buildStateUrl("Baja California")).toBe("/baja-california");
     });
 
     it("should use 2-letter codes for known states", () => {
@@ -349,7 +352,7 @@ describe("Beach URL Utils", () => {
 
     it("should build URL for Baja California city", () => {
       expect(buildCityUrl("Baja California", "Ensenada")).toBe(
-        "/mexico/baja-california/ensenada"
+        "/baja-california/ensenada"
       );
     });
 
@@ -409,10 +412,7 @@ describe("Beach URL Utils", () => {
       expect(slugs).toContain("fl");
     });
 
-    it("should include international location slugs", () => {
-      const slugs = getValidStateSlugs();
-      expect(slugs).toContain("mexico/baja-california");
-    });
+    // International slugs are NOT considered "state slugs" for route disambiguation.
 
     it("should not contain duplicates", () => {
       const slugs = getValidStateSlugs();
@@ -448,8 +448,29 @@ describe("Beach URL Utils", () => {
       expect(isValidStateSlug("")).toBe(false);
     });
 
-    it("should return true for international location slugs", () => {
-      expect(isValidStateSlug("mexico/baja-california")).toBe(true);
+    it("should return false for international location slugs", () => {
+      expect(isValidStateSlug("mexico")).toBe(false);
+      expect(isValidStateSlug("baja-california")).toBe(false);
+      expect(isValidStateSlug("mexico/baja-california")).toBe(false);
+    });
+  });
+
+  describe("International URL builders", () => {
+    it("should build canonical international city URL", () => {
+      expect(buildInternationalCityUrl("Mexico", "Baja California", "Rosarito")).toBe(
+        "/mexico/baja-california/rosarito"
+      );
+    });
+
+    it("should build canonical international beach URL", () => {
+      expect(
+        buildInternationalBeachUrl(
+          "Mexico",
+          "Baja California",
+          "Rosarito",
+          "teresas"
+        )
+      ).toBe("/mexico/baja-california/rosarito/teresas");
     });
   });
 

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useOnboardingStore } from '@/store/onboarding-store';
+import { TOTAL_ONBOARDING_STEPS, useOnboardingStore } from '@/store/onboarding-store';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -148,15 +148,15 @@ describe('useOnboardingStore', () => {
       expect(result.current.currentStep).toBe(2);
     });
 
-    it('nextStep does not exceed maximum step (6)', () => {
+    it('nextStep does not exceed maximum step', () => {
       const { result } = renderHook(() => useOnboardingStore());
 
       act(() => {
-        result.current.setCurrentStep(6);
+        result.current.setCurrentStep(TOTAL_ONBOARDING_STEPS - 1);
         result.current.nextStep();
       });
 
-      expect(result.current.currentStep).toBe(6);
+      expect(result.current.currentStep).toBe(TOTAL_ONBOARDING_STEPS - 1);
     });
 
     it('prevStep decrements step by 1', () => {

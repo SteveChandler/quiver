@@ -2,7 +2,6 @@
  * @jest-environment node
  */
 
-import { GET } from "@/app/api/profile/[id]/route";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -12,9 +11,17 @@ import {
 
 const mockSupabaseClient = createMockSupabaseClient();
 
+jest.mock("@/lib/middleware/rate-limiter", () => ({
+  withBotBlockingAndRateLimit: (handler: any) => handler,
+}));
+
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
+
+// Import after mocks
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { GET } = require("@/app/api/profile/[id]/route");
 
 describe("/api/profile/[id] includes home_beach", () => {
   beforeEach(() => {

@@ -856,7 +856,10 @@ describe('useSessionForm', () => {
         crowdLevel: '3',
         overallRating: '5',
         notes: 'Epic session!',
-        photos: ['photo1.jpg', 'photo2.jpg'],
+        photos: [
+          expect.objectContaining({ name: 'photo1.jpg' }),
+          expect.objectContaining({ name: 'photo2.jpg' }),
+        ],
       });
     });
   });

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { Beach } from "@/types/database";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
-import { buildLocationUrl } from "@/lib/utils/location-slug";
+import {
+  buildCityUrl,
+  buildInternationalCityUrl,
+} from "@/lib/utils/beach-url-utils";
 
 interface BeachBreadcrumbProps {
   beach: Beach;
@@ -15,8 +18,21 @@ export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
   const location = getBeachLocation(beach);
 
   // Build location URL if we have city and state
-  const locationUrl = buildLocationUrl(beach.city, beach.state, beach.country);
-  const hasLocationPage = locationUrl !== "/map"; // Check if we have valid location data
+  const normalizedCountry = (beach.country || "USA")
+    .toString()
+    .trim()
+    .toLowerCase();
+  const isUsa =
+    normalizedCountry === "usa" ||
+    normalizedCountry === "us" ||
+    normalizedCountry === "united states" ||
+    normalizedCountry === "united states of america";
+
+  const locationUrl = isUsa
+    ? buildCityUrl(beach.state, beach.city)
+    : buildInternationalCityUrl(beach.country, beach.state, beach.city);
+
+  const hasLocationPage = locationUrl !== "/"; // build*Url returns "/" when incomplete
 
   return (
     <nav
@@ -35,7 +51,9 @@ export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
       </Link>
 
       {/* Phase 4 Spec: Separator - › character with 8px margins, gray-400 color */}
-      <span className="text-gray-400 mx-2" aria-hidden="true">›</span>
+      <span className="text-gray-400 mx-2" aria-hidden="true">
+        ›
+      </span>
 
       {/* Location - clickable if we have a valid location page */}
       {hasLocationPage ? (
@@ -50,7 +68,9 @@ export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
       )}
 
       {/* Phase 4 Spec: Separator - › character with 8px margins, gray-400 color */}
-      <span className="text-gray-400 mx-2" aria-hidden="true">›</span>
+      <span className="text-gray-400 mx-2" aria-hidden="true">
+        ›
+      </span>
 
       {/* Current beach (not a link) */}
       <span className="text-gray-900 font-medium truncate max-w-[200px] sm:max-w-none">

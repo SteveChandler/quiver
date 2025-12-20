@@ -91,6 +91,11 @@ describe("useSurfDiscovery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
+    // Ensure localStorage-based discovery cache doesn't leak between tests.
+    // This hook intentionally reads from localStorage on mount.
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.clear();
+    }
   });
 
   afterEach(() => {

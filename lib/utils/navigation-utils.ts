@@ -1,5 +1,8 @@
 /**
- * Navigation utilities for preserving query parameters and handling protected routes
+ * URL query parameter utilities.
+ *
+ * Preserves query strings during navigation (e.g. Vercel bypass tokens).
+ * For beach routing helpers (building beach URLs, tabs), see `lib/navigation-utils.ts`.
  */
 
 import { ReadonlyURLSearchParams } from "next/navigation";

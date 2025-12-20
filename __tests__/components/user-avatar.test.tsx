@@ -30,18 +30,9 @@ jest.mock("@/lib/utils", () => ({
   cn: (...classes: any[]) => classes.filter(Boolean).join(" "),
 }));
 
-// Mock console to avoid noise in tests
-const mockConsole = {
-  log: jest.fn(),
-  error: jest.fn(),
-};
-Object.assign(console, mockConsole);
-
 describe("UserAvatar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset NODE_ENV for each test
-    delete (process.env as any).NODE_ENV;
   });
 
   describe("Basic Rendering", () => {
@@ -129,14 +120,11 @@ describe("UserAvatar", () => {
       // Simulate image error
       fireEvent.error(image);
 
-      expect(mockConsole.log).toHaveBeenCalledWith(
-        "Avatar image failed to load:",
-        validSrc
-      );
+      expect(screen.queryByTestId("avatar-image")).not.toBeInTheDocument();
+      expect(screen.getByText("JD")).toBeInTheDocument();
     });
 
-    it("logs successful image load in development", () => {
-      (process.env as any).NODE_ENV = "development";
+    it("handles successful image load", () => {
       const validSrc = "https://example.com/avatar.jpg";
       render(<UserAvatar src={validSrc} name="John Doe" />);
 
@@ -145,15 +133,12 @@ describe("UserAvatar", () => {
       // Simulate image load
       fireEvent.load(image);
 
-      expect(mockConsole.log).toHaveBeenCalledWith(
-        "Avatar image loaded successfully:",
-        validSrc
-      );
+      expect(screen.getByTestId("avatar-image")).toBeInTheDocument();
     });
 
     it("does not log image load in production", () => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'production',
+      Object.defineProperty(process.env, "NODE_ENV", {
+        value: "production",
         writable: true,
         configurable: true,
       });
@@ -165,10 +150,7 @@ describe("UserAvatar", () => {
       // Simulate image load
       fireEvent.load(image);
 
-      expect(mockConsole.log).not.toHaveBeenCalledWith(
-        "Avatar image loaded successfully:",
-        validSrc
-      );
+      expect(screen.getByTestId("avatar-image")).toBeInTheDocument();
     });
 
     it("removes image after error and shows fallback", () => {

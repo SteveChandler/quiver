@@ -31,6 +31,23 @@
 
 ---
 
+## ✅ Cleanup Execution Status (2025-12-18)
+
+This report is an audit snapshot. The following items have since been executed / decided:
+
+- [x] **Deleted dead landing page demo**: `components/landing-page/interactive-hero-demo.tsx`
+- [x] **Resolved ProgressiveSection duplication**:
+  - Deleted `components/landing-page/progressive-section.tsx` and removed the barrel export.
+  - Removed stale landing-page ProgressiveSection docs.
+- [x] **Removed unused legacy geo hook**: deleted `hooks/useGeo.ts` (no production imports)
+- [x] **Caching hook decision**: kept `hooks/use-cached-api.ts` because `hooks/use-data-fetcher.ts` has no caching/TTL/invalidation
+- [x] **Navigation utils clarification**: updated header comments to disambiguate `lib/navigation-utils.ts` vs `lib/utils/navigation-utils.ts`
+- [x] **Slugify duplication**: removed the duplicate private `slugify()` in `lib/utils/beach-url-utils.ts` in favor of `lib/utils/text-utils.ts`
+
+Remaining items in this consolidated report (Phase 1 deletions, Supabase client consolidation, test-only feature decisions, etc.) are **out of scope for this execution pass** and should be handled as separate follow-ups.
+
+---
+
 ## 🎯 High-Confidence Dead Code (Safe to Delete)
 
 ### Category 1: Zero-Import Files (100% Safe)

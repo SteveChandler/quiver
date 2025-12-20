@@ -22,6 +22,16 @@ interface BestSurfWindowProps {
   beachName: string;
 }
 
+type WindowForecast = {
+  forecast_time: string;
+  forecast_date: string;
+  wind_speed: number | null;
+  wind_direction: number | null;
+  wave_period: number | null;
+  swell_1_period: number | null;
+  tide_height: number | null;
+};
+
 export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   // Format time helper
   const formatTime = (time: string | null) => {
@@ -39,13 +49,13 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   // Fetch latest intel directly from Supabase (no edge function needed!)
   const fetchIntel = useCallback(async () => {
     const supabase = getClientBrowserClient();
-    const today = new Date().toISOString().split("T")[0];
+    const todayUtc = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
       .from("beach_daily_intel")
       .select("*")
       .eq("beach_id", beachId)
-      .eq("forecast_date", today)
+      .eq("forecast_date", todayUtc)
       .order("generated_at", { ascending: false })
       .limit(1);
 
@@ -57,7 +67,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   // Fetch today's forecasts for next window calculation
   const fetchForecasts = useCallback(async () => {
     const supabase = getClientBrowserClient();
-    const today = new Date().toISOString().split("T")[0];
+    const todayUtc = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
       .from("enhanced_forecasts")
@@ -65,13 +75,13 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
         "forecast_time, forecast_date, wind_speed, wind_direction, wave_period, swell_1_period, tide_height"
       )
       .eq("beach_id", beachId)
-      .eq("forecast_date", today)
+      .eq("forecast_date", todayUtc)
       .order("forecast_time", { ascending: true });
 
     if (error) throw error;
 
     // Convert strings to numbers for the calculation
-    return (data || []).map(
+    const mapped: WindowForecast[] = (data || []).map(
       (f: {
         forecast_time: string;
         forecast_date: string;
@@ -90,6 +100,8 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
         tide_height: f.tide_height ? parseFloat(f.tide_height) : null,
       })
     );
+
+    return mapped;
   }, [beachId]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
@@ -101,7 +113,9 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     if (!forecasts || forecasts.length === 0 || forecastsLoading) {
       return null;
     }
-    return findNextBestWindow(forecasts, new Date());
+    const computed = findNextBestWindow(forecasts, new Date());
+
+    return computed;
   }, [forecasts, forecastsLoading]);
 
   // Loading state
@@ -244,7 +258,8 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   });
 
   // Use the calculated best window from forecasts when primary has passed
-  const nextWindow = windowStatus.status === "passed" ? bestWindowFromForecasts : null;
+  const nextWindow =
+    windowStatus.status === "passed" ? bestWindowFromForecasts : null;
 
   return (
     <Card className="rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">

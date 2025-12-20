@@ -109,10 +109,10 @@ describe("ForecastDataSourceIndicator", () => {
       );
 
       expect(screen.getByText(/Live Data/)).toBeInTheDocument();
-      expect(screen.getByText(/Updated:/)).toBeInTheDocument();
     });
 
-    it("should show stale data warning", () => {
+    it("should reflect stale data in expanded details", async () => {
+      const user = userEvent.setup();
       render(
         <ForecastDataSourceIndicator
           dataSource="NOAA_NWS"
@@ -120,16 +120,16 @@ describe("ForecastDataSourceIndicator", () => {
           dataSources={["NOAA_NWS"]}
           isStaleData={true}
           lastUpdated="2025-01-01T06:00:00Z"
+          expandable={true}
         />
       );
 
-      expect(screen.getByText(/Data may be outdated/)).toBeInTheDocument();
-      expect(screen.getByText(/Last updated:/)).toBeInTheDocument();
-
-      // Should have stale data warning styling
-      const warning = screen.getByTestId("stale-data-warning");
-      expect(warning).toBeInTheDocument();
-      expect(warning.querySelector("span")).toHaveClass("text-amber-600");
+      // Expand details and confirm freshness shows as outdated
+      await user.click(
+        screen.getByRole("button", { name: /show confidence details/i })
+      );
+      expect(screen.getByText("Data freshness:")).toBeInTheDocument();
+      expect(screen.getByText("Outdated")).toBeInTheDocument();
     });
 
     it("should explain nearest buoy usage", () => {

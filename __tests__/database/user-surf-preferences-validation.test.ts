@@ -17,17 +17,36 @@
  * @jest-environment node
  */
 
-import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const shouldRunDatabase =
+  process.env.RUN_INTEGRATION_TESTS === "true" &&
+  !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-// Restore real fetch for database tests
+// Restore real fetch for database tests.
+// jest.setup.js installs a mocked fetch for UI/server-action tests; these database tests
+// need a real fetch implementation for Supabase admin calls.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const undici = require("undici");
 // @ts-ignore
-delete global.fetch;
+global.fetch = undici.fetch;
+// @ts-ignore
+global.Headers = undici.Headers;
+// @ts-ignore
+global.Request = undici.Request;
+// @ts-ignore
+global.Response = undici.Response;
 
-describe("User Surf Preferences Check Constraints", () => {
+// IMPORTANT: require supabase-js after installing a real fetch.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
+
+(shouldRunDatabase ? describe : describe.skip)(
+  "User Surf Preferences Check Constraints",
+  () => {
   let supabaseAdmin: ReturnType<typeof createClient<Database>>;
   let testUserId: string;
 

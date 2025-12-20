@@ -1,5 +1,16 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
+import type {
+  TideDiagnostics,
+  TideRawSample,
+  TideExtreme as TideExtremeType,
+  TideDataFreshness,
+  TideVerificationStatus,
+} from "@/types/tide-diagnostics";
+import {
+  calculateConfidenceScore,
+  getVerificationStatus,
+} from "@/types/tide-diagnostics";
 
 // NOAA CO-OPS API endpoints
 const COOPS_BASE_URL =
@@ -894,5 +905,197 @@ export class NOAACOOPSService {
     }
 
     return null;
+  }
+
+  /**
+   * Fetch CO-OPS data with comprehensive diagnostics for debugging and transparency.
+   * Returns both the forecast data and detailed metadata about the fetch.
+   */
+  async fetchCOOPSDataWithDiagnostics(
+    beachName: string,
+    lat?: number,
+    lng?: number,
+    days: number = 10
+  ): Promise<{ forecast: COOPSForecast | null; diagnostics: TideDiagnostics }> {
+    const fetchStartTime = Date.now();
+    const now = new Date();
+    const validationErrors: string[] = [];
+
+    // Determine station
+    const stationId = this.getStationForLocation(beachName, lat, lng);
+    const normalizedBeachName = beachName.toLowerCase().replace(/\s+/g, "-");
+    const isPrimaryStation = COOPS_STATIONS[normalizedBeachName] === stationId;
+
+    // Check cache status before fetch
+    const cachedData = this.getCachedTideData(stationId);
+    const cacheHit = cachedData !== null;
+
+    // Build source URL for transparency
+    const endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const formatDate = (date: Date) =>
+      date.toISOString().split("T")[0].replace(/-/g, "");
+    const sourceUrl = this.buildSourceUrl(
+      stationId,
+      formatDate(now),
+      formatDate(endDate)
+    );
+    const stationPageUrl = `https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=${stationId}`;
+
+    // Fetch the data
+    const forecast = await this.fetchCOOPSData(stationId, days);
+
+    // Determine data freshness
+    let dataFreshness: TideDataFreshness = "fresh";
+    const cached = this.tideCache.get(stationId);
+    let cacheTtlRemaining: number | null = null;
+
+    if (cached) {
+      const cacheAge = Date.now() - cached.timestamp;
+      cacheTtlRemaining = Math.max(
+        0,
+        Math.floor((this.cacheTimeout - cacheAge) / 1000)
+      );
+      if (cacheAge > this.cacheTimeout * 0.8) {
+        dataFreshness = "stale";
+      } else if (cacheHit) {
+        dataFreshness = "cached";
+      }
+    }
+
+    // Build raw sample from tide data
+    const rawSample: TideRawSample[] = [];
+    if (forecast?.tides && forecast.tides.length > 0) {
+      // Get first 5 tides for sample
+      for (const tide of forecast.tides.slice(0, 5)) {
+        const date = new Date(tide.time * 1000);
+        rawSample.push({
+          t: date.toISOString().replace("T", " ").substring(0, 16),
+          v: tide.height.toFixed(2),
+          type: tide.type === "high" ? "H" : "L",
+        });
+      }
+    }
+
+    // Find next high and low tides
+    let nextHigh: TideExtremeType | null = null;
+    let nextLow: TideExtremeType | null = null;
+    let minutesToNextHigh: number | null = null;
+    let minutesToNextLow: number | null = null;
+
+    if (forecast?.tides) {
+      const nowTimestamp = now.getTime() / 1000;
+      const sortedTides = [...forecast.tides].sort((a, b) => a.time - b.time);
+
+      for (const tide of sortedTides) {
+        if (tide.time > nowTimestamp) {
+          if (tide.type === "high" && !nextHigh) {
+            nextHigh = {
+              time: new Date(tide.time * 1000),
+              height: tide.height,
+            };
+            minutesToNextHigh = Math.round((tide.time - nowTimestamp) / 60);
+          } else if (tide.type === "low" && !nextLow) {
+            nextLow = {
+              time: new Date(tide.time * 1000),
+              height: tide.height,
+            };
+            minutesToNextLow = Math.round((tide.time - nowTimestamp) / 60);
+          }
+
+          if (nextHigh && nextLow) break;
+        }
+      }
+    }
+
+    // Get current interpolated height
+    const nowHeightInterpolated = forecast?.tides
+      ? this.getTideHeightAtTime(forecast.tides, now)
+      : null;
+
+    // Validation checks
+    if (!forecast) {
+      validationErrors.push("Failed to fetch tide data from NOAA");
+    } else if (forecast.tides.length === 0) {
+      validationErrors.push("No tide predictions returned from NOAA");
+    } else if (forecast.tides.length < 10) {
+      validationErrors.push(
+        `Only ${forecast.tides.length} predictions available (expected 10+)`
+      );
+    }
+
+    // Build diagnostics object
+    const diagnostics: TideDiagnostics = {
+      stationId,
+      stationName: forecast?.station_name || `Station ${stationId}`,
+      isPrimaryStation,
+      beachName,
+      datum: "MLLW",
+      units: "feet",
+      timezone: this.getTimezoneString(),
+      nowHeightFromSource: forecast?.water_level ?? null,
+      nowHeightInterpolated,
+      interpolationMethod: "linear",
+      nextHigh,
+      nextLow,
+      minutesToNextHigh,
+      minutesToNextLow,
+      rawSample,
+      totalPredictions: forecast?.tides?.length ?? 0,
+      sourceUrl,
+      stationPageUrl,
+      dataFreshness,
+      lastFetchTime: new Date(fetchStartTime),
+      cacheHit,
+      cacheTtlRemaining,
+      isValidated: validationErrors.length === 0,
+      validationErrors,
+      verificationStatus: getVerificationStatus({
+        isPrimaryStation,
+        dataFreshness,
+        validationErrors,
+        totalPredictions: forecast?.tides?.length ?? 0,
+      }),
+      confidenceScore: calculateConfidenceScore({
+        isPrimaryStation,
+        dataFreshness,
+        validationErrors,
+        totalPredictions: forecast?.tides?.length ?? 0,
+      }),
+    };
+
+    return { forecast, diagnostics };
+  }
+
+  /**
+   * Build NOAA API URL for transparency/debugging
+   */
+  private buildSourceUrl(
+    stationId: string,
+    beginDate: string,
+    endDate: string
+  ): string {
+    const url = new URL(COOPS_BASE_URL);
+    url.searchParams.set("application", "quiver-surf-app");
+    url.searchParams.set("station", stationId);
+    url.searchParams.set("begin_date", beginDate);
+    url.searchParams.set("end_date", endDate);
+    url.searchParams.set("product", "predictions");
+    url.searchParams.set("datum", "MLLW");
+    url.searchParams.set("units", "english");
+    url.searchParams.set("time_zone", "gmt");
+    url.searchParams.set("interval", "hilo");
+    url.searchParams.set("format", "json");
+    return url.toString();
+  }
+
+  /**
+   * Get timezone string for display
+   */
+  private getTimezoneString(): string {
+    const offset = -new Date().getTimezoneOffset();
+    const hours = Math.floor(Math.abs(offset) / 60);
+    const sign = offset >= 0 ? "+" : "-";
+    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return `GMT→${tzName} (UTC${sign}${hours})`;
   }
 }

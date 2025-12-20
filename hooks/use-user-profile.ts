@@ -20,7 +20,7 @@ interface UseUserProfileReturn {
 // Request deduplication cache for profile requests
 const profileRequestCache = new Map<string, Promise<any>>();
 const PROFILE_CACHE_TTL = 30000; // 30 seconds
-const DEFAULT_TIMEOUT = 10000; // 10 seconds
+const DEFAULT_TIMEOUT = 20000; // 20 seconds
 
 export function useUserProfile({
   userId,
@@ -42,15 +42,27 @@ export function useUserProfile({
       }
 
       // Create timeout promise
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Profile loading timeout")), timeout)
-      );
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("Profile loading timeout")),
+          timeout
+        );
+      });
 
       // Create profile fetch promise
       const profilePromise = getProfile(userIdToFetch);
 
       // Race between timeout and profile fetch
-      const requestPromise = Promise.race([profilePromise, timeoutPromise]);
+      const requestPromise = Promise.race([profilePromise, timeoutPromise])
+        .finally(() => {
+          if (timeoutId) clearTimeout(timeoutId);
+        })
+        .catch((err) => {
+          // Don't let timeouts (or other transient failures) poison the dedupe cache
+          profileRequestCache.delete(cacheKey);
+          throw err;
+        });
 
       // Cache the promise
       profileRequestCache.set(cacheKey, requestPromise);
@@ -105,15 +117,17 @@ export function useUserProfile({
           return;
         }
 
-        console.error("Error loading profile:", err);
-
         if (err instanceof Error) {
           if (err.message.includes("timeout")) {
+            // Timeouts can happen on cold starts; treat as a degraded-path (avoid console.error)
+            console.warn("Profile loading timeout:", err.message);
             setError("Profile loading timed out. Please try again.");
           } else {
+            console.error("Error loading profile:", err);
             setError(err.message);
           }
         } else {
+          console.error("Error loading profile:", err);
           setError("Failed to load profile. Please try again.");
         }
         setProfile(null);

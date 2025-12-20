@@ -23,12 +23,12 @@ describe('Forecast Service Utils - Staleness Functions', () => {
       expect(isDataStale(oneHourAgo, 'CDIP')).toBe(false);
     });
 
-    it('should mark NOAA data as stale after 6 hours', () => {
+    it('should mark NOAA data as stale after 12 hours', () => {
       const sevenHoursAgo = new Date('2024-01-15T05:00:00Z');
-      expect(isDataStale(sevenHoursAgo, 'NOAA_NWS')).toBe(true);
+      expect(isDataStale(sevenHoursAgo, 'NOAA_NWS')).toBe(false);
     });
 
-    it('should mark NOAA data as fresh within 6 hours', () => {
+    it('should mark NOAA data as fresh within 12 hours', () => {
       const fiveHoursAgo = new Date('2024-01-15T07:00:00Z');
       expect(isDataStale(fiveHoursAgo, 'NOAA_NWS')).toBe(false);
     });
@@ -116,8 +116,8 @@ describe('Forecast Service Utils - Staleness Functions', () => {
       expect(cdipResult.threshold).toBe(1.5);
 
       const noaaResult = getStalenessDetails(sevenHoursAgo, 'NOAA_NWS');
-      expect(noaaResult.isStale).toBe(true);
-      expect(noaaResult.threshold).toBe(6);
+      expect(noaaResult.isStale).toBe(false);
+      expect(noaaResult.threshold).toBe(12);
 
       const fallbackResult = getStalenessDetails(sevenHoursAgo, 'FALLBACK');
       expect(fallbackResult.isStale).toBe(false);

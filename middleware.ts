@@ -40,32 +40,59 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /**
+   * Canonicalize state-root casing
+   * Example: /CA -> /ca
+   *
+   * We do this in middleware so the canonical redirect happens before any route
+   * handling, and so it works even when the underlying page is ISR/static.
+   */
+  const stateRootMatch = pathname.match(/^\/([A-Za-z]{2})$/);
+  if (stateRootMatch) {
+    const raw = stateRootMatch[1] || "";
+    const lower = raw.toLowerCase();
+
+    if (raw !== lower) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/${lower}`;
+      return NextResponse.redirect(redirectUrl, { status: 308 });
+    }
+  }
+
+  /**
    * Canonical city pages (SEO)
    *
-   * Canonical: /{state}/{city}
-   * Legacy:    /beaches/usa/{state}/{city}
+   * Canonical (USA):  /{state}/{city}
+   * Canonical (Intl): /{country}/{state}/{city}
+   *
+   * Legacy:
+   * - /beaches/{country}/{state}/{city}
+   * - /beaches/{state}/{city}
    *
    * We keep the legacy URLs working via a 301 to the canonical, while rewriting
    * canonical requests to the existing location page implementation.
    */
 
   // Redirect legacy location page URLs to canonical short URLs
-  // Example: /beaches/usa/hi/haleiwa -> /hi/haleiwa
+  // - /beaches/usa/hi/haleiwa -> /hi/haleiwa
+  // - /beaches/mexico/baja-california/rosarito -> /mexico/baja-california/rosarito
   const legacyLocationMatch = pathname.match(
-    /^\/beaches\/usa\/([^/]+)\/([^/]+)$/
+    /^\/beaches\/([^/]+)\/([^/]+)\/([^/]+)$/
   );
   if (legacyLocationMatch) {
-    const state = legacyLocationMatch[1]?.toLowerCase() || "";
-    const city = legacyLocationMatch[2]?.toLowerCase() || "";
+    const country = legacyLocationMatch[1]?.toLowerCase() || "";
+    const state = legacyLocationMatch[2]?.toLowerCase() || "";
+    const city = legacyLocationMatch[3]?.toLowerCase() || "";
 
-    if (isValidStateSlug(state)) {
-      const redirectUrl = request.nextUrl.clone();
+    const redirectUrl = request.nextUrl.clone();
+    if (country === "usa" || country === "us") {
       redirectUrl.pathname = `/${state}/${city}`;
-      return NextResponse.redirect(redirectUrl, { status: 301 });
+    } else {
+      redirectUrl.pathname = `/${country}/${state}/${city}`;
     }
+    return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
-  // Location page shortcut redirect
+  // Legacy shortcut redirect (no country segment)
   // Redirect /beaches/ca/san-diego -> /ca/san-diego
   const beachesStateCityMatch = pathname.match(/^\/beaches\/([^/]+)\/([^/]+)$/);
   if (beachesStateCityMatch) {
@@ -75,8 +102,28 @@ export async function middleware(request: NextRequest) {
     if (isValidStateSlug(state)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = `/${state}/${city}`;
-      return NextResponse.redirect(redirectUrl, { status: 308 });
+      return NextResponse.redirect(redirectUrl, { status: 301 });
     }
+  }
+
+  // Redirect legacy international beach URLs (if any) to canonical short
+  // Example: /beaches/mexico/baja-california/rosarito/teresas -> /mexico/baja-california/rosarito/teresas
+  const legacyInternationalBeachMatch = pathname.match(
+    /^\/beaches\/([^/]+)\/([^/]+)\/([^/]+)\/([^/]+)$/
+  );
+  if (legacyInternationalBeachMatch) {
+    const country = legacyInternationalBeachMatch[1]?.toLowerCase() || "";
+    const state = legacyInternationalBeachMatch[2]?.toLowerCase() || "";
+    const city = legacyInternationalBeachMatch[3]?.toLowerCase() || "";
+    const beachSlug = legacyInternationalBeachMatch[4] || "";
+
+    const redirectUrl = request.nextUrl.clone();
+    if (country === "usa" || country === "us") {
+      redirectUrl.pathname = `/${state}/${city}/${beachSlug}`;
+    } else {
+      redirectUrl.pathname = `/${country}/${state}/${city}/${beachSlug}`;
+    }
+    return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
   // Rewrite canonical short city URLs to the existing location page route
@@ -90,6 +137,54 @@ export async function middleware(request: NextRequest) {
       const rewriteUrl = request.nextUrl.clone();
       rewriteUrl.pathname = `/beaches/usa/${state}/${city}`;
       return NextResponse.rewrite(rewriteUrl);
+    }
+  }
+
+  // Rewrite canonical short international city URLs to the existing location page route
+  // Example: /mexico/baja-california/rosarito -> internally serve /beaches/mexico/baja-california/rosarito
+  const canonicalInternationalCityMatch = pathname.match(
+    /^\/([^/]+)\/([^/]+)\/([^/]+)$/
+  );
+  if (canonicalInternationalCityMatch) {
+    const country = canonicalInternationalCityMatch[1]?.toLowerCase() || "";
+    const state = canonicalInternationalCityMatch[2]?.toLowerCase() || "";
+    const city = canonicalInternationalCityMatch[3]?.toLowerCase() || "";
+
+    // Avoid rewriting US beach detail URLs (/ca/san-diego/ocean-beach, etc.)
+    if (isValidStateSlug(country)) {
+      // country segment is actually a state slug; let the beach route handle it
+      // (or fall through to normal routing).
+    } else {
+      // Avoid rewriting other first-party routes that also have 3 segments.
+      const reserved = new Set([
+        "api",
+        "_next",
+        "auth",
+        "admin",
+        "beach",
+        "beaches",
+        "discover",
+        "features",
+        "forecast",
+        "inbox",
+        "journal",
+        "map",
+        "privacy",
+        "profile",
+        "sessions",
+        "share",
+        "spots",
+        "s",
+        "user",
+        "error",
+        ".well-known",
+      ]);
+
+      if (!reserved.has(country)) {
+        const rewriteUrl = request.nextUrl.clone();
+        rewriteUrl.pathname = `/beaches/${country}/${state}/${city}`;
+        return NextResponse.rewrite(rewriteUrl);
+      }
     }
   }
 
@@ -350,6 +445,6 @@ export const config = {
      * - Files with extensions (.svg, .png, etc.)
      * Only apply to actual page navigation
      */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
   ],
 };

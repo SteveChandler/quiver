@@ -24,7 +24,7 @@ async function beachesHandler(request: NextRequest) {
     // Includes slug, city, state for hierarchical URL generation
     const { data, error } = await supabase
       .from("beaches")
-      .select("id, name, slug, city, lat, lon, state, created_at, is_private")
+      .select("id, name, slug, city, lat, lon, state, country, created_at, updated_at, is_private")
       .order("name");
 
     if (error) {

@@ -19,6 +19,7 @@ This document details systematic approaches to performance optimization, using t
 The landing page had critical performance issues that severely impacted user experience:
 
 **Metrics (Before Optimization):**
+
 - LCP (Largest Contentful Paint): 8.8s (target: <2.5s)
 - TBT (Total Blocking Time): 1.13s (target: <200ms)
 - Bundle Size: ~1.09MB (excessive for marketing page)
@@ -26,6 +27,7 @@ The landing page had critical performance issues that severely impacted user exp
 - Lighthouse Score: ~60 (target: >90)
 
 **Impact:**
+
 - 77% of users would abandon the page before LCP
 - Poor SEO ranking due to Core Web Vitals
 - High bounce rate for first-time visitors
@@ -34,17 +36,20 @@ The landing page had critical performance issues that severely impacted user exp
 ### Root Cause Analysis
 
 **1. Client-Side Rendering**
+
 - Entire page marked with `"use client"`
 - 3-5s delay for auth check and data fetching waterfall
 - No content visible until JavaScript loads and executes
 
 **2. Heavy Dependencies**
+
 - Framer Motion: ~400KB
 - cmdk (search autocomplete): ~300KB
 - Analytics scripts: ~100KB
 - All loaded upfront, blocking TTI
 
 **3. Resource Contention**
+
 - Map API preconnects on landing page (unused)
 - Analytics loaded for unauthenticated users
 - Wasted browser connection slots
@@ -59,6 +64,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 ```
 
 **Key Changes:**
+
 1. Server components for static content (0KB JavaScript)
 2. Client islands for interactive features only
 3. Progressive loading with IntersectionObserver
@@ -69,6 +75,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 ### Results
 
 **Metrics (After Optimization):**
+
 - LCP: ~2.0s (-6.8s, 77% improvement)
 - TBT: ~80ms (-1,050ms, 93% improvement)
 - Bundle: ~690KB (-400KB, 37% reduction)
@@ -76,6 +83,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 - Lighthouse: >90 (+30 points)
 
 **Business Impact:**
+
 - Improved SEO ranking (Core Web Vitals)
 - Reduced bounce rate
 - Better user experience for first-time visitors
@@ -90,11 +98,13 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 **Steps:**
 
 1. **Run Lighthouse Audit**
+
    ```bash
    npx lighthouse https://yoursite.com --view
    ```
 
 2. **Analyze Bundle Composition**
+
    ```bash
    ANALYZE=true yarn build
    # Or
@@ -102,6 +112,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```
 
 3. **Profile Runtime Performance**
+
    - Chrome DevTools Performance tab
    - Record page load
    - Identify long tasks (>50ms)
@@ -114,6 +125,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    - Measure TTFB, FCP, LCP
 
 **Deliverables:**
+
 - Lighthouse report with specific metrics
 - Bundle size breakdown by chunk
 - Performance profile with long tasks highlighted
@@ -126,39 +138,44 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 **Strategy:**
 
 1. **Convert to Server Components**
+
    ```typescript
    // Before (client-rendered)
-   "use client"
+   "use client";
    export default function Page() {
-     const [data, setData] = useState(null)
+     const [data, setData] = useState(null);
      useEffect(() => {
-       fetch('/api/data').then(r => r.json()).then(setData)
-     }, [])
-     return <div>{data?.content}</div>
+       fetch("/api/data")
+         .then((r) => r.json())
+         .then(setData);
+     }, []);
+     return <div>{data?.content}</div>;
    }
 
    // After (server-rendered)
    export default async function Page() {
-     const data = await fetch('/api/data').then(r => r.json())
-     return <div>{data.content}</div>
+     const data = await fetch("/api/data").then((r) => r.json());
+     return <div>{data.content}</div>;
    }
    ```
 
 2. **Move Data Fetching to Server**
+
    ```typescript
    // Server-side data fetching (cached)
    export const getData = unstable_cache(
      async () => {
-       const supabase = createSupabaseServerClient()
-       const { data } = await supabase.from('table').select()
-       return data
+       const supabase = createSupabaseServerClient();
+       const { data } = await supabase.from("table").select();
+       return data;
      },
-     ['cache-key'],
+     ["cache-key"],
      { revalidate: 3600 }
-   )
+   );
    ```
 
 3. **Implement Suspense Boundaries**
+
    ```typescript
    <Suspense fallback={<FastSkeleton />}>
      <AsyncDataComponent />
@@ -168,14 +185,15 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 4. **Add Progressive Enhancement**
    ```typescript
    // Client island for interactivity
-   "use client"
+   "use client";
    export function InteractiveWidget() {
-     const [state, setState] = useState(false)
-     return <button onClick={() => setState(!state)}>Toggle</button>
+     const [state, setState] = useState(false);
+     return <button onClick={() => setState(!state)}>Toggle</button>;
    }
    ```
 
 **Expected Impact:**
+
 - LCP improvement: -3s to -5s
 - TBT improvement: -500ms to -1000ms
 - Bundle reduction: -100KB to -200KB
@@ -187,6 +205,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 **Strategies:**
 
 1. **Remove Heavy Dependencies**
+
    ```bash
    # Identify large packages
    npx depcheck
@@ -197,6 +216,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```
 
 2. **Replace with Lighter Alternatives**
+
    ```typescript
    // Before: Framer Motion (~400KB)
    import { motion } from 'framer-motion'
@@ -207,17 +227,18 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```
 
 3. **Lazy Load Non-Critical Components**
-   ```typescript
-   import { lazy, Suspense } from 'react'
 
-   const HeavyComponent = lazy(() => import('./heavy'))
+   ```typescript
+   import { lazy, Suspense } from "react";
+
+   const HeavyComponent = lazy(() => import("./heavy"));
 
    export function Page() {
      return (
        <Suspense fallback={<Skeleton />}>
          <HeavyComponent />
        </Suspense>
-     )
+     );
    }
    ```
 
@@ -231,6 +252,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```
 
 **Expected Impact:**
+
 - Bundle reduction: -300KB to -500KB
 - TTI improvement: -1s to -2s
 
@@ -241,23 +263,25 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 **Strategies:**
 
 1. **Conditional Script Loading**
-   ```typescript
-   "use client"
-   export function ConditionalAnalytics() {
-     const pathname = usePathname()
-     const shouldLoad = pathname !== '/' // Skip landing page
 
-     if (!shouldLoad) return null
+   ```typescript
+   "use client";
+   export function ConditionalAnalytics() {
+     const pathname = usePathname();
+     const shouldLoad = pathname !== "/"; // Skip landing page
+
+     if (!shouldLoad) return null;
 
      return (
        <>
          <Script src="analytics.js" strategy="lazyOnload" />
        </>
-     )
+     );
    }
    ```
 
 2. **Route-Specific Resource Hints**
+
    ```typescript
    // app/layout.tsx (global)
    <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -267,6 +291,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```
 
 3. **Defer Analytics**
+
    ```typescript
    <Script
      src="analytics.js"
@@ -275,8 +300,9 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
    ```
 
 4. **Optimize Images**
+
    ```typescript
-   import Image from 'next/image'
+   import Image from "next/image";
 
    <Image
      src="/hero.jpg"
@@ -285,10 +311,11 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
      priority // For LCP image
      quality={85}
      placeholder="blur"
-   />
+   />;
    ```
 
 **Expected Impact:**
+
 - TTI improvement: -500ms to -1s
 - Bundle reduction: -50KB to -150KB
 
@@ -301,14 +328,14 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 ```typescript
 // Server component (default)
 export default async function Section() {
-  const data = await fetchData()
+  const data = await fetchData();
 
   return (
     <section>
       <h2>{data.title}</h2>
       <p>{data.content}</p>
     </section>
-  )
+  );
 }
 
 // Benefits:
@@ -317,28 +344,31 @@ export default async function Section() {
 // - SEO-friendly
 ```
 
-### Pattern 2: Progressive Enhancement Pattern
+### Pattern 2: Progressive Enhancement Pattern (Suspense + CSS)
 
-**Use Case:** Scroll-based animations, lazy loading
+**Use Case:** Async sections and simple entrance animations, without forcing client-only rendering.
 
 ```typescript
-// 1. Start with working server-rendered HTML
-<div className="section">
-  <h2>Content</h2>
-  <p>Always visible</p>
-</div>
+// 1. Server-render content whenever possible
+export default async function Section() {
+  const data = await fetchData();
+  return (
+    <section className="motion-safe:animate-fade-in-up">
+      <h2>{data.title}</h2>
+      <p>{data.content}</p>
+    </section>
+  );
+}
 
-// 2. Add client-side enhancement
-<ProgressiveSection>
-  <div className="animate-fade-in">
-    Content with animation
-  </div>
-</ProgressiveSection>
+// 2. Wrap async work in Suspense with a lightweight skeleton
+<Suspense fallback={<Skeleton />}>
+  <Section />
+</Suspense>;
 
 // Benefits:
-// - Works without JavaScript
-// - SEO-friendly
-// - Progressive enhancement
+// - Works without JavaScript for content (SSR)
+// - SEO-friendly (real content in HTML)
+// - Skeleton prevents layout shift while streaming/awaiting data
 ```
 
 ### Pattern 3: Lazy Loading Pattern
@@ -347,7 +377,7 @@ export default async function Section() {
 
 ```typescript
 // Defer heavy components
-const HeavyComponent = lazy(() => import('./heavy'))
+const HeavyComponent = lazy(() => import("./heavy"));
 
 export function Page() {
   return (
@@ -360,7 +390,7 @@ export function Page() {
         <HeavyComponent />
       </Suspense>
     </>
-  )
+  );
 }
 
 // Benefits:
@@ -401,18 +431,18 @@ animation: {
 **Use Case:** Route-specific resources
 
 ```typescript
-"use client"
+"use client";
 export function ConditionalResource() {
-  const pathname = usePathname()
-  const [shouldLoad, setShouldLoad] = useState(false)
+  const pathname = usePathname();
+  const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
-    setShouldLoad(pathname === '/specific-route')
-  }, [pathname])
+    setShouldLoad(pathname === "/specific-route");
+  }, [pathname]);
 
-  if (!shouldLoad) return null
+  if (!shouldLoad) return null;
 
-  return <Script src="route-specific.js" />
+  return <Script src="route-specific.js" />;
 }
 
 // Benefits:
@@ -426,16 +456,19 @@ export function ConditionalResource() {
 ### Core Web Vitals
 
 **LCP (Largest Contentful Paint)**
+
 - **Target:** <2.5s (good), <4s (needs improvement), >4s (poor)
 - **Measures:** Time to render largest content element
 - **Optimize:** Server-render critical content, optimize images, preload resources
 
 **FID (First Input Delay)**
+
 - **Target:** <100ms (good), <300ms (needs improvement), >300ms (poor)
 - **Measures:** Time from first interaction to browser response
 - **Optimize:** Reduce JavaScript execution, code-split, defer non-critical scripts
 
 **CLS (Cumulative Layout Shift)**
+
 - **Target:** <0.1 (good), <0.25 (needs improvement), >0.25 (poor)
 - **Measures:** Visual stability during page load
 - **Optimize:** Reserve space for images, avoid layout shifts, use skeleton loaders
@@ -443,16 +476,19 @@ export function ConditionalResource() {
 ### Additional Metrics
 
 **TTI (Time to Interactive)**
+
 - **Target:** <3.5s (good), <7.3s (needs improvement), >7.3s (poor)
 - **Measures:** Time until page is fully interactive
 - **Optimize:** Reduce JavaScript, lazy load, code-split
 
 **TBT (Total Blocking Time)**
+
 - **Target:** <200ms (good), <600ms (needs improvement), >600ms (poor)
 - **Measures:** Total time main thread is blocked
 - **Optimize:** Break up long tasks, defer non-critical JavaScript
 
 **FCP (First Contentful Paint)**
+
 - **Target:** <1.8s (good), <3s (needs improvement), >3s (poor)
 - **Measures:** Time to first content render
 - **Optimize:** Reduce TTFB, inline critical CSS, preload fonts
@@ -460,6 +496,7 @@ export function ConditionalResource() {
 ### Measurement Tools
 
 **1. Lighthouse**
+
 ```bash
 # CLI
 npx lighthouse https://yoursite.com --view
@@ -469,6 +506,7 @@ npx @lhci/cli@0.12.x autorun
 ```
 
 **2. WebPageTest**
+
 ```
 https://webpagetest.org
 - Multiple locations
@@ -478,6 +516,7 @@ https://webpagetest.org
 ```
 
 **3. Chrome DevTools**
+
 ```
 - Performance tab: Profile runtime
 - Network tab: Check waterfall
@@ -486,6 +525,7 @@ https://webpagetest.org
 ```
 
 **4. Vercel Analytics**
+
 ```bash
 # Real user metrics
 vercel analytics
@@ -552,6 +592,7 @@ vercel analytics
 **Problem:** Sacrificing UX for metrics
 
 **Example:**
+
 ```typescript
 // Bad: Removes useful animation for metrics
 <div className="no-animation">Content</div>
@@ -567,9 +608,12 @@ vercel analytics
 **Problem:** Optimizing without measuring
 
 **Example:**
+
 ```typescript
 // Bad: Optimizing random component
-<Suspense><RandomComponent /></Suspense>
+<Suspense>
+  <RandomComponent />
+</Suspense>
 
 // Good: Optimize based on data
 // 1. Profile page load
@@ -584,12 +628,15 @@ vercel analytics
 **Problem:** Testing only on desktop
 
 **Example:**
+
 ```typescript
 // Bad: Assumes fast connection
-<video autoplay src="hero-video.mp4" />
+<video autoplay src="hero-video.mp4" />;
 
 // Good: Responsive loading
-{isMobile ? <Image /> : <video />}
+{
+  isMobile ? <Image /> : <video />;
+}
 ```
 
 **Solution:** Test on real devices with throttled networks
@@ -599,17 +646,18 @@ vercel analytics
 **Problem:** Optimization breaks features
 
 **Example:**
+
 ```typescript
 // Bad: Removes auth check for performance
 export default function Page() {
-  return <PrivateContent />
+  return <PrivateContent />;
 }
 
 // Good: Maintains auth with server component
 export default async function Page() {
-  const user = await getUser()
-  if (!user) redirect('/login')
-  return <PrivateContent />
+  const user = await getUser();
+  if (!user) redirect("/login");
+  return <PrivateContent />;
 }
 ```
 
@@ -620,6 +668,7 @@ export default async function Page() {
 **Problem:** No validation of improvements
 
 **Example:**
+
 ```typescript
 // Bad: Apply optimization without measuring
 // (No before/after metrics)
@@ -637,6 +686,7 @@ export default async function Page() {
 **Problem:** Focusing only on LCP
 
 **Example:**
+
 ```typescript
 // Bad: Fast LCP but slow TTI
 <Image priority /> {/* LCP fast */}
@@ -654,22 +704,26 @@ export default async function Page() {
 ### Measurement Tools
 
 **Lighthouse**
+
 - CLI: `npx lighthouse <url>`
 - Chrome DevTools: Lighthouse tab
 - CI/CD: `@lhci/cli`
 
 **WebPageTest**
+
 - https://webpagetest.org
 - Multiple locations, devices
 - Detailed waterfall, filmstrip
 
 **Chrome DevTools**
+
 - Performance tab: Profiling
 - Network tab: Waterfall
 - Coverage tab: Unused code
 - Lighthouse tab: Audits
 
 **Vercel Analytics**
+
 - Real user metrics
 - Core Web Vitals
 - Page-level insights
@@ -677,18 +731,21 @@ export default async function Page() {
 ### Analysis Tools
 
 **Bundle Analyzer**
+
 ```bash
 ANALYZE=true yarn build
 npx @next/bundle-analyzer
 ```
 
 **Dependency Check**
+
 ```bash
 npx depcheck
 npm outdated
 ```
 
 **Image Optimization**
+
 ```bash
 npx @squoosh/cli --webp 85 *.jpg
 ```
@@ -696,22 +753,26 @@ npx @squoosh/cli --webp 85 *.jpg
 ### Learning Resources
 
 **Web.dev**
+
 - https://web.dev/performance/
 - Core Web Vitals guide
 - Optimization patterns
 
 **Next.js Docs**
+
 - https://nextjs.org/docs/app/building-your-application/optimizing
 - Server components
 - Image optimization
 - Font optimization
 
 **Lighthouse Documentation**
+
 - https://developer.chrome.com/docs/lighthouse/
 - Audit reference
 - Scoring guide
 
 **Vercel Speed Insights**
+
 - https://vercel.com/docs/speed-insights
 - Real user monitoring
 - Core Web Vitals tracking
@@ -720,17 +781,17 @@ npx @squoosh/cli --webp 85 *.jpg
 
 **Recommended Budgets**
 
-| Resource | Budget | Rationale |
-|----------|--------|-----------|
-| JavaScript | <200KB | Fast TTI on 3G |
-| CSS | <50KB | Fast render on 3G |
-| Images (above fold) | <500KB | Fast LCP on 3G |
-| Total (above fold) | <750KB | Fast FCP on 3G |
-| LCP | <2.5s | Core Web Vitals |
-| FID | <100ms | Core Web Vitals |
-| CLS | <0.1 | Core Web Vitals |
-| TTI | <3.5s | Good user experience |
-| TBT | <200ms | Smooth interactions |
+| Resource            | Budget | Rationale            |
+| ------------------- | ------ | -------------------- |
+| JavaScript          | <200KB | Fast TTI on 3G       |
+| CSS                 | <50KB  | Fast render on 3G    |
+| Images (above fold) | <500KB | Fast LCP on 3G       |
+| Total (above fold)  | <750KB | Fast FCP on 3G       |
+| LCP                 | <2.5s  | Core Web Vitals      |
+| FID                 | <100ms | Core Web Vitals      |
+| CLS                 | <0.1   | Core Web Vitals      |
+| TTI                 | <3.5s  | Good user experience |
+| TBT                 | <200ms | Smooth interactions  |
 
 **Setting Budgets**
 
@@ -740,45 +801,50 @@ module.exports = {
   budgets: [
     {
       resourceSizes: [
-        { resourceType: 'script', budget: 200 },
-        { resourceType: 'stylesheet', budget: 50 },
-        { resourceType: 'image', budget: 500 },
+        { resourceType: "script", budget: 200 },
+        { resourceType: "stylesheet", budget: 50 },
+        { resourceType: "image", budget: 500 },
       ],
       timings: [
-        { metric: 'interactive', budget: 3500 },
-        { metric: 'first-contentful-paint', budget: 1800 },
-        { metric: 'largest-contentful-paint', budget: 2500 },
+        { metric: "interactive", budget: 3500 },
+        { metric: "first-contentful-paint", budget: 1800 },
+        { metric: "largest-contentful-paint", budget: 2500 },
       ],
     },
   ],
-}
+};
 ```
 
 ## Best Practices Summary
 
 1. **Measure First**
+
    - Baseline metrics before optimization
    - Identify bottlenecks with data
    - Prioritize based on impact
 
 2. **Server-First Architecture**
+
    - Server components by default
    - Client islands for interactivity
    - Progressive enhancement
 
 3. **Bundle Management**
+
    - Remove heavy dependencies
    - Lazy load non-critical code
    - Code-split by route
    - Use CSS instead of JavaScript
 
 4. **Resource Prioritization**
+
    - Preconnect to critical origins
    - Route-specific resource hints
    - Defer analytics and tracking
    - Optimize images and fonts
 
 5. **Continuous Monitoring**
+
    - Lighthouse CI in pipeline
    - Real user monitoring
    - Performance budgets
@@ -797,6 +863,7 @@ module.exports = {
 **Maintainer:** Engineering Team
 
 **Related Documentation:**
+
 - `components/landing-page/ARCHITECTURE.md` - Landing page optimization case study
 - `docs/performance/README.md` - Performance documentation index
 - `e2e/ARCHITECTURE.md` - E2E testing patterns

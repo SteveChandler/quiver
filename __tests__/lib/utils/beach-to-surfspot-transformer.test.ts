@@ -59,11 +59,15 @@ describe("Beach to SurfSpot Transformer", () => {
       });
 
       it("should use San Diego default coordinates when lat is null", () => {
-        const result = transformBeachToSurfSpot(mockBeachMinimal);
+        const beachWithNullLat: BeachWithMetrics = {
+          ...mockBeachComplete,
+          lat: null as unknown as number,
+        };
+        const result = transformBeachToSurfSpot(beachWithNullLat);
 
         // Default San Diego center
         expect(result.coordinates.lat).toBe(32.7157);
-        expect(result.coordinates.lng).toBe(-117.1611);
+        expect(result.coordinates.lng).toBe(mockBeachComplete.lon);
       });
 
       it("should use San Diego default coordinates when lon is null", () => {
@@ -396,7 +400,11 @@ describe("Beach to SurfSpot Transformer", () => {
       });
 
       it("should fallback to default overview when description is null", () => {
-        const result = transformBeachToSurfSpot(mockBeachMinimal);
+        const beachWithNullDescription: BeachWithMetrics = {
+          ...mockBeachComplete,
+          description: null as unknown as string,
+        };
+        const result = transformBeachToSurfSpot(beachWithNullDescription);
         expect(result.overview).toBe("No description available.");
       });
 
@@ -423,7 +431,7 @@ describe("Beach to SurfSpot Transformer", () => {
 
       it("should map best_months to bestSeason", () => {
         const result = transformBeachToSurfSpot(mockBeachComplete);
-        expect(result.bestSeason).toBe(mockBeachComplete.best_months);
+        expect(result.bestSeason).toBe("9, 10, 11");
       });
 
       it("should map parking_tips to parking", () => {
@@ -471,8 +479,12 @@ describe("Beach to SurfSpot Transformer", () => {
       });
 
       it("should generate fallback speakableSummary when description is null", () => {
-        const result = transformBeachToSurfSpot(mockBeachMinimal);
-        expect(result.speakableSummary).toContain(mockBeachMinimal.name);
+        const beachWithNullDescription: BeachWithMetrics = {
+          ...mockBeachComplete,
+          description: null as unknown as string,
+        };
+        const result = transformBeachToSurfSpot(beachWithNullDescription);
+        expect(result.speakableSummary).toContain(mockBeachComplete.name);
         expect(result.speakableSummary).toContain("surf spot");
       });
     });
@@ -559,7 +571,11 @@ describe("Beach to SurfSpot Transformer", () => {
     });
 
     it("should return false for null lat", () => {
-      const result = validateBeachCoordinates(mockBeachMinimal, "test");
+      const beachNullLat: BeachWithMetrics = {
+        ...mockBeachComplete,
+        lat: null as unknown as number,
+      };
+      const result = validateBeachCoordinates(beachNullLat, "test");
       expect(result).toBe(false);
     });
 
