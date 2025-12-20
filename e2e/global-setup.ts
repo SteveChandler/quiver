@@ -12,8 +12,8 @@ import {
  * Creates authenticated session for tests that require authentication
  */
 async function globalSetup(config: FullConfig) {
-  // Load environment variables with .env.playwright taking priority
-  dotenv.config({ path: '.env.playwright', override: true });
+  // Load env without overriding CLI/OS env. (playwright.config.ts already sets precedence)
+  dotenv.config({ path: '.env.playwright' });
   dotenv.config(); // Fallback to .env
 
   // Get configuration from the correct project
@@ -24,7 +24,21 @@ async function globalSetup(config: FullConfig) {
   const storageStatePath = 'e2e/.auth/state.json';
 
   const browser = await chromium.launch();
-  const context = await browser.newContext();
+  const baseUrlString = typeof baseURL === 'string' ? baseURL : '';
+  const isLocalhost =
+    baseUrlString.includes('localhost') || baseUrlString.includes('127.0.0.1');
+  const vercelBypassToken =
+    process.env.VERCEL_BYPASS_TOKEN ||
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+    process.env.VERCEL_BYPASS;
+  const extraHTTPHeaders =
+    !isLocalhost && vercelBypassToken
+      ? { 'x-vercel-protection-bypass': String(vercelBypassToken) }
+      : undefined;
+
+  const context = await browser.newContext({
+    extraHTTPHeaders,
+  });
   const page = await context.newPage();
 
   // Get test credentials from environment
@@ -35,6 +49,13 @@ async function globalSetup(config: FullConfig) {
   console.log(`[Global Setup] ============================================`);
   console.log(`[Global Setup] Environment: ${testEnv}`);
   console.log(`[Global Setup] Base URL: ${baseURL}`);
+  if (!isLocalhost) {
+    console.log(
+      `[Global Setup] Vercel bypass header: ${
+        extraHTTPHeaders ? 'enabled' : 'disabled'
+      }`
+    );
+  }
   console.log(`[Global Setup] Authenticating test user: ${testEmail}`);
   console.log(`[Global Setup] ============================================`);
 

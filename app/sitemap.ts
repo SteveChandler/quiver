@@ -6,8 +6,11 @@ import {
 } from "@/lib/data/surf-spots";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { buildLocationUrl } from "@/lib/utils/location-slug";
-import { buildBeachUrl, buildCityUrl } from "@/lib/utils/beach-url-utils";
+import {
+  buildBeachUrl,
+  buildCityUrl,
+  buildInternationalCityUrl,
+} from "@/lib/utils/beach-url-utils";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -63,15 +66,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const response = await getAllBeachLocations();
     if (response.success && response.data) {
       locationRoutes = response.data.map((location) => {
-        // Canonical city URL for US locations: /{state}/{city}
-        // Keep /beaches/{country}/{state}/{city} for non-US/international.
+        // Canonical city URL:
+        // - USA:  /{state}/{city}
+        // - Intl: /{country}/{state}/{city}
         const isUsa =
           !location.country ||
           String(location.country).toLowerCase() === "usa" ||
           String(location.country).toLowerCase() === "us";
         const locationUrl = isUsa
           ? buildCityUrl(location.state, location.city)
-          : buildLocationUrl(location.city, location.state, location.country);
+          : buildInternationalCityUrl(
+              location.country,
+              location.state,
+              location.city
+            );
         return {
           url: `${baseUrl}${locationUrl}`,
           lastModified: lastmod,

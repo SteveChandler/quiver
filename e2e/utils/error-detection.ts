@@ -142,6 +142,28 @@ export async function assertNoErrors(
 
   const problems: string[] = [];
 
+  const placeholderImageNetworkErrors = capture.networkErrors.filter((err) =>
+    isPlaceholderImageProxyFailure(err.url, err.status)
+  );
+  const filteredConsoleErrors = capture.consoleErrors.filter((err) => {
+    // When placeholder images are blocked upstream, Chromium logs a generic
+    // "Failed to load resource: ... 400" console error without the URL.
+    // Ignore it only if we can corroborate with a known placeholder image failure.
+    if (
+      placeholderImageNetworkErrors.length > 0 &&
+      err.startsWith('Failed to load resource: the server responded with a status of 400')
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  const filteredNetworkErrors = capture.networkErrors.filter((err) => {
+    if (isIgnorableNetworkError(err.url, err.status)) return false;
+    if (isPlaceholderImageProxyFailure(err.url, err.status)) return false;
+    return true;
+  });
+
   // Check visible errors
   if (checkVisible) {
     const visibleErrors = await getVisibleErrors(page);
@@ -152,15 +174,17 @@ export async function assertNoErrors(
   }
 
   // Check console errors
-  if (checkConsole && capture.consoleErrors.length > 0) {
+  if (checkConsole && filteredConsoleErrors.length > 0) {
     problems.push(`\n🔴 Console Errors:`);
-    capture.consoleErrors.forEach((err) => problems.push(`   - ${err.substring(0, 300)}`));
+    filteredConsoleErrors.forEach((err) =>
+      problems.push(`   - ${err.substring(0, 300)}`)
+    );
   }
 
   // Check network errors
-  if (checkNetwork && capture.networkErrors.length > 0) {
+  if (checkNetwork && filteredNetworkErrors.length > 0) {
     problems.push(`\n🌐 Network Errors:`);
-    capture.networkErrors.forEach((err) =>
+    filteredNetworkErrors.forEach((err) =>
       problems.push(`   - ${err.status} ${err.statusText}: ${err.url.substring(0, 100)}`)
     );
   }
@@ -301,6 +325,20 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
   }
 
   return false;
+}
+
+function isPlaceholderImageProxyFailure(url: string, status: number): boolean {
+  if (status !== 400 && status !== 403) return false;
+
+  const isNextImageOptimizer = url.includes('/_next/image?');
+  const isImageProxyWrapped =
+    url.includes('/api/image-proxy') || url.includes('api%2Fimage-proxy');
+  const isPlaceholder =
+    url.includes('placehold.co') ||
+    url.includes('placehold%2Eco') ||
+    url.includes('placehol'); // tolerate truncated URLs in logs
+
+  return isNextImageOptimizer && isImageProxyWrapped && isPlaceholder;
 }
 
 /**

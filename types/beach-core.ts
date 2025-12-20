@@ -30,6 +30,12 @@ export interface BeachLocation {
   slug: string | null;
   city: string | null;
   state: string | null;
+  /**
+   * Optional country name (e.g., "USA", "Mexico").
+   * When present, enables canonical international URLs like:
+   * /{country}/{state}/{city}/{beachSlug}
+   */
+  country?: string | null;
 }
 
 /**

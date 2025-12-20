@@ -241,6 +241,7 @@ describe("Sitemap Generation", () => {
         data: [
           { city: "La Jolla", state: "CA", country: "USA" },
           { city: "Encinitas", state: "CA", country: "USA" },
+          { city: "Rosarito", state: "Baja California", country: "Mexico" },
         ],
       });
 
@@ -250,6 +251,11 @@ describe("Sitemap Generation", () => {
         r.url.endsWith("/ca/la-jolla")
       );
       expect(laJollaRoute).toBeDefined();
+
+      const rosaritoRoute = result.find((r) =>
+        r.url.endsWith("/mexico/baja-california/rosarito")
+      );
+      expect(rosaritoRoute).toBeDefined();
     });
 
     it("should set priority 0.75 for location routes", async () => {
@@ -329,6 +335,29 @@ describe("Sitemap Generation", () => {
       // buildBeachUrl returns /{state}/{city}/{beach} format
       const beachRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs")
+      );
+
+      expect(beachRoute).toBeDefined();
+    });
+
+    it("should include international beach routes when country is non-USA", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "teresas",
+            city: "Rosarito",
+            state: "Baja California",
+            country: "Mexico",
+            updated_at: "2024-12-01T00:00:00Z",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const beachRoute = result.find((r) =>
+        r.url.includes("/mexico/baja-california/rosarito/teresas")
       );
 
       expect(beachRoute).toBeDefined();

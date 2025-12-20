@@ -17,7 +17,10 @@ import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const BASE_URL =
+  process.env.BASE_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  "http://localhost:3000";
 const IS_LOCALHOST =
   BASE_URL.includes("localhost") || BASE_URL.includes("127.0.0.1");
 const SESSIONS_NAVIGATION_MAX_MS = IS_LOCALHOST ? 45000 : 20000;

@@ -109,6 +109,7 @@ describe("Navigation Utils", () => {
           slug: "k38",
           city: "Ensenada",
           state: "Baja California",
+          country: "Mexico",
         };
         const url = beachNavigation.toBeachDetail(bajaBeach);
         expect(url).toBe("/mexico/baja-california/ensenada/k38");

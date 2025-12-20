@@ -8,7 +8,10 @@
 import { test, expect } from "@playwright/test";
 
 // Base URL for API requests
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const BASE_URL =
+  process.env.BASE_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  "http://localhost:3000";
 
 test.describe("API Rate Limiting", () => {
   test.describe("Image Proxy Rate Limiting (CRITICAL)", () => {

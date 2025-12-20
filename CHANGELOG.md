@@ -58,9 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Playwright E2E: ensure dev runs honor `BASE_URL` in API-heavy specs and include Vercel bypass headers during global auth setup.
 - Tide height values in Home → Forecast: fix CO-OPS timezone drift by requesting predictions in GMT and parsing timestamps as UTC (adds unit coverage).
 - Profile: show the saved home break name (e.g. “Home Break: Ocean Beach Pier”) on `/profile` instead of a generic “Home Break Set”.
+- Forecast scoring: fix `mv_beach_hourly_scores` being empty by joining tides via nearest match (±90m) instead of requiring exact `(beach_id, ts)` alignment with marine forecasts.
+- Forecast scoring: make `refresh_mv_beach_hourly_scores()` compatible with beaches schemas that don’t include `w_*` weight columns (use constant wind/tide/swell weights).
+- Forecast scoring: compute `score_0_100` inside `mv_beach_hourly_scores` (materialized views aren’t updatable) and keep `refresh_mv_beach_hourly_scores()` as a pure refresh.
 - SEO/indexing: stop emitting `/forecast/*` URLs in the sitemap and mark forecast pages as `noindex`; canonicalize US city pages to `/{state}/{city}` with legacy `/beaches/usa/{state}/{city}` redirecting to the canonical.
+- SEO/routing: add DB-gated state-root pages (`/{state}`) with lowercase canonical redirects and prevent breadcrumb JSON-LD from emitting dead state-root URLs.
 - Forecast weather: treat NWS `InvalidPoint` (404) responses from `api.weather.gov/points/{lat},{lon}` as “no coverage” (avoid hard errors for out-of-coverage beaches).
 - Forecast cron stability: prevent NWS wave fetch crash when `forecastGridData` is null (guard grid URL construction) and gracefully fall back when NWS hourly marine forecasts return 404 “Marine Forecast Not Supported”.
 - CDIP robustness: blacklist known-bad station IDs that consistently 404 on the current ERDDAP dataset to avoid selecting them during batch forecast generation.
@@ -74,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Files modified: `e2e/guest-landing.spec.ts`
 
 - Home forecast: hide the “For You” KPI tile when insights match is `0%`.
+- SEO/routing: add canonical international city + beach URLs (`/{country}/{state}/{city}` and `/{country}/{state}/{city}/{beachSlug}`), redirect legacy `/beaches/{country}/{state}/{city}` to canonical, and emit canonical international URLs in the sitemap (fixes Mexico/Baja 4-segment 404s).
 
 ### Removed
 
