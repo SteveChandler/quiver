@@ -109,9 +109,9 @@ const homepageSchema = {
 - **Features**:
   - Local business schema
   - Geographic coordinates
-  - Review aggregation
   - Photo gallery references
   - Activity information
+  - Intentionally omits review snippet markup (`AggregateRating`) for Place-based schemas
 
 **Beach Schema:**
 
@@ -127,7 +127,7 @@ interface BeachPageStructuredDataProps {
 
 const beachSchema = {
   "@context": "https://schema.org",
-  "@type": ["Place", "TouristAttraction"],
+  "@type": ["Place", "SportsActivityLocation"],
   name: beachName,
   description: description,
   geo: {
@@ -135,14 +135,9 @@ const beachSchema = {
     latitude: latitude,
     longitude: longitude,
   },
-  aggregateRating:
-    rating && reviewCount
-      ? {
-          "@type": "AggregateRating",
-          ratingValue: rating.toString(),
-          reviewCount: reviewCount.toString(),
-        }
-      : undefined,
+  // NOTE: Do not emit AggregateRating here. Google review snippets do not support
+  // ratings for Place/Beach types, and emitting it can trigger Search Console
+  // "Review snippets" errors.
 };
 ```
 

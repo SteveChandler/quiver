@@ -86,8 +86,8 @@ export function BeachPageStructuredData({
   description,
   latitude,
   longitude,
-  rating,
-  reviewCount,
+  rating: _rating,
+  reviewCount: _reviewCount,
   city,
   state,
   country,
@@ -119,16 +119,9 @@ export function BeachPageStructuredData({
       addressRegion: state || undefined,
       addressCountry: country || "US",
     },
-    ...(rating &&
-      reviewCount && {
-        aggregateRating: {
-          "@type": "AggregateRating",
-          ratingValue: rating,
-          reviewCount: reviewCount,
-          bestRating: 5,
-          worstRating: 1,
-        },
-      }),
+    // Intentionally omit AggregateRating/Review markup. Google review snippets do
+    // not support ratings on Place-based schemas like beaches, and emitting it
+    // can trigger Search Console "Review snippets" errors.
     amenityFeature: [
       {
         "@type": "LocationFeatureSpecification",

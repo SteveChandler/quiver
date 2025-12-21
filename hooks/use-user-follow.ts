@@ -21,6 +21,7 @@ export function useUserFollow(
   onFollowersCountChange?: (newCount: number) => void
 ): UseUserFollowReturn {
   const { user } = useAuth();
+  const currentUserId = user?.id;
   const [following, setFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
   const [followingCount, setFollowingCount] = useState(initialFollowingCount);
@@ -37,7 +38,7 @@ export function useUserFollow(
 
   useEffect(() => {
     // Don't proceed if userId is empty or is the current user
-    if (!userId || userId === user?.id) {
+    if (!userId || userId === currentUserId) {
       setFollowing(false);
       setFollowersCount(initialFollowersCount);
       setFollowingCount(initialFollowingCount);
@@ -102,7 +103,7 @@ export function useUserFollow(
             return newCount;
           });
           // If this is the current user's follow, update their following status
-          if (user && payload.new.follower_id === user.id) {
+          if (currentUserId && payload.new.follower_id === currentUserId) {
             setFollowing(true);
           }
         }
@@ -127,7 +128,7 @@ export function useUserFollow(
             return newCount;
           });
           // If this is the current user's follow being removed, update their following status
-          if (user && payload.old.follower_id === user.id) {
+          if (currentUserId && payload.old.follower_id === currentUserId) {
             setFollowing(false);
           }
         }
@@ -137,7 +138,7 @@ export function useUserFollow(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, userId]);
+  }, [currentUserId, userId, initialFollowersCount, initialFollowingCount]);
 
   const toggleFollow = async () => {
     if (!user) {

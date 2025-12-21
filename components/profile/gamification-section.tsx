@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserXPCard } from "@/components/gamification/user-xp-card";
@@ -49,11 +49,7 @@ export function GamificationSection({
   const [loading, setLoading] = useState(true);
   const [showBadgeGallery, setShowBadgeGallery] = useState(false);
 
-  useEffect(() => {
-    loadGamificationData();
-  }, [user.id]);
-
-  const loadGamificationData = async () => {
+  const loadGamificationData = useCallback(async () => {
     setLoading(true);
 
     const cacheKey = user.id;
@@ -117,7 +113,11 @@ export function GamificationSection({
       __gamificationInflightByUserId.delete(cacheKey);
       setLoading(false);
     }
-  };
+  }, [user.id]);
+
+  useEffect(() => {
+    void loadGamificationData();
+  }, [loadGamificationData]);
 
   if (loading) {
     return (

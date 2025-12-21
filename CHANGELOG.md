@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - End-to-end forecast calibration loop using real session feedback.
 - Post-session forecast feedback capture after `/sessions/new?mode=log`.
+- Auto-heal Next.js dev webpack cache on startup to prevent intermittent `.next/cache/webpack/*pack.gz` ENOENT crashes.
 - **Enhanced Tide Chart with Diagnostics** (December 19, 2025)
   - Added NOAA tide data validation script (`scripts/validate-noaa-tide-accuracy.ts`) to verify data accuracy against live NOAA API
   - Created comprehensive `TideDiagnostics` type definitions for transparent tide data reporting
@@ -58,6 +59,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Forecast scoring: fill missing `mv_beach_hourly_scores` wind fields by ingesting NOAA/NWS hourly wind (`marine_forecasts.source='nws_wind'`) and joining nearest wind (±90m) during MV refresh.
+- Forecast cron stability: group tide ingest by nearest NOAA tide station (fetch once per station, fan out to beaches) and add `?tidesBackfillMissing=1` to backfill beaches with zero tide rows.
+- SEO/routing: ensure state-root pages (`/{state}`) return 200 for valid state slugs even when public beach queries return empty (RLS/config differences); add permanent redirects for crawled legacy/garbage URLs (`/app`, `/beaches`, `/plan-session`, `/$`).
+- SEO/structured-data: stop emitting `AggregateRating` on `Place`/`Beach` JSON-LD to fix Search Console “Review snippets” errors (e.g. Puerto Rico city pages).
+- SEO/structured-data: emit root JSON-LD as a Schema.org `@graph` object (not a top-level array) to prevent Safari/third-party parser crashes on beach pages.
 - Playwright E2E: ensure dev runs honor `BASE_URL` in API-heavy specs and include Vercel bypass headers during global auth setup.
 - Tide height values in Home → Forecast: fix CO-OPS timezone drift by requesting predictions in GMT and parsing timestamps as UTC (adds unit coverage).
 - Profile: show the saved home break name (e.g. “Home Break: Ocean Beach Pier”) on `/profile` instead of a generic “Home Break Set”.
