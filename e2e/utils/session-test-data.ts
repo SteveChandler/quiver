@@ -83,34 +83,68 @@ export async function createTestSession(
     await page.waitForLoadState("networkidle");
 
     // Search for beach
-    const beachSearch = page.getByPlaceholder(/beach|location|search/i);
-    const hasBeachInput = await beachSearch.isVisible({ timeout: 5000 }).catch(() => false);
+    const beachSearch = page.getByTestId("beach-search-input");
+    const hasBeachInput = await beachSearch
+      .isVisible({ timeout: 10000 })
+      .catch(() => false);
 
     if (!hasBeachInput) {
       throw new Error("Beach input not found");
     }
 
+    // Use partial match (e.g. "Black" matches "Blacks")
     await beachSearch.fill(beachName);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(800);
 
-    // Select beach from dropdown options
-    const beachOption = page.locator('[role="option"]').filter({ hasText: new RegExp(beachName, 'i') }).first();
-    const hasOption = await beachOption.isVisible({ timeout: 5000 }).catch(() => false);
+    // Select beach from dropdown list (BeachSelector renders <ul><button>…</button></ul>)
+    const beachSelectorRoot = beachSearch.locator("..");
+    const beachOption = beachSelectorRoot
+      .locator("ul")
+      .locator("button")
+      .filter({ hasText: new RegExp(beachName, "i") })
+      .first();
+    const hasOption = await beachOption
+      .isVisible({ timeout: 15000 })
+      .catch(() => false);
 
     if (!hasOption) {
       throw new Error(`Beach option "${beachName}" not found in dropdown`);
     }
 
     await beachOption.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
-    // Continue to next step if button exists
-    const continueButton = page.getByRole("button", { name: /continue|next/i }).first();
-    const hasContinue = await continueButton.isVisible().catch(() => false);
+    // Continue to Date/Time step
+    const nextButton = page
+      .getByRole("button", { name: /next/i })
+      .first();
+    const hasNext = await nextButton.isVisible().catch(() => false);
 
-    if (hasContinue) {
-      await continueButton.click();
-      await page.waitForTimeout(1000);
+    if (hasNext) {
+      await nextButton.click();
+      await page.waitForTimeout(400);
+    }
+
+    // Set required date (log mode requires date; time optional but helps forecast matching)
+    const dateInput = page.getByTestId("session-date-input");
+    const hasDate = await dateInput.isVisible({ timeout: 10000 }).catch(() => false);
+    if (hasDate) {
+      const today = new Date().toISOString().split("T")[0];
+      await dateInput.fill(today);
+    }
+
+    const timeInput = page.getByTestId("session-time-input");
+    const hasTime = await timeInput.isVisible({ timeout: 10000 }).catch(() => false);
+    if (hasTime) {
+      await timeInput.fill("06:00");
+    }
+
+    // Advance to Session Details (Equipment step is optional; then Session Details is last step)
+    if (hasNext) {
+      await nextButton.click();
+      await page.waitForTimeout(300);
+      await nextButton.click();
+      await page.waitForTimeout(500);
     }
 
     // Set rating (stars or slider)
