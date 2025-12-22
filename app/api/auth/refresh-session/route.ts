@@ -50,14 +50,25 @@ export async function POST() {
         );
       }
 
-      // Return success response with limited session data
+      // Return success response with limited, verified user data
+      // NOTE: Avoid trusting `data.session.user` as it can be sourced from cookie storage.
+      let safeUser: { id: string; email?: string | null } | null = null;
+      if (data.session) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          safeUser = { id: user.id, email: user.email };
+        }
+      }
+
       return NextResponse.json({
         success: true,
         hasSession: !!data.session,
         sessionData: data.session
           ? {
-              userId: data.session.user?.id,
-              email: data.session.user?.email,
+              userId: safeUser?.id,
+              email: safeUser?.email,
             }
           : null,
       });

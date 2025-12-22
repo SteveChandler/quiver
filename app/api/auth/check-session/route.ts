@@ -25,7 +25,10 @@ export async function GET() {
       }
     );
 
-    const { data, error } = await supabase.auth.getSession();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
     if (error) {
       console.error("Error checking session:", error);
@@ -33,11 +36,11 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      hasSession: !!data.session,
-      sessionData: data.session
+      hasSession: !!user,
+      sessionData: user
         ? {
-            userId: data.session.user?.id,
-            email: data.session.user?.email,
+            userId: user.id,
+            email: user.email,
             // Don't include sensitive data
           }
         : null,

@@ -103,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Hardened server-side Supabase auth checks by using `supabase.auth.getUser()` (verified) instead of trusting `session.user` from `supabase.auth.getSession()` in middleware/admin and auth endpoints (removes Supabase “insecure user object” warnings).
 - **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation
   - Page had no links or usage anywhere in the codebase
   - Lacked proper session validation (unlike secure `/auth/reset` flow)

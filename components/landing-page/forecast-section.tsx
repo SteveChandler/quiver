@@ -70,6 +70,7 @@ function PhoneForecastPreview({
   windSpeed,
   waterTemp,
   conditions,
+  testId,
 }: {
   day: string;
   date: string;
@@ -77,9 +78,10 @@ function PhoneForecastPreview({
   windSpeed: string;
   waterTemp: string;
   conditions: string;
+  testId?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid={testId}>
       <div className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -90,6 +92,7 @@ function PhoneForecastPreview({
             className={`shrink-0 inline-flex px-2 py-1 rounded-full text-[10px] font-medium ${getConditionsPillClassName(
               conditions
             )}`}
+            data-testid="forecast-conditions-badge"
           >
             {conditions}
           </span>
@@ -144,7 +147,7 @@ export function ForecastSection() {
     <SectionWrapper className="py-16 md:py-20 px-4 bg-white" maxWidth="6xl">
       <div
         className="relative overflow-hidden rounded-[32px] sm:rounded-[40px] lg:rounded-[48px] bg-[#F3EEE6] shadow-sm ring-1 ring-black/5 animate-fade-in-up"
-        data-testid="forecast-section-panel"
+        data-testid="forecast-section"
       >
         <div className="px-12 lg:px-20 py-16 lg:py-20">
           <div className="grid grid-cols-1 md:grid-cols-[180px_auto_1fr] gap-y-12 gap-x-16 lg:gap-x-24 items-center">
@@ -235,11 +238,11 @@ export function ForecastSection() {
                     </div>
 
                     {/* IMPORTANT: constrain content so it doesn't force a square */}
-                    <div className="px-5 pb-6 space-y-3">
-                      <PhoneForecastPreview {...todayForecast} />
+                    <div className="px-5 pb-6 space-y-3" data-testid="forecast-cards-grid">
+                      <PhoneForecastPreview {...todayForecast} testId="forecast-card-0" />
                       <div className="grid grid-cols-2 gap-3">
-                        <PhoneForecastPreview {...tomorrowForecast} />
-                        <PhoneForecastPreview {...dayAfterForecast} />
+                        <PhoneForecastPreview {...tomorrowForecast} testId="forecast-card-1" />
+                        <PhoneForecastPreview {...dayAfterForecast} testId="forecast-card-2" />
                       </div>
                     </div>
 
@@ -263,6 +266,7 @@ export function ForecastSection() {
                 <Button
                   className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 text-white shadow-sm"
                   asChild
+                  data-testid="forecast-cta-map"
                 >
                   <Link href="/map">
                     {CONTENT.sections.forecast.primaryCta}
@@ -272,6 +276,7 @@ export function ForecastSection() {
                 <Link
                   href="/auth/sign-up"
                   className="text-sm font-semibold text-slate-700 underline underline-offset-4 decoration-slate-300 hover:decoration-slate-500 transition-colors"
+                  data-testid="forecast-cta-signup"
                 >
                   {CONTENT.sections.forecast.secondaryCta}
                 </Link>

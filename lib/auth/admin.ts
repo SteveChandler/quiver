@@ -24,10 +24,13 @@ export async function getCurrentUser(): Promise<AdminUser | null> {
   try {
     const supabase = await createSupabaseServerClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-    return (session?.user as AdminUser) || null;
+    if (error || !user) return null;
+
+    return user as AdminUser;
   } catch (error) {
     console.error("Error getting current user:", error);
     return null;
