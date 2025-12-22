@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix session planner beach search by removing invalid `beaches.updated_at` selects and adding legacy schema fallback for `beaches` list queries.
+- Fix client beach list parsing to support `{ success, data: { beaches } }` API responses (and keep legacy `{ beaches }` support).
+- Fix session logging forecast card showing `NaN` when forecast strings include units (parse numeric values safely).
+- Update session logging copy to “Forecast from Your Session”.
+
 ### Docs
 
 - Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
@@ -63,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Forecast cron stability: group tide ingest by nearest NOAA tide station (fetch once per station, fan out to beaches) and add `?tidesBackfillMissing=1` to backfill beaches with zero tide rows.
 - SEO/routing: ensure state-root pages (`/{state}`) return 200 for valid state slugs even when public beach queries return empty (RLS/config differences); add permanent redirects for crawled legacy/garbage URLs (`/app`, `/beaches`, `/plan-session`, `/$`).
 - SEO/structured-data: stop emitting `AggregateRating` on `Place`/`Beach` JSON-LD to fix Search Console “Review snippets” errors (e.g. Puerto Rico city pages).
+- SEO/structured-data: emit numeric `SoftwareApplication.aggregateRating` fields (avoid `ratingCount` validation issues).
 - SEO/structured-data: emit root JSON-LD as a Schema.org `@graph` object (not a top-level array) to prevent Safari/third-party parser crashes on beach pages.
 - Playwright E2E: ensure dev runs honor `BASE_URL` in API-heavy specs and include Vercel bypass headers during global auth setup.
 - Tide height values in Home → Forecast: fix CO-OPS timezone drift by requesting predictions in GMT and parsing timestamps as UTC (adds unit coverage).

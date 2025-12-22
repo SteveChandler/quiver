@@ -54,8 +54,13 @@ async function getAllBeaches(): Promise<ClientBeach[]> {
     throw new Error(`Failed to load beaches: ${response.status}`);
   }
 
-  const json = (await response.json()) as { beaches?: ClientBeach[] };
-  return Array.isArray(json.beaches) ? json.beaches : [];
+  // API routes generally wrap payload in { success, data }, but some older ones return { beaches }.
+  const json = (await response.json()) as any;
+  const beaches =
+    (Array.isArray(json?.beaches) ? json.beaches : null) ??
+    (Array.isArray(json?.data?.beaches) ? json.data.beaches : null) ??
+    [];
+  return beaches;
 }
 
 export const data = {

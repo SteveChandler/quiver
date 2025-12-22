@@ -406,16 +406,16 @@ export function SessionDetailsSection({
           formState.selectedDate ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">
-              Forecast for Your Session
+              Forecast from Your Session
             </h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              {forecastData.wave_height && (
+              {Number.isFinite(forecastData.wave_height) && (
                 <div className="flex items-center gap-2">
                   <Waves className="h-4 w-4 text-blue-600" />
                   <span>{forecastData.wave_height} waves</span>
                 </div>
               )}
-              {forecastData.wind_speed && (
+              {Number.isFinite(forecastData.wind_speed) && (
                 <div className="flex items-center gap-2">
                   <Wind className="h-4 w-4 text-blue-600" />
                   <span>
@@ -424,7 +424,7 @@ export function SessionDetailsSection({
                   </span>
                 </div>
               )}
-              {forecastData.water_temp && (
+              {Number.isFinite(forecastData.water_temp) && (
                 <div className="flex items-center gap-2">
                   <Thermometer className="h-4 w-4 text-blue-600" />
                   <span>{forecastData.water_temp} water</span>
@@ -435,7 +435,7 @@ export function SessionDetailsSection({
         ) : formState.selectedDate && formState.selectedBeachId ? (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <h4 className="font-medium text-amber-900 mb-2">
-              Forecast for Your Session
+              Forecast from Your Session
             </h4>
             <p className="text-sm text-amber-700">
               {forecastError?.includes("historical")
@@ -446,7 +446,7 @@ export function SessionDetailsSection({
         ) : (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h4 className="font-medium text-gray-700 mb-2">
-              Forecast for Your Session
+              Forecast from Your Session
             </h4>
             <p className="text-sm text-gray-600">
               Select a beach and date to see forecast data. You can still fill
