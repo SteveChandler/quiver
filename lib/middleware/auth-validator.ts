@@ -63,29 +63,28 @@ export class AuthValidator {
   }
 
   /**
-   * Validates user authentication using a two-tier approach:
-   * 1. Fast path: Local session cookie validation (5-10ms)
-   * 2. Slow path: Remote auth server validation (100-200ms)
+   * Validates user authentication.
    *
-   * This optimization reduces auth API calls by 80-90% and improves
-   * middleware performance by 50-70%.
+   * Important security note:
+   * - `supabase.auth.getSession()` reads session data from cookies/storage and does NOT
+   *   guarantee the `session.user` payload is authentic.
+   * - `supabase.auth.getUser()` verifies the user by contacting Supabase Auth.
+   *
+   * We still call `getSession()` first to avoid an unnecessary remote `getUser()` call
+   * for unauthenticated/anonymous requests, but we never trust `session.user`.
    *
    * @returns AuthResult with user data or error
    */
   async validateAuth(): Promise<AuthResult> {
     try {
-      // OPTIMIZATION: Prefer local session cookie validation (fast path)
-      const sessionResult = await this.validateLocalSession();
-
-      if (sessionResult.authenticated) {
-        this.log("Local session valid (fast path)");
-        return sessionResult;
+      // Optimization: quick check for session existence (do NOT trust session.user)
+      const hasSession = await this.hasSession();
+      if (!hasSession) {
+        return { authenticated: false, error: "No valid session" };
       }
 
-      // Fallback to remote validation if local session invalid
-      this.log("Local session invalid, validating with remote auth server");
+      // Verified user (remote auth)
       return await this.validateRemoteAuth();
-
     } catch (error) {
       this.logError("Error during auth validation", error);
       return {
@@ -96,26 +95,20 @@ export class AuthValidator {
   }
 
   /**
-   * Fast path: Validate using local session cookies
-   * Avoids remote API call in 80-90% of cases
+   * Fast path: check for presence of a session cookie.
+   * We intentionally do NOT trust any user fields from the session object.
    */
-  private async validateLocalSession(): Promise<AuthResult> {
+  private async hasSession(): Promise<boolean> {
     const {
       data: { session },
       error: sessionError,
     } = await this.supabase.auth.getSession();
 
-    if (session?.user && !sessionError) {
-      return {
-        authenticated: true,
-        user: session.user,
-      };
+    if (sessionError) {
+      this.log("Session check error", sessionError?.message);
     }
 
-    return {
-      authenticated: false,
-      error: sessionError?.message || "No valid session",
-    };
+    return !!session;
   }
 
   /**

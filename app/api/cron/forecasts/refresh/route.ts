@@ -2,6 +2,7 @@ import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { validateCronRequest } from "@/lib/api-response-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip-service";
+import { NwsWindService } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
   fetchLatestNDBCObservation,
@@ -11,9 +12,28 @@ import {
   fetchHourlyTidePredictions,
 } from "@/lib/services/noaa-tide-service";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
+import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
 
 export const revalidate = 0;
+
+type BeachRow = { id: string; name: string; lat: number; lon: number };
+type TideStationMeta = { id: string; name: string; lat: number; lon: number };
+type TidePoint = {
+  ts: string;
+  tide_height_m: number;
+  tide_phase: string | null;
+  source: string;
+};
+
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) return [items];
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    out.push(items.slice(i, i + chunkSize));
+  }
+  return out;
+}
 
 function getSupabaseProjectRef(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -42,15 +62,28 @@ export async function GET(request: Request) {
     });
     const url = new URL(request.url);
     const onlyBeachId = url.searchParams.get("beachId");
+    const tidesBackfillMissing = url.searchParams.get("tidesBackfillMissing") === "1";
 
-    let query = supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .not("lon", "is", null);
+    let query = supabase.from("beaches").select(
+      tidesBackfillMissing
+        ? // Backfill mode: fetch a single nested tide row so we can detect "no tide rows" without N+1 queries.
+          // Note: we only need any tide row, not the full set.
+          "id, name, lat, lon, tide_forecasts(ts)"
+        : "id, name, lat, lon"
+    );
+
+    query = query.not("lat", "is", null).not("lon", "is", null);
 
     if (onlyBeachId) {
       query = query.eq("id", onlyBeachId);
+    }
+
+    if (tidesBackfillMissing) {
+      // Limit the nested tide_forecasts payload (latest row only).
+      // This allows us to filter beaches that have never had tides written.
+      query = query
+        .order("ts", { foreignTable: "tide_forecasts", ascending: false })
+        .limit(1, { foreignTable: "tide_forecasts" });
     }
 
     const { data: beaches, error: beachError } = await query;
@@ -59,9 +92,34 @@ export async function GET(request: Request) {
 
     let totals = { marine: 0, tides: 0, sun: 0, beaches: beaches?.length || 0 };
     const cdip = new CDIPService();
+    const nwsWind = new NwsWindService();
     const refreshedAt = new Date().toISOString();
 
-    for (const b of beaches || []) {
+    const allBeaches: BeachRow[] = (beaches || []).map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      lat: b.lat,
+      lon: b.lon,
+    }));
+
+    const targetBeachesForTides: BeachRow[] = tidesBackfillMissing
+      ? // In backfill mode, only target beaches with zero tide_forecasts rows.
+        (beaches || [])
+          .filter((b: any) => !b?.tide_forecasts || b.tide_forecasts.length === 0)
+          .map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            lat: b.lat,
+            lon: b.lon,
+          }))
+      : allBeaches;
+
+    // If we're doing a one-time tide backfill, skip other ingest work (marine/wind/sun)
+    // to keep the operation fast and focused.
+    const shouldRunNonTideIngest = !tidesBackfillMissing;
+
+    if (shouldRunNonTideIngest) {
+      for (const b of allBeaches) {
       // Marine from NDBC/CDIP
       try {
         const marineRows: any[] = [];
@@ -192,98 +250,39 @@ export async function GET(request: Request) {
         console.warn("marine ingest error", b.name, e);
       }
 
-      // Tides from NOAA T&C hourly (with CO-OPS hilo fallback -> interpolated hourly)
+      // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows)
       try {
-        const start = new Date().toISOString();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 5);
-        const end = endDate.toISOString();
-        const st = await getNearestTideStation(b.lat, b.lon);
-        if (st) {
-          console.log("NOAA tide nearest station", {
-            beach: b.name,
-            beachId: b.id,
-            stationId: st.id,
-          });
-          let preds = await fetchHourlyTidePredictions(st.id, start, end);
-          let rows = preds.map((p) => ({
+        const windowStart = new Date(Date.now() - 6 * 60 * 60 * 1000);
+        const windowEnd = new Date(Date.now() + 36 * 60 * 60 * 1000);
+        const windPoints = await nwsWind.fetchHourlyWindPoints({
+          lat: b.lat,
+          lon: b.lon,
+          start: windowStart,
+          end: windowEnd,
+        });
+
+        if (windPoints.length) {
+          const windRows = windPoints.map((p) => ({
             beach_id: b.id,
             ts: p.ts,
             created_at: refreshedAt,
-            tide_height_m: p.tide_height_m,
-            tide_phase: p.tide_phase,
-            source: "noaa",
+            wind_speed_ms: p.wind_speed_ms,
+            wind_direction_deg: p.wind_direction_deg,
+            wave_height_m: null,
+            wave_period_s: null,
+            wave_direction_deg: null,
+            source: "nws_wind",
+            is_observed: false,
           }));
 
-          // Fallback: if hourly predictions are empty, fetch CO-OPS hilo extremes and interpolate hourly
-          if (!rows.length) {
-            try {
-              const coops = new NOAACOOPSService();
-              const coopsStation = st.id; // use the same station id if numeric, else fallback mapping inside service
-              const coopsData = await coops.fetchCOOPSData(coopsStation, 5);
-              const tides = coopsData?.tides || [];
-              if (tides.length >= 2) {
-                // Build hourly timestamps from start..end and interpolate heights (ft -> m)
-                const startDt = new Date(start);
-                const endDt = new Date(end);
-                const hours: Date[] = [];
-                for (let t = new Date(startDt); t <= endDt; t.setHours(t.getHours() + 1)) {
-                  hours.push(new Date(t));
-                }
-                const toM = (ft: number) => (ft == null ? null : ft * 0.3048);
-                const interpHeightAt = (d: Date): number | null => {
-                  // find surrounding extremes
-                  const ts = d.getTime() / 1000;
-                  const sorted = [...tides].sort((a, b) => a.time - b.time);
-                  let prev = null as any;
-                  let next = null as any;
-                  for (const ti of sorted) {
-                    if (ti.time <= ts) prev = ti; else { next = ti; break; }
-                  }
-                  if (!prev || !next) return null;
-                  const alpha = (ts - prev.time) / (next.time - prev.time);
-                  const h = prev.height + (next.height - prev.height) * Math.max(0, Math.min(1, alpha));
-                  return Math.round((toM(h) ?? 0) * 1000) / 1000;
-                };
-                const interpRows = hours
-                  .map((d) => ({
-                    beach_id: b.id,
-                    ts: d.toISOString(),
-                    created_at: refreshedAt,
-                    tide_height_m: interpHeightAt(d),
-                    tide_phase: null,
-                    source: "noaa_hilo_interpolated",
-                  }))
-                  .filter(
-                    (
-                      r
-                    ): r is typeof r & { tide_height_m: number } =>
-                      r.tide_height_m != null
-                  );
-                rows = interpRows;
-              }
-            } catch (fallbackErr) {
-              console.warn("CO-OPS fallback failed", { beach: b.name, beachId: b.id, stationId: st.id, fallbackErr });
-            }
-          }
+          const { error } = await supabase
+            .from("marine_forecasts")
+            .upsert(windRows, { onConflict: "beach_id,ts,source" });
 
-          if (rows.length) {
-            const { error } = await supabase
-              .from("tide_forecasts")
-              .upsert(rows, { onConflict: "beach_id,ts,source" });
-            if (!error) totals.tides += rows.length;
-          } else {
-            console.warn("NOAA tide predictions returned empty", {
-              beach: b.name,
-              beachId: b.id,
-              stationId: st.id,
-              start,
-              end,
-            });
-          }
+          if (!error) totals.marine += windRows.length;
         }
       } catch (e) {
-        console.warn("tide ingest error", b.name, e);
+        console.warn("nws wind ingest error", b.name, e);
       }
 
       // Sun times computed locally
@@ -309,6 +308,176 @@ export async function GET(request: Request) {
       } catch (e) {
         console.warn("sun ingest error", b.name, e);
       }
+    }
+    }
+
+    // Tides from NOAA T&C hourly (station-grouped; with CO-OPS hilo fallback -> interpolated hourly)
+    try {
+      const tideStartIso = new Date().toISOString();
+      const tideEndDate = new Date();
+      tideEndDate.setDate(tideEndDate.getDate() + 5);
+      const tideEndIso = tideEndDate.toISOString();
+
+      const nearestStationCache = new Map<string, TideStationMeta | null>();
+      const predictionsCache = new Map<string, TidePoint[]>();
+      const stationGroups = new Map<string, { station: TideStationMeta; beaches: BeachRow[] }>();
+      const coops = new NOAACOOPSService();
+
+      for (const b of targetBeachesForTides) {
+        const key = `${b.lat},${b.lon}`;
+        let st = nearestStationCache.get(key) ?? null;
+        if (!nearestStationCache.has(key)) {
+          st = (await getNearestTideStation(b.lat, b.lon)) as TideStationMeta | null;
+          nearestStationCache.set(key, st);
+        }
+        if (!st) continue;
+        const group = stationGroups.get(st.id);
+        if (group) {
+          group.beaches.push(b);
+        } else {
+          stationGroups.set(st.id, { station: st, beaches: [b] });
+        }
+      }
+
+      const stationCounts = [...stationGroups.values()].map((g) => g.beaches.length);
+      const maxBeachesPerStation =
+        stationCounts.length ? Math.max(...stationCounts) : 0;
+      console.log("[Forecast Refresh] Tide station grouping", {
+        tidesBackfillMissing,
+        beachesConsidered: targetBeachesForTides.length,
+        stations: stationGroups.size,
+        maxBeachesPerStation,
+      });
+
+      const fetchStationTidePoints = async (stationId: string): Promise<TidePoint[]> => {
+        const cacheKey = `${stationId}|${tideStartIso.slice(0, 10)}|${tideEndIso.slice(0, 10)}`;
+        const cached = predictionsCache.get(cacheKey);
+        if (cached) return cached;
+
+        // Primary: CO-OPS hourly predictions
+        let points: TidePoint[] = [];
+        try {
+          const preds = await fetchHourlyTidePredictions(
+            stationId,
+            tideStartIso,
+            tideEndIso
+          );
+          points = preds
+            .filter(
+              (p) =>
+                p?.ts &&
+                typeof p.tide_height_m === "number" &&
+                isFinite(p.tide_height_m)
+            )
+            .map((p) => ({
+              ts: p.ts,
+              tide_height_m: p.tide_height_m,
+              tide_phase: p.tide_phase ?? null,
+              source: "noaa",
+            }));
+        } catch (err) {
+          console.warn("NOAA hourly tide fetch failed", { stationId, err });
+        }
+
+        // Fallback: if hourly predictions are empty, fetch CO-OPS hilo extremes and interpolate hourly
+        if (!points.length) {
+          try {
+            const coopsData = await coops.fetchCOOPSData(stationId, 5);
+            const tides = (coopsData?.tides || [])
+              .filter((t: any) => typeof t?.time === "number" && typeof t?.height === "number")
+              .sort((a: any, b: any) => a.time - b.time);
+
+            if (tides.length >= 2) {
+              const startMs = new Date(tideStartIso).getTime();
+              const endMs = new Date(tideEndIso).getTime();
+              const hourMs = 60 * 60 * 1000;
+
+              let nextIdx = 0;
+              const toM = (ft: number) => ft * 0.3048;
+              const interpolated: TidePoint[] = [];
+
+              for (let tMs = startMs; tMs <= endMs; tMs += hourMs) {
+                const tsSec = tMs / 1000;
+                while (nextIdx < tides.length && tides[nextIdx].time < tsSec) {
+                  nextIdx++;
+                }
+                const prev = tides[nextIdx - 1];
+                const next = tides[nextIdx];
+                if (!prev || !next) continue;
+
+                const alpha = (tsSec - prev.time) / (next.time - prev.time);
+                const hFt =
+                  prev.height +
+                  (next.height - prev.height) *
+                    Math.max(0, Math.min(1, alpha));
+                const hM = toM(hFt);
+                if (!isFinite(hM)) continue;
+
+                interpolated.push({
+                  ts: new Date(tMs).toISOString(),
+                  tide_height_m: Math.round(hM * 1000) / 1000,
+                  tide_phase: null,
+                  source: "noaa_hilo_interpolated",
+                });
+              }
+
+              points = interpolated;
+            }
+          } catch (fallbackErr) {
+            console.warn("CO-OPS fallback interpolation failed", {
+              stationId,
+              fallbackErr,
+            });
+          }
+        }
+
+        predictionsCache.set(cacheKey, points);
+        return points;
+      };
+
+      for (const [stationId, group] of stationGroups.entries()) {
+        try {
+          const points = await fetchStationTidePoints(stationId);
+          if (!points.length) {
+            console.warn("NOAA tides empty for station", {
+              stationId,
+              beaches: group.beaches.length,
+              tideStartIso,
+              tideEndIso,
+            });
+            continue;
+          }
+
+          const beachIds = group.beaches.map((b) => b.id);
+          const rows = fanOutTidePointsToBeaches({
+            beachIds,
+            points,
+            createdAt: refreshedAt,
+          });
+
+          for (const chunk of chunkArray(rows, 1000)) {
+            const { error } = await supabase
+              .from("tide_forecasts")
+              .upsert(chunk as any[], { onConflict: "beach_id,ts,source" });
+            if (!error) totals.tides += chunk.length;
+          }
+        } catch (stationErr) {
+          console.warn("Station tide ingest failed", {
+            stationId,
+            beaches: group.beaches.length,
+            stationErr,
+          });
+        }
+      }
+
+      if (tidesBackfillMissing) {
+        console.log("[Forecast Refresh] Tide backfill complete", {
+          targetedBeaches: targetBeachesForTides.length,
+          totalsTides: totals.tides,
+        });
+      }
+    } catch (e) {
+      console.warn("tide station-grouped ingest error", e);
     }
 
     return createSuccessResponse({ totals });

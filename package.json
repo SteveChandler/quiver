@@ -13,7 +13,7 @@
     "prebuild": "node scripts/fetch-fonts.mjs || true",
     "pretest": "node scripts/fetch-fonts.mjs || true",
     "clean:next": "node scripts/clean-next.mjs",
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
     "build": "yarn clean:next && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",

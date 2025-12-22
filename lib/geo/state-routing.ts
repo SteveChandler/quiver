@@ -98,3 +98,18 @@ export function getDbStateCandidatesForStateSlug(stateSlug: string): string[] {
   return [code, name].filter(Boolean) as string[];
 }
 
+/**
+ * Friendly display name for a 2-letter state slug.
+ *
+ * Examples:
+ * - "ca" -> "California"
+ * - "sc" -> "South Carolina"
+ * - "pr" -> "Puerto Rico"
+ *
+ * Falls back to the uppercased code when unknown.
+ */
+export function getStateDisplayNameFromSlug(stateSlug: string): string {
+  const code = toDbState(stateSlug);
+  return US_STATE_NAMES_BY_CODE[code] || code;
+}
+

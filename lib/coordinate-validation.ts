@@ -124,7 +124,9 @@ export function validateCoordinates(
       if (context) {
         console.warn('  Context:', context);
       }
-      console.trace('Stack trace:');
+      // `console.trace` is disallowed by our eslint config; log the stack explicitly instead.
+      const stack = new Error('Stack trace').stack;
+      if (stack) console.warn(stack);
     }
     return false;
   }

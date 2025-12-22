@@ -26,7 +26,10 @@ function logLine(
   context: unknown
 ): void {
   const line = `${prefix} ${safeStringify(context)}`;
-  console[level](line);
+  // Avoid computed console access; ESLint can't statically verify allowed methods.
+  if (level === 'error') console.error(line);
+  else if (level === 'warn') console.warn(line);
+  else console.log(line);
 }
 
 interface BaseLogContext {

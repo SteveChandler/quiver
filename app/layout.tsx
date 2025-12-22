@@ -6,6 +6,7 @@ import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
+import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -207,37 +208,7 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify([
-              {
-                "@context": "https://schema.org",
-                "@type": "Organization",
-                name: "Quiver",
-                alternateName: "Quiver Surf App",
-                description:
-                  "Ultimate surf community platform - Community-driven surf session tracking and social platform",
-                url:
-                  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-                logo: `${
-                  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-                }/logoQuiver.png`,
-                foundingDate: "2024",
-                applicationCategory: "Sports & Recreation",
-              },
-              {
-                "@context": "https://schema.org",
-                "@type": "WebSite",
-                name: "Quiver - Surf Community App",
-                url:
-                  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-                potentialAction: {
-                  "@type": "SearchAction",
-                  target: `${
-                    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-                  }/search?q={search_term_string}`,
-                  "query-input": "required name=search_term_string",
-                },
-              },
-            ]),
+            __html: JSON.stringify(buildRootStructuredDataGraph()),
           }}
         />
         {/* Critical inline styles for faster render */}

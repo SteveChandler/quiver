@@ -10,7 +10,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import {
   ArrowDown,
@@ -178,6 +178,7 @@ function BeachDetailContent({
 }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -210,12 +211,12 @@ function BeachDetailContent({
           document.getElementById("intel-section");
         if (el) {
           try {
-            // Update URL hash without navigation (pathname and search are read-only access)
-            // eslint-disable-next-line no-restricted-properties
-            router.replace(
-              `${window.location.pathname}${window.location.search}#intel`,
-              { scroll: false }
-            );
+            // Update URL hash without navigation
+            const qs = searchParams?.toString() || "";
+            const nextUrl = qs
+              ? `${pathname}?${qs}#intel`
+              : `${pathname}#intel`;
+            router.replace(nextUrl, { scroll: false });
           } catch {}
           const y =
             el.getBoundingClientRect().top + window.scrollY - stickyOffset;
@@ -260,10 +261,10 @@ function BeachDetailContent({
   // Log non-fatal errors
   useEffect(() => {
     if (errors.forecasts) {
-      console.debug("⚠️ Forecast data unavailable:", errors.forecasts);
+      console.warn("Forecast data unavailable:", errors.forecasts);
     }
     if (errors.sources) {
-      console.debug("⚠️ Source data unavailable:", errors.sources);
+      console.warn("Source data unavailable:", errors.sources);
     }
   }, [errors.forecasts, errors.sources]);
 
@@ -291,7 +292,7 @@ function BeachDetailContent({
     const selectedForecast = getCurrentForecast(forecasts);
 
     if (process.env.NODE_ENV === "development") {
-      console.log("🏖️ Beach Detail currentForecast selection:", {
+      console.warn("Beach Detail currentForecast selection:", {
         totalForecasts: forecasts.length,
         selectedTime: selectedForecast?.forecast_time,
         selectedWaveHeight: selectedForecast?.wave_height,
@@ -331,7 +332,7 @@ function BeachDetailContent({
 
     if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
       if (process.env.NODE_ENV === "development") {
-        console.log("📊 Processing forecasts:", {
+        console.warn("Processing forecasts:", {
           totalForecasts: forecasts.length,
           firstForecast: forecasts[0],
         });
@@ -349,7 +350,7 @@ function BeachDetailContent({
       });
 
       if (process.env.NODE_ENV === "development") {
-        console.log("📅 Grouped forecasts by date:", {
+        console.warn("Grouped forecasts by date:", {
           dates: Object.keys(grouped),
           forecastsPerDate: Object.entries(grouped).map(
             ([date, forecasts]) => ({

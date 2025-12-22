@@ -27,12 +27,26 @@ export async function GET() {
 
   try {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-    return NextResponse.json(session);
+    if (error) {
+      console.error("Error getting user in API route:", error);
+      return NextResponse.json(null);
+    }
+
+    // Do not return raw session objects (tokens/user payload can be sensitive and/or unverified).
+    return NextResponse.json(
+      user
+        ? {
+            id: user.id,
+            email: user.email,
+          }
+        : null
+    );
   } catch (error) {
-    console.error("Error getting session in API route:", error);
+    console.error("Error getting user in API route:", error);
     return NextResponse.json(null);
   }
 }

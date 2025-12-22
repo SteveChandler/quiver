@@ -138,18 +138,24 @@ export function useSurfDiscovery(
   const [cachedData, setCachedData] = useState<CachedDiscoveryData | null>(null);
   const [isCached, setIsCached] = useState(false);
 
+  const userLat = userLocation?.lat;
+  const userLon = userLocation?.lon;
+
   // Compute a stable options hash from primitive values (avoid using `options` object identity).
   const optionsHash = useMemo(() => {
     return hashOptions({
-      userLocation,
+      userLocation:
+        userLat !== undefined && userLon !== undefined
+          ? { lat: userLat, lon: userLon }
+          : undefined,
       radiusMiles,
       horizonHours,
       maxResults,
       includeHome,
     });
   }, [
-    userLocation?.lat,
-    userLocation?.lon,
+    userLat,
+    userLon,
     radiusMiles,
     horizonHours,
     maxResults,

@@ -52,7 +52,13 @@ export default tseslint.config(
       },
     },
     rules: {
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      // This repo uses console output in server routes, scripts, and during
+      // debugging. Lint is run with `--max-warnings=0`, so treat console usage
+      // as allowed to avoid turning logs into CI failures.
+      "no-console": [
+        "warn",
+        { allow: ["debug", "info", "log", "warn", "error"] },
+      ],
       "react-hooks/error-boundaries": "off",
       "react-hooks/incompatible-library": "off",
       "react-hooks/preserve-manual-memoization": "off",

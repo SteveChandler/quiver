@@ -57,9 +57,11 @@ export async function getCurrentUser(): Promise<AdminUser | null> {
   try {
     const supabase = await createSupabaseServerClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return (session?.user as AdminUser) || null;
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !user) return null;
+    return user as AdminUser;
   } catch (error) {
     console.error("Error getting current user:", error);
     return null;
@@ -329,8 +331,9 @@ export async function GET(request: NextRequest) {
 // Server-side Supabase client creation
 const supabase = await createSupabaseServerClient();
 const {
-  data: { session },
-} = await supabase.auth.getSession();
+  data: { user },
+  error,
+} = await supabase.auth.getUser();
 
 // API server client for specific contexts
 const supabase = createAPIServerClient();

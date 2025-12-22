@@ -60,8 +60,12 @@ export async function POST(request: NextRequest) {
     const supabase = createSupabaseServerClient();
 
     // Admin authentication check - only admins can create/update beaches
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !isAdmin(session.user as any)) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user || !isAdmin(user as any)) {
       return NextResponse.json({ 
         error: "Unauthorized - Admin access required" 
       }, { status: 401 });

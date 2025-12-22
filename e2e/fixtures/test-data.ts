@@ -32,10 +32,11 @@ export const TEST_BEACH_IDS = isDevEnvironment ? {
 // These can be used with the navigateToBeach helper for new URL format
 export const TEST_BEACHES = isDevEnvironment ? {
   // Dev environment: Full beach data from dev.quiversurf.app
+  // URLs verified: https://dev.quiversurf.app/ca/la-jolla/blacks
   blacks: {
     id: '01330afc-00d3-461b-88f3-b173774766f4',
     slug: 'blacks',
-    city: 'San Diego',
+    city: 'La Jolla',
     state: 'CA',
     name: 'Blacks'
   },

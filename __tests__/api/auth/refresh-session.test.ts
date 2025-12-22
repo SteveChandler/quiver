@@ -7,8 +7,6 @@ import {
   createMockSupabaseClient,
   createMockUser,
   createMockSession,
-  expectSuccessResponse,
-  expectErrorResponse,
   setupApiTestEnvironment,
   mockNodeEnv,
 } from "@/test-utils/api-test-helpers";
@@ -69,6 +67,11 @@ describe("/api/auth/refresh-session", () => {
         error: null,
       });
 
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
       const response = await POST();
       const data = await response.json();
 
@@ -84,6 +87,7 @@ describe("/api/auth/refresh-session", () => {
 
       expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(1);
       expect(mockSupabaseClient.auth.refreshSession).toHaveBeenCalledTimes(1);
+      expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
     });
 
     it("should return appropriate response when no existing session", async () => {
@@ -204,6 +208,11 @@ describe("/api/auth/refresh-session", () => {
         error: null,
       });
 
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
       const response = await POST();
       const data = await response.json();
 
@@ -247,6 +256,8 @@ describe("/api/auth/refresh-session", () => {
         hasSession: false,
         sessionData: null,
       });
+
+      expect(mockSupabaseClient.auth.getUser).not.toHaveBeenCalled();
     });
 
     it("should handle refresh returning session without user", async () => {
@@ -267,6 +278,11 @@ describe("/api/auth/refresh-session", () => {
 
       mockSupabaseClient.auth.refreshSession.mockResolvedValue({
         data: { session: refreshedSession, user: null },
+        error: null,
+      });
+
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
         error: null,
       });
 
@@ -328,6 +344,11 @@ describe("/api/auth/refresh-session", () => {
           }, 
           user: { id: "user-123" } 
         },
+        error: null,
+      });
+
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: createMockUser({ id: "user-123", email: undefined }) },
         error: null,
       });
 

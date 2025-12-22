@@ -27,10 +27,6 @@ import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { buildInternationalCityUrl } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 
-const SITE_ORIGIN = (
-  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-).replace(/\/$/, "");
-
 // Editorial content imports
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
@@ -40,6 +36,11 @@ import { SessionTimingModules } from "@/components/city/session-timing-modules";
 import { AboutAccordion } from "@/components/city/about-accordion";
 import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
+import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
+
+const SITE_ORIGIN = (
+  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+).replace(/\/$/, "");
 
 // Dynamically import LocationMap with no SSR since it uses Mapbox (client-only)
 const LocationMap = dynamic(
@@ -101,34 +102,14 @@ export default async function LocationPage({ params }: LocationPageProps) {
   );
 
   // JSON-LD structured data for SEO
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Place",
-    name: `${location.city}, ${location.state}`,
-    description: `Surf beaches in ${location.city}, ${location.state}`,
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: stats.averageRating,
-      ratingCount: stats.totalReviews,
-      bestRating: 5,
-      worstRating: 1,
-    },
-    containsPlace: beaches.slice(0, 5).map((beach) => ({
-      "@type": "Beach",
+  const jsonLd = buildLocationPlaceStructuredData({
+    city: location.city,
+    state: location.state,
+    topBeaches: beaches.slice(0, 5).map((beach) => ({
       name: beach.name,
       url: `${SITE_ORIGIN}${getBeachUrlSafe(beach) || `/beach/${beach.slug}`}`,
-      aggregateRating:
-        (beach.average_rating || 0) > 0
-          ? {
-              "@type": "AggregateRating",
-              ratingValue: beach.average_rating || 0,
-              ratingCount: beach.review_count,
-              bestRating: 5,
-              worstRating: 1,
-            }
-          : undefined,
     })),
-  };
+  });
 
   // If editorial content exists, render the enhanced editorial layout
   if (editorial) {

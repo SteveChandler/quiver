@@ -6,9 +6,6 @@ import { GET } from "@/app/api/auth/check-session/route";
 import {
   createMockSupabaseClient,
   createMockUser,
-  createMockSession,
-  expectSuccessResponse,
-  expectErrorResponse,
   setupApiTestEnvironment,
   mockNodeEnv,
 } from "@/test-utils/api-test-helpers";
@@ -47,11 +44,9 @@ describe("/api/auth/check-session", () => {
         id: "user-123",
         email: "test@example.com",
       });
-      
-      const mockSession = createMockSession(mockUser);
 
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: mockSession },
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
         error: null,
       });
 
@@ -69,8 +64,8 @@ describe("/api/auth/check-session", () => {
     });
 
     it("should return no session when user is not authenticated", async () => {
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: null },
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
         error: null,
       });
 
@@ -87,8 +82,8 @@ describe("/api/auth/check-session", () => {
     it("should handle auth errors gracefully", async () => {
       const authError = { message: "Invalid JWT token" };
       
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: null },
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
         error: authError,
       });
 
@@ -107,15 +102,9 @@ describe("/api/auth/check-session", () => {
         user_metadata: { sensitive_data: "secret" },
         app_metadata: { admin: true },
       });
-      
-      const mockSession = {
-        ...createMockSession(mockUser),
-        access_token: "secret-access-token",
-        refresh_token: "secret-refresh-token",
-      };
 
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: mockSession },
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
         error: null,
       });
 
@@ -138,7 +127,7 @@ describe("/api/auth/check-session", () => {
 
     it("should handle unexpected errors gracefully", async () => {
       // Simulate an unexpected error during session check
-      mockSupabaseClient.auth.getSession.mockRejectedValue(
+      mockSupabaseClient.auth.getUser.mockRejectedValue(
         new Error("Database connection failed")
       );
 
@@ -149,19 +138,14 @@ describe("/api/auth/check-session", () => {
       expect(data.error).toBe("Failed to check session");
     });
 
-    it("should handle missing user in valid session", async () => {
-      // Edge case: valid session but no user data
-      const mockSession = {
-        access_token: "valid-token",
-        refresh_token: "valid-refresh",
-        expires_in: 3600,
-        expires_at: Date.now() / 1000 + 3600,
-        token_type: "bearer",
-        user: null, // Missing user data
-      };
+    it("should handle missing email safely", async () => {
+      const mockUser = createMockUser({
+        id: "user-123",
+        email: undefined,
+      });
 
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: mockSession },
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
         error: null,
       });
 
@@ -172,7 +156,7 @@ describe("/api/auth/check-session", () => {
       expect(data).toEqual({
         hasSession: true,
         sessionData: {
-          userId: undefined,
+          userId: "user-123",
           email: undefined,
         },
       });
@@ -180,33 +164,10 @@ describe("/api/auth/check-session", () => {
   });
 
   describe("Security", () => {
-    it("should handle malformed session data safely", async () => {
-      const malformedSession = {
-        // Missing required properties
-        user: undefined,
-        access_token: null,
-      };
-
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: malformedSession },
-        error: null,
-      });
-
-      const response = await GET();
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.hasSession).toBe(true);
-      expect(data.sessionData).toEqual({
-        userId: undefined,
-        email: undefined,
-      });
-    });
-
     it("should not leak error stack traces in production", async () => {
       const restoreEnv = mockNodeEnv("production");
 
-      mockSupabaseClient.auth.getSession.mockRejectedValue(
+      mockSupabaseClient.auth.getUser.mockRejectedValue(
         new Error("Database connection failed with sensitive info")
       );
 
@@ -225,10 +186,9 @@ describe("/api/auth/check-session", () => {
   describe("Performance", () => {
     it("should handle concurrent session checks", async () => {
       const mockUser = createMockUser();
-      const mockSession = createMockSession(mockUser);
 
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: mockSession },
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
         error: null,
       });
 
@@ -243,7 +203,7 @@ describe("/api/auth/check-session", () => {
       });
 
       // Verify the auth service was called for each request
-      expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(5);
+      expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(5);
     });
   });
 });

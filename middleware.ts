@@ -22,7 +22,7 @@ const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
 
 function log(message: string, data?: any) {
   if (isDev && isVerbose) {
-    console.log(message, data || "");
+    console.warn(message, data || "");
   }
 }
 
@@ -38,6 +38,17 @@ function log(message: string, data?: any) {
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  /**
+   * Garbage URL cleanup
+   * Search Console can surface odd one-off crawls like `/$` (sometimes encoded as `/%24`).
+   * We permanently redirect these to the homepage.
+   */
+  if (pathname === "/$" || pathname === "/%24") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/";
+    return NextResponse.redirect(redirectUrl, { status: 308 });
+  }
 
   /**
    * Canonicalize state-root casing
