@@ -6,7 +6,37 @@ import {
   createSuccessResponse,
   createAuthError,
   handleApiError,
+  methodNotAllowed,
 } from "@/lib/api-utils";
+
+export async function GET() {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return createAuthError("Authentication required");
+    }
+
+    const { data, error } = await supabase
+      .from("boards")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      return handleApiError(error, "Database error loading boards");
+    }
+
+    return createSuccessResponse({ boards: (data || []) as Board[] });
+  } catch (error) {
+    return handleApiError(error, "Error loading boards");
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,4 +89,16 @@ export async function POST(request: NextRequest) {
     console.error("API Route: Error creating board:", error);
     return handleApiError(error, "Error creating board");
   }
+}
+
+export function PUT() {
+  return methodNotAllowed(["GET", "POST"]);
+}
+
+export function PATCH() {
+  return methodNotAllowed(["GET", "POST"]);
+}
+
+export function DELETE() {
+  return methodNotAllowed(["GET", "POST"]);
 }

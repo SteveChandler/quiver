@@ -56,57 +56,7 @@ await updateSession(sessionId, { is_public: true })
 - User ID is now sourced from authenticated session only
 - All database queries filter by authenticated user ID
 
-### 2. Share Image Generation (generateShareImageUrl)
-
-**File:** [actions/social-share-actions.ts:120-143](/Users/stevenchandler/Desktop/quiver/quiver/actions/social-share-actions.ts#L120-L143)
-
-**Purpose:** Generates signed URLs for sharing session images
-
-**Auth Strategy:**
-- Uses HMAC-SHA256 signature instead of authentication
-- Signature prevents unauthorized access to private session images
-- API route validates signature OR checks `is_public` flag
-- Does NOT require user to be logged in (supports public sharing)
-
-**Why Not Authenticated:**
-This action doesn't use `withAuthenticatedAction` because:
-1. Public sessions should be shareable without login
-2. Private sessions are protected via cryptographic signature
-3. Signature verification happens in the API route, not the action
-
-**Security Model:**
-```typescript
-// Generate signed URL
-const canonical = `${sessionId}:${variant}`;
-const signature = crypto.createHmac("sha256", secret).update(canonical).digest("hex");
-
-// API route verifies signature
-if (!isPublic && !verifySignature({sessionId, variant}, t, secret)) {
-  return new Response("Forbidden", { status: 403 });
-}
-```
-
-### 3. Share Tracking (trackSessionShare)
-
-**File:** [actions/social-share-actions.ts:27-95](/Users/stevenchandler/Desktop/quiver/quiver/actions/social-share-actions.ts#L27-L95)
-
-**Purpose:** Records when a user shares a session to social media
-
-**Auth Requirements:**
-- ✅ Requires authentication via `withAuthenticatedAction`
-- ✅ Validates session exists and user can share it
-- ✅ Only allows sharing if session is public OR owned by user
-- ✅ Tracks XP for the authenticated user
-
-**Authorization Logic:**
-```typescript
-// Must be public OR owned by authenticated user
-if (!session.is_public && session.user_id !== user.id) {
-  throw new Error("Cannot share private session");
-}
-```
-
-### 4. Upload Session Media (uploadSessionMedia)
+### 2. Upload Session Media (uploadSessionMedia)
 
 **File:** [actions/session-actions.ts:834-892](/Users/stevenchandler/Desktop/quiver/quiver/actions/session-actions.ts#L834-L892)
 
@@ -301,11 +251,13 @@ const result = await myAction({ ... });
 
 ## Changelog
 
+### 2025-12-22 - Sharing Redesign Cleanup
+- 🗑️ Removed deprecated sharing actions (`trackSessionShare`, `generateShareImageUrl`)
+- 🗑️ Removed references to `ShareBar` and `ShareModal` components
+- ✅ Pivoted to Native-First sharing architecture via Capacitor
+
 ### 2025-11-01 - Authentication Hardening
 - ✅ Wrapped `updateSession` with `withAuthenticatedAction`
 - ✅ Removed unsafe `userId` parameter from `updateSession`
 - ✅ Wrapped `uploadSessionMedia` with `withAuthenticatedAction`
-- ✅ Updated all callers (ShareBar, ShareModal, SessionAnnotationModal)
 - ✅ Updated unit tests to mock authentication
-- ✅ Verified `trackSessionShare` already properly wrapped
-- ✅ Documented authentication strategy for `generateShareImageUrl`

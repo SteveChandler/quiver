@@ -241,7 +241,7 @@ get_beaches_by_location_with_scores(
 **Returns:** Beaches with aggregated stats
 
 **Columns:**
-- All beach columns
+- All beach columns (includes location ranking coordinates as `lat` and `lon` — not `lng`)
 - `session_count` - Number of logged sessions
 - `average_rating` - Average user rating
 - `review_count` - Number of reviews

@@ -66,8 +66,8 @@ export interface LocationStats {
  * Beach with computed ranking metrics
  * Extends the base Beach type with additional calculated fields
  *
- * @note Database coordinates: All database functions now return standardized `lat`/`lon` properties.
- * The Beach type and all components use this consistent naming convention throughout.
+ * @note Coordinate naming: ranking RPCs may return `latitude/longitude` (v2) while many UI components
+ * still consume `lat/lon`. Server actions should normalize/mirror fields to keep component contracts stable.
  */
 export interface BeachWithMetrics extends Beach {
   /** Composite score (0-1 scale) combining rating, reviews, and intel */

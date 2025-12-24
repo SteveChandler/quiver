@@ -52,6 +52,152 @@ export interface DatabaseCoordinates {
 }
 
 /**
+ * Flexible coordinate input shapes accepted across the codebase.
+ *
+ * This exists to support gradual migration away from `lng`/mixed naming.
+ * Prefer producing canonical `{ lat, lon }` as early as possible.
+ */
+export type CoordinatesInput = {
+  // Canonical
+  lat?: unknown;
+  lon?: unknown;
+
+  // Legacy / verbose variants
+  lng?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  center_lat?: unknown;
+  center_lng?: unknown;
+  // Occasionally appears in older code / external integrations
+  center_lon?: unknown;
+};
+
+export type NormalizeCoordinatesOptions = {
+  /** Included in warning messages to help trace call sites. */
+  context?: string;
+  /**
+   * If true (default), log development warnings when legacy keys are used
+   * or when conflicting keys are present.
+   */
+  warnOnLegacyKeys?: boolean;
+};
+
+function coerceFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number.parseFloat(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function warnDev(message: string) {
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.warn(message);
+  }
+}
+
+function pickFirstNumericKey(
+  input: CoordinatesInput,
+  keys: Array<keyof CoordinatesInput>
+): { key: keyof CoordinatesInput; value: number } | null {
+  for (const key of keys) {
+    const value = coerceFiniteNumber(input[key]);
+    if (value !== null) return { key, value };
+  }
+  return null;
+}
+
+function listNumericKeys(
+  input: CoordinatesInput,
+  keys: Array<keyof CoordinatesInput>
+): Array<{ key: keyof CoordinatesInput; value: number }> {
+  const results: Array<{ key: keyof CoordinatesInput; value: number }> = [];
+  for (const key of keys) {
+    const value = coerceFiniteNumber(input[key]);
+    if (value !== null) results.push({ key, value });
+  }
+  return results;
+}
+
+/**
+ * Normalize any supported coordinate input into canonical `{ lat, lon }`.
+ *
+ * - Accepts `{ lat, lon }` (canonical)
+ * - Accepts `{ lat, lng }` (legacy)
+ * - Accepts `{ latitude, longitude }` (verbose)
+ * - Accepts `{ center_lat, center_lng }` (DB legacy)
+ *
+ * In development, warns when legacy keys are used or when conflicting keys are present.
+ */
+export function normalizeCoordinates(
+  input: unknown,
+  options: NormalizeCoordinatesOptions = {}
+): Coordinates | null {
+  if (!input || typeof input !== 'object') return null;
+
+  const obj = input as CoordinatesInput;
+  const { context, warnOnLegacyKeys = true } = options;
+
+  const latCandidates = listNumericKeys(obj, ['lat', 'latitude', 'center_lat']);
+  const lonCandidates = listNumericKeys(obj, [
+    'lon',
+    'lng',
+    'longitude',
+    'center_lng',
+    'center_lon',
+  ]);
+
+  const pickedLat = pickFirstNumericKey(obj, ['lat', 'latitude', 'center_lat']);
+  const pickedLon = pickFirstNumericKey(obj, [
+    'lon',
+    'lng',
+    'longitude',
+    'center_lng',
+    'center_lon',
+  ]);
+
+  if (!pickedLat || !pickedLon) return null;
+
+  if (warnOnLegacyKeys && process.env.NODE_ENV === 'development') {
+    const prefix = context ? `[normalizeCoordinates:${context}] ` : '[normalizeCoordinates] ';
+
+    const usedLegacyKey =
+      pickedLat.key !== 'lat' || pickedLon.key !== 'lon';
+
+    if (usedLegacyKey) {
+      warnDev(
+        `${prefix}Using legacy coordinate keys (lat via "${String(pickedLat.key)}", lon via "${String(pickedLon.key)}"). Prefer { lat, lon }.`
+      );
+    }
+
+    if (latCandidates.length > 1) {
+      const values = latCandidates.map((c) => `${String(c.key)}=${c.value}`).join(', ');
+      warnDev(`${prefix}Multiple latitude keys provided; using "${String(pickedLat.key)}". (${values})`);
+    }
+
+    if (lonCandidates.length > 1) {
+      const values = lonCandidates.map((c) => `${String(c.key)}=${c.value}`).join(', ');
+      warnDev(`${prefix}Multiple longitude keys provided; using "${String(pickedLon.key)}". (${values})`);
+    }
+  }
+
+  return { lat: pickedLat.value, lon: pickedLon.value };
+}
+
+/**
+ * Convenience helper to convert `{ lat, lon }` into `{ latitude, longitude }`.
+ */
+export function toCoordinatesVerbose(coords: Coordinates): CoordinatesVerbose {
+  return { latitude: coords.lat, longitude: coords.lon };
+}
+
+/**
  * Type guard to check if an object is a valid Coordinates instance
  *
  * @example

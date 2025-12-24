@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { format } from "date-fns";
 import {
   Card,
@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { ShareSheet } from "@/components/share";
+import { buildWaveShareUrl } from "@/lib/share/build-share-card-url";
 import {
   Target,
   MapPin,
@@ -24,6 +26,7 @@ import {
   Calendar,
   Ruler,
   ChevronRight,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -208,6 +211,22 @@ export const PersonalizedForecastCard = React.memo(
     onViewBeach,
     onViewSimilarSessions,
   }: PersonalizedForecastCardProps) {
+    // Share sheet state - must be called before any early returns
+    const [shareSheetOpen, setShareSheetOpen] = useState(false);
+    const [shareImageUrl, setShareImageUrl] = useState("");
+
+    const handleShare = useCallback(() => {
+      if (!recommendation) return;
+      const { beach, window } = recommendation;
+      const desc = `${beach.name} · ${window.tide} · ${window.wind}`;
+      const url = buildWaveShareUrl({
+        size: window.waveHeight,
+        desc,
+      });
+      setShareImageUrl(url);
+      setShareSheetOpen(true);
+    }, [recommendation]);
+
     // Handle loading state
     if (loading) {
       return <PersonalizedForecastCardSkeleton />;
@@ -258,7 +277,16 @@ export const PersonalizedForecastCard = React.memo(
                 {format(window.start, "EEEE, MMM d")}
               </p>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleShare}
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                aria-label="Share forecast"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
               <PersonalizedBadge
                 personalized={recommendation.personalized}
                 score={score}
@@ -524,6 +552,17 @@ export const PersonalizedForecastCard = React.memo(
             View Forecast
           </Button>
         </CardFooter>
+
+        {/* Share Sheet */}
+        <ShareSheet
+          open={shareSheetOpen}
+          onOpenChange={setShareSheetOpen}
+          type="wave"
+          imageUrl={shareImageUrl}
+          filename="quiver-forecast"
+          title={`${window.waveHeight} at ${beach.name}`}
+          text={`Check out the waves! ${window.waveHeight} at ${beach.name} - ${window.tide}, ${window.wind}`}
+        />
       </Card>
     );
   }

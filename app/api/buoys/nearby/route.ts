@@ -6,18 +6,30 @@ import {
   createValidationError,
 } from "@/lib/api-utils";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";
 
 // Matches Ruby BuoysController functionality
 async function nearbyBuoysHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const latitude = parseFloat(searchParams.get("latitude") || "0");
-  const longitude = parseFloat(searchParams.get("longitude") || "0");
+  const coords = normalizeCoordinates(
+    {
+      // preferred short form
+      lat: searchParams.get("lat"),
+      lon: searchParams.get("lon"),
+      // legacy short form
+      lng: searchParams.get("lng"),
+      // verbose form (current behavior)
+      latitude: searchParams.get("latitude"),
+      longitude: searchParams.get("longitude"),
+    },
+    { context: "GET /api/buoys/nearby" }
+  );
   const limit = parseInt(searchParams.get("limit") || "4");
   const maxDistance = parseInt(searchParams.get("maxDistance") || "100000"); // meters, matches Ruby 100_000
 
-  if (!latitude || !longitude) {
+  if (!coords) {
     return createValidationError("Latitude and longitude are required");
   }
 
@@ -25,12 +37,16 @@ async function nearbyBuoysHandler(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
 
     // Use PostGIS spatial query for proper distance-based sorting
-    console.log("Using spatial query for buoys near lat/lng:", latitude, longitude);
+    console.log(
+      "Using spatial query for buoys near lat/lon:",
+      coords.lat,
+      coords.lon
+    );
 
     const { data: buoys, error } = await supabase
       .rpc("get_nearby_buoys", {
-        target_lat: latitude,
-        target_lng: longitude,
+        target_lat: coords.lat,
+        target_lng: coords.lon,
         max_distance_m: maxDistance,
         result_limit: limit
       });

@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff,
   Settings,
+  Share2,
   CalendarClock,
   CheckCircle,
   BookOpen,
@@ -32,10 +33,12 @@ import { SessionAnnotationModal } from "./session-annotation-modal";
 // Removed dropdown filter in favor of Completed/Planned tabs
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getUserSessions } from "@/actions/session-actions";
+import { data as gateway } from "@/lib/data/client";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ZeroState } from "@/components/ui/zero-state";
+import { ShareSheet } from "@/components/share";
+import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 import type {
   SessionWithDetails,
   JournalViewMode,
@@ -48,12 +51,63 @@ interface JournalViewProps {
   className?: string;
 }
 
+function clampStars(value: unknown, fallback = 4) {
+  const n = typeof value === "number" ? value : Number(value);
+  const v = Number.isFinite(n) ? n : fallback;
+  return Math.max(0, Math.min(5, Math.round(v)));
+}
+
+function ratingLabelFromStars(stars: number) {
+  if (stars >= 4) return "Epic";
+  if (stars >= 3) return "Good";
+  return "Fair";
+}
+
+function sizeLabelFromSession(session: SessionWithDetails): string {
+  const height = typeof session.wave_height_ft === "number"
+    ? session.wave_height_ft
+    : Number(session.wave_height_ft);
+  if (Number.isFinite(height) && height > 0) {
+    if (height < 1) return "Ankle-Knee";
+    if (height < 2) return "Waist-Chest";
+    if (height < 4) return "Chest-Head";
+    if (height < 6) return "Overhead";
+    return "Double-Overhead";
+  }
+
+  const quality = typeof session.wave_quality === "number"
+    ? session.wave_quality
+    : Number(session.wave_quality);
+  if (Number.isFinite(quality) && quality > 0) {
+    if (quality >= 4) return "Overhead";
+    if (quality >= 3) return "Chest-Head";
+    return "Waist-Chest";
+  }
+
+  return "Waist-Chest";
+}
+
+function formatShareDate(raw: unknown): string | undefined {
+  if (!raw) return undefined;
+  const d = raw instanceof Date ? raw : new Date(String(raw));
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function JournalView({ className }: JournalViewProps) {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<JournalViewMode>("list");
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<SessionWithDetails | null>(null);
+  const [shareSession, setShareSession] = useState<SessionWithDetails | null>(
+    null
+  );
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [sessionFilter, setSessionFilter] = useState<"planned" | "completed">(
     "completed"
   );
@@ -64,13 +118,16 @@ export function JournalView({ className }: JournalViewProps) {
   });
 
   // Fetch user sessions
-  const fetchUserSessions = useCallback(async () => {
+  const fetchUserSessions = useCallback(async (): Promise<SessionWithDetails[]> => {
     if (!user?.id) return [];
-    const result = await getUserSessions(user.id);
-    if (result.success) {
-      return result.data || [];
+    // Client-safe: fetch via API route, not server actions
+    try {
+      const result = await gateway.users.sessions.list(user.id, 200);
+      return result as SessionWithDetails[];
+    } catch (e) {
+      console.error("Failed to load user sessions for journal:", e);
+      throw e;
     }
-    throw new Error(result.error || "Failed to fetch sessions");
   }, [user?.id]);
 
   const {
@@ -80,6 +137,7 @@ export function JournalView({ className }: JournalViewProps) {
     refetch: refetchSessions,
   } = useDataFetcher(fetchUserSessions, {
     initialData: [] as SessionWithDetails[],
+    skip: !user?.id,
   });
 
   // Fetch analytics data
@@ -134,6 +192,11 @@ export function JournalView({ className }: JournalViewProps) {
     setShowAnnotationModal(true);
   };
 
+  const handleShareClick = (session: SessionWithDetails) => {
+    setShareSession(session);
+    setShareSheetOpen(true);
+  };
+
   const handlePrivacyToggle = async (sessionId: string, isPrivate: boolean) => {
     try {
       const response = await fetch("/api/analytics/sessions", {
@@ -175,6 +238,18 @@ export function JournalView({ className }: JournalViewProps) {
 
   if (sessionsLoading || analyticsLoading) {
     return <CenteredLoadingSpinner text="Loading your surf journal..." />;
+  }
+
+  if (sessionsError) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Failed to load sessions: {sessionsError}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   // If no sessions, show an inviting empty state instead of an error
@@ -329,6 +404,14 @@ export function JournalView({ className }: JournalViewProps) {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleShareClick(session)}
+                        aria-label="Share session"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           handlePrivacyToggle(session.id, !session.is_public)
                         }
@@ -413,6 +496,65 @@ export function JournalView({ className }: JournalViewProps) {
             setShowAnnotationModal(false);
             setSelectedSession(null);
           }}
+        />
+      )}
+
+      {/* Share Sheet */}
+      {shareSession && (
+        <ShareSheet
+          open={shareSheetOpen}
+          onOpenChange={(open) => {
+            setShareSheetOpen(open);
+            if (!open) setShareSession(null);
+          }}
+          type="session"
+          imageUrl={buildSessionShareUrl({
+            beach:
+              shareSession.beach?.name ||
+              shareSession.beaches?.name ||
+              shareSession.beach_name ||
+              "Unknown Beach",
+            stars: clampStars(shareSession.rating, 4),
+            rating: ratingLabelFromStars(clampStars(shareSession.rating, 4)),
+            size: sizeLabelFromSession(shareSession),
+            board:
+              shareSession.board?.name ||
+              shareSession.boards?.name ||
+              "Surfboard",
+            date: formatShareDate(shareSession.arrival_time ?? shareSession.session_date),
+            windLabel: shareSession.wind_direction || undefined,
+            windSpeed: (() => {
+              const mphRaw = shareSession.wind_speed_mph;
+              const mph =
+                typeof mphRaw === "number" ? mphRaw : mphRaw ? Number(mphRaw) : NaN;
+              return Number.isFinite(mph) ? `${Math.round(mph)} mph` : undefined;
+            })(),
+            tagline:
+              typeof (shareSession as { description?: unknown }).description === "string"
+                ? ((shareSession as { description?: string }).description as string)
+                : typeof (shareSession as { notes?: unknown }).notes === "string"
+                  ? ((shareSession as { notes?: string }).notes as string)
+                  : undefined,
+            footer: `Similar to your best ${
+              shareSession.beach?.name ||
+              shareSession.beaches?.name ||
+              shareSession.beach_name ||
+              "this beach"
+            } sessions`,
+            bg:
+              // Prefer a featured/session photo if available; otherwise default OG background
+              (shareSession.featured_photo_url as string | undefined) ||
+              (shareSession.image_url as string | undefined) ||
+              undefined,
+          })}
+          filename={`quiver-session-${shareSession.id}`}
+          title="Check out my surf session!"
+          text={`Just ${shareSession.status === "planned" ? "planned" : "logged"} a session at ${
+            shareSession.beach?.name ||
+            shareSession.beaches?.name ||
+            shareSession.beach_name ||
+            "the beach"
+          } on Quiver.`}
         />
       )}
     </div>

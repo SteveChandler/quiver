@@ -218,5 +218,6 @@ gh run list --workflow="Daily NPC Activity Seeder"
 
 - Spec: `docs/quiver-gamification-spec.md` (source detail)
 - Status: `docs/gamification-system-status.md`
+- Social Sharing: `docs/features/SOCIAL_SHARING.md`
 - Branch Review: `docs/gamification-branch-status-review.md`
 

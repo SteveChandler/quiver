@@ -209,3 +209,5 @@ COMMENT ON FUNCTION public.refresh_mv_beach_hourly_scores() IS
 
 COMMIT;
 
+
+

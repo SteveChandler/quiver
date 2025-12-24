@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
-import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +10,27 @@ import { Waves, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trackPublicPageView } from "@/lib/analytics";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
-import type { SessionWithDetails } from "@/types/database";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+
+type SessionFeedItem = {
+  id: string;
+  beachName: string;
+  createdAt?: string;
+  arrivalTime?: string;
+  description?: string | null;
+  notes?: string | null;
+  imageUrl?: string | null;
+  likesCount?: number | null;
+  waveHeight?: number | string | null;
+  waveQuality?: number | string | null;
+  rating?: number | null;
+  authorName?: string | null;
+  authorAvatar?: string | null;
+};
 
 export default function SessionsPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Track public page view for guest users
@@ -26,41 +39,202 @@ export default function SessionsPage() {
     }
   }, [user, isLoading]);
 
-  // Fetch sessions (user's own if authenticated, public if not)
-  useEffect(() => {
-    async function fetchSessions() {
-      try {
-        const endpoint = user
-          ? "/api/sessions/my-sessions"
-          : "/api/sessions/public?page=1&limit=10";
-        const response = await fetch(endpoint);
-        if (response.ok) {
-          const result = await response.json();
-          setSessions(result.data || result.sessions || []);
-        }
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching sessions:", error);
-        setLoading(false);
-      }
+  const fetchSessions = useCallback(async (): Promise<SessionFeedItem[]> => {
+    // Guests should see public sessions immediately, even while auth is initializing.
+    // Authenticated users should see their own sessions using the existing API.
+    const endpoint = user?.id
+      ? `/api/users/${encodeURIComponent(user.id)}/sessions?limit=20`
+      : "/api/sessions/public?page=1&limit=10";
+
+    const res = await fetch(endpoint, { cache: "no-store" });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message =
+        json?.error ||
+        (typeof json?.details === "string" ? json.details : null) ||
+        `Failed to fetch sessions (${res.status})`;
+      throw new Error(message);
     }
 
-    if (!isLoading) {
-      fetchSessions();
-    }
-  }, [user, isLoading]);
+    const rawItems: any[] = Array.isArray(json?.data)
+      ? json.data
+      : Array.isArray(json?.data?.sessions)
+        ? json.data.sessions
+        : Array.isArray(json?.sessions)
+          ? json.sessions
+          : [];
 
-  // Show loading state
-  if (isLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="loading-spinner mx-auto" />
-          <p className="text-muted-foreground">Loading sessions...</p>
+    return rawItems.map((s: any): SessionFeedItem => {
+      const beachName =
+        s?.beachName ||
+        s?.beach_name ||
+        s?.beach?.name ||
+        s?.beach_name ||
+        "Unknown Beach";
+
+      const authorName =
+        s?.author?.name ||
+        s?.user?.full_name ||
+        s?.user?.username ||
+        null;
+
+      const authorAvatar =
+        s?.author?.avatar ||
+        s?.user?.avatar_url ||
+        null;
+
+      return {
+        id: String(s?.id),
+        beachName,
+        createdAt: s?.createdAt || s?.created_at || undefined,
+        arrivalTime: s?.arrivalTime || s?.arrival_time || undefined,
+        description: s?.description ?? null,
+        notes: s?.notes ?? null,
+        imageUrl: s?.imageUrl || s?.image_url || null,
+        likesCount: s?.likesCount ?? s?.likes_count ?? 0,
+        waveHeight:
+          s?.waveHeight ?? s?.wave_height_ft ?? s?.wave_height ?? null,
+        waveQuality: s?.waveQuality ?? s?.wave_quality ?? null,
+        rating: typeof s?.rating === "number" ? s.rating : null,
+        authorName,
+        authorAvatar,
+      };
+    });
+  }, [user?.id]);
+
+  const {
+    data: sessionsData,
+    loading: sessionsLoading,
+    error: sessionsError,
+    retry: retrySessions,
+  } = useDataFetcher(fetchSessions, { immediate: true, initialData: [] });
+
+  const sessions = sessionsData ?? [];
+  const showIdentity = Boolean(user);
+  const gatedContent = useMemo(() => {
+    if (sessionsLoading && sessions.length === 0) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="loading-spinner" />
+          <span>Loading sessions…</span>
         </div>
+      );
+    }
+
+    if (sessionsError) {
+      return (
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <p className="text-sm text-red-600">{sessionsError}</p>
+            <Button onClick={retrySessions} variant="outline">
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (!sessionsLoading && sessions.length === 0) {
+      return (
+        <Card>
+          <CardContent className="p-6 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              No public sessions yet.
+            </p>
+            {!showIdentity ? (
+              <p className="text-sm text-muted-foreground">
+                Be the first—sign up and log a session.
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {sessions.map((session) => (
+          <Link
+            key={session.id}
+            href={`/sessions/${session.id}`}
+            className="block hover:opacity-90 transition-opacity"
+          >
+            <Card className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {showIdentity && session.authorAvatar ? (
+                      <Image
+                        src={session.authorAvatar}
+                        alt={session.authorName || "Surfer avatar"}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-ocean-blue/20" />
+                    )}
+                    <div>
+                      <CardTitle className="text-lg">
+                        {showIdentity ? session.authorName || "Surfer" : "Surfer"}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {session.beachName}
+                        {session.createdAt ? (
+                          <>
+                            {" "}
+                            • {new Date(session.createdAt).toLocaleDateString()}
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Rating is intentionally hidden for logged-out visitors */}
+                  {showIdentity && typeof session.rating === "number" ? (
+                    <div className="flex items-center gap-1">
+                      {[...Array(Math.round(session.rating))].map((_, idx) => (
+                        <Sparkles
+                          key={idx}
+                          className="h-4 w-4 text-yellow-500 fill-yellow-500"
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-6">
+                {session.imageUrl ? (
+                  <Image
+                    src={session.imageUrl}
+                    alt={`Session at ${session.beachName}`}
+                    width={1200}
+                    height={900}
+                    sizes="(max-width: 768px) 100vw, 768px"
+                    className="w-full rounded-lg mb-4 max-h-96 object-cover"
+                  />
+                ) : null}
+
+                <p className="text-muted-foreground mb-4">
+                  {session.description ||
+                    session.notes ||
+                    `Great session at ${session.beachName}!`}
+                </p>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>❤️ {session.likesCount || 0} likes</span>
+                  {session.waveHeight ? <span>🌊 {session.waveHeight}</span> : null}
+                  {session.waveQuality ? (
+                    <span>⭐ {session.waveQuality}</span>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
     );
-  }
+  }, [sessionsLoading, sessions.length, sessionsError, retrySessions, sessions, showIdentity]);
 
   // Public users see session feed preview
   return (
@@ -84,120 +258,7 @@ export default function SessionsPage() {
           source="sessions-feed"
           className="min-h-[600px]"
         >
-          {/* Real or placeholder session cards */}
-          <div className="space-y-4">
-            {sessions.length > 0 ? (
-              sessions.map((session: any) => (
-                <Link
-                  key={session.id}
-                  href={`/sessions/${session.id}`}
-                  className="block hover:opacity-90 transition-opacity"
-                >
-                  <Card className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
-                    <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {session.author?.avatar && (
-                            <Image
-                              src={session.author.avatar}
-                              alt={session.author?.name || "Surfer avatar"}
-                              width={48}
-                              height={48}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
-                          )}
-                          <div>
-                            <CardTitle className="text-lg">
-                              {session.author?.name || "Surfer"}
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground">
-                              {session.beachName} •{" "}
-                              {new Date(session.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        {session.rating && (
-                          <div className="flex items-center gap-1">
-                            {[...Array(Math.round(session.rating))].map(
-                              (_, idx) => (
-                                <Sparkles
-                                  key={idx}
-                                  className="h-4 w-4 text-yellow-500 fill-yellow-500"
-                                />
-                              )
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      {session.imageUrl && (
-                        <Image
-                          src={session.imageUrl}
-                          alt={`Session at ${session.beachName}`}
-                          width={1200}
-                          height={900}
-                          sizes="(max-width: 768px) 100vw, 768px"
-                          className="w-full rounded-lg mb-4 max-h-96 object-cover"
-                        />
-                      )}
-                      <p className="text-muted-foreground mb-4">
-                        {session.description ||
-                          session.notes ||
-                          `Great session at ${session.beachName}!`}
-                      </p>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>❤️ {session.likesCount || 0} likes</span>
-                        {session.waveHeight && (
-                          <span>🌊 {session.waveHeight} ft</span>
-                        )}
-                        {session.waveQuality && (
-                          <span>⭐ {session.waveQuality}</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))
-            ) : (
-              // Fallback placeholder cards if no sessions
-              [1, 2, 3].map((i) => (
-                <Card key={i} className="overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-ocean-blue/20" />
-                        <div>
-                          <CardTitle className="text-lg">User Session</CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            Beach Name • Today
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, idx) => (
-                          <Sparkles
-                            key={idx}
-                            className="h-4 w-4 text-yellow-500 fill-yellow-500"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <p className="text-muted-foreground mb-4">
-                      Epic session with clean waves and offshore winds. Perfect
-                      conditions for longboarding...
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>❤️ 12 likes</span>
-                      <span>💬 5 comments</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+          {gatedContent}
         </PublicContentGate>
 
         {/* Call to action */}

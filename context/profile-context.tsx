@@ -11,8 +11,6 @@ import {
   useState,
 } from "react";
 import { useAuth } from "@/context/auth-context";
-import { getProfile } from "@/actions/profile-actions";
-import { getBeachById } from "@/actions/beach-actions";
 import type { Profile, Beach } from "@/types/database";
 
 /**
@@ -132,23 +130,40 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       try {
 
         // Get profile
-        const profileResult = await getProfile(user.id);
+        const profileResponse = await fetch(`/api/users/${user.id}/profile`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
 
-        if (!profileResult.success || !profileResult.data) {
+        if (!profileResponse.ok) {
           return { profile: null, homeBeach: null };
         }
 
-        const profileData = profileResult.data;
+        const profileJson = await profileResponse.json().catch(() => null);
+        const profileData = (profileJson?.data as Profile | undefined) ?? null;
+
+        if (!profileData) {
+          return { profile: null, homeBeach: null };
+        }
 
         let homeBeachData: Beach | null = null;
 
         // Resolve home beach if profile has home_beach_id
         if (profileData.home_beach_id) {
           try {
-            const beachResult = await getBeachById(profileData.home_beach_id);
+            const beachResponse = await fetch(
+              `/api/beaches/${profileData.home_beach_id}`,
+              {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+              }
+            );
 
-            if (beachResult.success && beachResult.data) {
-              homeBeachData = beachResult.data;
+            if (beachResponse.ok) {
+              const beachJson = await beachResponse.json().catch(() => null);
+              homeBeachData = (beachJson?.data?.beach as Beach | undefined) ?? null;
             }
           } catch (e) {
             // Continue without homeBeach; do not fail profile load here.

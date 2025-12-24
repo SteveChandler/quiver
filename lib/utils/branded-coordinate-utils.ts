@@ -24,7 +24,8 @@ import {
   toBranded,
   fromBranded,
 } from '@/lib/types/branded-coordinates';
-import type { Coordinates } from '@/lib/types/coordinates';
+import type { Coordinates, CoordinatesInput } from '@/lib/types/coordinates';
+import { normalizeCoordinates } from '@/lib/types/coordinates';
 import { calculateDistance } from '@/lib/utils/distance-utils';
 
 // Re-export branded type constructors for convenience
@@ -405,6 +406,41 @@ export function validateAndBrandCoordinates(input: {
       lon: longitude(lonValue),
     },
   };
+}
+
+/**
+ * Flexible variant of `validateAndBrandCoordinates` that accepts legacy key names.
+ *
+ * Accepts:
+ * - `{ lat, lon }` (preferred)
+ * - `{ lat, lng }` (legacy)
+ * - `{ latitude, longitude }` (verbose)
+ * - `{ center_lat, center_lng }` (DB legacy)
+ *
+ * In development, `normalizeCoordinates` will warn when legacy keys are used.
+ */
+export function validateAndBrandCoordinatesFlexible(
+  input: CoordinatesInput,
+  options?: { context?: string }
+):
+  | { valid: true; coordinates: BrandedCoordinates }
+  | { valid: false; error: string } {
+  const normalized = normalizeCoordinates(input, {
+    context: options?.context ?? 'validateAndBrandCoordinatesFlexible',
+  });
+
+  if (!normalized) {
+    return {
+      valid: false,
+      error:
+        'Invalid coordinates: expected lat/lon (or legacy variants like lng/longitude/center_lng) with finite numeric values',
+    };
+  }
+
+  return validateAndBrandCoordinates({
+    lat: normalized.lat,
+    lon: normalized.lon,
+  });
 }
 
 /**

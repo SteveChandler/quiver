@@ -46,6 +46,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sessions feed shows real data for guests** (December 2025)
+  - `/sessions` now fetches real public sessions immediately (no blocking on auth initialization) using `useDataFetcher`.
+  - Public sessions payload no longer includes identifying author fields (name/avatar) or rating.
+  - `/sessions/[id]` now shows an auth gate when logged out instead of an infinite loading spinner.
+  - Added unit coverage for public sessions API anonymization and guest/detail gating behavior.
+
+- **Coordinate naming normalization** (December 2025)
+  - Added `normalizeCoordinates()` to accept `lon`/`lng`/`longitude` variants and produce canonical `{ lat, lon }` with dev-only warnings for legacy keys.
+  - Updated coordinate-parsing API routes to accept `lat/lon` (preferred) while remaining compatible with `lat/lng` and `latitude/longitude`.
+  - Kept location ranking RPCs on canonical `lat/lon` output (dropped the attempted v2 variants).
+
+- **E2E smoke test stability for Home screen** (December 2025)
+  - Auto-dismissed the preferences v2 announcement dialog in shared Playwright page-load helpers so role-based selectors can reach the underlying home UI.
+
 - **Enhanced Forecast Cron Graceful Time Budgeting** (December 2025)
   - Prevented `/api/cron/enhanced-forecast-sync` from hitting Vercel’s 300s hard timeout by passing a deadline into the updater and stopping cleanly between batches.
   - Cron completion logs now include planned vs attempted counts and `stoppedEarly` metadata for easier monitoring.
@@ -92,8 +106,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated OG endpoint Zod schema to accept numeric variants 1-6 instead of string "story"/"square" values.
   - Aligns with the end-to-end numeric variant preservation fix.
 
+- **Session Share Card Visual Upgrade** (December 2025)
+  - Updated `/api/og/session` to render a richer share card (headline, stars/rating, date, conditions row, tagline/footer, stronger Quiver branding).
+  - Extended `buildSessionShareUrl()` to support new optional fields (`date`, `windLabel`, `windSpeed`, `tagline`, `footer`).
+
 ### Docs
 
+- Clarified coordinate conventions for database RPC return shapes (location ranking returns `lat/lon`; other feature RPCs may return `latitude/longitude`).
 - Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
 - Documented that fully-developed city pages (via `city_editorial_content`) are part of Quiver's indexing strategy (avoid "crawled – currently not indexed" for thin city pages).
 - Updated `docs/architecture/CACHE_STRATEGY.md` with current caching philosophy, real implementation details, pitfalls, and performance recommendations.

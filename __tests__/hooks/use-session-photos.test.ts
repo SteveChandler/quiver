@@ -1,16 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { useSessionPhotos } from "@/hooks/use-session-photos";
-import { getSessionPhotosAction } from "@/actions/session-media-actions";
 import type { SessionPhoto } from "@/lib/supabase/storage";
-
-// Mock the session media actions
-jest.mock("@/actions/session-media-actions", () => ({
-  getSessionPhotosAction: jest.fn(),
-}));
-
-const mockGetSessionPhotosAction = getSessionPhotosAction as jest.MockedFunction<
-  typeof getSessionPhotosAction
->;
 
 describe("useSessionPhotos", () => {
   const mockPhotos = [
@@ -36,14 +26,18 @@ describe("useSessionPhotos", () => {
     },
   ] as SessionPhoto[];
 
+  const mockFetch = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
+    (global as unknown as { fetch: typeof fetch }).fetch = mockFetch as unknown as typeof fetch;
   });
 
   it("should fetch photos successfully and return data", async () => {
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: true,
-      data: mockPhotos,
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { photos: mockPhotos } }),
     });
 
     const { result } = renderHook(() => useSessionPhotos("session-123"));
@@ -60,18 +54,24 @@ describe("useSessionPhotos", () => {
 
     expect(result.current.photos).toEqual(mockPhotos);
     expect(result.current.error).toBeNull();
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledWith("session-123");
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/sessions/session-123/photos",
+      expect.objectContaining({ method: "GET" })
+    );
   });
 
   it("should handle loading state correctly", async () => {
-    mockGetSessionPhotosAction.mockImplementation(
+    mockFetch.mockImplementation(
       () =>
         new Promise((resolve) => {
-          setTimeout(
-            () => resolve({ success: true, data: mockPhotos }),
-            100
-          );
+          setTimeout(() => {
+            resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ success: true, data: { photos: mockPhotos } }),
+            });
+          }, 100);
         })
     );
 
@@ -90,10 +90,10 @@ describe("useSessionPhotos", () => {
   });
 
   it("should handle error state when fetch fails", async () => {
-    const errorMessage = "Failed to fetch photos";
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: false,
-      error: errorMessage,
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ success: false, error: "Server error" }),
     });
 
     const { result } = renderHook(() => useSessionPhotos("session-123"));
@@ -103,12 +103,12 @@ describe("useSessionPhotos", () => {
     });
 
     expect(result.current.photos).toEqual([]);
-    expect(result.current.error).toBe(errorMessage);
+    expect(result.current.error).toContain("Failed to load photos");
   });
 
   it("should handle exception during fetch", async () => {
     const error = new Error("Network error");
-    mockGetSessionPhotosAction.mockRejectedValue(error);
+    mockFetch.mockRejectedValue(error);
 
     const { result } = renderHook(() => useSessionPhotos("session-123"));
 
@@ -123,8 +123,8 @@ describe("useSessionPhotos", () => {
   it("should return empty array when sessionId is undefined", async () => {
     const { result } = renderHook(() => useSessionPhotos(undefined));
 
-    // Should not call the action
-    expect(mockGetSessionPhotosAction).not.toHaveBeenCalled();
+    // Should not call fetch
+    expect(mockFetch).not.toHaveBeenCalled();
 
     // Should have empty photos
     expect(result.current.photos).toEqual([]);
@@ -133,9 +133,10 @@ describe("useSessionPhotos", () => {
   });
 
   it("should refetch photos when refetch function is called", async () => {
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: true,
-      data: mockPhotos,
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { photos: mockPhotos } }),
     });
 
     const { result } = renderHook(() => useSessionPhotos("session-123"));
@@ -145,23 +146,29 @@ describe("useSessionPhotos", () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
 
     // Call refetch
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: true,
-      data: [
-        ...mockPhotos,
-        {
-          id: "photo-3",
-          public_url: "https://example.com/photo3.jpg",
-          session_id: "session-123",
-          user_id: "user-123",
-          storage_path: "sessions/session-123/photo3.jpg",
-          file_size: 3072,
-          created_at: "2024-01-15T10:02:00Z",
-        } as SessionPhoto,
-      ],
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        data: {
+          photos: [
+            ...mockPhotos,
+            {
+              id: "photo-3",
+              public_url: "https://example.com/photo3.jpg",
+              session_id: "session-123",
+              user_id: "user-123",
+              storage_path: "sessions/session-123/photo3.jpg",
+              file_size: 3072,
+              created_at: "2024-01-15T10:02:00Z",
+            } as SessionPhoto,
+          ],
+        },
+      }),
     });
 
     result.current.refetch();
@@ -171,13 +178,14 @@ describe("useSessionPhotos", () => {
       expect(result.current.photos.length).toBe(3);
     });
 
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it("should refetch when sessionId changes", async () => {
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: true,
-      data: mockPhotos,
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { photos: mockPhotos } }),
     });
 
     const { result, rerender } = renderHook(
@@ -190,13 +198,13 @@ describe("useSessionPhotos", () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledWith("session-123");
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
 
     // Change sessionId
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: true,
-      data: [mockPhotos[0]],
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { photos: [mockPhotos[0]] } }),
     });
 
     rerender({ sessionId: "session-456" });
@@ -206,14 +214,14 @@ describe("useSessionPhotos", () => {
       expect(result.current.photos.length).toBe(1);
     });
 
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledWith("session-456");
-    expect(mockGetSessionPhotosAction).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it("should clear photos when sessionId changes to undefined", async () => {
-    mockGetSessionPhotosAction.mockResolvedValue({
-      success: true,
-      data: mockPhotos,
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { photos: mockPhotos } }),
     });
 
     const { result, rerender } = renderHook(

@@ -22,6 +22,7 @@ const __CACHE_TTL_MS = 30_000;
 const __cache = {
   usersProfile: new Map<string, __CacheEntry<any>>(),
   usersSessions: new Map<string, __CacheEntry<any[]>>(), // key: `${userId}:${limit}`
+  boards: new Map<string, __CacheEntry<any[]>>(), // key: "me"
   sessionLikesStatus: new Map<string, __CacheEntry<{ liked: boolean; likesCount: number }>>(),
   inflight: new Map<string, Promise<any>>(),
 };
@@ -66,6 +67,37 @@ async function getAllBeaches(): Promise<ClientBeach[]> {
 export const data = {
   beaches: {
     getAll: getAllBeaches,
+  },
+  boards: {
+    async list() {
+      const cacheKey = "me";
+      const cached = __getCached(__cache.boards, cacheKey);
+      if (cached) return cached;
+
+      const inflightKey = `boards:${cacheKey}`;
+      const inflight = __cache.inflight.get(inflightKey);
+      if (inflight) return inflight;
+
+      const p = (async () => {
+        const res = await fetch(`/api/boards`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Failed to load boards: ${res.status}`);
+        const json = await res.json();
+        const boards = json.data?.boards || [];
+        __setCached(__cache.boards, cacheKey, boards);
+        return boards;
+      })();
+
+      __cache.inflight.set(inflightKey, p);
+      try {
+        return await p;
+      } finally {
+        __cache.inflight.delete(inflightKey);
+      }
+    },
   },
   sessions: {
     likes: {

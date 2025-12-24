@@ -57,7 +57,7 @@ Feature-specific implementation documentation:
 - **[features/BEACH_PAGE_DESIGN.md](features/BEACH_PAGE_DESIGN.md)** - Beach detail page design with AllTrails-inspired layout
 - **[features/AUTH_IMPLEMENTATION.md](features/AUTH_IMPLEMENTATION.md)** - Authentication patterns and server actions
 - **[features/PHOTO_UPLOAD.md](features/PHOTO_UPLOAD.md)** - Complete photo upload guide (compression, validation, security, storage)
-- **[features/SOCIAL_SHARING.md](features/SOCIAL_SHARING.md)** - Session sharing with Satori, design variants, and OG images
+- **[features/SOCIAL_SHARING.md](features/SOCIAL_SHARING.md)** - Native-first sharing via Capacitor share sheet and client-side generation
 - **[features/LOCATION_PAGES.md](features/LOCATION_PAGES.md)** - AllTrails-style location browsing with intelligent ranking
 
 ### 🔬 **Research & Analysis**

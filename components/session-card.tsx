@@ -22,8 +22,6 @@ import Link from "next/link";
 import { useCommentCount } from "@/hooks/use-comment-count";
 import { useSessionLike } from "@/hooks/use-session-like";
 import { CommentsModal } from "@/components/comments-modal";
-import { SessionShareModal } from "@/components/session/session-share-modal";
-import { SessionShareButton } from "@/components/session/session-share-button";
 import { UserPlus } from "lucide-react";
 import { useUserFollow } from "@/hooks/use-user-follow";
 import type { SessionWithDetails } from "@/types/database";
@@ -64,7 +62,6 @@ export function SessionCard({
 }: SessionCardProps) {
   const router = useRouter();
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Use dynamic comment count if session ID is available
   const { commentCount: dynamicCommentCount, isLoading } = useCommentCount(
@@ -85,9 +82,6 @@ export function SessionCard({
     toggleFollow,
     isToggling: isFollowToggling,
   } = useUserFollow(session?.user?.id || "");
-
-  // Get share count from session data
-  const shareCount = session?.share_count || 0;
 
   const handleCommentsClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -110,16 +104,6 @@ export function SessionCard({
     e.stopPropagation();
     if (!isFollowToggling && session?.user?.id) {
       await toggleFollow();
-    }
-  };
-
-  const handleShareClick = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (id) {
-      setShareModalOpen(true);
     }
   };
 
@@ -364,13 +348,6 @@ export function SessionCard({
           <MessageSquare className="h-4 w-4" />
           <span>{isLoading ? "..." : displayCommentCount}</span>
         </button>
-        {id && (
-          <SessionShareButton
-            sessionId={id}
-            shareCount={shareCount}
-            onShareClick={handleShareClick}
-          />
-        )}
         {id && session?.user?.id && !isOwner && (
           <button
             className={`flex items-center gap-1 text-sm transition-colors ${
@@ -397,17 +374,6 @@ export function SessionCard({
           beachName={beachName}
           isOpen={commentsModalOpen}
           onClose={() => setCommentsModalOpen(false)}
-        />
-      )}
-
-      {/* Share Modal */}
-      {id && (
-        <SessionShareModal
-          sessionId={id}
-          beachName={beachName}
-          shareCount={shareCount}
-          isOpen={shareModalOpen}
-          onClose={() => setShareModalOpen(false)}
         />
       )}
     </CardContent>

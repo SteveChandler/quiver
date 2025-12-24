@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSessionPhotosAction } from "@/actions/session-media-actions";
 import type { SessionPhoto } from "@/lib/supabase/storage";
 
 /**
@@ -21,16 +20,24 @@ export function useSessionPhotos(sessionId: string | undefined) {
     setError(null);
 
     try {
-      const result = await getSessionPhotosAction(sessionId);
+      const response = await fetch(`/api/sessions/${sessionId}/photos`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
 
-      if (result.success && result.data) {
-        setPhotos(result.data);
-      } else {
+      // If user isn't allowed to view photos (e.g. private session), treat as no photos.
+      if (response.status === 401 || response.status === 403 || response.status === 404) {
         setPhotos([]);
-        if (result.error) {
-          setError(result.error);
-        }
+        return;
       }
+
+      if (!response.ok) {
+        throw new Error(`Failed to load photos (${response.status})`);
+      }
+
+      const json = await response.json();
+      setPhotos((json?.data?.photos as SessionPhoto[]) || []);
     } catch (err) {
       console.error("Error fetching session photos:", err);
       setPhotos([]);

@@ -54,13 +54,14 @@ describe("AuthValidator", () => {
     (createServerClient as jest.Mock).mockReturnValue(mockSupabaseClient);
   });
 
-  describe("validateAuth - Fast Path (Local Session)", () => {
-    it("should authenticate successfully with valid local session", async () => {
+  describe("validateAuth - Session Check + Remote Validation", () => {
+    it("should authenticate successfully with valid session and verified user", async () => {
       const mockUser: Partial<User> = {
         id: "user-123",
         email: "test@example.com",
       };
 
+      // Session exists
       mockSupabaseClient.auth.getSession.mockResolvedValue({
         data: {
           session: { user: mockUser },
@@ -68,60 +69,7 @@ describe("AuthValidator", () => {
         error: null,
       });
 
-      const validator = new AuthValidator(
-        mockRequest as NextRequest,
-        mockCookieCallbacks
-      );
-
-      const result = await validator.validateAuth();
-
-      expect(result.authenticated).toBe(true);
-      if (result.authenticated) {
-        expect(result.user).toEqual(mockUser);
-      }
-      expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(1);
-      expect(mockSupabaseClient.auth.getUser).not.toHaveBeenCalled();
-    });
-
-    it("should skip remote validation if session is valid", async () => {
-      const mockUser: Partial<User> = {
-        id: "user-456",
-        email: "user@example.com",
-      };
-
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: {
-          session: { user: mockUser },
-        },
-        error: null,
-      });
-
-      const validator = new AuthValidator(
-        mockRequest as NextRequest,
-        mockCookieCallbacks
-      );
-
-      await validator.validateAuth();
-
-      // Verify remote call was NOT made (fast path optimization)
-      expect(mockSupabaseClient.auth.getUser).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("validateAuth - Slow Path (Remote Validation)", () => {
-    it("should fall back to remote validation when session is invalid", async () => {
-      const mockUser: Partial<User> = {
-        id: "user-789",
-        email: "remote@example.com",
-      };
-
-      // Session check fails
-      mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: null },
-        error: { message: "Session expired" },
-      });
-
-      // Remote check succeeds
+      // Remote validation succeeds
       mockSupabaseClient.auth.getUser.mockResolvedValue({
         data: { user: mockUser },
         error: null,
@@ -138,18 +86,73 @@ describe("AuthValidator", () => {
       if (result.authenticated) {
         expect(result.user).toEqual(mockUser);
       }
+      // Both getSession and getUser should be called (session check + remote verification)
       expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(1);
       expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
     });
 
-    it("should fail authentication when both session and remote validation fail", async () => {
-      // Session check fails
+    it("should always verify user remotely when session exists (security requirement)", async () => {
+      const mockUser: Partial<User> = {
+        id: "user-456",
+        email: "user@example.com",
+      };
+
       mockSupabaseClient.auth.getSession.mockResolvedValue({
-        data: { session: null },
-        error: { message: "Session expired" },
+        data: {
+          session: { user: mockUser },
+        },
+        error: null,
       });
 
-      // Remote check also fails
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const validator = new AuthValidator(
+        mockRequest as NextRequest,
+        mockCookieCallbacks
+      );
+
+      await validator.validateAuth();
+
+      // Remote validation should ALWAYS be called when session exists (security)
+      expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("validateAuth - No Session", () => {
+    it("should fail fast when no session exists (skip remote validation)", async () => {
+      // Session check returns no session
+      mockSupabaseClient.auth.getSession.mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+
+      const validator = new AuthValidator(
+        mockRequest as NextRequest,
+        mockCookieCallbacks
+      );
+
+      const result = await validator.validateAuth();
+
+      expect(result.authenticated).toBe(false);
+      if (!result.authenticated) {
+        expect(result.error).toBe("No valid session");
+      }
+      // Should NOT call getUser when there's no session (optimization)
+      expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(1);
+      expect(mockSupabaseClient.auth.getUser).not.toHaveBeenCalled();
+    });
+
+    it("should fail authentication when remote validation fails despite session", async () => {
+      // Session exists
+      mockSupabaseClient.auth.getSession.mockResolvedValue({
+        data: { session: { user: { id: "user-123" } } },
+        error: null,
+      });
+
+      // Remote check fails (session was tampered or expired)
       mockSupabaseClient.auth.getUser.mockResolvedValue({
         data: { user: null },
         error: { message: "User not found" },

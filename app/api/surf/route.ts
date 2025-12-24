@@ -8,6 +8,7 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
+import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,20 +16,33 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const beach = searchParams.get("beach");
-    const lat = searchParams.get("lat");
-    const lng = searchParams.get("lng");
+    const coords = normalizeCoordinates(
+      {
+        lat: searchParams.get("lat"),
+        lon: searchParams.get("lon"),
+        lng: searchParams.get("lng"),
+        latitude: searchParams.get("latitude"),
+        longitude: searchParams.get("longitude"),
+      },
+      { context: "GET /api/surf" }
+    );
 
-    console.log("API request params:", { beach, lat, lng });
+    console.log("API request params:", {
+      beach,
+      ...(coords ? { lat: coords.lat, lon: coords.lon } : {}),
+    });
 
     // Validate input
-    if (!beach && (!lat || !lng)) {
-      return createValidationError("Either beach name or lat/lng coordinates required");
+    if (!beach && !coords) {
+      return createValidationError(
+        "Either beach name or coordinates required (lat/lon preferred; lat/lng accepted)"
+      );
     }
 
     // Prepare parameters for getSurfForecast
     const params = beach
       ? { beach }
-      : { coords: { lat: parseFloat(lat!), lng: parseFloat(lng!) } };
+      : { coords: { lat: coords!.lat, lng: coords!.lon } };
 
     // Get forecast data
     let forecastData = await getSurfForecast(params);

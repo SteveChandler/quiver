@@ -36,8 +36,6 @@ import SessionPhotoUpload from "@/components/media/session-photo-upload";
 import SessionPhotoGallery from "@/components/media/session-photo-gallery";
 import { StarRating } from "@/components/ui/star-rating";
 import { useAuth } from "@/context/auth-context";
-import { updateSession } from "@/actions/session-actions";
-import { getSessionPhotosAction } from "@/actions/session-media-actions";
 import type { SessionWithDetails } from "@/types/database";
 import { format } from "date-fns";
 
@@ -80,9 +78,17 @@ export function SessionAnnotationModal({
 
     setLoadingPhotos(true);
     try {
-      const result = await getSessionPhotosAction(session.id);
-      if (result.success) {
-        const rows = (result.data as any[]) || [];
+      const response = await fetch(`/api/sessions/${session.id}/photos`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to load photos (${response.status})`);
+      }
+      const json = await response.json();
+      const rows = (json?.data?.photos as any[]) || [];
+      if (Array.isArray(rows)) {
         setSessionPhotos(
           rows.map((row) => ({
             id: row.id,
@@ -122,12 +128,16 @@ export function SessionAnnotationModal({
         rating,
       };
 
-      const result = await updateSession(session.id, updateData);
-      if (result.success) {
-        onSave();
-      } else {
-        console.error("Failed to update session:", result.error);
+      const response = await fetch(`/api/sessions/${session.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error || `Failed to update session (${response.status})`);
       }
+      onSave();
     } catch (error) {
       console.error("Error updating session:", error);
     } finally {

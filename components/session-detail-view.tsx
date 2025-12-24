@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -21,9 +21,8 @@ import Link from "next/link";
 // import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { getSessionById, deleteSession } from "@/actions/session-actions";
-import { getSessionPhotosAction } from "@/actions/session-media-actions";
 import type { SessionWithDetails } from "@/types/database";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -40,8 +39,6 @@ import { SessionComments } from "@/components/session-comments";
 import dynamic from "next/dynamic";
 import { MapImage } from "@/components/map-image";
 import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
-import { ShareBar } from "@/components/share/ShareBar";
-import { useIsMobile } from "@/hooks/use-mobile";
 import type { SessionPhoto } from "@/lib/supabase/storage";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
@@ -64,14 +61,13 @@ interface SessionDetailViewProps {
 
 export function SessionDetailView({ id }: SessionDetailViewProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [session, setSession] = useState<SessionWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     async function loadSession() {
@@ -79,24 +75,40 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
 
       setLoading(true);
       try {
-        const result = await getSessionById(id, user.id);
-        if (result.success && result.data) {
-          setSession(result.data);
+        const res = await fetch(`/api/sessions/${id}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          setError(json?.error || "Failed to load session");
+          return;
+        }
 
-          // Load session photos
-          setPhotosLoading(true);
-          try {
-            const photosResult = await getSessionPhotosAction(id);
-            if (photosResult.success) {
-              setSessionPhotos(photosResult.data || []);
-            }
-          } catch (photoError) {
-            console.error("Error loading session photos:", photoError);
-          } finally {
-            setPhotosLoading(false);
-          }
-        } else {
+        const nextSession = (json?.data?.session || null) as SessionWithDetails | null;
+        if (!nextSession) {
           setError("Session not found");
+          return;
+        }
+        setSession(nextSession);
+
+        // Load session photos (client-safe API route)
+        setPhotosLoading(true);
+        try {
+          const photosRes = await fetch(`/api/sessions/${id}/photos`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          });
+          const photosJson = await photosRes.json().catch(() => null);
+          if (photosRes.ok) {
+            setSessionPhotos((photosJson?.data || []) as SessionPhoto[]);
+          } else {
+            console.error("Error loading session photos:", photosJson?.error || photosRes.status);
+          }
+        } finally {
+          setPhotosLoading(false);
         }
       } catch (error) {
         console.error("Error loading session:", error);
@@ -109,15 +121,60 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     loadSession();
   }, [id, user]);
 
+  // Gate the detail page for logged-out users (avoid infinite loading state).
+  if (!user && !isLoading) {
+    return (
+      <PublicContentGate
+        ctaTitle="Log in to view session details"
+        ctaDescription="See the full session breakdown, photos, and comments."
+        blurLevel="lg"
+        source="session-detail"
+        className="flex-1"
+      >
+        <div className="flex-1 flex flex-col">
+          <header className="sticky top-0 z-10 bg-background border-b">
+            <div className="container flex items-center h-16 px-4">
+              <Link href="/sessions" className="mr-2">
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+              <h1 className="text-xl font-bold">Session Details</h1>
+            </div>
+          </header>
+          <main className="flex-1 container px-4 py-6 space-y-4">
+            <Card>
+              <CardContent className="p-6 space-y-2">
+                <div className="h-4 w-2/3 bg-muted rounded" />
+                <div className="h-4 w-1/2 bg-muted rounded" />
+                <div className="h-40 w-full bg-muted rounded" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6 space-y-2">
+                <div className="h-4 w-3/4 bg-muted rounded" />
+                <div className="h-4 w-full bg-muted rounded" />
+                <div className="h-4 w-5/6 bg-muted rounded" />
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </PublicContentGate>
+    );
+  }
+
   const handleDelete = async () => {
     if (!user) return;
 
     setDeleting(true);
     try {
-      const result = await deleteSession(id, user.id);
-      if (result.success) {
+      const res = await fetch(`/api/sessions/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
         router.push("/profile");
       } else {
+        const json = await res.json().catch(() => null);
+        console.error("Failed to delete session:", json?.error || res.status);
         setError("Failed to delete session");
       }
     } catch (error) {
@@ -134,13 +191,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
       router.push(`/sessions/new?mode=log&convert=${session.id}`);
     }
   };
-
-  const handleSessionUpdated = useCallback(
-    (updatedSession: SessionWithDetails) => {
-      setSession(updatedSession);
-    },
-    []
-  );
 
   if (loading) {
     return (
@@ -443,19 +493,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             )}
           </div>
         </div>
-
-        {/* Share Bar */}
-        {session && (
-          <ShareBar
-            session={session}
-            sessionId={session.id}
-            surface="session_detail"
-            defaultVariant={isMobile ? 4 : 1}
-            defaultRatio={isMobile ? "9:16" : "1:1"}
-            className="mb-4"
-            onSessionUpdated={handleSessionUpdated}
-          />
-        )}
 
         {/* Session Photos */}
         {!photosLoading &&

@@ -320,6 +320,7 @@ console.log('Current attribution:', attribution);
 
 - [Analytics Architecture](/docs/architecture/ANALYTICS.md)
 - [Onboarding Flow](/docs/features/ONBOARDING.md)
+- [Social Sharing](/docs/features/SOCIAL_SHARING.md)
 - [RPC Functions](/docs/api/RPC_FUNCTIONS.md) - `get_user_referral_stats()`
 - [Referrals Migration](/supabase/migrations/20251104120000_create_referrals_infrastructure.sql)
 

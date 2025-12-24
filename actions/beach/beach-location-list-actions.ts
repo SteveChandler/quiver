@@ -90,10 +90,12 @@ export async function getLocationPageData(
       }
 
       // Add rank to each beach (global ranking across all neighborhoods)
-      const rankedBeaches: BeachWithMetrics[] = beaches.map((beach: any, index: number) => ({
-        ...beach,
-        rank: index + 1,
-      }));
+      const rankedBeaches: BeachWithMetrics[] = beaches.map(
+        (beach: any, index: number) => ({
+          ...beach,
+          rank: index + 1,
+        })
+      );
 
       // Build location identifiers for metro
       const location: LocationIdentifier = {
