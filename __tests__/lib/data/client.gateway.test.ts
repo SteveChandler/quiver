@@ -16,7 +16,7 @@ describe("lib/data/client gateway", () => {
     it("requests /api/beaches and returns beaches array", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ beaches: [{ id: "1", name: "A", lat: 1, lon: 2 }] }),
+          JSON.stringify({ data: { beaches: [{ id: "1", name: "A", lat: 1, lon: 2 }] } }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       );
@@ -39,6 +39,17 @@ describe("lib/data/client gateway", () => {
       );
       const beaches = await data.beaches.getAll();
       expect(beaches).toEqual([]);
+    });
+
+    it("supports legacy { beaches } response shape", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ beaches: [{ id: "1", name: "A", lat: 1, lon: 2 }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+      const beaches = await data.beaches.getAll();
+      expect(beaches[0].id).toBe("1");
     });
 
     it("throws on non-ok response", async () => {

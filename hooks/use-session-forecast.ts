@@ -16,6 +16,18 @@ interface UseSessionForecastResult {
   error: string | null;
 }
 
+function parseNumericValue(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value !== "string") return undefined;
+
+  // Handles values like "2.2 ft", "10 mph", "56°F", "2-4 ft" (becomes 2), etc.
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 /**
  * Hook to get forecast data for a specific session date/time/beach
  * Used in Session Conditions to show forecast vs actual comparison
@@ -51,7 +63,9 @@ export function useSessionForecast(
 
     if (result.success && result.data) {
       // Filter to the specific date
-      return result.data.filter((f) => f.forecast_date === forecastDate);
+      const filtered = result.data.filter((f) => f.forecast_date === forecastDate);
+
+      return filtered;
     }
 
     throw new Error(result.error || "Failed to fetch enhanced forecasts");
@@ -91,11 +105,15 @@ export function useSessionForecast(
     const bestForecast = sortedForecasts[0];
     if (!bestForecast) return null;
 
+    const parsedWaveHeight = parseNumericValue(bestForecast.wave_height);
+    const parsedWindSpeed = parseNumericValue(bestForecast.wind_speed);
+    const parsedWaterTemp = parseNumericValue(bestForecast.water_temp);
+
     return {
-      wave_height: bestForecast.wave_height ? Number(bestForecast.wave_height) : undefined,
-      wind_speed: bestForecast.wind_speed ? Number(bestForecast.wind_speed) : undefined,
+      wave_height: parsedWaveHeight,
+      wind_speed: parsedWindSpeed,
       wind_direction: bestForecast.wind_direction || undefined,
-      water_temp: bestForecast.water_temp ? Number(bestForecast.water_temp) : undefined,
+      water_temp: parsedWaterTemp,
     };
   }, [forecasts, sessionTime]);
 

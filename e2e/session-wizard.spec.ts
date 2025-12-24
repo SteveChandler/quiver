@@ -182,6 +182,62 @@ test.describe('Session Wizard - Log Mode', () => {
       test.skip(true, 'Rating fields not visible on first step - may be multi-step wizard');
     }
   });
+
+  test('should show "Forecast from Your Session" and never render NaN @smoke', async ({
+    page,
+  }) => {
+    // Step 1: Select a beach (Location step)
+    const beachInput = page.getByTestId('beach-search-input');
+    await expect(beachInput).toBeVisible({ timeout: 10000 });
+
+    await beachInput.fill('Black');
+
+    // Select from the dropdown list rendered by BeachSelector
+    const beachSelectorRoot = beachInput.locator('..');
+    const beachOption = beachSelectorRoot
+      .locator('ul')
+      .locator('button')
+      .filter({ hasText: /black/i })
+      .first();
+
+    await expect(beachOption).toBeVisible({ timeout: 15000 });
+    await beachOption.click();
+
+    // Step 2: Go to DateTime step
+    const nextButton = page.getByRole('button', { name: /next/i }).first();
+    await expect(nextButton).toBeVisible({ timeout: 10000 });
+    await expect(nextButton).toBeEnabled({ timeout: 10000 });
+    await nextButton.click();
+
+    // Fill date and time (these drive forecast selection)
+    const dateInput = page.getByTestId('session-date-input');
+    await expect(dateInput).toBeVisible({ timeout: 15000 });
+
+    const today = new Date().toISOString().split('T')[0];
+    await dateInput.fill(today);
+
+    const timeInput = page.getByTestId('session-time-input');
+    await expect(timeInput).toBeVisible({ timeout: 15000 });
+    await timeInput.fill('06:00');
+
+    // Step 3: Advance to Equipment step, then Session Details
+    await nextButton.click();
+    await nextButton.click();
+
+    // Step 4: Forecast card should render on Session Details
+    const forecastHeading = page.getByRole('heading', {
+      name: /forecast from your session/i,
+    });
+    await expect(forecastHeading).toBeVisible({ timeout: 20000 });
+
+    // Assert no NaN appears anywhere in the forecast card or page body.
+    // This specifically guards against the prior NaNNaNNaN regression.
+    const forecastCard = forecastHeading.locator('..');
+    await expect(forecastCard).not.toContainText('NaN', { timeout: 20000 });
+    await expect(page.locator('body')).not.toContainText('NaN', {
+      timeout: 20000,
+    });
+  });
 });
 
 test.describe('Session Wizard - Complete Flow', () => {

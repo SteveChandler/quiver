@@ -243,9 +243,17 @@ export function isNoaaMarineForecastNotSupportedError(error: unknown): boolean {
   const apiUrl = error.context?.apiUrl || "";
   if (status !== 404) return false;
 
-  // This is the NWS gridpoints forecast endpoint (hourly variant).
-  if (!apiUrl.includes("api.weather.gov/gridpoints/")) return false;
-  if (!apiUrl.includes("/forecast/hourly")) return false;
+  // This is the NWS gridpoints forecast endpoint (hourly OR non-hourly variant).
+  // We see both in production:
+  // - /gridpoints/{office}/{x},{y}/forecast/hourly
+  // - /gridpoints/{office}/{x},{y}/forecast
+  const urlLower = apiUrl.toLowerCase();
+  if (!urlLower.includes("api.weather.gov/gridpoints/")) return false;
+  const isForecastEndpoint =
+    urlLower.includes("/forecast/hourly") ||
+    urlLower.endsWith("/forecast") ||
+    urlLower.includes("/forecast?");
+  if (!isForecastEndpoint) return false;
 
   const msg = (error.message || "").toLowerCase();
   return (

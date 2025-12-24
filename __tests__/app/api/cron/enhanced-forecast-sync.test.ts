@@ -47,6 +47,7 @@ jest.mock("@/lib/utils/forecast-server-utils", () => ({
 
 describe("Enhanced Forecast Sync Cron Job API", () => {
   const originalVercelEnv = process.env.VERCEL_ENV;
+  const originalCronBudget = process.env.FORECAST_CRON_TIME_BUDGET_MS;
 
   const mockRequest = (headers: Record<string, string> = {}) => {
     return {
@@ -61,6 +62,7 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
     jest.clearAllMocks();
 
     process.env.VERCEL_ENV = "production";
+    process.env.FORECAST_CRON_TIME_BUDGET_MS = "1";
 
     (updateAllBeachForecasts as jest.Mock).mockResolvedValue({
       success: true,
@@ -74,6 +76,11 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
       delete process.env.VERCEL_ENV;
     } else {
       process.env.VERCEL_ENV = originalVercelEnv;
+    }
+    if (originalCronBudget === undefined) {
+      delete process.env.FORECAST_CRON_TIME_BUDGET_MS;
+    } else {
+      process.env.FORECAST_CRON_TIME_BUDGET_MS = originalCronBudget;
     }
   });
 
@@ -92,6 +99,11 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
       expect(data.data).toHaveProperty("summary");
       expect(data.data.summary).toEqual(
         expect.objectContaining({ total: 2, successful: 2, failed: 0 })
+      );
+
+      // Deadline should be passed down so the service can self-timebox.
+      expect(updateAllBeachForecasts).toHaveBeenCalledWith(
+        expect.objectContaining({ deadlineMs: expect.any(Number) })
       );
     });
 

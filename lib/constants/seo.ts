@@ -125,10 +125,12 @@ export const SEO_CONFIG = {
       },
       aggregateRating: {
         "@type": "AggregateRating",
-        ratingValue: "4.8",
-        ratingCount: "150",
-        bestRating: "5",
-        worstRating: "1",
+        // Use numeric values (not strings) to avoid validator quirks and ensure
+        // Search Console never interprets these as invalid/zero.
+        ratingValue: 4.8,
+        ratingCount: 150,
+        bestRating: 5,
+        worstRating: 1,
       },
       featureList: [
         "Find surf buddies and build your crew",
