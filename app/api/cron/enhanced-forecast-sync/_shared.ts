@@ -16,6 +16,25 @@ import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
 export const MAX_DURATION_SECONDS = 300;
+const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+
+function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safetyMarginMs: number } {
+  const hardLimitMs = MAX_DURATION_SECONDS * 1000;
+  const safetyMarginMs = Number(process.env.FORECAST_CRON_SAFETY_MARGIN_MS ?? DEFAULT_SAFETY_MARGIN_MS);
+  const overrideBudgetMsRaw = process.env.FORECAST_CRON_TIME_BUDGET_MS;
+  const overrideBudgetMs =
+    overrideBudgetMsRaw != null && overrideBudgetMsRaw.trim() !== ""
+      ? Number(overrideBudgetMsRaw)
+      : null;
+
+  const computedBudgetMs = hardLimitMs - safetyMarginMs;
+  const requestedBudgetMs =
+    overrideBudgetMs != null && Number.isFinite(overrideBudgetMs) ? overrideBudgetMs : computedBudgetMs;
+
+  // Never exceed the hard limit; also never go negative.
+  const timeBudgetMs = Math.max(0, Math.min(hardLimitMs, requestedBudgetMs));
+  return { deadlineMs: Date.now() + timeBudgetMs, timeBudgetMs, safetyMarginMs };
+}
 
 function getSupabaseProjectRef(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -69,25 +88,43 @@ export async function runEnhancedForecastSync(
       );
     }
 
-    const result = await updateAllBeachForecasts();
+    const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
+    const result = await updateAllBeachForecasts({ deadlineMs });
     const duration = Date.now() - startTime;
     const summary = (result as any)?.summary as
-      | { total: number; successful: number; failed: number; duration?: string }
+      | {
+          total: number;
+          successful: number;
+          failed: number;
+          duration?: string;
+          attempted?: number;
+          stoppedEarly?: boolean;
+          stopReason?: string;
+        }
       | undefined;
-    const total = summary?.total ?? 0;
+    const plannedTotal = summary?.total ?? 0;
     const successful = summary?.successful ?? 0;
     const failed = summary?.failed ?? 0;
+    const attempted = summary?.attempted ?? plannedTotal;
     const successRate =
-      total > 0 ? `${((successful / total) * 100).toFixed(1)}%` : "N/A";
+      attempted > 0 ? `${((successful / attempted) * 100).toFixed(1)}%` : "N/A";
+    const stoppedEarly = summary?.stoppedEarly ?? false;
+    const stopReason = summary?.stopReason ?? undefined;
 
     // Log cron completion
     forecastLogger.cronComplete(executionId, {
       executionId,
       duration,
-      totalBeaches: total,
+      totalBeaches: attempted,
+      plannedBeaches: plannedTotal,
       successful,
       failed,
       successRate,
+      stoppedEarly,
+      stopReason,
+      timeBudgetMs,
+      safetyMarginMs,
+      deadlineMs,
     });
 
     return createSuccessResponse(
@@ -95,7 +132,7 @@ export async function runEnhancedForecastSync(
         executionId,
         ...result,
       },
-      `Enhanced forecast sync completed: ${successful}/${total} beaches updated (${successRate})`
+      `Enhanced forecast sync completed: ${successful}/${attempted} beaches updated (${successRate})`
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -160,6 +197,9 @@ export async function runEnhancedForecastSyncHead(
     );
   }
 }
+
+
+
 
 
 

@@ -1504,9 +1504,14 @@ export class EnhancedForecastService {
    * Uses batch processing to avoid overwhelming external APIs and preventing timeouts
    * Pre-fetches shared data (tide stations) to avoid duplicate API calls
    */
-  async updateAllEnhancedForecasts() {
+  async updateAllEnhancedForecasts(options: { deadlineMs?: number } = {}) {
     console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v3 with stale-only updates)");
     const supabase = await createSupabaseServiceRoleClient();
+    const deadlineMs = options.deadlineMs;
+    const hasDeadline = typeof deadlineMs === "number" && Number.isFinite(deadlineMs);
+    const msRemaining = () =>
+      hasDeadline ? (deadlineMs as number) - Date.now() : Number.POSITIVE_INFINITY;
+    const shouldStop = () => hasDeadline && msRemaining() <= 0;
     // Process beaches in small batches
     const BATCH_SIZE = Number(process.env.FORECAST_BATCH_SIZE ?? 3);
     // Delay between batches to avoid rate limiting
@@ -1602,6 +1607,29 @@ export class EnhancedForecastService {
       );
       const startTime = Date.now();
 
+      if (shouldStop()) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.warn("⏱️ Time budget exhausted before processing started; stopping early", {
+          selected: beaches.length,
+          attempted: 0,
+          remainingMs: msRemaining(),
+        });
+        return {
+          success: true,
+          results: [],
+          summary: {
+            total: beaches.length,
+            attempted: 0,
+            successful: 0,
+            failed: 0,
+            duration: `${duration}s`,
+            stoppedEarly: true,
+            stopReason: "time_budget",
+            remainingMs: msRemaining(),
+          },
+        };
+      }
+
       // Pre-fetch tide data for unique stations to avoid duplicate API calls
       // This significantly reduces the number of CO-OPS API calls
       await this.prefetchTideStations(beaches);
@@ -1622,6 +1650,18 @@ export class EnhancedForecastService {
 
       // Process each batch sequentially
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        if (shouldStop()) {
+          console.warn("⏱️ Stopping early due to time budget (before starting next batch)", {
+            batchIndex,
+            totalBatches: batches.length,
+            attempted: allResults.length,
+            successful: successCount,
+            failed: failCount,
+            remainingMs: msRemaining(),
+          });
+          break;
+        }
+
         const batch = batches[batchIndex];
         const batchNum = batchIndex + 1;
         const totalBatches = batches.length;
@@ -1688,13 +1728,25 @@ export class EnhancedForecastService {
 
         // Add delay between batches to avoid rate limiting (except after last batch)
         if (batchIndex < batches.length - 1) {
+          if (hasDeadline && msRemaining() <= BATCH_DELAY_MS) {
+            console.warn("⏱️ Skipping batch delay and stopping early due to time budget", {
+              batchIndex,
+              attempted: allResults.length,
+              remainingMs: msRemaining(),
+            });
+            break;
+          }
           await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
         }
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      const attempted = allResults.length;
+      const stoppedEarly = attempted < beaches.length && hasDeadline;
       console.log(
-        `🏁 Forecast update complete in ${duration}s: ${successCount}/${beaches.length} successful`
+        `🏁 Forecast update complete in ${duration}s: ${successCount}/${beaches.length} successful${
+          stoppedEarly ? " (stopped early)" : ""
+        }`
       );
 
       return {
@@ -1702,9 +1754,13 @@ export class EnhancedForecastService {
         results: allResults,
         summary: {
           total: beaches.length,
+          attempted,
           successful: successCount,
           failed: failCount,
           duration: `${duration}s`,
+          stoppedEarly,
+          stopReason: stoppedEarly ? "time_budget" : undefined,
+          remainingMs: hasDeadline ? msRemaining() : undefined,
         },
       };
     } catch (error) {

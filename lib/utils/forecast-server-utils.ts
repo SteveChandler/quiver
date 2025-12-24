@@ -8,6 +8,14 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
+export type ForecastUpdateOptions = {
+  /**
+   * Absolute unix timestamp (ms) after which the updater should stop starting new work.
+   * Used by Vercel cron to avoid runtime hard timeouts.
+   */
+  deadlineMs?: number;
+};
+
 /**
  * Get singleton instance of EnhancedForecastService
  */
@@ -54,9 +62,9 @@ export async function updateBeachForecast(beachId: string) {
 /**
  * Update forecasts for all beaches
  */
-export async function updateAllBeachForecasts() {
+export async function updateAllBeachForecasts(options: ForecastUpdateOptions = {}) {
   const service = getEnhancedForecastService();
-  const result = await service.updateAllEnhancedForecasts();
+  const result = await service.updateAllEnhancedForecasts(options);
 
   if (!result.success) {
     throw new Error(result.error);

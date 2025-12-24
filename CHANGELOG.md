@@ -7,17 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **TikTok Sharing Support** (December 2025)
+  - Added TikTok button to ShareBar component with Instagram-style workflow (download image + copy link instructions).
+  - Updated ShareBar grid layout from 5 to 6 columns to accommodate the new TikTok button.
+  - Consistent user experience with other story-format social platforms.
+
+- **Rate Limiting on OG Image Endpoint** (December 2025)
+  - Added rate limiting to `/api/og/surf-session` endpoint: 30 requests per minute per IP.
+  - Prevents abuse and ensures consistent performance for legitimate share card generation.
+
+- **Intel Sharing in Best Surf Window Component** (December 2025)
+  - Added share functionality to `best-surf-window` component using `navigator.share` API.
+  - Includes clipboard fallback for browsers without native share support.
+  - Enables users to share their best surf window recommendations.
+
+- **Deep-Link Support for Share Page Variants** (December 2025)
+  - Public share page (`/s/:sessionId`) now accepts `variant` and `ratio` query parameters.
+  - Enables shareable URLs like `/s/{id}?variant=3&ratio=9:16` to display specific card styles.
+  - Validates variant (1-6) and ratio (1:1, 4:5, 9:16, 16:9) parameters from URL.
+
+- **Session Forecast Data Fetcher** (December 2025)
+  - Created session forecast data fetcher for dynamic share card content.
+  - Fetches actual forecast data from `enhanced_forecasts` table for share cards.
+  - Includes safe fallbacks when forecast data is unavailable.
+
+- **Comprehensive Share Functionality Tests** (December 2025)
+  - Added 33 unit tests for signature canonicalization covering edge cases, special characters, and format consistency.
+  - Added 53 unit tests for variant mapping ensuring numeric variants preserved end-to-end.
+  - Added 33 E2E tests for social share functionality covering all share flows and error states.
+
+- **Production-only Sentry Error Capture** (December 2025)
+  - Added conditional Sentry integration in share modules (`lib/share/track-share.ts` and `lib/share/share-url-builder.ts`) that only fires in production.
+  - Comprehensive error context captured including platform, variant, aspect ratio, session ID, and operation type.
+  - Development mode preserves console.error for local debugging.
+  - Tagged errors with `feature: "social-share"` for easy filtering in Sentry dashboard.
+
 ### Fixed
 
-- Fix session planner beach search by removing invalid `beaches.updated_at` selects and adding legacy schema fallback for `beaches` list queries.
-- Fix client beach list parsing to support `{ success, data: { beaches } }` API responses (and keep legacy `{ beaches }` support).
-- Fix session logging forecast card showing `NaN` when forecast strings include units (parse numeric values safely).
-- Update session logging copy to “Forecast from Your Session”.
+- **Enhanced Forecast Cron Graceful Time Budgeting** (December 2025)
+  - Prevented `/api/cron/enhanced-forecast-sync` from hitting Vercel’s 300s hard timeout by passing a deadline into the updater and stopping cleanly between batches.
+  - Cron completion logs now include planned vs attempted counts and `stoppedEarly` metadata for easier monitoring.
+  - NOAA NWS 404 “Marine Forecast Not Supported” is now treated as expected no-coverage for both hourly and non-hourly gridpoint forecast URLs (reduces noisy `[ForecastError]` logs).
+
+- **Share URL Path Correction** (December 2025)
+  - Fixed share URL path from `/sessions/:sessionId` to `/s/:sessionId` in social share actions.
+  - Ensures consistency with short URL routing throughout the application.
+
+- **Numeric Variant Preservation End-to-End** (December 2025)
+  - Fixed `mapVariantToSignedParams()` to preserve numeric variant (1-6) instead of converting to string.
+  - Ensures consistent HMAC signature generation with format `${sessionId}:${numericVariant}:${aspectRatio}`.
+  - OG endpoint Zod schema now accepts numeric variants 1-6 instead of string "story"/"square".
+  - Updated ShareBar component to use `signedVariant` variable name instead of `stringVariant`.
+
+- **Signature Verification Consistency** (December 2025)
+  - Fixed signature verification to use consistent canonical format matching signing format.
+  - Resolves signature mismatch errors that occurred when URL parameters differed slightly from signed values.
+
+- **Share Card Dynamic Content** (December 2025)
+  - Share cards now display actual forecast data instead of hardcoded "4-6 ft" and "5-10 mph" values.
+  - Fetches real data from `enhanced_forecasts` table with safe fallbacks for missing data.
+
+- **Session Planner & Logging Fixes** (December 2025)
+  - Fix session planner beach search by removing invalid `beaches.updated_at` selects and adding legacy schema fallback for `beaches` list queries.
+  - Fix client beach list parsing to support `{ success, data: { beaches } }` API responses (and keep legacy `{ beaches }` support).
+  - Fix session logging forecast card showing `NaN` when forecast strings include units (parse numeric values safely).
+  - Update session logging copy to "Forecast from Your Session".
+
+- **Client-only Profile Journal Fetching & Sharing** (December 2025)
+  - Removed server action calls from Profile → Journal+ client components (sessions, boards, annotation modal) to eliminate `/profile` server-action POSTs.
+  - Added API routes for boards listing, session updates, and session photo listing; increased `/api/users/[id]/sessions` limit for own profile usage.
+  - Added per-session Share button in Journal+ that opens `ShareSheet` and downloads share images via OG routes (no server actions on Download).
+  - Refactored `components/session-detail-view.tsx` to use API routes for session load/delete + photo listing (avoids importing session server actions into client UI).
+  - Extended `/api/sessions/[id]` with `GET` + `DELETE` handlers (auth + ownership enforced) to support client-side session detail flows without server actions.
+
+### Changed
+
+- **ShareBar Grid Layout Update** (December 2025)
+  - Updated ShareBar grid from 5 columns to 6 columns to accommodate TikTok sharing button.
+  - Maintains consistent spacing and visual alignment across all share platform buttons.
+
+- **OG Endpoint Schema Update** (December 2025)
+  - Updated OG endpoint Zod schema to accept numeric variants 1-6 instead of string "story"/"square" values.
+  - Aligns with the end-to-end numeric variant preservation fix.
 
 ### Docs
 
 - Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
-- Documented that fully-developed city pages (via `city_editorial_content`) are part of Quiver’s indexing strategy (avoid “crawled – currently not indexed” for thin city pages).
+- Documented that fully-developed city pages (via `city_editorial_content`) are part of Quiver's indexing strategy (avoid "crawled – currently not indexed" for thin city pages).
 - Updated `docs/architecture/CACHE_STRATEGY.md` with current caching philosophy, real implementation details, pitfalls, and performance recommendations.
 
 ### Added
@@ -69,19 +147,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Forecast scoring: fill missing `mv_beach_hourly_scores` wind fields by ingesting NOAA/NWS hourly wind (`marine_forecasts.source='nws_wind'`) and joining nearest wind (±90m) during MV refresh.
 - Forecast cron stability: group tide ingest by nearest NOAA tide station (fetch once per station, fan out to beaches) and add `?tidesBackfillMissing=1` to backfill beaches with zero tide rows.
 - SEO/routing: ensure state-root pages (`/{state}`) return 200 for valid state slugs even when public beach queries return empty (RLS/config differences); add permanent redirects for crawled legacy/garbage URLs (`/app`, `/beaches`, `/plan-session`, `/$`).
-- SEO/structured-data: stop emitting `AggregateRating` on `Place`/`Beach` JSON-LD to fix Search Console “Review snippets” errors (e.g. Puerto Rico city pages).
+- SEO/structured-data: stop emitting `AggregateRating` on `Place`/`Beach` JSON-LD to fix Search Console "Review snippets" errors (e.g. Puerto Rico city pages).
 - SEO/structured-data: emit numeric `SoftwareApplication.aggregateRating` fields (avoid `ratingCount` validation issues).
 - SEO/structured-data: emit root JSON-LD as a Schema.org `@graph` object (not a top-level array) to prevent Safari/third-party parser crashes on beach pages.
 - Playwright E2E: ensure dev runs honor `BASE_URL` in API-heavy specs and include Vercel bypass headers during global auth setup.
 - Tide height values in Home → Forecast: fix CO-OPS timezone drift by requesting predictions in GMT and parsing timestamps as UTC (adds unit coverage).
-- Profile: show the saved home break name (e.g. “Home Break: Ocean Beach Pier”) on `/profile` instead of a generic “Home Break Set”.
+- Profile: show the saved home break name (e.g. "Home Break: Ocean Beach Pier") on `/profile` instead of a generic "Home Break Set".
 - Forecast scoring: fix `mv_beach_hourly_scores` being empty by joining tides via nearest match (±90m) instead of requiring exact `(beach_id, ts)` alignment with marine forecasts.
-- Forecast scoring: make `refresh_mv_beach_hourly_scores()` compatible with beaches schemas that don’t include `w_*` weight columns (use constant wind/tide/swell weights).
-- Forecast scoring: compute `score_0_100` inside `mv_beach_hourly_scores` (materialized views aren’t updatable) and keep `refresh_mv_beach_hourly_scores()` as a pure refresh.
+- Forecast scoring: make `refresh_mv_beach_hourly_scores()` compatible with beaches schemas that don't include `w_*` weight columns (use constant wind/tide/swell weights).
+- Forecast scoring: compute `score_0_100` inside `mv_beach_hourly_scores` (materialized views aren't updatable) and keep `refresh_mv_beach_hourly_scores()` as a pure refresh.
 - SEO/indexing: stop emitting `/forecast/*` URLs in the sitemap and mark forecast pages as `noindex`; canonicalize US city pages to `/{state}/{city}` with legacy `/beaches/usa/{state}/{city}` redirecting to the canonical.
 - SEO/routing: add DB-gated state-root pages (`/{state}`) with lowercase canonical redirects and prevent breadcrumb JSON-LD from emitting dead state-root URLs.
-- Forecast weather: treat NWS `InvalidPoint` (404) responses from `api.weather.gov/points/{lat},{lon}` as “no coverage” (avoid hard errors for out-of-coverage beaches).
-- Forecast cron stability: prevent NWS wave fetch crash when `forecastGridData` is null (guard grid URL construction) and gracefully fall back when NWS hourly marine forecasts return 404 “Marine Forecast Not Supported”.
+- Forecast weather: treat NWS `InvalidPoint` (404) responses from `api.weather.gov/points/{lat},{lon}` as "no coverage" (avoid hard errors for out-of-coverage beaches).
+- Forecast cron stability: prevent NWS wave fetch crash when `forecastGridData` is null (guard grid URL construction) and gracefully fall back when NWS hourly marine forecasts return 404 "Marine Forecast Not Supported".
 - CDIP robustness: blacklist known-bad station IDs that consistently 404 on the current ERDDAP dataset to avoid selecting them during batch forecast generation.
 
 - **E2E Test Suite** (December 17, 2025)
@@ -92,7 +170,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Beach discovery performance test now passes consistently with optimized API
   - Files modified: `e2e/guest-landing.spec.ts`
 
-- Home forecast: hide the “For You” KPI tile when insights match is `0%`.
+- Home forecast: hide the "For You" KPI tile when insights match is `0%`.
 - SEO/routing: add canonical international city + beach URLs (`/{country}/{state}/{city}` and `/{country}/{state}/{city}/{beachSlug}`), redirect legacy `/beaches/{country}/{state}/{city}` to canonical, and emit canonical international URLs in the sitemap (fixes Mexico/Baja 4-segment 404s).
 
 ### Removed
@@ -111,7 +189,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Hardened server-side Supabase auth checks by using `supabase.auth.getUser()` (verified) instead of trusting `session.user` from `supabase.auth.getSession()` in middleware/admin and auth endpoints (removes Supabase “insecure user object” warnings).
+- Hardened server-side Supabase auth checks by using `supabase.auth.getUser()` (verified) instead of trusting `session.user` from `supabase.auth.getSession()` in middleware/admin and auth endpoints (removes Supabase "insecure user object" warnings).
 - **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation
   - Page had no links or usage anywhere in the codebase
   - Lacked proper session validation (unlike secure `/auth/reset` flow)
@@ -220,7 +298,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Auth gate no longer blocks after successful login** (December 2025)
 
-  - Fixed `AuthGate` treating a post-login modal close as a dismissal, which could incorrectly show the “Please sign up to continue” blocking overlay on `/map`.
+  - Fixed `AuthGate` treating a post-login modal close as a dismissal, which could incorrectly show the "Please sign up to continue" blocking overlay on `/map`.
 
 - **TypeScript typecheck restored to green** (December 2025)
 
@@ -233,11 +311,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Local builds intermittently failing with missing route modules** (December 2025)
 
-  - Added a pre-build `.next` cleanup step so `yarn build` doesn’t read stale dev artifacts (fixes `PageNotFoundError: Cannot find module for page: /api/auth/[...supabase]` and related routes).
+  - Added a pre-build `.next` cleanup step so `yarn build` doesn't read stale dev artifacts (fixes `PageNotFoundError: Cannot find module for page: /api/auth/[...supabase]` and related routes).
 
-- **Landing page “Browse by activity” row uses full container width** (December 2025)
+- **Landing page "Browse by activity" row uses full container width** (December 2025)
 
-  - Distributed activity chips across the section container on desktop by aligning the first/last chip to the container edges (removes the “clustered left” look).
+  - Distributed activity chips across the section container on desktop by aligning the first/last chip to the container edges (removes the "clustered left" look).
 
 - **Location Pages RPC Coordinate Columns** (December 2025)
 
@@ -253,7 +331,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Canonical Host Normalization (www)** (December 2025)
 
   - Standardized canonical URLs, OpenGraph URLs, and structured data to use `https://www.quiversurf.app` as the single canonical host.
-  - Updated share URL fallbacks, docs, and tests to avoid mixing `quiver.surf` / non-www `quiversurf.app` hosts (reduces Search Console “alternate with proper canonical” noise).
+  - Updated share URL fallbacks, docs, and tests to avoid mixing `quiver.surf` / non-www `quiversurf.app` hosts (reduces Search Console "alternate with proper canonical" noise).
 
 - **Onboarding/Tour Overlay Gating** (December 2025)
 
@@ -276,10 +354,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced manual auth checks with `validateCronRequest` for consistent cron authentication.
   - Fixed refresh coverage stagnation where the cron would repeatedly update the same subset of beaches:
     - Prioritize beaches with **no** `enhanced_forecasts` rows first, then beaches with the **oldest** `updated_at` values.
-    - Use a freshness window (12h) that won’t re-select the previous run’s beaches on a 6h cron cadence.
+    - Use a freshness window (12h) that won't re-select the previous run's beaches on a 6h cron cadence.
     - Reduced noisy per-timepoint provider logs in production to avoid Vercel log caps hiding success/failure output.
     - Added `FORECAST_VERBOSE_LOGS=true` to temporarily enable verbose provider logs for incident debugging.
-    - Switched forecast cron logs to single-line JSON to reduce multi-line log explosion under Vercel’s 256-line cap.
+    - Switched forecast cron logs to single-line JSON to reduce multi-line log explosion under Vercel's 256-line cap.
     - Made forecast writes resilient to prod schema drift: if PostgREST reports a missing column (e.g. `wind_direction_deg`), retry the upsert after stripping the unknown field so forecasts still store successfully.
   - Added `enhanced_forecasts.wind_direction_deg` (numeric) and backfilled from `wind_direction` so wind degrees persist in production (removes schema-mismatch retries and enables reliable wind scoring/analytics).
   - Extended NOAA CO-OPS tide station mappings to cover all US coastal regions:
@@ -299,7 +377,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Enhanced Forecast Sync Catch-Up Fix** (December 2025)
 
-  - Fixed `/api/cron/enhanced-forecast-sync` selection incorrectly reporting most beaches as “missing” due to PostgREST row caps by switching update selection to `public.v_enhanced_forecast_latest` (one row per beach).
+  - Fixed `/api/cron/enhanced-forecast-sync` selection incorrectly reporting most beaches as "missing" due to PostgREST row caps by switching update selection to `public.v_enhanced_forecast_latest` (one row per beach).
   - Increased sync cadence to every 2 hours to ensure all beaches are refreshed within the 24h critical freshness window without exceeding per-run time limits.
 
 - **Enhanced Forecast Sync Throughput (90-minute cadence)** (December 2025)
@@ -331,15 +409,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Landing page polish (AllTrails-inspired, forecast-first)** (December 2025)
 
   - Added hero subhead + lightweight value row while preserving lazy-loaded search performance.
-  - Added “Upgrade your next Session” promo section between Surf Highlights and Activities (animated icon + sign-up CTA).
-  - Shifted primary CTAs to `/map` and made sign-up secondary for “explore-first” flow.
+  - Added "Upgrade your next Session" promo section between Surf Highlights and Activities (animated icon + sign-up CTA).
+  - Shifted primary CTAs to `/map` and made sign-up secondary for "explore-first" flow.
   - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
   - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.
-  - Restyled the “Browse by activity” landing section into AllTrails-style circular photo chips (image + label) with responsive horizontal scroll on mobile.
+  - Restyled the "Browse by activity" landing section into AllTrails-style circular photo chips (image + label) with responsive horizontal scroll on mobile.
 
 - **Landing forecast section redesign (AllTrails-style panel)** (December 2025)
 
-  - Restyled the “Get the most accurate surf forecasts” section into a rounded panel layout with left mini-nav, phone mock preview, and right-side CTAs.
+  - Restyled the "Get the most accurate surf forecasts" section into a rounded panel layout with left mini-nav, phone mock preview, and right-side CTAs.
   - Refined the module to better match AllTrails: smaller typography, roomier padding/gaps, and left-aligned copy on desktop.
 
 - **Enhanced DRY Form Components with Character Counters and Custom Rendering** (December 2025)
@@ -909,10 +987,10 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 **Impact:**
 
-- ✅ UTM parameters now captured on landing page visits
-- ✅ Attribution persists across sessions (90-day cookies)
-- ✅ All analytics events include attribution data
-- ✅ GA4 reports will show proper source/medium/campaign
+- UTM parameters now captured on landing page visits
+- Attribution persists across sessions (90-day cookies)
+- All analytics events include attribution data
+- GA4 reports will show proper source/medium/campaign
 
 **Files Added:**
 
@@ -948,9 +1026,9 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 **Impact:**
 
-- ✅ Beach photo galleries now load correctly without 400 errors
-- ✅ Existing database URLs will be cleaned on migration
-- ✅ Future photo fetches will store correct URLs
+- Beach photo galleries now load correctly without 400 errors
+- Existing database URLs will be cleaned on migration
+- Future photo fetches will store correct URLs
 
 **Files Modified:**
 
@@ -981,9 +1059,9 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 **Impact:**
 
-- ✅ Personalized recommendations now show realistic daylight surf times
-- ✅ Works correctly for California, Hawaii, East Coast, and any future regions
-- ✅ No external API calls needed - geo-tz uses embedded timezone boundary data
+- Personalized recommendations now show realistic daylight surf times
+- Works correctly for California, Hawaii, East Coast, and any future regions
+- No external API calls needed - geo-tz uses embedded timezone boundary data
 
 **Files Added:**
 
@@ -1013,7 +1091,7 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 **Impact:**
 
-- ✅ All 6 original failing tests now pass:
+- All 6 original failing tests now pass:
   - Session Planning Flow (line 27)
   - Beach Discovery Flow (line 205)
   - Error Handling in Discovery (line 310)
@@ -1044,10 +1122,10 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 **Impact:**
 
-- ✅ All 40 featured beaches E2E tests now pass
-- ✅ API response structure matches contract (success, data, timestamp)
-- ✅ Rate limiting properly configured with warmup support
-- ✅ DRY configuration shared between API and UI components
+- All 40 featured beaches E2E tests now pass
+- API response structure matches contract (success, data, timestamp)
+- Rate limiting properly configured with warmup support
+- DRY configuration shared between API and UI components
 
 **Files Modified:**
 
@@ -1073,10 +1151,10 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 **Impact:**
 
-- ✅ Both E2E tests now pass with 0 console errors
-- ✅ No hydration warnings in browser console
-- ✅ All functionality preserved (formatting-only changes)
-- ✅ Build and TypeScript compilation succeed
+- Both E2E tests now pass with 0 console errors
+- No hydration warnings in browser console
+- All functionality preserved (formatting-only changes)
+- Build and TypeScript compilation succeed
 
 **Files Modified:**
 
