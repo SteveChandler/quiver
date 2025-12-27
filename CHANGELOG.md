@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Similarity Insights Service: Database query error** (December 2025)
+  - Fixed `column sessions.forecast_snapshot does not exist` error in `fetchRatedSessions` function.
+  - The `forecast_snapshot` data is stored in the separate `session_forecast_snapshots` table, not on `sessions`.
+  - Updated query to join with `session_forecast_snapshots` and `boards` tables to fetch the required data.
+  - Added data transformation to flatten the nested join response for downstream consumption.
+
+- **Forecast health check: stale Supabase reads** (December 2025)
+  - Forced `no-store` fetch semantics for server/service-role Supabase clients to prevent cached PostgREST responses in Next.js/Edge runtimes.
+  - Fixes `/api/monitoring/forecast-health` reporting multi-day stale `enhanced_forecasts.updated_at` after successful cron refreshes.
+
 ### Added
+
+- **Cursor agents reuse Claude agent definitions** (December 2025)
+  - Cursor agent prompts in `.cursor/agents/*.agent.md` are symlinks to the canonical `.claude/agents/**` files, keeping Cursor and Claude aligned.
 
 - **SEO: Internal linking improvements for better crawlability** (December 2025)
   - Refactored `CityMapView` beach list items to use `<Link>` instead of `onClick` + `router.push`, making all beach links crawlable by search engines.

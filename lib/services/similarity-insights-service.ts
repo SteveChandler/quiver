@@ -242,6 +242,37 @@ export async function computeSimilarityInsights(
 // Data Fetching
 // ============================================================================
 
+/**
+ * Raw response from Supabase join query
+ */
+interface SessionJoinRow {
+  id: string;
+  beach_id: string | null;
+  beach_name: string | null;
+  arrival_time: string | null;
+  rating: number | null;
+  session_forecast_snapshots: {
+    forecast_snapshot: {
+      wave_height?: number;
+      wave_period?: number;
+      wind_speed?: number;
+      wind_direction?: number;
+      tide_height?: number;
+      tide_status?: string;
+    };
+  } | null;
+  boards: {
+    id: string;
+    name: string | null;
+    board_type: string | null;
+    size: string | null;
+    volume: number | null;
+  } | null;
+}
+
+/**
+ * Flattened session with snapshot data for similarity scoring
+ */
 interface SessionWithSnapshot {
   id: string;
   beach_id: string | null;
@@ -266,6 +297,8 @@ interface SessionWithSnapshot {
  * 1. The userId is pre-validated in the API layer (authenticated user)
  * 2. We only query the user's own data (filtered by userId)
  * 3. This pattern aligns with lib/services/ARCHITECTURE.md guidelines
+ *
+ * Joins with session_forecast_snapshots to get forecast data and boards for board info.
  */
 async function fetchRatedSessions(userId: string): Promise<SessionWithSnapshot[]> {
   const supabase = createSupabaseServiceRoleClient();
@@ -276,7 +309,11 @@ async function fetchRatedSessions(userId: string): Promise<SessionWithSnapshot[]
   try {
     const { data, error } = await supabase
       .from('sessions')
-      .select('id, beach_id, beach_name, arrival_time, rating, forecast_snapshot, board_snapshot')
+      .select(`
+        id, beach_id, beach_name, arrival_time, rating,
+        session_forecast_snapshots (forecast_snapshot),
+        boards (id, name, board_type, size, volume)
+      `)
       .eq('user_id', userId)
       .eq('status', 'completed')
       .gte('rating', RATING_THRESHOLD)
@@ -288,7 +325,37 @@ async function fetchRatedSessions(userId: string): Promise<SessionWithSnapshot[]
       return [];
     }
 
-    return (data || []) as SessionWithSnapshot[];
+    // Transform nested join response to flattened SessionWithSnapshot format
+    const sessions: SessionWithSnapshot[] = ((data || []) as SessionJoinRow[]).map((row) => {
+      // Extract forecast_snapshot from the join (can be object or array depending on relationship)
+      const snapshotData = row.session_forecast_snapshots;
+      const forecastSnapshot = Array.isArray(snapshotData)
+        ? snapshotData[0]?.forecast_snapshot ?? null
+        : snapshotData?.forecast_snapshot ?? null;
+
+      // Extract board info and convert to BoardSnapshot format
+      const boardData = row.boards;
+      const boardSnapshot: BoardSnapshot | null = boardData
+        ? {
+            name: boardData.name ?? undefined,
+            board_type: boardData.board_type ?? undefined,
+            size: boardData.size ?? undefined,
+            volume: boardData.volume ?? undefined,
+          }
+        : null;
+
+      return {
+        id: row.id,
+        beach_id: row.beach_id,
+        beach_name: row.beach_name,
+        arrival_time: row.arrival_time,
+        rating: row.rating,
+        forecast_snapshot: forecastSnapshot,
+        board_snapshot: boardSnapshot,
+      };
+    });
+
+    return sessions;
   } catch (error) {
     console.error('Error in fetchRatedSessions:', error);
     return [];
