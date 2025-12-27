@@ -134,6 +134,11 @@ export function setupPushNotificationListeners() {
       } else if (data.type === "follow" && data.user_id) {
         // Navigate to user profile
         navigateToUrl(`/user/${data.user_id}`);
+      } else if (data.url) {
+        // Fallback: use explicit url from payload (e.g. forecast_alert, test_push)
+        // Works with both relative ("/beach/foo") and absolute ("https://...") URLs
+        debugLog("Push notifications: Navigating to data.url", data.url);
+        navigateToUrl(data.url);
       }
     }
   );

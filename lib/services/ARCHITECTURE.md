@@ -10,6 +10,7 @@ The `/lib/services` directory provides comprehensive integration with external A
 lib/services/
 ├── cdip-service.ts                           # CDIP buoy data integration
 ├── enhanced-forecast-service.ts              # Comprehensive forecast generation
+├── forecast-alerts.ts                        # Forecast threshold push alerts (home beach)
 ├── inactive-buoy-cleanup.ts                  # Buoy maintenance and cleanup
 ├── noaa-conditions-sync.ts                   # NOAA buoy conditions synchronization
 ├── noaa-coops-service.ts                     # NOAA CO-OPS tide data service
@@ -403,6 +404,19 @@ export class NOAACOOPSService {
 - `user_surf_preferences` table - Learned preferences
 - `user_beach_affinity` table - Beach familiarity
 - `favorite_beaches` table - User favorites
+
+### **ForecastAlertService** (Forecast Threshold Push Alerts)
+
+- **Purpose**: Sends **opt-out** push alerts when a user’s **home beach** forecast matches their thresholds (learned prefs when available; defaults otherwise).
+- **Service Location**: `lib/services/forecast-alerts.ts`
+- **Trigger**: `/api/cron/forecast-alerts` (see `app/api/cron/forecast-alerts/route.ts`)
+- **Constraints**:
+  - Cache-only forecast reads via `getFreshForecastFromCache()`
+  - Skips **stale/missing** forecasts (no stale pushes)
+  - Dedupe via `public.forecast_alert_deliveries` (max 1/day per user+beach, only when the matching forecast window changes)
+- **Storage**:
+  - User preference: `profiles.notif_forecast_alerts` (default true)
+  - Delivery state: `public.forecast_alert_deliveries`
 
 ### **PersonalizedScoringService** (Preference-Based Scoring)
 

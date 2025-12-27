@@ -5,7 +5,6 @@
  */
 
 import { slugify, slugifyAscii, sanitizeBeachDescription } from "@/lib/utils/text-utils";
-
 describe("Text Utilities", () => {
   describe("slugify", () => {
     it("should convert text to lowercase hyphenated slug", () => {

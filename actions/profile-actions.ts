@@ -39,6 +39,7 @@ const profileUpdateSchema = z.object({
   notif_follows: z.boolean().optional(),
   notif_reminders: z.boolean().optional(),
   notif_xp_updates: z.boolean().optional(),
+  notif_forecast_alerts: z.boolean().optional(),
   // Surf preferences
   experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
   surf_styles: z.array(z.string()).nullable().optional(),

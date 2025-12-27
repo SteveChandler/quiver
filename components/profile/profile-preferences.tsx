@@ -58,6 +58,7 @@ const preferencesFormSchema = z.object({
     .optional(),
   // Notification preferences
   notif_reminders: z.boolean().default(false),
+  notif_forecast_alerts: z.boolean().default(true),
   digest_session_invites: z.boolean().default(false),
   inapp_session_invites: z.boolean().default(true),
   email_session_invites: z.boolean().default(true),
@@ -116,6 +117,7 @@ export function ProfilePreferences({
           | null) ?? null,
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
+      notif_forecast_alerts: profile?.notif_forecast_alerts ?? true,
       digest_session_invites: profile?.digest_session_invites || false,
       inapp_session_invites: profile?.inapp_session_invites ?? true,
       email_session_invites: profile?.email_session_invites ?? true,
@@ -137,6 +139,7 @@ export function ProfilePreferences({
         crowd_preference: data.crowd_preference ?? null,
         // Notification preferences
         notif_reminders: data.notif_reminders,
+        notif_forecast_alerts: data.notif_forecast_alerts,
         digest_session_invites: data.digest_session_invites,
         inapp_session_invites: data.inapp_session_invites,
         email_session_invites: data.email_session_invites,
@@ -250,6 +253,14 @@ export function ProfilePreferences({
                 name="notif_reminders"
                 label="Session Reminders"
                 description="Receive reminders to log your surf sessions"
+                disabled={isSubmitting}
+              />
+
+              <FormSwitch
+                control={form.control as any}
+                name="notif_forecast_alerts"
+                label="Forecast Alerts"
+                description="Get a push when your home beach forecast matches your preferences"
                 disabled={isSubmitting}
               />
 

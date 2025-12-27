@@ -26,6 +26,54 @@ import {
   getMetroConfig,
   getAllMetroSlugs,
 } from "@/lib/constants/metro-areas";
+import { slugifyAscii } from "@/lib/utils/text-utils";
+
+/**
+ * Resolve a city slug to the exact city name stored in the database.
+ *
+ * The URL slug may differ from the DB value due to:
+ * - Diacritics (e.g., "rincon" → "Rincón")
+ * - Hyphenated city names (e.g., "cardiff-by-the-sea" → "Cardiff-by-the-Sea")
+ *
+ * This function fetches all known locations and matches by normalized slug.
+ *
+ * @param citySlug - The incoming URL slug (e.g., "cardiff-by-the-sea")
+ * @param stateSlug - The state slug (e.g., "ca")
+ * @param countrySlug - The country slug (e.g., "usa")
+ * @param supabase - Supabase client
+ * @returns The exact city name from DB, or null if not found
+ */
+async function resolveCitySlugToDbCity(
+  citySlug: string,
+  stateSlug: string,
+  countrySlug: string,
+  supabase: any
+): Promise<string | null> {
+  const { data: locations, error } = await supabase.rpc("get_all_beach_locations");
+
+  if (error || !locations || locations.length === 0) {
+    return null;
+  }
+
+  const normalizedInputSlug = slugifyAscii(citySlug);
+  const normalizedStateSlug = slugifyAscii(stateSlug);
+  const normalizedCountrySlug = slugifyAscii(countrySlug);
+
+  // Find a location where normalized slugs match
+  const match = locations.find((loc: { city: string; state: string; country: string }) => {
+    const locCitySlug = slugifyAscii(loc.city);
+    const locStateSlug = slugifyAscii(loc.state);
+    const locCountrySlug = slugifyAscii(loc.country);
+
+    return (
+      locCitySlug === normalizedInputSlug &&
+      locStateSlug === normalizedStateSlug &&
+      locCountrySlug === normalizedCountrySlug
+    );
+  });
+
+  return match?.city ?? null;
+}
 
 /**
  * Get complete data for a location listing page
@@ -123,13 +171,15 @@ export async function getLocationPageData(
 
       return { data: result, error: null };
     } else {
-      // EXISTING SINGLE-CITY LOGIC (unchanged)
-      const city = parseLocationFromSlug(citySlug);
+      // SINGLE-CITY LOGIC with slug→DB-city resolution
       const state = normalizeState(parseLocationFromSlug(stateSlug));
       const country = normalizeCountry(parseLocationFromSlug(countrySlug));
 
+      // First, try parsing the city directly from the slug
+      let city = parseLocationFromSlug(citySlug);
+
       // Fetch beaches with metrics using database function
-      const { data: beachesData, error: beachesError } = await supabase.rpc(
+      let { data: beachesData, error: beachesError } = await supabase.rpc(
         "get_beaches_by_location_with_scores",
         {
           p_city: city,
@@ -144,6 +194,37 @@ export async function getLocationPageData(
         // If the RPC fails (e.g. schema mismatch), treat as no data so we check for existence below
         console.error("Error fetching beaches by location (RPC):", beachesError);
         beaches = [];
+      }
+
+      // If no beaches found, attempt to resolve the city slug to the exact DB city name
+      // This handles cases like:
+      // - "cardiff-by-the-sea" → "Cardiff-by-the-Sea" (hyphenated)
+      // - "rincon" → "Rincón" (diacritics)
+      if (!beaches || beaches.length === 0) {
+        const resolvedCity = await resolveCitySlugToDbCity(
+          citySlug,
+          stateSlug,
+          countrySlug,
+          supabase
+        );
+
+        if (resolvedCity && resolvedCity !== city) {
+          // Retry the RPC with the resolved city name
+          city = resolvedCity;
+          const retryResult = await supabase.rpc(
+            "get_beaches_by_location_with_scores",
+            {
+              p_city: city,
+              p_state: state,
+              p_country: country,
+            }
+          );
+
+          if (!retryResult.error) {
+            beaches = retryResult.data;
+            beachesError = null;
+          }
+        }
       }
 
       if (!beaches || beaches.length === 0) {
