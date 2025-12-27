@@ -45,10 +45,29 @@ export function buildLocationUrl(
 }
 
 /**
+ * Common stop-words that should remain lowercase in location names
+ * (unless they appear at the start of the name).
+ */
+const LOCATION_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "at",
+  "by",
+  "for",
+  "in",
+  "of",
+  "on",
+  "or",
+  "the",
+  "to",
+]);
+
+/**
  * Parse location name from URL slug
  *
  * @param slug - URL slug (e.g., "la-jolla", "san-diego")
- * @returns Human-readable location name (e.g., "La Jolla", "San Diego")
+ * @returns Human-readable location name (e.g., "La Jolla", "San Diego", "Cardiff by the Sea")
  */
 export function parseLocationFromSlug(slug: string): string {
   if (!slug) return "";
@@ -56,11 +75,17 @@ export function parseLocationFromSlug(slug: string): string {
   // Convert slug back to readable format
   // "la-jolla" → "La Jolla"
   // "san-diego" → "San Diego"
-  // "cardiff-by-the-sea" → "Cardiff By The Sea"
+  // "cardiff-by-the-sea" → "Cardiff by the Sea"
 
   return slug
     .split("-")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word, index) => {
+      // Capitalize first word always; keep stop-words lowercase elsewhere
+      if (index === 0 || !LOCATION_STOP_WORDS.has(word.toLowerCase())) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      return word.toLowerCase();
+    })
     .join(" ");
 }
 

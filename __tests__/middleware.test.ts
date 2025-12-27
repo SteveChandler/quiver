@@ -86,4 +86,21 @@ describe("Middleware", () => {
     expect(mockNext).toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
+
+  test("redirects /pr/rinc-n to /pr/rincon (canonical slug for Rincón)", async () => {
+    const clonedUrl = { pathname: "/pr/rinc-n" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/pr/rinc-n",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/pr/rinc-n",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/pr/rincon");
+  });
 });

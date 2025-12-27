@@ -14,7 +14,7 @@ This document identifies functionality that is incomplete, looks functional but 
 
 | Priority | Issue                                   | Effort   | User Impact                         |
 | -------- | --------------------------------------- | -------- | ----------------------------------- |
-| 🟠 P1    | Push notifications: no sending logic    | 1 day    | Medium - notifications don't arrive |
+| 🟠 P1    | Push notifications: incomplete coverage | 1 day    | Medium - key notifications may not arrive |
 | 🟠 P1    | Intel cleanup not scheduled             | 1h       | Low - data bloat                    |
 | 🟠 P1    | GPS Discovery stubbed                   | 2-3 days | Medium - feature gap                |
 | 🟡 P2    | Photo quota client-side only            | 2h       | Low - security risk                 |
@@ -117,7 +117,7 @@ Then integrate in `components/discover/beach-discovery-card.tsx` and map views.
 
 ### 5. Push Notifications: No Sending Logic
 
-**Problem**: The app registers device tokens but never sends notifications.
+**Problem**: The app registers device tokens and **can** send pushes, but coverage is still incomplete (only certain flows send).
 
 **What exists**:
 
@@ -126,58 +126,19 @@ Then integrate in `components/discover/beach-discovery-card.tsx` and map views.
 - `public/firebase-messaging-sw.js` - Service worker ✅
 - `/api/devices/upsert` - Token storage ✅
 - `components/analytics/pwa-and-push-listeners.tsx` - Integration ✅
+- `lib/services/push-notifications.ts` - Server-side sending + invalid token pruning ✅
+- `/api/admin/test-push` - Admin-only end-to-end verification ✅
+- `/api/cron/forecast-alerts` - Forecast threshold push alerts (home beach) ✅
 
-**What's missing**: Server-side notification sending
+**What's missing**: Productized notification coverage (trigger points + UX consistency)
 
-**Fix**: Create `lib/services/push-notification-sender.ts`:
-
-```typescript
-import admin from "firebase-admin";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-
-// Initialize Firebase Admin (lazy)
-function getFirebaseAdmin() {
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      }),
-    });
-  }
-  return admin;
-}
-
-export async function sendPushNotification(
-  userId: string,
-  notification: { title: string; body: string; data?: Record<string, string> }
-) {
-  const supabase = createSupabaseServiceRoleClient();
-
-  const { data: devices } = await supabase
-    .from("user_devices")
-    .select("device_token")
-    .eq("user_id", userId);
-
-  if (!devices?.length) return { sent: 0 };
-
-  const admin = getFirebaseAdmin();
-  const response = await admin.messaging().sendEachForMulticast({
-    notification: { title: notification.title, body: notification.body },
-    data: notification.data,
-    tokens: devices.map((d) => d.device_token),
-  });
-
-  return { sent: response.successCount, failed: response.failureCount };
-}
-```
-
-**Integration points** (add notification calls):
+**Recommended next integration points** (add notification calls):
 
 - `actions/social-actions.ts` - follow, like, comment
 - `actions/session-invite-actions.ts` - session invitations
 - `actions/intel-actions.ts` - confirmation of user's intel
+
+**Routing note**: Push payloads can include `data.url` and both mobile + web handlers fall back to navigating to it (useful for new notification types).
 
 ---
 
@@ -426,6 +387,9 @@ it("should reject upload when quota exceeded", async () => {
 
 _Document created: December 10, 2025_  
 _Last updated: December 10, 2025_
+
+
+
 
 
 

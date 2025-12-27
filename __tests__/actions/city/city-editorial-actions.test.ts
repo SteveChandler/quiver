@@ -108,6 +108,30 @@ describe("City Editorial Actions", () => {
         expect(result?.city_name).toBe("Orange County");
       });
 
+      it("should derive city_name from slug when DB city_name is empty", async () => {
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: { ...mockSanDiegoEditorial, city_name: "" },
+          error: null,
+        });
+
+        const result = await getCityEditorialContent("san-diego", "ca", "usa");
+
+        expect(result).not.toBeNull();
+        expect(result?.city_name).toBe("San Diego");
+      });
+
+      it("should derive city_name from slug when DB city_name is whitespace", async () => {
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: { ...mockSanDiegoEditorial, city_name: "   " },
+          error: null,
+        });
+
+        const result = await getCityEditorialContent("san-diego", "ca", "usa");
+
+        expect(result).not.toBeNull();
+        expect(result?.city_name).toBe("San Diego");
+      });
+
       it("should return all required fields", async () => {
         mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
 

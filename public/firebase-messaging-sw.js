@@ -63,7 +63,7 @@ self.addEventListener("notificationclick", (event) => {
 
   event.notification.close();
 
-  const data = event.notification.data;
+  const data = event.notification.data || {};
   let urlToOpen = self.location.origin;
 
   // Route based on notification type
@@ -75,6 +75,12 @@ self.addEventListener("notificationclick", (event) => {
     urlToOpen = `${self.location.origin}/sessions/${data.session_id}`;
   } else if (data.type === "follow" && data.user_id) {
     urlToOpen = `${self.location.origin}/user/${data.user_id}`;
+  } else if (data.url) {
+    // Fallback: use explicit url from payload (e.g. forecast_alert, test_push)
+    // Support both relative ("/beach/foo") and absolute ("https://...") URLs
+    urlToOpen = data.url.startsWith("http")
+      ? data.url
+      : `${self.location.origin}${data.url}`;
   }
 
   // Open the URL in a new window/tab or focus existing one

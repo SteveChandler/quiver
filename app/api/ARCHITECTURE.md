@@ -69,6 +69,13 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 - **Data Source**: NOAA real-time feeds
 - **Scheduling**: Designed for cron job integration
 
+#### `/admin/test-push/route.ts`
+
+- **Methods**: `GET`, `POST`
+- **Access Level**: Admin-only
+- **Function**: Sends a test push notification to the currently authenticated admin user (end-to-end verification).
+- **Service Layer**: `lib/services/push-notifications.ts` (`sendPushNotification()`)
+
 ---
 
 ### 📊 `/analytics` - User Analytics & Insights
@@ -252,6 +259,17 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 - **Function**: Alias entrypoint for the enhanced forecast sync job.
 - **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
   - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
+
+#### `/cron/forecast-alerts/route.ts`
+
+- **Methods**: `GET`
+- **Function**: Evaluates forecast threshold alerts and sends push notifications (home beach).
+- **Auth**: `validateCronRequest(request)` accepts `x-vercel-cron` or `Authorization: Bearer <CRON_SECRET>`
+- **Service Layer**: `lib/services/forecast-alerts.ts` (`runForecastThresholdAlerts()`)
+- **Constraints**:
+  - Reads forecasts via `getFreshForecastFromCache()` (cache-only)
+  - Skips stale/missing forecasts (no stale pushes)
+  - Dedupe via `public.forecast_alert_deliveries`
 
 ### 🔮 `/forecasts` - Surf Forecast System
 

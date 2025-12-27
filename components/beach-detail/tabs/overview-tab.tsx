@@ -2,6 +2,7 @@
 
 import { EnhancedBeachOverview } from "../enhanced-beach-overview";
 import { SpotOverview } from "../spot-overview";
+import { NearbySpots } from "../nearby-spots";
 import type { Beach } from "@/types/database";
 
 interface OverviewTabProps {
@@ -28,6 +29,9 @@ export function OverviewTab({ beach }: OverviewTabProps) {
 
       {/* Spot Overview - Amenities, Hazards, Gallery */}
       <SpotOverview beach={beach as Beach} />
+
+      {/* Nearby Surf Spots - SEO internal linking */}
+      <NearbySpots beach={beach as Beach} />
     </div>
   );
 }
