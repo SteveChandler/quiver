@@ -191,10 +191,32 @@ function BeachDetailContent({
   >("log");
   const [activeTab, setActiveTab] = useState<BeachTabValue>("overview");
 
+  // Track whether we've already synced the tab from URL params
+  const [tabSynced, setTabSynced] = useState(false);
+
   // Handle URL parameters and default section opening
   useEffect(() => {
-    // Prefer query param, fallback to hash
-    const sectionParam = searchParams?.get("section");
+    // Only sync tab from URL once on mount
+    if (tabSynced) return;
+
+    // Wait for searchParams to be available (Suspense boundary resolves)
+    if (!searchParams) return;
+
+    // Check for explicit tab param first
+    const tabQueryParam = searchParams.get("tab");
+    if (
+      tabQueryParam &&
+      ["overview", "forecast", "reviews", "intel", "sessions"].includes(
+        tabQueryParam
+      )
+    ) {
+      setActiveTab(tabQueryParam as BeachTabValue);
+      setTabSynced(true);
+      return;
+    }
+
+    // Prefer query param, fallback to hash for legacy intel deep-linking
+    const sectionParam = searchParams.get("section");
     const hash = typeof window !== "undefined" ? window.location.hash : ""; // eslint-disable-line no-restricted-properties
 
     const wantsIntel = sectionParam === "intel" || hash === "#intel";
@@ -202,6 +224,7 @@ function BeachDetailContent({
     if (wantsIntel) {
       // Switch to intel tab for deep-linking
       setActiveTab("intel");
+      setTabSynced(true);
 
       // Scroll into view after layout settles, accounting for sticky header
       const stickyOffset = 80; // px; header + spacing
@@ -212,7 +235,7 @@ function BeachDetailContent({
         if (el) {
           try {
             // Update URL hash without navigation
-            const qs = searchParams?.toString() || "";
+            const qs = searchParams.toString() || "";
             const nextUrl = qs
               ? `${pathname}?${qs}#intel`
               : `${pathname}#intel`;
@@ -223,9 +246,10 @@ function BeachDetailContent({
           window.scrollTo({ top: y, behavior: "smooth" });
         }
       }, 120);
+    } else {
+      setTabSynced(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, tabSynced, pathname, router]);
 
   // PERFORMANCE OPTIMIZATION: Fetch all data in parallel (beach, forecasts, sources)
   // This eliminates the waterfall pattern and dramatically improves load time

@@ -59,6 +59,7 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
         preferred_break_type,
         crowd_preference,
         notif_push_enabled,
+        notif_forecast_alerts,
         notif_email_enabled,
         notif_inapp_enabled,
         notif_session_invites,
@@ -127,6 +128,7 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
       crowd_preference: details?.crowd_preference ?? null,
       // Notification preferences
       notif_push_enabled: details?.notif_push_enabled ?? true,
+      notif_forecast_alerts: details?.notif_forecast_alerts ?? true,
       notif_email_enabled: details?.notif_email_enabled ?? true,
       notif_inapp_enabled: details?.notif_inapp_enabled ?? true,
       notif_session_invites: details?.notif_session_invites ?? true,

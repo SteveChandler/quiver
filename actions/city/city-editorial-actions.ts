@@ -1,6 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 
 /**
  * Session timing module structure
@@ -71,8 +72,17 @@ export async function getCityEditorialContent(
   // Parse JSONB fields if they're returned as strings
   const result = data as CityEditorialContent;
 
+  // Defensive fallback: avoid blank city labels in UI/SEO if DB row has empty city_name
+  const normalizedCityName = (() => {
+    const fromDb = (result.city_name || "").trim();
+    if (fromDb) return fromDb;
+    const fromSlug = (parseLocationFromSlug(citySlug) || "").trim();
+    return fromSlug || citySlug;
+  })();
+
   return {
     ...result,
+    city_name: normalizedCityName,
     session_timing:
       typeof result.session_timing === "string"
         ? JSON.parse(result.session_timing)

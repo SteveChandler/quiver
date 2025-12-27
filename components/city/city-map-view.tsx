@@ -8,8 +8,8 @@ import {
   Component,
   ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ChevronRight, MapPin, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Beach } from "@/types/database";
@@ -132,19 +132,21 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
   };
 }
 
-// Beach list item component
+// Beach list item component - uses Link for SEO crawlability
 function BeachListItem({
   spot,
+  href,
   isSelected,
   isHovered,
   onHover,
-  onClick,
+  onSelect,
 }: {
   spot: SurfSpot;
+  href: string;
   isSelected: boolean;
   isHovered: boolean;
   onHover: (spot: SurfSpot | null) => void;
-  onClick: (spot: SurfSpot) => void;
+  onSelect: (spot: SurfSpot) => void;
 }) {
   const skillLevelStyles = {
     "Beginner friendly": "bg-green-100 text-green-700",
@@ -155,18 +157,17 @@ function BeachListItem({
   };
 
   return (
-    <div
+    <Link
+      href={href}
       className={cn(
-        "p-4 cursor-pointer transition-all duration-200",
+        "block p-4 transition-all duration-200",
         isSelected && "bg-sky-50 border-l-4 border-sky-500",
         isHovered && !isSelected && "bg-slate-50",
         !isSelected && "border-l-4 border-transparent"
       )}
       onMouseEnter={() => onHover(spot)}
       onMouseLeave={() => onHover(null)}
-      onClick={() => onClick(spot)}
-      role="option"
-      aria-selected={isSelected}
+      onClick={() => onSelect(spot)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -185,7 +186,7 @@ function BeachListItem({
       <p className="text-sm text-slate-600 mt-2 line-clamp-2">
         {spot.overview}
       </p>
-    </div>
+    </Link>
   );
 }
 
@@ -196,7 +197,6 @@ export function CityMapView({
   stateSlug = "ca",
   countrySlug = "usa",
 }: CityMapViewProps) {
-  const router = useRouter();
   const [selectedSpot, setSelectedSpot] = useState<SurfSpot | null>(null);
   const [hoveredSpot, setHoveredSpot] = useState<SurfSpot | null>(null);
 
@@ -210,6 +210,21 @@ export function CityMapView({
       })),
     [spots, cityName, stateSlug]
   );
+
+  // Generate URL for each spot (memoized for performance)
+  const spotUrls = useMemo(() => {
+    const urls: Record<string, string> = {};
+    spots.forEach((spot) => {
+      const beachForUrl = {
+        slug: spot.slug,
+        city: citySlug,
+        state: stateSlug,
+        country: countrySlug,
+      };
+      urls[spot.slug] = getBeachUrlSafe(beachForUrl) || `/spots/${spot.slug}`;
+    });
+    return urls;
+  }, [spots, citySlug, stateSlug, countrySlug]);
 
   // Calculate map center from spots
   const mapCenter = useMemo((): [number, number] => {
@@ -234,29 +249,10 @@ export function CityMapView({
     [spots]
   );
 
-  // Handle beach click from list - navigate to detail page
-  const handleListBeachClick = useCallback(
-    (spot: SurfSpot) => {
-      setSelectedSpot(spot);
-
-      // Construct beach object for URL generation
-      const beachForUrl = {
-        slug: spot.slug,
-        city: citySlug,
-        state: stateSlug,
-        country: countrySlug,
-      };
-
-      const url = getBeachUrlSafe(beachForUrl);
-      if (url) {
-        router.push(url);
-      } else {
-        // Fallback to spots URL if generation fails (shouldn't happen with new logic)
-        router.push(`/spots/${spot.slug}`);
-      }
-    },
-    [router, citySlug, stateSlug, countrySlug]
-  );
+  // Handle spot selection (for map highlighting, Link handles navigation)
+  const handleSpotSelect = useCallback((spot: SurfSpot) => {
+    setSelectedSpot(spot);
+  }, []);
 
   // Handle hover from list
   const handleListHover = useCallback((spot: SurfSpot | null) => {
@@ -284,10 +280,11 @@ export function CityMapView({
             <BeachListItem
               key={spot.slug}
               spot={spot}
+              href={spotUrls[spot.slug]}
               isSelected={selectedSpot?.slug === spot.slug}
               isHovered={hoveredSpot?.slug === spot.slug}
               onHover={handleListHover}
-              onClick={handleListBeachClick}
+              onSelect={handleSpotSelect}
             />
           ))}
         </div>
@@ -344,15 +341,16 @@ export function CityMapView({
         </div>
         <div className="flex overflow-x-auto gap-3 p-3 snap-x snap-mandatory scrollbar-hide">
           {spots.map((spot) => (
-            <div
+            <Link
               key={spot.slug}
+              href={spotUrls[spot.slug]}
               className={cn(
-                "flex-none w-[280px] p-4 rounded-lg border snap-start cursor-pointer transition-all",
+                "flex-none w-[280px] p-4 rounded-lg border snap-start transition-all",
                 selectedSpot?.slug === spot.slug
                   ? "border-sky-500 bg-sky-50"
                   : "border-slate-200 bg-white hover:border-slate-300"
               )}
-              onClick={() => handleListBeachClick(spot)}
+              onClick={() => handleSpotSelect(spot)}
             >
               <h3 className="font-semibold text-slate-900 truncate">
                 {spot.name}
@@ -380,7 +378,7 @@ export function CityMapView({
               <p className="text-sm text-slate-600 mt-2 line-clamp-2">
                 {spot.overview}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

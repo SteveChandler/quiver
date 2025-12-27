@@ -26,6 +26,7 @@ import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { buildInternationalCityUrl } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 
 // Editorial content imports
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
@@ -151,9 +152,11 @@ export default async function LocationPage({ params }: LocationPageProps) {
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Best Surf Beaches in {editorial.city_name}
             </h1>
-            <p className="text-lg text-gray-600 mb-4">
-              {editorial.region_label}
-            </p>
+            {editorial.region_label?.trim() ? (
+              <p className="text-lg text-gray-600 mb-4">
+                {editorial.region_label}
+              </p>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-4 text-gray-600">
               <div className="flex items-center gap-1">
@@ -357,7 +360,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
                       {beach.description && (
                         <p className="text-gray-700 text-sm line-clamp-2 mb-3">
-                          {beach.description}
+                          {sanitizeBeachDescription(beach.description, beach.name)}
                         </p>
                       )}
 

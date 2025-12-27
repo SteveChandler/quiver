@@ -78,10 +78,33 @@ jest.mock("@/components/forecast/forecast-fallback-messaging", () => ({
   ),
 }));
 
+jest.mock("@/components/forecast/tide-chart-recharts", () => ({
+  TideChart: () => <div data-testid="tide-chart" />,
+}));
+
+jest.mock("@/components/forecast/forecast-table", () => ({
+  MultiDayForecastTable: () => <div data-testid="forecast-table" />,
+}));
+
+jest.mock("@/components/ui/public-content-gate", () => ({
+  PublicContentGate: ({ children }: any) => (
+    <div data-testid="public-content-gate">{children}</div>
+  ),
+}));
+
 // Mock the enhanced forecast component with transparency
 import { BeachesEnhancedForecastWithTransparency } from "@/components/forecast/beaches-enhanced-forecast-with-transparency";
 
 describe("BeachesEnhancedForecastWithTransparency", () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2025-01-15T10:00:00Z"));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   describe("Transparency Integration", () => {
     it("should display transparency indicators alongside forecast data", () => {
       render(
@@ -445,6 +468,25 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
       expect(
         screen.queryByTestId("detailed-source-info")
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Public mode preview", () => {
+    it("should show a today preview and render the gated full experience container", () => {
+      render(
+        <BeachesEnhancedForecastWithTransparency
+          beachId="beach-1"
+          beachName="Trestles"
+          showTransparency={true}
+          publicMode={true}
+        />
+      );
+
+      expect(screen.getByTestId("public-today-preview")).toBeInTheDocument();
+      expect(screen.getByTestId("public-content-gate")).toBeInTheDocument();
+      // Rich background content should exist behind the gate (mocked)
+      expect(screen.getByTestId("tide-chart")).toBeInTheDocument();
+      expect(screen.getByTestId("forecast-table")).toBeInTheDocument();
     });
   });
 });

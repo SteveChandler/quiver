@@ -43,27 +43,36 @@ export default defineConfig({
   grep: process.env.SKIP_DATA_TESTS === 'true' ? /^(?!.*@requires-data)/ : undefined,
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
-    extraHTTPHeaders: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
-      ? undefined
-      : (process.env.VERCEL_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS)
-      ? {
-          'x-vercel-protection-bypass': String(
-            process.env.VERCEL_BYPASS_TOKEN ||
-              process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
-              process.env.VERCEL_BYPASS
-          ),
-        }
-      : undefined,
+    locale: 'en-US',
+    extraHTTPHeaders: {
+      // Required to pass bot detection (bots typically don't send Accept-Language)
+      'Accept-Language': 'en-US,en;q=0.9',
+      // Vercel protection bypass for non-localhost environments
+      ...((process.env.BASE_URL && !process.env.BASE_URL.includes("localhost") &&
+        (process.env.VERCEL_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS))
+        ? {
+            'x-vercel-protection-bypass': String(
+              process.env.VERCEL_BYPASS_TOKEN ||
+                process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+                process.env.VERCEL_BYPASS
+            ),
+          }
+        : {}),
+    },
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
   projects: [
-    // Guest-only: runs unauthenticated checks
+    // Guest-only: runs unauthenticated checks with cleared auth state
     {
       name: 'guest',
       testMatch: ['e2e/guest-*.spec.ts'],
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Clear any auth state for truly unauthenticated tests
+        storageState: { cookies: [], origins: [] },
+      },
     },
     // Authenticated: uses storageState produced by globalSetup
     {

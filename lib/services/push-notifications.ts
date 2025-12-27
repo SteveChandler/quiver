@@ -191,6 +191,33 @@ export async function sendPushNotification({
       data: data || {},
     });
 
+    // Prune invalid tokens (same logic as sendSessionInvitePush)
+    const invalidTokens: string[] = [];
+    response.responses.forEach((resp, idx) => {
+      if (
+        resp.error?.code === "messaging/registration-token-not-registered" ||
+        resp.error?.code === "messaging/invalid-registration-token"
+      ) {
+        invalidTokens.push(tokens[idx]);
+      }
+    });
+
+    if (invalidTokens.length > 0) {
+      console.log(`Pruning ${invalidTokens.length} invalid device tokens`);
+      const { error: deleteError } = await supabase
+        .from("user_devices")
+        .delete()
+        .in("device_token", invalidTokens);
+
+      if (deleteError) {
+        console.error("Failed to prune invalid tokens:", deleteError);
+      }
+    }
+
+    console.log(
+      `Push notifications sent: ${response.successCount} success, ${response.failureCount} failed`
+    );
+
     return {
       success: response.successCount,
       failed: response.failureCount,

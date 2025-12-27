@@ -1805,6 +1805,7 @@ export type Database = {
           is_mock: boolean
           location: string | null
           notif_email_enabled: boolean
+          notif_forecast_alerts: boolean
           notif_follows: boolean
           notif_inapp_enabled: boolean
           notif_likes: boolean
@@ -1844,6 +1845,7 @@ export type Database = {
           is_mock?: boolean
           location?: string | null
           notif_email_enabled?: boolean
+          notif_forecast_alerts?: boolean
           notif_follows?: boolean
           notif_inapp_enabled?: boolean
           notif_likes?: boolean
@@ -1883,6 +1885,7 @@ export type Database = {
           is_mock?: boolean
           location?: string | null
           notif_email_enabled?: boolean
+          notif_forecast_alerts?: boolean
           notif_follows?: boolean
           notif_inapp_enabled?: boolean
           notif_likes?: boolean

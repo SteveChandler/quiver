@@ -29,6 +29,8 @@ yarn-debug.log*
 yarn-error.log*
 jest-run*.log
 jest-run*.pid
+test-error.log
+test-output.log
 
 # local env files
 .env*.local
@@ -81,6 +83,10 @@ scripts/lighthouseRun.*
 scripts/performance-results.*
 lighthouse-results/
 .env.test
+
+# Code analysis artifacts
+jscpd-output/
+beaches-null-columns.json
 # Playwright MCP testing artifacts
 .playwright-mcp/
 e2e/.auth/state.json

@@ -4,6 +4,35 @@ import {
   createServerClient as createSupabaseServerClient,
 } from "@supabase/ssr";
 
+/**
+ * Create a fetch wrapper that forces "no-store" semantics.
+ *
+ * Why: In Next.js (especially Edge runtime), fetch responses can be cached unless explicitly disabled.
+ * Supabase JS uses fetch internally, so monitoring/cron reads can see stale data unless we force no-store.
+ */
+export function createNoStoreFetch(baseFetch: typeof fetch = globalThis.fetch): typeof fetch {
+  return (async (input: any, init?: any) => {
+    // Preserve existing headers from init, or from Request input when present.
+    const headers = new Headers(
+      init?.headers ??
+        (typeof Request !== "undefined" && input instanceof Request
+          ? input.headers
+          : undefined)
+    );
+
+    // Extra defense: set no-cache headers for intermediaries.
+    // (Next's caching behavior is primarily driven by fetch's `cache` / `next` options.)
+    if (!headers.has("cache-control")) headers.set("cache-control", "no-store");
+    if (!headers.has("pragma")) headers.set("pragma", "no-cache");
+
+    return await baseFetch(input, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+  }) as any;
+}
+
 // Create a browser client using @supabase/ssr
 const createBrowserClient = () => {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
@@ -95,7 +124,11 @@ export const createServerClient = () => {
   // Validate cookieStore has the expected interface before using it
   if (cookieStore && typeof cookieStore.get === "function") {
     try {
+      const noStoreFetch = createNoStoreFetch(globalThis.fetch);
       return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          fetch: noStoreFetch as any,
+        },
         cookies: {
           get(name) {
             try {
@@ -124,10 +157,14 @@ export const createServerClient = () => {
   }
 
   // Fallback if cookies are not available or SSR client creation failed
+  const noStoreFetch = createNoStoreFetch(globalThis.fetch);
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    global: {
+      fetch: noStoreFetch as any,
     },
   });
 };
@@ -146,11 +183,15 @@ export const createServiceRoleClient = () => {
     throw error;
   }
 
+  const noStoreFetch = createNoStoreFetch(globalThis.fetch);
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+    },
+    global: {
+      fetch: noStoreFetch as any,
     },
   });
 };

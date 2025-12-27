@@ -2,11 +2,26 @@
 
 ## Overview
 
-This repository includes two Cursor agent personas wired for growth-focused development and design quality reviews. Agents can use the Playwright MCP server to run E2E tests, open traces, and validate critical flows directly from Cursor.
+This repository exposes Quiver’s agent personas inside Cursor. Agents can use the Playwright MCP server to run E2E tests, open traces, and validate critical flows directly from Cursor.
 
 - Primary reference: `ARCHITECTURE.md` (top-level) and this file
 - Core development patterns: see directory `ARCHITECTURE.md` files and `docs/ARCHITECTURE_REVIEW.md`
 - Design principles: see `docs/DESIGN_PRINCIPLES.md`
+
+## Agent definitions (single source of truth)
+
+- **Canonical source**: edit agent prompts in `.claude/agents/**`.
+- **Cursor agents**: `.cursor/agents/*.agent.md` are **symlinks** pointing into `.claude/agents/**` (Cursor reads these files).
+- **Naming scheme (flattened paths)**:
+  - `.claude/agents/<path>.md` → `.cursor/agents/<path-with-slashes-replaced-by-dashes>.agent.md`
+  - Example: `.claude/agents/specialized/python/django-expert.md` → `.cursor/agents/specialized-python-django-expert.agent.md`
+- **Compatibility alias**:
+  - `.cursor/agents/design-review.agent.md` is an alias that points to `.claude/agents/quiver-design-reviewer.md`
+
+### Platform note (symlinks)
+
+- macOS/Linux: symlinks work by default.
+- Windows: symlinks may require Developer Mode and/or `git config core.symlinks true`.
 
 ## Personas
 
@@ -109,6 +124,7 @@ The project has two MCP configuration files:
 ### MCP Server Details
 
 **Playwright MCP**
+
 - Tools exposed by the Playwright MCP server support running tests, listing tests, and opening traces
 - Use development-friendly waits/thresholds per `e2e/ARCHITECTURE.md`
 - Playwright runs will reuse the signed-in context located at `e2e/.auth/state.json`
@@ -117,17 +133,20 @@ The project has two MCP configuration files:
 - Local run parity: `npx playwright test` from the repo root
 
 **Supabase MCP**
+
 - Uses wrapper script `scripts/run-supabase-mcp.js` to load credentials from `.env`
 - Configured for read-only access to project `vawdnbbgawichorsjiwe`
 - Requires `SUPABASE_ACCESS_TOKEN` in `.env` or `.env.local`
 - Escalate to the Supabase DB Expert agent for mutations
 
 **Rapid7 MCP**
+
 - Uses wrapper script `scripts/run-rapid7-mcp.js` to load credentials
 - Pulls InsightIDR security logs
 - Requires valid `RAPID7_API_KEY` in `.env`
 
 **Sentry MCP**
+
 - Direct URL connection to Quiver project monitoring
 - Provides error tracking and performance monitoring access
 

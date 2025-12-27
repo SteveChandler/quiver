@@ -7,7 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Similarity Insights Service: Database query error** (December 2025)
+  - Fixed `column sessions.forecast_snapshot does not exist` error in `fetchRatedSessions` function.
+  - The `forecast_snapshot` data is stored in the separate `session_forecast_snapshots` table, not on `sessions`.
+  - Updated query to join with `session_forecast_snapshots` and `boards` tables to fetch the required data.
+  - Added data transformation to flatten the nested join response for downstream consumption.
+
+- **Forecast health check: stale Supabase reads** (December 2025)
+  - Forced `no-store` fetch semantics for server/service-role Supabase clients to prevent cached PostgREST responses in Next.js/Edge runtimes.
+  - Fixes `/api/monitoring/forecast-health` reporting multi-day stale `enhanced_forecasts.updated_at` after successful cron refreshes.
+
 ### Added
+
+- **Cursor agents reuse Claude agent definitions** (December 2025)
+  - Cursor agent prompts in `.cursor/agents/*.agent.md` are symlinks to the canonical `.claude/agents/**` files, keeping Cursor and Claude aligned.
+
+- **SEO: Internal linking improvements for better crawlability** (December 2025)
+  - Refactored `CityMapView` beach list items to use `<Link>` instead of `onClick` + `router.push`, making all beach links crawlable by search engines.
+  - Updated `BeachDiscoveryCard` "View Beach" button to use `<Link>` for SEO-friendly navigation.
+  - Added `NearbySpots` component to beach detail overview tab, displaying up to 6 nearby surf spots with direct links.
+  - Improves internal linking structure to address "page has only one dofollow incoming internal link" SEO warnings.
+
+- **Forecast threshold push alerts (home beach)** (December 2025)
+  - Added `/api/cron/forecast-alerts` job to send opt-out push alerts when a user’s home beach forecast matches their thresholds (learned prefs when available; sensible defaults otherwise).
+  - Added `profiles.notif_forecast_alerts` preference and `forecast_alert_deliveries` dedupe table (1 alert/day per user+beach; skips stale/missing forecasts).
+  - Push alert timestamps are formatted as a short **UTC** label to avoid server-locale timezone confusion.
+  - Added Jest coverage for the forecast matcher and cron route.
+
+- **Admin test push endpoint** (December 2025)
+  - Added `POST /api/admin/test-push` to send a push notification to the currently authenticated admin user for end-to-end verification.
 
 - **TikTok Sharing Support** (December 2025)
   - Added TikTok button to ShareBar component with Instagram-style workflow (download image + copy link instructions).
@@ -44,7 +74,567 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Development mode preserves console.error for local debugging.
   - Tagged errors with `feature: "social-share"` for easy filtering in Sentry dashboard.
 
+### Changed
+
+- **Deprecated standalone forecast page** (December 2025)
+  - `/forecast/[beachId]` now permanently redirects (307) to the canonical beach detail page with `?tab=forecast`.
+  - Consolidates forecast experience to the polished beach detail Forecast tab (e.g., `/ca/san-diego/ocean-beach?tab=forecast`).
+  - Removes duplicative `ForecastPageClient` component and simplifies routing.
+  - Title in `BeachesEnhancedForecastWithTransparency` now includes beach name: "Enhanced Forecast for {beachName}".
+  - Beach detail page now supports `?tab=<tabname>` query parameter for deep-linking to any tab (overview, forecast, reviews, intel, sessions).
+
+- End-to-end forecast calibration loop using real session feedback.
+- Post-session forecast feedback capture after `/sessions/new?mode=log`.
+- Auto-heal Next.js dev webpack cache on startup to prevent intermittent `.next/cache/webpack/*pack.gz` ENOENT crashes.
+- **Enhanced Tide Chart with Diagnostics** (December 19, 2025)
+  - Added NOAA tide data validation script (`scripts/validate-noaa-tide-accuracy.ts`) to verify data accuracy against live NOAA API
+  - Created comprehensive `TideDiagnostics` type definitions for transparent tide data reporting
+  - Added `fetchCOOPSDataWithDiagnostics()` method to NOAA service returning forecast data + metadata (station, datum, timezone, source URL, validation status)
+  - New components:
+    - `TideDiagnosticsPanel`: Collapsible panel showing station ID, datum (MLLW), timezone, raw data sample, and NOAA source links (trigger: `?tide_debug=true`)
+    - `TideVerifiedBadge`: Visual indicator for data quality (verified/partial/unverified) with confidence score
+    - `TideWarningBanner`: Non-blocking warnings for stale data, fallback stations, or data quality issues
+    - `TideNextExtreme`: Summary showing next high/low tide time, height, and duration until event
+    - `TideHourlyTable`: 18-row table with Time/Height/Trend columns, highlighting current hour and high/low points
+    - `TideChartEnhanced`: Wrapper component integrating all features with the existing TideChart
+  - Added 22 unit tests for new components
+  - Added E2E test suite for tide diagnostics (`e2e/tide-chart-enhanced.spec.ts`)
+
+- **Personalized Insights Backend** (December 2025)
+
+  - Added board snapshot capture to session actions for preserving board configuration history
+  - Captures board details (name, type, size, volume, dimensions) when creating or completing sessions
+  - Board snapshots stored in `sessions.board_snapshot` JSONB column for insights analysis
+  - Created similarity insights service with bucket-based scoring algorithm
+  - Computes personalized insights by comparing forecast conditions to user's past high-rated sessions
+  - Similarity algorithm uses weighted scoring: wave height (35%), wave period (25%), wind speed (20%), wind direction (10%), tide (10%)
+  - Returns top 5 similar sessions with >=60% similarity threshold
+  - Generates match quality labels: Perfect (>=80%), Great (60-79%), Good (40-59%), Low (<40%)
+  - Includes cross-spot explanations when >50% of similar sessions are from different beaches
+  - Provides board recommendations when >=60% of similar sessions used same board type
+  - Created `/api/surf/insights` GET endpoint for accessing personalized insights
+  - Requires authentication and includes rate limiting (10 req/min)
+  - Query parameters: beachId, beachName, waveHeight, wavePeriod, windSpeed (required); windDirection, tideHeight, tideStatus (optional)
+  - Returns insights states: ready (insights available), onboarding (<3 rated sessions), degraded (no forecast snapshots)
+  - Private cache with 5-minute TTL for user-specific insights
+  - Files: `actions/session-actions.ts` (modified), `lib/services/similarity-insights-service.ts` (new), `app/api/surf/insights/route.ts` (new)
+
+- **Dynamic Location Detection on Landing Page** (December 2025)
+  - Replaced hardcoded "San Diego" text with dynamic location based on IP geolocation.
+  - Section header now shows "Local surf favorites near {region}" using detected location.
+  - Navbar "Explore" dropdown dynamically shows "{region} Area" as first region item.
+  - Two-tier location system: IP-based via Vercel edge headers (automatic, no prompt), with option to upgrade to browser geolocation on user action.
+  - Created `LocationProvider` context for app-wide location state management.
+  - Created `useLandingLocation` hook for simplified landing page component access.
+  - Metro area matching algorithm: exact city match → metro slug match → nearest coordinates → default (San Diego).
+  - Cookie-based persistence for client-side access without additional API calls.
+
+- **Feature Gaps & Implementation Plan Documentation** (December 2025)
+  - Created `docs/GAPS_AND_IMPLEMENTATION_PLAN.md` documenting incomplete functionality.
+  - Identified gaps including: stubbed GPS discovery, push notifications without sending logic, intel cleanup not scheduled, photo quota client-side only, personalization scores not widely shown, coordinate naming inconsistency.
+  - Provides prioritized implementation recommendations with code examples.
+  - Includes testing requirements and week-by-week implementation checklist.
+
+- **Reusable ZeroState Component & Implementation** (December 2025)
+
+  - Created `components/ui/zero-state.tsx` - reusable empty state component following Screen State Planner spec.
+  - Props: `icon`, `title`, `description`, `action`, `secondaryAction`, `proTip`, `className`.
+  - Consistent styling: 64px icon, centered layout, optional pro tip with lightbulb.
+  - Updated 6 components to use the new ZeroState pattern:
+    - `journal-view.tsx` - BookOpen icon, pro tip about photos, primary/secondary CTAs
+    - `intel-feed.tsx` - MessageCircle icon, optional onShareIntel callback for CTA
+    - `boards-manager.tsx` - Layers icon for quiver collection
+    - `activity-feed.tsx` - Users icon, context-aware description
+    - `badge-gallery.tsx` - Trophy icon, true zero state when badges array empty
+  - Added comprehensive unit tests in `__tests__/components/ui/zero-state.test.tsx` (11 tests).
+  - Updated `journal-view.test.tsx` to match new zero state content.
+  - Zero state coverage improved from 56% to ~85%.
+
+- **PopularBeachesSection Server Component** (December 2025)
+  - Created `components/landing-page/popular-beaches-section.tsx` as a server-rendered alternative to `SurfHighlightsSection`.
+  - Displays static beach links for SEO crawlability without client-side JavaScript.
+  - Matches SurfHighlightsSection visual styling (gradient background, 4-column grid, beach cards with images and locations).
+  - Uses established patterns: `getBeachUrlSafe` for URLs, `getProxiedImageUrl` for image handling, `FALLBACK_IMAGE_BY_NAME` for fallbacks.
+  - Designed for SSR/SSG landing page implementation to improve SEO and initial load performance.
+  - Includes static "Explore All Surf Spots" CTA linking to `/map`.
+
+- **City Editorial Content System** (December 2025)
+
+  - Created `city_editorial_content` database table for storing curated editorial content per city.
+  - Migration: `20251204030000_create_city_editorial_content.sql`
+  - Seeded San Diego and Orange County with editorial content (session timing, guides, planning checklists).
+  - Added `getCityEditorialContent()` server action in `actions/city/city-editorial-actions.ts`.
+  - Added `transformBeachesToSurfSpots()` utility in `lib/utils/beach-to-surfspot-transformer.ts`.
+  - Updated `/beaches/[country]/[state]/[city]/page.tsx` to conditionally render editorial layout when content exists.
+  - Added middleware redirect from `/ca/san-diego` and `/ca/orange-county` to `/beaches/usa/ca/*` routes.
+  - Deleted deprecated `/ca/[city]` route directory.
+  - Added deprecation notices to `lib/data/surf-spots.ts` for `SURF_CITIES`, `SURF_SPOTS`, and helper functions.
+  - Updated "Session log templates" link on City pages to point to `/features` (was `/app`).
+  - Added `20251204120001_update_session_log_template_link.sql` migration for existing database records.
+
+- **City Page Map-First Redesign** (December 2025)
+
+  - Created `components/city/city-map-view.tsx` with interactive map and beach list layout.
+  - Desktop: Beach list (380px) on left, interactive map (600px) on right.
+  - Mobile: Map (350px) on top, horizontal beach card scroll below.
+  - Added `MapErrorBoundary` class component for graceful map error handling with fallback UI.
+  - Added quick actions bar with pill navigation buttons.
+  - Added session timing modules (Today/Now/Weekend cards) for surf planning context.
+  - Added collapsible accordion for "About" section to reduce above-fold text density.
+  - Reuses existing `InteractiveMap` component with SurfSpot → Beach type transformation.
+
+- **Generic State Beach Route** (December 2025)
+  - Created `app/[intent]/[city]/[beachSlug]/page.tsx` to support hierarchical URLs for all US states (OR, WA, HI, etc.), not just California.
+  - Added `getValidStateSlugs()` and `isValidStateSlug()` helper functions to `lib/utils/beach-url-utils.ts` for route validation.
+  - Route validates first parameter against known state slugs to distinguish from intent routes (`/surf-forecast/city`).
+  - Fixes 404 errors for non-California beaches like `/or/newport/agate-beach`.
+  - California beaches continue to use the more specific `/ca/[city]/[beachSlug]` route.
+  - Intent-based routes (`/surf-forecast/newport`, `/beginner/san-diego`) continue to work at the 2-segment level.
+
+- **Rincon and Pipeline Beaches** (December 2025)
+  - Added two iconic surf breaks to the beaches database:
+    - **Rincon** (Carpinteria, CA) - "Queen of the Coast" right point break, intermediate-advanced skill level
+    - **Pipeline** (North Shore, Oahu, HI) - World-famous reef break, expert-only skill level
+  - Includes full metadata: coordinates, break type, skill level, swell window, offshore wind direction, best months
+
+#### Dead Code Audit Report - November 25, 2025
+
+Comprehensive dead code analysis documented in `docs/reports/DEAD_CODE_AUDIT_REPORT.md`:
+
+- **16 unused files** identified for removal (~1,200 lines)
+- **109 unused function/constant exports** across lib/, hooks/, and components/
+- **77 unused type exports** in types/ and lib/
+- **7 unused npm dependencies** (mostly dev dependencies)
+- **5+ potentially unused API endpoints** flagged for review
+- **2 unused action files** (`beach-calibration-actions.ts`, `beach-media-actions.ts`)
+
+Key findings:
+
+- `lib/services/personalized-home-forecast-service.ts` deprecated by surf-discovery-service
+- Multiple one-time migration/verification scripts in `scripts/` no longer needed
+- `hooks/use-attribution.ts` never imported despite attribution system existing
+- Sentry example page/API can be safely removed
+
+Report includes prioritized cleanup phases with risk assessment.
+
+**Note:** Report incorrectly flagged `beach-calibration-actions.ts` and `beach-media-actions.ts` as unused - verification found they are actively used in `beach-stats-grid.tsx`, `spot-overview.tsx`, and `beach-photo-gallery.tsx`.
+
+#### Attribution Capture System - November 25, 2025
+
+**Issue:** Google Analytics attribution data showing "(not set)" values because UTM parameters were not being captured and persisted.
+
+**Root Causes:**
+
+1. Analytics not loaded on landing page (`/`) - first-touch UTM params never captured
+2. No mechanism to persist UTM parameters to cookies for cross-session tracking
+3. No attribution data included in analytics events
+
+**Solution:**
+Implemented comprehensive attribution capture system per `docs/planning/archive/GTM_GA4_IMPLEMENTATION_PLAN.md`:
+
+1. **UTM Capture Utility** (`lib/attribution.ts`)
+
+   - Parses UTM parameters from URLs
+   - Persists to first-party cookies (`qvr_utm_*`, 90-day expiry)
+   - First-touch attribution model (preserves original acquisition source)
+   - Server-side cookie generation for middleware
+
+2. **useAttribution Hook** (`hooks/use-attribution.ts`)
+
+   - React hook for accessing attribution data
+   - Captures attribution on component mount
+   - Provides `getAnalyticsParams()` for event tracking
+   - Helper methods: `isFromSource()`, `isFromCampaign()`
+
+3. **Middleware Enhancement** (`middleware.ts`)
+
+   - Captures UTM params on every page request
+   - Sets attribution cookies server-side (faster than client-side)
+   - Records external referrer, first touch timestamp, landing page
+
+4. **Analytics Loader Fix** (`components/analytics/analytics-loader.tsx`)
+
+   - Now loads GA4 on ALL pages including landing page
+   - Sends `page_view` events with full attribution data
+   - Prioritizes loading when URL has UTM params (`afterInteractive` strategy)
+
+5. **Enhanced track() Function** (`lib/analytics.ts`)
+   - Automatically includes attribution data in all events
+   - Option to disable attribution per-event if needed
+
+**Cookie Schema:**
+
+- `qvr_utm_source` - Traffic source (e.g., instagram, google)
+- `qvr_utm_medium` - Marketing medium (e.g., social, cpc)
+- `qvr_utm_campaign` - Campaign name
+- `qvr_utm_content` - Ad content identifier
+- `qvr_utm_term` - Search keywords
+- `qvr_referrer` - Original referrer URL
+- `qvr_first_touch_ts` - Timestamp of first visit
+- `qvr_landing_page` - Original landing page URL
+
+**Impact:**
+
+- UTM parameters now captured on landing page visits
+- Attribution persists across sessions (90-day cookies)
+- All analytics events include attribution data
+- GA4 reports will show proper source/medium/campaign
+
+**Files Added:**
+
+- `lib/attribution.ts` - Core attribution utilities
+- `hooks/use-attribution.ts` - React hook for attribution
+
+**Files Modified:**
+
+- `middleware.ts` - Server-side UTM capture
+- `components/analytics/analytics-loader.tsx` - Load GA4 on landing page
+- `lib/analytics.ts` - Auto-include attribution in track()
+
+**Note:** Changes affect future data only. Historical "(not set)" data cannot be retroactively fixed.
+
+#### Plan Session Prefill Feature - November 22, 2025
+
+**Feature:** Complete "Plan Session" CTA flow that automatically prefills the session wizard with recommended beach and optimal time window, enabling users to jump directly to setting goals without re-entering data.
+
+**User Experience:**
+
+- Click "Plan Session" from Surf Discovery or Personalized Forecast recommendations
+- Session wizard automatically opens with beach and time already filled in
+- Wizard jumps directly to Goals step (step 3) for immediate goal setting
+- Seamless workflow reduces friction in session planning
+- Users can immediately add goals and notes without data re-entry
+
+**Implementation:**
+
+- URL-based prefill system with deep linking support
+- Comprehensive validation using Zod schemas (UUID, timestamps, step numbers)
+- Type-safe parameter handling with TypeScript
+- Security-first approach with XSS prevention and input sanitization
+- Graceful degradation for invalid or missing parameters
+- Backwards compatible - existing `/sessions/new` URLs work unchanged
+
+**CTA Integration:**
+
+- **Personalized Forecast**: "Plan Session" button in `components/home-screen/forecast-tab.tsx`
+- **Surf Discovery**: "Plan Session" button in `components/discover/beach-discovery-list.tsx`
+- Both CTAs use `buildSessionWizardUrl()` utility for consistent URL generation
+
+**Components Updated:**
+
+- `/app/sessions/new/page.tsx` - Added URL parameter parsing and validation
+- `/components/session/wizard/SessionWizard.tsx` - Added `initialFormState` and `targetStep` props
+- `/components/session/wizard/AnimatedSessionWizard.tsx` - Added auto-jump logic to target step
+- `/hooks/use-session-form.ts` - Added `initialFormState` parameter for prefill support
+- `/components/discover/beach-discovery-list.tsx` - Added "Plan Session" CTA with prefill
+- `/components/home-screen/forecast-tab.tsx` - Added "Plan Session" CTA with prefill
+
+**Infrastructure:**
+
+- `/types/session-wizard.ts` - Type definitions for prefill parameters and form state
+- `/lib/validation/schemas.ts` - Zod schema for comprehensive parameter validation
+- `/lib/utils/session-wizard-params.ts` - URL parsing and building utilities with security validation
+
+**URL Parameter Schema:**
+
+- `mode`: Session mode ('plan' | 'log')
+- `beach`: Beach UUID (validated)
+- `beachName`: Beach display name (sanitized)
+- `startTime`: ISO timestamp (validated, security checks)
+- `endTime`: ISO timestamp (validated, max 12-hour duration)
+- `step`: Target wizard step (1-4, validated)
+
+**Usage Example:**
+
+```typescript
+const url = buildSessionWizardUrl({
+  mode: "plan",
+  beachId: beach.id,
+  beachName: beach.name,
+  startTime: new Date("2025-11-22T06:00:00Z"),
+  endTime: new Date("2025-11-22T10:00:00Z"),
+  targetStep: 3,
+});
+router.push(url); // Jumps to Goals step with beach and time prefilled
+```
+
+**Security Features:**
+
+- XSS prevention with DOMPurify-style sanitization
+- UUID format validation (prevents SQL injection attempts)
+- Timestamp validation (rejects invalid/malicious dates)
+- Duration limits (max 12 hours prevents abuse)
+- Step number validation (1-4 range enforcement)
+
+**Testing Coverage:**
+
+- **Unit Tests**: 25 tests in `__tests__/lib/utils/session-wizard-params.test.ts`
+  - URL building, parameter parsing, validation, edge cases
+- **Hook Tests**: 40 tests total in `__tests__/hooks/use-session-form.test.ts` (9 new)
+  - Prefill initialization, form state management, validation
+- **E2E Tests**: 20 tests in `/e2e/plan-session.spec.ts`
+  - Full CTA flow, wizard navigation, data persistence, error handling
+- **Total Coverage**: 85 comprehensive tests (>90% code coverage for new paths)
+
+**Benefits:**
+
+- Reduces friction in session planning workflow
+- Seamless integration with forecast and discovery features
+- Maintains backwards compatibility (existing URLs still work)
+- Production-ready with comprehensive validation and error handling
+- Deep linking support enables sharing session plans via URL
+
+**Documentation:**
+
+- See `/docs/SESSION_WIZARD_PREFILL.md` for complete implementation details
+- See `/docs/SESSION_WIZARD_PREFILL_TESTING.md` for testing documentation
+
+### Changed
+
+- **ShareBar Grid Layout Update** (December 2025)
+  - Updated ShareBar grid from 5 columns to 6 columns to accommodate TikTok sharing button.
+  - Maintains consistent spacing and visual alignment across all share platform buttons.
+
+- **OG Endpoint Schema Update** (December 2025)
+  - Updated OG endpoint Zod schema to accept numeric variants 1-6 instead of string "story"/"square" values.
+  - Aligns with the end-to-end numeric variant preservation fix.
+
+- **Session Share Card Visual Upgrade** (December 2025)
+  - Updated `/api/og/session` to render a richer share card (headline, stars/rating, date, conditions row, tagline/footer, stronger Quiver branding).
+  - Extended `buildSessionShareUrl()` to support new optional fields (`date`, `windLabel`, `windSpeed`, `tagline`, `footer`).
+
+- Canonical Supabase client documentation and doc-only deprecation guidance for `lib/supabase-browser.ts`.
+- Migrated legacy session forecast history + analysis logic into authenticated server actions (`actions/forecast-calibration-actions.ts`).
+- Home personalized forecast card now renders `PersonalizedBadge` (match % + breakdown) instead of a generic "For You" pill.
+- Consolidated home/map geolocation behavior into `useGeolocation` (manual vs auto-request); removed deprecated `useGeo` wrapper (no longer imported).
+
+- **AllTrails-Style Landing Page Redesign** (December 2025)
+  - Hero: Replaced warm orange overlay with neutral charcoal gradient (`from-black/60 via-black/20 to-black/50`) for cleaner photo treatment.
+  - Hero: Added ocean-blue brand arc SVGs as decorative swooshes (top-right + bottom-left) replacing edge lines.
+  - Navbar: Increased vertical padding (`py-5`) and removed blur backdrop for cleaner look on hero gradient.
+  - Hero typography: Reduced font weight to `font-semibold` with `tracking-tight` for lighter editorial feel.
+  - Hero search bar: Moved search icon to left side, increased height (`h-14 md:h-16`), improved placeholder color.
+  - Hero "Explore nearby" CTA: Simplified from Button component to clean underlined text link.
+  - Section headers: Changed to left-aligned editorial style with location emphasis ("near San Diego").
+  - Surf spot cards: Updated to `rounded-2xl` with subtle `shadow-sm hover:shadow-md` transitions, reorganized meta row.
+  - Carousel control: Refined floating next button with consistent white/shadow styling.
+
+- **Landing page polish (AllTrails-inspired, forecast-first)** (December 2025)
+
+  - Added hero subhead + lightweight value row while preserving lazy-loaded search performance.
+  - Added "Upgrade your next Session" promo section between Surf Highlights and Activities (animated icon + sign-up CTA).
+  - Shifted primary CTAs to `/map` and made sign-up secondary for "explore-first" flow.
+  - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
+  - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.
+  - Restyled the "Browse by activity" landing section into AllTrails-style circular photo chips (image + label) with responsive horizontal scroll on mobile.
+
+- **Landing forecast section redesign (AllTrails-style panel)** (December 2025)
+
+  - Restyled the "Get the most accurate surf forecasts" section into a rounded panel layout with left mini-nav, phone mock preview, and right-side CTAs.
+  - Refined the module to better match AllTrails: smaller typography, roomier padding/gaps, and left-aligned copy on desktop.
+
+- **Enhanced DRY Form Components with Character Counters and Custom Rendering** (December 2025)
+
+  - Enhanced `FormInput` with `maxLength` and `showCharCount` props for character counter display.
+  - Enhanced `FormTextarea` with `maxLength` and `showCharCount` props for character counter display.
+  - Enhanced `FormSelect` with `renderOption` callback prop for custom option rendering.
+  - Refactored `intel-edit-dialog.tsx` to use enhanced DRY components (reduced from 275 to 223 lines, ~52 lines saved).
+  - Refactored `surf-info-fields.tsx` Instagram field to use `FormInput` (~8 lines saved).
+  - Added comprehensive unit tests in `__tests__/components/ui/form-fields.test.tsx` (18 tests).
+  - Total: ~60 lines of boilerplate eliminated, all remaining direct FormField usages now DRY'd.
+
+- **DRY Pattern Adoption for Admin Forms** (December 2025)
+
+  - Added `FormNumberInput` to `form-fields.tsx` - handles nullable numeric inputs (coordinates, optional numbers).
+  - Added `FormCheckbox` to `form-fields.tsx` - checkbox with label and description in bordered container.
+  - Refactored `admin/beach-form-dialog.tsx` to use DRY components (reduced from 347 to 237 lines, -32%).
+  - Replaces 9 verbose FormField patterns with: `FormInput`, `FormSelect`, `FormNumberInput`, `FormCheckbox`.
+
+- **DRY Pattern Adoption for Form Components** (December 2025)
+
+  - Created `components/profile/shared/board-form-fields.tsx` - reusable board form fields component.
+  - Refactored `boards-manager.tsx` to use `BoardFormFields` for Add and Edit dialogs (reduced from 547 to 401 lines).
+  - Refactored `add-board-dialog.tsx` to use `BoardFormFields` (reduced from 293 to 213 lines).
+  - Refactored `basic-info-fields.tsx` to use `FormInput` and `FormTextarea` DRY components (reduced from 116 to 79 lines).
+  - Total boilerplate eliminated: ~185 lines across high-traffic form components.
+  - Improves maintainability by centralizing form field patterns.
+
+- **FormSwitch DRY Component** (December 2025)
+  - Added `FormSwitch` to `form-fields.tsx` - reusable toggle/switch component with icon and description support.
+  - Supports two variants: `card` (bordered with description) and `row` (inline with icon).
+  - Refactored `profile-preferences.tsx` to use `FormSwitch` for 4 notification toggles (~50 lines saved).
+  - Refactored `notifications-section.tsx` to use `FormSwitch`, removing local `ToggleRow` component (8 toggles, ~35 lines saved).
+  - Total savings: ~85 lines across 12 toggle instances.
+
+- **Redirect Missing City Pages to Map** (December 2025)
+  - Improved user experience for cities that exist in the database but lack curated page content (e.g., Honolulu, Oceanside).
+  - Instead of showing a 404 "Location Not Found" error, users are now redirected to the Map page with the city name pre-filled in the search filter.
+  - Updated `getLocationPageData` in `actions/beach/beach-location-list-actions.ts` to detect valid-but-empty locations.
+  - Updated `app/beaches/[country]/[state]/[city]/page.tsx` to handle the redirection logic.
+  - Invalid cities (e.g., typos/spam) still correctly return a 404 status.
+
+- **Intent Page Layout Updates** (December 2025)
+
+  - Refactored `app/[intent]/[city]/page.tsx` to match the standard `LocationPage` layout (Breadcrumbs, Header, Container).
+  - Updated `SURF_INTENTS.beginner.heading` template to "Beginner-friendly breaks in ${cityName}" for consistency.
+  - Improved navigation links to point back to the main city page (`/beaches/usa/ca/[city]`).
+
+- **Database State Code Normalization** (December 2025)
+
+  - Normalized all state values in the `beaches` table to 2-letter codes (e.g., "Hawaii" → "HI", "Oregon" → "OR").
+  - Migration: `20251203183500_normalize_state_codes.sql`
+  - Ensures consistency with URL routing which expects 2-letter state codes.
+
+- **Beach URL Utils Test Updates** (December 2025)
+
+  - Added comprehensive test cases for Oregon, Washington, and Hawaii beach URLs.
+  - Added tests for `getValidStateSlugs()` and `isValidStateSlug()` functions.
+  - Updated existing tests to reflect that known state names now map to 2-letter codes.
+
+- **E2E Test Suite Cleanup** (December 2025)
+
+  - Deleted `e2e/onboarding.spec.ts` - tests were unreliable and tested removed features (referral step).
+  - Rewrote `e2e/home.spec.ts` with component-specific tests for HomeScreen:
+    - Welcome section: greeting, Plan Session/Log Session buttons with navigation
+    - Tabs: Forecast and Local Intel tab switching
+    - Beach Search Bar functionality
+    - Nearby Beach Chips display
+    - Forecast Tab content
+    - Mobile responsiveness
+  - Simplified `e2e/guest-landing.spec.ts`:
+    - Removed "Today's Top Surf Spots" image loading tests
+    - Removed Beach Card Navigation tests
+    - Removed Mobile Responsiveness tests
+    - Added error detection utilities for consistency
+    - Kept core tests: page load, login/signup buttons, auth modal
+
+- **E2E Error Detection Improvements** (December 2025)
+
+  - Updated `e2e/utils/error-detection.ts` to ignore 429 rate limit errors (both network and console).
+  - Removed overly broad "Unable to load" and "Failed to" text patterns that caught graceful degradation messages.
+  - Added error detection utilities to `e2e/session-wizard.spec.ts` for all test describe blocks.
+  - Tests now properly catch visible errors while ignoring infrastructure rate limiting.
+
+- **Session Wizard E2E Test Improvements** (December 2025)
+
+  - Fixed all skipped tests by using correct `data-testid` selectors instead of unreliable placeholder patterns.
+  - Updated tests to properly navigate through wizard steps before asserting element visibility.
+  - Improved beach selection tests to use dropdown list selectors (`ul li button`).
+  - Tests now pass 26/26 (previously 17 passed, 8 skipped).
+
+- **Onboarding Dialog Code Quality Improvements** (December 2025)
+  - Extracted duplicate `hasCompleteProfile` logic into reusable `isProfileSubstantiallyComplete()` helper function (DRY principle).
+  - Added cleanup for testing timeout effect to prevent memory leaks.
+  - Wrapped localStorage access in `safeGetLocalStorage()` helper to handle private browsing/quota errors gracefully.
+  - Replaced magic number delays with named constants (`DIALOG_OPEN_DELAY`, `TESTING_OPEN_DELAY`).
+
+- **Removed Referral Step from Onboarding** (December 2025)
+  - Fully removed referrals from the product surface (UI + runtime code) while leaving DB objects intact for safety.
+  - Removed the "Were you invited by a friend?" step and all referral processing and validation entry points.
+  - Onboarding now has 6 steps: Welcome → Profile → Experience → Wave Preferences → Home Beach → Completion.
+  - Deleted the `/api/referrals/validate` endpoint and related unit tests/config.
+
+- **Onboarding Wizard Visual Update** (December 2025)
+  - Updated the Welcome Step to use the new Gemini-generated illustration (`Gemini_Generated_Image_gls67qgls67qgls6.png`) instead of the previous CSS wave animation.
+  - This aligns the onboarding experience with the latest design requirements.
+
+#### Unified Forecast Recommendations with Discovery Service - November 23, 2025
+
+**Change:** Consolidated personalized home forecast with surf discovery service to use consistent time-decay scoring logic across all recommendations.
+
+**What Changed:**
+
+- Personalized forecast card now uses surf discovery service with `maxResults=1`
+- Both PersonalizedForecastCard and BeachDiscoveryList now use the same underlying service
+- Time-window selection now consistently applies time-decay penalty (0.5 points/hour, capped at 24 hours)
+- Discovery's composite scoring (70% conditions + 30% confidence) now powers all recommendations
+- **Nighttime Filtering**: Automatically excludes unrealistic surf sessions between 9pm and 4am
+
+**Implementation:**
+
+- Created adapter layer (`lib/adapters/discovery-to-personalized.ts`) to map discovery responses to personalized format
+- Updated `components/home-screen/forecast-tab.tsx` to use `useSurfDiscovery` with adapter
+- Deprecated `usePersonalizedHomeForecast` hook (now wraps discovery service)
+- Deprecated `/api/home/personalized-forecast` endpoint (now wraps discovery service)
+- Maintained backward compatibility - all existing analytics events preserved
+- No UI changes visible to users
+
+**Benefits:**
+
+- **Consistent Time Selection**: Both cards now prefer near-term quality forecasts
+- **Single Codebase**: Eliminates duplicate window selection logic
+- **Improved Scoring**: Composite scoring provides better recommendations
+- **Maintainability**: Single service to test and optimize
+
+**Migration Path (for future cleanup):**
+
+- Old stack marked as `@deprecated` with migration instructions
+- Wrapper implementation ensures no breaking changes
+- Plan removal in v2.0 after 3-month deprecation period
+
+**User Impact:**
+
+- Seamless - no visible changes to UI or UX
+- May see slight changes in recommended time windows (time-decay preference)
+- Analytics events continue tracking with same names
+
+**Technical Details:**
+
+- Adapter maps 6-part discovery subscores to 4-part personalized breakdown:
+  - base: waveHeightFit
+  - onboardingPrefs: periodEnergyScore
+  - learnedPrefs: windAlignment + tideFit
+  - affinity: affinityBonus
+- Discovery's `matchQuality` derived from score thresholds
+- Distance/driving time fields ignored (Phase 2 feature)
+
+- **Cache-Backed Surf Discovery System** (November 22, 2025):
+  - Removed reliance on EnhancedForecastService for on-demand forecast regeneration
+  - Issue: Services could timeout when attempting to regenerate stale forecasts during user requests
+  - Previous behavior: `personalized-home-forecast-service` called `EnhancedForecastService.generateComprehensiveForecast()` when cache was stale/missing
+  - New behavior: Both services strictly cache-backed, never call external APIs
+  - New helper: `getFreshForecastFromCache()` in `lib/utils/forecast-service-utils.ts` - single source of truth for cache access
+  - Returns stale data with clear warnings instead of failing or attempting regeneration
+  - Background jobs (cron at 6 AM, manual `updateAllBeachForecasts()`) exclusively responsible for forecast generation
+  - Performance: Consistent ~50ms cache reads vs 3-8s+ API generation with frequent timeouts
+  - Impact: No more user-facing timeouts, predictable response times, reduced API load during peak hours
+  - Files modified:
+    - `lib/utils/forecast-service-utils.ts` - Added `getFreshForecastFromCache()` helper
+    - `lib/services/surf-discovery-service.ts` - Migrated to shared helper, track stale/failed beaches
+    - `lib/services/personalized-home-forecast-service.ts` - Removed `EnhancedForecastService`, use cache-only helper
+    - `types/personalization.ts` - Added staleness metadata to response types
+- **Surf Discovery Window Selection - Time Priority** (November 22, 2025):
+  - Modified `selectBestWindow` in `lib/services/surf-discovery-service.ts` to prioritize nearer-term forecasts
+  - Issue: Discovery cards could recommend surf sessions days away when slightly better conditions exist
+  - Previous behavior: Pure composite scoring (conditions 70% + confidence 30%) without time consideration
+  - New behavior: Applies linear time-decay penalty (0.5 points/hour, capped at 24 hours)
+  - Formula: `adjustedScore = compositeScore - (hoursAhead * 0.5)`
+  - Impact: Users now see recommendations for the soonest good opportunity, not just highest absolute score
+  - Example: Forecast 3 hours away (score 65) now beats forecast 21 hours away (score 70)
+  - Tie-breaking: Equal adjusted scores prefer higher composite, then conditions, then later time
+  - Test Coverage: Added 10 comprehensive tests for time-priority logic and edge cases
+  - Files modified: `lib/services/surf-discovery-service.ts`, `__tests__/lib/services/surf-discovery-service.test.ts`
+
 ### Fixed
+  - Added component + E2E coverage for guest preview rendering and auth-modal CTA behavior.
+
+- **Beach description formatting (remove literal asterisks)** (December 2025)
+  - Strips seeded `**<SpotName>**` prefix when rendering beach descriptions so spot names display without markdown asterisks.
+
+- **City pages now resolve hyphenated and accented city slugs correctly** (December 2025)
+  - Added `slugifyAscii()` helper that normalizes Unicode and strips diacritics before slugifying, enabling `/pr/rincon` to resolve to DB city `Rincón`.
+  - Updated `getLocationPageData()` to resolve incoming city slugs to exact DB city names (handles `Cardiff-by-the-Sea`, `Rincón`, etc.) when the initial lookup fails.
+  - Added middleware redirect from `/pr/rinc-n` to `/pr/rincon` for canonical URL handling.
+  - Fixes "Location Not Found" errors on `/ca/cardiff-by-the-sea` and `/pr/rincon`.
+
+- **City landing page H1 no longer renders blank city names** (December 2025)
+  - If `city_editorial_content.city_name` is empty/whitespace, the UI now derives a display name from the city slug (prevents "Best Surf Beaches in ").
+  - Improved `parseLocationFromSlug()` to properly lowercase stop-words (by, the, of, etc.) except at the start of the name (e.g., "Cardiff by the Sea", not "Cardiff By The Sea").
+
+- **Push notification deep-link routing for forecast alerts** (December 2025)
+  - Added fallback routing via `data.url` in mobile push handler (`lib/mobile/push-notifications.ts`) for notification types not explicitly handled (e.g. `forecast_alert`, `test_push`).
+  - Added fallback routing via `data.url` in web service worker (`public/firebase-messaging-sw.js`) for background notification clicks.
+  - Fixed missing invalid token pruning in `sendPushNotification()` (`lib/services/push-notifications.ts`); stale FCM tokens are now automatically removed on delivery failure.
 
 - **Sessions feed shows real data for guests** (December 2025)
   - `/sessions` now fetches real public sessions immediately (no blocking on auth initialization) using `useDataFetcher`.
@@ -59,6 +649,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **E2E smoke test stability for Home screen** (December 2025)
   - Auto-dismissed the preferences v2 announcement dialog in shared Playwright page-load helpers so role-based selectors can reach the underlying home UI.
+
+- **E2E perf validation stability with local app + prod DB** (December 2025)
+  - Relaxed the recommendations API timing threshold when `SUPABASE_URL` points to a remote DB and added browser-like request headers to avoid bot-blocking / local rate limiter “unknown” collisions.
 
 - **Enhanced Forecast Cron Graceful Time Budgeting** (December 2025)
   - Prevented `/api/cron/enhanced-forecast-sync` from hitting Vercel’s 300s hard timeout by passing a deadline into the updater and stopping cleanly between batches.
@@ -96,73 +689,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Refactored `components/session-detail-view.tsx` to use API routes for session load/delete + photo listing (avoids importing session server actions into client UI).
   - Extended `/api/sessions/[id]` with `GET` + `DELETE` handlers (auth + ownership enforced) to support client-side session detail flows without server actions.
 
-### Changed
-
-- **ShareBar Grid Layout Update** (December 2025)
-  - Updated ShareBar grid from 5 columns to 6 columns to accommodate TikTok sharing button.
-  - Maintains consistent spacing and visual alignment across all share platform buttons.
-
-- **OG Endpoint Schema Update** (December 2025)
-  - Updated OG endpoint Zod schema to accept numeric variants 1-6 instead of string "story"/"square" values.
-  - Aligns with the end-to-end numeric variant preservation fix.
-
-- **Session Share Card Visual Upgrade** (December 2025)
-  - Updated `/api/og/session` to render a richer share card (headline, stars/rating, date, conditions row, tagline/footer, stronger Quiver branding).
-  - Extended `buildSessionShareUrl()` to support new optional fields (`date`, `windLabel`, `windSpeed`, `tagline`, `footer`).
-
-### Docs
-
-- Clarified coordinate conventions for database RPC return shapes (location ranking returns `lat/lon`; other feature RPCs may return `latitude/longitude`).
-- Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
-- Documented that fully-developed city pages (via `city_editorial_content`) are part of Quiver's indexing strategy (avoid "crawled – currently not indexed" for thin city pages).
-- Updated `docs/architecture/CACHE_STRATEGY.md` with current caching philosophy, real implementation details, pitfalls, and performance recommendations.
-
-### Added
-
-- End-to-end forecast calibration loop using real session feedback.
-- Post-session forecast feedback capture after `/sessions/new?mode=log`.
-- Auto-heal Next.js dev webpack cache on startup to prevent intermittent `.next/cache/webpack/*pack.gz` ENOENT crashes.
-- **Enhanced Tide Chart with Diagnostics** (December 19, 2025)
-  - Added NOAA tide data validation script (`scripts/validate-noaa-tide-accuracy.ts`) to verify data accuracy against live NOAA API
-  - Created comprehensive `TideDiagnostics` type definitions for transparent tide data reporting
-  - Added `fetchCOOPSDataWithDiagnostics()` method to NOAA service returning forecast data + metadata (station, datum, timezone, source URL, validation status)
-  - New components:
-    - `TideDiagnosticsPanel`: Collapsible panel showing station ID, datum (MLLW), timezone, raw data sample, and NOAA source links (trigger: `?tide_debug=true`)
-    - `TideVerifiedBadge`: Visual indicator for data quality (verified/partial/unverified) with confidence score
-    - `TideWarningBanner`: Non-blocking warnings for stale data, fallback stations, or data quality issues
-    - `TideNextExtreme`: Summary showing next high/low tide time, height, and duration until event
-    - `TideHourlyTable`: 18-row table with Time/Height/Trend columns, highlighting current hour and high/low points
-    - `TideChartEnhanced`: Wrapper component integrating all features with the existing TideChart
-  - Added 22 unit tests for new components
-  - Added E2E test suite for tide diagnostics (`e2e/tide-chart-enhanced.spec.ts`)
-
-### Changed
-
-- Canonical Supabase client documentation and doc-only deprecation guidance for `lib/supabase-browser.ts`.
-- Migrated legacy session forecast history + analysis logic into authenticated server actions (`actions/forecast-calibration-actions.ts`).
-- Home personalized forecast card now renders `PersonalizedBadge` (match % + breakdown) instead of a generic "For You" pill.
-- Consolidated home/map geolocation behavior into `useGeolocation` (manual vs auto-request); removed deprecated `useGeo` wrapper (no longer imported).
-
-### Removed
-
-- Removed legacy `lib/services/session-forecast-service.ts` and its unit test.
-
-### Performance
-
-- Improved Home → Profile → Back navigation performance by fixing `sessions` beach join schema mismatch and adding lightweight request deduping/caching for profile/session/likes and achievements data.
-- Improved `/` → Map/Beach → back navigation performance by persisting React Query across `/`, removing `no-store` from public cacheable fetches, caching featured beaches server-side, reducing nearby-beach query churn (rounded coords + staleTime), and tightening service worker runtime caching to public-only beach/forecast routes.
-
-- **Recommendations API Optimization** (December 17, 2025)
-  - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)
-  - Leveraged existing composite database indexes on `(beach_id, ts)` for `marine_forecasts` and `tide_forecasts`
-  - Added detailed performance logging (PostGIS, queries, processing, total time) behind debug flags
-  - Tightened input validation: invalid/missing `lat`/`lon` now returns 400 instead of silently returning an empty success payload
-  - Added optional `metadata.degradation` for PostGIS/forecast query failures and `quality_indicators.forecast_age_hours` + computed `data_freshness` for top picks
-  - Result: API response time reduced from ~4800ms to ~989ms (**80% improvement**)
-  - Files modified: `app/api/v1/recommendations/route.ts`
-
-### Fixed
-
 - Forecast scoring: fill missing `mv_beach_hourly_scores` wind fields by ingesting NOAA/NWS hourly wind (`marine_forecasts.source='nws_wind'`) and joining nearest wind (±90m) during MV refresh.
 - Forecast cron stability: group tide ingest by nearest NOAA tide station (fetch once per station, fan out to beaches) and add `?tidesBackfillMissing=1` to backfill beaches with zero tide rows.
 - SEO/routing: ensure state-root pages (`/{state}`) return 200 for valid state slugs even when public beach queries return empty (RLS/config differences); add permanent redirects for crawled legacy/garbage URLs (`/app`, `/beaches`, `/plan-session`, `/$`).
@@ -191,105 +717,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Home forecast: hide the "For You" KPI tile when insights match is `0%`.
 - SEO/routing: add canonical international city + beach URLs (`/{country}/{state}/{city}` and `/{country}/{state}/{city}/{beachSlug}`), redirect legacy `/beaches/{country}/{state}/{city}` to canonical, and emit canonical international URLs in the sitemap (fixes Mexico/Baja 4-segment 404s).
-
-### Removed
-
-- **Dead Code Cleanup - Track 1 (Zero-Risk Mechanical Deletions)** (December 2025)
-  - Removed `lib/onboarding.ts` - Unused onboarding utility module (no production imports)
-  - Removed `__tests__/unit/lib/onboarding.test.ts` - Associated test file
-  - Removed `lib/bestTimes.ts` - Unused best times utility module (no production imports)
-  - Removed `__tests__/lib/bestTimes.integration.test.ts` - Associated test file
-  - Removed `lib/beach-cluster-cache.ts` - Test-only Pacific Beach cluster caching system (never reached production)
-  - Removed `__tests__/lib/beach-cluster-cache.test.ts` - Associated test file
-  - Total: ~584 lines of unused code removed (includes ~160 lines from cluster cache)
-  - Verification: TypeScript compilation (`tsc --noEmit`) passed with zero errors
-  - Risk: Zero - no transitive dependencies or production references
-  - Rationale: Cluster caching superseded by edge caching, personalized scoring, and enhanced forecast service
-
-### Security
-
-- Hardened server-side Supabase auth checks by using `supabase.auth.getUser()` (verified) instead of trusting `session.user` from `supabase.auth.getSession()` in middleware/admin and auth endpoints (removes Supabase "insecure user object" warnings).
-- **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation
-  - Page had no links or usage anywhere in the codebase
-  - Lacked proper session validation (unlike secure `/auth/reset` flow)
-  - Weaker password requirements (6 chars vs 8 chars)
-  - Proper password reset flow remains via `/auth/forgot-password` → `/auth/reset`
-
-### Performance
-
-- **Reduced console log spam by 90%**: Removed 15+ verbose console.log statements from development environment
-  - Cleaned up `use-cached-profile.ts` (6 logs removed)
-  - Cleaned up `pwa-and-push-listeners.tsx` (5 logs removed)
-  - Cleaned up `forecast-tab.tsx` (3 logs removed)
-  - Cleaned up `user-avatar.tsx` and `auth-context.tsx` (2 logs removed)
-  - Kept critical error/warning logs for debugging
-- **Fixed StrictMode duplicate event listeners**: Added useRef guard to prevent duplicate performance tracking initialization
-  - Updated `client-app.tsx` with proper cleanup functions
-  - Updated `performance-utils.ts` with idempotency guards and cleanup returns
-  - Added optional `NEXT_PUBLIC_DEBUG_PERF` flag for opt-in performance logging
-- **Added ESLint guard**: Added `no-console` rule to prevent accidental reintroduction of console.log spam
-  - Configured to allow `console.warn` and `console.error`
-  - Warns on `console.log`, `console.info`, `console.debug`
-
-### Added
-
-- **Personalized Insights Backend** (December 2025)
-
-  - Added board snapshot capture to session actions for preserving board configuration history
-  - Captures board details (name, type, size, volume, dimensions) when creating or completing sessions
-  - Board snapshots stored in `sessions.board_snapshot` JSONB column for insights analysis
-  - Created similarity insights service with bucket-based scoring algorithm
-  - Computes personalized insights by comparing forecast conditions to user's past high-rated sessions
-  - Similarity algorithm uses weighted scoring: wave height (35%), wave period (25%), wind speed (20%), wind direction (10%), tide (10%)
-  - Returns top 5 similar sessions with >=60% similarity threshold
-  - Generates match quality labels: Perfect (>=80%), Great (60-79%), Good (40-59%), Low (<40%)
-  - Includes cross-spot explanations when >50% of similar sessions are from different beaches
-  - Provides board recommendations when >=60% of similar sessions used same board type
-  - Created `/api/surf/insights` GET endpoint for accessing personalized insights
-  - Requires authentication and includes rate limiting (10 req/min)
-  - Query parameters: beachId, beachName, waveHeight, wavePeriod, windSpeed (required); windDirection, tideHeight, tideStatus (optional)
-  - Returns insights states: ready (insights available), onboarding (<3 rated sessions), degraded (no forecast snapshots)
-  - Private cache with 5-minute TTL for user-specific insights
-  - Files: `actions/session-actions.ts` (modified), `lib/services/similarity-insights-service.ts` (new), `app/api/surf/insights/route.ts` (new)
-
-- **Dynamic Location Detection on Landing Page** (December 2025)
-  - Replaced hardcoded "San Diego" text with dynamic location based on IP geolocation.
-  - Section header now shows "Local surf favorites near {region}" using detected location.
-  - Navbar "Explore" dropdown dynamically shows "{region} Area" as first region item.
-  - Two-tier location system: IP-based via Vercel edge headers (automatic, no prompt), with option to upgrade to browser geolocation on user action.
-  - Created `LocationProvider` context for app-wide location state management.
-  - Created `useLandingLocation` hook for simplified landing page component access.
-  - Metro area matching algorithm: exact city match → metro slug match → nearest coordinates → default (San Diego).
-  - Cookie-based persistence for client-side access without additional API calls.
-
-### Changed
-
-- **AllTrails-Style Landing Page Redesign** (December 2025)
-  - Hero: Replaced warm orange overlay with neutral charcoal gradient (`from-black/60 via-black/20 to-black/50`) for cleaner photo treatment.
-  - Hero: Added ocean-blue brand arc SVGs as decorative swooshes (top-right + bottom-left) replacing edge lines.
-  - Navbar: Increased vertical padding (`py-5`) and removed blur backdrop for cleaner look on hero gradient.
-  - Hero typography: Reduced font weight to `font-semibold` with `tracking-tight` for lighter editorial feel.
-  - Hero search bar: Moved search icon to left side, increased height (`h-14 md:h-16`), improved placeholder color.
-  - Hero "Explore nearby" CTA: Simplified from Button component to clean underlined text link.
-  - Section headers: Changed to left-aligned editorial style with location emphasis ("near San Diego").
-  - Surf spot cards: Updated to `rounded-2xl` with subtle `shadow-sm hover:shadow-md` transitions, reorganized meta row.
-  - Carousel control: Refined floating next button with consistent white/shadow styling.
-
-### Security
-
-- **Patched transitive `jws` versions** (December 2025)
-  - Forced `jws` resolutions to `3.2.3` and `4.0.1` to address the auth0/node-jws HS256 improper signature verification advisory.
-
-### Removed
-
-- **CDIP Timestamp Display** (December 2025)
-  - Removed confusing "Xh ago" timestamps from beach forecast pages that showed when CDIP buoys last reported.
-  - Users mistakenly thought these timestamps indicated Quiver's data was stale.
-  - Removed `ForecastFreshnessBadge` from the forecast transparency section in `forecast-tab.tsx`.
-  - Removed inline "Updated:" timestamps from `forecast-data-source-indicator.tsx`.
-  - Kept data source badges, confidence scores, and other non-timestamp indicators.
-
-### Fixed
 
 - **Image Optimization: Fixed 400 Errors, Fill Warnings, and Unused Preloads** (December 2025)
 
@@ -415,99 +842,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added migration `20251212180000_add_enhanced_forecasts_beach_fk.sql` to enforce `enhanced_forecasts.beach_id → beaches.id` via a validated FK.
   - Deletes existing orphan `enhanced_forecasts` rows before validation and records a deletion summary in `public.data_cleanup_audit`.
 
-### Added
-
-- **Feature Gaps & Implementation Plan Documentation** (December 2025)
-  - Created `docs/GAPS_AND_IMPLEMENTATION_PLAN.md` documenting incomplete functionality.
-  - Identified gaps including: stubbed GPS discovery, push notifications without sending logic, intel cleanup not scheduled, photo quota client-side only, personalization scores not widely shown, coordinate naming inconsistency.
-  - Provides prioritized implementation recommendations with code examples.
-  - Includes testing requirements and week-by-week implementation checklist.
-
-### Changed
-
-- **Landing page polish (AllTrails-inspired, forecast-first)** (December 2025)
-
-  - Added hero subhead + lightweight value row while preserving lazy-loaded search performance.
-  - Added "Upgrade your next Session" promo section between Surf Highlights and Activities (animated icon + sign-up CTA).
-  - Shifted primary CTAs to `/map` and made sign-up secondary for "explore-first" flow.
-  - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
-  - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.
-  - Restyled the "Browse by activity" landing section into AllTrails-style circular photo chips (image + label) with responsive horizontal scroll on mobile.
-
-- **Landing forecast section redesign (AllTrails-style panel)** (December 2025)
-
-  - Restyled the "Get the most accurate surf forecasts" section into a rounded panel layout with left mini-nav, phone mock preview, and right-side CTAs.
-  - Refined the module to better match AllTrails: smaller typography, roomier padding/gaps, and left-aligned copy on desktop.
-
-- **Enhanced DRY Form Components with Character Counters and Custom Rendering** (December 2025)
-
-  - Enhanced `FormInput` with `maxLength` and `showCharCount` props for character counter display.
-  - Enhanced `FormTextarea` with `maxLength` and `showCharCount` props for character counter display.
-  - Enhanced `FormSelect` with `renderOption` callback prop for custom option rendering.
-  - Refactored `intel-edit-dialog.tsx` to use enhanced DRY components (reduced from 275 to 223 lines, ~52 lines saved).
-  - Refactored `surf-info-fields.tsx` Instagram field to use `FormInput` (~8 lines saved).
-  - Added comprehensive unit tests in `__tests__/components/ui/form-fields.test.tsx` (18 tests).
-  - Total: ~60 lines of boilerplate eliminated, all remaining direct FormField usages now DRY'd.
-
-- **DRY Pattern Adoption for Admin Forms** (December 2025)
-
-  - Added `FormNumberInput` to `form-fields.tsx` - handles nullable numeric inputs (coordinates, optional numbers).
-  - Added `FormCheckbox` to `form-fields.tsx` - checkbox with label and description in bordered container.
-  - Refactored `admin/beach-form-dialog.tsx` to use DRY components (reduced from 347 to 237 lines, -32%).
-  - Replaces 9 verbose FormField patterns with: `FormInput`, `FormSelect`, `FormNumberInput`, `FormCheckbox`.
-
-- **DRY Pattern Adoption for Form Components** (December 2025)
-
-  - Created `components/profile/shared/board-form-fields.tsx` - reusable board form fields component.
-  - Refactored `boards-manager.tsx` to use `BoardFormFields` for Add and Edit dialogs (reduced from 547 to 401 lines).
-  - Refactored `add-board-dialog.tsx` to use `BoardFormFields` (reduced from 293 to 213 lines).
-  - Refactored `basic-info-fields.tsx` to use `FormInput` and `FormTextarea` DRY components (reduced from 116 to 79 lines).
-  - Total boilerplate eliminated: ~185 lines across high-traffic form components.
-  - Improves maintainability by centralizing form field patterns.
-
-- **FormSwitch DRY Component** (December 2025)
-  - Added `FormSwitch` to `form-fields.tsx` - reusable toggle/switch component with icon and description support.
-  - Supports two variants: `card` (bordered with description) and `row` (inline with icon).
-  - Refactored `profile-preferences.tsx` to use `FormSwitch` for 4 notification toggles (~50 lines saved).
-  - Refactored `notifications-section.tsx` to use `FormSwitch`, removing local `ToggleRow` component (8 toggles, ~35 lines saved).
-  - Total savings: ~85 lines across 12 toggle instances.
-
-### Added
-
-- **Reusable ZeroState Component & Implementation** (December 2025)
-
-  - Created `components/ui/zero-state.tsx` - reusable empty state component following Screen State Planner spec.
-  - Props: `icon`, `title`, `description`, `action`, `secondaryAction`, `proTip`, `className`.
-  - Consistent styling: 64px icon, centered layout, optional pro tip with lightbulb.
-  - Updated 6 components to use the new ZeroState pattern:
-    - `journal-view.tsx` - BookOpen icon, pro tip about photos, primary/secondary CTAs
-    - `intel-feed.tsx` - MessageCircle icon, optional onShareIntel callback for CTA
-    - `boards-manager.tsx` - Layers icon for quiver collection
-    - `activity-feed.tsx` - Users icon, context-aware description
-    - `badge-gallery.tsx` - Trophy icon, true zero state when badges array empty
-  - Added comprehensive unit tests in `__tests__/components/ui/zero-state.test.tsx` (11 tests).
-  - Updated `journal-view.test.tsx` to match new zero state content.
-  - Zero state coverage improved from 56% to ~85%.
-
-- **PopularBeachesSection Server Component** (December 2025)
-  - Created `components/landing-page/popular-beaches-section.tsx` as a server-rendered alternative to `SurfHighlightsSection`.
-  - Displays static beach links for SEO crawlability without client-side JavaScript.
-  - Matches SurfHighlightsSection visual styling (gradient background, 4-column grid, beach cards with images and locations).
-  - Uses established patterns: `getBeachUrlSafe` for URLs, `getProxiedImageUrl` for image handling, `FALLBACK_IMAGE_BY_NAME` for fallbacks.
-  - Designed for SSR/SSG landing page implementation to improve SEO and initial load performance.
-  - Includes static "Explore All Surf Spots" CTA linking to `/map`.
-
-### Changed
-
-- **Redirect Missing City Pages to Map** (December 2025)
-  - Improved user experience for cities that exist in the database but lack curated page content (e.g., Honolulu, Oceanside).
-  - Instead of showing a 404 "Location Not Found" error, users are now redirected to the Map page with the city name pre-filled in the search filter.
-  - Updated `getLocationPageData` in `actions/beach/beach-location-list-actions.ts` to detect valid-but-empty locations.
-  - Updated `app/beaches/[country]/[state]/[city]/page.tsx` to handle the redirection logic.
-  - Invalid cities (e.g., typos/spam) still correctly return a 404 status.
-
-### Fixed
-
 - **TypeScript Error Cleanup - Target Achieved** (December 2025)
 
   - Reduced TypeScript errors from **964 to 490** (49% reduction), exceeding the target of 500.
@@ -590,100 +924,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dropped 14 unused indexes (0 scans), reducing index overhead by ~50%.
   - Added missing columns to `beaches_history` audit table (average_rating, region, review_count, slug).
 
-### Added
-
-- **City Editorial Content System** (December 2025)
-
-  - Created `city_editorial_content` database table for storing curated editorial content per city.
-  - Migration: `20251204030000_create_city_editorial_content.sql`
-  - Seeded San Diego and Orange County with editorial content (session timing, guides, planning checklists).
-  - Added `getCityEditorialContent()` server action in `actions/city/city-editorial-actions.ts`.
-  - Added `transformBeachesToSurfSpots()` utility in `lib/utils/beach-to-surfspot-transformer.ts`.
-  - Updated `/beaches/[country]/[state]/[city]/page.tsx` to conditionally render editorial layout when content exists.
-  - Added middleware redirect from `/ca/san-diego` and `/ca/orange-county` to `/beaches/usa/ca/*` routes.
-  - Deleted deprecated `/ca/[city]` route directory.
-  - Added deprecation notices to `lib/data/surf-spots.ts` for `SURF_CITIES`, `SURF_SPOTS`, and helper functions.
-  - Updated "Session log templates" link on City pages to point to `/features` (was `/app`).
-  - Added `20251204120001_update_session_log_template_link.sql` migration for existing database records.
-
-- **City Page Map-First Redesign** (December 2025)
-
-  - Created `components/city/city-map-view.tsx` with interactive map and beach list layout.
-  - Desktop: Beach list (380px) on left, interactive map (600px) on right.
-  - Mobile: Map (350px) on top, horizontal beach card scroll below.
-  - Added `MapErrorBoundary` class component for graceful map error handling with fallback UI.
-  - Added quick actions bar with pill navigation buttons.
-  - Added session timing modules (Today/Now/Weekend cards) for surf planning context.
-  - Added collapsible accordion for "About" section to reduce above-fold text density.
-  - Reuses existing `InteractiveMap` component with SurfSpot → Beach type transformation.
-
-- **Generic State Beach Route** (December 2025)
-  - Created `app/[intent]/[city]/[beachSlug]/page.tsx` to support hierarchical URLs for all US states (OR, WA, HI, etc.), not just California.
-  - Added `getValidStateSlugs()` and `isValidStateSlug()` helper functions to `lib/utils/beach-url-utils.ts` for route validation.
-  - Route validates first parameter against known state slugs to distinguish from intent routes (`/surf-forecast/city`).
-  - Fixes 404 errors for non-California beaches like `/or/newport/agate-beach`.
-  - California beaches continue to use the more specific `/ca/[city]/[beachSlug]` route.
-  - Intent-based routes (`/surf-forecast/newport`, `/beginner/san-diego`) continue to work at the 2-segment level.
-
-### Changed
-
-- **Intent Page Layout Updates** (December 2025)
-
-  - Refactored `app/[intent]/[city]/page.tsx` to match the standard `LocationPage` layout (Breadcrumbs, Header, Container).
-  - Updated `SURF_INTENTS.beginner.heading` template to "Beginner-friendly breaks in ${cityName}" for consistency.
-  - Improved navigation links to point back to the main city page (`/beaches/usa/ca/[city]`).
-
-- **Database State Code Normalization** (December 2025)
-
-  - Normalized all state values in the `beaches` table to 2-letter codes (e.g., "Hawaii" → "HI", "Oregon" → "OR").
-  - Migration: `20251203183500_normalize_state_codes.sql`
-  - Ensures consistency with URL routing which expects 2-letter state codes.
-
-- **Beach URL Utils Test Updates** (December 2025)
-
-  - Added comprehensive test cases for Oregon, Washington, and Hawaii beach URLs.
-  - Added tests for `getValidStateSlugs()` and `isValidStateSlug()` functions.
-  - Updated existing tests to reflect that known state names now map to 2-letter codes.
-
-- **E2E Test Suite Cleanup** (December 2025)
-
-  - Deleted `e2e/onboarding.spec.ts` - tests were unreliable and tested removed features (referral step).
-  - Rewrote `e2e/home.spec.ts` with component-specific tests for HomeScreen:
-    - Welcome section: greeting, Plan Session/Log Session buttons with navigation
-    - Tabs: Forecast and Local Intel tab switching
-    - Beach Search Bar functionality
-    - Nearby Beach Chips display
-    - Forecast Tab content
-    - Mobile responsiveness
-  - Simplified `e2e/guest-landing.spec.ts`:
-    - Removed "Today's Top Surf Spots" image loading tests
-    - Removed Beach Card Navigation tests
-    - Removed Mobile Responsiveness tests
-    - Added error detection utilities for consistency
-    - Kept core tests: page load, login/signup buttons, auth modal
-
-- **E2E Error Detection Improvements** (December 2025)
-
-  - Updated `e2e/utils/error-detection.ts` to ignore 429 rate limit errors (both network and console).
-  - Removed overly broad "Unable to load" and "Failed to" text patterns that caught graceful degradation messages.
-  - Added error detection utilities to `e2e/session-wizard.spec.ts` for all test describe blocks.
-  - Tests now properly catch visible errors while ignoring infrastructure rate limiting.
-
-- **Session Wizard E2E Test Improvements** (December 2025)
-
-  - Fixed all skipped tests by using correct `data-testid` selectors instead of unreliable placeholder patterns.
-  - Updated tests to properly navigate through wizard steps before asserting element visibility.
-  - Improved beach selection tests to use dropdown list selectors (`ul li button`).
-  - Tests now pass 26/26 (previously 17 passed, 8 skipped).
-
-- **Onboarding Dialog Code Quality Improvements** (December 2025)
-  - Extracted duplicate `hasCompleteProfile` logic into reusable `isProfileSubstantiallyComplete()` helper function (DRY principle).
-  - Added cleanup for testing timeout effect to prevent memory leaks.
-  - Wrapped localStorage access in `safeGetLocalStorage()` helper to handle private browsing/quota errors gracefully.
-  - Replaced magic number delays with named constants (`DIALOG_OPEN_DELAY`, `TESTING_OPEN_DELAY`).
-
-### Fixed
-
 - **City Page Title Duplication** (December 2025)
 
   - Fixed duplicate "Quiver" in page titles (e.g., "San Diego Surf Reports | Quiver | Quiver").
@@ -736,32 +976,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The function was referencing `b.latitude` and `b.longitude` which don't exist (columns are `lat` and `lon`).
   - This was causing the forecast refresh cron job to return 0 beaches, resulting in stale forecast data (42+ hours old).
 
-### Changed
-
-### Fixed
-
 - **Onboarding Showing for Existing Users on API Errors** (December 2025)
   - Fixed a bug where existing users who had completed onboarding would see the onboarding flow again when the profile API failed to load.
   - Added defensive check in `OnboardingDialog` to skip showing onboarding when `profileError` is present.
   - This prevents the symptom where API failures (like the Sentry 10.27.0 bug) would incorrectly trigger onboarding for all users.
-
-### Added
-
-- **Rincon and Pipeline Beaches** (December 2025)
-  - Added two iconic surf breaks to the beaches database:
-    - **Rincon** (Carpinteria, CA) - "Queen of the Coast" right point break, intermediate-advanced skill level
-    - **Pipeline** (North Shore, Oahu, HI) - World-famous reef break, expert-only skill level
-  - Includes full metadata: coordinates, break type, skill level, swell window, offshore wind direction, best months
-
-### Changed
-
-- **Removed Referral Step from Onboarding** (December 2025)
-  - Fully removed referrals from the product surface (UI + runtime code) while leaving DB objects intact for safety.
-  - Removed the "Were you invited by a friend?" step and all referral processing and validation entry points.
-  - Onboarding now has 6 steps: Welcome → Profile → Experience → Wave Preferences → Home Beach → Completion.
-  - Deleted the `/api/referrals/validate` endpoint and related unit tests/config.
-
-### Fixed
 
 - **Refresh Page After Onboarding Completion** (December 2025)
 
@@ -790,29 +1008,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scoped `onboarding_dismissed` local storage key to the user ID in `OnboardingDialog` to prevent cross-user state pollution.
   - Verified with new unit tests in `__tests__/components/onboarding/onboarding-dialog.test.tsx`.
 
-### Fixed
-
 - **Reduced Duplicate API Calls** (December 2025)
   - Added StrictMode guard to `use-native-push-registration.ts` to prevent double `POST /api/devices/upsert` calls
   - Added debouncing (500ms) to `use-session-invitations-subscription.ts` to batch rapid subscription callbacks
   - Consolidated surf discovery calls in `forecast-tab.tsx` - now fetches once with `maxResults=3` and passes data to `BeachDiscoveryList` instead of both components fetching independently
   - Added request deduplication cache (30s TTL) to `lib/hooks/useProfile.ts` to prevent duplicate `/api/me/profile` calls
   - Updated `beach-discovery-list.tsx` to accept optional `discoveryData` prop to avoid redundant API calls
-
-### Changed
-
-- **Onboarding Wizard Visual Update** (December 2025)
-  - Updated the Welcome Step to use the new Gemini-generated illustration (`Gemini_Generated_Image_gls67qgls67qgls6.png`) instead of the previous CSS wave animation.
-  - This aligns the onboarding experience with the latest design requirements.
-
-### Chore
-
-- **Project Root Cleanup** (December 2025)
-  - Organized root directory by archiving documentation and reports into `docs/archive/`.
-  - Moved SQL scripts and utilities to `scripts/`.
-  - Updated `README.md` to reference the canonical `docs/TEST_ARCHITECTURE.md` and `docs/ARCHITECTURE.md`.
-
-### Fixed
 
 - **Beach Search Navigation Fix** (November 2025)
 
@@ -826,205 +1027,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `app/api/beaches/nearby/route.ts`
   - Updated `components/map/interactive-map.tsx`
   - Fixed coordinate variable naming from `lng` to `lon` for consistency
-
-### Added
-
-#### Dead Code Audit Report - November 25, 2025
-
-Comprehensive dead code analysis documented in `docs/reports/DEAD_CODE_AUDIT_REPORT.md`:
-
-- **16 unused files** identified for removal (~1,200 lines)
-- **109 unused function/constant exports** across lib/, hooks/, and components/
-- **77 unused type exports** in types/ and lib/
-- **7 unused npm dependencies** (mostly dev dependencies)
-- **5+ potentially unused API endpoints** flagged for review
-- **2 unused action files** (`beach-calibration-actions.ts`, `beach-media-actions.ts`)
-
-Key findings:
-
-- `lib/services/personalized-home-forecast-service.ts` deprecated by surf-discovery-service
-- Multiple one-time migration/verification scripts in `scripts/` no longer needed
-- `hooks/use-attribution.ts` never imported despite attribution system existing
-- Sentry example page/API can be safely removed
-
-Report includes prioritized cleanup phases with risk assessment.
-
-**Note:** Report incorrectly flagged `beach-calibration-actions.ts` and `beach-media-actions.ts` as unused - verification found they are actively used in `beach-stats-grid.tsx`, `spot-overview.tsx`, and `beach-photo-gallery.tsx`.
-
-### Removed
-
-#### Dead Code Cleanup - November 25, 2025
-
-Removed ~2,500+ lines of dead code based on the dead code audit:
-
-**Unused Library Files (7 files):**
-
-- `hooks/use-attribution.ts` - Attribution tracking hook (never imported)
-- `lib/constants/beach-search-config.ts` - Search config constants (unused)
-- `lib/data/landing-page.ts` - Landing page data (unused)
-- `lib/services/personalized-home-forecast-service.ts` - Deprecated by surf-discovery-service
-- `lib/surf/data.ts` - Surf data utilities (unused)
-- `lib/surf/sun.ts` - Sun calculation utilities (unused)
-- `lib/time.ts` - Time utilities (unused)
-
-**One-Time Migration/Verification Scripts (9 files):**
-
-- `scripts/check-beach-schema.ts`
-- `scripts/check-experience-levels.ts`
-- `scripts/clear-profile-cache.ts`
-- `scripts/set-home-beach.ts`
-- `scripts/verify-experience-levels-fix.ts`
-- `scripts/verify-home-beach.ts`
-- `scripts/verify-integration.ts`
-- `scripts/verify-personalized-forecast-cache.ts`
-- `scripts/verify-profile-complete.ts`
-
-**Example/Demo Files (2 files):**
-
-- `app/api/surf/example.ts` - Example API usage code
-- `app/sentry-example-page/page.tsx` - Sentry test page
-
-**Unused API Endpoints (5 endpoints):**
-
-- `/api/test/auth/dev-session` - Test-only endpoint
-- `/api/test/auth/seed-and-session` - Test-only endpoint
-- `/api/admin/resolve-stations` - Only referenced in docs
-- `/api/forecasts/window` - Only referenced in docs
-- `/api/cache/status` - Only referenced in docs
-
-**Orphaned Test Files (1 file):**
-
-- `__tests__/services/personalized-home-forecast-service.test.ts`
-
-**Phase 2: Unused Export Cleanup (November 25, 2025):**
-
-- `lib/api-utils.ts`: Removed `validateSchema`, `safeValidateSchema`, and unused re-exports (`generateETag`, `isETagMatch`)
-- `lib/attribution.ts`: Removed `captureAttribution`, `clearAttributionCookies` (unused client-side functions)
-- `lib/constants/blur-placeholders.ts`: Made `BLUR_PLACEHOLDERS` private (only used internally)
-- `lib/constants/featured-beaches-config.ts`: Removed `getFallbackImageForBeach`, `isExcludedBeach`, `isPriorityBeach`, `FallbackBeachName`
-- `lib/constants/metro-areas.ts`: Made `METRO_AREAS` private, removed `getAllMetroConfigs`
-- `components/error-boundaries/types.ts`: Removed duplicate `ErrorCategory` and `RetryStrategy` types (already defined in util files)
-
-**Phase 3: Unused Component Cleanup (November 25, 2025):**
-
-- `components/home-conditions-widget.tsx` (114 lines) - Never imported anywhere
-- `components/session-planning-map.tsx` (152 lines) - Never imported anywhere
-- `components/admin/forecast-health-dashboard.tsx` (245 lines) - Only referenced in docs, never wired up
-- `components/beach-detail/beach-community.tsx` (99 lines) - Documented in ARCHITECTURE.md but never imported
-
-**Updated ARCHITECTURE.md files:**
-
-- `components/ARCHITECTURE.md` - Removed beach-community.tsx reference
-- `components/beach-detail/ARCHITECTURE.md` - Removed BeachCommunity documentation
-
-**Phase 4: Dependency & Configuration Verification (November 25, 2025):**
-
-- Verified ALL flagged npm dependencies are actually NEEDED (PostCSS for Tailwind, Capacitor for mobile, Jest for unit tests)
-- Verified duplicate exports in `forecast-calibration-actions.ts` are intentional backward-compatibility aliases
-- Cleaned up `knip.json` - removed redundant entry patterns (`next.config.mjs`, `jest.config.js`)
-
-**Total cleanup across all phases: ~3,100+ lines of dead code removed**
-
-### Security
-
-#### Sentry SDK Header Leak Vulnerability Fix - November 24, 2025
-
-**Issue:** Sentry SDK versions 10.11.0-10.26.0 had a vulnerability where Authorization and Cookie HTTP headers could be unintentionally sent to Sentry in traces when `sendDefaultPii: true` was enabled.
-
-**Impact:**
-
-- Quiver was running Sentry v10.22.0 (vulnerable version)
-- `sendDefaultPii: true` was enabled in both `sentry.server.config.ts` and `sentry.edge.config.ts`
-- Authorization and Cookie headers from server-side and edge requests could have been leaked to Sentry
-
-**Resolution:**
-
-- Upgraded `@sentry/nextjs` from `10.22.0` to `10.27.0`
-- Version 10.27.0 includes the fix for this vulnerability
-- No configuration changes required - the fix is automatic
-
-**References:**
-
-- Sentry Security Advisory: CVE-2025-XXXXX (header leak in traces)
-- Fixed in: @sentry/nextjs@10.27.0
-
-### Added
-
-#### Attribution Capture System - November 25, 2025
-
-**Issue:** Google Analytics attribution data showing "(not set)" values because UTM parameters were not being captured and persisted.
-
-**Root Causes:**
-
-1. Analytics not loaded on landing page (`/`) - first-touch UTM params never captured
-2. No mechanism to persist UTM parameters to cookies for cross-session tracking
-3. No attribution data included in analytics events
-
-**Solution:**
-Implemented comprehensive attribution capture system per `docs/planning/archive/GTM_GA4_IMPLEMENTATION_PLAN.md`:
-
-1. **UTM Capture Utility** (`lib/attribution.ts`)
-
-   - Parses UTM parameters from URLs
-   - Persists to first-party cookies (`qvr_utm_*`, 90-day expiry)
-   - First-touch attribution model (preserves original acquisition source)
-   - Server-side cookie generation for middleware
-
-2. **useAttribution Hook** (`hooks/use-attribution.ts`)
-
-   - React hook for accessing attribution data
-   - Captures attribution on component mount
-   - Provides `getAnalyticsParams()` for event tracking
-   - Helper methods: `isFromSource()`, `isFromCampaign()`
-
-3. **Middleware Enhancement** (`middleware.ts`)
-
-   - Captures UTM params on every page request
-   - Sets attribution cookies server-side (faster than client-side)
-   - Records external referrer, first touch timestamp, landing page
-
-4. **Analytics Loader Fix** (`components/analytics/analytics-loader.tsx`)
-
-   - Now loads GA4 on ALL pages including landing page
-   - Sends `page_view` events with full attribution data
-   - Prioritizes loading when URL has UTM params (`afterInteractive` strategy)
-
-5. **Enhanced track() Function** (`lib/analytics.ts`)
-   - Automatically includes attribution data in all events
-   - Option to disable attribution per-event if needed
-
-**Cookie Schema:**
-
-- `qvr_utm_source` - Traffic source (e.g., instagram, google)
-- `qvr_utm_medium` - Marketing medium (e.g., social, cpc)
-- `qvr_utm_campaign` - Campaign name
-- `qvr_utm_content` - Ad content identifier
-- `qvr_utm_term` - Search keywords
-- `qvr_referrer` - Original referrer URL
-- `qvr_first_touch_ts` - Timestamp of first visit
-- `qvr_landing_page` - Original landing page URL
-
-**Impact:**
-
-- UTM parameters now captured on landing page visits
-- Attribution persists across sessions (90-day cookies)
-- All analytics events include attribution data
-- GA4 reports will show proper source/medium/campaign
-
-**Files Added:**
-
-- `lib/attribution.ts` - Core attribution utilities
-- `hooks/use-attribution.ts` - React hook for attribution
-
-**Files Modified:**
-
-- `middleware.ts` - Server-side UTM capture
-- `components/analytics/analytics-loader.tsx` - Load GA4 on landing page
-- `lib/analytics.ts` - Auto-include attribution in track()
-
-**Note:** Changes affect future data only. Historical "(not set)" data cannot be retroactively fixed.
-
-### Fixed
 
 #### Openverse Thumbnail URL 400 Errors - November 24, 2025
 
@@ -1179,158 +1181,6 @@ Implemented comprehensive attribution capture system per `docs/planning/archive/
 
 - `/app/layout.tsx` - Removed whitespace from `<head>` section, added warning comment
 
-### Added
-
-#### Plan Session Prefill Feature - November 22, 2025
-
-**Feature:** Complete "Plan Session" CTA flow that automatically prefills the session wizard with recommended beach and optimal time window, enabling users to jump directly to setting goals without re-entering data.
-
-**User Experience:**
-
-- Click "Plan Session" from Surf Discovery or Personalized Forecast recommendations
-- Session wizard automatically opens with beach and time already filled in
-- Wizard jumps directly to Goals step (step 3) for immediate goal setting
-- Seamless workflow reduces friction in session planning
-- Users can immediately add goals and notes without data re-entry
-
-**Implementation:**
-
-- URL-based prefill system with deep linking support
-- Comprehensive validation using Zod schemas (UUID, timestamps, step numbers)
-- Type-safe parameter handling with TypeScript
-- Security-first approach with XSS prevention and input sanitization
-- Graceful degradation for invalid or missing parameters
-- Backwards compatible - existing `/sessions/new` URLs work unchanged
-
-**CTA Integration:**
-
-- **Personalized Forecast**: "Plan Session" button in `components/home-screen/forecast-tab.tsx`
-- **Surf Discovery**: "Plan Session" button in `components/discover/beach-discovery-list.tsx`
-- Both CTAs use `buildSessionWizardUrl()` utility for consistent URL generation
-
-**Components Updated:**
-
-- `/app/sessions/new/page.tsx` - Added URL parameter parsing and validation
-- `/components/session/wizard/SessionWizard.tsx` - Added `initialFormState` and `targetStep` props
-- `/components/session/wizard/AnimatedSessionWizard.tsx` - Added auto-jump logic to target step
-- `/hooks/use-session-form.ts` - Added `initialFormState` parameter for prefill support
-- `/components/discover/beach-discovery-list.tsx` - Added "Plan Session" CTA with prefill
-- `/components/home-screen/forecast-tab.tsx` - Added "Plan Session" CTA with prefill
-
-**Infrastructure:**
-
-- `/types/session-wizard.ts` - Type definitions for prefill parameters and form state
-- `/lib/validation/schemas.ts` - Zod schema for comprehensive parameter validation
-- `/lib/utils/session-wizard-params.ts` - URL parsing and building utilities with security validation
-
-**URL Parameter Schema:**
-
-- `mode`: Session mode ('plan' | 'log')
-- `beach`: Beach UUID (validated)
-- `beachName`: Beach display name (sanitized)
-- `startTime`: ISO timestamp (validated, security checks)
-- `endTime`: ISO timestamp (validated, max 12-hour duration)
-- `step`: Target wizard step (1-4, validated)
-
-**Usage Example:**
-
-```typescript
-const url = buildSessionWizardUrl({
-  mode: "plan",
-  beachId: beach.id,
-  beachName: beach.name,
-  startTime: new Date("2025-11-22T06:00:00Z"),
-  endTime: new Date("2025-11-22T10:00:00Z"),
-  targetStep: 3,
-});
-router.push(url); // Jumps to Goals step with beach and time prefilled
-```
-
-**Security Features:**
-
-- XSS prevention with DOMPurify-style sanitization
-- UUID format validation (prevents SQL injection attempts)
-- Timestamp validation (rejects invalid/malicious dates)
-- Duration limits (max 12 hours prevents abuse)
-- Step number validation (1-4 range enforcement)
-
-**Testing Coverage:**
-
-- **Unit Tests**: 25 tests in `__tests__/lib/utils/session-wizard-params.test.ts`
-  - URL building, parameter parsing, validation, edge cases
-- **Hook Tests**: 40 tests total in `__tests__/hooks/use-session-form.test.ts` (9 new)
-  - Prefill initialization, form state management, validation
-- **E2E Tests**: 20 tests in `/e2e/plan-session.spec.ts`
-  - Full CTA flow, wizard navigation, data persistence, error handling
-- **Total Coverage**: 85 comprehensive tests (>90% code coverage for new paths)
-
-**Benefits:**
-
-- Reduces friction in session planning workflow
-- Seamless integration with forecast and discovery features
-- Maintains backwards compatibility (existing URLs still work)
-- Production-ready with comprehensive validation and error handling
-- Deep linking support enables sharing session plans via URL
-
-**Documentation:**
-
-- See `/docs/SESSION_WIZARD_PREFILL.md` for complete implementation details
-- See `/docs/SESSION_WIZARD_PREFILL_TESTING.md` for testing documentation
-
-### Changed
-
-#### Unified Forecast Recommendations with Discovery Service - November 23, 2025
-
-**Change:** Consolidated personalized home forecast with surf discovery service to use consistent time-decay scoring logic across all recommendations.
-
-**What Changed:**
-
-- Personalized forecast card now uses surf discovery service with `maxResults=1`
-- Both PersonalizedForecastCard and BeachDiscoveryList now use the same underlying service
-- Time-window selection now consistently applies time-decay penalty (0.5 points/hour, capped at 24 hours)
-- Discovery's composite scoring (70% conditions + 30% confidence) now powers all recommendations
-- **Nighttime Filtering**: Automatically excludes unrealistic surf sessions between 9pm and 4am
-
-**Implementation:**
-
-- Created adapter layer (`lib/adapters/discovery-to-personalized.ts`) to map discovery responses to personalized format
-- Updated `components/home-screen/forecast-tab.tsx` to use `useSurfDiscovery` with adapter
-- Deprecated `usePersonalizedHomeForecast` hook (now wraps discovery service)
-- Deprecated `/api/home/personalized-forecast` endpoint (now wraps discovery service)
-- Maintained backward compatibility - all existing analytics events preserved
-- No UI changes visible to users
-
-**Benefits:**
-
-- **Consistent Time Selection**: Both cards now prefer near-term quality forecasts
-- **Single Codebase**: Eliminates duplicate window selection logic
-- **Improved Scoring**: Composite scoring provides better recommendations
-- **Maintainability**: Single service to test and optimize
-
-**Migration Path (for future cleanup):**
-
-- Old stack marked as `@deprecated` with migration instructions
-- Wrapper implementation ensures no breaking changes
-- Plan removal in v2.0 after 3-month deprecation period
-
-**User Impact:**
-
-- Seamless - no visible changes to UI or UX
-- May see slight changes in recommended time windows (time-decay preference)
-- Analytics events continue tracking with same names
-
-**Technical Details:**
-
-- Adapter maps 6-part discovery subscores to 4-part personalized breakdown:
-  - base: waveHeightFit
-  - onboardingPrefs: periodEnergyScore
-  - learnedPrefs: windAlignment + tideFit
-  - affinity: affinityBonus
-- Discovery's `matchQuality` derived from score thresholds
-- Distance/driving time fields ignored (Phase 2 feature)
-
-### Fixed
-
 #### Surf Discovery "Plan Session" CTA 404 Error - November 22, 2025
 
 **Issue:** The "Plan Session" button in Surf Discovery cards was routing to `/sessions/wizard` which returned a 404 error, completely blocking session planning from surf recommendations.
@@ -1381,7 +1231,73 @@ router.push(url); // Jumps to Goals step with beach and time prefilled
 
 **Impact:** The featured beaches endpoint now satisfies the 28-step Playwright contract suite, returns deterministic payloads with security headers, and degrades gracefully with empty arrays instead of 500s.
 
+### Docs
+
+- Clarified coordinate conventions for database RPC return shapes (location ranking returns `lat/lon`; other feature RPCs may return `latitude/longitude`).
+- Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
+- Documented that fully-developed city pages (via `city_editorial_content`) are part of Quiver's indexing strategy (avoid "crawled – currently not indexed" for thin city pages).
+- Updated `docs/architecture/CACHE_STRATEGY.md` with current caching philosophy, real implementation details, pitfalls, and performance recommendations.
+
+### Security
+
+- Hardened server-side Supabase auth checks by using `supabase.auth.getUser()` (verified) instead of trusting `session.user` from `supabase.auth.getSession()` in middleware/admin and auth endpoints (removes Supabase "insecure user object" warnings).
+- **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation
+  - Page had no links or usage anywhere in the codebase
+  - Lacked proper session validation (unlike secure `/auth/reset` flow)
+  - Weaker password requirements (6 chars vs 8 chars)
+  - Proper password reset flow remains via `/auth/forgot-password` → `/auth/reset`
+
+- **Patched transitive `jws` versions** (December 2025)
+  - Forced `jws` resolutions to `3.2.3` and `4.0.1` to address the auth0/node-jws HS256 improper signature verification advisory.
+
+#### Sentry SDK Header Leak Vulnerability Fix - November 24, 2025
+
+**Issue:** Sentry SDK versions 10.11.0-10.26.0 had a vulnerability where Authorization and Cookie HTTP headers could be unintentionally sent to Sentry in traces when `sendDefaultPii: true` was enabled.
+
+**Impact:**
+
+- Quiver was running Sentry v10.22.0 (vulnerable version)
+- `sendDefaultPii: true` was enabled in both `sentry.server.config.ts` and `sentry.edge.config.ts`
+- Authorization and Cookie headers from server-side and edge requests could have been leaked to Sentry
+
+**Resolution:**
+
+- Upgraded `@sentry/nextjs` from `10.22.0` to `10.27.0`
+- Version 10.27.0 includes the fix for this vulnerability
+- No configuration changes required - the fix is automatic
+
+**References:**
+
+- Sentry Security Advisory: CVE-2025-XXXXX (header leak in traces)
+- Fixed in: @sentry/nextjs@10.27.0
+
 ### Performance
+
+- Improved Home → Profile → Back navigation performance by fixing `sessions` beach join schema mismatch and adding lightweight request deduping/caching for profile/session/likes and achievements data.
+- Improved `/` → Map/Beach → back navigation performance by persisting React Query across `/`, removing `no-store` from public cacheable fetches, caching featured beaches server-side, reducing nearby-beach query churn (rounded coords + staleTime), and tightening service worker runtime caching to public-only beach/forecast routes.
+
+- **Recommendations API Optimization** (December 17, 2025)
+  - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)
+  - Leveraged existing composite database indexes on `(beach_id, ts)` for `marine_forecasts` and `tide_forecasts`
+  - Added detailed performance logging (PostGIS, queries, processing, total time) behind debug flags
+  - Tightened input validation: invalid/missing `lat`/`lon` now returns 400 instead of silently returning an empty success payload
+  - Added optional `metadata.degradation` for PostGIS/forecast query failures and `quality_indicators.forecast_age_hours` + computed `data_freshness` for top picks
+  - Result: API response time reduced from ~4800ms to ~989ms (**80% improvement**)
+  - Files modified: `app/api/v1/recommendations/route.ts`
+
+- **Reduced console log spam by 90%**: Removed 15+ verbose console.log statements from development environment
+  - Cleaned up `use-cached-profile.ts` (6 logs removed)
+  - Cleaned up `pwa-and-push-listeners.tsx` (5 logs removed)
+  - Cleaned up `forecast-tab.tsx` (3 logs removed)
+  - Cleaned up `user-avatar.tsx` and `auth-context.tsx` (2 logs removed)
+  - Kept critical error/warning logs for debugging
+- **Fixed StrictMode duplicate event listeners**: Added useRef guard to prevent duplicate performance tracking initialization
+  - Updated `client-app.tsx` with proper cleanup functions
+  - Updated `performance-utils.ts` with idempotency guards and cleanup returns
+  - Added optional `NEXT_PUBLIC_DEBUG_PERF` flag for opt-in performance logging
+- **Added ESLint guard**: Added `no-console` rule to prevent accidental reintroduction of console.log spam
+  - Configured to allow `console.warn` and `console.error`
+  - Warns on `console.log`, `console.info`, `console.debug`
 
 #### Landing Page Optimization (Major Performance Overhaul) - November 22, 2025
 
@@ -1495,31 +1411,104 @@ router.push(url); // Jumps to Goals step with beach and time prefilled
 
 **Contributors:** Performance Optimizer, Next.js Developer, React Expert, Supabase DB Expert, Refactoring Specialist, Documentation Specialist
 
-### Changed
+### Chore
 
-- **Cache-Backed Surf Discovery System** (November 22, 2025):
-  - Removed reliance on EnhancedForecastService for on-demand forecast regeneration
-  - Issue: Services could timeout when attempting to regenerate stale forecasts during user requests
-  - Previous behavior: `personalized-home-forecast-service` called `EnhancedForecastService.generateComprehensiveForecast()` when cache was stale/missing
-  - New behavior: Both services strictly cache-backed, never call external APIs
-  - New helper: `getFreshForecastFromCache()` in `lib/utils/forecast-service-utils.ts` - single source of truth for cache access
-  - Returns stale data with clear warnings instead of failing or attempting regeneration
-  - Background jobs (cron at 6 AM, manual `updateAllBeachForecasts()`) exclusively responsible for forecast generation
-  - Performance: Consistent ~50ms cache reads vs 3-8s+ API generation with frequent timeouts
-  - Impact: No more user-facing timeouts, predictable response times, reduced API load during peak hours
-  - Files modified:
-    - `lib/utils/forecast-service-utils.ts` - Added `getFreshForecastFromCache()` helper
-    - `lib/services/surf-discovery-service.ts` - Migrated to shared helper, track stale/failed beaches
-    - `lib/services/personalized-home-forecast-service.ts` - Removed `EnhancedForecastService`, use cache-only helper
-    - `types/personalization.ts` - Added staleness metadata to response types
-- **Surf Discovery Window Selection - Time Priority** (November 22, 2025):
-  - Modified `selectBestWindow` in `lib/services/surf-discovery-service.ts` to prioritize nearer-term forecasts
-  - Issue: Discovery cards could recommend surf sessions days away when slightly better conditions exist
-  - Previous behavior: Pure composite scoring (conditions 70% + confidence 30%) without time consideration
-  - New behavior: Applies linear time-decay penalty (0.5 points/hour, capped at 24 hours)
-  - Formula: `adjustedScore = compositeScore - (hoursAhead * 0.5)`
-  - Impact: Users now see recommendations for the soonest good opportunity, not just highest absolute score
-  - Example: Forecast 3 hours away (score 65) now beats forecast 21 hours away (score 70)
-  - Tie-breaking: Equal adjusted scores prefer higher composite, then conditions, then later time
-  - Test Coverage: Added 10 comprehensive tests for time-priority logic and edge cases
-  - Files modified: `lib/services/surf-discovery-service.ts`, `__tests__/lib/services/surf-discovery-service.test.ts`
+- **Project Root Cleanup** (December 2025)
+  - Organized root directory by archiving documentation and reports into `docs/archive/`.
+  - Moved SQL scripts and utilities to `scripts/`.
+  - Updated `README.md` to reference the canonical `docs/TEST_ARCHITECTURE.md` and `docs/ARCHITECTURE.md`.
+
+### Removed
+
+- Removed legacy `lib/services/session-forecast-service.ts` and its unit test.
+
+- **Dead Code Cleanup - Track 1 (Zero-Risk Mechanical Deletions)** (December 2025)
+  - Removed `lib/onboarding.ts` - Unused onboarding utility module (no production imports)
+  - Removed `__tests__/unit/lib/onboarding.test.ts` - Associated test file
+  - Removed `lib/bestTimes.ts` - Unused best times utility module (no production imports)
+  - Removed `__tests__/lib/bestTimes.integration.test.ts` - Associated test file
+  - Removed `lib/beach-cluster-cache.ts` - Test-only Pacific Beach cluster caching system (never reached production)
+  - Removed `__tests__/lib/beach-cluster-cache.test.ts` - Associated test file
+  - Total: ~584 lines of unused code removed (includes ~160 lines from cluster cache)
+  - Verification: TypeScript compilation (`tsc --noEmit`) passed with zero errors
+  - Risk: Zero - no transitive dependencies or production references
+  - Rationale: Cluster caching superseded by edge caching, personalized scoring, and enhanced forecast service
+
+- **CDIP Timestamp Display** (December 2025)
+  - Removed confusing "Xh ago" timestamps from beach forecast pages that showed when CDIP buoys last reported.
+  - Users mistakenly thought these timestamps indicated Quiver's data was stale.
+  - Removed `ForecastFreshnessBadge` from the forecast transparency section in `forecast-tab.tsx`.
+  - Removed inline "Updated:" timestamps from `forecast-data-source-indicator.tsx`.
+  - Kept data source badges, confidence scores, and other non-timestamp indicators.
+
+#### Dead Code Cleanup - November 25, 2025
+
+Removed ~2,500+ lines of dead code based on the dead code audit:
+
+**Unused Library Files (7 files):**
+
+- `hooks/use-attribution.ts` - Attribution tracking hook (never imported)
+- `lib/constants/beach-search-config.ts` - Search config constants (unused)
+- `lib/data/landing-page.ts` - Landing page data (unused)
+- `lib/services/personalized-home-forecast-service.ts` - Deprecated by surf-discovery-service
+- `lib/surf/data.ts` - Surf data utilities (unused)
+- `lib/surf/sun.ts` - Sun calculation utilities (unused)
+- `lib/time.ts` - Time utilities (unused)
+
+**One-Time Migration/Verification Scripts (9 files):**
+
+- `scripts/check-beach-schema.ts`
+- `scripts/check-experience-levels.ts`
+- `scripts/clear-profile-cache.ts`
+- `scripts/set-home-beach.ts`
+- `scripts/verify-experience-levels-fix.ts`
+- `scripts/verify-home-beach.ts`
+- `scripts/verify-integration.ts`
+- `scripts/verify-personalized-forecast-cache.ts`
+- `scripts/verify-profile-complete.ts`
+
+**Example/Demo Files (2 files):**
+
+- `app/api/surf/example.ts` - Example API usage code
+- `app/sentry-example-page/page.tsx` - Sentry test page
+
+**Unused API Endpoints (5 endpoints):**
+
+- `/api/test/auth/dev-session` - Test-only endpoint
+- `/api/test/auth/seed-and-session` - Test-only endpoint
+- `/api/admin/resolve-stations` - Only referenced in docs
+- `/api/forecasts/window` - Only referenced in docs
+- `/api/cache/status` - Only referenced in docs
+
+**Orphaned Test Files (1 file):**
+
+- `__tests__/services/personalized-home-forecast-service.test.ts`
+
+**Phase 2: Unused Export Cleanup (November 25, 2025):**
+
+- `lib/api-utils.ts`: Removed `validateSchema`, `safeValidateSchema`, and unused re-exports (`generateETag`, `isETagMatch`)
+- `lib/attribution.ts`: Removed `captureAttribution`, `clearAttributionCookies` (unused client-side functions)
+- `lib/constants/blur-placeholders.ts`: Made `BLUR_PLACEHOLDERS` private (only used internally)
+- `lib/constants/featured-beaches-config.ts`: Removed `getFallbackImageForBeach`, `isExcludedBeach`, `isPriorityBeach`, `FallbackBeachName`
+- `lib/constants/metro-areas.ts`: Made `METRO_AREAS` private, removed `getAllMetroConfigs`
+- `components/error-boundaries/types.ts`: Removed duplicate `ErrorCategory` and `RetryStrategy` types (already defined in util files)
+
+**Phase 3: Unused Component Cleanup (November 25, 2025):**
+
+- `components/home-conditions-widget.tsx` (114 lines) - Never imported anywhere
+- `components/session-planning-map.tsx` (152 lines) - Never imported anywhere
+- `components/admin/forecast-health-dashboard.tsx` (245 lines) - Only referenced in docs, never wired up
+- `components/beach-detail/beach-community.tsx` (99 lines) - Documented in ARCHITECTURE.md but never imported
+
+**Updated ARCHITECTURE.md files:**
+
+- `components/ARCHITECTURE.md` - Removed beach-community.tsx reference
+- `components/beach-detail/ARCHITECTURE.md` - Removed BeachCommunity documentation
+
+**Phase 4: Dependency & Configuration Verification (November 25, 2025):**
+
+- Verified ALL flagged npm dependencies are actually NEEDED (PostCSS for Tailwind, Capacitor for mobile, Jest for unit tests)
+- Verified duplicate exports in `forecast-calibration-actions.ts` are intentional backward-compatibility aliases
+- Cleaned up `knip.json` - removed redundant entry patterns (`next.config.mjs`, `jest.config.js`)
+
+**Total cleanup across all phases: ~3,100+ lines of dead code removed**
