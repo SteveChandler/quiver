@@ -21,6 +21,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/forecast-alerts",
+      "schedule": "15 */3 * * *"
+    },
+    {
       "path": "/api/monitoring/forecast-health",
       "schedule": "*/30 * * * *"
     }

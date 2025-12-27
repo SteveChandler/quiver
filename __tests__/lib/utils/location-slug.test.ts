@@ -129,10 +129,15 @@ describe("Location Slug Utilities", () => {
       expect(parseLocationFromSlug("pacific-beach")).toBe("Pacific Beach");
     });
 
-    it("should handle multi-word slugs", () => {
+    it("should handle multi-word slugs with stop-words", () => {
       expect(parseLocationFromSlug("cardiff-by-the-sea")).toBe(
-        "Cardiff By The Sea"
+        "Cardiff by the Sea"
       );
+    });
+
+    it("should capitalize stop-words when they appear first", () => {
+      expect(parseLocationFromSlug("the-wedge")).toBe("The Wedge");
+      expect(parseLocationFromSlug("on-the-rocks")).toBe("On the Rocks");
     });
 
     it("should handle single word slugs", () => {
@@ -315,16 +320,16 @@ describe("Location Slug Utilities", () => {
         "La Jolla",
         "San Diego",
         "Pacific Beach",
-        "Cardiff By The Sea",
+        "Cardiff by the Sea",
       ];
 
       originalCities.forEach((city) => {
         const slug = generateLocationSlug(city);
         const parsed = parseLocationFromSlug(slug);
 
-        // Note: Parsing may not be exact due to title-casing
+        // Note: Parsing may not be exact due to title-casing, but case-insensitive match works
         // "Pacific Beach" → "pacific-beach" → "Pacific Beach" ✓
-        // "Cardiff by the Sea" → "cardiff-by-the-sea" → "Cardiff By The Sea"
+        // "Cardiff by the Sea" → "cardiff-by-the-sea" → "Cardiff by the Sea" ✓
         expect(parsed.toLowerCase()).toBe(city.toLowerCase());
       });
     });

@@ -2,9 +2,10 @@
 
 import React from "react";
 import * as dateFns from "date-fns";
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   MapPin,
   Waves,
@@ -14,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 const { format } = dateFns;
@@ -49,6 +51,14 @@ export function BeachDiscoveryCard({
   } = recommendation;
 
   const displayScore = Number.isFinite(score) ? Math.round(score) : 0;
+
+  // Generate URL for SEO-friendly linking
+  const beachUrl = getBeachUrlSafe({
+    id: beach.id,
+    slug: beach.slug,
+    city: beach.city,
+    state: beach.state,
+  }) || `/beach/${beach.id}`;
 
   // Match quality colors
   const matchQualityColors = {
@@ -170,14 +180,15 @@ export function BeachDiscoveryCard({
           >
             Plan Session
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => onViewBeach(beach.id)}
+          <Link
+            href={beachUrl}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "flex-1 text-center"
+            )}
           >
             View Beach
-          </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

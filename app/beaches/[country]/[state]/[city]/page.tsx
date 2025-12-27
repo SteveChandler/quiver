@@ -151,9 +151,11 @@ export default async function LocationPage({ params }: LocationPageProps) {
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Best Surf Beaches in {editorial.city_name}
             </h1>
-            <p className="text-lg text-gray-600 mb-4">
-              {editorial.region_label}
-            </p>
+            {editorial.region_label?.trim() ? (
+              <p className="text-lg text-gray-600 mb-4">
+                {editorial.region_label}
+              </p>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-4 text-gray-600">
               <div className="flex items-center gap-1">
