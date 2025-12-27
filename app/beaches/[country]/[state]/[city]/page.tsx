@@ -26,6 +26,7 @@ import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { buildInternationalCityUrl } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 
 // Editorial content imports
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
@@ -357,7 +358,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
                       {beach.description && (
                         <p className="text-gray-700 text-sm line-clamp-2 mb-3">
-                          {beach.description}
+                          {sanitizeBeachDescription(beach.description, beach.name)}
                         </p>
                       )}
 

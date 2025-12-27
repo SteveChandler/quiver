@@ -5,6 +5,7 @@ import { FeatureGrid } from "./feature-grid";
 import { PracticalTipsSection } from "./practical-tips-section";
 import { QuickStats } from "./quick-stats";
 import type { Beach } from "@/types/database";
+import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 
 interface EnhancedBeachOverviewProps {
   beach: Beach & {
@@ -39,6 +40,8 @@ export function EnhancedBeachOverview({
 
   if (!hasContent) return null;
 
+  const sanitizedDescription = sanitizeBeachDescription(beach.description, beach.name);
+
   return (
     <div className={className}>
       {/* Quick Stats */}
@@ -58,12 +61,12 @@ export function EnhancedBeachOverview({
       />
 
       {/* Description - 2-3 paragraphs */}
-      {beach.description && (
+      {sanitizedDescription && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-3">About This Spot</h3>
             <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-              {beach.description}
+              {sanitizedDescription}
             </p>
             {beach.local_etiquette && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">

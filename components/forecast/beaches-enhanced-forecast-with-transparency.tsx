@@ -8,6 +8,9 @@ import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { ConfidenceScoreExplanation } from "@/components/forecast/confidence-score-explanation";
 import { ForecastFallbackMessaging } from "@/components/forecast/forecast-fallback-messaging";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import { TideChart } from "@/components/forecast/tide-chart-recharts";
+import { MultiDayForecastTable } from "@/components/forecast/forecast-table";
 import {
   Eye,
   EyeOff,
@@ -17,7 +20,35 @@ import {
   RefreshCw,
   TrendingUp,
   AlertTriangle,
+  Wind,
+  CloudSun,
+  Droplet,
+  Clock,
 } from "lucide-react";
+
+function getNormalizedDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeForecastDateKey(forecastDate: string): string | null {
+  if (!forecastDate) return null;
+  if (forecastDate.includes("T")) return forecastDate.split("T")[0] ?? null;
+  // Common case: YYYY-MM-DD already
+  if (/^\d{4}-\d{2}-\d{2}$/.test(forecastDate)) return forecastDate;
+  const parsed = new Date(forecastDate);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return getNormalizedDateString(parsed);
+}
+
+function formatLocalTime(value?: string | null): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 interface BeachesEnhancedForecastWithTransparencyProps {
   beachId?: string;
@@ -103,6 +134,29 @@ export function BeachesEnhancedForecastWithTransparency({
     };
   }, [forecasts]);
 
+  // Derivations used by both guest and authed renders.
+  // Must be defined before any early returns to keep Hook order stable.
+  const primaryForecast = forecasts.length > 0 ? forecasts[0] : null;
+  const todayKey = React.useMemo(() => getNormalizedDateString(new Date()), []);
+  const todayForecast = React.useMemo(() => {
+    if (!forecasts.length) return null;
+    const match = forecasts.find((f) => {
+      const key = normalizeForecastDateKey(f.forecast_date);
+      return key === todayKey;
+    });
+    return match ?? primaryForecast;
+  }, [forecasts, todayKey, primaryForecast]);
+
+  const hasFallbackData = forecasts.some((f) => f.data_source === "FALLBACK");
+
+  const todayConfidence =
+    typeof todayForecast?.confidence_score === "number"
+      ? Math.max(0, Math.min(100, Math.round(todayForecast.confidence_score)))
+      : null;
+  const todayDataSources =
+    todayForecast?.raw_forecast?.data_sources ??
+    (todayForecast?.data_source ? [todayForecast.data_source] : []);
+
   if (loading) {
     return (
       <Card className={cn("w-full", className)}>
@@ -143,15 +197,195 @@ export function BeachesEnhancedForecastWithTransparency({
     );
   }
 
-  const primaryForecast = forecasts.length > 0 ? forecasts[0] : null;
-  const hasFallbackData = forecasts.some((f) => f.data_source === "FALLBACK");
-  const averageConfidence =
-    forecasts.length > 0
-      ? Math.round(
-          forecasts.reduce((sum, f) => sum + (f.confidence_score ?? 0), 0) /
-            forecasts.length
-        )
-      : 0;
+  const fullExperienceContent = (
+    <div className="space-y-6" data-testid="forecast-full-experience">
+      {/* Tides */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-slate-700">Tides</h4>
+          <div className="text-xs text-muted-foreground">Next ~18 hours</div>
+        </div>
+        <TideChart forecasts={forecasts} now={new Date()} compact={true} />
+      </div>
+
+      {/* Forecast table */}
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-slate-700">10‑Day Forecast</h4>
+        <MultiDayForecastTable forecasts={forecasts} />
+      </div>
+
+      {/* Transparency section (optional) */}
+      <div className="space-y-4">
+        {transparencyVisible &&
+          showTransparencySummary &&
+          transparencySummary && (
+            <div
+              data-testid="transparency-summary"
+              className="bg-gray-50 rounded-lg p-4"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">Forecast Quality Overview</h4>
+                <Badge
+                  variant={
+                    transparencySummary.qualityLevel === "high"
+                      ? "default"
+                      : "secondary"
+                  }
+                >
+                  {transparencySummary.qualityLevel === "high"
+                    ? "High Quality"
+                    : transparencySummary.qualityLevel === "medium"
+                    ? "Mixed Quality"
+                    : "Limited Quality"}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">High Confidence:</span>
+                  <span className="font-medium ml-2">
+                    {transparencySummary.highConfidencePercent}%
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">CDIP Data:</span>
+                  <span className="font-medium ml-2">
+                    {transparencySummary.cdipPercent}%
+                  </span>
+                </div>
+              </div>
+              {transparencySummary.qualityLevel !== "high" && (
+                <div className="mt-2 text-xs text-yellow-600">
+                  Mixed data quality - some forecasts use fallback data
+                </div>
+              )}
+            </div>
+          )}
+
+        {/* Primary Forecast with Transparency */}
+        {primaryForecast && transparencyVisible && (
+          <div className="space-y-3">
+            <ForecastDataSourceIndicator
+              dataSource={primaryForecast.data_source}
+              confidenceScore={primaryForecast.confidence_score ?? 0}
+              dataSources={
+                primaryForecast.raw_forecast?.data_sources || [
+                  primaryForecast.data_source,
+                ]
+              }
+              isRealTimeData={primaryForecast.raw_forecast?.data_sources?.includes(
+                "CDIP"
+              )}
+              lastUpdated={primaryForecast.updated_at}
+              expandable={expandableTransparency}
+              compact={compact}
+              data-testid="forecast-transparency-indicator"
+            />
+
+            {expandableTransparency && (
+              <div className="space-y-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTransparencyExpanded(!transparencyExpanded)}
+                  className="w-full justify-between"
+                  aria-label="Show detailed transparency"
+                >
+                  <span>Detailed Transparency Information</span>
+                  {transparencyExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+
+                {transparencyExpanded && (
+                  <div
+                    data-testid="detailed-transparency"
+                    className="bg-gray-50 rounded-lg p-4 space-y-3"
+                  >
+                    <h5 className="font-medium">Data source breakdown</h5>
+                    <ConfidenceScoreExplanation
+                      score={primaryForecast.confidence_score ?? 0}
+                      beachName={beachName}
+                      showFactors={true}
+                      expandable={true}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showFallbackInfo && hasFallbackData && (
+              <ForecastFallbackMessaging
+                fallbackType="nearest_beach"
+                originalLocation={beachName}
+                fallbackLocation="Santa Monica"
+                distance={15.5}
+                reason="Limited data available for this location"
+                accuracyImpact="medium"
+                data-testid="forecast-fallback-messaging"
+              />
+            )}
+          </div>
+        )}
+
+        {transparencyVisible && showQualityChart && forecasts.length > 0 && (
+          <div
+            data-testid="data-quality-chart"
+            className="bg-gray-50 rounded-lg p-4"
+          >
+            <div className="flex items-center space-x-2 mb-3">
+              <BarChart3 className="h-4 w-4" />
+              <h4 className="font-medium">Forecast confidence over time</h4>
+            </div>
+            <div className="grid grid-cols-10 gap-1 h-8">
+              {forecasts.slice(0, 10).map((forecast, index) => {
+                const score = forecast.confidence_score ?? 0;
+                return (
+                  <div
+                    key={index}
+                    className={cn("rounded", {
+                      "bg-green-400": score >= 75,
+                      "bg-yellow-400": score >= 50 && score < 75,
+                      "bg-red-400": score < 50,
+                    })}
+                    title={`${forecast.forecast_date} ${forecast.forecast_time}: ${score}%`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {transparencyVisible && highlightLowConfidence && (
+          <div className="space-y-2">
+            {forecasts
+              .filter((f) => (f.confidence_score ?? 0) < 50)
+              .map((forecast) => (
+                <div
+                  key={forecast.id}
+                  data-testid="low-confidence-highlight"
+                  className="border-l-4 border-red-400 bg-red-50 p-3 rounded-r"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {forecast.forecast_date} {forecast.forecast_time}
+                    </span>
+                    <Badge className="bg-red-100 text-red-700 text-xs">
+                      {forecast.confidence_score ?? 0}% confidence
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-red-600 mt-1">
+                    Limited data quality - check conditions before relying on
+                    this forecast
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <Card className={cn("w-full", className)}>
@@ -160,7 +394,7 @@ export function BeachesEnhancedForecastWithTransparency({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5" />
-              <span>Enhanced Forecast</span>
+              <span>Enhanced Forecast for {beachName}</span>
             </CardTitle>
             <div className="flex items-center space-x-2">
               {allowToggleTransparency && (
@@ -210,179 +444,97 @@ export function BeachesEnhancedForecastWithTransparency({
           </div>
         )}
 
-        {/* Transparency Summary */}
-        {transparencyVisible &&
-          showTransparencySummary &&
-          transparencySummary && (
+        {/* Guest: premium Today preview + gated full experience */}
+        {publicMode && todayForecast ? (
+          <div className="space-y-5">
             <div
-              data-testid="transparency-summary"
-              className="bg-gray-50 rounded-lg p-4"
+              className="rounded-2xl border bg-gradient-to-br from-blue-50/70 via-white to-white p-4 sm:p-5"
+              data-testid="public-today-preview"
             >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium">Forecast Quality Overview</h4>
-                <Badge
-                  variant={
-                    transparencySummary.qualityLevel === "high"
-                      ? "default"
-                      : "secondary"
-                  }
-                >
-                  {transparencySummary.qualityLevel === "high"
-                    ? "High Quality"
-                    : transparencySummary.qualityLevel === "medium"
-                    ? "Mixed Quality"
-                    : "Limited Quality"}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">High Confidence:</span>
-                  <span className="font-medium ml-2">
-                    {transparencySummary.highConfidencePercent}%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">CDIP Data:</span>
-                  <span className="font-medium ml-2">
-                    {transparencySummary.cdipPercent}%
-                  </span>
-                </div>
-              </div>
-              {transparencySummary.qualityLevel !== "high" && (
-                <div className="mt-2 text-xs text-yellow-600">
-                  Mixed data quality - some forecasts use fallback data
-                </div>
-              )}
-            </div>
-          )}
-
-        {/* Primary Forecast with Transparency */}
-        {primaryForecast && transparencyVisible && (
-          <div className="space-y-3">
-            {/* Data Source Indicator */}
-            <ForecastDataSourceIndicator
-              dataSource={primaryForecast.data_source}
-              confidenceScore={primaryForecast.confidence_score ?? 0}
-              dataSources={
-                primaryForecast.raw_forecast?.data_sources || [
-                  primaryForecast.data_source,
-                ]
-              }
-              isRealTimeData={primaryForecast.raw_forecast?.data_sources?.includes(
-                "CDIP"
-              )}
-              lastUpdated={primaryForecast.updated_at}
-              expandable={expandableTransparency}
-              compact={compact}
-              data-testid="forecast-transparency-indicator"
-            />
-
-            {/* Expandable Transparency Details */}
-            {expandableTransparency && (
-              <div className="space-y-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setTransparencyExpanded(!transparencyExpanded)}
-                  className="w-full justify-between"
-                  aria-label="Show detailed transparency"
-                >
-                  <span>Detailed Transparency Information</span>
-                  {transparencyExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-
-                {transparencyExpanded && (
-                  <div
-                    data-testid="detailed-transparency"
-                    className="bg-gray-50 rounded-lg p-4 space-y-3"
-                  >
-                    <h5 className="font-medium">Data source breakdown</h5>
-                    <ConfidenceScoreExplanation
-                      score={primaryForecast.confidence_score ?? 0}
-                      beachName={beachName}
-                      showFactors={true}
-                      expandable={true}
-                    />
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-slate-900">
+                    Today at {beachName}
                   </div>
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-2xl font-semibold text-slate-900">
+                      <WaveHeightDisplay
+                        height={todayForecast.wave_height}
+                        showTooltip={false}
+                      />
+                    </div>
+                    <div className="text-sm text-slate-500">face</div>
+                  </div>
+                </div>
+                {todayConfidence !== null ? (
+                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {todayConfidence}% confidence
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">Preview</Badge>
                 )}
               </div>
-            )}
 
-            {/* Fallback Messaging - check for the specific fallback forecast from mock data */}
-            {showFallbackInfo && hasFallbackData && (
-              <ForecastFallbackMessaging
-                fallbackType="nearest_beach"
-                originalLocation={beachName}
-                fallbackLocation="Santa Monica"
-                distance={15.5}
-                reason="Limited data available for this location"
-                accuracyImpact="medium"
-                data-testid="forecast-fallback-messaging"
-              />
-            )}
-          </div>
-        )}
-
-        {/* Data Quality Chart */}
-        {transparencyVisible && showQualityChart && forecasts.length > 0 && (
-          <div
-            data-testid="data-quality-chart"
-            className="bg-gray-50 rounded-lg p-4"
-          >
-            <div className="flex items-center space-x-2 mb-3">
-              <BarChart3 className="h-4 w-4" />
-              <h4 className="font-medium">Forecast confidence over time</h4>
-            </div>
-            {/* Simple confidence visualization */}
-            <div className="grid grid-cols-10 gap-1 h-8">
-              {forecasts.slice(0, 10).map((forecast, index) => {
-                const score = forecast.confidence_score ?? 0;
-                return (
-                  <div
-                    key={index}
-                    className={cn("rounded", {
-                      "bg-green-400": score >= 75,
-                      "bg-yellow-400": score >= 50 && score < 75,
-                      "bg-red-400": score < 50,
-                    })}
-                    title={`${forecast.forecast_date} ${forecast.forecast_time}: ${score}%`}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Low Confidence Highlights */}
-        {transparencyVisible && highlightLowConfidence && (
-          <div className="space-y-2">
-            {forecasts
-              .filter((f) => (f.confidence_score ?? 0) < 50)
-              .map((forecast, index) => (
-                <div
-                  key={forecast.id}
-                  data-testid="low-confidence-highlight"
-                  className="border-l-4 border-red-400 bg-red-50 p-3 rounded-r"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      {forecast.forecast_date} {forecast.forecast_time}
-                    </span>
-                    <Badge className="bg-red-100 text-red-700 text-xs">
-                      {forecast.confidence_score ?? 0}% confidence
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-red-600 mt-1">
-                    Limited data quality - check conditions before relying on
-                    this forecast
-                  </div>
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-slate-700">
+                  <Wind className="h-4 w-4 text-slate-500" />
+                  <span>{todayForecast.wind_speed ?? "—"}</span>
                 </div>
-              ))}
+                <div className="flex items-center gap-2 text-slate-700">
+                  <CloudSun className="h-4 w-4 text-slate-500" />
+                  <span>{todayForecast.weather_condition ?? "—"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-700">
+                  <Droplet className="h-4 w-4 text-slate-500" />
+                  <span>
+                    {todayForecast.next_tide_type &&
+                    todayForecast.next_tide_time
+                      ? `${todayForecast.next_tide_type} @ ${formatLocalTime(
+                          todayForecast.next_tide_time
+                        )}`
+                      : "Next tide —"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-700">
+                  <Clock className="h-4 w-4 text-slate-500" />
+                  <span>
+                    Updated{" "}
+                    {todayForecast.updated_at
+                      ? formatLocalTime(todayForecast.updated_at) ?? "—"
+                      : "—"}
+                  </span>
+                </div>
+              </div>
+
+              {todayDataSources.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-slate-500">Sources:</span>
+                  {todayDataSources.slice(0, 3).map((s) => (
+                    <Badge key={s} variant="secondary" className="text-xs">
+                      {s}
+                    </Badge>
+                  ))}
+                  {todayDataSources.length > 3 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +{todayDataSources.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <PublicContentGate
+              ctaTitle="Sign up free to unlock the full forecast"
+              ctaDescription="See the full 10-day forecast, tides, and detailed data transparency for every window."
+              blurLevel="md"
+              source="forecast-page"
+              className="min-h-[520px]"
+            >
+              {fullExperienceContent}
+            </PublicContentGate>
           </div>
+        ) : (
+          fullExperienceContent
         )}
 
         {/* Accessibility region for transparency */}

@@ -44,7 +44,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Development mode preserves console.error for local debugging.
   - Tagged errors with `feature: "social-share"` for easy filtering in Sentry dashboard.
 
+### Changed
+
+- **Deprecated standalone forecast page** (December 2025)
+  - `/forecast/[beachId]` now permanently redirects (307) to the canonical beach detail page with `?tab=forecast`.
+  - Consolidates forecast experience to the polished beach detail Forecast tab (e.g., `/ca/san-diego/ocean-beach?tab=forecast`).
+  - Removes duplicative `ForecastPageClient` component and simplifies routing.
+  - Title in `BeachesEnhancedForecastWithTransparency` now includes beach name: "Enhanced Forecast for {beachName}".
+  - Beach detail page now supports `?tab=<tabname>` query parameter for deep-linking to any tab (overview, forecast, reviews, intel, sessions).
+
 ### Fixed
+  - Added component + E2E coverage for guest preview rendering and auth-modal CTA behavior.
+
+- **Beach description formatting (remove literal asterisks)** (December 2025)
+  - Strips seeded `**<SpotName>**` prefix when rendering beach descriptions so spot names display without markdown asterisks.
 
 - **Sessions feed shows real data for guests** (December 2025)
   - `/sessions` now fetches real public sessions immediately (no blocking on auth initialization) using `useDataFetcher`.
