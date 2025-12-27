@@ -5,11 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserXPCard } from "@/components/gamification/user-xp-card";
 import { BadgeGallery } from "@/components/gamification/badge-gallery";
-import {
-  getUserXPStatus,
-  getUserBadges,
-  getAllBadgeDefinitions,
-} from "@/lib/gamification-actions";
 import { Trophy, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/use-toast";
@@ -76,16 +71,32 @@ export function GamificationSection({
     }
 
     const p = (async (): Promise<__GamificationCached> => {
-      const [xpResult, badgesResult, allBadgesResult] = await Promise.all([
-        getUserXPStatus(),
-        getUserBadges(),
-        getAllBadgeDefinitions(),
+      const [xpRes, userBadgesRes, allBadgesRes] = await Promise.all([
+        fetch("/api/gamification/xp-status", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        }),
+        fetch("/api/gamification/user-badges", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        }),
+        fetch("/api/gamification/badge-definitions", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        }),
       ]);
 
+      const xpJson = xpRes.ok ? await xpRes.json() : null;
+      const userBadgesJson = userBadgesRes.ok ? await userBadgesRes.json() : null;
+      const allBadgesJson = allBadgesRes.ok ? await allBadgesRes.json() : null;
+
       const next: __GamificationCached = {
-        xpData: xpResult.success ? xpResult.data : null,
-        userBadges: badgesResult.success ? badgesResult.data || [] : [],
-        allBadges: allBadgesResult.success ? allBadgesResult.data || [] : [],
+        xpData: xpJson?.data?.xp || null,
+        userBadges: userBadgesJson?.data?.badges || [],
+        allBadges: allBadgesJson?.data?.badges || [],
         expiresAt: Date.now() + __GAMIFICATION_CACHE_TTL_MS,
       };
       __gamificationCacheByUserId.set(cacheKey, next);

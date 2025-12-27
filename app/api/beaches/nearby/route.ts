@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 // Import directly from util to avoid pulling a "use server" module here
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeCoordinates } from "@/lib/types/coordinates";
 import {
   createSuccessResponse,
   createValidationError,
@@ -14,12 +15,25 @@ export const dynamic = "force-dynamic";
 // Matches Ruby LocationsController functionality
 async function nearbyBeachesHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const latitude = parseFloat(searchParams.get("latitude") || "0");
-  const longitude = parseFloat(searchParams.get("longitude") || "0");
+
+  const coords = normalizeCoordinates(
+    {
+      // preferred short form
+      lat: searchParams.get("lat"),
+      lon: searchParams.get("lon"),
+      // legacy short form
+      lng: searchParams.get("lng"),
+      // verbose form (current behavior)
+      latitude: searchParams.get("latitude"),
+      longitude: searchParams.get("longitude"),
+    },
+    { context: "GET /api/beaches/nearby" }
+  );
+
   const maxDistance = parseFloat(searchParams.get("maxDistance") || "30");
   const limit = parseInt(searchParams.get("limit") || "20"); // matches Ruby default of 20
 
-  if (!latitude || !longitude) {
+  if (!coords) {
     return createValidationError("Latitude and longitude are required");
   }
 
@@ -35,7 +49,7 @@ async function nearbyBeachesHandler(request: NextRequest) {
       .map((b: any) => ({
         ...b,
         distance: calculateDistanceInMiles(
-          { lat: latitude, lon: longitude },
+          coords,
           { lat: b.lat, lon: b.lon }
         ),
       }))

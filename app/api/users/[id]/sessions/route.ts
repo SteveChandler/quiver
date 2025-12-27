@@ -27,14 +27,15 @@ async function fetchUserSessions(request: NextRequest, targetUserId: string): Pr
     }
 
     const url = new URL(request.url);
-    const limit = parseLimit(url);
-
     const supabase = createAPIServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     const isOwn = user?.id === targetUserId;
+    // Allow a larger limit for the authenticated user's own profile, but keep
+    // other-user lookups small to reduce load.
+    const limit = parseLimit(url, 5, isOwn ? 200 : 20);
 
     // Build base query with joins expected by SessionCardWrapper
     let query = supabase

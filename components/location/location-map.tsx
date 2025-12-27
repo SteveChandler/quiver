@@ -29,7 +29,8 @@ export function LocationMap({
   const router = useRouter();
 
   // Calculate center point and initial zoom from beach coordinates
-  // Note: The database function already returns beaches with lat/lon properties
+  // Note: Location ranking RPCs may return latitude/longitude; server actions map to lat/lon
+  // so the map can treat beaches uniformly.
   const { center, zoom } = useMemo(() => {
     if (beaches.length === 0) {
       return { center: [32.7157, -117.1611] as [number, number], zoom: 10 };

@@ -28,6 +28,10 @@ export function useUserFollow(
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
 
+  // Stabilize initial counts to prevent refetching when parent re-renders with new values
+  const initialFollowersRef = useRef(initialFollowersCount);
+  const initialFollowingRef = useRef(initialFollowingCount);
+
   // Keep callback stable across renders without retriggering effects
   const followersCountChangeRef = useRef<
     ((newCount: number) => void) | undefined
@@ -40,8 +44,8 @@ export function useUserFollow(
     // Don't proceed if userId is empty or is the current user
     if (!userId || userId === currentUserId) {
       setFollowing(false);
-      setFollowersCount(initialFollowersCount);
-      setFollowingCount(initialFollowingCount);
+      setFollowersCount(initialFollowersRef.current);
+      setFollowingCount(initialFollowingRef.current);
       setIsLoading(false);
       return;
     }
@@ -67,16 +71,16 @@ export function useUserFollow(
       } catch (error) {
         console.error("Error fetching follow status:", error);
         setFollowing(false);
-        setFollowersCount(initialFollowersCount);
-        setFollowingCount(initialFollowingCount);
+        setFollowersCount(initialFollowersRef.current);
+        setFollowingCount(initialFollowingRef.current);
       } finally {
         setIsLoading(false);
       }
     };
 
     // Ensure initial counts are set for this userId before fetch
-    setFollowersCount(initialFollowersCount);
-    setFollowingCount(initialFollowingCount);
+    setFollowersCount(initialFollowersRef.current);
+    setFollowingCount(initialFollowingRef.current);
 
     fetchFollowStatus();
 
@@ -138,7 +142,10 @@ export function useUserFollow(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, userId, initialFollowersCount, initialFollowingCount]);
+    // Note: initialFollowersRef and initialFollowingRef are stable refs,
+    // so we don't need them in deps. This prevents refetching when parent
+    // re-renders with different initial values.
+  }, [currentUserId, userId]);
 
   const toggleFollow = async () => {
     if (!user) {

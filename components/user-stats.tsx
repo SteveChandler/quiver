@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Waves, MapPin, Star, Calendar } from "lucide-react";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-states";
-import { getUserStats } from "@/actions/profile-actions";
 import { useProfileContext } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
 import { GamificationSection } from "@/components/profile/gamification-section";
@@ -12,7 +11,9 @@ import { GamificationSection } from "@/components/profile/gamification-section";
 interface UserStatsProps {
   userId: string;
   refreshToken?: number;
-  getUserStatsFn?: typeof getUserStats;
+  getUserStatsFn?: (
+    userId: string
+  ) => Promise<{ success: boolean; data?: UserStatsData | null; error?: string }>;
 }
 
 interface UserStatsData {
@@ -42,13 +43,25 @@ export function UserStats({
     async function loadStats() {
       setLoading(true);
       try {
-        const fetchStats = getUserStatsFn || getUserStats;
-        const result = await fetchStats(userId);
-        if (result.success && result.data) {
-          setStats(result.data);
-        } else {
-          setStats(null);
+        if (getUserStatsFn) {
+          const result = await getUserStatsFn(userId);
+          setStats(result.success ? (result.data ?? null) : null);
+          return;
         }
+
+        const response = await fetch(`/api/users/${userId}/stats`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          setStats(null);
+          return;
+        }
+
+        const json = await response.json();
+        setStats((json?.data?.stats as UserStatsData) || null);
       } catch (error) {
         console.error("Error loading user stats:", error);
         setStats(null);

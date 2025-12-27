@@ -25,24 +25,24 @@ This document outlines the implementation plan for:
 
 ### ✅ Already Implemented
 
-| Component                 | Location                                        | Status      |
-| ------------------------- | ----------------------------------------------- | ----------- |
-| Beach detail pages        | `app/[intent]/[city]/[beachSlug]/page.tsx`      | ✅ Complete |
-| City landing pages        | `app/beaches/[country]/[state]/[city]/page.tsx` | ✅ Complete |
-| SEO metadata helper       | `lib/seo/meta.ts`                               | ✅ Complete |
-| State slug utilities      | `lib/utils/beach-url-utils.ts`                  | ✅ Complete |
-| Sitemap generator         | `app/sitemap.ts`                                | ✅ Partial  |
-| Structured data (JSON-LD) | Beach pages have Place/Breadcrumb schemas       | ✅ Complete |
-| Session OG images         | `app/api/og/session/[sessionId]/route.ts`       | ✅ Complete |
+| Component                 | Location                                        | Status        |
+| ------------------------- | ----------------------------------------------- | ------------- |
+| Beach detail pages        | `app/[intent]/[city]/[beachSlug]/page.tsx`      | ✅ Complete   |
+| City landing pages        | `app/beaches/[country]/[state]/[city]/page.tsx` | ✅ Complete   |
+| SEO metadata helper       | `lib/seo/meta.ts`                               | ✅ Complete   |
+| State slug utilities      | `lib/utils/beach-url-utils.ts`                  | ✅ Complete   |
+| Sitemap generator         | `app/sitemap.ts`                                | ✅ Partial    |
+| Structured data (JSON-LD) | Beach pages have Place/Breadcrumb schemas       | ✅ Complete   |
+| Session OG images         | N/A                                             | ❌ Deprecated |
 
 ### ❌ Missing (Phase 2 Work)
 
-| Component                     | Priority | Effort   |
-| ----------------------------- | -------- | -------- |
-| State landing pages           | **High** | 1-2 days |
-| Beach page title optimization | Medium   | 1 hour   |
-| Dynamic OG images for beaches | Medium   | 1 day    |
-| Sitemap state-level URLs      | High     | 2 hours  |
+| Component                     | Priority | Effort   | Status      |
+| ----------------------------- | -------- | -------- | ----------- |
+| State landing pages           | **High** | 1-2 days | Planning    |
+| Beach page title optimization | Medium   | 1 hour   | Planning    |
+| Native Sharing Redesign       | **High** | 2 days   | In Progress |
+| Sitemap state-level URLs      | High     | 2 hours  | Planning    |
 
 ---
 
@@ -251,8 +251,8 @@ Create shareable social media images for each beach showing:
 export async function GET(request, { params }) {
   const beach = await getBeachBySlug(params.beachSlug);
 
-  // Use Satori to render image
-  const image = await renderBeachOGImage({
+  // Generate OG image (TBD: Client-side or simplified API)
+  const image = await generateBeachOGImage({
     name: beach.name,
     city: beach.city,
     state: beach.state,
@@ -411,7 +411,7 @@ return [
 - [ ] Update beach page titles to new format
 - [ ] Update beach page meta descriptions
 - [ ] Create `/api/og/beach/[beachSlug]` route
-- [ ] Integrate Satori for beach OG image generation
+- [ ] Implement client-side sharing card generation logic (Redesign)
 - [ ] Update beach pages to use dynamic OG images
 
 ### Week 4: Polish & Launch
@@ -489,8 +489,3 @@ return [
 
 **Last Updated**: December 8, 2025  
 **Author**: Phase 2 SEO Planning
-
-
-
-
-

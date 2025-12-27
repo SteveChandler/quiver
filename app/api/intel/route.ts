@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError, validateOrError, createAuthError } from "@/lib/api-utils";
+import { createSuccessResponse, handleApiError, validateOrError, createAuthError, createValidationError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import {
@@ -10,6 +10,7 @@ import {
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelPostCreateSchema } from "@/lib/validation/schemas";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";
 
@@ -49,14 +50,22 @@ interface CreateIntelPostData {
 /**
  * GET /api/intel
  * Returns nearby intel posts with user data and confirmation status
- * Query params: lat, lng, radius (miles), tag, limit
+ * Query params: lat/lon (preferred), lat/lng (legacy), radius (miles), tag, limit
  */
 async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
 
-    const latitude = parseFloat(searchParams.get("lat") || "0");
-    const longitude = parseFloat(searchParams.get("lng") || "0");
+    const coords = normalizeCoordinates(
+      {
+        lat: searchParams.get("lat"),
+        lon: searchParams.get("lon"),
+        lng: searchParams.get("lng"),
+        latitude: searchParams.get("latitude"),
+        longitude: searchParams.get("longitude"),
+      },
+      { context: "GET /api/intel" }
+    );
     const radius = parseFloat(
       searchParams.get("radius") || INTEL_CONFIG.DEFAULT_RADIUS_MILES.toString()
     );
@@ -69,11 +78,11 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
     );
 
     // Validate required parameters
-    if (!latitude || !longitude) {
-      return NextResponse.json(
-        { error: "Latitude and longitude are required" },
-        { status: 400 }
-      );
+    if (!coords) {
+      return createValidationError("Latitude and longitude are required", {
+        required: ["lat", "lon"],
+        accepted_legacy: ["lng", "latitude", "longitude"],
+      });
     }
 
     // Validate radius
@@ -98,8 +107,8 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
     const { data: intelPosts, error: intelError } = await supabase.rpc(
       "get_nearby_intel_posts",
       {
-        center_lat: latitude,
-        center_lng: longitude,
+        center_lat: coords.lat,
+        center_lng: coords.lon,
         radius_miles: radius,
         tag_filter: tag === "all" ? null : tag,
         limit_count: limit,
@@ -116,8 +125,8 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
         posts: [],
         total: 0,
         filters: {
-          latitude,
-          longitude,
+          latitude: coords.lat,
+          longitude: coords.lon,
           radius,
           tag: tag || "all",
           limit,
@@ -175,8 +184,8 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
       posts: enrichedPosts,
       total: enrichedPosts.length,
       filters: {
-        latitude,
-        longitude,
+        latitude: coords.lat,
+        longitude: coords.lon,
         radius,
         tag: tag || "all",
         limit,

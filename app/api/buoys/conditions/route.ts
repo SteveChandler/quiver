@@ -7,17 +7,26 @@ import {
 } from "@/lib/api-utils";
 import { getWindDirectionName } from "@/lib/utils/wind-direction";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";
 
 // Matches Ruby BuoysController#conditions functionality
 async function conditionsHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const latitude = parseFloat(searchParams.get("latitude") || "0");
-  const longitude = parseFloat(searchParams.get("longitude") || "0");
+  const coords = normalizeCoordinates(
+    {
+      lat: searchParams.get("lat"),
+      lon: searchParams.get("lon"),
+      lng: searchParams.get("lng"),
+      latitude: searchParams.get("latitude"),
+      longitude: searchParams.get("longitude"),
+    },
+    { context: "GET /api/buoys/conditions" }
+  );
   const limit = parseInt(searchParams.get("limit") || "50"); // matches Ruby default of 50
 
-  if (!latitude || !longitude) {
+  if (!coords) {
     return createValidationError("Latitude and longitude are required");
   }
 
@@ -26,15 +35,15 @@ async function conditionsHandler(request: NextRequest) {
 
     // Use spatial query to find nearest buoy with conditions
     console.log(
-      "Using spatial query for buoy conditions near lat/lng:",
-      latitude,
-      longitude
+      "Using spatial query for buoy conditions near lat/lon:",
+      coords.lat,
+      coords.lon
     );
 
     const { data: buoys, error } = await supabase
       .rpc("get_nearest_buoy_with_conditions", {
-        target_lat: latitude,
-        target_lng: longitude,
+        target_lat: coords.lat,
+        target_lng: coords.lon,
         max_distance_m: 100000 // 100km radius
       });
 
@@ -43,8 +52,8 @@ async function conditionsHandler(request: NextRequest) {
       // Graceful fallback when buoys table not present
       return createSuccessResponse({
         id: "mock",
-        latitude: latitude,
-        longitude: longitude,
+        latitude: coords.lat,
+        longitude: coords.lon,
         name: "No Buoy Available",
         measurements: { updated_at: null },
       });

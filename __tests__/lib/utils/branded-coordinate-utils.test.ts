@@ -17,6 +17,7 @@ import {
   calculateBrandedBoundingBox,
   isCoordinateInBoundingBox,
   validateAndBrandCoordinates,
+  validateAndBrandCoordinatesFlexible,
   batchValidateAndBrand,
   sortByDistance,
   filterByDistance,
@@ -357,6 +358,39 @@ describe('Branded Coordinate Utils', () => {
 
       const infResult = validateAndBrandCoordinates({ lat: 32.75, lon: Infinity });
       expect(infResult.valid).toBe(false);
+    });
+  });
+
+  describe('validateAndBrandCoordinatesFlexible()', () => {
+    it('should accept canonical { lat, lon }', () => {
+      const result = validateAndBrandCoordinatesFlexible({ lat: 32.75, lon: -117.25 });
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept legacy { lat, lng }', () => {
+      const result = validateAndBrandCoordinatesFlexible({ lat: 32.75, lng: -117.25 });
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept verbose { latitude, longitude }', () => {
+      const result = validateAndBrandCoordinatesFlexible({
+        latitude: 32.75,
+        longitude: -117.25,
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept DB legacy { center_lat, center_lng }', () => {
+      const result = validateAndBrandCoordinatesFlexible({
+        center_lat: 32.75,
+        center_lng: -117.25,
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('should reject when missing longitude', () => {
+      const result = validateAndBrandCoordinatesFlexible({ lat: 32.75 });
+      expect(result.valid).toBe(false);
     });
   });
 

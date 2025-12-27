@@ -392,16 +392,28 @@ npx cap sync android
   },
   "crons": [
     {
-      "path": "/api/cron/refresh-forecasts",
-      "schedule": "0 */6 * * *"
+      "path": "/api/cron/enhanced-forecast-sync",
+      "schedule": "0 */3 * * *"
     },
     {
-      "path": "/api/cron/sync-buoys",
-      "schedule": "0 */1 * * *"
+      "path": "/api/cron/enhanced-forecast-sync-offset",
+      "schedule": "30 1-23/3 * * *"
     },
     {
-      "path": "/api/cron/cleanup-old-data",
-      "schedule": "0 2 * * *"
+      "path": "/api/cron/forecasts/refresh",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/wavecast-scrape",
+      "schedule": "0 16 * * 0,2,4"
+    },
+    {
+      "path": "/api/cron/update-user-preferences",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/monitoring/forecast-health",
+      "schedule": "*/30 * * * *"
     }
   ],
   "headers": [

@@ -49,7 +49,6 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
         beach_name,
         beach_id,
         arrival_time,
-        rating,
         wave_quality,
         wave_height,
         notes,
@@ -62,9 +61,7 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
         crowd_level,
         water_temp,
         profiles!sessions_profile_id_fkey (
-          id,
-          full_name,
-          avatar_url
+          id
         ),
         session_media!session_media_session_id_fkey (
           id,
@@ -92,7 +89,6 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
         beachName: session.beach_name,
         beachId: session.beach_id,
         arrivalTime: session.arrival_time,
-        rating: session.rating,
         waveQuality: session.wave_quality,
         waveHeight: session.wave_height,
         notes: session.notes,
@@ -104,9 +100,7 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
         crowdLevel: session.crowd_level,
         waterTemp: session.water_temp,
         author: {
-          id: session.profiles.id,
-          name: session.profiles.full_name || "Anonymous Surfer",
-          avatar: session.profiles.avatar_url || "/placeholder-user.jpg",
+          id: session.profiles?.id || null,
         },
         media: (session.session_media || [])
           .filter((m: any) => !m.deleted_at)

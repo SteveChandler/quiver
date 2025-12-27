@@ -212,3 +212,5 @@ export async function generateMetadata({
     path: `/beach/${intlBeachSlug}`,
   });
 }
+
+

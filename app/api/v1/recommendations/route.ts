@@ -24,6 +24,7 @@ import {
   calculateForecastAgeHours,
   combineFreshness,
 } from "@/lib/utils/forecast-freshness";
+import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";
 
@@ -46,25 +47,55 @@ async function recommendationsHandler(request: NextRequest) {
     const supabase = createAPIServerClient();
     const url = new URL(request.url);
 
-    const latParam = url.searchParams.get("lat");
-    const lonParam = url.searchParams.get("lon");
+    const rawLat =
+      url.searchParams.get("lat") ?? url.searchParams.get("latitude");
+    const rawLon =
+      url.searchParams.get("lon") ?? url.searchParams.get("longitude");
+    const rawLng = url.searchParams.get("lng");
+
+    const coords = normalizeCoordinates(
+      {
+        lat: rawLat,
+        lon: rawLon,
+        lng: rawLng,
+        latitude: url.searchParams.get("latitude"),
+        longitude: url.searchParams.get("longitude"),
+      },
+      { context: "GET /api/v1/recommendations" }
+    );
     const timeParam = url.searchParams.get("time");
     const userSkill = url.searchParams.get("skill") || null;
 
-    if (!latParam || !lonParam) {
-      return createValidationError("Missing required parameters", {
-        required: ["lat", "lon"],
-        received: { lat: latParam, lon: lonParam },
+    if (!coords) {
+      const hasAnyCoordinateParams =
+        rawLat != null ||
+        rawLon != null ||
+        rawLng != null ||
+        url.searchParams.get("latitude") != null ||
+        url.searchParams.get("longitude") != null;
+
+      if (!hasAnyCoordinateParams) {
+        return createValidationError("Missing required parameters", {
+          required: ["lat", "lon"],
+          received: { lat: rawLat, lon: rawLon, lng: rawLng },
+        });
+      }
+
+      return createValidationError("Invalid coordinate format", {
+        lat: rawLat,
+        lon: rawLon,
+        lng: rawLng,
+        reason: "Coordinates must be finite numbers",
       });
     }
 
-    const lat = Number(latParam);
-    const lon = Number(lonParam);
+    const lat = coords.lat;
+    const lon = coords.lon;
 
     if (!isFinite(lat) || !isFinite(lon)) {
       return createValidationError("Invalid coordinate format", {
-        lat: latParam,
-        lon: lonParam,
+        lat: String(lat),
+        lon: String(lon),
         reason: "Coordinates must be finite numbers",
       });
     }

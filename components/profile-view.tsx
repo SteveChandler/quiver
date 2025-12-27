@@ -30,7 +30,6 @@ const FavoriteBeaches = lazy(() =>
   }))
 );
 import { UserAvatar } from "@/components/user-avatar";
-import { EditProfileModal } from "@/components/edit-profile-modal";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 // Client-server boundary: use client data gateway instead of importing server actions
@@ -38,7 +37,6 @@ import { data as gateway } from "@/lib/data/client";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
-import { getUserBoards } from "@/actions/board-actions";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,6 +56,11 @@ const UserComments = lazy(() =>
 const JournalView = lazy(() =>
   import("@/components/journal/journal-view").then((m) => ({
     default: m.JournalView,
+  }))
+);
+const EditProfileModal = lazy(() =>
+  import("@/components/edit-profile-modal").then((m) => ({
+    default: m.EditProfileModal,
   }))
 );
 const SurfProfileSection = lazy(() =>
@@ -125,15 +128,13 @@ function ProfileViewContent() {
     setSessions(userSessions as SessionWithDetails[]);
 
     // Fetch user boards
-    const userBoardsResult = await getUserBoards(user.id);
-    if (userBoardsResult.success && userBoardsResult.data) {
-      setBoards(userBoardsResult.data);
-    }
+    const userBoards = await gateway.boards.list();
+    setBoards(userBoards as Board[]);
 
     return {
       profile: profileData,
       sessions: userSessions,
-      boards: userBoardsResult.data || [],
+      boards: userBoards,
     };
   }, [user]);
 
@@ -499,12 +500,16 @@ function ProfileViewContent() {
       </main>
 
       {/* Edit Profile Modal */}
-      <EditProfileModal
-        open={editModalOpen}
-        onOpenChange={setEditModalOpen}
-        profile={profile}
-        onProfileUpdated={handleProfileUpdated}
-      />
+      {editModalOpen && (
+        <Suspense fallback={null}>
+          <EditProfileModal
+            open={editModalOpen}
+            onOpenChange={setEditModalOpen}
+            profile={profile}
+            onProfileUpdated={handleProfileUpdated}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

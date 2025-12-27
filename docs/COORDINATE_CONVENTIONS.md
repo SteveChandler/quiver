@@ -43,7 +43,10 @@ get_nearby_intel_posts(
   radius_miles DOUBLE PRECISION
 )
 
--- Returns use full names
+-- Returns vary by function.
+-- Many feature RPCs return full names (latitude/longitude), but some legacy RPCs
+-- (notably location ranking: get_beaches_by_location_with_scores / get_beaches_by_metro_with_scores)
+-- return lat/lon for backward compatibility.
 RETURNS TABLE (
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
