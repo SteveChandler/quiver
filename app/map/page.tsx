@@ -44,9 +44,34 @@ export default function MapPage() {
   );
 }
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Surf Spots Map | Quiver",
-  description:
-    "Explore surf spots with reviews and live conditions. Find your next epic wave with Quiver's map.",
-  path: "/map",
-});
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}): Promise<Metadata> {
+  // Important: Keep `/map` indexable, but prevent indexing of parameterized
+  // search variants like `/map?search=Capitola` (canonicalize to `/map`).
+  const base = buildPageMetadata({
+    title: "Surf Spots Map | Quiver",
+    description:
+      "Explore surf spots with reviews and live conditions. Find your next epic wave with Quiver's map.",
+    path: "/map",
+  });
+
+  const hasSearchQuery =
+    typeof searchParams?.search === "string" && searchParams.search.length > 0;
+
+  if (!hasSearchQuery) return base;
+
+  return {
+    ...base,
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    },
+  };
+}

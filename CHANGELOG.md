@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SEO: reduce Search Console Soft 404s for internal/legacy URLs** (December 2025)
+  - `/map` remains indexable, but `/map?search=*` variants are now **noindex** and **canonicalized** to `/map`.
+  - Deprecated `/forecast/{beachId}` now **permanently redirects** to the canonical beach URL with the Forecast tab.
+  - Legacy `/beach/{slugOrId}` now returns a **true 404** when the beach cannot be resolved (instead of a 200 “not found” page).
+  - Updated `robots.txt` to allow crawling `/forecast/*` so Google can see redirects and consolidate URLs faster.
+  - Updated `robots.txt` to disallow `/_next/*` (prevents crawling Next build assets; reduces crawl noise).
+
 - **Docs: removed stale `/api/cache/status` + fixed architecture doc pointers** (December 2025)
   - Removed non-existent `/api/cache/status` documentation from `app/api/ARCHITECTURE.md` and stale `/api/cache` mention from `app/ARCHITECTURE.md`.
   - Updated repo references from missing `docs/ARCHITECTURE_REVIEW.md` to `docs/ARCHITECTURE.md` (and linked the 2025-12-28 report where appropriate).
