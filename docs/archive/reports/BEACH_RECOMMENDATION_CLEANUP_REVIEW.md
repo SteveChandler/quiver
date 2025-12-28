@@ -223,5 +223,5 @@ ORDER BY idx_scan DESC;
 For questions or to provide review feedback:
 - **Engineering Lead:** [Your Name]
 - **Migration File:** `supabase/migrations/20251119000000_cleanup_unused_best_conditions_indexes.sql`
-- **Related Docs:** `docs/ARCHITECTURE_REVIEW.md`, `supabase/ARCHITECTURE.md`
+- **Related Docs:** `docs/ARCHITECTURE.md`, `supabase/ARCHITECTURE.md`
 

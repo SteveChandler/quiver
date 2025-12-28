@@ -18,8 +18,8 @@ export default function robots(): MetadataRoute.Robots {
           userAgent: "*",
           allow: "/",
           disallow: [
+            "/_next/*", // Don't crawl Next.js build assets (crawl budget / noise in GSC)
             "/api/*", // Don't crawl API routes
-            "/forecast/*", // Ephemeral/per-beach forecast pages are noindex
             "/inbox", // Private: notifications
             "/profile", // Private: user's own profile
             "/auth/*", // Auth pages

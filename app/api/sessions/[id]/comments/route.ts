@@ -86,7 +86,7 @@ export async function POST(
     });
     if (insertError) throw insertError;
 
-    return createSuccessResponse({ success: true });
+    return createSuccessResponse({ message: "Comment created successfully" });
   } catch (error) {
     return handleApiError(error, "Failed to create comment");
   }

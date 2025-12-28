@@ -23,6 +23,10 @@ interface OnboardingData {
   // Step 5: Home Beach
   homeBeachId?: string;
   homeBeachName?: string;
+  homeBeachSlug?: string;
+  homeBeachCity?: string;
+  homeBeachState?: string;
+  homeBeachCountry?: string;
 
   // Step 6: Completion (no data stored)
 }

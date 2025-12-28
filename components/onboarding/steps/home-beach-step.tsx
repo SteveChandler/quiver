@@ -16,6 +16,9 @@ import { MapPin } from "lucide-react";
 interface Beach {
   id: string;
   name: string;
+  slug?: string | null;
+  city?: string | null;
+  state?: string | null;
   region?: string | null;
   country?: string | null;
 }
@@ -35,6 +38,10 @@ export function HomeBeachStep() {
     defaultValues: {
       homeBeachId: data.homeBeachId || "",
       homeBeachName: data.homeBeachName || "",
+      homeBeachSlug: data.homeBeachSlug || "",
+      homeBeachCity: data.homeBeachCity || "",
+      homeBeachState: data.homeBeachState || "",
+      homeBeachCountry: data.homeBeachCountry || "",
     },
   });
 
@@ -64,6 +71,10 @@ export function HomeBeachStep() {
     setSelectedBeach(beach);
     setValue("homeBeachId", beach.id, { shouldValidate: true });
     setValue("homeBeachName", beach.name, { shouldValidate: true });
+    setValue("homeBeachSlug", beach.slug || undefined, { shouldValidate: true });
+    setValue("homeBeachCity", beach.city || undefined, { shouldValidate: true });
+    setValue("homeBeachState", beach.state || beach.region || undefined, { shouldValidate: true });
+    setValue("homeBeachCountry", beach.country || undefined, { shouldValidate: true });
     setSearchResults([]);
   };
 

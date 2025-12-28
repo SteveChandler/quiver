@@ -60,6 +60,6 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
 
 ## Related Docs
 
-- `docs/ARCHITECTURE_REVIEW.md`
+- `docs/ARCHITECTURE.md`
 - `lib/ARCHITECTURE.md`
 - Component-specific docs in `components/**/ARCHITECTURE.md`

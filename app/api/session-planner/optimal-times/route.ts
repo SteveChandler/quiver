@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createSuccessResponse,
   createErrorResponse,
-} from "@/lib/api-response-utils";
+} from "@/lib/api-utils";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";

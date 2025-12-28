@@ -1192,7 +1192,7 @@ npm run test:e2e e2e/session-sharing.spec.ts
 
 ### Related Documentation
 
-- [Architecture Review](./ARCHITECTURE_REVIEW.md) - System overview
+- [Architecture](../../ARCHITECTURE.md) - System overview
 - [Design Principles](./DESIGN_PRINCIPLES.md) - Core principles
 - [Style Guide](./STYLE_GUIDE.md) - UI/UX patterns
 - [Mobile Architecture](../ARCHITECTURE.md#mobile-architecture) - Capacitor setup

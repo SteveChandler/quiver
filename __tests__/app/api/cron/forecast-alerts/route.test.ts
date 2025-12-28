@@ -7,9 +7,13 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
-jest.mock("@/lib/api-response-utils", () => ({
-  validateCronRequest: jest.fn(() => true),
-}));
+jest.mock("@/lib/api-utils", () => {
+  const actual = jest.requireActual("@/lib/api-utils");
+  return {
+    ...actual,
+    validateCronRequest: jest.fn(() => true),
+  };
+});
 
 jest.mock("@/lib/services/forecast-alerts", () => ({
   runForecastThresholdAlerts: jest.fn(async () => ({

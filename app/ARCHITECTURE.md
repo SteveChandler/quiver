@@ -126,14 +126,6 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
   - `conditions/` - Current buoy conditions
   - `nearby/` - Geospatial buoy search
 
-#### `/api/cache/`
-
-- **Function**: Caching system management
-- **Features**:
-  - Cache status monitoring
-  - Performance optimization data
-  - Beach cluster forecasting cache
-
 #### `/api/cron/`
 
 - **Function**: Scheduled job endpoints

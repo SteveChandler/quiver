@@ -13,7 +13,7 @@ import {
 
 // Mock the dependencies
 jest.mock("@/lib/supabase/server");
-jest.mock("@/lib/api-response-utils", () => ({
+jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data) => ({
     json: async () => ({
       success: true,

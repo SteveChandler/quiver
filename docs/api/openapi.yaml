@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  title: Quiver API
+  description: API for the Quiver surf community platform.
+  version: 1.0.0
+servers:
+  - url: /api
+    description: Local development / relative path
+
+components:
+  securitySchemes:
+    supabaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase JWT token for authenticated user sessions.
+    cronAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "Bearer token using CRON_SECRET for scheduled jobs. Also accepts x-vercel-cron header."
+
+  schemas:
+    # Standard Envelopes
+    ApiSuccess:
+      type: object
+      required: [success, timestamp, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    ApiError:
+      type: object
+      required: [success, timestamp, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        timestamp:
+          type: string
+          format: date-time
+        error:
+          type: string
+        details:
+          type: object
+
+    PaginationMeta:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    # Core Resources
+    Beach:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state: { type: string, nullable: true }
+        country: { type: string, nullable: true }
+        lat: { type: number }
+        lon: { type: number }
+        is_private: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    Session:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        beach_id: { type: string, format: uuid, nullable: true }
+        beach_name: { type: string, nullable: true }
+        arrival_time: { type: string, format: date-time }
+        duration_minutes: { type: integer, nullable: true }
+        rating: { type: integer, minimum: 0, maximum: 5, nullable: true }
+        notes: { type: string, nullable: true }
+        is_public: { type: boolean }
+        status: { type: string, enum: [planned, completed] }
+        created_at: { type: string, format: date-time }
+
+    IntelPost:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        tag:
+          type: string
+          enum: [parking, hazard, crowd, conditions, access, other]
+        title: { type: string }
+        description: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+paths:
+  /beaches:
+    get:
+      summary: List all beaches
+      responses:
+        "200":
+          description: List of beaches
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          beaches:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Beach"
+                          count:
+                            type: integer
+    post:
+      summary: Create or update a beach (Admin only)
+      security:
+        - supabaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, lat, lon]
+              properties:
+                id:
+                  {
+                    type: string,
+                    format: uuid,
+                    description: "If provided, updates existing beach",
+                  }
+                name: { type: string }
+                lat: { type: number }
+                lon: { type: number }
+      responses:
+        "200":
+          description: Beach created or updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          success: { type: boolean }
+                          data: { $ref: "#/components/schemas/Beach" }
+
+  /v1/recommendations:
+    get:
+      summary: Get personalized surf recommendations
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lon
+          in: query
+          required: true
+          schema: { type: number }
+        - name: time
+          in: query
+          description: ISO 8601 timestamp
+          schema: { type: string, format: date-time }
+        - name: skill
+          in: query
+          schema:
+            { type: string, enum: [beginner, intermediate, advanced, expert] }
+      responses:
+        "200":
+          description: List of recommendations
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          recommendations:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                spotId: { type: string, format: uuid }
+                                name: { type: string }
+                                score: { type: number }
+                                reasons:
+                                  { type: array, items: { type: string } }
+                          top_picks:
+                            type: array
+                            items:
+                              type: object
+
+  /intel:
+    get:
+      summary: Get nearby intel posts
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lon
+          in: query
+          required: true
+          schema: { type: number }
+        - name: radius
+          in: query
+          description: Search radius in miles
+          schema: { type: number, default: 25 }
+        - name: tag
+          in: query
+          schema:
+            {
+              type: string,
+              enum: [all, parking, hazard, crowd, conditions, access, other],
+            }
+      responses:
+        "200":
+          description: List of intel posts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          posts:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/IntelPost"
+                          total:
+                            type: integer
+    post:
+      summary: Create a new intel post
+      security:
+        - supabaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude, tag, title, description]
+              properties:
+                latitude: { type: number }
+                longitude: { type: number }
+                tag:
+                  {
+                    type: string,
+                    enum: [parking, hazard, crowd, conditions, access, other],
+                  }
+                title: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Intel post created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/IntelPost"
+
+  /sessions/{id}:
+    get:
+      summary: Get a specific session
+      security:
+        - supabaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Session details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          session:
+                            $ref: "#/components/schemas/Session"
+    patch:
+      summary: Update a session
+      security:
+        - supabaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: { type: string, maxLength: 5000 }
+                is_public: { type: boolean }
+                rating: { type: integer, minimum: 0, maximum: 5 }
+      responses:
+        "200":
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          session:
+                            $ref: "#/components/schemas/Session"
+    delete:
+      summary: Delete a session
+      security:
+        - supabaseAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          deleted: { type: boolean }
+
+  /auth/check-session:
+    get:
+      summary: Check if a user session is active
+      responses:
+        "200":
+          description: Session status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiSuccess"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          session: { type: boolean }
+                          user: { type: object, nullable: true }
+
+  /analytics/sessions:
+    get:
+      summary: Get session analytics for a user
+      security:
+        - supabaseAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: string, example: "me" }
+        - name: type
+          in: query
+          schema: { type: string, enum: [analytics, calendar] }
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccess"
+
+  /boards:
+    post:
+      summary: Add a new surfboard
+      security:
+        - supabaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, board_type]
+              properties:
+                name: { type: string }
+                board_type: { type: string }
+                size: { type: string }
+                volume: { type: number }
+      responses:
+        "200":
+          description: Board created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccess"
+
+  /health:
+    get:
+      summary: Service health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: "ok" }
+                  timestamp: { type: string, format: date-time }
+
+  /cron/enhanced-forecast-sync:
+    post:
+      summary: Trigger forecast synchronization
+      security:
+        - cronAuth: []
+      responses:
+        "200":
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccess"

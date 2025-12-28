@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createSuccessResponse,
   createErrorResponse,
-} from "@/lib/api-response-utils";
+} from "@/lib/api-utils";
 import {
   updateBeachForecast,
   updateAllBeachForecasts,
@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
 
       const data = await updateBeachForecast(beachId);
 
-      return createSuccessResponse(
-        data,
-        "Enhanced forecasts updated for beach"
-      );
+      return createSuccessResponse({
+        ...data,
+        message: "Enhanced forecasts updated for beach",
+      });
     } else {
       // Update all beaches
       console.log("🌊 Updating forecasts for all beaches");
@@ -57,15 +57,13 @@ export async function POST(request: NextRequest) {
       const successful = result.results?.filter((r) => r.success).length || 0;
       const failed = (result.results?.length || 0) - successful;
 
-      return createSuccessResponse(
-        {
-          total: result.results?.length || 0,
-          successful,
-          failed,
-          results: result.results || [],
-        },
-        "Enhanced forecasts updated for all beaches"
-      );
+      return createSuccessResponse({
+        total: result.results?.length || 0,
+        successful,
+        failed,
+        results: result.results || [],
+        message: "Enhanced forecasts updated for all beaches",
+      });
     }
   } catch (error) {
     console.error("❌ Error updating forecasts:", error);

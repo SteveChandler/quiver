@@ -152,13 +152,10 @@ export async function POST(request: NextRequest) {
     }
 
     return createSuccessResponse({
-      success: true,
-      data: {
-        id: result.data.id,
-        name: result.data.name,
-        lat: result.data.lat,
-        lon: result.data.lon,
-      },
+      id: result.data.id,
+      name: result.data.name,
+      lat: result.data.lat,
+      lon: result.data.lon,
     });
   } catch (error) {
     console.error("Error saving location:", error);

@@ -31,4 +31,4 @@ User journal visualization and export. Shows calendar heatmap, analytics, and ex
 ## Related Docs
 
 - `actions/ARCHITECTURE.md`
-- `docs/ARCHITECTURE_REVIEW.md`
+- `docs/ARCHITECTURE.md`

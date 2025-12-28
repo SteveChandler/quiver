@@ -212,20 +212,6 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ---
 
-### 💾 `/cache` - Caching System Management
-
-#### `/cache/status/route.ts`
-
-- **Methods**: `GET`
-- **Function**: Cache health monitoring
-- **Features**:
-  - Pacific Beach cluster cache status
-  - Forecast data freshness tracking
-  - Performance metrics
-- **Usage**: System monitoring and debugging
-
----
-
 ### ⏰ `/cron` - Scheduled Job Management
 
 **Authentication**: Vercel Cron header or cron token
@@ -249,7 +235,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 **Invocation & Security**:
 
 - Triggered exclusively via Vercel Cron as configured in `vercel.json`
-- Authorization uses centralized validator `validateCronRequest(request)` from `lib/api-response-utils.ts`
+- Authorization uses centralized validator `validateCronRequest(request)` from `lib/api-utils.ts`
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET`/`CRON_SECRET_TOKEN` in Vercel env if you need to trigger manually
 

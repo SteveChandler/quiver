@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw updateError;
 
-    return createSuccessResponse({ success: true });
+    return createSuccessResponse({ message: "Email update process initiated. Please check your current and new email for confirmation links." });
   } catch (error) {
     return handleApiError(error, "Failed to update email");
   }

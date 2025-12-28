@@ -5,7 +5,7 @@
 This repository exposes Quiver’s agent personas inside Cursor. Agents can use the Playwright MCP server to run E2E tests, open traces, and validate critical flows directly from Cursor.
 
 - Primary reference: `ARCHITECTURE.md` (top-level) and this file
-- Core development patterns: see directory `ARCHITECTURE.md` files and `docs/ARCHITECTURE_REVIEW.md`
+- Core development patterns: see directory `ARCHITECTURE.md` files and `docs/ARCHITECTURE.md`
 - Design principles: see `docs/DESIGN_PRINCIPLES.md`
 
 ## Agent definitions (single source of truth)
@@ -154,7 +154,7 @@ The project has two MCP configuration files:
 
 ### Fullstack Engineer
 
-1. Read relevant directory `ARCHITECTURE.md` and `docs/ARCHITECTURE_REVIEW.md`
+1. Read relevant directory `ARCHITECTURE.md` and `docs/ARCHITECTURE.md`
 2. Propose an Implementation Plan and wait for approval
 3. Implement using required patterns (hooks, server actions, API utils)
 4. Use Playwright MCP to run focused specs or full suite

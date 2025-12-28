@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { useProfileContext } from '@/context/profile-context';
 import { Button } from '@/components/ui/button';
@@ -20,12 +20,17 @@ interface ForecastPreview {
 
 export function CompletionStep() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, completeOnboarding } = useOnboardingStore();
   const { updateProfile } = useProfileContext();
   const [isSaving, setIsSaving] = useState(false);
   const [showConfetti, setShowConfetti] = useState(true);
   const [forecastPreview, setForecastPreview] = useState<ForecastPreview | null>(null);
   const [loadingForecast, setLoadingForecast] = useState(false);
+
+  const isDebugOnboarding =
+    searchParams?.get('debugOnboarding') === '1' &&
+    process.env.NODE_ENV !== 'production';
 
   // Fetch forecast preview for home beach
   useEffect(() => {
@@ -66,6 +71,16 @@ export function CompletionStep() {
   const handleFinish = async () => {
     setIsSaving(true);
     try {
+      // Debug harness: allow local/E2E to validate close + navigation deterministically
+      // without depending on the authenticated server action succeeding.
+      if (isDebugOnboarding) {
+        completeOnboarding();
+        toast.success('Welcome to Quiver! (debug)');
+        router.push('/?tab=forecast');
+        router.refresh();
+        return;
+      }
+
       const result = await saveOnboardingData(data);
       if (result.success && 'profile' in result && result.profile) {
         updateProfile(result.profile as Profile);
@@ -73,10 +88,11 @@ export function CompletionStep() {
         completeOnboarding();
         toast.success('Welcome to Quiver!');
 
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('onboarding_completed'));
-        }, 500);
+        // Notify profile context so it can refresh quickly.
+        window.dispatchEvent(new CustomEvent('onboarding_completed'));
 
+        // Deterministic destination: dashboard Forecast tab.
+        router.push('/?tab=forecast');
         router.refresh();
       } else if (!result.success) {
         const errorMessage = 'error' in result ? result.error : 'Failed to save your preferences. Please try again.';

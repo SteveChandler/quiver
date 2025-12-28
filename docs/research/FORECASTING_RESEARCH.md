@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This research identifies opportunities to improve Quiver's surf forecast accuracy by **8–25% RMSE reduction** through formal data assimilation, nearshore physics modeling, enhanced wind forcing, and ML bias correction. While technically sound, these improvements are **deferred** in favor of growth-first priorities (social sharing, community features, viral mechanics) per the product strategy outlined in `ARCHITECTURE_REVIEW.md`.
+This research identifies opportunities to improve Quiver's surf forecast accuracy by **8–25% RMSE reduction** through formal data assimilation, nearshore physics modeling, enhanced wind forcing, and ML bias correction. While technically sound, these improvements are **deferred** in favor of growth-first priorities (social sharing, community features, viral mechanics) per the product strategy outlined in `docs/ARCHITECTURE.md`.
 
 **Current Priority**: Acquire 1,000+ users through viral features
 **Future Priority**: Implement forecast improvements to enhance retention and differentiation
@@ -227,7 +227,7 @@ Instead of full data assimilation, Quiver implemented **forecast transparency an
 
 ## Related Documents
 
-- `ARCHITECTURE_REVIEW.md` - Strategic priorities and growth roadmap
+- `docs/ARCHITECTURE.md` - Strategic priorities and growth roadmap
 - `CLAUDE.md` - Development patterns and workflows
 - `types/forecast.ts` - Current forecast type definitions
 - `lib/utils/forecast-service-utils.ts` - Forecast service layer

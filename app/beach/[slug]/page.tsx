@@ -9,7 +9,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "./beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
 const baseUrl =
@@ -37,18 +37,7 @@ export default async function BeachDetailBySlugPage({
     }
 
     if (!beach) {
-      return (
-        <div className="flex flex-col min-h-screen">
-          <main className="flex-1 container mx-auto px-4 py-6">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
-              <p className="text-muted-foreground">
-                We couldn&apos;t find this beach in our directory.
-              </p>
-            </div>
-          </main>
-        </div>
-      );
+      notFound();
     }
 
     // Redirect to hierarchical URL format if beach has the required data
@@ -92,6 +81,18 @@ export default async function BeachDetailBySlugPage({
       </>
     );
   } catch (error) {
+    // Ensure Next.js router signals are not swallowed by this page-level try/catch.
+    // `notFound()` and `redirect()` throw special errors with a `digest` marker.
+    if (error && typeof error === "object" && "digest" in error) {
+      const digest = (error as { digest?: unknown }).digest;
+      if (
+        digest === "NEXT_NOT_FOUND" ||
+        (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
+      ) {
+        throw error;
+      }
+    }
+
     console.error("Error fetching beach:", error);
     return (
       <div className="flex flex-col min-h-screen">

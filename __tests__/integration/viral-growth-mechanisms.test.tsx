@@ -17,7 +17,12 @@ jest.mock("@/lib/supabase/server");
 jest.mock("@/actions/social-actions");
 jest.mock("@/lib/mailer/sessionInviteEmail");
 jest.mock("@/lib/notifications");
-jest.mock("@/lib/api-response-utils");
+jest.mock("@/lib/api-utils", () => ({
+  createSuccessResponse: jest.fn((data: any) => NextResponse.json({ success: true, data })),
+  createErrorResponse: jest.fn((error: string, details?: any, status = 500) =>
+    NextResponse.json({ success: false, error, details }, { status })
+  ),
+}));
 
 // Mock crypto for idempotency keys
 jest.mock("crypto", () => ({
@@ -86,7 +91,7 @@ describe("Viral Growth Mechanisms", () => {
     const {
       createSuccessResponse,
       createErrorResponse,
-    } = require("@/lib/api-response-utils");
+    } = require("@/lib/api-utils");
     createSuccessResponse.mockImplementation((data: any) =>
       NextResponse.json({ success: true, data })
     );

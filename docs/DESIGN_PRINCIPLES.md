@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
 - No surprises in components: Keep business logic and complex async work out of render paths. Put data/state in hooks or `lib/services/*`. Follow `components/ARCHITECTURE.md` and `hooks/ARCHITECTURE.md`.
 
-References: `ARCHITECTURE.md`, `hooks/ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`
+References: `ARCHITECTURE.md`, `hooks/ARCHITECTURE.md`, `docs/ARCHITECTURE.md`
 
 ---
 
@@ -43,7 +43,7 @@ References: `ARCHITECTURE.md`, `hooks/ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIE
 - Small, focused modules: Break large features into cohesive components/hooks. The landing page refactor split a monolith into smaller sections and removed 400+ duplicate lines.
 - Shared utilities: Place common code in `lib/*` and follow `lib/ARCHITECTURE.md` patterns.
 
-References: `components/ARCHITECTURE.md`, `docs/STYLE_GUIDE.md` (DRY patterns section), `docs/ARCHITECTURE_REVIEW.md`
+References: `components/ARCHITECTURE.md`, `docs/STYLE_GUIDE.md` (DRY patterns section), `docs/ARCHITECTURE.md`
 
 ---
 
@@ -53,7 +53,7 @@ References: `components/ARCHITECTURE.md`, `docs/STYLE_GUIDE.md` (DRY patterns se
 - Optimized queries: Add indexes for frequent predicates; structure RLS and queries to avoid planner overhead (e.g., wrap `auth.*` calls in `SELECT`).
 - Fail-fast on stale data: Never serve known-stale data; fail and prompt refresh.
 
-References: `supabase/ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`, `ARCHITECTURE.md`
+References: `supabase/ARCHITECTURE.md`, `docs/ARCHITECTURE.md`, `ARCHITECTURE.md`
 
 ---
 
@@ -73,7 +73,7 @@ References: `lib/ARCHITECTURE.md`, `lib/auth/ARCHITECTURE.md`, `supabase/ARCHITE
 - Confidence indicators: Display confidence scores/ranges with clear visual cues.
 - Consistent context: Snapshot forecast/conditions for plan/log sessions.
 
-References: `components/forecast/ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`, `ARCHITECTURE.md`
+References: `components/forecast/ARCHITECTURE.md`, `docs/ARCHITECTURE.md`, `ARCHITECTURE.md`
 
 ---
 
@@ -111,7 +111,7 @@ References: `docs/PERSONALIZATION_STRATEGY.md`, `lib/services/preference-learnin
 - Reliability: Prefer `waitForLoadState("load")`, realistic performance thresholds, and flexible API status ranges where appropriate.
 - Coverage: Extensive suite covering realtime behavior and cleanup; CI requires green runs.
 
-References: `test-utils/ARCHITECTURE.md`, `e2e/ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`
+References: `test-utils/ARCHITECTURE.md`, `e2e/ARCHITECTURE.md`, `docs/ARCHITECTURE.md`
 
 ---
 
@@ -131,7 +131,7 @@ Further reading: [Playwright MCP Server is here](https://hackernoon.com/playwrig
 - Viral mechanics: Referrals, challenges, leaderboards; prioritize network effects.
 - Community & collaboration: Crews/buddies, session invitations, collaborative planning.
 
-References: `ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`
+References: `ARCHITECTURE.md`, `docs/ARCHITECTURE.md`
 
 ---
 
@@ -176,14 +176,14 @@ References: `ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`
 - Changelog discipline: Update `CHANGELOG.md` for all notable changes.
 - Quality gates: Planning → approval → implementation using established patterns → tests green → docs updated.
 
-References: `ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`
+References: `ARCHITECTURE.md`, `docs/ARCHITECTURE.md`
 
 ---
 
 ## Quick Links
 
 - Overview: `ARCHITECTURE.md`
-- System review: `docs/ARCHITECTURE_REVIEW.md`
+- System review: `docs/ARCHITECTURE.md`
 - Agents & MCP: `docs/CURSOR_AGENTS.md`
 - DRY components: `docs/STYLE_GUIDE.md` (DRY Component Patterns section)
 - Database & RLS: `supabase/ARCHITECTURE.md`
