@@ -138,4 +138,58 @@ describe('Forecast Health Check', () => {
     expect(tideLatestMock).toHaveBeenCalledTimes(1);
     expect(sunLatestMock).toHaveBeenCalledTimes(1);
   });
+
+  it('does not mark overall status as critical when only marine/tide are critical', async () => {
+    const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
+    const sevenHoursAgo = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    const threeDaysAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+
+    // Enhanced is fresh
+    enhancedLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
+        { beach_id: 'beach-2', updated_at: nowIso, data_source: 'CDIP' },
+        { beach_id: 'beach-3', updated_at: nowIso, data_source: 'NOAA_NWS' },
+      ],
+      error: null,
+    });
+
+    // Marine is critical-stale (>6h)
+    marineLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', created_at: sevenHoursAgo, ts: sevenHoursAgo, source: 'ndbc', is_observed: true },
+        { beach_id: 'beach-2', created_at: sevenHoursAgo, ts: sevenHoursAgo, source: 'cdip', is_observed: true },
+        { beach_id: 'beach-3', created_at: sevenHoursAgo, ts: sevenHoursAgo, source: 'cdip_persistence', is_observed: false },
+      ],
+      error: null,
+    });
+
+    // Tide is critical-stale (>48h)
+    tideLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', created_at: threeDaysAgo, ts: threeDaysAgo, source: 'noaa' },
+        { beach_id: 'beach-2', created_at: threeDaysAgo, ts: threeDaysAgo, source: 'noaa' },
+        { beach_id: 'beach-3', created_at: threeDaysAgo, ts: threeDaysAgo, source: 'noaa' },
+      ],
+      error: null,
+    });
+
+    // Sun is fresh
+    sunLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+        { beach_id: 'beach-2', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+        { beach_id: 'beach-3', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+      ],
+      error: null,
+    });
+
+    const metrics = await checkForecastHealth();
+
+    // Enhanced is healthy, so overall should be degraded (not critical) even though marine/tide are critical.
+    expect(metrics.sources.enhanced.beachesWithCriticalStaleData).toBe(0);
+    expect(metrics.sources.marine.beachesWithCriticalStaleData).toBe(3);
+    expect(metrics.sources.tide.beachesWithCriticalStaleData).toBe(3);
+    expect(metrics.healthStatus).toBe('degraded');
+  });
 });

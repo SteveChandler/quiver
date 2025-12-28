@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { DEFAULT_SECURITY_HEADERS, handleApiError } from "@/lib/api-utils";
 
 export async function GET() {
   try {
@@ -30,26 +31,30 @@ export async function GET() {
       error,
     } = await supabase.auth.getUser();
 
-    if (error) {
-      console.error("Error checking session:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // If there's no valid user, treat as unauthenticated (NOT a server error).
+    // This is intentionally 401 so callers/tests can rely on status codes.
+    if (!user || error) {
+      return NextResponse.json(
+        {
+          hasSession: false,
+          sessionData: null,
+        },
+        { status: 401, headers: DEFAULT_SECURITY_HEADERS }
+      );
     }
 
-    return NextResponse.json({
-      hasSession: !!user,
-      sessionData: user
-        ? {
-            userId: user.id,
-            email: user.email,
-            // Don't include sensitive data
-          }
-        : null,
-    });
-  } catch (error) {
-    console.error("Unexpected error checking session:", error);
     return NextResponse.json(
-      { error: "Failed to check session" },
-      { status: 500 }
+      {
+        hasSession: true,
+        sessionData: {
+          userId: user.id,
+          email: user.email,
+          // Don't include sensitive data
+        },
+      },
+      { status: 200, headers: DEFAULT_SECURITY_HEADERS }
     );
+  } catch (error) {
+    return handleApiError(error, "Failed to check session");
   }
 }

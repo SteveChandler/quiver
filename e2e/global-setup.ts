@@ -4,7 +4,8 @@ import {
   verifySupabaseAuth,
   waitForAuthCompletion,
   logAuthState,
-  getAuthTokens
+  getAuthTokens,
+  checkServerSession
 } from './utils/auth-helpers';
 
 /**
@@ -79,9 +80,17 @@ async function globalSetup(config: FullConfig) {
       const isAlreadyAuth = await verifySupabaseAuth(page);
 
       if (isAlreadyAuth) {
-        console.log('[Global Setup] ✓ Already authenticated');
-        authenticated = true;
-        break;
+        // Server-validate session. Cookie presence alone can be stale/rotated.
+        const serverCheck = await checkServerSession(page, { baseUrl: baseUrlString });
+        if (serverCheck.hasSession) {
+          console.log('[Global Setup] ✓ Already authenticated (server-validated)');
+          authenticated = true;
+          break;
+        }
+
+        console.log(
+          `[Global Setup] Auth tokens present but server session invalid (status=${serverCheck.status}). Will attempt login.`
+        );
       }
 
       console.log('[Global Setup] Not authenticated, attempting login...');
@@ -130,8 +139,20 @@ async function globalSetup(config: FullConfig) {
       // Wait for authentication to complete
       try {
         await waitForAuthCompletion(page, 15000);
+        // Server-validate session before considering setup successful.
+        const serverCheck = await checkServerSession(page, { baseUrl: baseUrlString });
+        if (!serverCheck.hasSession) {
+          const bodyPreview =
+            serverCheck.body == null
+              ? 'null'
+              : JSON.stringify(serverCheck.body).slice(0, 500);
+          throw new Error(
+            `Server session validation failed after login. status=${serverCheck.status} body=${bodyPreview}`
+          );
+        }
+
         authenticated = true;
-        console.log('[Global Setup] ✓ Authentication successful!');
+        console.log('[Global Setup] ✓ Authentication successful (server-validated)!');
       } catch (error) {
         throw new Error(`Authentication verification failed: ${error}`);
       }

@@ -20,6 +20,19 @@ export interface AuthCheckResult {
   storageCount: number;
 }
 
+export interface ServerSessionCheckResult {
+  ok: boolean;
+  status: number;
+  hasSession: boolean;
+  body: unknown | null;
+}
+
+function isCheckSessionBody(
+  body: unknown
+): body is { hasSession?: boolean } {
+  return typeof body === 'object' && body !== null && 'hasSession' in body;
+}
+
 /**
  * Verify that Supabase authentication tokens exist
  *
@@ -85,6 +98,39 @@ export async function verifySupabaseAuth(page: Page): Promise<boolean> {
   // Return true if cookies are present (reliable cross-domain method)
   // OR if localStorage indicates auth (works on localhost)
   return result.hasAuthCookie || result.hasAuthStorage;
+}
+
+/**
+ * Server-validated session check (authoritative).
+ *
+ * This calls our Next.js API route which validates the current cookies against
+ * Supabase Auth via `supabase.auth.getUser()`. This catches stale/rotated tokens
+ * that may still exist in cookies but are no longer accepted by Supabase/middleware.
+ */
+export async function checkServerSession(
+  page: Page,
+  options: { baseUrl?: string } = {}
+): Promise<ServerSessionCheckResult> {
+  const baseUrl = options.baseUrl?.replace(/\/$/, '');
+  const url = baseUrl ? `${baseUrl}/api/auth/check-session` : '/api/auth/check-session';
+
+  const response = await page.request.get(url);
+
+  let body: unknown | null = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  const hasSession = response.ok() && isCheckSessionBody(body) && body.hasSession === true;
+
+  return {
+    ok: response.ok(),
+    status: response.status(),
+    hasSession,
+    body,
+  };
 }
 
 /**
@@ -280,6 +326,20 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
       'Test requires authentication but user is not authenticated. ' +
       'The auth state may be invalid or expired. ' +
       'Run: npm run test:e2e:auth:reset && npm run test:e2e:setup'
+    );
+  }
+
+  // Server-validate session (authoritative). Cookie presence alone is not enough.
+  const serverCheck = await checkServerSession(page);
+  if (!serverCheck.hasSession) {
+    const bodyPreview =
+      serverCheck.body == null ? 'null' : JSON.stringify(serverCheck.body).slice(0, 500);
+
+    throw new Error(
+      'Test requires authentication but the server session is invalid (stale/rotated tokens). ' +
+        `check-session status=${serverCheck.status}. ` +
+        `body=${bodyPreview}. ` +
+        'Fix: npm run test:e2e:auth:reset && npm run test:e2e:setup'
     );
   }
 }

@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/context/auth-context";
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
@@ -14,6 +14,7 @@ import { UpgradeSessionSection } from "./upgrade-session-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
+import { toast } from "sonner";
 
 /**
  * AuthAwareLandingWrapper Component
@@ -31,17 +32,38 @@ import { CTASection } from "@/components/landing-page/cta-section";
 export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const signupParam = searchParams.get("signup");
+  const isConfirmEmailSignup = signupParam === "confirm-email";
   const redirectedRef = useRef(false);
+  const didShowSignupToastRef = useRef(false);
 
   // Redirect to sign-in in standalone/PWA mode immediately (don't wait for auth)
   useEffect(() => {
     if (redirectedRef.current) return;
     if (!isStandaloneApp()) return;
+    // Allow users who just signed up to see the confirmation message.
+    if (isConfirmEmailSignup) return;
     if (user) return; // Already logged in, no redirect needed
 
     redirectedRef.current = true;
     router.replace("/auth/sign-in");
-  }, [user, router]);
+  }, [user, router, isConfirmEmailSignup]);
+
+  // Show post-signup confirm-email toast on landing, then clean the URL.
+  useEffect(() => {
+    if (!isConfirmEmailSignup) return;
+    if (didShowSignupToastRef.current) return;
+
+    didShowSignupToastRef.current = true;
+    toast.success("Confirm your signup in your email", {
+      description:
+        "We sent you a confirmation link. Open your inbox to finish creating your account.",
+    });
+
+    // Remove the query param so refreshes don't re-toast.
+    router.replace("/");
+  }, [isConfirmEmailSignup, router]);
 
   // Initialize performance monitoring
   useEffect(() => {
@@ -70,7 +92,7 @@ export function AuthAwareLandingWrapper() {
   }, [user]);
 
   // Show loading state while checking authentication
-  if (isLoading) {
+  if (isLoading && !(isConfirmEmailSignup && !user)) {
     return AuthLoadingStates.checking();
   }
 

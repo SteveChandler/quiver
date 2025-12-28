@@ -16,6 +16,29 @@ import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-fore
 import SunCalc from "suncalc";
 
 export const revalidate = 0;
+// Vercel cron functions have a 5 minute hard limit
+export const maxDuration = 300;
+
+const MAX_DURATION_SECONDS = 300;
+const DEFAULT_SAFETY_MARGIN_MS = 20_000;
+
+function getCronDeadlineMs(): { deadlineMs: number; timeBudgetMs: number; safetyMarginMs: number } {
+  const hardLimitMs = MAX_DURATION_SECONDS * 1000;
+  const safetyMarginMs = Number(process.env.FORECAST_CRON_SAFETY_MARGIN_MS ?? DEFAULT_SAFETY_MARGIN_MS);
+  const overrideBudgetMsRaw = process.env.FORECAST_CRON_TIME_BUDGET_MS;
+  const overrideBudgetMs =
+    overrideBudgetMsRaw != null && overrideBudgetMsRaw.trim() !== ""
+      ? Number(overrideBudgetMsRaw)
+      : null;
+
+  const computedBudgetMs = hardLimitMs - safetyMarginMs;
+  const requestedBudgetMs =
+    overrideBudgetMs != null && Number.isFinite(overrideBudgetMs) ? overrideBudgetMs : computedBudgetMs;
+
+  // Never exceed the hard limit; also never go negative.
+  const timeBudgetMs = Math.max(0, Math.min(hardLimitMs, requestedBudgetMs));
+  return { deadlineMs: Date.now() + timeBudgetMs, timeBudgetMs, safetyMarginMs };
+}
 
 type BeachRow = { id: string; name: string; lat: number; lon: number };
 type TideStationMeta = { id: string; name: string; lat: number; lon: number };
@@ -52,6 +75,12 @@ export async function GET(request: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
+    const hasDeadline = typeof deadlineMs === "number" && Number.isFinite(deadlineMs);
+    const msRemaining = () =>
+      hasDeadline ? (deadlineMs as number) - Date.now() : Number.POSITIVE_INFINITY;
+    const shouldStop = () => hasDeadline && msRemaining() <= 0;
+
     // Use service role to bypass RLS for scheduled upserts
     const supabase = createSupabaseServiceRoleClient();
     console.log("[Forecast Refresh] Starting", {
@@ -59,10 +88,30 @@ export async function GET(request: Request) {
       triggeredBy: request.headers.get("user-agent"),
       environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
       supabaseProjectRef: getSupabaseProjectRef(),
+      timeBudgetMs,
+      safetyMarginMs,
+      deadlineMs,
     });
     const url = new URL(request.url);
     const onlyBeachId = url.searchParams.get("beachId");
     const tidesBackfillMissing = url.searchParams.get("tidesBackfillMissing") === "1";
+    const sourceParam = (url.searchParams.get("source") ?? "all").toLowerCase();
+    const maxBeachesParam = url.searchParams.get("maxBeaches");
+
+    type RefreshSource = "all" | "marine" | "tide" | "sun";
+    const source: RefreshSource =
+      sourceParam === "marine" || sourceParam === "tide" || sourceParam === "sun" || sourceParam === "all"
+        ? (sourceParam as RefreshSource)
+        : "all";
+
+    const parsedMaxBeaches =
+      maxBeachesParam != null && maxBeachesParam.trim() !== ""
+        ? Number.parseInt(maxBeachesParam, 10)
+        : null;
+    const maxBeaches =
+      parsedMaxBeaches != null && Number.isFinite(parsedMaxBeaches) && parsedMaxBeaches > 0
+        ? parsedMaxBeaches
+        : Number(process.env.FORECAST_REFRESH_MAX_BEACHES ?? 0) || null;
 
     let query = supabase.from("beaches").select(
       tidesBackfillMissing
@@ -118,197 +167,323 @@ export async function GET(request: Request) {
     // to keep the operation fast and focused.
     const shouldRunNonTideIngest = !tidesBackfillMissing;
 
+    const runMarine = shouldRunNonTideIngest && (source === "all" || source === "marine");
+    const runSun = shouldRunNonTideIngest && (source === "all" || source === "sun");
+    const runTide = source === "all" || source === "tide" || tidesBackfillMissing;
+
+    // Select stale beaches for each source to keep each cron run bounded and predictable.
+    const nowMs = Date.now();
+    const MARINE_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_MARINE_FRESHNESS_WINDOW_HOURS ?? 3);
+    const TIDE_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_TIDE_FRESHNESS_WINDOW_HOURS ?? 24);
+    const SUN_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_SUN_FRESHNESS_WINDOW_HOURS ?? 168);
+
+    const selectStaleBeaches = async (args: {
+      view: "v_marine_forecast_latest" | "v_tide_forecast_latest" | "v_sun_times_latest";
+      tsField: "created_at";
+      windowHours: number;
+      beaches: BeachRow[];
+      maxBeaches: number;
+    }): Promise<BeachRow[]> => {
+      const staleThresholdMs = nowMs - args.windowHours * 60 * 60 * 1000;
+      const latestByBeachMs = new Map<string, number>();
+
+      const { data, error } = await supabase
+        .from(args.view)
+        .select(`beach_id, ${args.tsField}`);
+      if (error) throw error;
+
+      for (const row of (data ?? []) as any[]) {
+        const beachId = row?.beach_id as string | undefined;
+        const ts = row?.[args.tsField] as string | undefined;
+        if (!beachId || !ts) continue;
+        const ms = new Date(ts).getTime();
+        if (!Number.isFinite(ms)) continue;
+        latestByBeachMs.set(beachId, ms);
+      }
+
+      const missing = args.beaches.filter((b) => !latestByBeachMs.has(b.id));
+      const stale = args.beaches
+        .filter((b) => {
+          const ms = latestByBeachMs.get(b.id);
+          return Boolean(ms && ms < staleThresholdMs);
+        })
+        .sort((a, b) => (latestByBeachMs.get(a.id) ?? 0) - (latestByBeachMs.get(b.id) ?? 0));
+
+      const selected = [...missing, ...stale].slice(0, args.maxBeaches);
+      return selected;
+    };
+
+    const effectiveMaxBeaches =
+      maxBeaches != null
+        ? maxBeaches
+        : source === "tide"
+          ? 60
+          : source === "marine"
+            ? 60
+            : source === "sun"
+              ? 261
+              : 60;
+
+    const selectedMarineBeaches = runMarine
+      ? await selectStaleBeaches({
+          view: "v_marine_forecast_latest",
+          tsField: "created_at",
+          windowHours: MARINE_FRESHNESS_WINDOW_HOURS,
+          beaches: allBeaches,
+          maxBeaches: Math.min(effectiveMaxBeaches, allBeaches.length),
+        })
+      : [];
+
+    const selectedSunBeaches = runSun
+      ? await selectStaleBeaches({
+          view: "v_sun_times_latest",
+          tsField: "created_at",
+          windowHours: SUN_FRESHNESS_WINDOW_HOURS,
+          beaches: allBeaches,
+          maxBeaches: Math.min(effectiveMaxBeaches, allBeaches.length),
+        })
+      : [];
+
+    const selectedTideBeaches =
+      runTide && !tidesBackfillMissing
+        ? await selectStaleBeaches({
+            view: "v_tide_forecast_latest",
+            tsField: "created_at",
+            windowHours: TIDE_FRESHNESS_WINDOW_HOURS,
+            beaches: targetBeachesForTides,
+            maxBeaches: Math.min(effectiveMaxBeaches, targetBeachesForTides.length),
+          })
+        : targetBeachesForTides;
+
     if (shouldRunNonTideIngest) {
-      for (const b of allBeaches) {
-      // Marine from NDBC/CDIP
-      try {
-        const marineRows: any[] = [];
-        const ndbc = await getNearestNDBCStation(b.lat, b.lon);
-        if (ndbc) {
-          console.log("NDBC nearest station", {
-            beach: b.name,
-            beachId: b.id,
-            stationId: ndbc.id,
-            stationLat: ndbc.lat,
-            stationLon: ndbc.lon,
-          });
-          const obs = await fetchLatestNDBCObservation(ndbc.id);
-          if (obs) {
-            marineRows.push({
-              beach_id: b.id,
-              ts: obs.ts,
-              created_at: refreshedAt,
-              wave_height_m: obs.wave_height_m,
-              wave_period_s: obs.wave_period_s,
-              wave_direction_deg: obs.wave_direction_deg,
-              wind_speed_ms: obs.wind_speed_ms,
-              wind_direction_deg: obs.wind_direction_deg,
-              source: "ndbc",
-              is_observed: true,
-            });
-          } else {
-            console.info("NDBC latest observation not available", {
-              beach: b.name,
-              beachId: b.id,
-              stationId: ndbc.id,
-            });
-          }
-        }
-        if (!marineRows.length) {
-          const station = await cdip.getNearestStation(
-            b.lat,
-            b.lon,
-            80
-          );
-          if (station) {
-            const buoy = await cdip.fetchBuoyData(station);
-            const points = buoy?.data || [];
-            if (points.length > 0) {
-              // Upsert up to last 24 hours of observations to increase coverage
-              const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
-              for (const p of points) {
-                const ts = new Date(p.timestamp).toISOString();
-                if (new Date(ts).getTime() < cutoffMs) continue;
-                marineRows.push({
-                  beach_id: b.id,
-                  ts,
-                  created_at: refreshedAt,
-                  wave_height_m: p.significantWaveHeight
-                    ? p.significantWaveHeight * 0.3048
-                    : null,
-                  wave_period_s: p.peakWavePeriod ?? null,
-                  wave_direction_deg: p.peakWaveDirection ?? null,
-                  wind_speed_ms: null,
-                  wind_direction_deg: null,
-                  source: "cdip",
-                  is_observed: true,
-                });
-              }
-            } else {
-              console.warn("CDIP returned no recent data", {
-                beach: b.name,
-                beachId: b.id,
-                station,
-              });
-            }
-          }
-        }
-        if (marineRows.length) {
-          const { error } = await supabase
-            .from("marine_forecasts")
-            .upsert(marineRows, { onConflict: "beach_id,ts,source" });
-          if (!error) totals.marine += marineRows.length;
-        }
+      const BATCH_SIZE = Number(process.env.FORECAST_REFRESH_BATCH_SIZE ?? process.env.FORECAST_BATCH_SIZE ?? 3);
+      const BATCH_DELAY_MS = Number(process.env.FORECAST_REFRESH_BATCH_DELAY_MS ?? process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
 
-        // Short-horizon persistence projection (no Open-Meteo). Carry forward latest observed
-        try {
-          const latestObserved = await supabase
-            .from("marine_forecasts")
-            .select(
-              "ts,wave_height_m,wave_period_s,wave_direction_deg,source,is_observed"
-            )
-            .eq("beach_id", b.id)
-            .eq("is_observed", true)
-            .in("source", ["cdip", "ndbc"])
-            .order("ts", { ascending: false })
-            .limit(1)
-            .single();
-
-          const base = latestObserved.data as any | null;
-          if (base && base.ts && (base.wave_height_m || base.wave_period_s || base.wave_direction_deg)) {
-            const horizonHours = 12;
-            const start = new Date();
-            const roundedStart = new Date(Math.ceil(start.getTime() / 3600000) * 3600000);
-            const projections: any[] = [];
-            for (let h = 0; h <= horizonHours; h++) {
-              const t = new Date(roundedStart.getTime() + h * 3600000);
-              projections.push({
-                beach_id: b.id,
-                ts: t.toISOString(),
-                created_at: refreshedAt,
-                wave_height_m: base.wave_height_m ?? null,
-                wave_period_s: base.wave_period_s ?? null,
-                wave_direction_deg: base.wave_direction_deg ?? null,
-                wind_speed_ms: null,
-                wind_direction_deg: null,
-                source: base.source === "ndbc" ? "ndbc_persistence" : "cdip_persistence",
-                is_observed: false,
-              });
-            }
-
-            if (projections.length) {
-              const { error: pErr } = await supabase
-                .from("marine_forecasts")
-                .upsert(projections, { onConflict: "beach_id,ts,source" });
-              if (!pErr) totals.marine += projections.length;
-            }
-          }
-        } catch (projErr) {
-          console.warn("marine persistence projection failed", b.name, projErr);
-        }
-      } catch (e) {
-        console.warn("marine ingest error", b.name, e);
-      }
-
-      // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows)
-      try {
-        const windowStart = new Date(Date.now() - 6 * 60 * 60 * 1000);
-        const windowEnd = new Date(Date.now() + 36 * 60 * 60 * 1000);
-        const windPoints = await nwsWind.fetchHourlyWindPoints({
-          lat: b.lat,
-          lon: b.lon,
-          start: windowStart,
-          end: windowEnd,
+      if (runMarine) {
+        console.log("[Forecast Refresh] Marine selection", {
+          selected: selectedMarineBeaches.length,
+          windowHours: MARINE_FRESHNESS_WINDOW_HOURS,
+          maxBeaches: Math.min(effectiveMaxBeaches, allBeaches.length),
         });
-
-        if (windPoints.length) {
-          const windRows = windPoints.map((p) => ({
-            beach_id: b.id,
-            ts: p.ts,
-            created_at: refreshedAt,
-            wind_speed_ms: p.wind_speed_ms,
-            wind_direction_deg: p.wind_direction_deg,
-            wave_height_m: null,
-            wave_period_s: null,
-            wave_direction_deg: null,
-            source: "nws_wind",
-            is_observed: false,
-          }));
-
-          const { error } = await supabase
-            .from("marine_forecasts")
-            .upsert(windRows, { onConflict: "beach_id,ts,source" });
-
-          if (!error) totals.marine += windRows.length;
-        }
-      } catch (e) {
-        console.warn("nws wind ingest error", b.name, e);
+      }
+      if (runSun) {
+        console.log("[Forecast Refresh] Sun selection", {
+          selected: selectedSunBeaches.length,
+          windowHours: SUN_FRESHNESS_WINDOW_HOURS,
+          maxBeaches: Math.min(effectiveMaxBeaches, allBeaches.length),
+        });
       }
 
-      // Sun times computed locally
-      try {
-        const today = new Date();
-        for (let i = 0; i < 5; i++) {
-          const d = new Date(today);
-          d.setDate(today.getDate() + i);
-          const times = SunCalc.getTimes(d, b.lat, b.lon);
-          const row = {
-            beach_id: b.id,
-            date: d.toISOString().split("T")[0],
-            sunrise_utc: times.sunrise?.toISOString() ?? null,
-            sunset_utc: times.sunset?.toISOString() ?? null,
-            source: "computed",
-            created_at: refreshedAt,
-          } as any;
-          const { error } = await supabase
-            .from("sun_times")
-            .upsert([row], { onConflict: "beach_id,date,source" });
-          if (!error) totals.sun += 1;
+      const batches = chunkArray(
+        // If both marine + sun are requested, run marine selection set (it’s likely superset during recovery).
+        runMarine ? selectedMarineBeaches : selectedSunBeaches,
+        BATCH_SIZE
+      );
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        if (shouldStop()) {
+          console.warn("[Forecast Refresh] Stopping early due to time budget", {
+            batchIndex,
+            totalBatches: batches.length,
+            remainingMs: msRemaining(),
+          });
+          break;
         }
-      } catch (e) {
-        console.warn("sun ingest error", b.name, e);
+
+        const batch = batches[batchIndex] ?? [];
+        const results = await Promise.allSettled(
+          batch.map(async (b) => {
+            let addedMarine = 0;
+            let addedSun = 0;
+
+            if (runMarine) {
+              // Marine from NDBC/CDIP
+              try {
+                const marineRows: any[] = [];
+                const ndbc = await getNearestNDBCStation(b.lat, b.lon);
+                if (ndbc) {
+                  const obs = await fetchLatestNDBCObservation(ndbc.id);
+                  if (obs) {
+                    marineRows.push({
+                      beach_id: b.id,
+                      ts: obs.ts,
+                      created_at: refreshedAt,
+                      wave_height_m: obs.wave_height_m,
+                      wave_period_s: obs.wave_period_s,
+                      wave_direction_deg: obs.wave_direction_deg,
+                      wind_speed_ms: obs.wind_speed_ms,
+                      wind_direction_deg: obs.wind_direction_deg,
+                      source: "ndbc",
+                      is_observed: true,
+                    });
+                  }
+                }
+                if (!marineRows.length) {
+                  const station = await cdip.getNearestStation(b.lat, b.lon, 80);
+                  if (station) {
+                    const buoy = await cdip.fetchBuoyData(station);
+                    const points = buoy?.data || [];
+                    if (points.length > 0) {
+                      // Upsert up to last 24 hours of observations to increase coverage
+                      const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+                      for (const p of points) {
+                        const ts = new Date(p.timestamp).toISOString();
+                        if (new Date(ts).getTime() < cutoffMs) continue;
+                        marineRows.push({
+                          beach_id: b.id,
+                          ts,
+                          created_at: refreshedAt,
+                          wave_height_m: p.significantWaveHeight ? p.significantWaveHeight * 0.3048 : null,
+                          wave_period_s: p.peakWavePeriod ?? null,
+                          wave_direction_deg: p.peakWaveDirection ?? null,
+                          wind_speed_ms: null,
+                          wind_direction_deg: null,
+                          source: "cdip",
+                          is_observed: true,
+                        });
+                      }
+                    }
+                  }
+                }
+                if (marineRows.length) {
+                  const { error } = await supabase
+                    .from("marine_forecasts")
+                    .upsert(marineRows, { onConflict: "beach_id,ts,source" });
+                  if (!error) addedMarine += marineRows.length;
+                }
+
+                // Short-horizon persistence projection (no Open-Meteo). Carry forward latest observed
+                try {
+                  const latestObserved = await supabase
+                    .from("marine_forecasts")
+                    .select("ts,wave_height_m,wave_period_s,wave_direction_deg,source,is_observed")
+                    .eq("beach_id", b.id)
+                    .eq("is_observed", true)
+                    .in("source", ["cdip", "ndbc"])
+                    .order("ts", { ascending: false })
+                    .limit(1)
+                    .single();
+
+                  const base = latestObserved.data as any | null;
+                  if (base && base.ts && (base.wave_height_m || base.wave_period_s || base.wave_direction_deg)) {
+                    const horizonHours = 12;
+                    const start = new Date();
+                    const roundedStart = new Date(Math.ceil(start.getTime() / 3600000) * 3600000);
+                    const projections: any[] = [];
+                    for (let h = 0; h <= horizonHours; h++) {
+                      const t = new Date(roundedStart.getTime() + h * 3600000);
+                      projections.push({
+                        beach_id: b.id,
+                        ts: t.toISOString(),
+                        created_at: refreshedAt,
+                        wave_height_m: base.wave_height_m ?? null,
+                        wave_period_s: base.wave_period_s ?? null,
+                        wave_direction_deg: base.wave_direction_deg ?? null,
+                        wind_speed_ms: null,
+                        wind_direction_deg: null,
+                        source: base.source === "ndbc" ? "ndbc_persistence" : "cdip_persistence",
+                        is_observed: false,
+                      });
+                    }
+
+                    if (projections.length) {
+                      const { error: pErr } = await supabase
+                        .from("marine_forecasts")
+                        .upsert(projections, { onConflict: "beach_id,ts,source" });
+                      if (!pErr) addedMarine += projections.length;
+                    }
+                  }
+                } catch (projErr) {
+                  console.warn("marine persistence projection failed", b.name, projErr);
+                }
+              } catch (e) {
+                console.warn("marine ingest error", b.name, e);
+              }
+
+              // Wind-only hourly rows from NOAA/NWS (fill missing wind for scoring; do not overwrite wave rows)
+              try {
+                const windowStart = new Date(Date.now() - 6 * 60 * 60 * 1000);
+                const windowEnd = new Date(Date.now() + 36 * 60 * 60 * 1000);
+                const windPoints = await nwsWind.fetchHourlyWindPoints({
+                  lat: b.lat,
+                  lon: b.lon,
+                  start: windowStart,
+                  end: windowEnd,
+                });
+
+                if (windPoints.length) {
+                  const windRows = windPoints.map((p) => ({
+                    beach_id: b.id,
+                    ts: p.ts,
+                    created_at: refreshedAt,
+                    wind_speed_ms: p.wind_speed_ms,
+                    wind_direction_deg: p.wind_direction_deg,
+                    wave_height_m: null,
+                    wave_period_s: null,
+                    wave_direction_deg: null,
+                    source: "nws_wind",
+                    is_observed: false,
+                  }));
+
+                  const { error } = await supabase
+                    .from("marine_forecasts")
+                    .upsert(windRows, { onConflict: "beach_id,ts,source" });
+
+                  if (!error) addedMarine += windRows.length;
+                }
+              } catch (e) {
+                console.warn("nws wind ingest error", b.name, e);
+              }
+            }
+
+            if (runSun) {
+              // Sun times computed locally
+              try {
+                const today = new Date();
+                for (let i = 0; i < 5; i++) {
+                  const d = new Date(today);
+                  d.setDate(today.getDate() + i);
+                  const times = SunCalc.getTimes(d, b.lat, b.lon);
+                  const row = {
+                    beach_id: b.id,
+                    date: d.toISOString().split("T")[0],
+                    sunrise_utc: times.sunrise?.toISOString() ?? null,
+                    sunset_utc: times.sunset?.toISOString() ?? null,
+                    source: "computed",
+                    created_at: refreshedAt,
+                  } as any;
+                  const { error } = await supabase
+                    .from("sun_times")
+                    .upsert([row], { onConflict: "beach_id,date,source" });
+                  if (!error) addedSun += 1;
+                }
+              } catch (e) {
+                console.warn("sun ingest error", b.name, e);
+              }
+            }
+
+            return { addedMarine, addedSun };
+          })
+        );
+
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            totals.marine += r.value.addedMarine;
+            totals.sun += r.value.addedSun;
+          }
+        }
+
+        if (batchIndex < batches.length - 1) {
+          if (hasDeadline && msRemaining() <= BATCH_DELAY_MS) {
+            console.warn("[Forecast Refresh] Skipping batch delay and stopping early due to time budget", {
+              batchIndex,
+              remainingMs: msRemaining(),
+            });
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        }
       }
-    }
     }
 
     // Tides from NOAA T&C hourly (station-grouped; with CO-OPS hilo fallback -> interpolated hourly)
@@ -323,7 +498,23 @@ export async function GET(request: Request) {
       const stationGroups = new Map<string, { station: TideStationMeta; beaches: BeachRow[] }>();
       const coops = new NOAACOOPSService();
 
-      for (const b of targetBeachesForTides) {
+      if (runTide) {
+        console.log("[Forecast Refresh] Tide selection", {
+          tidesBackfillMissing,
+          selected: selectedTideBeaches.length,
+          windowHours: TIDE_FRESHNESS_WINDOW_HOURS,
+          maxBeaches: Math.min(effectiveMaxBeaches, targetBeachesForTides.length),
+        });
+      }
+
+      for (const b of selectedTideBeaches) {
+        if (!runTide) break;
+        if (shouldStop()) {
+          console.warn("[Forecast Refresh] Stopping early due to time budget (before tide station grouping)", {
+            remainingMs: msRemaining(),
+          });
+          break;
+        }
         const key = `${b.lat},${b.lon}`;
         let st = nearestStationCache.get(key) ?? null;
         if (!nearestStationCache.has(key)) {
@@ -344,7 +535,7 @@ export async function GET(request: Request) {
         stationCounts.length ? Math.max(...stationCounts) : 0;
       console.log("[Forecast Refresh] Tide station grouping", {
         tidesBackfillMissing,
-        beachesConsidered: targetBeachesForTides.length,
+        beachesConsidered: selectedTideBeaches.length,
         stations: stationGroups.size,
         maxBeachesPerStation,
       });
@@ -436,6 +627,13 @@ export async function GET(request: Request) {
       };
 
       for (const [stationId, group] of stationGroups.entries()) {
+        if (shouldStop()) {
+          console.warn("[Forecast Refresh] Stopping early due to time budget (before tide station fetch)", {
+            stationId,
+            remainingMs: msRemaining(),
+          });
+          break;
+        }
         try {
           const points = await fetchStationTidePoints(stationId);
           if (!points.length) {
@@ -456,6 +654,13 @@ export async function GET(request: Request) {
           });
 
           for (const chunk of chunkArray(rows, 1000)) {
+            if (shouldStop()) {
+              console.warn("[Forecast Refresh] Stopping early due to time budget (before tide upsert)", {
+                stationId,
+                remainingMs: msRemaining(),
+              });
+              break;
+            }
             const { error } = await supabase
               .from("tide_forecasts")
               .upsert(chunk as any[], { onConflict: "beach_id,ts,source" });

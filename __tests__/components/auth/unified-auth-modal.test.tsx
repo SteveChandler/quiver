@@ -244,6 +244,31 @@ describe("UnifiedAuthModal", () => {
         screen.queryByText("Continue with Email Link")
       ).not.toBeInTheDocument();
     });
+
+    it("should switch to signup mode when footer Sign up clicked", () => {
+      render(
+        <UnifiedAuthModal isOpen={true} onClose={mockOnClose} mode="login" />
+      );
+
+      // Footer CTA should offer signup when in login mode
+      expect(
+        screen.getByText("Don't have an account?")
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+
+      // Title/copy should update to signup mode and magic-link option should disappear
+      expect(screen.getByText("Sign Up")).toBeInTheDocument();
+      expect(
+        screen.getByText("Join Quiver to plan sessions and connect with surfers.")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("Continue with Email Link")
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("Already have an account?")
+      ).toBeInTheDocument();
+    });
   });
 
   describe("Google OAuth flow", () => {

@@ -72,7 +72,7 @@ describe("/api/auth/check-session", () => {
       const response = await GET();
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(401);
       expect(data).toEqual({
         hasSession: false,
         sessionData: null,
@@ -89,10 +89,13 @@ describe("/api/auth/check-session", () => {
 
       const response = await GET();
       
-      // According to CLAUDE.md: avoid expecting 500 errors - this should handle gracefully
-      expect(response.status).toBe(500);
+      // Auth failures should not be treated as server errors.
+      expect(response.status).toBe(401);
       const data = await response.json();
-      expect(data.error).toBe("Invalid JWT token");
+      expect(data).toEqual({
+        hasSession: false,
+        sessionData: null,
+      });
     });
 
     it("should not expose sensitive session data", async () => {
