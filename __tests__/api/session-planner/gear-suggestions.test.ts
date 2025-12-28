@@ -22,13 +22,12 @@ interface BoardSuggestion {
   score: number;
 }
 
-// Mock the api-response-utils functions
-jest.mock("@/lib/api-response-utils", () => ({
-  createSuccessResponse: jest.fn((data, message, status = 200) => {
+// Mock the api-utils functions
+jest.mock("@/lib/api-utils", () => ({
+  createSuccessResponse: jest.fn((data, status = 200) => {
     return new Response(JSON.stringify({
       success: true,
       data,
-      message,
       timestamp: new Date().toISOString(),
     }), { status });
   }),

@@ -41,8 +41,8 @@ Day-to-day development references:
 
 System design and technical patterns:
 
-- **[ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)** - Comprehensive system overview, product vision, current status, and growth strategy
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Top-level architecture index with mobile architecture, stack overview, and pattern references
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Top-level architecture index with mobile architecture, stack overview, patterns, and growth strategy
+- **[reports/ARCHITECTURE_REVIEW_2025-12-28.md](reports/ARCHITECTURE_REVIEW_2025-12-28.md)** - Full-repo architecture review report (strengths, risks, recommendations)
 - **[architecture/DESIGN_PRINCIPLES.md](architecture/DESIGN_PRINCIPLES.md)** - Core design philosophy, technical patterns, and motion design system
 - **[architecture/STYLE_GUIDE.md](architecture/STYLE_GUIDE.md)** - Brand identity, UI/UX standards, design tokens, and DRY component patterns
 - **[architecture/MIDDLEWARE.md](architecture/MIDDLEWARE.md)** - Middleware architecture, authentication, and security patterns
@@ -189,7 +189,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - **Run tests** → [quick-start/RUNNING_TESTS.md](quick-start/RUNNING_TESTS.md) or [guides/TESTING_GUIDE.md](guides/TESTING_GUIDE.md)
 - **Fix a problem** → [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
 - **Add a feature** → Check [features/](features/) for existing patterns
-- **Understand the architecture** → [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
+- **Understand the architecture** → [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Follow code standards** → [architecture/STYLE_GUIDE.md](architecture/STYLE_GUIDE.md) and [architecture/DESIGN_PRINCIPLES.md](architecture/DESIGN_PRINCIPLES.md)
 - **Research a topic** → [research/](research/)
 - **Check data schema** → [data/](data/)

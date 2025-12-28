@@ -3589,7 +3589,7 @@ After implementation:
 - [ ] `CHANGELOG.md` — Add Phase 1 completion to `[Unreleased]` section
 - [ ] `README.md` — Update features list (if needed)
 - [ ] `docs/PERSONALIZATION_STRATEGY.md` — Mark Phase 1 as complete
-- [ ] `docs/ARCHITECTURE_REVIEW.md` — Document new services (Phase 2+)
+- [ ] `docs/ARCHITECTURE.md` — Document new services (Phase 2+)
 - [x] `components/forecast/ARCHITECTURE.md` — ✅ Documented BuoyStationLink component
 - [x] `components/forecast/index.ts` — ✅ Added BuoyStationLink exports
 

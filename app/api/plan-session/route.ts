@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Return the created session
-    return createSuccessResponse({ success: true, data: session }, 201);
+    return createSuccessResponse(session, 201);
   } catch (error) {
     console.error("Error in plan-session API:", error);
     return handleApiError(error, "Failed to create planned session");

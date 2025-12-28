@@ -6,7 +6,7 @@ import {
 import {
   createSuccessResponse,
   createErrorResponse,
-} from "@/lib/api-response-utils";
+} from "@/lib/api-utils";
 import {
   createMockRequest,
   createMockPatchRequest,
@@ -80,7 +80,7 @@ jest.mock("@/lib/supabase/server", () => {
       .mockResolvedValue(serviceClient),
   };
 });
-jest.mock("@/lib/api-response-utils", () => ({
+jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data: any) => ({
     json: async () => ({ success: true, data }),
     status: 200,

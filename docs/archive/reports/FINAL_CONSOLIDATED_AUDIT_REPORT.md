@@ -602,7 +602,7 @@ See [PHASE_X_AUDIT_REPORT.md](./PHASE_X_AUDIT_REPORT.md)
 ### Documentation Updates
 
 1. Update `CHANGELOG.md` under `[Unreleased]`
-2. Update `docs/ARCHITECTURE_REVIEW.md` with pattern changes
+2. Update `docs/ARCHITECTURE.md` with pattern changes
 3. Update `.cursorrules` if any patterns changed
 4. Update `docs/reference/CLAUDE.md` if workflows changed
 

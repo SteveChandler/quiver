@@ -5,7 +5,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   validateCronRequest,
-} from '@/lib/api-response-utils';
+} from '@/lib/api-utils';
 
 interface UserPreferenceUpdateResult {
   totalUsers: number;
@@ -102,8 +102,9 @@ export async function POST(request: NextRequest): Promise<Response> {
           skipped: 0,
           duration: `${Date.now() - startTime}ms`,
           failures: [],
+          message: 'No eligible users found for preference updates',
         },
-        'No eligible users found for preference updates'
+        200
       );
     }
 
@@ -198,7 +199,13 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     }
 
-    return createSuccessResponse(results, successMessage);
+    return createSuccessResponse(
+      {
+        ...results,
+        message: successMessage,
+      },
+      200
+    );
   } catch (error) {
     const duration = `${Date.now() - startTime}ms`;
     const errorMessage =

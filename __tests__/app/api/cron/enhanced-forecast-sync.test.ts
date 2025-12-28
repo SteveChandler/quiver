@@ -8,16 +8,16 @@ import { NextRequest } from "next/server";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
 // Mock API response utilities
-jest.mock("@/lib/api-response-utils", () => ({
-  createSuccessResponse: jest.fn((data, message) => ({
+jest.mock("@/lib/api-utils", () => ({
+  createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
         success: true,
         data,
-        message,
         timestamp: new Date().toISOString(),
       })
     ),
+    status,
   })),
   createErrorResponse: jest.fn((error, details, status = 500) => ({
     json: jest.fn(() =>
@@ -108,7 +108,7 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
     });
 
     it("should handle authentication failures", async () => {
-      const { validateCronRequest } = require("@/lib/api-response-utils");
+      const { validateCronRequest } = require("@/lib/api-utils");
       validateCronRequest.mockReturnValueOnce(false);
 
       const request = mockRequest({

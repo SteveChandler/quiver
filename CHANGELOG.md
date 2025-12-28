@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+- **Home page**: Reduced initial JS and improved first paint by dynamically loading the authenticated `HomeScreen` on `/` and avoiding spinner-first rendering for logged-out visitors.
+
 ### Fixed
+
+- **Docs: removed stale `/api/cache/status` + fixed architecture doc pointers** (December 2025)
+  - Removed non-existent `/api/cache/status` documentation from `app/api/ARCHITECTURE.md` and stale `/api/cache` mention from `app/ARCHITECTURE.md`.
+  - Updated repo references from missing `docs/ARCHITECTURE_REVIEW.md` to `docs/ARCHITECTURE.md` (and linked the 2025-12-28 report where appropriate).
+
+- **API: consolidated response helpers onto `lib/api-utils.ts`** (December 2025)
+  - Added `createErrorResponse()` and `validateCronRequest()` to `lib/api-utils.ts` and migrated cron/forecast/session-planner routes off `lib/api-response-utils.ts`.
+  - Deleted `lib/api-response-utils.ts` after migrating all callers and tests.
+
+- **Onboarding: modal close button + completion CTA** (December 2025)
+  - Controlled Radix `Dialog` now correctly closes via `onOpenChange` and persists dismiss state.
+  - Guarded against stale persisted onboarding steps causing the modal to not render.
+  - “View Full Forecast” now reliably routes to `/?tab=forecast`.
+  - Added local, deterministic E2E coverage: `e2e/onboarding-flow.spec.ts` (uses `showOnboarding=1&debugOnboarding=1`).
 
 - **Auth modal: footer “Sign up” now switches into signup mode** (December 2025)
 
@@ -37,6 +54,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated Vercel cron schedules to refresh marine/tide more frequently via source-specific runs.
 
 ### Added
+
+- **Full-repo architecture review report** (December 2025)
+  - Added `docs/reports/ARCHITECTURE_REVIEW_2025-12-28.md` with strengths, risks, and prioritized recommendations.
+
+- **API Architecture Formalization & Documentation** (December 2025)
+  - Created comprehensive `docs/api/openapi.yaml` documenting core resources (Beaches, Sessions, Forecasts, Intel, Recommendations).
+  - Drafted `docs/api/api-guidelines.md` establishing standards for response envelopes, naming conventions, and authentication.
+  - Standardized on `ApiSuccess` and `ApiError` envelopes across REST endpoints.
+  - Aligned JSON key conventions: `snake_case` for database data, `camelCase` for system/envelope fields.
+  - Formalized the "Hybrid Architecture" split between Next.js API routes and Server Actions.
+  - Fixed "double-nesting" response bugs in `beaches` and `plan-session` API routes.
+  - Replaced ambiguous `{ success: true }` responses with descriptive `{ message: "..." }` objects.
 
 - **Cursor agents reuse Claude agent definitions** (December 2025)
   - Cursor agent prompts in `.cursor/agents/*.agent.md` are symlinks to the canonical `.claude/agents/**` files, keeping Cursor and Claude aligned.

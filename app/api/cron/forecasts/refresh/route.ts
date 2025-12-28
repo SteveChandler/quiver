@@ -1,5 +1,4 @@
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { validateCronRequest } from "@/lib/api-response-utils";
+import { createErrorResponse, createSuccessResponse, handleApiError, validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip-service";
 import { NwsWindService } from "@/lib/services/nws-wind-service";
@@ -72,7 +71,7 @@ function getSupabaseProjectRef(): string | null {
 export async function GET(request: Request) {
   try {
     if (!validateCronRequest(request)) {
-      return new Response("Unauthorized", { status: 401 });
+      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
     }
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();

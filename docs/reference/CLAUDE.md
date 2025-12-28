@@ -2,7 +2,7 @@
 
 This repo is optimized for AI‑assisted coding. Follow this guide to produce compliant, high‑quality edits that align with Quiver’s **growth‑first** strategy.
 
-**Authoritative docs**: Start with `docs/ARCHITECTURE_REVIEW.md`, relevant directory `ARCHITECTURE.md`, `docs/features/CITY_EDITORIAL_CONTENT.md` (city editorial system + `getCityEditorialContent()`), and this guide.
+**Authoritative docs**: Start with `docs/ARCHITECTURE.md`, relevant directory `ARCHITECTURE.md`, `docs/features/CITY_EDITORIAL_CONTENT.md` (city editorial system + `getCityEditorialContent()`), and this guide.
 
 ### Mission
 
@@ -172,7 +172,7 @@ useEffect(() => {
   - `lib/ARCHITECTURE.md` – utilities, services, server action wrappers
   - `types/ARCHITECTURE.md`, `supabase/ARCHITECTURE.md`, `styles/ARCHITECTURE.md`, `test-utils/ARCHITECTURE.md`
 
-- Start with `docs/ARCHITECTURE_REVIEW.md` for system‑wide context.
+- Start with `docs/ARCHITECTURE.md` for system‑wide context.
 - Agents & MCP: see `docs/CURSOR_AGENTS.md`; **MCP configuration** lives in **`.mcp.json` (Claude Code)** and **`.cursor/mcp.json` (Cursor)**.
 - Routing & layout updates:
   - Generic state beach routes now live at `app/[intent]/[city]/[beachSlug]/page.tsx` and accept 2-letter state slugs for all states; California still uses `/ca/[city]/[beachSlug]`. Validate with `getValidStateSlugs()` / `isValidStateSlug()` from `lib/utils/beach-url-utils.ts`.

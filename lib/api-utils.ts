@@ -70,6 +70,26 @@ export function createSuccessResponse<T>(
   );
 }
 
+// Error response helper (enveloped)
+export function createErrorResponse(
+  error: string,
+  details?: unknown,
+  status = 500
+): NextResponse<ApiError> {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+      details,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      status,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
+  );
+}
+
 // Validation error helper
 export function createValidationError(
   message: string,
@@ -127,6 +147,37 @@ export function checkRequiredEnvVars(vars: string[]): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Validate that a request originated from an approved cron source.
+ *
+ * Accepted sources:
+ * - Vercel Cron: presence of the `x-vercel-cron` header
+ * - Manual/External: Authorization header with `Bearer <CRON_SECRET>` or `CRON_SECRET_TOKEN`
+ */
+export function validateCronAuth(authHeader: string | null): boolean {
+  const cronSecret = process.env.CRON_SECRET_TOKEN || process.env.CRON_SECRET;
+  // If no secret is configured, allow (useful for local/dev). Production cron routes
+  // typically gate on env checks anyway.
+  return !cronSecret || authHeader === `Bearer ${cronSecret}`;
+}
+
+export function validateCronRequest(request: Request): boolean {
+  // Vercel adds this header for scheduled cron invocations
+  const vercelCronHeader = request.headers.get("x-vercel-cron");
+  if (vercelCronHeader) {
+    return true;
+  }
+
+  // Some environments may omit the header; accept official Vercel Cron UA
+  const userAgent = request.headers.get("user-agent") || "";
+  if (userAgent.toLowerCase().startsWith("vercel-cron/")) {
+    return true;
+  }
+
+  const authHeader = request.headers.get("authorization");
+  return validateCronAuth(authHeader);
 }
 
 // Security headers for API responses

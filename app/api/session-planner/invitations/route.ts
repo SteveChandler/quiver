@@ -7,7 +7,7 @@ import {
 import {
   createSuccessResponse,
   createErrorResponse,
-} from "@/lib/api-response-utils";
+} from "@/lib/api-utils";
 import { notifySessionInvite } from "@/lib/notifications";
 import { sendSessionInviteEmail } from "@/lib/mailer/sessionInviteEmail";
 

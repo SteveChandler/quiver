@@ -1,20 +1,24 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
-import { HomeScreen } from "@/components/home-screen";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
-import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
-import { UpgradeSessionSection } from "./upgrade-session-section";
-import { ActivitiesSection } from "@/components/landing-page/activities-section";
-import { ForecastSection } from "@/components/landing-page/forecast-section";
-import { CTASection } from "@/components/landing-page/cta-section";
+import { LandingInteractiveSections } from "./landing-interactive-sections";
 import { toast } from "sonner";
+
+const HomeScreenDynamic = dynamic(
+  () => import("@/components/home-screen").then((m) => m.HomeScreen),
+  {
+    ssr: false,
+    loading: () => AuthLoadingStates.checking(),
+  }
+);
 
 /**
  * AuthAwareLandingWrapper Component
@@ -37,6 +41,17 @@ export function AuthAwareLandingWrapper() {
   const isConfirmEmailSignup = signupParam === "confirm-email";
   const redirectedRef = useRef(false);
   const didShowSignupToastRef = useRef(false);
+  const [hasAuthCookie, setHasAuthCookie] = useState(false);
+
+  // Detect auth cookies after mount only, so SSR + first client render match (prevents hydration mismatch).
+  useEffect(() => {
+    try {
+      // Supabase cookie looks like: sb-<projectRef>-auth-token.<n>=...
+      setHasAuthCookie(/(?:^|;\\s*)sb-[^=]+-auth-token\\./.test(document.cookie));
+    } catch {
+      setHasAuthCookie(false);
+    }
+  }, []);
 
   // Redirect to sign-in in standalone/PWA mode immediately (don't wait for auth)
   useEffect(() => {
@@ -92,13 +107,15 @@ export function AuthAwareLandingWrapper() {
   }, [user]);
 
   // Show loading state while checking authentication
-  if (isLoading && !(isConfirmEmailSignup && !user)) {
+  // - Logged-in users: keep the checking state to avoid landing flicker.
+  // - Logged-out users: render the landing immediately (faster FCP/LCP) while auth resolves.
+  if (isLoading && hasAuthCookie && !(isConfirmEmailSignup && !user)) {
     return AuthLoadingStates.checking();
   }
 
   // Authenticated users see the HomeScreen
   if (user) {
-    return <HomeScreen />;
+    return <HomeScreenDynamic />;
   }
 
   // Unauthenticated users see the interactive landing page sections
@@ -110,14 +127,7 @@ export function AuthAwareLandingWrapper() {
       <main role="main">
         <HeroSection />
 
-        {/* These sections have client-side interactivity */}
-        <div className="space-y-0">
-          <SurfHighlightsSection />
-          <UpgradeSessionSection />
-          <ActivitiesSection />
-          <ForecastSection />
-          <CTASection />
-        </div>
+        <LandingInteractiveSections />
       </main>
     </>
   );

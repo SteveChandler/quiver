@@ -16,86 +16,63 @@ This document describes the server-first architecture implemented in November 20
 
 ## Architecture Version
 
-**Current Version:** 2.0 (Post-Optimization)
+**Current Version:** 2.1 (Post-Optimization, Bundle-Split Home)
 **Previous Version:** 1.0 (Client-Rendered)
 **Migration Date:** November 2025
 
-## Server-First Architecture
+## Current Architecture (2.1)
+
+This repo currently uses a **hybrid** approach:
+
+- **SEO SSR beach links/cards** are rendered via `LandingPageSSRSection` in `app/layout.tsx` *outside* the Providers client boundary.
+- The `/` route body is a **client wrapper** (`AuthAwareLandingWrapper`) that:\n+  - shows landing content immediately for logged-out users (no spinner-first),\n+  - dynamically loads the authenticated dashboard (`HomeScreen`) only when a user is present (bundle split).
 
 ### Entry Point: `app/page.tsx`
 
-The landing page uses Next.js App Router with server components for optimal performance:
+The home route is intentionally small and delegates to the auth-aware client wrapper:
 
 ```typescript
-// app/page.tsx - Server Component
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  // Server-side auth check (no client delay)
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    return <HomeScreen />;
-  }
-
-  // Fetch featured beaches on server (cached)
-  const beaches = await fetchFeaturedBeachesCached();
-  return <LandingPageServer beaches={beaches} />;
+// app/page.tsx
+export default function Home() {
+  return <AuthAwareLandingWrapper />;
 }
 ```
 
 **Key Benefits:**
 
-- No client-side auth delay (eliminated 3-5s waterfall)
-- Data fetched during SSR (no client-side API calls)
-- Immediate content rendering (no hydration delay)
-- SEO-friendly (full content in initial HTML)
+- SEO beach links/cards always present in HTML (SSR in `app/layout.tsx`)
+- Logged-out users get immediate landing render (no spinner-first)
+- Logged-in users load `HomeScreen` on demand (smaller initial bundle for guests)
 
 **Performance Impact:**
 
-- LCP improvement: -4.0s
-- TBT improvement: -800ms
-- Bundle reduction: -114KB (client wrapper eliminated)
+- Reduced initial JS shipped for logged-out `/` (bundle-splitting `HomeScreen`)
+- Improved first paint by avoiding auth-check spinner for guests
 
-### Server Component Structure
+### Client Wrapper Structure
 
-**`components/landing-page-server.tsx`:**
+**`components/landing-page/auth-aware-landing-wrapper.tsx`:**
 
-The main server component organizes the landing page layout with strategic use of server and client components:
+The wrapper gates logged-in vs logged-out content and keeps the heavy dashboard behind a dynamic import:
 
 ```typescript
-// Server Component (default - no "use client")
-export default function LandingPageServer({ beaches }: LandingPageServerProps) {
+const HomeScreenDynamic = dynamic(
+  () => import(\"@/components/home-screen\").then((m) => m.HomeScreen),
+  { ssr: false }
+);
+
+export function AuthAwareLandingWrapper() {
+  const { user, isLoading } = useAuth();
+
+  if (user) return <HomeScreenDynamic />;
   return (
-    <div className="min-h-screen bg-white">
-      {/* SEO structured data */}
-      <QuiverFAQSchema />
-
-      {/* Client component for interactive navigation */}
+    <>
       <Navbar />
-
-      {/* Client component for search functionality */}
-      <HeroSection />
-
-      {/* Server-rendered sections with progressive enhancement */}
-      <Suspense fallback={<SurfHighlightsSkeleton />}>
-        <SurfHighlightsSection />
-      </Suspense>
-
-      {/* Static server-rendered content */}
-      <ActivitiesSection />
-
-      <Suspense fallback={<ForecastSkeleton />}>
-        <ForecastSection />
-      </Suspense>
-
-      {/* Static server-rendered content */}
-      <CTASection />
-      <FooterSection />
-    </div>
+      <main role=\"main\">
+        <HeroSection />
+        <LandingInteractiveSections />
+      </main>
+    </>
   );
 }
 ```

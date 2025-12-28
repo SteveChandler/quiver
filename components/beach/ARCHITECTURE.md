@@ -34,4 +34,4 @@ Beach-related UI: summaries, lists, and review form. Provides CRUD + stats displ
 ## Related Docs
 
 - `actions/ARCHITECTURE.md`
-- `docs/ARCHITECTURE_REVIEW.md`
+- `docs/ARCHITECTURE.md`

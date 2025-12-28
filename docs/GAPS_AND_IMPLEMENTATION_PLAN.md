@@ -160,7 +160,7 @@ Then integrate in `components/discover/beach-discovery-card.tsx` and map views.
 1. Create `/app/api/cron/cleanup-intel/route.ts`:
 
 ```typescript
-import { validateCronRequest } from "@/lib/api-response-utils";
+import { validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 

@@ -10,7 +10,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   validateCronRequest,
-} from "@/lib/api-response-utils";
+} from "@/lib/api-utils";
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
@@ -131,8 +131,9 @@ export async function runEnhancedForecastSync(
       {
         executionId,
         ...result,
+        message: `Enhanced forecast sync completed: ${successful}/${attempted} beaches updated (${successRate})`,
       },
-      `Enhanced forecast sync completed: ${successful}/${attempted} beaches updated (${successRate})`
+      200
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

@@ -21,6 +21,10 @@ export type ProfileFormData = z.infer<typeof profileSchema>;
 export const homeBeachSchema = z.object({
   homeBeachId: z.string().min(1, 'Please select a beach'),
   homeBeachName: z.string().min(1, 'Please select a beach'),
+  homeBeachSlug: z.string().optional(),
+  homeBeachCity: z.string().optional(),
+  homeBeachState: z.string().optional(),
+  homeBeachCountry: z.string().optional(),
 });
 
 export type HomeBeachFormData = z.infer<typeof homeBeachSchema>;

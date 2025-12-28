@@ -10,7 +10,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   validateCronRequest,
-} from '@/lib/api-response-utils';
+} from '@/lib/api-utils';
 
 interface WaveCastCronResult {
   scrapeSuccess: boolean;
@@ -69,8 +69,9 @@ export async function POST(request: NextRequest): Promise<Response> {
           skipped: true,
           skipReason: `WaveCast only updates on Sundays, Tuesdays, and Thursdays. Today is ${today}.`,
           duration: `${Date.now() - startTime}ms`,
+          message: 'Scrape skipped - not a scheduled day',
         } as WaveCastCronResult,
-        'Scrape skipped - not a scheduled day'
+        200
       );
     }
 
@@ -83,8 +84,9 @@ export async function POST(request: NextRequest): Promise<Response> {
           skipped: true,
           skipReason: 'Report for today already exists',
           duration: `${Date.now() - startTime}ms`,
+          message: 'Scrape skipped - report already exists',
         } as WaveCastCronResult,
-        'Scrape skipped - report already exists'
+        200
       );
     }
 
@@ -114,8 +116,15 @@ export async function POST(request: NextRequest): Promise<Response> {
     };
 
     return createSuccessResponse(
-      result,
-      `WaveCast scrape completed successfully${scrapeResult.parsing_errors && scrapeResult.parsing_errors.length > 0 ? ' (with warnings)' : ''}`
+      {
+        ...result,
+        message: `WaveCast scrape completed successfully${
+          scrapeResult.parsing_errors && scrapeResult.parsing_errors.length > 0
+            ? " (with warnings)"
+            : ""
+        }`,
+      },
+      200
     );
   } catch (error) {
     console.error('❌ WaveCast scrape cron failed:', error);

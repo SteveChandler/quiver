@@ -53,6 +53,15 @@ function safeGetLocalStorage(key: string): string | null {
   }
 }
 
+/** Safe localStorage set - no-op on error (private browsing, quota exceeded) */
+function safeSetLocalStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // no-op
+  }
+}
+
 export function OnboardingDialog() {
   const { user } = useAuth();
   const {
@@ -61,8 +70,15 @@ export function OnboardingDialog() {
     error: profileError,
   } = useProfileContext();
   const searchParams = useSearchParams();
-  const { isOpen, currentStep, openDialog, reset, checkUserId } =
-    useOnboardingStore();
+  const {
+    isOpen,
+    currentStep,
+    setCurrentStep,
+    openDialog,
+    closeDialog,
+    reset,
+    checkUserId,
+  } = useOnboardingStore();
 
   const isTesting = searchParams?.get("showOnboarding") === "1";
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
@@ -73,6 +89,14 @@ export function OnboardingDialog() {
   const shouldRender =
     isOpen &&
     (isTesting || (user && !hasCompletedOnboarding && !substantiallyComplete));
+
+  // Guard against stale persisted step indexes from older onboarding versions.
+  // If currentStep is out of bounds, clamp to step 0 so we still render reliably.
+  useEffect(() => {
+    if (currentStep < 0 || currentStep >= STEPS.length) {
+      setCurrentStep(0);
+    }
+  }, [currentStep, setCurrentStep]);
 
   // Scope onboarding store to current user - prevents stale data from previous users
   useEffect(() => {
@@ -120,6 +144,14 @@ export function OnboardingDialog() {
     }
   }, [openDialog, reset, searchParams]);
 
+  // Keep store/UI consistent: if the store says "open" but render conditions
+  // no longer allow onboarding (e.g., profile loads as complete), close it.
+  useEffect(() => {
+    if (isOpen && !shouldRender) {
+      closeDialog();
+    }
+  }, [isOpen, shouldRender, closeDialog]);
+
   // Ensure store is reset on logout
   useEffect(() => {
     if (!user) {
@@ -134,7 +166,19 @@ export function OnboardingDialog() {
   }
 
   return (
-    <Dialog open={!!shouldRender}>
+    <Dialog
+      open={!!shouldRender}
+      onOpenChange={(open) => {
+        // In a controlled Radix Dialog, internal close controls (X / DialogClose)
+        // only work if we sync the new open state back to our store.
+        if (!open) {
+          if (user?.id && !isTesting) {
+            safeSetLocalStorage(`onboarding_dismissed_${user.id}`, "true");
+          }
+          closeDialog();
+        }
+      }}
+    >
       <DialogContent
         className="max-w-lg max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}

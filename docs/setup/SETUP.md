@@ -209,14 +209,14 @@ quiver/
 
 ## 🤝 Contributing
 
-1. Follow the established patterns in `docs/ARCHITECTURE_REVIEW.md`
+1. Follow the established patterns in `docs/ARCHITECTURE.md`
 2. Use the DRY components documented in `docs/STYLE_GUIDE.md` (DRY Component Patterns section)
 3. Write tests for new features
 4. Update documentation as needed
 
 ## 🆘 Support
 
-- **Architecture**: See `docs/ARCHITECTURE_REVIEW.md`
+- **Architecture**: See `docs/ARCHITECTURE.md`
 - **Component Usage**: See `docs/STYLE_GUIDE.md` (DRY Component Patterns section)
 - **API Documentation**: See individual endpoint files
 - **Database Schema**: See `scripts/migrations/`

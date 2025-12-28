@@ -13,9 +13,13 @@ if (typeof (globalThis as any).Response?.json !== "function") {
     });
 }
 
-jest.mock("@/lib/api-response-utils", () => ({
-  validateCronRequest: () => true,
-}));
+jest.mock("@/lib/api-utils", () => {
+  const actual = jest.requireActual("@/lib/api-utils");
+  return {
+    ...actual,
+    validateCronRequest: () => true,
+  };
+});
 
 const mockGetNearestTideStation = jest.fn();
 const mockFetchHourlyTidePredictions = jest.fn();
@@ -139,6 +143,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     expect(json.data.totals.tides).toBe(4);
   });
 });
+
 
 
 

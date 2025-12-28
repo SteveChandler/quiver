@@ -29,7 +29,7 @@ export async function DELETE(
 
     if (deleteError) throw deleteError;
 
-    return createSuccessResponse({ success: true });
+    return createSuccessResponse({ message: "Comment deleted successfully" });
   } catch (error) {
     return handleApiError(error, "Failed to delete comment");
   }

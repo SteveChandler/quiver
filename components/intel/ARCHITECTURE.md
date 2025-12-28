@@ -38,4 +38,4 @@ Community intel (conditions, hazards, parking, etc.). Provides a feed, map, filt
 ## Related Docs
 
 - `actions/ARCHITECTURE.md`
-- `docs/ARCHITECTURE_REVIEW.md`
+- `docs/ARCHITECTURE.md`
