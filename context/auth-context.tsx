@@ -247,14 +247,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<void> => {
     setIsLoading(true);
     try {
+      const emailRedirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/auth/confirm?next=/`
+          : undefined;
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: fullName
-          ? {
-              data: { full_name: fullName },
-            }
-          : undefined,
+        options: {
+          ...(fullName ? { data: { full_name: fullName } } : {}),
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        },
       });
 
       if (error) throw error;

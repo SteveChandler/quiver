@@ -198,3 +198,4 @@ GRANT EXECUTE ON FUNCTION get_beaches_by_metro_with_scores_v2 TO anon;
 COMMIT;
 
 
+

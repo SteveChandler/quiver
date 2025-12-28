@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Auth modal: footer “Sign up” now switches into signup mode** (December 2025)
+
+- **Signup: confirm-email UX after email/password signup** (December 2025)
+  - After signup, users return to `/` and see a “Confirm your signup in your email” popup instead of getting stuck on “Checking authentication…”.
+
+- **Signup email confirmation redirect** (December 2025)
+  - Email/password confirmation links now return through `/auth/confirm` and default to `/` (instead of incorrectly defaulting to `/auth/reset`).
+
+- **E2E auth: fail fast on stale/rotated Supabase sessions** (December 2025)
+  - `/api/auth/check-session` now returns 401 when unauthenticated (instead of 500).
+  - Playwright auth helpers now server-validate sessions via `/api/auth/check-session` to catch invalid `e2e/.auth/state.json` before protected-route navigation.
+
 - **Similarity Insights Service: Database query error** (December 2025)
   - Fixed `column sessions.forecast_snapshot does not exist` error in `fetchRatedSessions` function.
   - The `forecast_snapshot` data is stored in the separate `session_forecast_snapshots` table, not on `sessions`.
@@ -18,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Forecast health check: stale Supabase reads** (December 2025)
   - Forced `no-store` fetch semantics for server/service-role Supabase clients to prevent cached PostgREST responses in Next.js/Edge runtimes.
   - Fixes `/api/monitoring/forecast-health` reporting multi-day stale `enhanced_forecasts.updated_at` after successful cron refreshes.
+
+- **Forecast monitoring: marine/tide refresh + severity** (December 2025)
+  - Updated `/api/cron/forecasts/refresh` to support `source=marine|tide|sun|all`, stale-only selection, and per-run limits to stay within Vercel cron time budgets.
+  - Adjusted forecast health aggregation so overall **critical** is driven by enhanced forecast cache failures; marine/tide issues now degrade health without forcing critical.
+  - Updated Vercel cron schedules to refresh marine/tide more frequently via source-specific runs.
 
 ### Added
 

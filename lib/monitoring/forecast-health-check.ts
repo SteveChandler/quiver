@@ -329,10 +329,19 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     const tideStatus = statusFromCounts(tideCritical, tideWarning, tideStale, MONITORING_CONFIG.STALE_DATA_THRESHOLD_BEACHES);
     const sunStatus = statusFromCounts(sunCritical, sunWarning, sunStale, MONITORING_CONFIG.STALE_DATA_THRESHOLD_BEACHES);
 
+    /**
+     * Overall health semantics:
+     * - "critical" is reserved for enhanced forecast cache failures (coverage or critical staleness),
+     *   because enhanced forecasts are the primary user-facing data source.
+     * - marine/tide/sun issues can degrade experience but should not page/alert as "critical" by default.
+     */
     healthStatus = mergeHealthStatus(healthStatus, enhancedStatus);
-    healthStatus = mergeHealthStatus(healthStatus, marineStatus);
-    healthStatus = mergeHealthStatus(healthStatus, tideStatus);
-    healthStatus = mergeHealthStatus(healthStatus, sunStatus);
+    if (healthStatus !== 'critical') {
+      const secondaryStatuses: HealthStatus[] = [marineStatus, tideStatus, sunStatus];
+      if (secondaryStatuses.some((s) => s !== 'healthy')) {
+        healthStatus = 'degraded';
+      }
+    }
 
     if (enhancedCritical > 0) {
       issues.push(`${enhancedCritical} beaches have critically stale enhanced forecasts (>${ENHANCED_THRESHOLDS.criticalHours}h)`);

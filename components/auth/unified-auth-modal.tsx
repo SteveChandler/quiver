@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@/context/auth-context";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -104,9 +105,14 @@ export function UnifiedAuthModal({
   enableOAuth = true,
 }: UnifiedAuthModalProps) {
   const { signIn, signUp } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const initialMode: "login" | "signup" = mode === "signup" ? "signup" : "login";
 
   // View and form state
   const [view, setView] = useState<AuthView>(initialView);
+  const [activeMode, setActiveMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -155,13 +161,14 @@ export function UnifiedAuthModal({
   useEffect(() => {
     if (!isOpen) {
       setView(initialView);
+      setActiveMode(initialMode);
       setEmail("");
       setPassword("");
       setDisplayName("");
       setError(null);
       setLoading(false);
     }
-  }, [isOpen, initialView]);
+  }, [isOpen, initialView, initialMode]);
 
   /**
    * Handle Google OAuth sign-in
@@ -170,9 +177,12 @@ export function UnifiedAuthModal({
     setLoading(true);
     setError(null);
 
-    const currentMode = mode === "auto" ? "login" : mode;
-    trackAuthMethodSelected({ method: "google", mode: currentMode });
-    trackLoginStarted("google");
+    trackAuthMethodSelected({ method: "google", mode: activeMode });
+    if (activeMode === "signup") {
+      trackSignupStarted("google");
+    } else {
+      trackLoginStarted("google");
+    }
     setStartTime(Date.now());
 
     const result = await initiateOAuthFlow("google", getReturnPath());
@@ -233,18 +243,17 @@ export function UnifiedAuthModal({
     }
 
     // For signup mode, require display name
-    if (mode === "signup" && !displayName.trim()) {
+    if (activeMode === "signup" && !displayName.trim()) {
       setError("Please enter your name");
       return;
     }
 
     setLoading(true);
-    const currentMode = mode === "auto" ? "login" : mode;
-    trackAuthMethodSelected({ method: "password", mode: currentMode });
+    trackAuthMethodSelected({ method: "password", mode: activeMode });
     setStartTime(Date.now());
 
     try {
-      if (mode === "signup") {
+      if (activeMode === "signup") {
         // Signup flow
         trackSignupStarted("password");
         await signUp(email, password, displayName.trim());
@@ -252,9 +261,18 @@ export function UnifiedAuthModal({
         const duration = Date.now() - startTime;
         trackSignupSuccess({ method: "password", requires_verification: true });
 
-        // Show verification message
-        setView("verify-email");
         setLoading(false);
+
+        // Email/password signup requires email confirmation.
+        // Return users to landing and show a confirmation toast there.
+        router.replace("/?signup=confirm-email");
+
+        // Close modal when it's an overlay (e.g. landing/auth-gate).
+        // If we're on the dedicated /auth/sign-up page, onClose() navigates to "/"
+        // and would strip the query param before the landing toast can read it.
+        if (pathname !== "/auth/sign-up") {
+          onClose();
+        }
       } else {
         // Login flow
         trackLoginStarted("password");
@@ -273,7 +291,7 @@ export function UnifiedAuthModal({
       const errorMessage =
         err instanceof Error ? err.message : "Authentication failed";
 
-      if (mode === "signup") {
+      if (activeMode === "signup") {
         trackSignupFailed({ method: "password", error_type: errorType });
       } else {
         trackLoginFailed({ method: "password", error_type: errorType });
@@ -296,11 +314,13 @@ export function UnifiedAuthModal({
    * Handle mode switching (login <-> signup)
    */
   const switchToSignup = () => {
+    setActiveMode("signup");
     setView("providers");
     setError(null);
   };
 
   const switchToLogin = () => {
+    setActiveMode("login");
     setView("providers");
     setError(null);
   };
@@ -313,7 +333,7 @@ export function UnifiedAuthModal({
       case "providers":
         return (
           <AuthProviders
-            mode={mode}
+            mode={activeMode}
             enableOAuth={enableOAuth}
             enablePassword={enablePassword}
             enableMagicLink={enableMagicLink}
@@ -327,7 +347,7 @@ export function UnifiedAuthModal({
       case "email-password":
         return (
           <EmailPasswordForm
-            mode={mode}
+            mode={activeMode}
             email={email}
             password={password}
             displayName={displayName}
@@ -375,14 +395,14 @@ export function UnifiedAuthModal({
           <DialogTitle>
             {isAuthGate
               ? "Keep Exploring with Quiver"
-              : mode === "login"
+              : activeMode === "login"
               ? "Log in to Quiver"
               : "Sign Up"}
           </DialogTitle>
           <DialogDescription>
             {isAuthGate
               ? "Log in or sign up to access interactive maps, save sessions, and connect with the community."
-              : mode === "login"
+              : activeMode === "login"
               ? "Access your sessions, forecasts, and community."
               : "Join Quiver to plan sessions and connect with surfers."}
           </DialogDescription>
@@ -406,10 +426,11 @@ export function UnifiedAuthModal({
 
         {view === "providers" && mode !== "auto" && (
           <DialogFooter className="sm:justify-center">
-            {mode === "login" ? (
+            {activeMode === "login" ? (
               <p className="text-sm text-muted-foreground">
                 Don&apos;t have an account?{" "}
                 <button
+                  type="button"
                   onClick={switchToSignup}
                   className="text-primary hover:underline"
                 >
@@ -420,6 +441,7 @@ export function UnifiedAuthModal({
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
                 <button
+                  type="button"
                   onClick={switchToLogin}
                   className="text-primary hover:underline"
                 >

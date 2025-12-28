@@ -946,9 +946,12 @@ if (!sectionVisible) {
 
 If tests fail with authentication errors:
 
-1. Delete saved state: `rm e2e/.auth/state.json`
-2. Re-run global setup: `npx playwright test --global-setup-only`
-3. Verify test credentials in `.env.playwright`
+Quiver E2E tests now **server-validate** auth state (not just cookie presence). This catches stale/rotated tokens early, before a protected route shows a login prompt.
+
+1. Reset auth state: `npm run test:e2e:auth:reset`
+2. Regenerate auth state for your current `BASE_URL`: `npm run test:e2e:setup`
+3. Verify test credentials and `BASE_URL` in `.env.playwright`
+4. If you manually sign in/out in the browser using the same test user, regenerate auth state again (refresh token rotation can invalidate `e2e/.auth/state.json`).
 
 ### Geolocation Not Working
 
