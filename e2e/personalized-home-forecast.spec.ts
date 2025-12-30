@@ -271,6 +271,12 @@ test.describe('Personalized Home Forecast', () => {
     await waitForPageLoad(page);
     await page.waitForTimeout(2000);
 
+    // Should not introduce horizontal scrolling on mobile
+    const hasHorizontalScroll = await page.evaluate(() => {
+      return document.documentElement.scrollWidth > window.innerWidth + 1;
+    });
+    expect(hasHorizontalScroll).toBe(false);
+
     // Card should still be visible on mobile
     const card = page.getByTestId('personalized-forecast-card');
     const cardVisible = await card.isVisible().catch(() => false);
@@ -281,6 +287,29 @@ test.describe('Personalized Home Forecast', () => {
       const emptyOrError = page.getByText(/no recommendations|error|unable to load/i);
       const hasState = await emptyOrError.isVisible().catch(() => false);
       expect(cardVisible || hasState).toBeTruthy();
+    }
+
+    // Switch to Local Intel tab and ensure it also doesn't overflow horizontally
+    const localIntelTab = page.getByRole('tab', { name: /local intel/i });
+    const tabVisible = await localIntelTab.isVisible().catch(() => false);
+    if (tabVisible) {
+      await localIntelTab.click();
+      await page.waitForTimeout(1500);
+
+      const hasHorizontalScrollOnIntel = await page.evaluate(() => {
+        return document.documentElement.scrollWidth > window.innerWidth + 1;
+      });
+      expect(hasHorizontalScrollOnIntel).toBe(false);
+
+      // If action buttons are present, they should not be clipped
+      const showMore = page.getByRole('button', { name: /show more/i }).first();
+      const showMoreVisible = await showMore.isVisible().catch(() => false);
+      if (showMoreVisible) {
+        const box = await showMore.boundingBox();
+        if (box) {
+          expect(box.x + box.width).toBeLessThanOrEqual(375 + 1);
+        }
+      }
     }
   });
 

@@ -130,7 +130,7 @@ export function HomeScreen() {
         {/* Welcome Section */}
         <section className="centered-container space-y-6">
           <div className="space-y-3">
-            <h2 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900">
+            <h2 className="text-3xl sm:text-4xl font-roboto font-bold leading-tight sm:leading-[44px] text-gray-900">
               Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
             </h2>
             <p className="text-base text-gray-600 mt-3">

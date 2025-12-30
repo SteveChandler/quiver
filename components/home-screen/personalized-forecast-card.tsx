@@ -271,8 +271,8 @@ export const PersonalizedForecastCard = React.memo(
       <Card className="w-full" data-testid="personalized-forecast-card">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 flex-wrap">
                 <Target className="h-5 w-5 text-blue-600" />
                 Your Best Spot Today
               </CardTitle>
@@ -281,7 +281,7 @@ export const PersonalizedForecastCard = React.memo(
                 {format(window.start, "EEEE, MMM d")}
               </p>
             </div>
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <Button
                 variant="ghost"
                 size="icon"
