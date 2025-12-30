@@ -196,7 +196,7 @@ export const CONTENT = {
         "See what surfers are sharing — epic sessions, hidden spots, and the stoke that keeps us coming back",
     },
     forecast: {
-      title: "Get the most accurate surf forecasts",
+      title: "Pick the right beach for your day",
       subtitle:
         "Know exactly when to paddle out with forecasts trusted by your local surf community",
       primaryCta: "Explore forecasts on the map",

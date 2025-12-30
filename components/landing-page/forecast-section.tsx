@@ -318,14 +318,6 @@ export function ForecastSection() {
                     {CONTENT.sections.forecast.primaryCta}
                   </Link>
                 </Button>
-
-                <Link
-                  href="/auth/sign-up"
-                  className="text-sm font-semibold text-slate-700 underline underline-offset-4 decoration-slate-300 hover:decoration-slate-500 transition-colors"
-                  data-testid="forecast-cta-signup"
-                >
-                  {CONTENT.sections.forecast.secondaryCta}
-                </Link>
               </div>
             </div>
           </div>

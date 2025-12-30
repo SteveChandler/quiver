@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Home (mobile): Prevented header/action overflow by compacting the personalization badge on small screens and improving intel card action-row wrapping + location truncation.
 - Landing: Updated forecast section phone mock to show "Your Best Spot Today" card layout with Best Window tiles, wave/match stats, and Quiver app bar (matching in-app experience).
 - Landing: Polished phone mock device frame (refined bezel, Dynamic Island notch, titanium-style highlights) and restyled in-phone UI with stacked full-width pastel tiles, improved typography, and modern card styling.
+- Landing: Updated the forecast section headline to "Pick the right beach for your day" and removed the secondary "Create a free account" CTA.
 
 ### Fixed
 
