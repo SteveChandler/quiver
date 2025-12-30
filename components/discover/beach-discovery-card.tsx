@@ -23,7 +23,6 @@ const { format } = dateFns;
 interface BeachDiscoveryCardProps {
   recommendation: SurfDiscoveryRecommendation;
   rank: number;
-  onViewBeach: (beachId: string) => void;
   onPlanSession: (beachId: string) => void;
 }
 
@@ -36,7 +35,6 @@ interface BeachDiscoveryCardProps {
 export function BeachDiscoveryCard({
   recommendation,
   rank,
-  onViewBeach,
   onPlanSession,
 }: BeachDiscoveryCardProps) {
   const {
@@ -51,14 +49,25 @@ export function BeachDiscoveryCard({
   } = recommendation;
 
   const displayScore = Number.isFinite(score) ? Math.round(score) : 0;
+  const waveSourceLabel =
+    window.dataSource === "CDIP" || window.dataSource === "NOAA_BUOY"
+      ? "Live"
+      : "Forecast";
+  const waveSourceBadgeClass =
+    waveSourceLabel === "Live"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : "bg-slate-50 text-slate-700 border-slate-200";
 
-  // Generate URL for SEO-friendly linking
-  const beachUrl = getBeachUrlSafe({
+  // Generate URL for SEO-friendly linking with discovery tracking
+  const baseUrl = getBeachUrlSafe({
     id: beach.id,
     slug: beach.slug,
     city: beach.city,
     state: beach.state,
   }) || `/beach/${beach.id}`;
+  const beachUrl = baseUrl.includes("?")
+    ? `${baseUrl}&from=surf_discovery`
+    : `${baseUrl}?from=surf_discovery`;
 
   // Match quality colors
   const matchQualityColors = {
@@ -88,6 +97,12 @@ export function BeachDiscoveryCard({
               {rank <= 3 && rank !== 1 && (
                 <Badge variant="outline">#{rank}</Badge>
               )}
+              <Badge
+                variant="outline"
+                className={cn("text-xs", waveSourceBadgeClass)}
+              >
+                {waveSourceLabel}
+              </Badge>
               <Badge className={matchQualityColors[matchQuality]}>
                 {matchQuality.charAt(0).toUpperCase() + matchQuality.slice(1)}
               </Badge>

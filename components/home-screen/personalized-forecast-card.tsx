@@ -245,6 +245,10 @@ export const PersonalizedForecastCard = React.memo(
     const { beach, window, score, breakdown, summary, reasons } =
       recommendation;
     const confidenceIndicator = getConfidenceIndicator(window.confidence);
+    const waveSourceLabel =
+      window.dataSource === "CDIP" || window.dataSource === "NOAA_BUOY"
+        ? "Live"
+        : "Forecast";
 
     // Calculate personalization boost (how much better than base score)
     const personalizationBoost =
@@ -420,7 +424,7 @@ export const PersonalizedForecastCard = React.memo(
                 <div className="space-y-0.5">
                   <div>Waves</div>
                   <div className="text-[10px] opacity-70">
-                    {window.wavePeriod}
+                    {window.wavePeriod} · {waveSourceLabel}
                   </div>
                 </div>
               }

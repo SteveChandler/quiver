@@ -10,6 +10,92 @@
 import type { Beach } from "@/types/database";
 import { slugify } from "@/lib/utils/text-utils";
 
+// ============================================================================
+// Hawaii island-specific city helpers (Waimea-only to start)
+// ============================================================================
+
+export type HiIslandSlug = "kauai" | "big-island";
+
+const HI_AMBIGUOUS_CITY_SLUGS = new Set(["waimea"]);
+
+const HI_ISLAND_DISPLAY_NAME: Record<HiIslandSlug, string> = {
+  kauai: "Kauai",
+  "big-island": "Big Island",
+};
+
+export function parseHiIslandCitySlug(citySlug: string): {
+  baseCitySlug: string;
+  islandSlug: HiIslandSlug | null;
+} {
+  const input = (citySlug || "").toLowerCase();
+
+  // Only treat known ambiguous HI cities as island-splittable.
+  for (const islandSlug of Object.keys(
+    HI_ISLAND_DISPLAY_NAME
+  ) as HiIslandSlug[]) {
+    const suffix = `-${islandSlug}`;
+    if (!input.endsWith(suffix)) continue;
+
+    const baseCitySlug = input.slice(0, -suffix.length);
+    if (!HI_AMBIGUOUS_CITY_SLUGS.has(baseCitySlug)) {
+      return { baseCitySlug: input, islandSlug: null };
+    }
+
+    return { baseCitySlug, islandSlug };
+  }
+
+  return { baseCitySlug: input, islandSlug: null };
+}
+
+export function getHiIslandDisplayName(islandSlug: HiIslandSlug): string {
+  return HI_ISLAND_DISPLAY_NAME[islandSlug] || islandSlug;
+}
+
+function getHiIslandSlugFromRegion(
+  region: string | null | undefined
+): HiIslandSlug | null {
+  if (!region) return null;
+  const s = slugify(region);
+
+  if (s === "kauai") return "kauai";
+  if (s === "big-island" || s === "hawaii" || s === "hawaii-island") {
+    return "big-island";
+  }
+  return null;
+}
+
+/**
+ * Build an island-correct city URL for Hawaii beaches when the city is ambiguous.
+ *
+ * Example (Waimea):
+ * - Beach.region="Kauai"     -> /hi/waimea-kauai
+ * - Beach.region="Big Island"-> /hi/waimea-big-island
+ *
+ * Falls back to buildCityUrl() when not applicable.
+ */
+export function buildHiCityUrlForBeach(beach: {
+  state: string | null | undefined;
+  city: string | null | undefined;
+  region?: string | null | undefined;
+}): string {
+  const stateSlug = stateToSlug(beach.state);
+  const baseCitySlug = cityToSlug(beach.city);
+
+  if (!stateSlug || !baseCitySlug) return "/";
+
+  // Only apply island suffixing for HI + known ambiguous city slugs.
+  if (stateSlug !== "hi" || !HI_AMBIGUOUS_CITY_SLUGS.has(baseCitySlug)) {
+    return buildCityUrl(beach.state, beach.city);
+  }
+
+  const islandSlug = getHiIslandSlugFromRegion(beach.region);
+  if (!islandSlug) {
+    return buildCityUrl(beach.state, beach.city);
+  }
+
+  return `/${stateSlug}/${baseCitySlug}-${islandSlug}`;
+}
+
 /**
  * Map of US state codes/names to URL slugs.
  *

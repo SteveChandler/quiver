@@ -40,6 +40,17 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /**
+   * Hawaii: disambiguate same-named cities by island (Waimea-only to start)
+   *
+   * Redirect ambiguous legacy URL to the primary island page.
+   */
+  if (pathname === "/hi/waimea") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/hi/waimea-kauai";
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  /**
    * Garbage URL cleanup
    * Search Console can surface odd one-off crawls like `/$` (sometimes encoded as `/%24`).
    * We permanently redirect these to the homepage.
@@ -105,6 +116,13 @@ export async function middleware(request: NextRequest) {
     const country = legacyLocationMatch[1]?.toLowerCase() || "";
     const state = legacyLocationMatch[2]?.toLowerCase() || "";
     const city = legacyLocationMatch[3]?.toLowerCase() || "";
+
+    // Special-case HI ambiguous city slugs to avoid redirect chains.
+    if (country === "usa" && state === "hi" && city === "waimea") {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/hi/waimea-kauai";
+      return NextResponse.redirect(redirectUrl, { status: 301 });
+    }
 
     const redirectUrl = request.nextUrl.clone();
     if (country === "usa" || country === "us") {

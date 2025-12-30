@@ -21,8 +21,8 @@ import {
   windAt,
   bestWindowHeuristic,
   confidenceHeuristic,
-  renderIntelMarkdown,
   analyzeConditions,
+  getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
 import {
   createIntelDedupeHash,
@@ -155,7 +155,7 @@ async function fetchBeachData(
   const { data: beach, error } = await supabase
     .from("beaches")
     .select(
-      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type"
+      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg, shoreline_aspect_deg"
     )
     .eq("id", beachId)
     .single();
@@ -167,17 +167,50 @@ async function fetchBeachData(
 
   console.log(`✅ Loaded preferences for ${beach.name}`);
 
+  // If wind_offshore_deg seems inverted vs beach aspect, override for more accurate intel.
+  // Wind direction is the direction the wind comes FROM. Offshore winds come from land -> sea,
+  // which is approximately aspect_deg + 180.
+  const aspectDeg: number | null =
+    beach.shoreline_aspect_deg ?? beach.aspect_deg ?? null;
+  const expectedOffshoreDeg =
+    aspectDeg == null ? null : (Number(aspectDeg) + 180) % 360;
+
+  const dbWindOffshoreDeg: number | null = beach.wind_offshore_deg ?? null;
+
+  const shortestAngleDiff = (a: number, b: number) => {
+    // Returns 0..180
+    return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+  };
+
+  let windOffshoreDegUsed: number | null = dbWindOffshoreDeg;
+  let windOffshoreDegSource: "db" | "computed_from_aspect" | "db_overridden_with_aspect" =
+    "db";
+
+  if (dbWindOffshoreDeg == null && expectedOffshoreDeg != null) {
+    windOffshoreDegUsed = expectedOffshoreDeg;
+    windOffshoreDegSource = "computed_from_aspect";
+  } else if (dbWindOffshoreDeg != null && expectedOffshoreDeg != null) {
+    const diff = shortestAngleDiff(dbWindOffshoreDeg, expectedOffshoreDeg);
+    if (diff > 90) {
+      windOffshoreDegUsed = expectedOffshoreDeg;
+      windOffshoreDegSource = "db_overridden_with_aspect";
+    }
+  }
+
   return {
     name: beach.name,
     swellWindowMin: beach.swell_window_min_deg,
     swellWindowMax: beach.swell_window_max_deg,
-    windOffshoreDeg: beach.wind_offshore_deg,
+    windOffshoreDeg: windOffshoreDegUsed,
     windOffshoreTol: beach.wind_offshore_tol_deg,
     tideMinFt: beach.preferred_tide_ft_min,
     tideMaxFt: beach.preferred_tide_ft_max,
     hazards: beach.hazards,
     skillLevel: beach.skill_level,
     breakType: beach.break_type,
+    // Extra fields (ignored by analyzers today, but useful for persisted/debug payload)
+    aspectDeg,
+    windOffshoreDegSource,
   };
 }
 
@@ -306,6 +339,11 @@ function generateIntelData(
 
   // Analyze conditions against beach preferences
   let conditions = undefined;
+  let recommendation = {
+    decision: "maybe" as const,
+    label: "Maybe",
+    reasons: ["check the detailed forecast"],
+  };
   if (beachPrefs) {
     conditions = analyzeConditions(
       {
@@ -316,23 +354,24 @@ function generateIntelData(
       beachPrefs
     );
     console.log(`📊 Conditions Score: ${conditions.score}/10`);
+    recommendation = getConservativeRecommendation(conditions);
   }
 
   // Generate notes based on conditions
   let notes = "";
   if (conditions) {
-    // Enhanced notes based on condition analysis
-    const issues = [];
-    if (conditions.swell.status === "poor") issues.push("swell direction");
-    if (conditions.wind.status === "poor") issues.push("wind");
-    if (conditions.tide.status === "poor") issues.push("tide");
-
-    if (issues.length === 0) {
-      notes = "Excellent conditions - all factors optimal!";
-    } else if (issues.length === 1) {
-      notes = `Good conditions overall, but watch the ${issues[0]}`;
+    if (recommendation.decision === "worth_it") {
+      notes = "Worth it this morning — conditions line up. Still check the cam before you go.";
+    } else if (recommendation.decision === "skip") {
+      notes =
+        recommendation.reasons.length > 0
+          ? `Skip it — ${recommendation.reasons.join(" and ")} not ideal.`
+          : "Skip it — conditions are not ideal.";
     } else {
-      notes = `Challenging conditions: ${issues.join(", ")} not ideal`;
+      notes =
+        recommendation.reasons.length > 0
+          ? `Maybe — keep an eye on the ${recommendation.reasons.join(" and ")}.`
+          : "Maybe — could be worth a look if you're nearby.";
     }
   } else {
     // Fallback to original notes
@@ -379,16 +418,62 @@ function generateIntelData(
     beachPreferences: beachPrefs || undefined,
     conditions,
     payload: {
+      kind: "morning_intel_v2",
       generatedAt: new Date().toISOString(),
+      date,
+      time: targetTime,
+      recommendation,
+      conditions,
+      bestWindow,
+      confidence,
+      surf,
+      tide,
+      wind,
+      swells,
       dataCompleteness,
       sources: {
         wave: slice.forecasts.some((f) => f.wave_height !== null),
-        tide: slice.tides.length > 0,
+        tide: slice.forecasts.some((f) => f.tide_height !== null),
         wind: slice.forecasts.some((f) => f.wind_speed !== null),
         swell: slice.forecasts.some((f) => f.swell_height !== null),
       },
+      beach: beachPrefs
+        ? {
+            name: beachPrefs.name,
+            skillLevel: beachPrefs.skillLevel ?? null,
+            hazards: beachPrefs.hazards ?? null,
+            breakType: beachPrefs.breakType ?? null,
+            aspectDeg: (beachPrefs as any).aspectDeg ?? null,
+            windOffshoreDegUsed: beachPrefs.windOffshoreDeg ?? null,
+            windOffshoreDegSource: (beachPrefs as any).windOffshoreDegSource ?? "db",
+          }
+        : undefined,
     },
   };
+}
+
+function buildDailyConditionsDescription(intelData: MorningIntelData): string {
+  const rec = intelData.payload?.recommendation?.label ?? "Conditions update";
+  const score =
+    typeof intelData.conditions?.score === "number"
+      ? `${intelData.conditions.score}/10`
+      : null;
+
+  const parts: string[] = [];
+  parts.push(score ? `${rec} (${score})` : rec);
+  if (intelData.bestWindow && intelData.bestWindow !== "N/A") {
+    parts.push(`Best: ${intelData.bestWindow}`);
+  }
+  parts.push(`Surf ${intelData.surf.min}–${intelData.surf.max}ft`);
+  parts.push(`Wind ${intelData.wind.speed}mph ${intelData.wind.cardinal}`);
+  parts.push(`Tide ${intelData.tide.height.toFixed(1)}ft ${intelData.tide.direction}`);
+
+  // Add the short note at the end for context, but keep it short.
+  if (intelData.notes) {
+    parts.push(intelData.notes);
+  }
+
+  return parts.join(" • ");
 }
 
 /**
@@ -403,7 +488,7 @@ async function upsertIntelPost(
   console.log("📝 Creating/updating intel post...");
 
   const title = `Morning Surf Intel (${intelData.time})`;
-  const body = renderIntelMarkdown(intelData);
+  const description = buildDailyConditionsDescription(intelData);
 
   // Check for existing post today
   const { data: existingPost, error: searchError } = await supabase
@@ -436,7 +521,7 @@ async function upsertIntelPost(
     tag: "conditions",
     beachId,
     title,
-    description: body,
+    description,
     latitude: beach.lat,
     longitude: beach.lon,
   });
@@ -452,7 +537,7 @@ async function upsertIntelPost(
       .from("intel_posts")
       .update({
         title,
-        description: body,
+        description,
         surf_conditions: intelData.payload,
         updated_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
@@ -479,7 +564,7 @@ async function upsertIntelPost(
         longitude: beach.lon,
         tag: "conditions",
         title,
-        description: body,
+        description,
         surf_conditions: intelData.payload,
         is_active: true,
         expires_at: expiresAt.toISOString(),

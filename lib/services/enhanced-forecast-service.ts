@@ -737,6 +737,12 @@ export class EnhancedForecastService {
       // Get CDIP data for this time (use most recent if available)
       const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
       const useCDIPData = !!cdipPoint;
+      
+      // Determine the actual data source used for this forecast timepoint.
+      // CDIP is only valid for current/recent conditions (see getCDIPDataForTime).
+      const timepointDataSource = useCDIPData
+        ? "CDIP"
+        : waveData?.data_source || (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
 
       // Calculate confidence score based on data availability and freshness
       const confidenceScore = this.calculateConfidenceScore({
@@ -890,15 +896,16 @@ export class EnhancedForecastService {
 
         beach_id: beach.id,
         confidence_score: confidenceScore,
-        data_source: primaryDataSource,
+        data_source: timepointDataSource,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
 
         // Raw forecast (compact) to satisfy DB constraint and avoid oversized JSON
         raw_forecast: {
           data_sources: dataSources,
-          // Include CDIP raw snapshot for transparency/debugging when available
-          ...(cdipData && {
+          // Include CDIP raw snapshot for transparency/debugging only when CDIP
+          // data was actually used for this timepoint.
+          ...(useCDIPData && cdipData && {
             cdip_data: {
               stationId: (cdipData as any).stationId,
               stationName: (cdipData as any).stationName,

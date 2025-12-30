@@ -93,7 +93,7 @@ export async function discoverSurfSpots(
     console.log(`🔍 Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
     // 1. Build candidate pool
-    const candidates = await buildCandidatePool(userId, {
+    const { candidates, preferredWaveSize } = await buildCandidatePool(userId, {
       includeHome,
       userLocation,
       radiusMiles,
@@ -111,7 +111,7 @@ export async function discoverSurfSpots(
     const finalCandidates = candidates.slice(0, maxCandidates);
 
     // 2. Fetch forecasts for all candidates
-    const { successful: beachForecasts, failed: failedForecasts } = await batchFetchForecasts(finalCandidates, {
+    const { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
       maxConcurrent,
       timeout,
       overallTimeout,
@@ -124,12 +124,10 @@ export async function discoverSurfSpots(
       `📊 Retrieved forecasts: ${beachForecasts.length}/${finalCandidates.length} beaches (${successPercent}%)`
     );
 
-    // Log failures with staleness context
-    if (failedForecasts.length > 0) {
-      const staleCount = failedForecasts.filter(f => f.stale).length;
-      const missingCount = failedForecasts.length - staleCount;
+    // Log failures and staleness context
+    if (failedForecasts.length > 0 || staleCount > 0) {
       console.warn(
-        `⚠️ [discoverSurfSpots] Failed forecasts: ${failedForecasts.length} (${staleCount} stale, ${missingCount} missing)`
+        `⚠️ [discoverSurfSpots] Forecast issues: ${failedForecasts.length} failed, ${staleCount} stale (stale data still used)`
       );
     }
 
@@ -179,6 +177,7 @@ export async function discoverSurfSpots(
         beach,
         forecast: bestWindowForecast,
         userPrefs,
+        preferredWaveSize,
         affinity,
         distanceMiles,
       });
@@ -219,7 +218,7 @@ export async function discoverSurfSpots(
         successfulForecasts: beachForecasts.length,
         partialSuccess: beachForecasts.length < finalCandidates.length,
         failedBeaches: failedForecasts.length,
-        staleBeaches: failedForecasts.filter(f => f.stale).length,
+        staleBeaches: staleCount,
         generated_at: new Date().toISOString(),
       },
     };
@@ -247,9 +246,10 @@ async function buildCandidatePool(
     userLocation?: { lat: number; lon: number };
     radiusMiles?: number;
   }
-): Promise<Beach[]> {
+): Promise<{ candidates: Beach[]; preferredWaveSize: string | null }> {
   const supabase = createSupabaseServiceRoleClient();
   const candidates: Beach[] = [];
+  let preferredWaveSize: string | null = null;
 
   try {
     if (options.includeHome !== false) {
@@ -260,6 +260,7 @@ async function buildCandidatePool(
           `
           id,
           home_beach_id,
+          preferred_wave_size,
           home_beach:beaches!profiles_home_beach_id_fkey (*)
         `
         )
@@ -270,6 +271,10 @@ async function buildCandidatePool(
         candidates.push(profile.home_beach as unknown as Beach);
         console.log(`✅ Added home beach: ${(profile.home_beach as any).name}`);
       }
+
+      preferredWaveSize =
+        (profile as unknown as { preferred_wave_size?: string | null })
+          ?.preferred_wave_size ?? null;
 
       // Query 2: Get favorites (excluding home to avoid duplicates)
       const { data: favorites } = await supabase
@@ -296,28 +301,81 @@ async function buildCandidatePool(
       }
     }
 
-    // GPS Phase (stubbed for Phase 2)
-    if (options.userLocation && options.radiusMiles) {
-      console.warn('⚠️ GPS discovery not yet implemented (Phase 2)');
-      // TODO Phase 2: Query get_nearby_beaches RPC function
-      // const { data: nearby } = await supabase.rpc('get_nearby_beaches', {
-      //   user_lat: options.userLocation.lat,
-      //   user_lon: options.userLocation.lon,
-      //   radius_miles: options.radiusMiles,
-      // });
-      // if (nearby) {
-      //   for (const beach of nearby) {
-      //     if (!candidates.find((c) => c.id === beach.id)) {
-      //       candidates.push(beach);
-      //     }
-      //   }
-      // }
+    // GPS Phase: Add nearby beaches via PostGIS RPC (explicit location only).
+    // NOTE: `get_nearby_beaches` signature uses `input_lat`, `input_lng`, and meters.
+    if (options.userLocation) {
+      type NearbyBeachRow = {
+        id: string;
+        is_private: boolean | null;
+        distance_meters: number | null;
+      };
+
+      const radiusMiles = Number.isFinite(options.radiusMiles)
+        ? (options.radiusMiles as number)
+        : 25;
+
+      // Convert miles to meters; cap to RPC max (100 miles).
+      const cappedMiles = Math.min(Math.max(radiusMiles, 0), 100);
+      const max_distance_meters = Math.round(cappedMiles * 1609.34);
+
+      // Grab more than we’ll score (we later cap candidates to 20).
+      const limit_count = 40;
+
+      const { data: nearbyRaw, error: nearbyError } = await supabase.rpc(
+        'get_nearby_beaches',
+        {
+          input_lat: options.userLocation.lat,
+          input_lng: options.userLocation.lon,
+          max_distance_meters,
+          limit_count,
+        }
+      );
+
+      if (nearbyError) {
+        console.warn('⚠️ [buildCandidatePool] Nearby RPC failed:', nearbyError);
+      } else {
+        const nearby = (nearbyRaw || []) as NearbyBeachRow[];
+        const existingIds = new Set(candidates.map((b) => b.id));
+        const orderedIds = nearby
+          .filter((r) => !r.is_private)
+          .map((r) => r.id)
+          .filter((id) => !existingIds.has(id));
+
+        if (orderedIds.length > 0) {
+          // Fetch full beach rows to ensure we have all fields needed for scoring and URL generation.
+          const { data: beachRows, error: beachError } = await supabase
+            .from('beaches')
+            .select('*')
+            .in('id', orderedIds)
+            .eq('is_private', false)
+            .limit(limit_count);
+
+          if (beachError) {
+            console.warn('⚠️ [buildCandidatePool] Nearby beach fetch failed:', beachError);
+          } else if (beachRows && beachRows.length > 0) {
+            const byId = new Map<string, Beach>(
+              (beachRows as unknown as Beach[]).map((b) => [b.id, b])
+            );
+            const orderedBeaches = orderedIds
+              .map((id) => byId.get(id))
+              .filter((b): b is Beach => !!b);
+
+            for (const beach of orderedBeaches) {
+              if (!existingIds.has(beach.id)) {
+                candidates.push(beach);
+                existingIds.add(beach.id);
+              }
+            }
+            console.log(`✅ Added ${orderedBeaches.length} nearby beaches (GPS)`);
+          }
+        }
+      }
     }
 
-    return candidates;
+    return { candidates, preferredWaveSize };
   } catch (error) {
     console.error('❌ Error building candidate pool:', error);
-    return [];
+    return { candidates: [], preferredWaveSize: null };
   }
 }
 
@@ -341,6 +399,7 @@ async function batchFetchForecasts(
 ): Promise<{
   successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>;
   failed: Array<{ beach: Beach; reason: string; stale: boolean }>;
+  staleCount: number;
 }> {
   const startTime = Date.now();
 
@@ -412,16 +471,20 @@ async function batchFetchForecasts(
     }
   }
 
+  // Count stale beaches from successful results (stale data is still returned as successful)
+  const staleCount = results.filter(r => !r.failed && r.stale).length;
+
   const duration = Date.now() - startTime;
   console.log(`📊 [batchFetchForecasts] Complete in ${duration}ms:`, {
     total: beaches.length,
     successful: successful.length,
     failed: failed.length,
+    staleCount,
     staleBeaches: results.filter(r => r.stale).map(r => r.beach.name).join(', '),
     failedBeaches: failed.map(f => `${f.beach.name} (${f.reason})`).join(', '),
   });
 
-  return { successful, failed };
+  return { successful, failed, staleCount };
 }
 
 // ============================================================================
@@ -435,10 +498,21 @@ async function scoreBeachForDiscovery(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
+  preferredWaveSize: string | null;
   affinity?: { affinity_score: number; session_count: number };
   distanceMiles?: number;
 }): Promise<DetailedScore> {
-  const { beach, forecast, userPrefs, affinity, distanceMiles } = args;
+  const { beach, forecast, userPrefs, preferredWaveSize, affinity, distanceMiles } =
+    args;
+
+  const preferredWaveRange = (() => {
+    const pref = (preferredWaveSize || "").toLowerCase();
+    if (!pref || pref === "any") return null;
+    if (pref === "small") return { min: 1, max: 3, label: "1-3 ft" };
+    if (pref === "medium") return { min: 3, max: 6, label: "3-6 ft" };
+    if (pref === "large") return { min: 6, max: Number.POSITIVE_INFINITY, label: "6+ ft" };
+    return null;
+  })();
 
   const subscores = {
     waveHeightFit: 0,
@@ -461,7 +535,26 @@ async function scoreBeachForDiscovery(args: {
   const tideStatus = forecast.tide_status?.toLowerCase() || '';
 
   // 1. Wave Height Fit (0-25 points)
-  if (userPrefs) {
+  // Profile preferred wave size (explicit) overrides learned/default ranges.
+  if (preferredWaveRange) {
+    const { min, max, label } = preferredWaveRange;
+    const closeMin = min * 0.8;
+    const closeMax = Number.isFinite(max) ? max * 1.2 : Number.POSITIVE_INFINITY;
+
+    if (waveHeight >= min && waveHeight <= max) {
+      subscores.waveHeightFit = 25;
+      reasons.push(`Waves ${forecast.wave_height} match your preferred size (${label})`);
+    } else if (waveHeight >= closeMin && waveHeight <= closeMax) {
+      subscores.waveHeightFit = 15;
+      reasons.push(`Waves ${forecast.wave_height} are close to your preferred size (${label})`);
+      if (waveHeight < min) warnings.push(`Below your preferred size (${label})`);
+      else warnings.push(`Above your preferred size (${label})`);
+    } else {
+      subscores.waveHeightFit = 5;
+      if (waveHeight < min) warnings.push(`Below your preferred size (${label})`);
+      else warnings.push(`Above your preferred size (${label})`);
+    }
+  } else if (userPrefs) {
     const userMin = userPrefs.wave_min_ft || 2;
     const userMax = userPrefs.wave_max_ft || 8;
 
@@ -637,13 +730,22 @@ async function scoreBeachForDiscovery(args: {
   const normalizedConditions =
     conditionsMax > 0 ? (conditionsEarned / conditionsMax) * 100 : 0;
 
-  const total = Math.max(
+  let total = Math.max(
     0,
     Math.min(
       100,
       normalizedConditions + subscores.affinityBonus + subscores.distancePenalty
     )
   );
+
+  // If waves are outside the user's explicit preferred size, cap the total so the
+  // UI "Match %" cannot appear misleadingly high.
+  if (preferredWaveRange) {
+    const { min, max } = preferredWaveRange;
+    if (waveHeight < min || waveHeight > max) {
+      total = Math.min(total, 54); // Keep in "fair" band (<55)
+    }
+  }
 
   // Determine match quality
   let matchQuality: 'perfect' | 'excellent' | 'good' | 'fair';
@@ -894,7 +996,7 @@ function selectBestWindow(
         composite === bestComposite &&
         windowScore === bestWindowScore &&
         bestForecast &&
-        forecastTime > new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`));
+        forecastTime > new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}Z`));
 
     if (isBetter) {
       bestAdjustedScore = adjustedScore;
@@ -917,6 +1019,7 @@ function selectBestWindow(
     wind: `${bestForecast.wind_speed} ${bestForecast.wind_direction}`,
     waveHeight: bestForecast.wave_height || 'Unknown',
     wavePeriod: bestForecast.wave_period || 'Unknown',
+    dataSource: bestForecast.data_source || 'FALLBACK',
     confidence: bestForecast.confidence_score || 50,
   };
 }
@@ -956,7 +1059,15 @@ function generateDiscoverySummary(
           ? 'Good match'
           : 'Fair conditions';
 
-  return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}. Best at ${timeStr}.`;
+  const preferredSizeWarning = score.warnings.find(
+    (w) =>
+      w.startsWith('Below your preferred size') ||
+      w.startsWith('Above your preferred size')
+  );
+
+  const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
+
+  return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}. Best at ${timeStr}.${warningSuffix}`;
 }
 
 // ============================================================================

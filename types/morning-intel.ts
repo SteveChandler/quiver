@@ -60,6 +60,59 @@ export interface ConditionsAnalysis {
   tide: ConditionEvaluation;
 }
 
+export type MorningIntelRecommendationDecision = "worth_it" | "maybe" | "skip";
+
+export interface MorningIntelRecommendationSummary {
+  decision: MorningIntelRecommendationDecision;
+  label: string; // Human label for UI (e.g., "Worth it", "Maybe", "Skip")
+  reasons: string[]; // Short reasons for the call
+}
+
+/**
+ * Persisted payload for automated daily intel posts (stored in intel_posts.surf_conditions).
+ *
+ * Keep this backward-compatible: older posts may have a different/partial shape.
+ */
+export interface MorningIntelSurfConditionsPayloadV2 {
+  kind: "morning_intel_v2";
+  generatedAt: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+
+  recommendation: MorningIntelRecommendationSummary;
+  conditions?: ConditionsAnalysis;
+
+  bestWindow: string;
+  confidence: "Low" | "Medium" | "High";
+
+  surf: SurfMetrics;
+  tide: TideMetrics & { recommendedTime?: string; optimalRange?: string | null };
+  wind: WindMetrics;
+  swells: {
+    primary: SwellComponent | null;
+    secondary: SwellComponent | null;
+  };
+
+  dataCompleteness: number; // 0-1
+  sources: {
+    wave: boolean;
+    tide: boolean;
+    wind: boolean;
+    swell: boolean;
+  };
+
+  beach?: {
+    name?: string;
+    skillLevel?: string | null;
+    hazards?: string[] | null;
+    breakType?: string | null;
+    // Debugging/validation helpers for recommendation correctness
+    aspectDeg?: number | null;
+    windOffshoreDegUsed?: number | null;
+    windOffshoreDegSource?: "db" | "computed_from_aspect" | "db_overridden_with_aspect";
+  };
+}
+
 export interface MorningIntelData {
   spotName: string;
   date: string; // YYYY-MM-DD
@@ -77,7 +130,21 @@ export interface MorningIntelData {
   beachPreferences?: BeachPreferences;
   conditions?: ConditionsAnalysis;
   payload: {
+    kind: "morning_intel_v2";
     generatedAt: string;
+    date: string;
+    time: string;
+    recommendation: MorningIntelRecommendationSummary;
+    conditions?: ConditionsAnalysis;
+    bestWindow: string;
+    confidence: "Low" | "Medium" | "High";
+    surf: SurfMetrics;
+    tide: TideMetrics & { recommendedTime?: string; optimalRange?: string | null };
+    wind: WindMetrics;
+    swells: {
+      primary: SwellComponent | null;
+      secondary: SwellComponent | null;
+    };
     dataCompleteness: number; // 0-1
     sources: {
       wave: boolean;
@@ -85,6 +152,7 @@ export interface MorningIntelData {
       wind: boolean;
       swell: boolean;
     };
+    beach?: MorningIntelSurfConditionsPayloadV2["beach"];
   };
 }
 

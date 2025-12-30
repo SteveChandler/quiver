@@ -29,6 +29,10 @@ import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { ZeroState } from "@/components/ui/zero-state";
 import { getNearestBeachName } from "@/lib/utils/nearest-beach";
+import {
+  ConditionsIntelCard,
+  getMorningIntelPayloadV2,
+} from "@/components/intel/conditions-intel-card";
 
 interface IntelFeedProps {
   posts: IntelPostWithUser[];
@@ -253,9 +257,13 @@ export function IntelFeedCard({
           </div>
 
           {/* Description */}
-          <p className="text-sm leading-relaxed line-clamp-3">
-            {post.description}
-          </p>
+          {post.tag === "conditions" && getMorningIntelPayloadV2(post.surf_conditions) ? (
+            <ConditionsIntelCard post={post} variant="feed" />
+          ) : (
+            <p className="text-sm leading-relaxed line-clamp-3">
+              {post.description}
+            </p>
+          )}
 
           {/* Location */}
           <div className="flex items-center gap-1 text-xs text-muted-foreground">

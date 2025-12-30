@@ -18,6 +18,7 @@ import type {
   BeachPreferences,
   ConditionEvaluation,
   ConditionsAnalysis,
+  MorningIntelRecommendationSummary,
 } from "@/types/morning-intel";
 
 // Re-export formatting functions for backward compatibility
@@ -574,6 +575,60 @@ export function analyzeConditions(
     swell: swellEval,
     wind: windEval,
     tide: tideEval,
+  };
+}
+
+function humanizeFactorName(factor: "swell" | "wind" | "tide"): string {
+  switch (factor) {
+    case "swell":
+      return "swell direction";
+    case "wind":
+      return "wind";
+    case "tide":
+      return "tide";
+  }
+}
+
+/**
+ * Conservative daily recommendation:
+ * - Worth it: all factors optimal
+ * - Maybe: no poor factors but at least one acceptable
+ * - Skip: any poor factor
+ */
+export function getConservativeRecommendation(
+  conditions: ConditionsAnalysis
+): MorningIntelRecommendationSummary {
+  const statuses: Array<{ key: "swell" | "wind" | "tide"; status: ConditionEvaluation["status"] }> = [
+    { key: "swell", status: conditions.swell.status },
+    { key: "wind", status: conditions.wind.status },
+    { key: "tide", status: conditions.tide.status },
+  ];
+
+  const poor = statuses.filter((s) => s.status === "poor").map((s) => humanizeFactorName(s.key));
+  const acceptable = statuses
+    .filter((s) => s.status === "acceptable")
+    .map((s) => humanizeFactorName(s.key));
+
+  if (poor.length > 0) {
+    return {
+      decision: "skip",
+      label: "Skip",
+      reasons: poor,
+    };
+  }
+
+  if (acceptable.length === 0) {
+    return {
+      decision: "worth_it",
+      label: "Worth it",
+      reasons: ["all factors line up"],
+    };
+  }
+
+  return {
+    decision: "maybe",
+    label: "Maybe",
+    reasons: acceptable,
   };
 }
 

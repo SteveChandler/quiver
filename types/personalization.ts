@@ -30,6 +30,8 @@ export interface PersonalizedForecastWindow {
   waveHeight: string;
   /** Wave period (e.g., "12s") */
   wavePeriod: string;
+  /** Source used for the underlying forecast row (e.g., "CDIP", "NOAA_NWS", "NOAA_BUOY", "FALLBACK") */
+  dataSource: string;
   /** Confidence score for this window (0-100) */
   confidence: number;
 }

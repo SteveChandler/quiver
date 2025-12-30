@@ -10,6 +10,8 @@ import {
   buildBeachUrl,
   buildCityUrl,
   buildInternationalCityUrl,
+  cityToSlug,
+  stateToSlug,
 } from "@/lib/utils/beach-url-utils";
 
 const baseUrl = (
@@ -65,7 +67,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const response = await getAllBeachLocations();
     if (response.success && response.data) {
-      locationRoutes = response.data.map((location) => {
+      locationRoutes = response.data.flatMap((location) => {
         // Canonical city URL:
         // - USA:  /{state}/{city}
         // - Intl: /{country}/{state}/{city}
@@ -73,19 +75,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           !location.country ||
           String(location.country).toLowerCase() === "usa" ||
           String(location.country).toLowerCase() === "us";
+
+        // HI: replace ambiguous Waimea city URL with island-specific pages.
+        if (
+          isUsa &&
+          stateToSlug(location.state) === "hi" &&
+          cityToSlug(location.city) === "waimea"
+        ) {
+          return [
+            {
+              url: `${baseUrl}/hi/waimea-kauai`,
+              lastModified: lastmod,
+              changeFrequency: "weekly",
+              priority: 0.75,
+            },
+            {
+              url: `${baseUrl}/hi/waimea-big-island`,
+              lastModified: lastmod,
+              changeFrequency: "weekly",
+              priority: 0.75,
+            },
+          ];
+        }
+
         const locationUrl = isUsa
           ? buildCityUrl(location.state, location.city)
-          : buildInternationalCityUrl(
-              location.country,
-              location.state,
-              location.city
-            );
-        return {
-          url: `${baseUrl}${locationUrl}`,
-          lastModified: lastmod,
-          changeFrequency: "weekly",
-          priority: 0.75, // High priority for location pages
-        };
+          : buildInternationalCityUrl(location.country, location.state, location.city);
+
+        return [
+          {
+            url: `${baseUrl}${locationUrl}`,
+            lastModified: lastmod,
+            changeFrequency: "weekly",
+            priority: 0.75, // High priority for location pages
+          },
+        ];
       });
     }
   } catch (error) {

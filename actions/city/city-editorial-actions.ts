@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
+import { parseHiIslandCitySlug } from "@/lib/utils/beach-url-utils";
 
 /**
  * Session timing module structure
@@ -54,20 +55,34 @@ export async function getCityEditorialContent(
 ): Promise<CityEditorialContent | null> {
   const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await supabase.rpc("get_city_editorial", {
-    p_city: citySlug,
-    p_state: stateSlug,
-    p_country: countrySlug,
-  });
+  const fetchEditorial = async (slug: string) => {
+    return await supabase.rpc("get_city_editorial", {
+      p_city: slug,
+      p_state: stateSlug,
+      p_country: countrySlug,
+    });
+  };
+
+  // First try the requested city slug
+  let { data, error } = await fetchEditorial(citySlug);
 
   if (error) {
     console.error("[getCityEditorialContent] Error fetching editorial content:", error);
     return null;
   }
 
-  if (!data) {
-    return null;
+  // HI island-suffixed city slugs (Waimea-only to start): fallback to base city slug
+  if (!data && stateSlug?.toLowerCase() === "hi") {
+    const parsed = parseHiIslandCitySlug(citySlug);
+    if (parsed.islandSlug && parsed.baseCitySlug && parsed.baseCitySlug !== citySlug) {
+      const retry = await fetchEditorial(parsed.baseCitySlug);
+      if (!retry.error) {
+        data = retry.data as any;
+      }
+    }
   }
+
+  if (!data) return null;
 
   // Parse JSONB fields if they're returned as strings
   const result = data as CityEditorialContent;
