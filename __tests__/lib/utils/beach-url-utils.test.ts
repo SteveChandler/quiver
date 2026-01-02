@@ -8,6 +8,7 @@ import {
   buildCityUrl,
   buildInternationalCityUrl,
   buildInternationalBeachUrl,
+  getBeachHrefSafe,
   getValidStateSlugs,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
@@ -452,6 +453,43 @@ describe("Beach URL Utils", () => {
       expect(isValidStateSlug("mexico")).toBe(false);
       expect(isValidStateSlug("baja-california")).toBe(false);
       expect(isValidStateSlug("mexico/baja-california")).toBe(false);
+    });
+  });
+
+  describe("getBeachHrefSafe", () => {
+    it("should return hierarchical URL when city/state/slug exist", () => {
+      expect(
+        getBeachHrefSafe({
+          slug: "ocean-beach",
+          city: "San Diego",
+          state: "CA",
+        })
+      ).toBe("/ca/san-diego/ocean-beach");
+    });
+
+    it("should fallback to /beach/{slug} when city/state missing", () => {
+      expect(
+        getBeachHrefSafe({
+          slug: "test-beach",
+          city: null,
+          state: null,
+        })
+      ).toBe("/beach/test-beach");
+    });
+
+    it("should fallback to /beach/{id} when slug missing but id exists", () => {
+      expect(
+        getBeachHrefSafe({
+          id: "00000000-0000-0000-0000-000000000000",
+          slug: null,
+          city: "San Diego",
+          state: "CA",
+        })
+      ).toBe("/beach/00000000-0000-0000-0000-000000000000");
+    });
+
+    it("should return null when insufficient data exists (and never '#')", () => {
+      expect(getBeachHrefSafe({ id: null, slug: null })).toBeNull();
     });
   });
 

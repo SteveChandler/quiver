@@ -62,7 +62,8 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
         // Test API directly with valid input
         const validPlan = {
-          beach_name: "Test Beach",
+          beach_id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+          beach_name: "Pacific Beach",
           session_date: "2025-12-15",
           start_time: "09:00:00",
           notes: "Test session planning integration",
@@ -275,14 +276,16 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
         // so we treat "card + action present" as the core assertion, and best-effort
         // attempt the navigation without failing the whole test.
         const firstCard = discoveryCards.first();
-        const viewBeachButton = firstCard.getByRole("button", {
-          name: /view beach/i,
-        });
+        // "View Beach" is rendered as a link in Surf Discovery cards.
+        // Keep this robust in case the UI flips between <a> and <button>.
+        const viewBeachAction = firstCard
+          .getByRole("link", { name: /view beach/i })
+          .or(firstCard.getByRole("button", { name: /view beach/i }));
         await expect(firstCard).toBeVisible({ timeout: 10000 });
-        await expect(viewBeachButton).toBeVisible({ timeout: 10000 });
+        await expect(viewBeachAction).toBeVisible({ timeout: 10000 });
 
         const beforeUrl = page.url();
-        await viewBeachButton.click();
+        await viewBeachAction.click();
         const navigated = await page
           .waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 })
           .then(() => true)

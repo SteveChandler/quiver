@@ -8,6 +8,7 @@ import {
   buildBeachUrl,
   buildCityUrl,
   buildStateUrl,
+  buildHiCityUrlForBeach,
   stateToSlug,
   cityToSlug,
   isValidStateSlug,
@@ -128,7 +129,7 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
             })(),
             {
               name: beach.city || "City",
-              url: `${baseUrl}${buildCityUrl(beach.state, beach.city)}`,
+              url: `${baseUrl}${buildHiCityUrlForBeach(beach)}`,
             },
             {
               name: beach.name,

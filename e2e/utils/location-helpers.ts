@@ -60,8 +60,9 @@ export async function waitForLocationPageLoad(
   page: Page,
   timeout: number = LOCATION_PAGE_TIMEOUTS.pageLoad
 ): Promise<void> {
-  // Wait for network idle
-  await page.waitForLoadState("networkidle", { timeout });
+  // Avoid "networkidle" for Mapbox-heavy pages; long-polling and tile loading can
+  // keep the network busy indefinitely in dev/test.
+  await page.waitForLoadState("load", { timeout });
 
   // Wait for key page elements to be visible
   await page.waitForSelector("h1", { state: "visible", timeout });
@@ -369,7 +370,15 @@ export async function verifyStatsDisplayed(page: Page): Promise<void> {
 export function isLocationPageUrl(url: string): boolean {
   // Should match: /beaches/[country]/[state]/[city]
   const pattern = /^\/beaches\/[a-z-]+\/[a-z-]+\/[a-z-]+$/;
-  return pattern.test(url);
+  try {
+    const parsed = new URL(url);
+    // Normalize trailing slash just in case
+    const pathname = parsed.pathname.replace(/\/$/, "");
+    return pattern.test(pathname);
+  } catch {
+    // Fallback: treat input as a pathname
+    return pattern.test(url.replace(/\/$/, ""));
+  }
 }
 
 /**

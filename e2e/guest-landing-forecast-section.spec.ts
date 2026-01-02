@@ -3,10 +3,16 @@
  *
  * Tests the forecast section on the landing page for guest users.
  * Validates:
- * - 3-day forecast card rendering
- * - Card content (wave height, wind, water temp)
- * - Condition badges (Excellent, Good, Fair)
+ * - Feature switcher interaction (Forecast, Journal, Intel)
+ * - "Your Best Spot Today" phone mock rendering
+ * - Session Journal phone mock
+ * - Local Intel phone mock
+ * - Best Window tiles (Time, Tide, Wind, Confidence)
+ * - Wave/Match stats display
+ * - Match badge display
  * - CTA buttons navigation
+ * - Arrow button navigation
+ * - Keyboard navigation (ARIA tablist pattern)
  * - Responsive layout (mobile vs desktop)
  * - Accessibility features
  *
@@ -25,120 +31,428 @@ test.describe("Landing Page Forecast Section", () => {
     await waitForPageLoad(page);
   });
 
-  test.describe("Card Rendering", () => {
-    test("displays 3 forecast cards", async ({ page }) => {
+  test.describe("Feature Switcher", () => {
+    test("displays all three features in rail", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Check that all three feature tabs are visible
+      await expect(
+        page.getByRole("tab", { name: "Personalized Forecast" })
+      ).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Session Journal" })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Local Intel" })).toBeVisible();
+    });
+
+    test("default feature is Personalized Forecast", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Personalized Forecast should be selected by default
+      const forecastTab = page.getByRole("tab", { name: "Personalized Forecast" });
+      await expect(forecastTab).toHaveAttribute("aria-selected", "true");
+
+      // Forecast phone mock should be visible
+      await expect(page.getByTestId("phone-mock-forecast")).toBeVisible();
+    });
+
+    test("clicking Session Journal switches content", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Click Session Journal tab
+      const journalTab = page.getByRole("tab", { name: "Session Journal" });
+      await journalTab.click();
+
+      // Wait for animation
+      await page.waitForTimeout(300);
+
+      // Session Journal should now be selected
+      await expect(journalTab).toHaveAttribute("aria-selected", "true");
+
+      // Journal phone mock should be visible
+      await expect(page.getByTestId("phone-mock-journal")).toBeVisible();
+
+      // Body copy should update
+      await expect(forecastSection).toContainText(
+        "Log sessions. Unlock better forecasts."
+      );
+
+      // Headline should update
+      await expect(forecastSection).toContainText("Track your surf story");
+    });
+
+    test("clicking Local Intel switches content", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Click Local Intel tab
+      const intelTab = page.getByRole("tab", { name: "Local Intel" });
+      await intelTab.click();
+
+      // Wait for animation
+      await page.waitForTimeout(300);
+
+      // Local Intel should now be selected
+      await expect(intelTab).toHaveAttribute("aria-selected", "true");
+
+      // Intel phone mock should be visible
+      await expect(page.getByTestId("phone-mock-intel")).toBeVisible();
+
+      // Body copy should update
+      await expect(forecastSection).toContainText(
+        "Real-time posts, photos, and crowd reports"
+      );
+
+      // Headline should update
+      await expect(forecastSection).toContainText("Real conditions from real surfers");
+    });
+
+    test("arrow navigation cycles through features", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Default is Forecast
+      await expect(
+        page.getByRole("tab", { name: "Personalized Forecast" })
+      ).toHaveAttribute("aria-selected", "true");
+
+      // Click Next button
+      const nextButton = page.getByLabel("Next feature");
+      await nextButton.click();
+      await page.waitForTimeout(300);
+
+      // Should move to Session Journal
+      await expect(
+        page.getByRole("tab", { name: "Session Journal" })
+      ).toHaveAttribute("aria-selected", "true");
+
+      // Click Next again
+      await nextButton.click();
+      await page.waitForTimeout(300);
+
+      // Should move to Local Intel
+      await expect(
+        page.getByRole("tab", { name: "Local Intel" })
+      ).toHaveAttribute("aria-selected", "true");
+
+      // Click Next again to wrap around
+      await nextButton.click();
+      await page.waitForTimeout(300);
+
+      // Should wrap back to Forecast
+      await expect(
+        page.getByRole("tab", { name: "Personalized Forecast" })
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("previous arrow navigation cycles backwards", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Default is Forecast
+      const previousButton = page.getByLabel("Previous feature");
+
+      // Click Previous button
+      await previousButton.click();
+      await page.waitForTimeout(300);
+
+      // Should wrap to Local Intel
+      await expect(
+        page.getByRole("tab", { name: "Local Intel" })
+      ).toHaveAttribute("aria-selected", "true");
+
+      // Click Previous again
+      await previousButton.click();
+      await page.waitForTimeout(300);
+
+      // Should move to Session Journal
+      await expect(
+        page.getByRole("tab", { name: "Session Journal" })
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("CTA link changes with active feature", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Default: Forecast CTA
+      let ctaLink = forecastSection.locator('a[href="/map"]');
+      await expect(ctaLink).toBeVisible();
+
+      // Switch to Session Journal
+      await page.getByRole("tab", { name: "Session Journal" }).click();
+      await page.waitForTimeout(300);
+
+      // CTA should now link to /sessions/new
+      ctaLink = forecastSection.locator('a[href="/sessions/new"]');
+      await expect(ctaLink).toBeVisible();
+      await expect(ctaLink).toContainText("Start your journal");
+
+      // Switch to Local Intel
+      await page.getByRole("tab", { name: "Local Intel" }).click();
+      await page.waitForTimeout(300);
+
+      // CTA should link to /map
+      ctaLink = forecastSection.locator('a[href="/map"]');
+      await expect(ctaLink).toBeVisible();
+      await expect(ctaLink).toContainText("Explore the map");
+    });
+  });
+
+  test.describe("Keyboard Navigation", () => {
+    test("ArrowDown navigates to next feature", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Focus the first tab
+      const forecastTab = page.getByRole("tab", { name: "Personalized Forecast" });
+      await forecastTab.focus();
+
+      // Press ArrowDown
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(300);
+
+      // Should move to Session Journal
+      await expect(
+        page.getByRole("tab", { name: "Session Journal" })
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("ArrowUp navigates to previous feature", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Focus the first tab
+      const forecastTab = page.getByRole("tab", { name: "Personalized Forecast" });
+      await forecastTab.focus();
+
+      // Press ArrowUp
+      await page.keyboard.press("ArrowUp");
+      await page.waitForTimeout(300);
+
+      // Should wrap to Local Intel
+      await expect(
+        page.getByRole("tab", { name: "Local Intel" })
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("Home key navigates to first feature", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Switch to Local Intel first
+      await page.getByRole("tab", { name: "Local Intel" }).click();
+      await page.waitForTimeout(300);
+
+      // Focus current tab and press Home
+      const intelTab = page.getByRole("tab", { name: "Local Intel" });
+      await intelTab.focus();
+      await page.keyboard.press("Home");
+      await page.waitForTimeout(300);
+
+      // Should move to Personalized Forecast
+      await expect(
+        page.getByRole("tab", { name: "Personalized Forecast" })
+      ).toHaveAttribute("aria-selected", "true");
+    });
+
+    test("End key navigates to last feature", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Focus first tab and press End
+      const forecastTab = page.getByRole("tab", { name: "Personalized Forecast" });
+      await forecastTab.focus();
+      await page.keyboard.press("End");
+      await page.waitForTimeout(300);
+
+      // Should move to Local Intel
+      await expect(
+        page.getByRole("tab", { name: "Local Intel" })
+      ).toHaveAttribute("aria-selected", "true");
+    });
+  });
+
+  test.describe("Responsive Feature Switcher", () => {
+    test("mobile: displays horizontal segmented control", async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS.mobile);
+      await page.goto("/");
+      await waitForPageLoad(page);
+
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // All three tabs should be visible in horizontal layout
+      await expect(
+        page.getByRole("tab", { name: "Personalized Forecast" })
+      ).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Session Journal" })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Local Intel" })).toBeVisible();
+    });
+
+    test("mobile: feature switching works", async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS.mobile);
+      await page.goto("/");
+      await waitForPageLoad(page);
+
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Click Session Journal
+      await page.getByRole("tab", { name: "Session Journal" }).click();
+      await page.waitForTimeout(300);
+
+      // Should show journal mock
+      await expect(page.getByTestId("phone-mock-journal")).toBeVisible();
+    });
+
+    test("desktop: displays vertical rail navigation", async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS.desktop);
+      await page.goto("/");
+      await waitForPageLoad(page);
+
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Arrow buttons should be visible on desktop
+      await expect(page.getByLabel("Previous feature")).toBeVisible();
+      await expect(page.getByLabel("Next feature")).toBeVisible();
+    });
+  });
+
+  test.describe("Phone Mock Rendering", () => {
+    test("displays Best Spot Today card", async ({ page }) => {
       // Wait for forecast section to be visible
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Verify we have exactly 3 forecast cards
-      const forecastCards = page.locator('[data-testid^="forecast-card-"]');
-      await expect(forecastCards).toHaveCount(3);
+      // Verify the Best Spot card is visible
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      await expect(bestSpotCard).toBeVisible();
 
-      // Verify each card is visible
-      for (let i = 0; i < 3; i++) {
-        const card = page.getByTestId(`forecast-card-${i}`);
-        await expect(card).toBeVisible();
-      }
+      // Verify heading
+      const heading = page.getByTestId("best-spot-heading");
+      await expect(heading).toContainText("Your Best Spot Today");
     });
 
-    test("shows wave height, wind, and water temp in each card", async ({
-      page,
-    }) => {
+    test("shows spot name and location details", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Check the first card for all required content
-      const firstCard = page.getByTestId("forecast-card-0");
-      await expect(firstCard).toBeVisible();
+      // Verify spot name is displayed
+      const spotName = page.getByTestId("spot-name");
+      await expect(spotName).toBeVisible();
+      await expect(spotName).toContainText("Marine Street Beach");
 
-      // Verify wave information is displayed
-      const waveText = firstCard.locator("text=Waves");
-      await expect(waveText).toBeVisible();
-
-      // Verify wind information is displayed
-      const windText = firstCard.locator("text=Wind");
-      await expect(windText).toBeVisible();
-
-      // Verify water temp information is displayed
-      const waterText = firstCard.locator("text=Water");
-      await expect(waterText).toBeVisible();
-
-      // Verify we have numeric values (e.g., "3-4 ft", "4 mph", "65°F")
-      const cardContent = await firstCard.textContent();
-      expect(cardContent).toMatch(/\d+-?\d*\s*(ft|mph|°F)/);
+      // Verify location text
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      await expect(bestSpotCard).toContainText("California");
     });
 
-    test("displays day names correctly", async ({ page }) => {
+    test("displays current date", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // First card should show "Today"
-      const firstCard = page.getByTestId("forecast-card-0");
-      await expect(firstCard).toContainText("Today");
+      // Verify date is displayed
+      const spotDate = page.getByTestId("spot-date");
+      await expect(spotDate).toBeVisible();
 
-      // Second card should show "Tomorrow"
-      const secondCard = page.getByTestId("forecast-card-1");
-      await expect(secondCard).toContainText("Tomorrow");
-
-      // Third card should show a day abbreviation (Mon, Tue, Wed, etc.)
-      const thirdCard = page.getByTestId("forecast-card-2");
-      const thirdCardText = await thirdCard.textContent();
-      expect(thirdCardText).toMatch(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
+      // Date should contain day name and month
+      const dateText = await spotDate.textContent();
+      expect(dateText).toMatch(
+        /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/
+      );
+      expect(dateText).toMatch(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/);
     });
   });
 
-  test.describe("Condition Badges", () => {
-    test("displays condition badges on cards", async ({ page }) => {
+  test.describe("Match Badge", () => {
+    test("displays match percentage badge", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Check that each card has a conditions badge
-      const badges = page.getByTestId("forecast-conditions-badge");
-      await expect(badges).toHaveCount(3);
-
-      // Verify badge text is one of the expected values
-      for (let i = 0; i < 3; i++) {
-        const badge = badges.nth(i);
-        const badgeText = await badge.textContent();
-        expect(["Excellent", "Good", "Fair"]).toContain(badgeText);
-      }
+      // Check that match badge is visible
+      const matchBadge = page.getByTestId("match-badge");
+      await expect(matchBadge).toBeVisible();
+      await expect(matchBadge).toContainText("94% Match");
     });
 
-    test("badges have appropriate styling based on condition", async ({
+    test("match badge has correct styling", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      const matchBadge = page.getByTestId("match-badge");
+      const badgeClasses = await matchBadge.getAttribute("class");
+
+      expect(badgeClasses).toContain("bg-ocean-blue");
+      expect(badgeClasses).toContain("text-white");
+    });
+  });
+
+  test.describe("Best Window Tiles", () => {
+    test("displays 4 Best Window tiles", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Verify the Best Window tiles grid is visible
+      const tilesGrid = page.getByTestId("best-window-tiles");
+      await expect(tilesGrid).toBeVisible();
+
+      // Check for tile content
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      await expect(bestSpotCard).toContainText("Time");
+      await expect(bestSpotCard).toContainText("Tide");
+      await expect(bestSpotCard).toContainText("Wind");
+      await expect(bestSpotCard).toContainText("Confidence");
+    });
+
+    test("tiles show correct values", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      const bestSpotCard = page.getByTestId("best-spot-card");
+
+      // Verify time value
+      await expect(bestSpotCard).toContainText("4:00 PM - 7:00 PM");
+
+      // Verify tide value
+      await expect(bestSpotCard).toContainText("Rising");
+
+      // Verify wind value
+      await expect(bestSpotCard).toContainText("5 mph NE");
+
+      // Verify confidence value
+      await expect(bestSpotCard).toContainText("88% High");
+    });
+  });
+
+  test.describe("Bottom Stats", () => {
+    test("displays wave height and match percentage stats", async ({
       page,
     }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      const badges = page.getByTestId("forecast-conditions-badge");
+      const bottomStats = page.getByTestId("bottom-stats");
+      await expect(bottomStats).toBeVisible();
 
-      // Check each badge has correct styling classes
-      for (let i = 0; i < 3; i++) {
-        const badge = badges.nth(i);
-        const badgeText = await badge.textContent();
-        const badgeClasses = await badge.getAttribute("class");
+      // Verify wave height
+      await expect(bottomStats).toContainText("3.3 ft");
+      await expect(bottomStats).toContainText("Waves");
 
-        if (badgeText === "Excellent") {
-          expect(badgeClasses).toContain("bg-green-100");
-          expect(badgeClasses).toContain("text-green-800");
-        } else if (badgeText === "Good") {
-          expect(badgeClasses).toContain("bg-blue-100");
-          expect(badgeClasses).toContain("text-blue-800");
-        } else if (badgeText === "Fair") {
-          expect(badgeClasses).toContain("bg-yellow-100");
-          expect(badgeClasses).toContain("text-yellow-800");
-        }
-      }
+      // Verify match percentage
+      await expect(bottomStats).toContainText("94");
+      await expect(bottomStats).toContainText("Match");
     });
   });
 
   test.describe("CTA Buttons", () => {
-    test("Explore Map button has correct link", async ({ page }) => {
+    test("default Explore Map button has correct link", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Find the map CTA link (use the actual Link element)
+      // Find the map CTA link (default for forecast feature)
       const mapLink = forecastSection.locator('a[href="/map"]');
       await expect(mapLink).toBeVisible();
 
@@ -147,36 +461,19 @@ test.describe("Landing Page Forecast Section", () => {
       expect(linkText?.length).toBeGreaterThan(0);
     });
 
-    test("Sign Up Free button has correct link", async ({ page }) => {
+    test("CTA button has correct styling", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Find the signup CTA link (use the actual Link element)
-      const signupLink = forecastSection.locator('a[href="/auth/sign-up"]');
-      await expect(signupLink).toBeVisible();
-
-      // Verify the link text
-      const linkText = await signupLink.textContent();
-      expect(linkText?.length).toBeGreaterThan(0);
-    });
-
-    test("CTA buttons have correct styling", async ({ page }) => {
-      const forecastSection = page.getByTestId("forecast-section");
-      await expect(forecastSection).toBeVisible({ timeout: 5000 });
-
-      // Primary button (Explore Map) should have ocean-blue styling
-      const mapButton = page.getByTestId("forecast-cta-map");
-      const mapButtonClasses = await mapButton.getAttribute("class");
-      expect(mapButtonClasses).toContain("bg-ocean-blue");
-
-      // Secondary button (Sign Up Free) should have outline variant
-      const signupButton = page.getByTestId("forecast-cta-signup");
-      await expect(signupButton).toBeVisible();
+      // Primary button should have ocean-blue styling
+      const ctaButton = page.getByTestId("forecast-cta-forecast");
+      const buttonClasses = await ctaButton.getAttribute("class");
+      expect(buttonClasses).toContain("bg-ocean-blue");
     });
   });
 
   test.describe("Responsive Design", () => {
-    test("mobile: displays all forecast cards", async ({ page }) => {
+    test("mobile: displays Best Spot card", async ({ page }) => {
       // Set mobile viewport
       await page.setViewportSize(VIEWPORTS.mobile);
       await page.goto("/");
@@ -185,16 +482,12 @@ test.describe("Landing Page Forecast Section", () => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Get the cards grid
-      const cardsGrid = page.getByTestId("forecast-cards-grid");
-      await expect(cardsGrid).toBeVisible();
-
-      // All 3 forecast cards should be visible on mobile
-      const forecastCards = page.locator('[data-testid^="forecast-card-"]');
-      await expect(forecastCards).toHaveCount(3);
+      // Best Spot card should be visible on mobile
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      await expect(bestSpotCard).toBeVisible();
     });
 
-    test("desktop: displays all forecast cards", async ({ page }) => {
+    test("desktop: displays Best Spot card", async ({ page }) => {
       // Set desktop viewport
       await page.setViewportSize(VIEWPORTS.desktop);
       await page.goto("/");
@@ -203,16 +496,12 @@ test.describe("Landing Page Forecast Section", () => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Get the cards grid
-      const cardsGrid = page.getByTestId("forecast-cards-grid");
-      await expect(cardsGrid).toBeVisible();
-
-      // All 3 forecast cards should be visible on desktop
-      const forecastCards = page.locator('[data-testid^="forecast-card-"]');
-      await expect(forecastCards).toHaveCount(3);
+      // Best Spot card should be visible on desktop
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      await expect(bestSpotCard).toBeVisible();
     });
 
-    test("CTA buttons stack on mobile", async ({ page }) => {
+    test("CTA button visible on mobile", async ({ page }) => {
       // Set mobile viewport
       await page.setViewportSize(VIEWPORTS.mobile);
       await page.goto("/");
@@ -221,23 +510,20 @@ test.describe("Landing Page Forecast Section", () => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Both CTA buttons should be visible on mobile
-      const mapButton = page.getByTestId("forecast-cta-map");
-      const signupButton = page.getByTestId("forecast-cta-signup");
-
-      await expect(mapButton).toBeVisible();
-      await expect(signupButton).toBeVisible();
+      // CTA button should be visible on mobile
+      const ctaButton = page.getByTestId("forecast-cta-forecast");
+      await expect(ctaButton).toBeVisible();
     });
   });
 
   test.describe("Accessibility", () => {
-    test("forecast cards are focusable via keyboard", async ({ page }) => {
+    test("CTA button is focusable via keyboard", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Tab to the CTA buttons
-      const mapButton = page.getByTestId("forecast-cta-map");
-      await mapButton.focus();
+      // Tab to the CTA button
+      const ctaButton = page.getByTestId("forecast-cta-forecast");
+      await ctaButton.focus();
 
       // Verify button is focused
       const focusedElement = page.locator(":focus");
@@ -252,26 +538,37 @@ test.describe("Landing Page Forecast Section", () => {
       const sectionHeading = forecastSection.locator("h2");
       await expect(sectionHeading).toBeVisible();
 
-      // Each card should display day names
-      for (let i = 0; i < 3; i++) {
-        const card = page.getByTestId(`forecast-card-${i}`);
-        await expect(card).toBeVisible();
-      }
+      // Best Spot card should be visible
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      await expect(bestSpotCard).toBeVisible();
     });
 
-    test("buttons have accessible text", async ({ page }) => {
+    test("CTA button has accessible text", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // Primary CTA should have visible text
-      const mapButton = page.getByTestId("forecast-cta-map");
-      const mapButtonText = await mapButton.textContent();
-      expect(mapButtonText?.length).toBeGreaterThan(0);
+      // CTA should have visible text
+      const ctaButton = page.getByTestId("forecast-cta-forecast");
+      const ctaButtonText = await ctaButton.textContent();
+      expect(ctaButtonText?.length).toBeGreaterThan(0);
+    });
 
-      // Secondary CTA should have visible text
-      const signupButton = page.getByTestId("forecast-cta-signup");
-      const signupButtonText = await signupButton.textContent();
-      expect(signupButtonText?.length).toBeGreaterThan(0);
+    test("feature tabs have accessible ARIA attributes", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Check tablist has proper role
+      const tablist = page.getByRole("tablist");
+      await expect(tablist).toBeVisible();
+
+      // Each tab should have proper ARIA attributes
+      const forecastTab = page.getByRole("tab", { name: "Personalized Forecast" });
+      await expect(forecastTab).toHaveAttribute("aria-controls", "phone-mock-panel");
+      await expect(forecastTab).toHaveAttribute("aria-selected");
+
+      // Tabpanel should exist
+      const tabpanel = page.locator('[role="tabpanel"]');
+      await expect(tabpanel).toBeVisible();
     });
   });
 
@@ -285,14 +582,24 @@ test.describe("Landing Page Forecast Section", () => {
       expect(sectionClasses).toMatch(/bg-\[|bg-gradient/);
     });
 
-    test("cards have proper styling", async ({ page }) => {
+    test("Best Spot card has proper styling", async ({ page }) => {
       const forecastSection = page.getByTestId("forecast-section");
       await expect(forecastSection).toBeVisible({ timeout: 5000 });
 
-      // First card should have proper card styling
-      const firstCard = page.getByTestId("forecast-card-0");
-      const cardClasses = await firstCard.getAttribute("class");
+      // Best Spot card should have proper card styling
+      const bestSpotCard = page.getByTestId("best-spot-card");
+      const cardClasses = await bestSpotCard.getAttribute("class");
       expect(cardClasses).toContain("rounded");
+    });
+
+    test("phone mock displays Quiver logo", async ({ page }) => {
+      const forecastSection = page.getByTestId("forecast-section");
+      await expect(forecastSection).toBeVisible({ timeout: 5000 });
+
+      // Phone mock should show Quiver logo
+      const logo = page.getByTestId("phone-mock-logo");
+      await expect(logo).toBeVisible();
+      await expect(logo).toContainText("Quiver");
     });
   });
 });

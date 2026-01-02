@@ -7,26 +7,26 @@ export const TOTAL_ONBOARDING_STEPS = 6;
 interface OnboardingData {
   // Step 1: Welcome (no data stored)
 
-  // Step 2: Profile
-  fullName?: string;
-  displayName?: string;
-
-  // Step 3: Experience
-  experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-
-  // Step 4: Wave Preferences
-  surfStyles?: string[];
-  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
-  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
-  crowdPreference?: 'social' | 'moderate' | 'solitude';
-
-  // Step 5: Home Beach
+  // Step 2: Home Beach
   homeBeachId?: string;
   homeBeachName?: string;
   homeBeachSlug?: string;
   homeBeachCity?: string;
   homeBeachState?: string;
   homeBeachCountry?: string;
+
+  // Step 3: Profile
+  fullName?: string;
+  displayName?: string;
+
+  // Step 4: Experience
+  experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+
+  // Step 5: Wave Preferences
+  surfStyles?: string[];
+  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
+  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
+  crowdPreference?: 'social' | 'moderate' | 'solitude';
 
   // Step 6: Completion (no data stored)
 }

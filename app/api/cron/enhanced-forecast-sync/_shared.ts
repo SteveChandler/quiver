@@ -179,14 +179,11 @@ export async function runEnhancedForecastSyncHead(
     }
 
     // Keep this endpoint lightweight and focused on auth/env readiness.
-    return createSuccessResponse(
-      {
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        environment: env,
-      },
-      "Enhanced forecast sync service health check"
-    );
+    return createSuccessResponse({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      environment: env,
+    });
   } catch (error) {
     return createErrorResponse(
       "Health check failed",

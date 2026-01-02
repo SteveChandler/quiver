@@ -245,6 +245,10 @@ export const PersonalizedForecastCard = React.memo(
     const { beach, window, score, breakdown, summary, reasons } =
       recommendation;
     const confidenceIndicator = getConfidenceIndicator(window.confidence);
+    const waveSourceLabel =
+      window.dataSource === "CDIP" || window.dataSource === "NOAA_BUOY"
+        ? "Live"
+        : "Forecast";
 
     // Calculate personalization boost (how much better than base score)
     const personalizationBoost =
@@ -267,8 +271,8 @@ export const PersonalizedForecastCard = React.memo(
       <Card className="w-full" data-testid="personalized-forecast-card">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 flex-wrap">
                 <Target className="h-5 w-5 text-blue-600" />
                 Your Best Spot Today
               </CardTitle>
@@ -277,13 +281,14 @@ export const PersonalizedForecastCard = React.memo(
                 {format(window.start, "EEEE, MMM d")}
               </p>
             </div>
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleShare}
                 className="h-9 w-9 text-muted-foreground hover:text-foreground"
                 aria-label="Share forecast"
+                data-testid="personalized-forecast-share"
               >
                 <Share2 className="h-4 w-4" />
               </Button>
@@ -420,7 +425,7 @@ export const PersonalizedForecastCard = React.memo(
                 <div className="space-y-0.5">
                   <div>Waves</div>
                   <div className="text-[10px] opacity-70">
-                    {window.wavePeriod}
+                    {window.wavePeriod} · {waveSourceLabel}
                   </div>
                 </div>
               }
@@ -452,6 +457,7 @@ export const PersonalizedForecastCard = React.memo(
                 )}
                 valueClassName="text-purple-600 text-base"
                 labelClassName="text-purple-500"
+                testId="personalized-forecast-for-you-tile"
                 onClick={
                   onViewSimilarSessions && insights?.similarSessions.length
                     ? onViewSimilarSessions
@@ -525,6 +531,7 @@ export const PersonalizedForecastCard = React.memo(
                   size="sm"
                   onClick={onViewSimilarSessions}
                   className="w-full justify-between text-blue-600 hover:text-blue-700 hover:bg-blue-50 mt-2"
+                  data-testid="personalized-forecast-view-similar-sessions"
                 >
                   <span className="text-sm">
                     View {insights.similarSessions.length} similar session

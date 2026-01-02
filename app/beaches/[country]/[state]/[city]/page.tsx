@@ -23,9 +23,12 @@ import {
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import { buildInternationalCityUrl } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe, getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import {
+  parseHiIslandCitySlug,
+  getHiIslandDisplayName,
+} from "@/lib/utils/beach-url-utils";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 
 // Editorial content imports
@@ -90,6 +93,16 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
   const { location, stats, beaches } = response.data;
 
+  // Hawaii island-suffixed city slugs (Waimea-only to start)
+  const hiParsed =
+    params.state?.toLowerCase() === "hi" ? parseHiIslandCitySlug(params.city) : null;
+  const islandDisplayName = hiParsed?.islandSlug
+    ? getHiIslandDisplayName(hiParsed.islandSlug)
+    : null;
+  const displayCityName = islandDisplayName
+    ? `${location.city} (${islandDisplayName})`
+    : location.city;
+
   // Check if this is a metro area page
   const metroConfig = isMetroArea(params.city)
     ? getMetroConfig(params.city)
@@ -106,10 +119,11 @@ export default async function LocationPage({ params }: LocationPageProps) {
   const jsonLd = buildLocationPlaceStructuredData({
     city: location.city,
     state: location.state,
-    topBeaches: beaches.slice(0, 5).map((beach) => ({
-      name: beach.name,
-      url: `${SITE_ORIGIN}${getBeachUrlSafe(beach) || `/beach/${beach.slug}`}`,
-    })),
+    topBeaches: beaches.slice(0, 5).flatMap((beach) => {
+      const href = getBeachHrefSafe(beach);
+      if (!href) return [];
+      return [{ name: beach.name, url: `${SITE_ORIGIN}${href}` }];
+    }),
   });
 
   // If editorial content exists, render the enhanced editorial layout
@@ -143,20 +157,23 @@ export default async function LocationPage({ params }: LocationPageProps) {
             </Link>
             <span className="text-gray-400 mx-2">›</span>
             <span className="text-gray-900 font-medium">
-              {editorial.city_name}
+              {displayCityName}
             </span>
           </nav>
 
           {/* Header with editorial region label */}
           <header className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              Best Surf Beaches in {editorial.city_name}
+              Best Surf Beaches in {displayCityName}
             </h1>
-            {editorial.region_label?.trim() ? (
-              <p className="text-lg text-gray-600 mb-4">
-                {editorial.region_label}
-              </p>
-            ) : null}
+            {(() => {
+              const regionLabel =
+                editorial.region_label?.trim() ||
+                (islandDisplayName ? `${islandDisplayName}, Hawaii` : "");
+              return regionLabel ? (
+                <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
+              ) : null;
+            })()}
 
             <div className="flex flex-wrap items-center gap-4 text-gray-600">
               <div className="flex items-center gap-1">
@@ -242,14 +259,15 @@ export default async function LocationPage({ params }: LocationPageProps) {
           </Link>
           <span className="text-gray-400 mx-2">›</span>
           <span className="text-gray-900 font-medium">
-            {location.city}, {location.state}
+            {displayCityName}, {location.state}
           </span>
         </nav>
 
         {/* Header */}
         <header className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            {metroConfig?.pageTitle || `Best Surf Beaches in ${location.city}`}
+            {metroConfig?.pageTitle ||
+              `Best Surf Beaches in ${displayCityName}`}
           </h1>
 
           {/* Show metro area info if applicable */}
@@ -288,6 +306,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
             {beaches.map((beach) => {
               const tier = getRankingTier(beach.compositeScore);
               const badgeLabel = getRankingBadgeLabel(tier);
+              const beachHref = getBeachHrefSafe(beach);
 
               return (
                 <article
@@ -313,12 +332,18 @@ export default async function LocationPage({ params }: LocationPageProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link
-                            href={getBeachUrlSafe(beach) || "#"}
-                            className="text-xl font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
-                          >
-                            {beach.name}
-                          </Link>
+                          {beachHref ? (
+                            <Link
+                              href={beachHref}
+                              className="text-xl font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
+                            >
+                              {beach.name}
+                            </Link>
+                          ) : (
+                            <span className="text-xl font-semibold text-gray-900">
+                              {beach.name}
+                            </span>
+                          )}
                           <RankingBadge tier={tier} label={badgeLabel} />
 
                           {/* Show neighborhood badge for metro areas */}
@@ -364,12 +389,14 @@ export default async function LocationPage({ params }: LocationPageProps) {
                         </p>
                       )}
 
-                      <Link
-                        href={getBeachUrlSafe(beach) || "#"}
-                        className="inline-flex items-center text-sm font-medium text-ocean-blue hover:underline"
-                      >
-                        View Beach Details →
-                      </Link>
+                      {beachHref ? (
+                        <Link
+                          href={beachHref}
+                          className="inline-flex items-center text-sm font-medium text-ocean-blue hover:underline"
+                        >
+                          View Beach Details →
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 </article>
@@ -456,10 +483,22 @@ export async function generateMetadata({ params }: LocationPageProps) {
 
     const { location, stats } = response.data;
 
+    // Hawaii island-suffixed city slugs (Waimea-only to start)
+    const hiParsed =
+      params.state?.toLowerCase() === "hi"
+        ? parseHiIslandCitySlug(params.city)
+        : null;
+    const islandDisplayName = hiParsed?.islandSlug
+      ? getHiIslandDisplayName(hiParsed.islandSlug)
+      : null;
+    const displayCityName = islandDisplayName
+      ? `${location.city} (${islandDisplayName})`
+      : location.city;
+
     // Use metro-specific metadata if applicable
     const title = metroConfig?.pageTitle
       ? `${metroConfig.pageTitle} | Quiver`
-      : `Best Surf Beaches in ${location.city}, ${location.state} | Quiver`;
+      : `Best Surf Beaches in ${displayCityName}, ${location.state} | Quiver`;
 
     const description = metroConfig?.description
       ? `${
@@ -468,7 +507,7 @@ export async function generateMetadata({ params }: LocationPageProps) {
           stats.totalReviews
         } reviews.`
       : `Discover the top ${stats.totalBeaches} surf beaches in ${
-          location.city
+          displayCityName
         }. Average rating: ${stats.averageRating.toFixed(1)}/5 from ${
           stats.totalReviews
         } reviews.`;
@@ -476,8 +515,8 @@ export async function generateMetadata({ params }: LocationPageProps) {
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =
       isUsa && isValidStateSlug(params.state)
-        ? `/${params.state}/${params.city}`
-        : buildInternationalCityUrl(params.country, params.state, params.city);
+        ? `/beaches/usa/${params.state}/${params.city}`
+        : `/beaches/${params.country}/${params.state}/${params.city}`;
     const url = `${SITE_ORIGIN}${canonicalPath}`;
 
     return {
@@ -493,7 +532,7 @@ export async function generateMetadata({ params }: LocationPageProps) {
             url: "/images/og-location-default.jpg",
             width: 1200,
             height: 630,
-            alt: `Surf beaches in ${location.city}, ${location.state}`,
+            alt: `Surf beaches in ${displayCityName}, ${location.state}`,
           },
         ],
         locale: "en_US",

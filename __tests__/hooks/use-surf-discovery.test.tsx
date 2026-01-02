@@ -56,6 +56,7 @@ describe("useSurfDiscovery", () => {
           wind: "5 mph SW",
           waveHeight: "3-4 ft",
           wavePeriod: "12s",
+          dataSource: "NOAA_NWS",
           confidence: 85,
         },
         forecast: {} as any,

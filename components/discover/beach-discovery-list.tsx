@@ -4,10 +4,10 @@ import React from "react";
 import { BeachDiscoveryCard } from "./beach-discovery-card";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Loader2, Search, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import type { SurfDiscoveryResponse } from "@/types/personalization";
+import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from "@/types/personalization";
 
 interface BeachDiscoveryListProps {
   /** Maximum results to fetch (only used when discoveryData is not provided) */
@@ -18,6 +18,13 @@ interface BeachDiscoveryListProps {
   isLoading?: boolean;
   /** Error message from parent (only used when discoveryData is provided) */
   errorMessage?: string | null;
+  /** Beach ID to exclude from the list (e.g. the top pick used by another card) */
+  excludeBeachId?: string | null;
+  /** Optional explicit "Use my location" CTA wiring (no auto-prompt) */
+  onUseMyLocation?: () => void;
+  showUseMyLocationCta?: boolean;
+  geoLoading?: boolean;
+  geoError?: string | null;
 }
 
 /**
@@ -32,6 +39,11 @@ export function BeachDiscoveryList({
   discoveryData,
   isLoading: externalLoading,
   errorMessage: externalError,
+  excludeBeachId,
+  onUseMyLocation,
+  showUseMyLocationCta,
+  geoLoading,
+  geoError,
 }: BeachDiscoveryListProps) {
   const router = useRouter();
 
@@ -53,40 +65,6 @@ export function BeachDiscoveryList({
   const loading = discoveryData !== undefined ? (externalLoading ?? false) : fetchLoading;
   const error = discoveryData !== undefined ? externalError : fetchError;
   const hasRecommendations = discovery ? discovery.recommendations.length > 0 : fetchHasRecommendations;
-
-  const handleViewBeach = (beachId: string) => {
-    // Find the recommendation for this beach to get complete data for URL generation
-    const recommendation = discovery?.recommendations.find(r => r.beach.id === beachId);
-
-    if (!recommendation) {
-      console.warn(`Beach ${beachId} not found in recommendations`);
-      // Fallback to UUID-based route
-      router.push(`/beach/${beachId}`);
-      return;
-    }
-
-    // Generate proper hierarchical URL (e.g., /ca/pacific-beach-san-diego/pacific-beach)
-    const beachUrl = getBeachUrlSafe({
-      id: recommendation.beach.id,
-      slug: recommendation.beach.slug,
-      city: recommendation.beach.city,
-      state: recommendation.beach.state,
-    });
-
-    if (!beachUrl) {
-      console.warn(`Could not generate URL for beach ${beachId}`);
-      // Fallback to UUID-based route
-      router.push(`/beach/${beachId}`);
-      return;
-    }
-
-    // Navigate to the beach page with source tracking
-    const urlWithSource = beachUrl.includes("?")
-      ? `${beachUrl}&from=surf_discovery`
-      : `${beachUrl}?from=surf_discovery`;
-
-    router.push(urlWithSource);
-  };
 
   const handlePlanSession = (beachId: string) => {
     // Find the recommendation to get complete data including time window
@@ -176,6 +154,37 @@ export function BeachDiscoveryList({
   // Success state with recommendations - discovery is guaranteed non-null here
   if (!discovery) return null;
 
+  // Always display 3 spots here (best effort). Prefer discovery (low affinity) and exclude the top pick.
+  const displayedRecommendations = (() => {
+    const orderedUnique: SurfDiscoveryRecommendation[] = [];
+    const seen = new Set<string>();
+    for (const r of discovery.recommendations) {
+      const id = r.beach.id;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      orderedUnique.push(r);
+    }
+
+    const filtered = excludeBeachId
+      ? orderedUnique.filter((r) => r.beach.id !== excludeBeachId)
+      : orderedUnique;
+
+    const newToYou = filtered.filter((r) => (r.subscores?.affinityBonus ?? 0) <= 0);
+    const familiar = filtered.filter((r) => (r.subscores?.affinityBonus ?? 0) > 0);
+
+    const picks = [...newToYou, ...familiar].slice(0, 3);
+
+    // If we still can't fill 3, allow the excluded beach as a last resort.
+    if (picks.length < 3 && excludeBeachId) {
+      const excluded = orderedUnique.find((r) => r.beach.id === excludeBeachId);
+      if (excluded && !picks.some((r) => r.beach.id === excluded.beach.id)) {
+        picks.push(excluded);
+      }
+    }
+
+    return picks;
+  })();
+
   return (
     <div className="space-y-4" data-testid="beach-discovery-list">
       {/* Header */}
@@ -184,19 +193,40 @@ export function BeachDiscoveryList({
           Top Surf Spots for You
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          {discovery.recommendations.length} Spot
-          {discovery.recommendations.length !== 1 ? "s" : ""}
+          {displayedRecommendations.length} Spot
+          {displayedRecommendations.length !== 1 ? "s" : ""}
         </p>
+
+        {showUseMyLocationCta && onUseMyLocation && (
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              Want more nearby discovery?
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onUseMyLocation}
+              disabled={geoLoading}
+            >
+              {geoLoading ? "Detecting…" : "Use my location"}
+            </Button>
+          </div>
+        )}
+
+        {geoError && (
+          <p className="text-xs text-yellow-700 mt-2">
+            {geoError}
+          </p>
+        )}
       </div>
 
       {/* Recommendations */}
       <div className="space-y-4">
-        {discovery.recommendations.map((recommendation, index) => (
+        {displayedRecommendations.map((recommendation, index) => (
           <BeachDiscoveryCard
             key={recommendation.beach.id}
             recommendation={recommendation}
             rank={index + 1}
-            onViewBeach={handleViewBeach}
             onPlanSession={handlePlanSession}
           />
         ))}

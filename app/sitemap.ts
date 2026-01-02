@@ -8,9 +8,10 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import {
   buildBeachUrl,
-  buildCityUrl,
-  buildInternationalCityUrl,
+  cityToSlug,
+  stateToSlug,
 } from "@/lib/utils/beach-url-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -28,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/about",
     "/privacy",
     "/map",
+    "/beaches/usa",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: lastmod,
@@ -37,8 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const cityRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.map((slug) => {
     const city = getCityBySlug(slug)!;
-    // All curated cities are in California - use canonical short URL (/ca/{city})
-    const cityUrl = buildCityUrl("CA", city.name);
+    // All curated cities are in California - canonical listing URL is /beaches/usa/ca/{city}
+    const cityUrl = `/beaches/usa/ca/${slugifyAscii(city.name)}`;
     return {
       url: `${baseUrl}${cityUrl}`,
       lastModified: lastmod,
@@ -62,31 +64,77 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Location pages (AllTrails-style beach listings by city)
   let locationRoutes: MetadataRoute.Sitemap = [];
+  let usaStateRoutes: MetadataRoute.Sitemap = [];
   try {
     const response = await getAllBeachLocations();
     if (response.success && response.data) {
-      locationRoutes = response.data.map((location) => {
+      // Build a state index (USA-only) under /beaches/usa/{state}
+      const usaStates = new Set<string>();
+
+      locationRoutes = response.data.flatMap((location) => {
         // Canonical city URL:
-        // - USA:  /{state}/{city}
-        // - Intl: /{country}/{state}/{city}
+        // - USA:  /beaches/usa/{state}/{city}
+        // - Intl: /beaches/{country}/{state}/{city}
         const isUsa =
           !location.country ||
           String(location.country).toLowerCase() === "usa" ||
           String(location.country).toLowerCase() === "us";
+
+        // HI: replace ambiguous Waimea city URL with island-specific pages.
+        if (
+          isUsa &&
+          stateToSlug(location.state) === "hi" &&
+          cityToSlug(location.city) === "waimea"
+        ) {
+          usaStates.add("hi");
+          return [
+            {
+              url: `${baseUrl}/beaches/usa/hi/waimea-kauai`,
+              lastModified: lastmod,
+              changeFrequency: "weekly",
+              priority: 0.75,
+            },
+            {
+              url: `${baseUrl}/beaches/usa/hi/waimea-big-island`,
+              lastModified: lastmod,
+              changeFrequency: "weekly",
+              priority: 0.75,
+            },
+          ];
+        }
+
         const locationUrl = isUsa
-          ? buildCityUrl(location.state, location.city)
-          : buildInternationalCityUrl(
-              location.country,
-              location.state,
-              location.city
-            );
-        return {
-          url: `${baseUrl}${locationUrl}`,
-          lastModified: lastmod,
-          changeFrequency: "weekly",
-          priority: 0.75, // High priority for location pages
-        };
+          ? (() => {
+              const stateSlug = stateToSlug(location.state);
+              const citySlug = slugifyAscii(location.city);
+              if (!stateSlug || !citySlug) return "/";
+              usaStates.add(stateSlug);
+              return `/beaches/usa/${stateSlug}/${citySlug}`;
+            })()
+          : (() => {
+              const countrySlug = slugifyAscii(location.country);
+              const regionSlug = slugifyAscii(location.state);
+              const citySlug = slugifyAscii(location.city);
+              if (!countrySlug || !regionSlug || !citySlug) return "/";
+              return `/beaches/${countrySlug}/${regionSlug}/${citySlug}`;
+            })();
+
+        return [
+          {
+            url: `${baseUrl}${locationUrl}`,
+            lastModified: lastmod,
+            changeFrequency: "weekly",
+            priority: 0.75, // High priority for location pages
+          },
+        ];
       });
+
+      usaStateRoutes = [...usaStates].map((stateSlug) => ({
+        url: `${baseUrl}/beaches/usa/${stateSlug}`,
+        lastModified: lastmod,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      }));
     }
   } catch (error) {
     console.error("Sitemap: Failed to load beach locations", error);
@@ -121,6 +169,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticRoutes,
     ...cityRoutes,
     ...intentRoutes,
+    ...usaStateRoutes,
     ...locationRoutes,
     ...beachEntries,
   ];

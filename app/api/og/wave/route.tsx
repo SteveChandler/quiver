@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
         }}
       >
         {/* Background wave image */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- next/og ImageResponse requires raw img tags */}
         <img
           src={`${baseUrl}/surfer-wave-sample.png`}
           alt=""

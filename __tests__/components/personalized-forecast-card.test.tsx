@@ -71,6 +71,7 @@ describe("PersonalizedForecastCard", () => {
       wind: "10 mph SW",
       waveHeight: "3-5 ft",
       wavePeriod: "12s",
+      dataSource: mockForecast.data_source,
       confidence: 85,
     },
     forecast: mockForecast,

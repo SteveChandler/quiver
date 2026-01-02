@@ -157,7 +157,7 @@
     "embla-carousel-react": "8.5.1",
     "firebase": "^10.7.0",
     "firebase-admin": "^13.5.0",
-    "framer-motion": "^12.19.1",
+    "framer-motion": "^12.23.26",
     "geo-tz": "^8.1.4",
     "image-conversion": "^2.1.1",
     "input-otp": "1.4.1",

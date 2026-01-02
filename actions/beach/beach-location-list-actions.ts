@@ -26,7 +26,11 @@ import {
   getMetroConfig,
   getAllMetroSlugs,
 } from "@/lib/constants/metro-areas";
-import { slugifyAscii } from "@/lib/utils/text-utils";
+import { slugify, slugifyAscii } from "@/lib/utils/text-utils";
+import {
+  parseHiIslandCitySlug,
+  getHiIslandDisplayName,
+} from "@/lib/utils/beach-url-utils";
 
 /**
  * Resolve a city slug to the exact city name stored in the database.
@@ -175,8 +179,14 @@ export async function getLocationPageData(
       const state = normalizeState(parseLocationFromSlug(stateSlug));
       const country = normalizeCountry(parseLocationFromSlug(countrySlug));
 
+      // Hawaii: handle island-suffixed city slugs (Waimea-only to start)
+      const hiParsed =
+        stateSlug?.toLowerCase() === "hi" ? parseHiIslandCitySlug(citySlug) : null;
+      const citySlugForDb =
+        hiParsed?.islandSlug != null ? hiParsed.baseCitySlug : citySlug;
+
       // First, try parsing the city directly from the slug
-      let city = parseLocationFromSlug(citySlug);
+      let city = parseLocationFromSlug(citySlugForDb);
 
       // Fetch beaches with metrics using database function
       let { data: beachesData, error: beachesError } = await supabase.rpc(
@@ -202,7 +212,7 @@ export async function getLocationPageData(
       // - "rincon" → "Rincón" (diacritics)
       if (!beaches || beaches.length === 0) {
         const resolvedCity = await resolveCitySlugToDbCity(
-          citySlug,
+          citySlugForDb,
           stateSlug,
           countrySlug,
           supabase
@@ -225,6 +235,41 @@ export async function getLocationPageData(
             beachesError = null;
           }
         }
+      }
+
+      // If this is an island-specific HI city page, filter beaches to the island.
+      if (hiParsed?.islandSlug && beaches && beaches.length > 0) {
+        const islandName = getHiIslandDisplayName(hiParsed.islandSlug);
+        const islandSlug = slugify(islandName);
+
+        // Ensure `region` is available for filtering. Some RPCs may not return it reliably.
+        // We enrich by fetching region from the beaches table for the current results.
+        try {
+          const ids = beaches.map((b: any) => b?.id).filter(Boolean);
+          if (ids.length > 0) {
+            const { data: regionRows, error: regionError } = await supabase
+              .from("beaches")
+              .select("id, region")
+              .in("id", ids);
+
+            if (!regionError && Array.isArray(regionRows)) {
+              const regionById = new Map<string, string | null>(
+                regionRows.map((r: any) => [r.id, r.region ?? null])
+              );
+              beaches = beaches.map((b: any) => ({
+                ...b,
+                region: regionById.get(b.id) ?? b.region ?? null,
+              }));
+            }
+          }
+        } catch {
+          // Non-fatal: if enrichment fails, we still attempt filtering with available fields.
+        }
+
+        beaches = beaches.filter((b: any) => {
+          const region = typeof b?.region === "string" ? b.region : "";
+          return slugify(region) === islandSlug;
+        });
       }
 
       if (!beaches || beaches.length === 0) {
@@ -260,26 +305,13 @@ export async function getLocationPageData(
         throw new Error("No beaches found for this location");
       }
 
-      // Fetch location stats
-      const { data: stats, error: statsError } = await supabase.rpc(
-        "get_location_stats",
-        {
-          p_city: city,
-          p_state: state,
-          p_country: country,
-        }
-      );
-
-      if (statsError) {
-        console.error("Error fetching location stats:", statsError);
-        throw new Error(`Failed to fetch location stats: ${statsError.message}`);
-      }
-
       // Add rank to each beach
-      const rankedBeaches: BeachWithMetrics[] = beaches.map((beach: any, index: number) => ({
-        ...beach,
-        rank: index + 1,
-      }));
+      const rankedBeaches: BeachWithMetrics[] = beaches.map(
+        (beach: any, index: number) => ({
+          ...beach,
+          rank: index + 1,
+        })
+      );
 
       // Build location identifiers
       const location: LocationIdentifier = {
@@ -289,14 +321,59 @@ export async function getLocationPageData(
       };
 
       // Build location stats
+      // Note: For HI island-suffixed pages, compute stats from the filtered list
+      // (DB RPC stats are city-wide and would include other islands).
+      let averageRating = 0;
+      let totalReviews = 0;
+      let topBeaches = 0;
+
+      if (hiParsed?.islandSlug) {
+        totalReviews = rankedBeaches.reduce(
+          (sum, b) => sum + (b.review_count ?? 0),
+          0
+        );
+
+        const weightedRatingSum = rankedBeaches.reduce((sum, b) => {
+          const r = typeof b.average_rating === "number" ? b.average_rating : 0;
+          const c = b.review_count ?? 0;
+          return sum + r * c;
+        }, 0);
+
+        averageRating = totalReviews > 0 ? weightedRatingSum / totalReviews : 0;
+        topBeaches = rankedBeaches.filter(
+          (b) => typeof b.compositeScore === "number" && b.compositeScore >= 0.8
+        ).length;
+      } else {
+        // Fetch location stats (standard city pages)
+        const { data: stats, error: statsError } = await supabase.rpc(
+          "get_location_stats",
+          {
+            p_city: city,
+            p_state: state,
+            p_country: country,
+          }
+        );
+
+        if (statsError) {
+          console.error("Error fetching location stats:", statsError);
+          throw new Error(
+            `Failed to fetch location stats: ${statsError.message}`
+          );
+        }
+
+        averageRating = parseFloat(stats[0]?.average_rating || "0");
+        totalReviews = stats[0]?.total_reviews || 0;
+        topBeaches = stats[0]?.top_beaches || 0;
+      }
+
       const locationStats: LocationStats = {
         locationName: city,
         stateName: state,
         countryName: country,
-        totalBeaches: stats[0]?.total_beaches || beaches.length,
-        averageRating: parseFloat(stats[0]?.average_rating || "0"),
-        totalReviews: stats[0]?.total_reviews || 0,
-        topBeaches: stats[0]?.top_beaches || 0,
+        totalBeaches: rankedBeaches.length,
+        averageRating,
+        totalReviews,
+        topBeaches,
       };
 
       const result: LocationPageData = {

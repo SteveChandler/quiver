@@ -1,17 +1,254 @@
 import { test, expect } from '@playwright/test';
-import { waitForPageLoad, ensureAuthenticated } from './utils/test-helpers';
+import {
+  waitForPageLoad,
+  ensureAuthenticated,
+} from './utils/test-helpers';
 
 /**
  * Personalized Home Forecast Tests
  *
  * Tests the personalized forecast recommendation card on the home page
- * Verifies loading states, data display, empty states, and error handling
+ * with deterministic API stubs for reliability and deeper component coverage.
  *
  * @project auth
  */
 
+function removeSurfDiscoveryCacheInitScript() {
+  // Runs in the browser context before any app code executes
+  try {
+    const prefix = "quiver_discovery_";
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+}
+
+function discoveryFixture() {
+  const now = Date.now();
+  const start = new Date(now + 60 * 60 * 1000); // +1h
+  const end = new Date(now + 3 * 60 * 60 * 1000); // +3h
+
+  return {
+    success: true,
+    timestamp: new Date().toISOString(),
+    data: {
+      recommendations: [
+        {
+          beach: {
+            id: "11111111-1111-4111-8111-111111111111",
+            name: "Marine Street Beach",
+            slug: "marine-street-beach",
+            city: "La Jolla",
+            state: "CA",
+            lat: 32.832,
+            lon: -117.281,
+            region: "California",
+          },
+          window: {
+            start: start.toISOString(),
+            end: end.toISOString(),
+            tide: "Rising",
+            wind: "5 mph NE",
+            waveHeight: "3.3 ft",
+            wavePeriod: "12s",
+            dataSource: "NOAA_NWS",
+            confidence: 78,
+          },
+          forecast: {
+            id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            beach_id: "11111111-1111-4111-8111-111111111111",
+            forecast_date: new Date().toISOString().split("T")[0],
+            forecast_time: "12:00",
+            wave_height: "3.3",
+            wave_period: "12",
+            water_temp: "63",
+            wind_speed: "5 mph",
+            wind_direction: "NE",
+            tide_status: "Rising",
+            confidence_score: 78,
+            data_source: "NOAA_NWS",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          score: 86,
+          matchQuality: "excellent",
+          subscores: {
+            waveHeightFit: 20,
+            periodEnergyScore: 16,
+            windAlignment: 14,
+            tideFit: 10,
+            affinityBonus: 6,
+            distancePenalty: 0,
+          },
+          summary: "Great window with clean wind and rising tide.",
+          reasons: ["Rising tide", "Clean winds", "Solid period"],
+          warnings: [],
+          generated_at: new Date().toISOString(),
+        },
+        {
+          beach: {
+            id: "22222222-2222-4222-8222-222222222222",
+            name: "Windansea Beach",
+            slug: "windansea-beach",
+            city: "La Jolla",
+            state: "CA",
+            lat: 32.831,
+            lon: -117.281,
+            region: "California",
+          },
+          window: {
+            start: start.toISOString(),
+            end: end.toISOString(),
+            tide: "High Slack",
+            wind: "7 mph E",
+            waveHeight: "3.0 ft",
+            wavePeriod: "11s",
+            dataSource: "NOAA_NWS",
+            confidence: 70,
+          },
+          forecast: {
+            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            beach_id: "22222222-2222-4222-8222-222222222222",
+            forecast_date: new Date().toISOString().split("T")[0],
+            forecast_time: "12:00",
+            wave_height: "3.0",
+            wave_period: "11",
+            water_temp: "63",
+            wind_speed: "7 mph",
+            wind_direction: "E",
+            tide_status: "High Slack",
+            confidence_score: 70,
+            data_source: "NOAA_NWS",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          score: 74,
+          matchQuality: "good",
+          subscores: {
+            waveHeightFit: 18,
+            periodEnergyScore: 14,
+            windAlignment: 12,
+            tideFit: 9,
+            affinityBonus: 0,
+            distancePenalty: 0,
+          },
+          summary: "Another solid option with mellow winds.",
+          reasons: ["Good tide", "Low wind"],
+          warnings: [],
+          generated_at: new Date().toISOString(),
+        },
+      ],
+      searchCriteria: {
+        maxResults: 6,
+      },
+      metadata: {
+        totalBeachesConsidered: 50,
+        successfulForecasts: 50,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+    },
+  };
+}
+
+function insightsFixture() {
+  return {
+    success: true,
+    timestamp: new Date().toISOString(),
+    data: {
+      matchPercent: 72,
+      label: "Great",
+      reasonBullets: ["Matches your preferred wave height", "Light offshore wind"],
+      similarSessions: [
+        {
+          id: "99999999-9999-4999-8999-999999999999",
+          beachName: "Ocean Beach",
+          beachId: "33333333-3333-4333-8333-333333333333",
+          sessionDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+          rating: 4,
+          waveHeight: 3.5,
+          wavePeriod: 12,
+          windSpeed: 6,
+          boardName: "Fish",
+          boardType: "fish",
+          similarityScore: 81,
+        },
+      ],
+      boardTip: "Your Fish has been your best board in similar sessions.",
+      sessionCount: 10,
+      state: "ready",
+    },
+  };
+}
+
+function enhancedForecastFixture(beachId: string) {
+  const today = new Date().toISOString().split("T")[0];
+  const nowIso = new Date().toISOString();
+  return {
+    success: true,
+    timestamp: nowIso,
+    data: {
+      forecasts: [
+        {
+          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          beach_id: beachId,
+          forecast_date: today,
+          forecast_time: "12:00",
+          wave_height: "3.0",
+          wave_period: "12",
+          water_temp: "63",
+          wind_speed: "6 mph",
+          wind_direction: "NE",
+          tide_status: "Rising",
+          tide_height: "2.1",
+          confidence_score: 75,
+          data_source: "NOAA_NWS",
+          weather_condition: "Clear",
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+      ],
+    },
+  };
+}
+
 test.describe('Personalized Home Forecast', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(removeSurfDiscoveryCacheInitScript);
+
+    await page.route("**/api/surf/discover**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(discoveryFixture()),
+      });
+    });
+
+    await page.route("**/api/surf/insights**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(insightsFixture()),
+      });
+    });
+
+    await page.route("**/api/forecasts/update-enhanced**", async (route) => {
+      const url = new URL(route.request().url());
+      const beachId = url.searchParams.get("beachId") || "unknown";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(enhancedForecastFixture(beachId)),
+      });
+    });
+
     // Ensure user is authenticated
     await ensureAuthenticated(page);
 
@@ -20,324 +257,93 @@ test.describe('Personalized Home Forecast', () => {
     await waitForPageLoad(page);
   });
 
-  test('should show loading skeleton while fetching recommendation', async ({ page }) => {
-    // Check for loading skeleton on initial load
-    // The skeleton should appear briefly before data loads
-    const loadingSkeleton = page.getByTestId('personalized-forecast-card-loading');
+  test("renders PersonalizedForecastCard with insights and key subcomponents", async ({
+    page,
+  }) => {
+    const card = page.getByTestId("personalized-forecast-card");
+    await expect(card).toBeVisible({ timeout: 30_000 });
 
-    // Give more time for slow API responses (discovery can take 10-15 seconds)
-    await page.waitForTimeout(1000);
+    // Core heading and beach name should render deterministically.
+    await expect(card).toContainText("Your Best Spot Today");
+    await expect(card).toContainText("Marine Street Beach");
 
-    // We might catch it loading, or it might already be loaded
-    // So we check if it was visible at some point or if we see the card now
-    const hasLoadingSkeleton = await loadingSkeleton.isVisible().catch(() => false);
+    // Best window section renders with the expected tiles/labels.
+    const bestWindow = page.getByTestId("best-window");
+    await expect(bestWindow).toBeVisible({ timeout: 30_000 });
+    await expect(bestWindow).toContainText("Best Window");
+    await expect(bestWindow).toContainText("Time");
+    await expect(bestWindow).toContainText("Tide");
+    await expect(bestWindow).toContainText("Wind");
+    await expect(bestWindow).toContainText("Confidence");
 
-    // Wait up to 20 seconds for either loading skeleton or final card
-    const hasCard = await page.getByRole('heading', { name: /recommended for you|your next session|best spot/i })
-      .isVisible({ timeout: 20000 })
-      .catch(() => false);
+    // Insights KPI tile shows label + percent.
+    const forYouTile = page.getByTestId("personalized-forecast-for-you-tile");
+    await expect(forYouTile).toBeVisible({ timeout: 30_000 });
+    await expect(forYouTile).toContainText("For You");
+    await expect(forYouTile).toContainText("72% Match");
 
-    // Either we saw the loading state OR we see the final card
-    // (loading might be too fast to catch)
-    expect(hasLoadingSkeleton || hasCard).toBeTruthy();
+    // Share button is present (smoke for clickability).
+    const shareButton = page.getByTestId("personalized-forecast-share");
+    await expect(shareButton).toBeVisible({ timeout: 30_000 });
+    await expect(shareButton).toBeEnabled();
+
+    // Similar sessions CTA present in summary section.
+    const viewSimilar = page.getByTestId("personalized-forecast-view-similar-sessions");
+    await expect(viewSimilar).toBeVisible({ timeout: 30_000 });
   });
 
-  test('should display personalized forecast card when data is available', async ({ page }) => {
-    // Wait longer for slow API responses (discovery can take 10-15 seconds)
-    await page.waitForTimeout(15000);
+  test("opens SimilarSessionsDrawer from For You tile and summary CTA", async ({
+    page,
+  }) => {
+    const forYouTile = page.getByTestId("personalized-forecast-for-you-tile");
+    await expect(forYouTile).toBeVisible({ timeout: 30_000 });
 
-    // Look for the personalized forecast card
-    // Check for common headings that might appear
-    const possibleHeadings = [
-      /recommended for you/i,
-      /your next session/i,
-      /best time to surf/i,
-      /perfect window/i
-    ];
+    // 1) Open via KPI tile.
+    // The tile is only clickable once insights are loaded and similar sessions exist.
+    await expect(forYouTile).toHaveAttribute("role", "button", { timeout: 15_000 });
+    await forYouTile.click();
+    const drawerTitle = page.getByRole("heading", { name: /similar past sessions/i });
+    await expect(drawerTitle).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/current forecast/i)).toBeVisible();
+    await expect(page.getByText(/\(4\/5\)/)).toBeVisible();
+    await expect(page.getByText(/81% match/i)).toBeVisible();
+    await expect(page.getByText("Fish", { exact: true })).toBeVisible();
 
-    let cardVisible = false;
-    for (const heading of possibleHeadings) {
-      const element = page.getByRole('heading', { name: heading });
-      const isVisible = await element.isVisible().catch(() => false);
-      if (isVisible) {
-        cardVisible = true;
-        break;
-      }
-    }
+    // Close.
+    await page.getByRole("button", { name: /^close$/i }).first().click();
+    await expect(drawerTitle).not.toBeVisible({ timeout: 10_000 });
 
-    // If no recommendation available, we should see empty state OR error
-    if (!cardVisible) {
-      const emptyState = page.getByText(/no recommendations|check back later/i);
-      const errorState = page.getByTestId('personalized-forecast-card-error');
-
-      const hasEmptyState = await emptyState.isVisible().catch(() => false);
-      const hasErrorState = await errorState.isVisible().catch(() => false);
-
-      // We should see SOMETHING (card, empty state, or error)
-      expect(hasEmptyState || hasErrorState || cardVisible).toBeTruthy();
-    }
+    // 2) Open via summary CTA.
+    const viewSimilar = page.getByTestId("personalized-forecast-view-similar-sessions");
+    await expect(viewSimilar).toBeVisible({ timeout: 10_000 });
+    await viewSimilar.click();
+    await expect(drawerTitle).toBeVisible({ timeout: 10_000 });
   });
 
-  test('should display KPI metrics when recommendation is available', async ({ page }) => {
-    // Wait for page to load
-    await page.waitForTimeout(2000);
+  test('Plan Session CTA navigates with prefilled params', async ({ page }) => {
+    const plan = page.getByTestId("plan-session-from-personalized");
+    await expect(plan).toBeVisible({ timeout: 30_000 });
+    await plan.click();
 
-    // Check if recommendation card is visible
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    if (cardVisible) {
-      // Should show confidence or match percentage
-      const hasConfidence = await page.getByText(/confidence|match|score/i).isVisible().catch(() => false);
-
-      // Should show wave height
-      const hasWaves = await page.getByText(/ft|feet|wave/i).isVisible().catch(() => false);
-
-      // Should show wind or crowd info
-      const hasConditions = await page.getByText(/wind|crowd|offshore|onshore/i).isVisible().catch(() => false);
-
-      // At least one of these metrics should be visible
-      expect(hasConfidence || hasWaves || hasConditions).toBeTruthy();
-    }
+    // Includes prefilled params from the recommendation.
+    await page.waitForURL(/\/sessions\/new\?/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/mode=plan/);
+    await expect(page).toHaveURL(/beach=11111111-1111-4111-8111-111111111111/);
+    await expect(page).toHaveURL(/beachName=Marine\+Street\+Beach/);
+    await expect(page).toHaveURL(/step=3/);
   });
 
-  test('should have "Plan Session" button when recommendation is available', async ({ page }) => {
-    await page.waitForTimeout(2000);
+  test('View Forecast CTA navigates to beach page with tracking param', async ({
+    page,
+  }) => {
+    const viewForecast = page.getByRole("button", { name: /view forecast/i });
+    await expect(viewForecast).toBeVisible({ timeout: 30_000 });
+    await viewForecast.click();
 
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    if (cardVisible) {
-      // Should have a Plan Session or similar CTA button
-      const planButton = page.getByRole('button', { name: /plan session|book session|start session/i });
-      await expect(planButton).toBeVisible();
-
-      // Button should be clickable
-      await expect(planButton).toBeEnabled();
-    }
-  });
-
-  test('should have "View Beach" button when recommendation is available', async ({ page }) => {
-    await page.waitForTimeout(2000);
-
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    if (cardVisible) {
-      // Should have a View Beach Details or similar button
-      const viewButton = page.getByRole('button', { name: /view beach|beach details|see details/i });
-      const hasButton = await viewButton.isVisible().catch(() => false);
-
-      // Button might not always be present, but if it is, it should work
-      if (hasButton) {
-        await expect(viewButton).toBeEnabled();
-      }
-    }
-  });
-
-  test('should display beach name and location', async ({ page }) => {
-    await page.waitForTimeout(2000);
-
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    if (cardVisible) {
-      // Should show a beach name (could be anywhere in California or other states)
-      const beachNames = [
-        /pacific beach|ocean beach|mission beach|la jolla/i,
-        /venice|malibu|santa monica|huntington/i,
-        /beach|pier|cove|shores/i
-      ];
-
-      let hasBeachName = false;
-      for (const name of beachNames) {
-        const element = page.getByText(name);
-        const isVisible = await element.isVisible().catch(() => false);
-        if (isVisible) {
-          hasBeachName = true;
-          break;
-        }
-      }
-
-      expect(hasBeachName).toBeTruthy();
-    }
-  });
-
-  test('should display time window for recommended session', async ({ page }) => {
-    await page.waitForTimeout(2000);
-
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    if (cardVisible) {
-      // Should show time information (e.g., "9:00 AM - 11:00 AM" or "Best: Morning")
-      const hasTime = await page.getByText(/am|pm|morning|afternoon|evening/i).isVisible().catch(() => false);
-      expect(hasTime).toBeTruthy();
-    }
-  });
-
-  test('should handle error state gracefully', async ({ page }) => {
-    await page.waitForTimeout(2000);
-
-    // Check if error state is shown
-    const errorCard = page.getByTestId('personalized-forecast-card-error');
-    const hasError = await errorCard.isVisible().catch(() => false);
-
-    if (hasError) {
-      // Should show error message
-      const errorMessage = page.getByText(/unable to load|error|try again|failed/i);
-      await expect(errorMessage).toBeVisible();
-    }
-  });
-
-  test('should handle empty state when no recommendations available', async ({ page }) => {
-    await page.waitForTimeout(2000);
-
-    // Look for the card
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    // If card is visible but no recommendation
-    if (cardVisible) {
-      const noRecommendation = page.getByText(/no recommendations|check back later|no forecast available/i);
-      const hasNoRec = await noRecommendation.isVisible().catch(() => false);
-
-      // This is valid - means API returned null but card handled it
-      if (hasNoRec) {
-        expect(hasNoRec).toBeTruthy();
-      }
-    }
-  });
-
-  test('should call surf discovery API endpoint', async ({ page }) => {
-    // Listen for API calls
-    const apiCalls: string[] = [];
-
-    page.on('request', request => {
-      const url = request.url();
-      // New implementation uses surf discovery endpoint
-      if (url.includes('/api/surf/discover')) {
-        apiCalls.push(url);
-      }
-    });
-
-    // Navigate and wait
-    await page.goto('/');
-    await waitForPageLoad(page);
-
-    // Wait up to 20 seconds for API call (discovery can be slow)
-    let attempts = 0;
-    while (apiCalls.length === 0 && attempts < 40) {
-      await page.waitForTimeout(500);
-      attempts++;
-    }
-
-    // Should have called the surf discovery API
-    expect(apiCalls.length).toBeGreaterThan(0);
-  });
-
-  test('should log diagnostic information to console', async ({ page }) => {
-    const consoleLogs: string[] = [];
-
-    page.on('console', msg => {
-      const text = msg.text();
-      // Capture diagnostic log messages from surf discovery hook
-      if (text.includes('useSurfDiscovery') ||
-          text.includes('PersonalizedForecastCard') ||
-          text.includes('usePersonalizedHomeForecast')) {
-        consoleLogs.push(text);
-      }
-    });
-
-    await page.goto('/');
-    await waitForPageLoad(page);
-    await page.waitForTimeout(3000);
-
-    // Should have logged diagnostic info
-    expect(consoleLogs.length).toBeGreaterThan(0);
-
-    // Should see discovery hook logs (new implementation)
-    const hasDiscoveryLogs = consoleLogs.some(log =>
-      log.includes('useSurfDiscovery') || log.includes('usePersonalizedHomeForecast')
+    await expect(page).toHaveURL(/from=home_personalized/, { timeout: 20_000 });
+    await expect(page).toHaveURL(
+      /marine-street-beach|11111111-1111-4111-8111-111111111111/,
+      { timeout: 20_000 }
     );
-    expect(hasDiscoveryLogs).toBeTruthy();
-  });
-
-  test('should be responsive on mobile viewports', async ({ page }) => {
-    // Set mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 });
-
-    await page.goto('/');
-    await waitForPageLoad(page);
-    await page.waitForTimeout(2000);
-
-    // Card should still be visible on mobile
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    // Either card is visible OR we see empty/error state
-    // All are valid on mobile
-    if (!cardVisible) {
-      const emptyOrError = page.getByText(/no recommendations|error|unable to load/i);
-      const hasState = await emptyOrError.isVisible().catch(() => false);
-      expect(cardVisible || hasState).toBeTruthy();
-    }
-  });
-
-  test('should only show for authenticated users with profile', async ({ page }) => {
-    // This test verifies the card only shows when user has profile
-    await page.goto('/');
-    await waitForPageLoad(page);
-    // Wait longer for profile and discovery to load
-    await page.waitForTimeout(15000);
-
-    // Since we're authenticated (from beforeEach), we should see SOMETHING
-    // Either the card, loading state, empty state, or error
-    const card = page.getByTestId('personalized-forecast-card');
-    const loading = page.getByTestId('personalized-forecast-card-loading');
-    const error = page.getByTestId('personalized-forecast-card-error');
-    const empty = page.getByText(/no recommendations/i);
-
-    const hasCard = await card.isVisible().catch(() => false);
-    const hasLoading = await loading.isVisible().catch(() => false);
-    const hasError = await error.isVisible().catch(() => false);
-    const hasEmpty = await empty.isVisible().catch(() => false);
-
-    // Should see at least one of these states
-    expect(hasCard || hasLoading || hasError || hasEmpty).toBeTruthy();
-  });
-
-  test('should display personalization reasons when available', async ({ page }) => {
-    await page.waitForTimeout(2000);
-
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible().catch(() => false);
-
-    if (cardVisible) {
-      // Look for personalization indicators
-      const indicators = [
-        /based on your preferences/i,
-        /matches your skill/i,
-        /favorite spot/i,
-        /preferred conditions/i,
-        /home beach/i
-      ];
-
-      let hasPersonalization = false;
-      for (const indicator of indicators) {
-        const element = page.getByText(indicator);
-        const isVisible = await element.isVisible().catch(() => false);
-        if (isVisible) {
-          hasPersonalization = true;
-          break;
-        }
-      }
-
-      // Personalization reasons are optional, so this is informational
-      // not a failure if not present
-      if (hasPersonalization) {
-        expect(hasPersonalization).toBeTruthy();
-      }
-    }
   });
 });

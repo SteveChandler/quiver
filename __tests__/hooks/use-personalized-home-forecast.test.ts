@@ -87,6 +87,7 @@ describe("usePersonalizedHomeForecast", () => {
       wind: "Light offshore",
       waveHeight: "3-5 ft",
       wavePeriod: "12-14s",
+      dataSource: "NOAA_NWS",
       confidence: 0.85,
     },
     forecast: {} as any,

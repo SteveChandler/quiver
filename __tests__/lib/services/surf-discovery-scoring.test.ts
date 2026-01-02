@@ -31,6 +31,9 @@ jest.mock("@/lib/supabase/server", () => {
     profileData: null as any,
     favoritesData: [] as any[],
     affinityData: [] as any[],
+    nearbyData: [] as any[],
+    nearbyError: null as any,
+    beachesData: [] as any[],
   };
 
   const __setMockProfile = (data: any) => {
@@ -42,8 +45,21 @@ jest.mock("@/lib/supabase/server", () => {
   const __setMockAffinity = (data: any[]) => {
     state.affinityData = data;
   };
+  const __setMockNearby = (data: any[], error: any = null) => {
+    state.nearbyData = data;
+    state.nearbyError = error;
+  };
+  const __setMockBeaches = (data: any[]) => {
+    state.beachesData = data;
+  };
 
   const createSupabaseServiceRoleClient = jest.fn(() => ({
+    rpc: async (fn: string) => {
+      if (fn === "get_nearby_beaches") {
+        return { data: state.nearbyData, error: state.nearbyError };
+      }
+      return { data: null, error: null };
+    },
     from(table: string) {
       return {
         select() {
@@ -77,6 +93,20 @@ jest.mock("@/lib/supabase/server", () => {
             };
           }
 
+          if (table === "beaches") {
+            return {
+              in() {
+                return {
+                  eq() {
+                    return {
+                      limit: async () => ({ data: state.beachesData, error: null }),
+                    };
+                  },
+                };
+              },
+            };
+          }
+
           // Default: empty
           return {
             eq() {
@@ -95,6 +125,8 @@ jest.mock("@/lib/supabase/server", () => {
     __setMockProfile,
     __setMockFavorites,
     __setMockAffinity,
+    __setMockNearby,
+    __setMockBeaches,
   };
 });
 
@@ -301,6 +333,129 @@ describe("discoverSurfSpots scoring behavior", () => {
     const rec = result.recommendations[0];
 
     expect(rec.score).toBe(100);
+  });
+
+  it("caps score and warns when forecast waves are below user's preferred wave size (3-6 ft)", async () => {
+    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { __setMockProfile } = require("@/lib/supabase/server");
+
+    __setMockProfile({
+      id: "user-1",
+      preferred_wave_size: "medium", // 3-6 ft
+      home_beach_id: "beach-1",
+      home_beach: {
+        id: "beach-1",
+        name: "Test Beach",
+        lat: 32.7157,
+        lon: -117.1611,
+        wind_offshore_deg: null,
+        wind_offshore_tol_deg: null,
+        preferred_tide_ft_min: null,
+        preferred_tide_ft_max: null,
+        skill_level: "beginner",
+      },
+    });
+
+    const f = mkForecast("2025-01-20T13:00:00Z", {
+      wave_height: "0.9",
+      wave_period: "12s",
+      wind_speed: "6",
+      wind_direction: "NW",
+      confidence_score: 90,
+    });
+
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [f],
+      metadata: { cached: true, stale: false, missing: false, reason: null },
+    });
+
+    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    assertHasRecommendation(result, consoleErrorSpy.mock.calls);
+    const rec = result.recommendations[0];
+
+    // Score should be capped to avoid misleadingly high "Match %" when out of preferred range
+    expect(rec.score).toBeLessThanOrEqual(54);
+
+    // Summary should include explicit warning about preferred size mismatch
+    expect(rec.summary).toContain("Below your preferred size (3-6 ft)");
+  });
+
+  it("adds nearby beaches via get_nearby_beaches RPC when userLocation is provided", async () => {
+    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const {
+      __setMockNearby,
+      __setMockBeaches,
+      createSupabaseServiceRoleClient,
+    } = require("@/lib/supabase/server");
+
+    __setMockNearby([
+      { id: "beach-1", is_private: false, distance_meters: 0 }, // duplicate home beach
+      { id: "beach-2", is_private: false, distance_meters: 1200 },
+      { id: "beach-3", is_private: false, distance_meters: 2500 },
+      { id: "beach-4", is_private: false, distance_meters: 4000 },
+    ]);
+
+    __setMockBeaches([
+      {
+        id: "beach-2",
+        name: "Nearby 2",
+        lat: 32.716,
+        lon: -117.162,
+        wind_offshore_deg: null,
+        wind_offshore_tol_deg: null,
+        preferred_tide_ft_min: null,
+        preferred_tide_ft_max: null,
+        skill_level: "beginner",
+      },
+      {
+        id: "beach-3",
+        name: "Nearby 3",
+        lat: 32.717,
+        lon: -117.163,
+        wind_offshore_deg: null,
+        wind_offshore_tol_deg: null,
+        preferred_tide_ft_min: null,
+        preferred_tide_ft_max: null,
+        skill_level: "beginner",
+      },
+      {
+        id: "beach-4",
+        name: "Nearby 4",
+        lat: 32.718,
+        lon: -117.164,
+        wind_offshore_deg: null,
+        wind_offshore_tol_deg: null,
+        preferred_tide_ft_min: null,
+        preferred_tide_ft_max: null,
+        skill_level: "beginner",
+      },
+    ]);
+
+    const f = mkForecast("2025-01-20T13:00:00Z", {
+      wave_height: "4",
+      wave_period: "12s",
+      wind_speed: "6",
+      wind_direction: "NW",
+    });
+
+    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
+      forecasts: [f],
+      metadata: { cached: true, stale: false, missing: false, reason: null },
+    });
+
+    const result = await discoverSurfSpots("user-1", {
+      maxResults: 5,
+      userLocation: { lat: 32.7157, lon: -117.1611 },
+      radiusMiles: 10,
+    });
+
+    expect(result.metadata.totalBeachesConsidered).toBeGreaterThanOrEqual(4);
+    expect(result.recommendations.length).toBeGreaterThanOrEqual(3);
+
+    const clients = (createSupabaseServiceRoleClient as jest.Mock).mock.results
+      .map((r: any) => r?.value)
+      .filter(Boolean);
+    expect(clients.some((c: any) => typeof c.rpc === "function")).toBe(true);
   });
 });
 

@@ -292,7 +292,7 @@ function PersonalizedBadgeComponent({
       >
         <Sparkles className={iconSizes[size]} aria-hidden="true" />
         <span>{badgeText}</span>
-        {delta !== null && delta > 0 && (
+        {delta !== null && delta > 0 && !isMobile && (
           <span className="text-xs opacity-75 ml-1">
             +{delta.toFixed(0)} for you
           </span>

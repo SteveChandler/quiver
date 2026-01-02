@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Profile, Beach } from "@/types/database";
@@ -54,60 +55,15 @@ export function ForecastTab({
 }: ForecastTabProps) {
   const router = useRouter();
 
-  // Fetch surf discovery with maxResults=3 to serve both PersonalizedForecastCard
-  // and BeachDiscoveryList from a single API call (avoids duplicate requests)
+  // Explicit location (no auto-prompt). Used to improve discovery variety when the user opts in.
   const {
-    discovery,
-    loading: discoveryLoading,
-    error: discoveryError,
-    hasRecommendations,
-  } = useSurfDiscovery({
-    maxResults: 3, // Fetch 3 recommendations - first goes to personalized card, all to list
-    horizonHours: 24, // Home screen: only consider windows in next 24 hours
-    enabled: !!profile, // Only fetch when user has profile
-    immediate: true, // Fetch on mount
-  });
-
-  // Adapt first discovery result to personalized format for PersonalizedForecastCard
-  const recommendation = discovery ? adaptDiscoveryResponse(discovery) : null;
-  const personalizedLoading = discoveryLoading;
-  const personalizedError = discoveryError;
-  const hasRecommendation = hasRecommendations;
-
-  // Get top recommendation for insights
-  const topRecommendation = discovery?.recommendations[0];
-
-  // Defer insights loading by 500ms to prioritize main content rendering
-  const [insightsEnabled, setInsightsEnabled] = useState(false);
-  useEffect(() => {
-    if (!topRecommendation || !profile) return;
-
-    const timer = setTimeout(() => {
-      setInsightsEnabled(true);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [topRecommendation, profile]);
-
-  // Fetch insights for the top recommendation (deferred for performance)
-  const {
-    insights,
-    loading: insightsLoading,
-    error: insightsError,
-  } = useInsights({
-    beachId: topRecommendation?.beach.id || "",
-    beachName: topRecommendation?.beach.name || "",
-    waveHeight: topRecommendation?.window.waveHeight
-      ? parseFloat(topRecommendation.window.waveHeight.replace(/[^\d.]/g, ""))
-      : 0,
-    wavePeriod: topRecommendation?.window.wavePeriod
-      ? parseFloat(topRecommendation.window.wavePeriod.replace(/[^\d.]/g, ""))
-      : 0,
-    windSpeed: topRecommendation?.window.wind
-      ? parseFloat(topRecommendation.window.wind.split(" ")[0])
-      : 0,
-    enabled: insightsEnabled && !!topRecommendation && !!profile,
-  });
+    coords: geoCoords,
+    loading: geoLoading,
+    error: geoError,
+    requestLocation,
+    source: geoSource,
+    usingDefaultLocation,
+  } = useGeolocation({ autoRequest: false });
 
   const [showAdjusted, setShowAdjusted] = useState(false);
   const [showSimilarSessions, setShowSimilarSessions] = useState(false);
@@ -156,6 +112,88 @@ export function ForecastTab({
     popularBeach) as Beach | null;
   const isFallback = !homeBeach && !!popularBeach;
   const shouldShowHomeBeachBanner = !homeBeach && !!effectiveBeach?.id;
+
+  // Seed discovery around the effective beach by default; switch to GPS coords after explicit opt-in.
+  const seedDiscoveryLocation = useMemo(() => {
+    if (
+      geoSource === "browser" &&
+      !usingDefaultLocation &&
+      geoCoords?.lat != null &&
+      geoCoords?.lon != null
+    ) {
+      return { lat: geoCoords.lat, lon: geoCoords.lon };
+    }
+
+    if (effectiveBeach?.lat != null && effectiveBeach?.lon != null) {
+      return { lat: effectiveBeach.lat, lon: effectiveBeach.lon };
+    }
+
+    return undefined;
+  }, [
+    geoSource,
+    usingDefaultLocation,
+    geoCoords?.lat,
+    geoCoords?.lon,
+    effectiveBeach?.lat,
+    effectiveBeach?.lon,
+  ]);
+
+  // Fetch surf discovery with enough slack for:
+  // - top card (1)
+  // - discovery list (3, excluding the top card beach)
+  const {
+    discovery,
+    loading: discoveryLoading,
+    error: discoveryError,
+    hasRecommendations,
+  } = useSurfDiscovery({
+    maxResults: 6,
+    horizonHours: 24, // Home screen: only consider windows in next 24 hours
+    enabled: !!profile, // Only fetch when user has profile
+    immediate: true,
+    userLocation: seedDiscoveryLocation,
+  });
+
+  // Adapt first discovery result to personalized format for PersonalizedForecastCard
+  const recommendation = discovery ? adaptDiscoveryResponse(discovery) : null;
+  const personalizedLoading = discoveryLoading;
+  const personalizedError = discoveryError;
+  const hasRecommendation = hasRecommendations;
+
+  // Get top recommendation for insights (and to exclude from discovery list)
+  const topRecommendation = discovery?.recommendations[0];
+
+  // Defer insights loading by 500ms to prioritize main content rendering
+  const [insightsEnabled, setInsightsEnabled] = useState(false);
+  useEffect(() => {
+    if (!topRecommendation || !profile) return;
+
+    const timer = setTimeout(() => {
+      setInsightsEnabled(true);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [topRecommendation, profile]);
+
+  // Fetch insights for the top recommendation (deferred for performance)
+  const {
+    insights,
+    loading: insightsLoading,
+    error: insightsError,
+  } = useInsights({
+    beachId: topRecommendation?.beach.id || "",
+    beachName: topRecommendation?.beach.name || "",
+    waveHeight: topRecommendation?.window.waveHeight
+      ? parseFloat(topRecommendation.window.waveHeight.replace(/[^\d.]/g, ""))
+      : 0,
+    wavePeriod: topRecommendation?.window.wavePeriod
+      ? parseFloat(topRecommendation.window.wavePeriod.replace(/[^\d.]/g, ""))
+      : 0,
+    windSpeed: topRecommendation?.window.wind
+      ? parseFloat(topRecommendation.window.wind.split(" ")[0])
+      : 0,
+    enabled: insightsEnabled && !!topRecommendation && !!profile,
+  });
 
   // Get forecast for effective beach using the same API endpoint as beach detail page
   const fetchTodaysForecast = useCallback(async () => {
@@ -402,57 +440,21 @@ export function ForecastTab({
     [recommendation, router]
   );
 
-  // Keep showing skeleton until we have a beach and either a forecast or we've attempted a retry
-  if (
-    popularLoading ||
-    (forecastLoading && forecastState === "loading") ||
-    !effectiveBeach ||
-    (!todaysForecast && !retryAttempted)
-  ) {
-    return (
-      <div data-testid="forecast-tab" className="space-y-4">
-        {/* Ensure the Set Home Beach banner is available even while loading */}
-        {shouldShowHomeBeachBanner && effectiveBeach && (
-          <HomeBeachBanner
-            selectedBeachId={effectiveBeach.id}
-            selectedBeachName={effectiveBeach.name}
-          />
-        )}
-        <ForecastLoadingSkeleton />
-      </div>
-    );
-  }
+  // Forecast display flags.
+  // Key principle: do NOT block the entire tab while forecast fetches.
+  const forecastHasBlockingError =
+    !!fetchError ||
+    !!forecastError ||
+    ["failed", "rate_limited", "no_coverage"].includes(forecastState);
 
-  // Show error states using the new error state component
-  if (
-    !todaysForecast ||
-    fetchError ||
-    forecastError ||
-    ["failed", "rate_limited", "no_coverage"].includes(forecastState)
-  ) {
-    return (
-      <div data-testid="forecast-tab" className="space-y-4">
-        {shouldShowHomeBeachBanner && (
-          <HomeBeachBanner
-            selectedBeachId={effectiveBeach.id}
-            selectedBeachName={effectiveBeach.name}
-          />
-        )}
-        <ForecastErrorStateCard
-          state={forecastState}
-          stateInfo={forecastStateInfo}
-          onRetry={forecastStateInfo.canRetry ? handleRetry : undefined}
-        />
-        {effectiveBeach && (
-          <div className="flex justify-center">
-            <Button onClick={handleViewBeach} variant="outline">
-              View {effectiveBeach.name} Details
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const shouldShowForecastLoading =
+    popularLoading ||
+    !effectiveBeach?.id ||
+    (forecastLoading && forecastState === "loading") ||
+    (!todaysForecast && !retryAttempted && forecastState === "loading");
+
+  const shouldShowForecastError =
+    !shouldShowForecastLoading && (!todaysForecast || forecastHasBlockingError);
 
   return (
     <div
@@ -486,257 +488,307 @@ export function ForecastTab({
           discoveryData={discovery}
           isLoading={discoveryLoading}
           errorMessage={discoveryError}
+          excludeBeachId={topRecommendation?.beach.id ?? null}
+          onUseMyLocation={requestLocation}
+          showUseMyLocationCta={geoSource !== "browser"}
+          geoLoading={geoLoading}
+          geoError={geoError}
         />
       )}
 
-      {/* Beach Header */}
-      <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
-        <CardHeader className="pb-3 pt-4 px-5">
-          <CardTitle className="flex items-center justify-between text-xl font-roboto font-bold">
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-5 w-5" />
-              <span>{effectiveBeach.name}</span>
+      {effectiveBeach?.id ? (
+        shouldShowForecastLoading ? (
+          <>
+            {/* Beach Header */}
+            <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
+              <CardHeader className="pb-3 pt-4 px-5">
+                <CardTitle className="flex items-center justify-between text-xl font-roboto font-bold">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-5 w-5" />
+                    <span>{effectiveBeach.name}</span>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleViewBeach}
+                    className="text-ocean-blue h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all"
+                  >
+                    View Details
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <ForecastLoadingSkeleton />
+          </>
+        ) : shouldShowForecastError ? (
+          <>
+            <ForecastErrorStateCard
+              state={forecastState}
+              stateInfo={forecastStateInfo}
+              onRetry={forecastStateInfo.canRetry ? handleRetry : undefined}
+            />
+            <div className="flex justify-center">
+              <Button onClick={handleViewBeach} variant="outline">
+                View {effectiveBeach.name} Details
+              </Button>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleViewBeach}
-              className="text-ocean-blue h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all"
-            >
-              View Details
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </CardTitle>
-        </CardHeader>
-      </Card>
+          </>
+        ) : (
+          <>
+            {/* Beach Header */}
+            <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
+              <CardHeader className="pb-3 pt-4 px-5">
+                <CardTitle className="flex items-center justify-between text-xl font-roboto font-bold">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-5 w-5" />
+                    <span>{effectiveBeach.name}</span>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleViewBeach}
+                    className="text-ocean-blue h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all"
+                  >
+                    View Details
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+            </Card>
 
-      {/* Community-Adjusted Forecast - only show when we have real session data */}
-      {beachAccuracy && (beachAccuracy.total_sessions_count ?? 0) > 0 && (
-        <div className="space-y-2">
-          {!showAdjusted && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Star className="h-3 w-3 text-yellow-500" />
-              <span>Community-calibrated forecast (more accurate)</span>
-            </div>
-          )}
-          <AdjustedForecastDisplay
-            rawForecast={todaysForecast}
-            beachAccuracy={beachAccuracy}
-            showComparison={showAdjusted}
-            compact={!showAdjusted}
-            className={showAdjusted ? "border-2 border-blue-200" : ""}
-          />
-        </div>
-      )}
-
-      {/* Raw Forecast Display - only show when no real calibration data or when user wants to see comparison */}
-      {(!beachAccuracy ||
-        (beachAccuracy.total_sessions_count ?? 0) === 0 ||
-        showAdjusted) && (
-        <Card
-          className={
-            showAdjusted &&
-            beachAccuracy &&
-            (beachAccuracy.total_sessions_count ?? 0) > 0
-              ? "opacity-75"
-              : ""
-          }
-        >
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center space-x-2">
-                <Waves className="h-5 w-5 text-blue-500" />
-                <span>Today&apos;s Forecast</span>
+            {/* Community-Adjusted Forecast - only show when we have real session data */}
+            {beachAccuracy && (beachAccuracy.total_sessions_count ?? 0) > 0 && (
+              <div className="space-y-2">
                 {!showAdjusted && (
-                  <Badge variant="outline" className="text-xs">
-                    Raw Data
-                  </Badge>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Star className="h-3 w-3 text-yellow-500" />
+                    <span>Community-calibrated forecast (more accurate)</span>
+                  </div>
                 )}
-                <HighConfidenceIndicator
-                  confidence={todaysForecast?.confidence_score || 0}
+                <AdjustedForecastDisplay
+                  rawForecast={todaysForecast ?? {}}
+                  beachAccuracy={beachAccuracy}
+                  showComparison={showAdjusted}
+                  compact={!showAdjusted}
+                  className={showAdjusted ? "border-2 border-blue-200" : ""}
                 />
               </div>
-
-              <div className="flex items-center gap-2">
-                {/* Forecast Freshness Badge Removed as per user request */}
-                {beachAccuracy &&
-                  (beachAccuracy.total_sessions_count ?? 0) > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleToggleForecast}
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      {showAdjusted ? "Show Raw" : "Show Adjusted"}
-                    </Button>
-                  )}
-              </div>
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            {/* Main forecast data */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Wave Height */}
-              {(() => {
-                const raw = (todaysForecast?.wave_height || "").toString();
-                const match = raw && raw.match(/([\d.]+)/);
-                const value = match ? Number(match[1]).toFixed(1) : "—";
-                const unit = match ? "ft" : undefined;
-                return (
-                  <KpiTile
-                    value={value}
-                    unit={unit}
-                    label={<span>Wave Height</span>}
-                    className="bg-blue-50"
-                    valueClassName="text-blue-600"
-                    labelClassName="text-blue-500"
-                  />
-                );
-              })()}
-
-              {/* Wind Speed */}
-              {(() => {
-                const raw = (todaysForecast?.wind_speed || "").toString();
-                const match = raw && raw.match(/([\d.]+)/);
-                const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit =
-                  match && raw
-                    ? raw.toLowerCase().includes("mph")
-                      ? "mph"
-                      : raw.toLowerCase().includes("kts")
-                      ? "kts"
-                      : undefined
-                    : undefined;
-                return (
-                  <KpiTile
-                    value={value}
-                    unit={unit}
-                    label={<span>Wind Speed</span>}
-                    className="bg-green-50"
-                    valueClassName="text-green-600"
-                    labelClassName="text-green-500"
-                  />
-                );
-              })()}
-
-              {/* Water Temp */}
-              {(() => {
-                const raw = (todaysForecast?.water_temp || "").toString();
-                const match = raw && raw.match(/([\d.]+)/);
-                const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit =
-                  match && raw
-                    ? raw.includes("°")
-                      ? raw.slice(raw.indexOf("°"))
-                      : raw.toLowerCase().includes("f")
-                      ? "°F"
-                      : raw.toLowerCase().includes("c")
-                      ? "°C"
-                      : undefined
-                    : undefined;
-                return (
-                  <KpiTile
-                    value={value}
-                    unit={unit}
-                    label={<span>Water Temp</span>}
-                    className="bg-cyan-50"
-                    valueClassName="text-cyan-600"
-                    labelClassName="text-cyan-500"
-                  />
-                );
-              })()}
-
-              {/* Confidence */}
-              {(() => {
-                const num = Math.round(todaysForecast?.confidence_score || 0);
-                return (
-                  <KpiTile
-                    value={num}
-                    unit="%"
-                    label={<span>Confidence</span>}
-                    className="bg-purple-50"
-                    valueClassName="text-purple-600"
-                    labelClassName="text-purple-500"
-                  />
-                );
-              })()}
-            </div>
-
-            {/* Community Trust Level */}
-            {beachAccuracy && confidenceLevel?.level !== "unknown" && (
-              <div
-                className={`flex items-center justify-between p-3 rounded-lg ${confidenceLevel.bg}`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className={`font-medium ${confidenceLevel.color}`}>
-                    Community Trust: {confidenceLevel.level}
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-4 text-xs text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <Users className="h-3 w-3" />
-                    <span>{accuracyStats?.totalSessions || 0} sessions</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>
-                      {Math.round(beachAccuracy.overall_accuracy_score || 0)}%
-                      accurate
-                    </span>
-                  </div>
-                </div>
-              </div>
             )}
 
-            {/* Local Intel for this beach */}
-            <div className="mt-4">
-              {(() => {
-                const lat = effectiveBeach.lat ?? 0;
-                const lon = effectiveBeach.lon ?? 0;
-
-                // Warn in development if coordinates look suspicious
-                if (
-                  process.env.NODE_ENV === "development" &&
-                  (lat === 0 || lon === 0)
-                ) {
-                  console.warn(
-                    `⚠️ ForecastTab: Beach ${effectiveBeach.name} has zero coordinates`
-                  );
-                  console.warn(`  Beach ID: ${effectiveBeach.id}`);
-                  console.warn(`  Latitude: ${lat}`);
-                  console.warn(`  Longitude: ${lon}`);
+            {/* Raw Forecast Display - only show when no real calibration data or when user wants to see comparison */}
+            {(!beachAccuracy ||
+              (beachAccuracy.total_sessions_count ?? 0) === 0 ||
+              showAdjusted) && (
+              <Card
+                className={
+                  showAdjusted &&
+                  beachAccuracy &&
+                  (beachAccuracy.total_sessions_count ?? 0) > 0
+                    ? "opacity-75"
+                    : ""
                 }
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Waves className="h-5 w-5 text-blue-500" />
+                      <span>Today&apos;s Forecast</span>
+                      {!showAdjusted && (
+                        <Badge variant="outline" className="text-xs">
+                          Raw Data
+                        </Badge>
+                      )}
+                      <HighConfidenceIndicator
+                        confidence={todaysForecast?.confidence_score || 0}
+                      />
+                    </div>
 
-                return (
-                  <BeachIntelSection
-                    key={`intel-${effectiveBeach.id}`}
-                    beachId={effectiveBeach.id}
-                    beachName={effectiveBeach.name}
-                    latitude={lat}
-                    longitude={lon}
-                    className="border-0 p-0"
-                  />
-                );
-              })()}
-            </div>
+                    <div className="flex items-center gap-2">
+                      {/* Forecast Freshness Badge Removed as per user request */}
+                      {beachAccuracy &&
+                        (beachAccuracy.total_sessions_count ?? 0) > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleToggleForecast}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            {showAdjusted ? "Show Raw" : "Show Adjusted"}
+                          </Button>
+                        )}
+                    </div>
+                  </CardTitle>
+                </CardHeader>
 
-            {/* Encourage feedback if no accuracy data */}
-            {!beachAccuracy && (
-              <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 mt-4">
-                <Star className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
-                <p className="text-sm text-yellow-700 font-medium mb-1">
-                  Help Improve Forecast Accuracy!
-                </p>
-                <p className="text-xs text-yellow-600">
-                  Log your surf sessions to help calibrate forecasts for this
-                  beach
-                </p>
-              </div>
+                <CardContent className="space-y-4">
+                  {/* Main forecast data */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* Wave Height */}
+                    {(() => {
+                      const raw = (todaysForecast?.wave_height || "").toString();
+                      const match = raw && raw.match(/([\d.]+)/);
+                      const value = match ? Number(match[1]).toFixed(1) : "—";
+                      const unit = match ? "ft" : undefined;
+                      return (
+                        <KpiTile
+                          value={value}
+                          unit={unit}
+                          label={<span>Wave Height</span>}
+                          className="bg-blue-50"
+                          valueClassName="text-blue-600"
+                          labelClassName="text-blue-500"
+                        />
+                      );
+                    })()}
+
+                    {/* Wind Speed */}
+                    {(() => {
+                      const raw = (todaysForecast?.wind_speed || "").toString();
+                      const match = raw && raw.match(/([\d.]+)/);
+                      const value = match ? Number(match[1]).toFixed(0) : "—";
+                      const unit =
+                        match && raw
+                          ? raw.toLowerCase().includes("mph")
+                            ? "mph"
+                            : raw.toLowerCase().includes("kts")
+                              ? "kts"
+                              : undefined
+                          : undefined;
+                      return (
+                        <KpiTile
+                          value={value}
+                          unit={unit}
+                          label={<span>Wind Speed</span>}
+                          className="bg-green-50"
+                          valueClassName="text-green-600"
+                          labelClassName="text-green-500"
+                        />
+                      );
+                    })()}
+
+                    {/* Water Temp */}
+                    {(() => {
+                      const raw = (todaysForecast?.water_temp || "").toString();
+                      const match = raw && raw.match(/([\d.]+)/);
+                      const value = match ? Number(match[1]).toFixed(0) : "—";
+                      const unit =
+                        match && raw
+                          ? raw.includes("°")
+                            ? raw.slice(raw.indexOf("°"))
+                            : raw.toLowerCase().includes("f")
+                              ? "°F"
+                              : raw.toLowerCase().includes("c")
+                                ? "°C"
+                                : undefined
+                          : undefined;
+                      return (
+                        <KpiTile
+                          value={value}
+                          unit={unit}
+                          label={<span>Water Temp</span>}
+                          className="bg-cyan-50"
+                          valueClassName="text-cyan-600"
+                          labelClassName="text-cyan-500"
+                        />
+                      );
+                    })()}
+
+                    {/* Confidence */}
+                    {(() => {
+                      const num = Math.round(todaysForecast?.confidence_score || 0);
+                      return (
+                        <KpiTile
+                          value={num}
+                          unit="%"
+                          label={<span>Confidence</span>}
+                          className="bg-purple-50"
+                          valueClassName="text-purple-600"
+                          labelClassName="text-purple-500"
+                        />
+                      );
+                    })()}
+                  </div>
+
+                  {/* Community Trust Level */}
+                  {beachAccuracy && confidenceLevel?.level !== "unknown" && (
+                    <div
+                      className={`flex items-center justify-between p-3 rounded-lg ${confidenceLevel.bg}`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span className={`font-medium ${confidenceLevel.color}`}>
+                          Community Trust: {confidenceLevel.level}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-4 text-xs text-gray-600">
+                        <div className="flex items-center space-x-1">
+                          <Users className="h-3 w-3" />
+                          <span>{accuracyStats?.totalSessions || 0} sessions</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <TrendingUp className="h-3 w-3" />
+                          <span>
+                            {Math.round(beachAccuracy.overall_accuracy_score || 0)}%
+                            accurate
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Local Intel for this beach */}
+                  <div className="mt-4">
+                    {(() => {
+                      const lat = effectiveBeach.lat ?? 0;
+                      const lon = effectiveBeach.lon ?? 0;
+
+                      // Warn in development if coordinates look suspicious
+                      if (
+                        process.env.NODE_ENV === "development" &&
+                        (lat === 0 || lon === 0)
+                      ) {
+                        console.warn(
+                          `⚠️ ForecastTab: Beach ${effectiveBeach.name} has zero coordinates`
+                        );
+                        console.warn(`  Beach ID: ${effectiveBeach.id}`);
+                        console.warn(`  Latitude: ${lat}`);
+                        console.warn(`  Longitude: ${lon}`);
+                      }
+
+                      return (
+                        <BeachIntelSection
+                          key={`intel-${effectiveBeach.id}`}
+                          beachId={effectiveBeach.id}
+                          beachName={effectiveBeach.name}
+                          latitude={lat}
+                          longitude={lon}
+                          className="border-0 p-0"
+                        />
+                      );
+                    })()}
+                  </div>
+
+                  {/* Encourage feedback if no accuracy data */}
+                  {!beachAccuracy && (
+                    <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 mt-4">
+                      <Star className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
+                      <p className="text-sm text-yellow-700 font-medium mb-1">
+                        Help Improve Forecast Accuracy!
+                      </p>
+                      <p className="text-xs text-yellow-600">
+                        Log your surf sessions to help calibrate forecasts for this
+                        beach
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+          </>
+        )
+      ) : (
+        <ForecastLoadingSkeleton />
       )}
 
       {/* Similar Sessions Drawer */}

@@ -76,7 +76,7 @@ const DEFAULT_THRESHOLDS = {
   periodMaxS: 18,
   maxWindMph: 15,
   confidenceMin: 0.5,
-} as const;
+};
 
 const LOOKAHEAD_HOURS = 18;
 const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;

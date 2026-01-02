@@ -1,5 +1,4 @@
 import { Page, expect, BrowserContext } from '@playwright/test';
-import { dismissPreferencesAnnouncementIfPresent } from './test-helpers';
 
 /**
  * Error Detection Utilities for E2E Tests
@@ -222,10 +221,6 @@ export async function waitForPageLoadWithErrorCheck(
   await page.waitForLoadState('networkidle', { timeout }).catch(() => {
     // Ignore timeout - some pages have long-polling
   });
-
-  // The authenticated home screen can show a blocking announcement dialog which aria-hides
-  // the background UI; dismiss it before downstream assertions run.
-  await dismissPreferencesAnnouncementIfPresent(page).catch(() => {});
 
   // Small delay to let error UI render
   await page.waitForTimeout(500);

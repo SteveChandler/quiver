@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from '@playwright/test';
 import {
   verifySupabaseAuth,
   waitForAuthCompletion,
@@ -9,47 +9,6 @@ import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
 /**
  * Utility functions for E2E tests
  */
-
-/**
- * Dismiss the PreferencesAnnouncementDialog if it is shown.
- *
- * The home screen can render a blocking modal ("We've Enhanced Your Profile Preferences!")
- * for authenticated users who haven't acknowledged preferences v2 yet. When present,
- * Radix Dialog will typically aria-hide/inert the background, causing role-based selectors
- * for the underlying home UI to fail.
- *
- * This helper makes smoke tests resilient to that UX overlay while still exercising the UI.
- */
-export async function dismissPreferencesAnnouncementIfPresent(
-  page: Page
-): Promise<boolean> {
-  const dialog = page
-    .getByRole('dialog')
-    .filter({ hasText: /enhanced your profile preferences/i });
-
-  const isVisible = await dialog.isVisible({ timeout: 1000 }).catch(() => false);
-  if (!isVisible) return false;
-
-  // Prefer the explicit CTA so we match real user behavior.
-  const maybeLater = dialog.getByRole('button', { name: /maybe later/i });
-  const closeButton = dialog.getByRole('button', { name: /close/i });
-
-  if (await maybeLater.isVisible().catch(() => false)) {
-    await maybeLater.click();
-  } else if (await closeButton.isVisible().catch(() => false)) {
-    await closeButton.click();
-  } else {
-    // Last resort: click the top-right X if it lacks an accessible name.
-    const xButton = dialog.locator('button').first();
-    await xButton.click().catch(() => {});
-  }
-
-  // Let focus/aria updates settle.
-  await expect(dialog).toBeHidden({ timeout: 5000 }).catch(() => {});
-  await page.waitForTimeout(250);
-
-  return true;
-}
 
 /**
  * Wait for network to be idle
@@ -198,9 +157,6 @@ export async function waitForPageLoad(page: Page) {
   await page.waitForLoadState('domcontentloaded');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
     // Ignore timeout - some pages have long-polling connections
-  });
-  await dismissPreferencesAnnouncementIfPresent(page).catch(() => {
-    // Best-effort: never fail a test simply because the modal could not be dismissed.
   });
 }
 

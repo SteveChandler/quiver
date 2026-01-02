@@ -8,7 +8,12 @@ import { createClient } from "@supabase/supabase-js";
 import { addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import type { Database } from "@/types/database";
-import type { BeachPreferences, ForecastSlice, MorningIntelData } from "@/types/morning-intel";
+import type {
+  BeachPreferences,
+  ForecastSlice,
+  MorningIntelData,
+  MorningIntelRecommendationSummary,
+} from "@/types/morning-intel";
 import {
   deriveSurfRange,
   recommendTideWindow,
@@ -17,6 +22,7 @@ import {
   bestWindowHeuristic,
   confidenceHeuristic,
   analyzeConditions,
+  getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
 
 const TIMEZONE = "America/Los_Angeles";
@@ -69,24 +75,51 @@ export class IntelGenerationService {
     const { data: beach, error } = await this.supabase
       .from("beaches")
       .select(
-        "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type"
+        "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg"
       )
       .eq("id", beachId)
       .single();
 
     if (error || !beach) return null;
 
+    const aspectDeg: number | null = beach.aspect_deg ?? null;
+    const expectedOffshoreDeg =
+      aspectDeg == null ? null : (Number(aspectDeg) + 180) % 360;
+
+    const dbWindOffshoreDeg: number | null = beach.wind_offshore_deg ?? null;
+    const shortestAngleDiff = (a: number, b: number) => {
+      return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+    };
+
+    let windOffshoreDegUsed: number | null = dbWindOffshoreDeg;
+    let windOffshoreDegSource: "db" | "computed_from_aspect" | "db_overridden_with_aspect" =
+      "db";
+
+    if (dbWindOffshoreDeg == null && expectedOffshoreDeg != null) {
+      windOffshoreDegUsed = expectedOffshoreDeg;
+      windOffshoreDegSource = "computed_from_aspect";
+    } else if (dbWindOffshoreDeg != null && expectedOffshoreDeg != null) {
+      const diff = shortestAngleDiff(dbWindOffshoreDeg, expectedOffshoreDeg);
+      if (diff > 90) {
+        windOffshoreDegUsed = expectedOffshoreDeg;
+        windOffshoreDegSource = "db_overridden_with_aspect";
+      }
+    }
+
     return {
       name: beach.name,
       swellWindowMin: beach.swell_window_min_deg,
       swellWindowMax: beach.swell_window_max_deg,
-      windOffshoreDeg: beach.wind_offshore_deg,
+      windOffshoreDeg: windOffshoreDegUsed,
       windOffshoreTol: beach.wind_offshore_tol_deg,
       tideMinFt: beach.preferred_tide_ft_min,
       tideMaxFt: beach.preferred_tide_ft_max,
       hazards: beach.hazards,
       skillLevel: beach.skill_level,
       breakType: beach.break_type,
+      // Extra fields for payload/debugging
+      aspectDeg,
+      windOffshoreDegSource,
     };
   }
 
@@ -192,6 +225,11 @@ export class IntelGenerationService {
 
     // Analyze conditions
     let conditions = undefined;
+    let recommendation: MorningIntelRecommendationSummary = {
+      decision: "maybe",
+      label: "Maybe",
+      reasons: ["check the detailed forecast"],
+    };
     if (beachPrefs) {
       conditions = analyzeConditions(
         {
@@ -201,27 +239,43 @@ export class IntelGenerationService {
         },
         beachPrefs
       );
+      recommendation = getConservativeRecommendation(conditions);
     }
 
-    // Derive wind quality from offshore boolean and description
-    const windQuality = wind.offshore
-      ? "offshore"
-      : wind.description.toLowerCase().includes("onshore")
-      ? "onshore"
-      : "cross-shore";
-
-    // Generate notes
     let notes = "";
-    if (windQuality === "offshore") {
-      notes = "Offshore winds create clean, organized waves.";
-    } else if (windQuality === "onshore") {
-      notes = "Onshore winds may create choppy conditions.";
+    if (conditions) {
+      if (recommendation.decision === "worth_it") {
+        notes = "Worth it — conditions line up. Check the cam before you go.";
+      } else if (recommendation.decision === "skip") {
+        notes =
+          recommendation.reasons.length > 0
+            ? `Skip it — ${recommendation.reasons.join(" and ")} not ideal.`
+            : "Skip it — conditions are not ideal.";
+      } else {
+        notes =
+          recommendation.reasons.length > 0
+            ? `Maybe — keep an eye on the ${recommendation.reasons.join(" and ")}.`
+            : "Maybe — could be worth a look if you're nearby.";
+      }
     }
 
-    // bestWindow is a string like "06:00–08:30 on the drop" or "N/A"
-    if (bestWindow && bestWindow !== "N/A") {
-      notes += ` Best window: ${bestWindow}.`;
-    }
+    // Data completeness (same model as scripts/morningIntel.ts)
+    const totalPossibleFields =
+      slice.forecasts.length * 7 + (slice.tides.length > 0 ? 10 : 0);
+    let presentFields = slice.tides.length > 0 ? 10 : 0;
+
+    slice.forecasts.forEach((f) => {
+      if (f.wave_height) presentFields++;
+      if (f.wave_period) presentFields++;
+      if (f.wind_speed) presentFields++;
+      if (f.wind_direction) presentFields++;
+      if (f.swell_height) presentFields++;
+      if (f.swell_period) presentFields++;
+      if (f.swell_direction) presentFields++;
+    });
+
+    const dataCompleteness =
+      totalPossibleFields > 0 ? presentFields / totalPossibleFields : 0;
 
     return {
       spotName: beachPrefs?.name || "Beach",
@@ -237,14 +291,36 @@ export class IntelGenerationService {
       beachPreferences: beachPrefs || undefined,
       conditions,
       payload: {
+        kind: "morning_intel_v2",
         generatedAt: new Date().toISOString(),
-        dataCompleteness: slice.forecasts.length > 0 ? 0.8 : 0,
+        date,
+        time: targetTime,
+        recommendation,
+        conditions,
+        bestWindow,
+        confidence,
+        surf,
+        tide,
+        wind,
+        swells,
+        dataCompleteness,
         sources: {
           wave: slice.forecasts.some((f) => f.wave_height !== null),
           tide: slice.forecasts.some((f) => f.tide_height !== null),
           wind: slice.forecasts.some((f) => f.wind_speed !== null),
           swell: slice.forecasts.some((f) => f.swell_height !== null),
         },
+        beach: beachPrefs
+          ? {
+              name: beachPrefs.name,
+              skillLevel: beachPrefs.skillLevel ?? null,
+              hazards: beachPrefs.hazards ?? null,
+              breakType: beachPrefs.breakType ?? null,
+              aspectDeg: (beachPrefs as any).aspectDeg ?? null,
+              windOffshoreDegUsed: beachPrefs.windOffshoreDeg ?? null,
+              windOffshoreDegSource: (beachPrefs as any).windOffshoreDegSource ?? "db",
+            }
+          : undefined,
       },
     };
   }

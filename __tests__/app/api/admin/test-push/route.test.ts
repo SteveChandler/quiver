@@ -22,7 +22,9 @@ describe("POST /api/admin/test-push", () => {
 
   it("returns 401/403 when not authorized", async () => {
     const { authenticateAdmin } = await import("@/lib/auth/admin");
-    (authenticateAdmin as jest.Mock).mockResolvedValue({
+    const authenticateAdminMock =
+      authenticateAdmin as unknown as jest.MockedFunction<typeof authenticateAdmin>;
+    authenticateAdminMock.mockResolvedValue({
       success: false,
       error: "Admin access required",
       status: 403,
@@ -35,13 +37,17 @@ describe("POST /api/admin/test-push", () => {
 
   it("sends push to the current admin user", async () => {
     const { authenticateAdmin } = await import("@/lib/auth/admin");
-    (authenticateAdmin as jest.Mock).mockResolvedValue({
+    const authenticateAdminMock =
+      authenticateAdmin as unknown as jest.MockedFunction<typeof authenticateAdmin>;
+    authenticateAdminMock.mockResolvedValue({
       success: true,
-      user: { id: "admin-123", email: "admin@example.com" },
+      user: { id: "admin-123", email: "admin@example.com" } as any,
     });
 
     const { sendPushNotification } = await import("@/lib/services/push-notifications");
-    (sendPushNotification as jest.Mock).mockResolvedValue({
+    const sendPushNotificationMock =
+      sendPushNotification as unknown as jest.MockedFunction<typeof sendPushNotification>;
+    sendPushNotificationMock.mockResolvedValue({
       success: 1,
       failed: 0,
     });

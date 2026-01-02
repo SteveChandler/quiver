@@ -250,7 +250,48 @@ describe("IntelFormatter", () => {
         confidence: "High",
         notes: "Clean offshore winds create organized waves.",
         payload: {
+          kind: "morning_intel_v2",
           generatedAt: "2025-10-26T06:00:00Z",
+          date: "2025-10-26",
+          time: "06:00",
+          recommendation: {
+            decision: "maybe",
+            label: "Maybe",
+            reasons: [],
+          },
+          bestWindow: "06:00–08:00 on the drop",
+          confidence: "High",
+          surf: { min: 3, max: 5, dominant: "Chest-head high" },
+          tide: {
+            height: 3.2,
+            direction: "falling",
+            nextEvent: {
+              type: "LOW",
+              height: 1.5,
+              time: "09:30",
+            },
+          },
+          wind: {
+            speed: 5,
+            direction: 90,
+            cardinal: "E",
+            offshore: true,
+            description: "light offshore",
+          },
+          swells: {
+            primary: {
+              height: 4.0,
+              period: 12,
+              direction: 270,
+              cardinal: "W",
+            },
+            secondary: {
+              height: 2.5,
+              period: 8,
+              direction: 290,
+              cardinal: "WNW",
+            },
+          },
           dataCompleteness: 0.95,
           sources: {
             wave: true,
@@ -338,7 +379,57 @@ describe("IntelFormatter", () => {
           },
         },
         payload: {
+          kind: "morning_intel_v2",
           generatedAt: "2025-10-26T06:00:00Z",
+          date: "2025-10-26",
+          time: "06:00",
+          recommendation: {
+            decision: "maybe",
+            label: "Maybe",
+            reasons: [],
+          },
+          conditions: {
+            score: 8,
+            swell: {
+              status: "optimal",
+              emoji: "✅",
+              message: "W (270°) - within optimal window",
+            },
+            wind: {
+              status: "optimal",
+              emoji: "✅",
+              message: "light offshore (5 mph E)",
+            },
+            tide: {
+              status: "optimal",
+              emoji: "✅",
+              message: "3.2 ft - within optimal range (2-5 ft)",
+            },
+          },
+          bestWindow: "06:00–08:00",
+          confidence: "High",
+          surf: { min: 3, max: 5, dominant: "Chest-head high" },
+          tide: {
+            height: 3.2,
+            direction: "falling",
+            nextEvent: null,
+          },
+          wind: {
+            speed: 5,
+            direction: 90,
+            cardinal: "E",
+            offshore: true,
+            description: "light offshore",
+          },
+          swells: {
+            primary: {
+              height: 4.0,
+              period: 12,
+              direction: 270,
+              cardinal: "W",
+            },
+            secondary: null,
+          },
           dataCompleteness: 0.95,
           sources: {
             wave: true,
@@ -391,7 +482,39 @@ describe("IntelFormatter", () => {
         confidence: "Medium",
         notes: "Standard conditions",
         payload: {
+          kind: "morning_intel_v2",
           generatedAt: "2025-10-26T06:00:00Z",
+          date: "2025-10-26",
+          time: "06:00",
+          recommendation: {
+            decision: "maybe",
+            label: "Maybe",
+            reasons: [],
+          },
+          bestWindow: "06:00–08:00",
+          confidence: "Medium",
+          surf: { min: 3, max: 5, dominant: "Chest-high" },
+          tide: {
+            height: 3.2,
+            direction: "rising",
+            nextEvent: null,
+          },
+          wind: {
+            speed: 5,
+            direction: 90,
+            cardinal: "E",
+            offshore: true,
+            description: "offshore",
+          },
+          swells: {
+            primary: {
+              height: 4.0,
+              period: 12,
+              direction: 270,
+              cardinal: "W",
+            },
+            secondary: null,
+          },
           dataCompleteness: 0.8,
           sources: {
             wave: true,
@@ -434,7 +557,34 @@ describe("IntelFormatter", () => {
         confidence: "Low",
         notes: "",
         payload: {
+          kind: "morning_intel_v2",
           generatedAt: "2025-10-26T06:00:00Z",
+          date: "2025-10-26",
+          time: "06:00",
+          recommendation: {
+            decision: "maybe",
+            label: "Maybe",
+            reasons: [],
+          },
+          bestWindow: "N/A",
+          confidence: "Low",
+          surf: { min: 3, max: 5, dominant: "Chest-high" },
+          tide: {
+            height: 3.2,
+            direction: "slack",
+            nextEvent: null,
+          },
+          wind: {
+            speed: 0,
+            direction: 0,
+            cardinal: "N",
+            offshore: false,
+            description: "calm",
+          },
+          swells: {
+            primary: null,
+            secondary: null,
+          },
           dataCompleteness: 0.5,
           sources: {
             wave: false,

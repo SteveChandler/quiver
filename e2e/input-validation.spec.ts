@@ -160,7 +160,8 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     test("should accept valid session plan", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/plan-session`, {
         data: {
-          beach_name: "Test Beach",
+          beach_id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+          beach_name: "Pacific Beach",
           session_date: "2025-12-01",
           start_time: "08:00:00",
           notes: "Valid notes",
@@ -185,7 +186,8 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     test("should reject invalid date format", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/plan-session`, {
         data: {
-          beach_name: "Test Beach",
+          beach_id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+          beach_name: "Pacific Beach",
           session_date: "12-01-2025", // Wrong format
           start_time: "08:00:00",
         },
@@ -206,7 +208,8 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     test("should reject invalid time format", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/plan-session`, {
         data: {
-          beach_name: "Test Beach",
+          beach_id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+          beach_name: "Pacific Beach",
           session_date: "2025-12-01",
           start_time: "8:00", // Missing seconds
         },
@@ -247,7 +250,8 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     test("should reject notes over 1000 characters", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/plan-session`, {
         data: {
-          beach_name: "Test Beach",
+          beach_id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+          beach_name: "Pacific Beach",
           session_date: "2025-12-01",
           start_time: "08:00:00",
           notes: "x".repeat(1001), // 1001 chars
@@ -269,7 +273,8 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     test("should accept notes with exactly 1000 characters", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/plan-session`, {
         data: {
-          beach_name: "Test Beach",
+          beach_id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
+          beach_name: "Pacific Beach",
           session_date: "2025-12-01",
           start_time: "08:00:00",
           notes: "x".repeat(1000), // Exactly 1000 chars

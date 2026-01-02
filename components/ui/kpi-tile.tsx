@@ -11,11 +11,22 @@ type KpiTileProps = {
   valueClassName?: string;
   labelClassName?: string;
   onClick?: () => void;
+  testId?: string;
 };
 
-export function KpiTile({ value, unit, label, className, valueClassName, labelClassName, onClick }: KpiTileProps) {
+export function KpiTile({
+  value,
+  unit,
+  label,
+  className,
+  valueClassName,
+  labelClassName,
+  onClick,
+  testId,
+}: KpiTileProps) {
   return (
     <div
+      data-testid={testId}
       className={cn(
         "flex flex-col items-center justify-center text-center w-full p-3 rounded-xl bg-card",
         className

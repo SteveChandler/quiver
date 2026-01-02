@@ -31,6 +31,10 @@ import { cn } from "@/lib/utils";
 import { getNearestBeachName } from "@/lib/utils/nearest-beach";
 import { useMemo } from "react";
 import Image from "next/image";
+import {
+  ConditionsIntelCard,
+  getMorningIntelPayloadV2,
+} from "@/components/intel/conditions-intel-card";
 
 interface IntelPostModalProps {
   post: IntelPostWithUser;
@@ -111,7 +115,11 @@ export function IntelPostModal({
 
           {/* Description */}
           <div>
-            <p className="text-sm leading-relaxed">{post.description}</p>
+            {post.tag === "conditions" && getMorningIntelPayloadV2(post.surf_conditions) ? (
+              <ConditionsIntelCard post={post} variant="modal" />
+            ) : (
+              <p className="text-sm leading-relaxed">{post.description}</p>
+            )}
           </div>
 
           {/* Photo */}

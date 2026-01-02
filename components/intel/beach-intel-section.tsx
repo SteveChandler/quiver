@@ -506,12 +506,15 @@ function IntelPostCard({
           </p>
 
           {/* Actions */}
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-xs text-gray-600">
-                <MapPin className="h-3 w-3" />
-                <span>{post.beach_name || "Unknown Beach"}</span>
-              </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-1 text-xs text-gray-600 min-w-0">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">
+                {post.beach_name || "Unknown Beach"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
               {canConfirm && (
                 <Button
                   variant="ghost"
@@ -519,7 +522,7 @@ function IntelPostCard({
                   onClick={() => onConfirm(post.id, isConfirmed)}
                   disabled={isConfirming}
                   className={cn(
-                    "h-7 px-2 text-xs transition-all duration-200",
+                    "h-7 px-2 text-xs whitespace-nowrap transition-all duration-200 shrink-0",
                     isConfirmed
                       ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                       : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",
@@ -537,25 +540,25 @@ function IntelPostCard({
                     />
                   )}
                   {isConfirming
-                    ? "Processing..."
+                    ? "Processing…"
                     : isConfirmed
-                    ? "Confirmed"
-                    : "Confirm"}
+                      ? "Confirmed"
+                      : "Confirm"}
+                </Button>
+              )}
+
+              {post.description.length > 100 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleExpand}
+                  className="h-7 px-2 text-xs text-gray-600 hover:text-gray-800 whitespace-nowrap shrink-0"
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  {isExpanded ? "Show less" : "Show more"}
                 </Button>
               )}
             </div>
-
-            {post.description.length > 100 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleExpand}
-                className="h-7 px-2 text-xs text-gray-600 hover:text-gray-800"
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                {isExpanded ? "Show less" : "Show more"}
-              </Button>
-            )}
           </div>
         </div>
       </div>

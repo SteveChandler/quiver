@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { CACHE_TTL } from "@/lib/constants/ui";
@@ -137,6 +137,7 @@ export function useSurfDiscovery(
 
   const [cachedData, setCachedData] = useState<CachedDiscoveryData | null>(null);
   const [isCached, setIsCached] = useState(false);
+  const prevCacheKeyRef = useRef<string | null>(null);
 
   const userLat = userLocation?.lat;
   const userLon = userLocation?.lon;
@@ -167,6 +168,17 @@ export function useSurfDiscovery(
     if (!user?.id) return null;
     return `${CACHE_KEY_PREFIX}${user.id}_${optionsHash}`;
   }, [user?.id, optionsHash]);
+
+  // If the cache key changes (e.g. location/options change), ensure we don't keep using
+  // cached data from a previous key. This also allows `useDataFetcher` to re-run when
+  // `immediate` toggles back to true (because `cachedData` becomes null).
+  useEffect(() => {
+    if (prevCacheKeyRef.current !== cacheKey) {
+      setCachedData(null);
+      setIsCached(false);
+      prevCacheKeyRef.current = cacheKey;
+    }
+  }, [cacheKey]);
 
   // Load cached data on mount
   useEffect(() => {

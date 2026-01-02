@@ -757,7 +757,6 @@ export async function GET(request: NextRequest) {
         type,
         invitations: Array.isArray(invitations) ? invitations : [],
       },
-      undefined,
       200
     );
   } catch (error) {
@@ -828,7 +827,7 @@ export async function PATCH(request: NextRequest) {
         {
           updated: updatedRows ?? [],
         },
-        "Invitations marked as seen"
+        200
       );
     }
 

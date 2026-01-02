@@ -68,6 +68,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       wind: "10 mph E",
       waveHeight: "4-5 ft",
       wavePeriod: "12s",
+      dataSource: "CDIP",
       confidence: 85,
     },
     summary: `Best at ${format(
@@ -80,7 +81,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
     ...overrides,
   });
 
-  const mockOnViewBeach = jest.fn();
   const mockOnPlanSession = jest.fn();
 
   beforeEach(() => {
@@ -97,7 +97,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -116,7 +115,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -134,7 +132,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -166,7 +163,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -187,7 +183,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -205,7 +200,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -227,7 +221,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -247,7 +240,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -264,7 +256,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -282,12 +273,13 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
 
       expect(screen.getByText("Top Pick")).toBeInTheDocument();
+      // Source label should be shown (CDIP/NOAA_BUOY => Live)
+      expect(screen.getByText("Live")).toBeInTheDocument();
     });
 
     it("should display wave height and wind conditions", () => {
@@ -299,7 +291,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -317,7 +308,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -337,7 +327,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -357,7 +346,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -375,7 +363,6 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
@@ -387,8 +374,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       expect(mockOnPlanSession).toHaveBeenCalledTimes(1);
     });
 
-    it("should call onViewBeach when View Beach button is clicked", async () => {
-      const user = userEvent.setup();
+    it("should render View Beach link to the beach page", () => {
       const startDate = new Date("2025-01-15T16:00:00");
       const endDate = new Date("2025-01-15T19:00:00");
       const recommendation = createMockRecommendation(startDate, endDate);
@@ -397,16 +383,13 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
         <BeachDiscoveryCard
           recommendation={recommendation}
           rank={1}
-          onViewBeach={mockOnViewBeach}
           onPlanSession={mockOnPlanSession}
         />
       );
 
-      const viewButton = screen.getByRole("button", { name: /View Beach/ });
-      await user.click(viewButton);
-
-      expect(mockOnViewBeach).toHaveBeenCalledWith("beach-1");
-      expect(mockOnViewBeach).toHaveBeenCalledTimes(1);
+      const viewLink = screen.getByRole("link", { name: /View Beach/ });
+      // URL should include tracking param from surf_discovery
+      expect(viewLink).toHaveAttribute("href", "/beach/pipeline?from=surf_discovery");
     });
   });
 });
