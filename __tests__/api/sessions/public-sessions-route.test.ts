@@ -53,7 +53,7 @@ describe("/api/sessions/public", () => {
               arrival_time: "2025-01-01T08:00:00.000Z",
               rating: 5, // intentionally present in DB row; should not be exposed by API
               wave_quality: 4,
-              wave_height: 3,
+              wave_height_ft: 3,
               notes: "Great waves",
               description: null,
               image_url: null,

@@ -258,6 +258,21 @@ describe("Sitemap Generation", () => {
       expect(rosaritoRoute).toBeDefined();
     });
 
+    it("should emit ASCII-normalized canonical slugs for diacritics (Rincón -> rincon)", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ city: "Rincón", state: "PR", country: "USA" }],
+      });
+
+      const result = await sitemap();
+
+      const canonical = result.find((r) => r.url.endsWith("/pr/rincon"));
+      expect(canonical).toBeDefined();
+
+      const redirecting = result.find((r) => r.url.endsWith("/pr/rinc-n"));
+      expect(redirecting).toBeUndefined();
+    });
+
     it("should set priority 0.75 for location routes", async () => {
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: true,

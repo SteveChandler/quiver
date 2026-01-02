@@ -288,6 +288,7 @@ export const PersonalizedForecastCard = React.memo(
                 onClick={handleShare}
                 className="h-9 w-9 text-muted-foreground hover:text-foreground"
                 aria-label="Share forecast"
+                data-testid="personalized-forecast-share"
               >
                 <Share2 className="h-4 w-4" />
               </Button>
@@ -456,6 +457,7 @@ export const PersonalizedForecastCard = React.memo(
                 )}
                 valueClassName="text-purple-600 text-base"
                 labelClassName="text-purple-500"
+                testId="personalized-forecast-for-you-tile"
                 onClick={
                   onViewSimilarSessions && insights?.similarSessions.length
                     ? onViewSimilarSessions
@@ -529,6 +531,7 @@ export const PersonalizedForecastCard = React.memo(
                   size="sm"
                   onClick={onViewSimilarSessions}
                   className="w-full justify-between text-blue-600 hover:text-blue-700 hover:bg-blue-50 mt-2"
+                  data-testid="personalized-forecast-view-similar-sessions"
                 >
                   <span className="text-sm">
                     View {insights.similarSessions.length} similar session

@@ -567,7 +567,7 @@ export function ForecastTab({
                   </div>
                 )}
                 <AdjustedForecastDisplay
-                  rawForecast={todaysForecast}
+                  rawForecast={todaysForecast ?? {}}
                   beachAccuracy={beachAccuracy}
                   showComparison={showAdjusted}
                   compact={!showAdjusted}

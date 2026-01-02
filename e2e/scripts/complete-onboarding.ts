@@ -27,7 +27,7 @@ async function completeOnboarding() {
   try {
     console.log(`📍 Navigating to ${baseURL}...`);
     await page.goto(baseURL);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Check if onboarding modal appears
     console.log('🔍 Checking for onboarding modal...');
@@ -42,12 +42,12 @@ async function completeOnboarding() {
       // Navigate to onboarding directly
       console.log('📍 Navigating to /onboarding...');
       await page.goto(`${baseURL}/onboarding`);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('load');
       await page.waitForTimeout(2000);
     }
 
     // Look for onboarding questions or steps
-    // Current flow: Welcome → Profile → Experience → Wave Preferences → Home Beach → Completion
+    // Current flow: Welcome → Home Beach → Profile → Experience → Wave Preferences → Completion
     console.log('📝 Completing onboarding steps...');
 
     // Step 1: Welcome Step - Click "Get Started"
@@ -61,10 +61,27 @@ async function completeOnboarding() {
       }
     }
 
-    // Step 2: Profile Step - Fill name if fields are visible
+    // Step 2: Home Beach - Search and select a beach (required)
+    const beachSearchInput = page.getByLabel(/search for your beach/i);
+    if (await beachSearchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log('   Step 2: Home Beach - Selecting a beach...');
+      await beachSearchInput.fill('del');
+      await page.waitForTimeout(750);
+      // Click first result
+      const firstResult = page
+        .locator('button')
+        .filter({ hasText: /del/i })
+        .first();
+      await firstResult.click({ timeout: 5000 });
+      await page.waitForTimeout(250);
+      await page.getByRole('button', { name: /continue/i }).click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Step 3: Profile Step - Fill name if fields are visible
     const fullNameInput = page.getByLabel(/full name/i);
     if (await fullNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('   Step 2: Profile - Filling in name...');
+      console.log('   Step 3: Profile - Filling in name...');
       await fullNameInput.fill('Test User');
       const displayNameInput = page.getByLabel(/display name/i);
       if (await displayNameInput.isVisible().catch(() => false)) {
@@ -75,10 +92,10 @@ async function completeOnboarding() {
       await page.waitForTimeout(1000);
     }
 
-    // Step 3: Experience Step - Select experience level
+    // Step 4: Experience Step - Select experience level
     const experienceStep = page.getByTestId('experience-step');
     if (await experienceStep.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('   Step 3: Experience - Selecting Intermediate...');
+      console.log('   Step 4: Experience - Selecting Intermediate...');
       const intermediateCard = page.getByTestId('experience-intermediate');
       await intermediateCard.click();
       await page.waitForTimeout(500);
@@ -87,10 +104,10 @@ async function completeOnboarding() {
       await page.waitForTimeout(1000);
     }
 
-    // Step 4: Wave Preferences Step - Select wave size, break type, and surf style
+    // Step 5: Wave Preferences Step - Select wave size, break type, and surf style
     const wavePrefsStep = page.getByTestId('wave-preferences-step');
     if (await wavePrefsStep.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log('   Step 4: Wave Preferences - Selecting preferences...');
+      console.log('   Step 5: Wave Preferences - Selecting preferences...');
 
       // Select medium waves
       const mediumWaveBtn = page.getByTestId('wave-size-medium');
@@ -115,8 +132,6 @@ async function completeOnboarding() {
       await continueBtn.click();
       await page.waitForTimeout(1000);
     }
-
-    // Step 5: Home Beach - Skip or search (handled by generic button click below)
 
     // Look for "Continue", "Next", or "Finish" buttons
     console.log('\n🔄 Looking for navigation buttons...');
@@ -158,7 +173,7 @@ async function completeOnboarding() {
     // Verify onboarding completion
     console.log('\n🔍 Verifying onboarding completion...');
     await page.goto(`${baseURL}/profile`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     await page.waitForTimeout(2000);
 
     // Check if profile loads without redirect

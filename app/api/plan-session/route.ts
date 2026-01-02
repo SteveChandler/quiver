@@ -72,32 +72,49 @@ export async function POST(request: NextRequest) {
 
     // Data is already validated by schema - no manual checks needed
 
-    // First, find the beach by name or create a new beach entry
-    let beachId = null;
-    if (validatedData.beach_name) {
-      // Look up the beach by name
-      const { data: beach } = await supabase
+    // Resolve existing beach (do not create new beaches here; RLS restricts inserts)
+    let beachId: string | null = null;
+
+    if (validatedData.beach_id) {
+      const { data: beach, error: beachLookupError } = await supabase
         .from("beaches")
         .select("id")
-        .ilike("name", validatedData.beach_name)
+        .eq("id", validatedData.beach_id)
         .maybeSingle();
 
-      if (beach) {
-        beachId = beach.id;
-      } else {
-        // Create a new beach if not found
-        const { data: newBeach, error: beachError } = await supabase
-          .from("beaches")
-          .insert({ name: validatedData.beach_name })
-          .select()
-          .single();
-
-        if (beachError) {
-          console.error("Error creating beach:", beachError);
-        } else if (newBeach) {
-          beachId = newBeach.id;
-        }
+      if (beachLookupError) {
+        return handleApiError(beachLookupError, "Failed to validate beach");
       }
+
+      if (!beach) {
+        return createValidationError("Beach not found — please select an existing beach", {
+          beach_id: validatedData.beach_id,
+        });
+      }
+
+      beachId = beach.id;
+    } else if (validatedData.beach_name) {
+      const beachName = validatedData.beach_name.trim();
+      const { data: beach, error: beachLookupError } = await supabase
+        .from("beaches")
+        .select("id")
+        .ilike("name", beachName)
+        .maybeSingle();
+
+      if (beachLookupError) {
+        return handleApiError(beachLookupError, "Failed to resolve beach");
+      }
+
+      if (!beach) {
+        return createValidationError("Beach not found — please select an existing beach", {
+          beach_name: beachName,
+        });
+      }
+
+      beachId = beach.id;
+    } else {
+      // Should be unreachable due to schema refinement, but keep a defensive check
+      return createValidationError("Beach is required");
     }
 
     // Create a session record with the proper fields

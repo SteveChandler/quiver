@@ -30,6 +30,10 @@ export function ExperienceStep() {
     }
   };
 
+  const handleSkip = () => {
+    nextStep();
+  };
+
   return (
     <div className="space-y-6" data-testid="experience-step">
       <div>
@@ -82,6 +86,14 @@ export function ExperienceStep() {
           className="flex-1"
         >
           Back
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handleSkip}
+          className="flex-1"
+        >
+          Skip for now
         </Button>
         <Button
           type="button"

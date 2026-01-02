@@ -128,11 +128,12 @@ describe("saveOnboardingData", () => {
       });
     });
 
-    it("should handle NULL values for optional fields", async () => {
+    it("should handle NULL values for optional fields (home beach still required)", async () => {
       const onboardingData = {
         fullName: "Jane Doe",
         displayName: "jane_surfer",
-        // All optional fields omitted
+        homeBeachId: "beach-123",
+        // All other optional fields omitted
       };
 
       const result = await saveOnboardingData(onboardingData);
@@ -141,7 +142,7 @@ describe("saveOnboardingData", () => {
       expect(lastProfileUpdate.preferred_wave_size).toBe(null);
       expect(lastProfileUpdate.preferred_break_type).toBe(null);
       expect(lastProfileUpdate.crowd_preference).toBe(null);
-      expect(lastProfileUpdate.home_beach_id).toBe(null);
+      expect(lastProfileUpdate.home_beach_id).toBe("beach-123");
       expect(lastProfileUpdate.experience_level).toBe(null);
     });
 
@@ -149,6 +150,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
         // pushEnabled and emailEnabled not provided
       };
 
@@ -163,6 +165,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
         pushEnabled: false,
         emailEnabled: false,
       };
@@ -178,6 +181,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
       };
 
       const beforeTime = new Date().toISOString();
@@ -199,6 +203,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "duplicate", // This triggers the pre-save uniqueness check
+        homeBeachId: "beach-123",
       };
 
       const result = await saveOnboardingData(onboardingData);
@@ -211,6 +216,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
         preferredWaveSize: "invalid" as any, // This triggers the check constraint
       };
 
@@ -228,6 +234,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
       };
 
       const result = await saveOnboardingData(onboardingData);
@@ -243,6 +250,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
       };
 
       // Should still succeed even if XP tracking fails
@@ -285,6 +293,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
       };
 
       const result = await saveOnboardingData(onboardingData);
@@ -292,7 +301,7 @@ describe("saveOnboardingData", () => {
       expect(result.success).toBe(true);
       expect(track).toHaveBeenCalledWith('onboarding_completed', {
         user_id: 'user-123',
-        has_home_beach: false,
+        has_home_beach: true,
         experience_level: undefined,
         surf_styles_count: 0,
         push_enabled: false,
@@ -306,6 +315,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
         surfStyles: [],
       };
 
@@ -319,6 +329,7 @@ describe("saveOnboardingData", () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
+        homeBeachId: "beach-123",
         preferredWaveSize: "any" as const,
         preferredBreakType: "any" as const,
       };
@@ -330,7 +341,7 @@ describe("saveOnboardingData", () => {
       expect(lastProfileUpdate.preferred_break_type).toBe("any");
     });
 
-    it("should handle minimal onboarding data", async () => {
+    it("should reject minimal onboarding data when home beach is missing", async () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
@@ -338,9 +349,9 @@ describe("saveOnboardingData", () => {
 
       const result = await saveOnboardingData(onboardingData);
 
-      expect(result.success).toBe(true);
-      expect(lastProfileUpdate.full_name).toBe("Test User");
-      expect(lastProfileUpdate.display_name).toBe("test_user");
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("home beach");
+      expect(lastProfileUpdate).toBe(null);
     });
 
     it("should handle complete onboarding data", async () => {

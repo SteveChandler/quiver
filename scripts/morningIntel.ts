@@ -8,11 +8,13 @@ import { createClient } from "@supabase/supabase-js";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { format, parseISO, addDays } from "date-fns";
 import type { Database } from "@/types/database";
+import type { Json } from "@/types/database";
 import type {
   MorningIntelConfig,
   MorningIntelData,
   ForecastSlice,
   BeachPreferences,
+  MorningIntelRecommendationSummary,
 } from "@/types/morning-intel";
 import {
   deriveSurfRange,
@@ -155,7 +157,7 @@ async function fetchBeachData(
   const { data: beach, error } = await supabase
     .from("beaches")
     .select(
-      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg, shoreline_aspect_deg"
+      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg"
     )
     .eq("id", beachId)
     .single();
@@ -170,8 +172,7 @@ async function fetchBeachData(
   // If wind_offshore_deg seems inverted vs beach aspect, override for more accurate intel.
   // Wind direction is the direction the wind comes FROM. Offshore winds come from land -> sea,
   // which is approximately aspect_deg + 180.
-  const aspectDeg: number | null =
-    beach.shoreline_aspect_deg ?? beach.aspect_deg ?? null;
+  const aspectDeg: number | null = beach.aspect_deg ?? null;
   const expectedOffshoreDeg =
     aspectDeg == null ? null : (Number(aspectDeg) + 180) % 360;
 
@@ -339,8 +340,8 @@ function generateIntelData(
 
   // Analyze conditions against beach preferences
   let conditions = undefined;
-  let recommendation = {
-    decision: "maybe" as const,
+  let recommendation: MorningIntelRecommendationSummary = {
+    decision: "maybe",
     label: "Maybe",
     reasons: ["check the detailed forecast"],
   };
@@ -538,7 +539,7 @@ async function upsertIntelPost(
       .update({
         title,
         description,
-        surf_conditions: intelData.payload,
+        surf_conditions: intelData.payload as unknown as Json,
         updated_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
         dedupe_hash: dedupeHash,
@@ -565,7 +566,7 @@ async function upsertIntelPost(
         tag: "conditions",
         title,
         description,
-        surf_conditions: intelData.payload,
+        surf_conditions: intelData.payload as unknown as Json,
         is_active: true,
         expires_at: expiresAt.toISOString(),
         dedupe_hash: dedupeHash,

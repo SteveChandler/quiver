@@ -38,7 +38,14 @@ async function globalSetup(config: FullConfig) {
       : undefined;
 
   const context = await browser.newContext({
-    extraHTTPHeaders,
+    // Match the main Playwright config so auth setup requests aren't bot-blocked.
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    extraHTTPHeaders: {
+      // Required to pass bot detection (bots typically don't send Accept-Language)
+      'Accept-Language': 'en-US,en;q=0.9',
+      ...(extraHTTPHeaders ?? {}),
+    },
   });
   const page = await context.newPage();
 

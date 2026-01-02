@@ -9,39 +9,36 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Stepper } from "./stepper";
 import { WelcomeStep } from "./steps/welcome-step";
 import { ProfileStep } from "./steps/profile-step";
 import { ExperienceStep } from "./steps/experience-step";
 import { WavePreferencesStep } from "./steps/wave-preferences-step";
 import { HomeBeachStep } from "./steps/home-beach-step";
 import { CompletionStep } from "./steps/completion-step";
+import { OnboardingProgress } from "./onboarding-progress";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
 import type { Profile } from "@/types/database";
 
 const STEPS = [
   WelcomeStep,
+  HomeBeachStep,
   ProfileStep,
   ExperienceStep,
   WavePreferencesStep,
-  HomeBeachStep,
   CompletionStep,
 ];
 
 // Delays for dialog opening (ms)
 const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
 const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
+const DISMISS_TTL_MS = 6 * 60 * 60 * 1000; // Re-prompt after 6 hours
 
 /** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
 function isProfileSubstantiallyComplete(
   profile: Profile | null
 ): profile is Profile {
-  return Boolean(
-    profile &&
-      (profile.full_name || profile.display_name) &&
-      profile.home_beach_id
-  );
+  return Boolean(profile && profile.home_beach_id);
 }
 
 /** Safe localStorage access - returns null on error (private browsing, quota exceeded) */
@@ -115,9 +112,16 @@ export function OnboardingDialog() {
     // This prevents existing users from seeing onboarding when API errors occur
     if (profileError) return;
 
-    const dismissedKey = `onboarding_dismissed_${user.id}`;
-    const isDismissed = safeGetLocalStorage(dismissedKey);
-    if (isDismissed) return;
+    const dismissedUntilKey = `onboarding_dismissed_until_${user.id}`;
+    const dismissedUntilRaw = safeGetLocalStorage(dismissedUntilKey);
+    if (dismissedUntilRaw) {
+      const dismissedUntil = Number(dismissedUntilRaw);
+      if (Number.isFinite(dismissedUntil) && Date.now() < dismissedUntil) {
+        return;
+      }
+      // Expired or invalid; clear it so onboarding can show again.
+      safeSetLocalStorage(dismissedUntilKey, "");
+    }
 
     // Show onboarding if:
     // 1. No profile exists yet (brand new user)
@@ -173,7 +177,10 @@ export function OnboardingDialog() {
         // only work if we sync the new open state back to our store.
         if (!open) {
           if (user?.id && !isTesting) {
-            safeSetLocalStorage(`onboarding_dismissed_${user.id}`, "true");
+            safeSetLocalStorage(
+              `onboarding_dismissed_until_${user.id}`,
+              String(Date.now() + DISMISS_TTL_MS)
+            );
           }
           closeDialog();
         }
@@ -189,7 +196,11 @@ export function OnboardingDialog() {
           Complete the onboarding steps to set up your profile.
         </DialogDescription>
         <div className="p-6">
-          <Stepper currentStep={currentStep} totalSteps={STEPS.length} />
+          <OnboardingProgress
+            currentStep={currentStep}
+            totalSteps={STEPS.length}
+            className="mb-6"
+          />
           <CurrentStepComponent />
         </div>
       </DialogContent>

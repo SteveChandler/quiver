@@ -240,6 +240,7 @@ export function createMockBeachWithMetrics(
  * Creates a mock Profile with required fields
  */
 export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
+  const { notif_forecast_alerts, ...restOverrides } = overrides;
   return {
     id: `profile-${Date.now()}`,
     full_name: "Test User",
@@ -271,6 +272,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     notif_email_enabled: true,
     notif_inapp_enabled: true,
     notif_push_enabled: true,
+    notif_forecast_alerts: notif_forecast_alerts ?? true,
     notif_follows: true,
     notif_likes: true,
     notif_reminders: true,
@@ -280,7 +282,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     digest_session_invites: false,
     email_session_invites: true,
     inapp_session_invites: true,
-    ...overrides,
+    ...restOverrides,
   };
 }
 

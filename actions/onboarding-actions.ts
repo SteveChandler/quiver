@@ -21,6 +21,15 @@ export async function saveOnboardingData(data: OnboardingData) {
   return withAuthenticatedAction(async (user, supabase) => {
     try {
       console.log('Saving onboarding data for user:', user.id);
+
+      // Enforce required field for onboarding completion.
+      // (Hybrid approach: only home beach is required; everything else may be skipped.)
+      if (!data.homeBeachId) {
+        return {
+          success: false,
+          error: 'Please select a home beach to continue.',
+        };
+      }
       
       // Check if display name is taken by another user
       if (data.displayName) {
@@ -45,7 +54,7 @@ export async function saveOnboardingData(data: OnboardingData) {
         .update({
           full_name: data.fullName,
           display_name: data.displayName,
-          home_beach_id: data.homeBeachId || null,
+          home_beach_id: data.homeBeachId,
           experience_level: data.experienceLevel || null,
           surf_styles: data.surfStyles || [],
           preferred_wave_size: data.preferredWaveSize || null,

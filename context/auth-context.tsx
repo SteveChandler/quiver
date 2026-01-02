@@ -247,10 +247,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<void> => {
     setIsLoading(true);
     try {
-      const emailRedirectTo =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/auth/confirm?next=/`
-          : undefined;
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+      const emailRedirectTo = siteUrl
+        ? `${siteUrl.replace(/\/$/, "")}/auth/confirm?next=/`
+        : undefined;
 
       const { error } = await supabase.auth.signUp({
         email,

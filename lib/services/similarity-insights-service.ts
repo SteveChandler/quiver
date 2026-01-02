@@ -251,22 +251,35 @@ interface SessionJoinRow {
   beach_name: string | null;
   arrival_time: string | null;
   rating: number | null;
-  session_forecast_snapshots: {
-    forecast_snapshot: {
-      wave_height?: number;
-      wave_period?: number;
-      wind_speed?: number;
-      wind_direction?: number;
-      tide_height?: number;
-      tide_status?: string;
-    };
-  } | null;
+  session_forecast_snapshots:
+    | {
+        forecast_snapshot: {
+          wave_height?: number;
+          wave_period?: number;
+          wind_speed?: number;
+          wind_direction?: number;
+          tide_height?: number;
+          tide_status?: string;
+        };
+      }
+    | Array<{
+        forecast_snapshot: {
+          wave_height?: number;
+          wave_period?: number;
+          wind_speed?: number;
+          wind_direction?: number;
+          tide_height?: number;
+          tide_status?: string;
+        };
+      }>
+    | null;
   boards: {
     id: string;
     name: string | null;
     board_type: string | null;
     size: string | null;
     volume: number | null;
+    dimensions: string | null;
   } | null;
 }
 
@@ -312,7 +325,7 @@ async function fetchRatedSessions(userId: string): Promise<SessionWithSnapshot[]
       .select(`
         id, beach_id, beach_name, arrival_time, rating,
         session_forecast_snapshots (forecast_snapshot),
-        boards (id, name, board_type, size, volume)
+        boards (id, name, board_type, size, volume, dimensions)
       `)
       .eq('user_id', userId)
       .eq('status', 'completed')
@@ -326,7 +339,8 @@ async function fetchRatedSessions(userId: string): Promise<SessionWithSnapshot[]
     }
 
     // Transform nested join response to flattened SessionWithSnapshot format
-    const sessions: SessionWithSnapshot[] = ((data || []) as SessionJoinRow[]).map((row) => {
+    const sessions: SessionWithSnapshot[] = ((data || []) as unknown as SessionJoinRow[]).map(
+      (row) => {
       // Extract forecast_snapshot from the join (can be object or array depending on relationship)
       const snapshotData = row.session_forecast_snapshots;
       const forecastSnapshot = Array.isArray(snapshotData)
@@ -337,10 +351,11 @@ async function fetchRatedSessions(userId: string): Promise<SessionWithSnapshot[]
       const boardData = row.boards;
       const boardSnapshot: BoardSnapshot | null = boardData
         ? {
-            name: boardData.name ?? undefined,
-            board_type: boardData.board_type ?? undefined,
-            size: boardData.size ?? undefined,
-            volume: boardData.volume ?? undefined,
+            name: boardData.name ?? "Unknown",
+            board_type: boardData.board_type ?? "unknown",
+            size: boardData.size ?? null,
+            volume: boardData.volume ?? null,
+            dimensions: boardData.dimensions ?? "",
           }
         : null;
 

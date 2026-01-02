@@ -95,20 +95,18 @@ export async function middleware(request: NextRequest) {
   /**
    * Canonical city pages (SEO)
    *
-   * Canonical (USA):  /{state}/{city}
-   * Canonical (Intl): /{country}/{state}/{city}
+   * Canonical (USA):  /beaches/usa/{state}/{city}
+   * Canonical (Intl): /beaches/{country}/{state}/{city}
    *
    * Legacy:
-   * - /beaches/{country}/{state}/{city}
+   * - /{state}/{city}
+   * - /{country}/{state}/{city}
    * - /beaches/{state}/{city}
    *
-   * We keep the legacy URLs working via a 301 to the canonical, while rewriting
-   * canonical requests to the existing location page implementation.
+   * We keep the legacy URLs working via a 301 to the canonical.
    */
 
-  // Redirect legacy location page URLs to canonical short URLs
-  // - /beaches/usa/hi/haleiwa -> /hi/haleiwa
-  // - /beaches/mexico/baja-california/rosarito -> /mexico/baja-california/rosarito
+  // Canonicalize /beaches/{country}/{state}/{city} slugs (lowercase + "usa" normalization)
   const legacyLocationMatch = pathname.match(
     /^\/beaches\/([^/]+)\/([^/]+)\/([^/]+)$/
   );
@@ -120,21 +118,23 @@ export async function middleware(request: NextRequest) {
     // Special-case HI ambiguous city slugs to avoid redirect chains.
     if (country === "usa" && state === "hi" && city === "waimea") {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/hi/waimea-kauai";
+      redirectUrl.pathname = "/beaches/usa/hi/waimea-kauai";
       return NextResponse.redirect(redirectUrl, { status: 301 });
     }
 
-    const redirectUrl = request.nextUrl.clone();
-    if (country === "usa" || country === "us") {
-      redirectUrl.pathname = `/${state}/${city}`;
-    } else {
-      redirectUrl.pathname = `/${country}/${state}/${city}`;
+    const canonicalCountry = country === "us" ? "usa" : country;
+    const canonicalPath = `/beaches/${canonicalCountry}/${state}/${city}`;
+
+    // Avoid redirect loops: only redirect when normalization changes the path.
+    if (pathname !== canonicalPath) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = canonicalPath;
+      return NextResponse.redirect(redirectUrl, { status: 301 });
     }
-    return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
   // Legacy shortcut redirect (no country segment)
-  // Redirect /beaches/ca/san-diego -> /ca/san-diego
+  // Redirect /beaches/ca/san-diego -> /beaches/usa/ca/san-diego
   const beachesStateCityMatch = pathname.match(/^\/beaches\/([^/]+)\/([^/]+)$/);
   if (beachesStateCityMatch) {
     const state = beachesStateCityMatch[1]?.toLowerCase() || "";
@@ -142,10 +142,12 @@ export async function middleware(request: NextRequest) {
 
     if (isValidStateSlug(state)) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = `/${state}/${city}`;
+      redirectUrl.pathname = `/beaches/usa/${state}/${city}`;
       return NextResponse.redirect(redirectUrl, { status: 301 });
     }
   }
+
+  // (Legacy /beaches/{country}/{state}/{city} normalization handled above.)
 
   // Redirect legacy international beach URLs (if any) to canonical short
   // Example: /beaches/mexico/baja-california/rosarito/teresas -> /mexico/baja-california/rosarito/teresas
@@ -168,21 +170,21 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rewrite canonical short city URLs to the existing location page route
-  // Example: /hi/haleiwa -> internally serve /beaches/usa/hi/haleiwa
+  // Example: /hi/haleiwa -> 301 to /beaches/usa/hi/haleiwa
   const canonicalCityMatch = pathname.match(/^\/([^/]+)\/([^/]+)$/);
   if (canonicalCityMatch) {
     const state = canonicalCityMatch[1]?.toLowerCase() || "";
     const city = canonicalCityMatch[2]?.toLowerCase() || "";
 
     if (isValidStateSlug(state)) {
-      const rewriteUrl = request.nextUrl.clone();
-      rewriteUrl.pathname = `/beaches/usa/${state}/${city}`;
-      return NextResponse.rewrite(rewriteUrl);
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/beaches/usa/${state}/${city}`;
+      return NextResponse.redirect(redirectUrl, { status: 301 });
     }
   }
 
   // Rewrite canonical short international city URLs to the existing location page route
-  // Example: /mexico/baja-california/rosarito -> internally serve /beaches/mexico/baja-california/rosarito
+  // Example: /mexico/baja-california/rosarito -> 301 to /beaches/mexico/baja-california/rosarito
   const canonicalInternationalCityMatch = pathname.match(
     /^\/([^/]+)\/([^/]+)\/([^/]+)$/
   );
@@ -222,9 +224,9 @@ export async function middleware(request: NextRequest) {
       ]);
 
       if (!reserved.has(country)) {
-        const rewriteUrl = request.nextUrl.clone();
-        rewriteUrl.pathname = `/beaches/${country}/${state}/${city}`;
-        return NextResponse.rewrite(rewriteUrl);
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = `/beaches/${country}/${state}/${city}`;
+        return NextResponse.redirect(redirectUrl, { status: 301 });
       }
     }
   }

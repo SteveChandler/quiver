@@ -45,6 +45,10 @@ export function WavePreferencesStep() {
     }
   };
 
+  const handleSkip = () => {
+    nextStep();
+  };
+
   const toggleSurfStyle = (value: string) => {
     setSurfStyles((prev) =>
       prev.includes(value)
@@ -162,6 +166,14 @@ export function WavePreferencesStep() {
           className="flex-1"
         >
           Back
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handleSkip}
+          className="flex-1"
+        >
+          Skip for now
         </Button>
         <Button
           type="button"

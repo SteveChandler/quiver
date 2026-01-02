@@ -404,6 +404,40 @@ export function getBeachUrlSafe(beach: {
 }
 
 /**
+ * Get a crawlable internal beach href, even when hierarchical data is missing.
+ *
+ * Priority:
+ * 1) Hierarchical URL via getBeachUrlSafe() (or its slug fallback)
+ * 2) /beach/{slug}
+ * 3) /beach/{id}
+ * 4) null (caller should omit link instead of using "#")
+ *
+ * NOTE: /beach/[slug] route supports back-compat ID lookups, so /beach/{id}
+ * is an acceptable last-resort internal link.
+ */
+export function getBeachHrefSafe(beach: {
+  id?: string | null;
+  slug?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+}): string | null {
+  const safe = getBeachUrlSafe({
+    id: beach.id ?? undefined,
+    slug: beach.slug ?? undefined,
+    city: beach.city ?? undefined,
+    state: beach.state ?? undefined,
+    country: beach.country ?? undefined,
+  });
+  if (safe) return safe;
+
+  if (beach.slug) return `/beach/${beach.slug}`;
+  if (beach.id) return `/beach/${beach.id}`;
+
+  return null;
+}
+
+/**
  * Get all valid state slugs from the STATE_SLUG_MAP
  * Useful for route validation to ensure dynamic [state] param is a real state
  *
@@ -427,4 +461,26 @@ export function getValidStateSlugs(): string[] {
  */
 export function isValidStateSlug(slug: string): boolean {
   return getValidStateSlugs().includes(slug.toLowerCase());
+}
+
+/**
+ * Get a human-friendly US state display name from a 2-letter state slug.
+ *
+ * Examples:
+ * - "ca" -> "California"
+ * - "nj" -> "New Jersey"
+ * Falls back to the uppercased slug when unknown.
+ */
+export function getUsStateDisplayNameFromSlug(stateSlug: string): string {
+  const slug = (stateSlug || "").toLowerCase();
+  if (!slug) return "";
+
+  // Prefer full state names (e.g., "California") over 2-letter codes (e.g., "CA").
+  for (const [key, value] of Object.entries(US_STATE_SLUG_MAP)) {
+    if (value === slug && key.length > 2) return key;
+  }
+  for (const [key, value] of Object.entries(US_STATE_SLUG_MAP)) {
+    if (value === slug && key.length === 2) return key;
+  }
+  return slug.toUpperCase();
 }

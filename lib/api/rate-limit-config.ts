@@ -9,6 +9,8 @@
 
 import { RateLimiterConfig } from "@/types/forecast";
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 /**
  * Rate limit presets for different endpoint types
  *
@@ -110,7 +112,9 @@ export const RATE_LIMITS = {
   "public-default": {
     requestsPerMinute: 60,
     requestsPerHour: 1000,
-    burstLimit: 20,
+    // Dev/test environments can issue many parallel requests (maps, image hydration, etc).
+    // Keep production strict, but allow larger bursts locally to avoid breaking UX/tests.
+    burstLimit: IS_PRODUCTION ? 20 : 200,
   } as RateLimiterConfig,
 
   /**

@@ -109,7 +109,7 @@ export default function SessionsPage() {
     retry: retrySessions,
   } = useDataFetcher(fetchSessions, { immediate: true, initialData: [] });
 
-  const sessions = sessionsData ?? [];
+  const sessions = useMemo(() => sessionsData ?? [], [sessionsData]);
   const showIdentity = Boolean(user);
   const gatedContent = useMemo(() => {
     if (sessionsLoading && sessions.length === 0) {
@@ -234,7 +234,7 @@ export default function SessionsPage() {
         ))}
       </div>
     );
-  }, [sessionsLoading, sessions.length, sessionsError, retrySessions, sessions, showIdentity]);
+  }, [sessionsLoading, sessionsError, retrySessions, sessions, showIdentity]);
 
   // Public users see session feed preview
   return (

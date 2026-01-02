@@ -8,12 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 - Home: Surf discovery now pulls nearby beaches (via PostGIS) and the "Top Surf Spots for You" list shows **3 discovery-first** picks with an explicit "Use my location" CTA.
 - Home (mobile): Prevented header/action overflow by compacting the personalization badge on small screens and improving intel card action-row wrapping + location truncation.
+- Home: Removed the profile preferences “new features” announcement popup ("We’ve Enhanced Your Profile Preferences!") and its related API/test scaffolding.
 - Landing: Updated forecast section phone mock to show "Your Best Spot Today" card layout with Best Window tiles, wave/match stats, and Quiver app bar (matching in-app experience).
 - Landing: Polished phone mock device frame (refined bezel, Dynamic Island notch, titanium-style highlights) and restyled in-phone UI with stacked full-width pastel tiles, improved typography, and modern card styling.
 - Landing: Updated the forecast section headline to "Pick the right beach for your day" and removed the secondary "Create a free account" CTA.
 - Landing: Updated landing CTA section to match the `/features` CTA copy and button set (CSS-only; no Framer Motion).
+- Onboarding: Added an animated progress bar (Radix Progress + Motion) and improved completion by requiring only **Home Beach** (with “Use my location” + nearby picks), while allowing other steps to be skipped; closing onboarding now re-prompts after a delay instead of dismissing forever.
+- Onboarding: Selecting a home beach now immediately advances to the next step (Continue remains available as a fallback).
+- E2E: Fixed `critical-flows-integration` Beach Discovery Flow selector by treating "View Beach" as a link (with button fallback) to match accessible roles on Surf Discovery cards.
+- E2E: Expanded deterministic authenticated home coverage for `PersonalizedForecastCard` (insights + Similar Sessions drawer + core CTAs) using stubbed `/api/surf/discover` + `/api/surf/insights`.
+- SEO: City location pages now avoid `href="#"` beach links by using a safe internal URL fallback (hierarchical → `/beach/{slug}` → `/beach/{id}`), improving crawlable internal linking.
 
 ### Fixed
+
+- **Dev: `yarn typecheck` is green again** (January 2026)
+  - Fixed repo-wide TypeScript errors by aligning test mocks/fixtures with updated types and correcting a few API/helper call signatures.
+
+- **API: public sessions fetch uses `wave_height_ft`** (December 2025)
+  - Fixed `/api/sessions/public` selecting `sessions.wave_height` (non-existent) instead of `sessions.wave_height_ft`, resolving failures when loading the public sessions feed.
 
 - **Intel: ConditionsIntelCard payload guard now validates primitives** (December 2025)
   - `getMorningIntelPayloadV2()` now validates required primitive fields (`tide.height`, `surf.min/max`, `wind.speed/cardinal`, `recommendation.decision/label/reasons`) before rendering, preventing runtime crashes from malformed or older `surf_conditions` payloads.
@@ -62,6 +74,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Legacy `/beach/{slugOrId}` now returns a **true 404** when the beach cannot be resolved (instead of a 200 “not found” page).
   - Updated `robots.txt` to allow crawling `/forecast/*` so Google can see redirects and consolidate URLs faster.
   - Updated `robots.txt` to disallow `/_next/*` (prevents crawling Next build assets; reduces crawl noise).
+
+- **SEO: sitemap emits canonical city slugs for diacritics** (January 2026)
+  - Location entries now use ASCII-normalized slugs so `Rincón` is emitted as `/pr/rincon` (not the redirecting `/pr/rinc-n`).
 
 - **Docs: removed stale `/api/cache/status` + fixed architecture doc pointers** (December 2025)
 

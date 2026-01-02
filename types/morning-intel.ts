@@ -45,6 +45,9 @@ export interface BeachPreferences {
   hazards?: string[] | null;
   skillLevel?: string | null;
   breakType?: string | null;
+  // Optional debug/enrichment fields (may be absent in older DB schemas/queries)
+  aspectDeg?: number | null;
+  windOffshoreDegSource?: "db" | "computed_from_aspect" | "db_overridden_with_aspect";
 }
 
 export interface ConditionEvaluation {

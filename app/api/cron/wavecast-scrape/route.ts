@@ -205,10 +205,10 @@ export async function GET(request: NextRequest): Promise<Response> {
       })),
     };
 
-    return createSuccessResponse(
-      healthStatus,
-      'WaveCast scrape service health check'
-    );
+    return createSuccessResponse({
+      ...healthStatus,
+      message: "WaveCast scrape service health check",
+    });
   } catch (error) {
     return createErrorResponse(
       'Health check failed',

@@ -23,8 +23,7 @@ import {
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import { buildInternationalCityUrl } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe, getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import {
   parseHiIslandCitySlug,
@@ -120,10 +119,11 @@ export default async function LocationPage({ params }: LocationPageProps) {
   const jsonLd = buildLocationPlaceStructuredData({
     city: location.city,
     state: location.state,
-    topBeaches: beaches.slice(0, 5).map((beach) => ({
-      name: beach.name,
-      url: `${SITE_ORIGIN}${getBeachUrlSafe(beach) || `/beach/${beach.slug}`}`,
-    })),
+    topBeaches: beaches.slice(0, 5).flatMap((beach) => {
+      const href = getBeachHrefSafe(beach);
+      if (!href) return [];
+      return [{ name: beach.name, url: `${SITE_ORIGIN}${href}` }];
+    }),
   });
 
   // If editorial content exists, render the enhanced editorial layout
@@ -306,6 +306,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
             {beaches.map((beach) => {
               const tier = getRankingTier(beach.compositeScore);
               const badgeLabel = getRankingBadgeLabel(tier);
+              const beachHref = getBeachHrefSafe(beach);
 
               return (
                 <article
@@ -331,12 +332,18 @@ export default async function LocationPage({ params }: LocationPageProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link
-                            href={getBeachUrlSafe(beach) || "#"}
-                            className="text-xl font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
-                          >
-                            {beach.name}
-                          </Link>
+                          {beachHref ? (
+                            <Link
+                              href={beachHref}
+                              className="text-xl font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
+                            >
+                              {beach.name}
+                            </Link>
+                          ) : (
+                            <span className="text-xl font-semibold text-gray-900">
+                              {beach.name}
+                            </span>
+                          )}
                           <RankingBadge tier={tier} label={badgeLabel} />
 
                           {/* Show neighborhood badge for metro areas */}
@@ -382,12 +389,14 @@ export default async function LocationPage({ params }: LocationPageProps) {
                         </p>
                       )}
 
-                      <Link
-                        href={getBeachUrlSafe(beach) || "#"}
-                        className="inline-flex items-center text-sm font-medium text-ocean-blue hover:underline"
-                      >
-                        View Beach Details →
-                      </Link>
+                      {beachHref ? (
+                        <Link
+                          href={beachHref}
+                          className="inline-flex items-center text-sm font-medium text-ocean-blue hover:underline"
+                        >
+                          View Beach Details →
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 </article>
@@ -506,8 +515,8 @@ export async function generateMetadata({ params }: LocationPageProps) {
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =
       isUsa && isValidStateSlug(params.state)
-        ? `/${params.state}/${params.city}`
-        : buildInternationalCityUrl(params.country, params.state, params.city);
+        ? `/beaches/usa/${params.state}/${params.city}`
+        : `/beaches/${params.country}/${params.state}/${params.city}`;
     const url = `${SITE_ORIGIN}${canonicalPath}`;
 
     return {

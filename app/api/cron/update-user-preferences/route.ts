@@ -293,12 +293,12 @@ export async function GET(request: NextRequest): Promise<Response> {
       console.error('⚠️ Preference update cron health check degraded:', dbError);
     }
 
-    return createSuccessResponse(
-      healthStatus,
-      isHealthy
-        ? 'Preference update cron service is healthy'
-        : 'Preference update cron service is degraded'
-    );
+    return createSuccessResponse({
+      ...healthStatus,
+      message: isHealthy
+        ? "Preference update cron service is healthy"
+        : "Preference update cron service is degraded",
+    });
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : String(error);

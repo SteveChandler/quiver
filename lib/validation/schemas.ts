@@ -27,9 +27,11 @@ export type CommentInput = z.infer<typeof CommentSchema>;
 // ============================================================================
 
 export const SessionPlanSchema = z.object({
+  beach_id: uuidSchema.optional(),
   beach_name: z.string()
     .min(1, 'Beach name is required')
-    .max(100, 'Beach name too long'),
+    .max(100, 'Beach name too long')
+    .optional(),
   session_date: z.string()
     .refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), 'Invalid date format (YYYY-MM-DD)'),
   start_time: z.string()
@@ -39,7 +41,10 @@ export const SessionPlanSchema = z.object({
     .max(1000, 'Notes cannot exceed 1000 characters')
     .optional(),
   board_id: uuidSchema.optional(),
-});
+}).refine(
+  (val) => Boolean(val.beach_id || val.beach_name),
+  { message: 'Beach is required', path: ['beach_name'] }
+);
 
 export type SessionPlanInput = z.infer<typeof SessionPlanSchema>;
 
