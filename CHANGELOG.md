@@ -8,7 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 - Home: Surf discovery now pulls nearby beaches (via PostGIS) and the "Top Surf Spots for You" list shows **3 discovery-first** picks with an explicit "Use my location" CTA.
 - Home (mobile): Prevented header/action overflow by compacting the personalization badge on small screens and improving intel card action-row wrapping + location truncation.
-- Home: Removed the profile preferences “new features” announcement popup ("We’ve Enhanced Your Profile Preferences!") and its related API/test scaffolding.
+- Home: Removed the profile preferences "new features" announcement popup ("We've Enhanced Your Profile Preferences!") and its related API/test scaffolding.
+- Landing: Added **interactive feature switcher** to forecast section with three features (Personalized Forecast, Session Journal, Local Intel):
+  - Created three code-based phone mocks matching app screenshots: BestSpotMock, SessionJournalMock, LocalIntelMock
+  - Implemented rail navigation with up/down arrow buttons and clickable feature tabs
+  - Added smooth crossfade transitions using framer-motion (250ms duration)
+  - Content dynamically switches: phone mock, headline, body copy, and CTA link/label
+  - Full keyboard navigation support: ArrowUp/Down, Home/End, Enter/Space activation
+  - ARIA tablist pattern with proper role, aria-selected, and aria-controls attributes
+  - Responsive design: vertical rail (desktop) → horizontal segmented control (mobile)
+  - Comprehensive E2E test coverage for interaction, keyboard nav, and accessibility
 - Landing: Updated forecast section phone mock to show "Your Best Spot Today" card layout with Best Window tiles, wave/match stats, and Quiver app bar (matching in-app experience).
 - Landing: Polished phone mock device frame (refined bezel, Dynamic Island notch, titanium-style highlights) and restyled in-phone UI with stacked full-width pastel tiles, improved typography, and modern card styling.
 - Landing: Updated the forecast section headline to "Pick the right beach for your day" and removed the secondary "Create a free account" CTA.

@@ -102,6 +102,74 @@ export function AuthAwareLandingWrapper() {
    - Bundle reduction: ~400KB
    - Better performance (GPU-accelerated CSS)
 
+## Phone Mock Components
+
+**Directory:** `components/landing-page/phone-mocks/`
+
+Code-based phone mockups that render app UI without requiring static images:
+
+### BestSpotMock
+
+**File:** `phone-mocks/best-spot-mock.tsx`
+
+Renders the "Your Best Spot Today" personalized forecast view:
+- App header with Quiver logo, search/bell icons, user avatar
+- Main card with spot recommendation and 94% match badge
+- Current date display
+- Beach name and location (Marine Street Beach, La Jolla)
+- Best Window section with pastel tiles:
+  - Time window (4:00 PM - 7:00 PM)
+  - Tide status (Rising)
+  - Wind conditions (5 mph NE)
+  - Confidence score (88% High)
+- Bottom stats grid (wave height, match percentage)
+- Summary footer with conditions note
+
+### SessionJournalMock
+
+**File:** `phone-mocks/session-journal-mock.tsx`
+
+Renders the session journal/tracking view:
+- App header with menu navigation
+- "Surf Journal+" title with subtitle
+- Stats grid showing:
+  - 52 completed sessions
+  - 19 planned sessions
+  - 76 hours surfed
+  - 2.6 average rating
+- Favorite beach card (Ocean Beach)
+- Sessions/Insights tab navigation
+- List/Calendar view toggle
+- Session feed with user cards showing ratings and photos
+
+### LocalIntelMock
+
+**File:** `phone-mocks/local-intel-mock.tsx`
+
+Renders the local intel community feed:
+- App header with Quiver branding
+- "Local Intel" title with post count badge (10)
+- "Add Intel" CTA button
+- Intel post cards showing:
+  - User avatars and names
+  - Post titles and preview text
+  - Beach location tags
+  - Timestamps (relative time)
+  - Confirm buttons with interaction counts
+  - "Show more" expansion controls
+- Bottom CTA to view all intel posts
+
+### Design Principles
+
+All phone mocks follow consistent patterns:
+- iPhone-style dimensions and safe areas (Dynamic Island spacing)
+- Matching color palette (teal-600 for branding, pastel tiles)
+- Consistent typography scales (10px-18px for phone UI)
+- Rounded corners and subtle shadows
+- Icon usage from lucide-react library
+- No external image dependencies
+- Testable with data-testid attributes
+
 ## Component Patterns
 
 ### 1. Progressive Enhancement
@@ -952,28 +1020,93 @@ A promotional section encouraging sign-up, featuring AllTrails-style animated ic
 <UpgradeSessionSection />
 ```
 
-### ForecastSection Redesign
+### ForecastSection Interactive Switcher
 
 **File:** `components/landing-page/forecast-section.tsx`
 
-Redesigned with modern card-based forecast display:
+Interactive feature switcher showcasing three core app features with smooth transitions:
+
+**Architecture:**
+
+- **State Management**: React `useState` for active feature tracking (`forecast | journal | intel`)
+- **Component Structure**: Three phone mock components in `phone-mocks/` directory
+  - `BestSpotMock` - Personalized forecast view
+  - `SessionJournalMock` - Session tracking/journal view
+  - `LocalIntelMock` - Community intel feed view
+- **Configuration**: `FEATURES` array with feature metadata (labels, copy, CTAs, components)
 
 **Layout:**
 
-- 3-column grid on desktop (`grid-cols-1 md:grid-cols-3`)
-- Gradient background (`from-blue-50 via-cyan-50 to-blue-100`)
-- Decorative blur elements for depth
+- 3-column grid on desktop: `[180px_auto_1fr]` (rail, phone mock, copy)
+- Responsive mobile: horizontal segmented control above centered phone mock
+- Phone mock device frame with Dynamic Island, bezel effects, and home indicator
 
-**Forecast Cards:**
+**Interactions:**
 
-- Hover effects (`hover:shadow-lg`, `hover:scale-105`)
-- Condition badges with color coding (Excellent/Good/Fair)
-- Icon-based metrics (Waves, Wind, Temperature)
+1. **Rail Navigation (Desktop)**:
+   - Clickable feature tabs with active state (bold, thicker underline)
+   - Up/down arrow buttons for cycling through features (wrap-around)
+   - Visual feedback on hover and active states
+
+2. **Segmented Control (Mobile)**:
+   - Horizontal pill buttons with active state (filled bg-ocean-blue)
+   - Touch-friendly sizing and spacing
+
+3. **Keyboard Navigation**:
+   - ARIA tablist pattern with roving tabindex
+   - ArrowUp/Down or ArrowLeft/Right to navigate
+   - Home/End keys jump to first/last feature
+   - Enter/Space to activate focused tab
+   - Full keyboard accessibility with focus indicators
+
+4. **Content Switching**:
+   - Clicking tab/arrow updates activeFeatureId state
+   - Phone mock animates with framer-motion crossfade
+   - Right-side copy (headline, body, CTA) animates in sync
+   - CTA link and label update dynamically per feature
 
 **Animation:**
 
-- Staggered `animate-fade-in-up` with delay per card
-- Uses Tailwind CSS animations (no Framer Motion)
+- framer-motion `AnimatePresence` with mode="wait"
+- Crossfade transition: 250ms easeInOut
+- Initial: `opacity: 0, y: 10`
+- Animate: `opacity: 1, y: 0`
+- Exit: `opacity: 0, y: -10`
+- Applied to both phone mock and copy sections
+
+**Accessibility:**
+
+- `role="tablist"` on rail container with `aria-label="Feature switcher"`
+- `role="tab"` on each feature button
+- `aria-selected="true"` on active tab
+- `aria-controls="phone-mock-panel"` links tabs to content
+- `role="tabpanel"` on phone mock container
+- `aria-label` on arrow buttons ("Previous feature", "Next feature")
+- Focus-visible ring states for keyboard users
+
+**Performance:**
+
+- framer-motion bundle: ~40KB gzipped (reintroduced for this feature)
+- Phone mocks are lightweight code-based components (no images)
+- Smooth GPU-accelerated transitions
+- No layout shift during transitions (fixed aspect ratio container)
+
+**Testing:**
+
+- E2E coverage in `e2e/guest-landing-forecast-section.spec.ts`
+- Tests for clicking tabs, arrow navigation, keyboard nav
+- Responsive behavior validation (mobile vs desktop)
+- ARIA attribute verification
+- Content switching validation (phone mock, copy, CTA)
+
+**Framer Motion Justification:**
+
+While the landing page removed framer-motion for performance (bundle reduction), it was reintroduced specifically for the forecast section feature switcher. The ~40KB trade-off is justified by:
+- Superior crossfade transitions vs CSS alone
+- Built-in `prefers-reduced-motion` support
+- GPU-accelerated animations
+- Better developer experience for complex animation choreography
+- High-visibility interactive section benefits from polished UX
 
 ---
 
