@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Security
+
+- **[P0]** Added search_path protection to `increment_session_share_count` and `set_updated_at` database functions to prevent search path injection attacks
+- Created validation script (`validate_search_path_security.sql`) to verify all database functions have proper search_path protection
+
+### Documentation
+
+- Updated `docs/performance/IMPLEMENTATION_GUIDE.md` to reflect that PersonalizedBadge memo comparison fix is already complete (was implemented but documentation was outdated)
+- Created `P0_REFACTORING_COMPLETE.md` summarizing P0 security and performance audit results
+- Removed accidental `.cursor` plan file and reconciled P1 refactor documentation to reflect current green test status
+
+### Changed
+
+- **[P1 Refactoring]** Reduced `lib/utils/morning-intel-utils.ts` from 635 to 114 lines (82% reduction) by extracting focused modules
+- **[P1 Refactoring]** Reduced cyclomatic complexity from 68 → <10 by decomposing `findNextBestWindow` into 5 focused functions
+- **[P1 Refactoring]** Reduced `lib/services/enhanced-forecast-service.ts` from 1,820 to 1,565 lines (14% reduction, 255 lines extracted)
+- Enhanced `set_updated_at` trigger function with `SECURITY DEFINER` and explicit `SET search_path = public` for improved security
+- Migration `20260104000000_fix_recent_function_search_paths.sql` includes defensive blanket protection for all custom functions
+
+### Added
+
+- **[P1 Refactoring]** Created `lib/analyzers/tide-analyzer.ts` - Tide analysis module (235 lines)
+- **[P1 Refactoring]** Created `lib/analyzers/conditions-analyzer.ts` - Conditions scoring module (205 lines)
+- **[P1 Refactoring]** Created `lib/services/forecast/confidence-scorer.ts` - Forecast confidence calculation (87 lines)
+- **[P1 Refactoring]** Created `lib/services/forecast/storage-service.ts` - Forecast persistence service (303 lines)
+
+### Features
+
 - Home: Surf discovery now pulls nearby beaches (via PostGIS) and the "Top Surf Spots for You" list shows **3 discovery-first** picks with an explicit "Use my location" CTA.
 - Home (mobile): Prevented header/action overflow by compacting the personalization badge on small screens and improving intel card action-row wrapping + location truncation.
 - Home: Removed the profile preferences "new features" announcement popup ("We've Enhanced Your Profile Preferences!") and its related API/test scaffolding.
@@ -31,24 +60,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Dev: `yarn typecheck` is green again** (January 2026)
+
   - Fixed repo-wide TypeScript errors by aligning test mocks/fixtures with updated types and correcting a few API/helper call signatures.
 
 - **API: public sessions fetch uses `wave_height_ft`** (December 2025)
+
   - Fixed `/api/sessions/public` selecting `sessions.wave_height` (non-existent) instead of `sessions.wave_height_ft`, resolving failures when loading the public sessions feed.
 
 - **Intel: ConditionsIntelCard payload guard now validates primitives** (December 2025)
+
   - `getMorningIntelPayloadV2()` now validates required primitive fields (`tide.height`, `surf.min/max`, `wind.speed/cardinal`, `recommendation.decision/label/reasons`) before rendering, preventing runtime crashes from malformed or older `surf_conditions` payloads.
 
 - **Surf Discovery: UTC timestamp consistency in tie-breaker** (December 2025)
+
   - Fixed timestamp parsing in `selectBestWindow()` tie-breaker to consistently use UTC (`Z` suffix), preventing incorrect "best window" ordering due to local-time interpretation.
 
 - **Surf Discovery: stale forecast metadata now accurate** (December 2025)
+
   - `metadata.staleBeaches` now correctly counts stale forecasts from successful results rather than failed forecasts (which never contained stale entries).
 
 - **Morning Intel: `sources.tide` now reflects embedded tide data** (December 2025)
+
   - Fixed `sources.tide` in both `scripts/morningIntel.ts` and `lib/services/intel-generation-service.ts` to check `forecasts.some(f => f.tide_height !== null)` instead of the always-empty `tides[]` array.
 
 - **Discovery Card: removed unused `onViewBeach` prop** (December 2025)
+
   - `BeachDiscoveryCard` now uses `Link` navigation directly with discovery tracking (`?from=surf_discovery`), removing the unused callback prop.
 
 - **Beach Page: consolidated HI Waimea city URL helper** (December 2025)
@@ -61,13 +97,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Home/Discovery: match score respects preferred wave size** (December 2025)
+
   - When the recommended window’s wave height is outside the user’s explicit `preferred_wave_size`, we now **cap the displayed Match %** and add a clear “below/above your preferred size” warning in the recommendation summary.
 
 - **Home/Discovery: clarify Live vs Forecast wave heights** (December 2025)
+
   - Recommendation cards now show whether the displayed wave height is **Live** (CDIP/NOAA buoy) or **Forecast** (NOAA model).
   - Enhanced forecasts now correctly attribute `data_source` per timepoint (CDIP only when actually used for that timepoint).
 
 - **Surf Intel: daily Morning Surf Intel is now conservative + more readable** (December 2025)
+
   - Daily `tag=conditions` posts now store structured `surf_conditions` (`kind: morning_intel_v2`) and render as a rich, scannable card in the intel feed + modal (with fallback to legacy description).
   - “Worth it” is only shown when all factors are optimal; otherwise the bot uses “Maybe”/“Skip” with reasons (no more “all factors optimal” when items are merely acceptable).
 
@@ -85,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `robots.txt` to disallow `/_next/*` (prevents crawling Next build assets; reduces crawl noise).
 
 - **SEO: sitemap emits canonical city slugs for diacritics** (January 2026)
+
   - Location entries now use ASCII-normalized slugs so `Rincón` is emitted as `/pr/rincon` (not the redirecting `/pr/rinc-n`).
 
 - **Docs: removed stale `/api/cache/status` + fixed architecture doc pointers** (December 2025)

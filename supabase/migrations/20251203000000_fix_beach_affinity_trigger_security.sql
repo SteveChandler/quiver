@@ -65,3 +65,4 @@ COMMENT ON FUNCTION update_beach_affinity_on_session_change IS 'Trigger function
 
 
 
+
