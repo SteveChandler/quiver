@@ -9,6 +9,40 @@ export const emailSchema = z.string().email('Invalid email address');
 export const urlSchema = z.string().url('Invalid URL').optional();
 
 // ============================================================================
+// Boards
+// ============================================================================
+
+export const BoardCreateSchema = z.object({
+  name: z.string()
+    .trim()
+    .min(1, 'Board name is required')
+    .max(100, 'Board name cannot exceed 100 characters'),
+  board_type: z.string()
+    .trim()
+    .min(1, 'Board type is required')
+    .max(50, 'Board type cannot exceed 50 characters'),
+  dimensions: z.string()
+    .trim()
+    .min(1, 'Dimensions are required')
+    .max(100, 'Dimensions cannot exceed 100 characters'),
+  description: z.string()
+    .trim()
+    .max(1000, 'Description cannot exceed 1000 characters')
+    .optional(),
+  image_url: urlSchema,
+  size: z.string()
+    .trim()
+    .max(50, 'Size cannot exceed 50 characters')
+    .optional(),
+  volume: z.number()
+    .min(0, 'Volume must be non-negative')
+    .max(500, 'Volume is unrealistic (max 500)')
+    .optional(),
+});
+
+export type BoardCreateInput = z.infer<typeof BoardCreateSchema>;
+
+// ============================================================================
 // Comments
 // ============================================================================
 

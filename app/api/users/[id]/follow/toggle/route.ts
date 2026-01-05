@@ -1,26 +1,22 @@
-import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError, createAuthError, createValidationError, methodNotAllowed, isValidUuid } from "@/lib/api-utils";
+import type { NextRequest } from "next/server";
 import { toggleUserFollow } from "@/actions/social-actions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  withAuth,
+  validateUuidParam,
+  createSuccessResponse,
+  methodNotAllowed,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
-export async function POST(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: targetUserId } = context.params;
-    if (!targetUserId || !isValidUuid(targetUserId)) {
-      return createValidationError("Invalid user id format");
-    }
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      return createAuthError();
-    }
+/**
+ * POST /api/users/[id]/follow/toggle - Toggle follow status for a user
+ */
+export const POST = withAuth(
+  async (_request: NextRequest, { params }: AuthenticatedContext) => {
+    // Validate UUID
+    const uuidResult = validateUuidParam(params.id, "user");
+    if ("error" in uuidResult) return uuidResult.error;
+    const targetUserId = uuidResult.value;
 
     const result = await toggleUserFollow(targetUserId);
     if (!result.success) {
@@ -28,13 +24,10 @@ export async function POST(
     }
 
     return createSuccessResponse(result);
-  } catch (error) {
-    return handleApiError(error, "Failed to toggle follow");
-  }
-}
+  },
+  { errorMessage: "Failed to toggle follow" }
+);
 
 export function GET() {
   return methodNotAllowed(["POST"]);
 }
-
-

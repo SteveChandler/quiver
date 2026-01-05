@@ -72,7 +72,10 @@ The test configuration is designed to work seamlessly with your local developmen
 
 ### Configuration Files
 
-Test environment settings are managed through `.env.playwright`:
+Test environment settings are managed through:
+
+- `.env.playwright` - shared/default Playwright settings
+- `.env.playwright.local` - developer-local overrides (optional; recommended for localhost-only toggles)
 
 ```bash
 # Default configuration
@@ -80,7 +83,14 @@ TEST_ENV=local
 BASE_URL=http://localhost:3000
 ```
 
-This file is loaded with override priority during test runs, allowing you to test against different environments without modifying your main `.env` file.
+Env precedence for Playwright runs:
+
+- CLI / OS env (highest)
+- `.env.playwright.local`
+- `.env.playwright`
+- `.env` (lowest)
+
+This allows you to keep `.env.playwright` as the shared baseline for Supabase + test user credentials while using `.env.playwright.local` for localhost-only overrides (e.g., `BASE_URL=http://localhost:3000`, headed/debug toggles).
 
 ### Running Tests Against Different Environments
 
@@ -1128,4 +1138,204 @@ await expect(drawer).toBeVisible({ timeout: TIMEOUTS.medium });
 
 ---
 
-**Last Updated**: December 16, 2025
+## API Contract Tests
+
+### Overview
+
+The `e2e/api/` directory contains **API contract tests** that validate REST endpoint behavior without browser automation. These tests use Playwright's `APIRequestContext` for direct HTTP requests, providing faster execution and clearer failure messages for API-specific issues.
+
+### Directory Structure
+
+```
+e2e/api/
+├── admin.spec.ts           # Admin-only endpoints (test push, etc.)
+├── beach-search.spec.ts    # Beach search and filtering
+├── boards.spec.ts          # User board management CRUD
+├── favorites-management.spec.ts  # Beach favorites toggle
+├── featured-beaches.spec.ts      # Featured beaches for landing page
+├── gamification.spec.ts    # Badges, XP, achievements
+├── health.spec.ts          # Health check endpoints
+├── intel.spec.ts           # Local intel CRUD and confirmations
+├── recommendations.spec.ts # AI-powered surf recommendations
+├── session-comments.spec.ts    # Session comment threads
+├── session-planner.spec.ts     # Optimal time calculations
+├── sessions-crud.spec.ts       # Session logging lifecycle
+├── social-interactions.spec.ts # Follows, likes, social features
+└── user-profile.spec.ts        # Profile read/update
+```
+
+### API Request Helper
+
+**Location:** `e2e/utils/api-request-helpers.ts`
+
+The `createIsolatedApiContext` helper creates an `APIRequestContext` with per-test rate limit isolation:
+
+```typescript
+import { createIsolatedApiContext } from "./utils/api-request-helpers";
+
+test("should fetch user profile", async ({ playwright }, testInfo) => {
+  const api = await createIsolatedApiContext(
+    playwright,
+    process.env.BASE_URL || "http://localhost:3000",
+    testInfo,
+    { storageState: "e2e/.auth/state.json" } // For authenticated requests
+  );
+
+  const response = await api.get("/api/profile");
+  expect(response.ok()).toBe(true);
+
+  const data = await response.json();
+  expect(data.success).toBe(true);
+  expect(data.data).toHaveProperty("id");
+});
+```
+
+**Why Rate Limit Isolation?**
+
+Our API rate limiter uses `x-forwarded-for` to identify clients. Without isolation, parallel tests share the `"unknown"` client bucket and can randomly receive 429 responses. The helper sets a deterministic per-test IP in TEST-NET-3 (`203.0.113.0/24`) so tests remain stable.
+
+### API Contract Test Patterns
+
+#### Pattern 1: Unauthenticated Endpoint
+
+```typescript
+test.describe("Featured Beaches API", () => {
+  let api: APIRequestContext;
+
+  test.beforeAll(async ({ playwright }, testInfo) => {
+    api = await createIsolatedApiContext(
+      playwright,
+      process.env.BASE_URL!,
+      testInfo
+    );
+  });
+
+  test("GET /api/beaches/featured returns beach array", async () => {
+    const response = await api.get("/api/beaches/featured");
+    expect(response.status()).toBe(200);
+
+    const { success, data } = await response.json();
+    expect(success).toBe(true);
+    expect(Array.isArray(data)).toBe(true);
+    expect(data[0]).toHaveProperty("id");
+    expect(data[0]).toHaveProperty("name");
+  });
+});
+```
+
+#### Pattern 2: Authenticated Endpoint
+
+```typescript
+test.describe("User Profile API", () => {
+  let api: APIRequestContext;
+
+  test.beforeAll(async ({ playwright }, testInfo) => {
+    api = await createIsolatedApiContext(
+      playwright,
+      process.env.BASE_URL!,
+      testInfo,
+      { storageState: "e2e/.auth/state.json" }
+    );
+  });
+
+  test("GET /api/profile returns authenticated user", async () => {
+    const response = await api.get("/api/profile");
+    expect(response.status()).toBe(200);
+
+    const { success, data } = await response.json();
+    expect(success).toBe(true);
+    expect(data).toHaveProperty("email");
+  });
+
+  test("returns 401 without auth", async ({ playwright }, testInfo) => {
+    const unauthApi = await createIsolatedApiContext(
+      playwright,
+      process.env.BASE_URL!,
+      testInfo
+      // No storageState = unauthenticated
+    );
+
+    const response = await unauthApi.get("/api/profile");
+    expect(response.status()).toBe(401);
+  });
+});
+```
+
+#### Pattern 3: CRUD Lifecycle Test
+
+```typescript
+test.describe("Boards API CRUD", () => {
+  let api: APIRequestContext;
+  let createdBoardId: string;
+
+  test.beforeAll(async ({ playwright }, testInfo) => {
+    api = await createIsolatedApiContext(
+      playwright,
+      process.env.BASE_URL!,
+      testInfo,
+      { storageState: "e2e/.auth/state.json" }
+    );
+  });
+
+  test("POST /api/boards creates board", async () => {
+    const response = await api.post("/api/boards", {
+      data: {
+        name: "Test Board",
+        board_type: "shortboard",
+        length_ft: 6,
+        length_in: 2,
+      },
+    });
+    expect(response.status()).toBe(201);
+
+    const { data } = await response.json();
+    createdBoardId = data.id;
+    expect(data.name).toBe("Test Board");
+  });
+
+  test("DELETE /api/boards/:id removes board", async () => {
+    const response = await api.delete(`/api/boards/${createdBoardId}`);
+    expect(response.status()).toBe(200);
+  });
+});
+```
+
+#### Pattern 4: Validation Error Testing
+
+```typescript
+test("POST /api/boards returns 400 for invalid payload", async () => {
+  const response = await api.post("/api/boards", {
+    data: {
+      // Missing required fields
+      name: "Incomplete",
+    },
+  });
+  expect(response.status()).toBe(400);
+
+  const { success, error } = await response.json();
+  expect(success).toBe(false);
+  expect(error).toMatch(/validation|required/i);
+});
+```
+
+### When to Use API Contract Tests vs Browser E2E
+
+| Use API Contract Tests When | Use Browser E2E When |
+|----------------------------|----------------------|
+| Testing REST endpoint behavior | Testing full user flows |
+| Validating response schemas | Testing UI interactions |
+| Testing auth/permissions | Testing navigation |
+| Testing error responses | Testing visual states |
+| Testing rate limiting | Testing JavaScript-dependent features |
+
+### Best Practices for API Tests
+
+1. **Always use `createIsolatedApiContext`** - Prevents rate limit collisions
+2. **Test both success and error paths** - Include 400, 401, 403, 404 scenarios
+3. **Validate response envelope** - Check `success`, `data`, `error` fields
+4. **Clean up created resources** - Delete test data in afterAll or afterEach
+5. **Use descriptive test names** - "POST /api/boards returns 400 for missing board_type"
+
+---
+
+**Last Updated**: January 4, 2026

@@ -7,19 +7,11 @@
  */
 
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 
-// Mock next/navigation
-const mockPush = jest.fn();
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: mockPush,
-    replace: jest.fn(),
-    prefetch: jest.fn(),
-  }),
-}));
+// CityMapView uses Link-based navigation; it does not call next/navigation router.
 
 // Mock the InteractiveMap component
 jest.mock("@/components/map/interactive-map", () => ({
@@ -233,11 +225,15 @@ describe("CityMapView Component", () => {
         />
       );
 
-      // Find and click on a beach card in the list
-      const beachCards = screen.getAllByRole("option");
-      fireEvent.click(beachCards[0]);
-
-      expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/la-jolla-shores");
+      // Desktop list items are Links; assert correct href
+      const laJollaLinks = screen.getAllByRole("link", {
+        name: /La Jolla Shores/i,
+      });
+      expect(laJollaLinks.length).toBeGreaterThan(0);
+      laJollaLinks.forEach((link) => {
+        expect(link).toHaveAttribute("href", "/ca/san-diego/la-jolla-shores");
+      });
+      fireEvent.click(laJollaLinks[0]!);
     });
 
     it("should handle hover state on beach items", () => {
@@ -249,16 +245,18 @@ describe("CityMapView Component", () => {
         />
       );
 
-      const beachItems = screen.getAllByRole("option");
+      const firstBeach = screen.getAllByRole("link", {
+        name: /La Jolla Shores/i,
+      })[0]!;
 
       // Hover over first beach
-      fireEvent.mouseEnter(beachItems[0]);
+      fireEvent.mouseEnter(firstBeach);
 
       // Leave hover
-      fireEvent.mouseLeave(beachItems[0]);
+      fireEvent.mouseLeave(firstBeach);
 
       // No error should occur
-      expect(beachItems[0]).toBeInTheDocument();
+      expect(firstBeach).toBeInTheDocument();
     });
   });
 
@@ -276,11 +274,14 @@ describe("CityMapView Component", () => {
       const mapBeachButton = screen.getByTestId("map-beach-la-jolla-shores");
       fireEvent.click(mapBeachButton);
 
-      // The beach should be selected (checked via aria-selected)
-      const selectedItem = screen
-        .getAllByRole("option")
-        .find((item) => item.getAttribute("aria-selected") === "true");
-      expect(selectedItem).toBeDefined();
+      // Selected beach should get selected styling in the desktop list
+      const laJollaLinks = screen.getAllByRole("link", {
+        name: /La Jolla Shores/i,
+      });
+      expect(laJollaLinks.length).toBeGreaterThan(0);
+      expect(laJollaLinks.some((l) => l.className.includes("bg-sky-50"))).toBe(
+        true
+      );
     });
   });
 
@@ -318,11 +319,10 @@ describe("CityMapView Component", () => {
         />
       );
 
-      // Find mobile cards and click one
-      const mobileCards = screen.getAllByText("La Jolla Shores");
-      fireEvent.click(mobileCards[0].closest("div[class*='cursor-pointer']")!);
-
-      expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/la-jolla-shores");
+      // Mobile cards are also Links; assert href
+      const laJollaLink = screen.getAllByRole("link", { name: /La Jolla Shores/i })[0]!;
+      expect(laJollaLink).toHaveAttribute("href", "/ca/san-diego/la-jolla-shores");
+      fireEvent.click(laJollaLink);
     });
   });
 
@@ -367,7 +367,7 @@ describe("CityMapView Component", () => {
   });
 
   describe("Accessibility", () => {
-    it("should have aria-selected attribute on list items", () => {
+    it("should render beach list items as accessible links", () => {
       render(
         <CityMapView
           spots={mockSpots}
@@ -376,13 +376,16 @@ describe("CityMapView Component", () => {
         />
       );
 
-      const listItems = screen.getAllByRole("option");
-      listItems.forEach((item) => {
-        expect(item).toHaveAttribute("aria-selected");
+      const links = screen.getAllByRole("link");
+      // Should include at least one link per beach (desktop + mobile both render in DOM)
+      mockSpots.forEach((spot) => {
+        expect(
+          links.some((l) => l.getAttribute("href") === `/ca/san-diego/${spot.slug}`)
+        ).toBe(true);
       });
     });
 
-    it("should set aria-selected to true for selected beach", () => {
+    it("should visually indicate selected beach after click", () => {
       render(
         <CityMapView
           spots={mockSpots}
@@ -391,15 +394,16 @@ describe("CityMapView Component", () => {
         />
       );
 
-      // Click to select a beach
-      const listItems = screen.getAllByRole("option");
-      fireEvent.click(listItems[0]);
+      // Click to select a beach (desktop link is fine)
+      const laJollaLinks = screen.getAllByRole("link", {
+        name: /La Jolla Shores/i,
+      });
+      fireEvent.click(laJollaLinks[0]!);
 
-      // Find the selected item
-      const selectedItem = screen
-        .getAllByRole("option")
-        .find((item) => item.getAttribute("aria-selected") === "true");
-      expect(selectedItem).toBeDefined();
+      // At least one representation (desktop/mobile) should now show selected styling
+      expect(laJollaLinks.some((l) => l.className.includes("bg-sky-50"))).toBe(
+        true
+      );
     });
   });
 

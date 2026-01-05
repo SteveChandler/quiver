@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { resolveConfirmNext } from "@/app/auth/confirm/route";
+import { resolveConfirmNext } from "@/lib/auth/confirm-utils";
 
 describe("/auth/confirm resolveConfirmNext()", () => {
   it("defaults signup confirmations to '/' when next is missing", () => {
@@ -28,6 +28,7 @@ describe("/auth/confirm resolveConfirmNext()", () => {
     expect(resolveConfirmNext("signup", "//evil.com")).toBe("/");
   });
 });
+
 
 
 

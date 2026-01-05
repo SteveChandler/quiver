@@ -18,6 +18,7 @@ import {
   HelpCircle,
   AlertTriangle,
 } from "lucide-react";
+import { getConfidenceInfo } from "@/lib/utils/forecast-freshness";
 
 interface ConfidenceFactors {
   dataFreshness?: number;
@@ -65,36 +66,30 @@ export function ConfidenceScoreExplanation({
 }: ConfidenceScoreExplanationProps) {
   const [isExpanded, setIsExpanded] = React.useState(showFactors);
 
-  // Determine confidence level and styling
-  const getConfidenceLevel = (confidenceScore: number) => {
-    if (confidenceScore >= 75)
-      return {
-        level: "High Confidence",
-        color: "green",
-        bgColor: "bg-green-50",
-        textColor: "text-green-600",
-        description: "Forecast is very reliable - great data quality!",
-      };
-    if (confidenceScore >= 50)
-      return {
-        level: "Moderate Confidence",
-        color: "yellow",
-        bgColor: "bg-yellow-50",
-        textColor: "text-yellow-600",
-        description:
-          "Forecast is reasonably accurate - check conditions before heading out",
-      };
-    return {
-      level: "Low Confidence",
-      color: "red",
-      bgColor: "bg-red-50",
-      textColor: "text-red-600",
-      description:
-        "Forecast may be unreliable - consider checking local conditions",
-    };
+  // Get base confidence info from shared utility
+  const baseConfidenceInfo = getConfidenceInfo(score);
+
+  // Map level to display text and add description for this component's needs
+  const levelDisplayText: Record<typeof baseConfidenceInfo.level, string> = {
+    high: "High Confidence",
+    medium: "Moderate Confidence",
+    low: "Low Confidence",
   };
 
-  const confidenceInfo = getConfidenceLevel(score);
+  const levelDescriptions: Record<typeof baseConfidenceInfo.level, string> = {
+    high: "Forecast is very reliable - great data quality!",
+    medium:
+      "Forecast is reasonably accurate - check conditions before heading out",
+    low: "Forecast may be unreliable - consider checking local conditions",
+  };
+
+  const confidenceInfo = {
+    level: levelDisplayText[baseConfidenceInfo.level],
+    color: baseConfidenceInfo.color,
+    bgColor: baseConfidenceInfo.bgColor,
+    textColor: baseConfidenceInfo.textColor,
+    description: levelDescriptions[baseConfidenceInfo.level],
+  };
 
   // Get factor status and styling
   const getFactorStatus = (factorValue?: number) => {

@@ -1,36 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import {
-  createAPIServerClient,
-  getAuthenticatedAPIClient,
-  validateSupabaseConfig,
-  createSupabaseServiceRoleClient,
-} from "@/lib/supabase/server";
+import { withAuth, validateUuidParam, createSuccessResponse, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // Toggle favorite for a beach for the authenticated user
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const beachId = params.id;
+export const POST = withAuth(
+  async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    const uuidResult = validateUuidParam(params.id, "beach");
+    if ("error" in uuidResult) return uuidResult.error;
 
-  const cfg = validateSupabaseConfig();
-  if (!cfg.valid) {
-    return NextResponse.json({ success: false, error: cfg.error }, { status: 500 });
-  }
-
-  try {
-    const { supabase, user, error } = await getAuthenticatedAPIClient();
-    if (error || !supabase || !user) {
-      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
-    }
+    const beachId = uuidResult.value;
 
     // Dev-only bypass: if mock user and ALLOW_E2E_MUTATIONS_DEV enabled, use service role
     let writeClient = supabase;
     try {
       if (
-        (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
-          (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
+        process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
+        (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true"
       ) {
         const { data: me } = await supabase
           .from("profiles")
@@ -52,10 +38,7 @@ export async function POST(
       .maybeSingle();
 
     if (checkError) {
-      return NextResponse.json(
-        { success: false, error: checkError.message || "Failed to check favorite" },
-        { status: 500 }
-      );
+      throw new Error(checkError.message || "Failed to check favorite");
     }
 
     if (existing) {
@@ -67,10 +50,7 @@ export async function POST(
         .eq("beach_id", beachId);
 
       if (delErr) {
-        return NextResponse.json(
-          { success: false, error: delErr.message || "Failed to remove favorite" },
-          { status: 500 }
-        );
+        throw new Error(delErr.message || "Failed to remove favorite");
       }
 
       // Revalidate pages that show favorites
@@ -79,7 +59,7 @@ export async function POST(
         revalidatePath("/");
       } catch {}
 
-      return NextResponse.json({ success: true, action: "removed" });
+      return createSuccessResponse({ action: "removed" });
     }
 
     // Add favorite with next rank
@@ -89,10 +69,7 @@ export async function POST(
       .eq("user_id", user.id);
 
     if (rankErr) {
-      return NextResponse.json(
-        { success: false, error: rankErr.message || "Failed to fetch ranks" },
-        { status: 500 }
-      );
+      throw new Error(rankErr.message || "Failed to fetch ranks");
     }
 
     const nextRank = (ranksRows || [])
@@ -106,10 +83,7 @@ export async function POST(
     });
 
     if (insErr) {
-      return NextResponse.json(
-        { success: false, error: insErr.message || "Failed to add favorite" },
-        { status: 500 }
-      );
+      throw new Error(insErr.message || "Failed to add favorite");
     }
 
     try {
@@ -117,14 +91,8 @@ export async function POST(
       revalidatePath("/");
     } catch {}
 
-    return NextResponse.json({ success: true, action: "added" });
-  } catch (err: unknown) {
-    console.error("/api/beaches/[id]/favorite/toggle error:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+    return createSuccessResponse({ action: "added" });
+  },
+  { errorMessage: "Failed to toggle favorite" }
+);
 

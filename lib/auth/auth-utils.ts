@@ -17,6 +17,9 @@ const REDIRECT_ATTEMPTS_KEY = "redirectAttempts";
 const MAX_REDIRECT_ATTEMPTS = 3;
 const REDIRECT_URL_PARAM = "redirectTo";
 
+/** Minimum password length for validation (stricter than Supabase's 6-char minimum) */
+export const MIN_PASSWORD_LENGTH = 8;
+
 /**
  * Store the intended redirect path after authentication
  * @param path - The path to redirect to after auth (e.g., "/beach/123")
@@ -184,8 +187,11 @@ export function validatePassword(password: string): {
     return { valid: false, error: "Password is required" };
   }
 
-  if (password.length < 6) {
-    return { valid: false, error: "Password must be at least 6 characters" };
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      valid: false,
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+    };
   }
 
   return { valid: true };

@@ -50,7 +50,7 @@ export async function getProfileDTOById(userId: string, client?: any): Promise<P
   const supabase = client || (await createSupabaseServerClient());
   const { data, error } = await supabase
     .from("profiles_with_home_beach")
-    .select("id, full_name, home_beach_id, home_beach_name")
+    .select("id, full_name, home_beach_id, home_beach_name, experience_level, created_at, updated_at")
     .eq("id", userId)
     .single();
 
@@ -61,6 +61,9 @@ export async function getProfileDTOById(userId: string, client?: any): Promise<P
     full_name: (data as any).full_name ?? null,
     home_beach_id: (data as any).home_beach_id ?? null,
     homeBeachName: (data as any).home_beach_name ?? null,
+    experience_level: (data as any).experience_level ?? null,
+    created_at: (data as any).created_at ?? null,
+    updated_at: (data as any).updated_at ?? null,
   } as ProfileDTO;
 }
 

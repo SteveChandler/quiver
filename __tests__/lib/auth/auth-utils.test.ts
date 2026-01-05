@@ -325,14 +325,14 @@ describe("auth-utils", () => {
         expect(result.error).toBe("Password is required");
       });
 
-      it("should reject short password", () => {
-        const result = validatePassword("12345");
+      it("should reject short password (less than 8 chars)", () => {
+        const result = validatePassword("1234567");
         expect(result.valid).toBe(false);
-        expect(result.error).toBe("Password must be at least 6 characters");
+        expect(result.error).toBe("Password must be at least 8 characters");
       });
 
-      it("should accept exactly 6 characters", () => {
-        const result = validatePassword("123456");
+      it("should accept exactly 8 characters", () => {
+        const result = validatePassword("12345678");
         expect(result.valid).toBe(true);
       });
     });

@@ -25,6 +25,7 @@ import {
   combineFreshness,
 } from "@/lib/utils/forecast-freshness";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
+import { msToKts, mToFt } from "@/lib/utils/unit-conversions";
 
 export const dynamic = "force-dynamic";
 
@@ -270,12 +271,6 @@ async function recommendationsHandler(request: NextRequest) {
     for (const row of (tideResult.data || []) as TideForecastPoint[]) {
       (tideByBeach[row.beach_id] ||= []).push(row);
     }
-
-    // Helper functions for unit conversions
-    const msToKts = (ms: number | null | undefined) =>
-      ms == null ? null : Math.round(ms * 1.94384);
-    const mToFt = (m: number | null | undefined) =>
-      m == null ? null : Math.round(m * 3.28084 * 10) / 10;
 
     const processingStart = Date.now();
     const scored: ScoredRecommendation[] = beaches.map((beach) => {

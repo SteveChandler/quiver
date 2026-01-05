@@ -93,7 +93,8 @@ export function createErrorResponse(
 // Validation error helper
 export function createValidationError(
   message: string,
-  details?: any
+  details?: any,
+  status = 400
 ): NextResponse<ApiError> {
   return NextResponse.json(
     {
@@ -103,7 +104,7 @@ export function createValidationError(
       timestamp: new Date().toISOString(),
     },
     {
-      status: 400,
+      status,
       headers: DEFAULT_SECURITY_HEADERS,
     }
   );
@@ -121,6 +122,23 @@ export function createAuthError(
     },
     {
       status: 401,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
+  );
+}
+
+// Not found error helper
+export function createNotFoundError(
+  resourceName = "Resource"
+): NextResponse<ApiError> {
+  return NextResponse.json(
+    {
+      success: false,
+      error: `${resourceName} not found`,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      status: 404,
       headers: DEFAULT_SECURITY_HEADERS,
     }
   );

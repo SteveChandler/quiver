@@ -47,6 +47,7 @@ test.describe('Authenticated Home Screen', () => {
 
     test('should display Plan Session button @smoke', async ({ page }) => {
       // Use first() since there may be multiple Plan Session buttons (welcome section + forecast cards)
+      await page.waitForTimeout(5000);
       const planButton = page.getByRole('button', { name: /plan session/i }).first();
       await expect(planButton).toBeVisible({ timeout: 10000 });
     });

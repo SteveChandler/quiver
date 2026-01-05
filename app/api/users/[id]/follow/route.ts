@@ -1,22 +1,22 @@
-import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError, createValidationError, methodNotAllowed, isValidUuid } from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
+import {
+  withAuth,
+  validateUuidParam,
+  createSuccessResponse,
+  methodNotAllowed,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: targetUserId } = context.params;
-    if (!targetUserId || !isValidUuid(targetUserId)) {
-      return createValidationError("Invalid user id format");
-    }
-    const supabase = await createSupabaseServerClient();
-
-    // Get current user if authenticated
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+/**
+ * GET /api/users/[id]/follow - Get follow status for a user
+ * Uses optional auth - works for both authenticated and unauthenticated users
+ */
+export const GET = withAuth(
+  async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    // Validate UUID
+    const uuidResult = validateUuidParam(params.id, "user");
+    if ("error" in uuidResult) return uuidResult.error;
+    const targetUserId = uuidResult.value;
 
     // Fetch counts
     const { data: profile, error: profileError } = await supabase
@@ -25,9 +25,7 @@ export async function GET(
       .eq("id", targetUserId)
       .single();
 
-    if (profileError) {
-      throw profileError;
-    }
+    if (profileError) throw profileError;
 
     let following = false;
     if (user && user.id !== targetUserId) {
@@ -50,10 +48,9 @@ export async function GET(
       followersCount: profile?.followers_count || 0,
       followingCount: profile?.following_count || 0,
     });
-  } catch (error) {
-    return handleApiError(error, "Failed to load follow status");
-  }
-}
+  },
+  { optional: true, errorMessage: "Failed to load follow status" }
+);
 
 export function POST() {
   return methodNotAllowed(["GET"]);

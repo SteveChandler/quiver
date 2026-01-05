@@ -1,5 +1,49 @@
 import type { ConfidenceLevel, DataFreshness } from "@/types/api/recommendations";
 
+/**
+ * Unified confidence level information with colors for UI display.
+ */
+export interface ConfidenceInfo {
+  level: 'high' | 'medium' | 'low';
+  color: 'green' | 'yellow' | 'red';
+  bgColor: string;   // Tailwind class like 'bg-green-100'
+  textColor: string; // Tailwind class like 'text-green-700'
+}
+
+/**
+ * Get unified confidence level information based on a score.
+ * Centralizes the duplicate logic found across forecast components.
+ *
+ * Thresholds:
+ * - Score >= 75: high confidence, green colors
+ * - Score >= 50: medium confidence, yellow/amber colors
+ * - Score < 50: low confidence, red colors
+ */
+export function getConfidenceInfo(score: number): ConfidenceInfo {
+  if (score >= 75) {
+    return {
+      level: 'high',
+      color: 'green',
+      bgColor: 'bg-green-100',
+      textColor: 'text-green-700',
+    };
+  }
+  if (score >= 50) {
+    return {
+      level: 'medium',
+      color: 'yellow',
+      bgColor: 'bg-yellow-100',
+      textColor: 'text-yellow-700',
+    };
+  }
+  return {
+    level: 'low',
+    color: 'red',
+    bgColor: 'bg-red-100',
+    textColor: 'text-red-700',
+  };
+}
+
 export const FRESHNESS_THRESHOLDS_MS = {
   CURRENT: 3 * 60 * 60 * 1000, // 3h
   STALE: 12 * 60 * 60 * 1000, // 12h
@@ -86,6 +130,8 @@ export function calculateConfidenceLevel(
   if (score >= 50) return "medium";
   return "low";
 }
+
+
 
 
 

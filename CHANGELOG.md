@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **[API Middleware]** Fixed `withRateLimit` error-path crash (undefined `limitKey`) and hardened rate limiting to **fail closed** (503 + `Retry-After`) on unexpected limiter errors; client identification now prefers `x-vercel-forwarded-for` when available.
+- **Profile API:** Added `skill_level` (aliased from `experience_level`) and timestamps to `GET /api/profile` to satisfy profile API contract tests.
+- **Profile API:** Normalized `created_at`/`updated_at` in `GET /api/profile` to ISO 8601 `Z` format (ms precision) for stable contract tests.
+- **Users API:** Ensured `GET /api/users/[id]/stats` returns **401** for unauthenticated requests (auth check occurs before parameter validation).
+- **E2E:** Fixed gamification badge-definitions contract test to validate uniqueness on `badge_slug` (table has no `id` column).
+- **E2E:** Aligned `/api/beaches/featured` contract test with the landing-page UI by allowing `average_rating`, `review_count`, and `skill_level` fields.
+- **E2E:** Fixed `forecast-transparency` redirect test to parse the `/api/beaches` response envelope when resolving a real `beachId`.
+- **E2E:** Fixed favorites toggle contract tests to resolve a real UUID when local fixtures provide slugs (prevents false 400s from UUID-only routes).
+- **E2E:** Stabilized recommendations API contract tests by isolating rate-limit buckets per test (sets deterministic `x-forwarded-for` so tests don’t share the `"unknown"` client bucket and randomly receive 429s).
+- **E2E:** Removed serial mode from API contract specs and hardened them for parallel workers (isolated rate-limit buckets, consolidated favorites toggle mutations, and avoided board-name collisions).
+- **E2E:** Relaxed API contract performance thresholds for localhost/dev reliability (avoids flaky failures from cold starts and parallel load).
+- **Profile API:** Ensured `GET /api/profile` includes `home_beach_name` (snake_case) to match API contract tests while preserving the legacy `homeBeachName` field.
+- **Boards API:** Fixed `POST /api/boards` to return **400** for invalid payloads (Zod validation) instead of bubbling DB constraint errors into **500** responses; updated boards contract tests to send required fields.
+- **Tests (reliability):** Added unit coverage for high-blast-radius fallbacks and SEO routing:
+  - Spot data actions: slug normalization + DB/static merge + featured photo fallbacks + gallery error handling
+  - Admin tools: sessions/reviews list filtering + search + stats aggregation (ignores soft-deleted, no divide-by-zero)
+  - URL/SEO: expanded middleware canonicalization + sitemap canonical URL matrices (including HI Waimea disambiguation and `/beaches/usa/{state}` state index)
+- **Tests (coverage):** Added unit tests for beach search matching + scoring (strategy behaviors, normalization edge cases, deterministic ordering).
+- **Tests (coverage):** Added unit tests for tide/wind analyzers and forecast confidence scoring helpers.
+- **Tests (coverage):** Added high-ROI coverage for previously 0%-covered modules:
+  - Admin actions: photos + beaches + intel (query chains, soft-delete/restore flows, audit logging, zod validation)
+  - Parser utilities: WaveCast HTML parsing via fixture-based tests
+  - Large data/constants: invariants for `lib/data/surf-spots.ts` and `lib/constants/content.ts` (non-empty, unique IDs, stable `/features` link)
+- **Tests (coverage):** Added baseline unit/integration tests for location browsing + surf utilities:
+  - `actions/beach/beach-location-list-actions.ts` (`getLocationPageData` metro/city branches + slug→DB-city retry)
+  - `app/api/surf/utils.ts` (`resolveBeach`, `fetchForecast`, `getSurfForecast`)
+- **E2E:** Fixed `TEST_BEACHES.blacks` local fixture to navigate to canonical `/ca/la-jolla/blacks` (was `/ca/san-diego/blacks`, causing a 404 in beach detail tests).
+- **Tests:** Restored green `yarn test:coverage` by aligning unit tests with current routing + component semantics
+  - Updated middleware + sitemap expectations to match canonical `/beaches/usa/...` URLs
+  - Updated onboarding/auth/city/forecast unit tests to match Link-based navigation, TTL dismissal keys, unified confidence thresholds, and timer-safe interactions
+  - Updated enhanced forecast CDIP integration tests to use the `ForecastDataSourceManager` service accessor
+- **[TypeScript]** Fixed implicit 'any' type errors in migrated API routes by adding proper `AuthenticatedContext` type annotations
+  - Added type annotations to all `withAuth` handler parameters across 13 API route files
+  - Imported `type AuthenticatedContext` and `type NextRequest` for proper typing
+  - Updated test file `__tests__/lib/middleware/api-wrappers.test.ts` with explicit `any` types for mock handlers
+  - All TypeScript strict mode checks now pass without errors
+
 ### Security
 
 - **[P0]** Added search_path protection to `increment_session_share_count` and `set_updated_at` database functions to prevent search path injection attacks
@@ -17,17 +56,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `docs/performance/IMPLEMENTATION_GUIDE.md` to reflect that PersonalizedBadge memo comparison fix is already complete (was implemented but documentation was outdated)
 - Created `P0_REFACTORING_COMPLETE.md` summarizing P0 security and performance audit results
 - Removed accidental `.cursor` plan file and reconciled P1 refactor documentation to reflect current green test status
+- Updated Playwright local testing docs/config to support `.env.playwright.local` localhost-only overrides (no copy step needed)
 
 ### Changed
 
+- **[DRY Refactoring]** Eliminated duplicate unit conversion functions in `/app/api/v1/recommendations/route.ts`
+  - Replaced inline `msToKts` and `mToFt` functions with shared utilities from `/lib/utils/unit-conversions.ts`
+  - Reduced duplication and improved maintainability by using centralized conversion functions
+  - No behavioral changes - existing conversion logic preserved
+- **[API Middleware]** Implemented `rateLimit.authAware` support for adaptive authenticated vs public limits, and hardened wrappers to avoid unsafe optional-auth typing.
 - **[P1 Refactoring]** Reduced `lib/utils/morning-intel-utils.ts` from 635 to 114 lines (82% reduction) by extracting focused modules
 - **[P1 Refactoring]** Reduced cyclomatic complexity from 68 → <10 by decomposing `findNextBestWindow` into 5 focused functions
 - **[P1 Refactoring]** Reduced `lib/services/enhanced-forecast-service.ts` from 1,820 to 1,565 lines (14% reduction, 255 lines extracted)
+- **[API Refactoring]** Migrated gamification API routes to use `withAuth` HOF pattern:
+  - `/app/api/gamification/user-badges/route.ts` (45 → 36 lines, 20% reduction)
+  - `/app/api/gamification/xp-status/route.ts` (118 → 81 lines, 31% reduction)
+  - `/app/api/gamification/badge-definitions/route.ts` (58 → 24 lines, 59% reduction)
+  - Eliminated manual auth checks and try-catch boilerplate
+  - Consistent error handling via centralized middleware
+  - Improved code readability with focused business logic
+- **[API Refactoring]** Migrated intel routes to use `withAuth` HOF pattern:
+  - `/app/api/intel/[id]/confirm/route.ts` (235 → 174 lines, 26% reduction)
+    - Replaced manual UUID validation with `validateUuidParam` helper
+    - Replaced manual auth checks with `withAuth` wrapper for both POST and DELETE methods
+    - Used `createValidationError` for consistent error responses
+    - Removed try-catch blocks (handled by HOF)
+  - `/app/api/intel/route.ts` POST handler (195 → 169 lines, 13% reduction)
+    - Migrated POST handler to use `withAuth` HOF
+    - Removed manual authentication checks
+    - Replaced `NextResponse.json` with `createValidationError` for duplicate posts
+    - Changed `handleApiError` to `throw` for database errors (handled by HOF)
+    - GET handler unchanged (uses `withBotBlockingAndRateLimit`)
 - Enhanced `set_updated_at` trigger function with `SECURITY DEFINER` and explicit `SET search_path = public` for improved security
 - Migration `20260104000000_fix_recent_function_search_paths.sql` includes defensive blanket protection for all custom functions
 
 ### Added
 
+- **[E2E Testing]** Created comprehensive API contract test suite in `e2e/api/` with 14 spec files:
+  - `admin.spec.ts`, `beach-search.spec.ts`, `boards.spec.ts`, `favorites-management.spec.ts`
+  - `featured-beaches.spec.ts`, `gamification.spec.ts`, `health.spec.ts`, `intel.spec.ts`
+  - `recommendations.spec.ts`, `session-comments.spec.ts`, `session-planner.spec.ts`
+  - `sessions-crud.spec.ts`, `social-interactions.spec.ts`, `user-profile.spec.ts`
+- **[E2E Testing]** Created `e2e/utils/api-request-helpers.ts` with `createIsolatedApiContext` helper for rate-limit-isolated API testing
+- **[Session Planner]** Extracted `lib/session-planner/optimal-times-utils.ts` (628 lines) with reusable time parsing, scoring, and interpolation utilities
+- **[Auth]** Created `lib/auth/confirm-utils.ts` with `resolveConfirmNext` for safe post-confirmation redirects (prevents open redirects)
+- **[API Middleware]** Created comprehensive middleware documentation:
+  - `docs/API_MIDDLEWARE.md` - Developer guide with patterns, migration guide, FAQ
+  - `docs/API_MIDDLEWARE_REFERENCE.md` - Technical reference with types and architecture
 - **[P1 Refactoring]** Created `lib/analyzers/tide-analyzer.ts` - Tide analysis module (235 lines)
 - **[P1 Refactoring]** Created `lib/analyzers/conditions-analyzer.ts` - Conditions scoring module (205 lines)
 - **[P1 Refactoring]** Created `lib/services/forecast/confidence-scorer.ts` - Forecast confidence calculation (87 lines)

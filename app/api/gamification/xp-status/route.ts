@@ -1,11 +1,7 @@
-import { NextRequest } from "next/server";
-import {
-  createAuthError,
-  createSuccessResponse,
-  handleApiError,
-  methodNotAllowed,
-} from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
+import { withAuth, createSuccessResponse, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 
 const LEVEL_THRESHOLDS = [
   { level: 1, title: "Kook", xp_required: 0 },
@@ -29,7 +25,7 @@ function calculateLevel(xpTotal: number) {
 
 async function ensureUserXpRow(
   userId: string,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  supabase: SupabaseClient<Database>
 ) {
   const { data: existing } = await supabase
     .from("user_xp")
@@ -42,16 +38,11 @@ async function ensureUserXpRow(
   }
 }
 
-export async function GET(_request: NextRequest) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) return createAuthError();
-
+/**
+ * GET /api/gamification/xp-status - Get current user's XP and level status
+ */
+export const GET = withAuth(
+  async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     await ensureUserXpRow(user.id, supabase);
 
     const { data, error } = await supabase
@@ -86,26 +77,10 @@ export async function GET(_request: NextRequest) {
         next_level_title: nextLevelThreshold?.title || "Max Level",
       },
     });
-  } catch (error) {
-    return handleApiError(error, "Failed to load XP status");
-  }
-}
+  },
+  { errorMessage: "Failed to load XP status" }
+);
 
-export function POST() {
-  return methodNotAllowed(["GET"]);
-}
-
-export function PUT() {
-  return methodNotAllowed(["GET"]);
-}
-
-export function PATCH() {
-  return methodNotAllowed(["GET"]);
-}
-
-export function DELETE() {
-  return methodNotAllowed(["GET"]);
-}
 
 
 

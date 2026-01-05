@@ -1,7 +1,7 @@
 import {
   analyzeOptimalTimes,
   parseTimeToHour,
-} from "@/app/api/session-planner/optimal-times/route";
+} from "@/lib/session-planner/optimal-times-utils";
 
 function fc(time: string, attrs: Partial<any> = {}) {
   return {

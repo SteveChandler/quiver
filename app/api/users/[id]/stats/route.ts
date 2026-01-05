@@ -16,11 +16,6 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    const { id: targetUserId } = context.params;
-    if (!targetUserId || !isValidUuid(targetUserId)) {
-      return createValidationError("Invalid user id format");
-    }
-
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -29,6 +24,11 @@ export async function GET(
 
     if (userError || !user) {
       return createAuthError();
+    }
+
+    const { id: targetUserId } = context.params;
+    if (!targetUserId || !isValidUuid(targetUserId)) {
+      return createValidationError("Invalid user id format");
     }
 
     // For now, stats are only available for the authenticated user.
@@ -122,6 +122,7 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
+
 
 
 

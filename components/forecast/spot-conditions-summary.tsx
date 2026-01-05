@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Sun, Wind, Waves, Droplet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { mToFt } from "@/lib/utils/unit-conversions";
 
 type Props = {
   data: {
@@ -34,11 +35,6 @@ type Props = {
   } | null;
   className?: string;
 };
-
-function mToFt(m?: number | null) {
-  if (m == null) return null;
-  return Math.round(m * 3.281 * 10) / 10;
-}
 
 export function SpotConditionsSummary({ data, className }: Props) {
   const latest = useMemo(() => {

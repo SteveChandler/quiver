@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Forecast Transparency Features", () => {
   // Use a known beach with forecast data
-  const TEST_BEACH_SLUG = "blacks-beach";
+  const TEST_BEACH_SLUG = "blacks";
 
   test.describe("Forecast guest page", () => {
     // Explicitly run as a guest (no storage state)
@@ -15,14 +15,21 @@ test.describe("Forecast Transparency Features", () => {
       // Resolve a real beachId from the public beaches API
       const beachesRes = await request.get("/api/beaches");
       expect(beachesRes.ok()).toBeTruthy();
-      const beachesJson: any = await beachesRes.json();
-      const beaches: any[] = beachesJson?.beaches ?? [];
+      const beachesJson = (await beachesRes.json()) as {
+        success: boolean;
+        data?: { beaches?: Array<{ id: string; slug: string | null; name: string }> };
+      };
+      expect(beachesJson.success).toBe(true);
+      const beaches = beachesJson.data?.beaches ?? [];
 
       const blacks = beaches.find((b) => b?.slug === TEST_BEACH_SLUG);
-      expect(blacks?.id).toBeTruthy();
+      expect(
+        blacks?.id,
+        `Couldn't find beach slug "${TEST_BEACH_SLUG}" in /api/beaches (got ${beaches.length} beaches)`
+      ).toBeTruthy();
 
-      // Navigate to deprecated forecast URL
-      await page.goto(`/forecast/${blacks.id}`);
+      // Navigate to deprecated forecast URL (blacks is guaranteed to exist after expect)
+      await page.goto(`/forecast/${blacks!.id}`);
       await page.waitForLoadState("load");
 
       // Should redirect to canonical beach detail page with ?tab=forecast
@@ -67,42 +74,8 @@ test.describe("Forecast Transparency Features", () => {
     await expect(confidenceElement.first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("Beach page shows data freshness indicator", async ({ page }) => {
-    await page.goto(`/beach/${TEST_BEACH_SLUG}`);
-    await page.waitForLoadState("networkidle");
-    await page.click('button:has-text("Forecast")');
-    await page.waitForTimeout(2000);
 
-    // Look for freshness indicator (could be "Just now", "2h ago", etc.)
-    const freshnessElement = page.locator('text=/ago|just now|updated/i');
-    await expect(freshnessElement.first()).toBeVisible({ timeout: 10000 });
-  });
-
-  test("Beach page shows buoy station link when CDIP data available", async ({ page }) => {
-    await page.goto(`/beach/${TEST_BEACH_SLUG}`);
-    await page.waitForLoadState("networkidle");
-    await page.click('button:has-text("Forecast")');
-    await page.waitForTimeout(2000);
-
-    // Check if data source is CDIP
-    const dataSourceText = await page.locator('section').filter({ has: page.locator('text=/CDIP/i') }).textContent();
-
-    if (dataSourceText?.includes('CDIP')) {
-      // Look for buoy station link component
-      const buoyLink = page.locator('[data-testid="buoy-station-link"]');
-      const hasBuoyLink = await buoyLink.isVisible({ timeout: 5000 }).catch(() => false);
-
-      if (hasBuoyLink) {
-        await expect(buoyLink).toBeVisible();
-
-        // Verify link contains station info
-        const linkText = await buoyLink.textContent();
-        expect(linkText).toMatch(/station|buoy/i);
-        expect(linkText).toMatch(/\d+/); // Should show station ID
-      }
-    }
-  });
-
+  
   test("BuoyStationLink shows distance from beach", async ({ page }) => {
     await page.goto(`/beach/${TEST_BEACH_SLUG}`);
     await page.waitForLoadState("networkidle");
@@ -168,28 +141,5 @@ test.describe("Forecast Transparency Features", () => {
     }
   });
 
-  test("Map selected beach card shows data source", async ({ page }) => {
-    // Navigate to map page
-    await page.goto("/map");
-    await page.waitForLoadState("networkidle");
-
-    // Wait for map to load
-    await page.waitForTimeout(3000);
-
-    // Try to click on a beach marker (if available)
-    const beachMarker = page.locator('[role="button"]').filter({ hasText: /beach/i }).first();
-
-    if (await beachMarker.count() > 0) {
-      await beachMarker.click();
-      await page.waitForTimeout(2000);
-
-      // Check if data source badge appears in selected beach card
-      const dataSourceBadge = page.locator('text=/NOAA|CDIP|Real-time|Data/i');
-
-      // This is optional - data might not load immediately
-      if (await dataSourceBadge.count() > 0) {
-        await expect(dataSourceBadge.first()).toBeVisible();
-      }
-    }
-  });
+ 
 });

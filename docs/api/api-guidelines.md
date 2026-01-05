@@ -77,8 +77,44 @@ Server actions must return the following shape via the `withServerAction` wrappe
 - **Admin Auth**: Enforced via `isAdmin(user)` check in the route handler.
 
 ### Middleware
-- Use `withBotBlockingAndRateLimit` for public GET endpoints to prevent scraping and abuse.
-- Use `withRateLimit` for authenticated endpoints.
+
+**📚 Comprehensive middleware documentation:**
+- **[API Middleware Developer Guide](/docs/API_MIDDLEWARE.md)** - Patterns, decision trees, migration guide
+- **[API Middleware Technical Reference](/docs/API_MIDDLEWARE_REFERENCE.md)** - Architecture, types, implementation details
+
+#### Quick Reference
+
+Import everything from `@/lib/middleware/api-wrappers`:
+
+```typescript
+import {
+  withProtection,      // Unified wrapper (recommended)
+  withAuth,            // Auth only
+  withRateLimit,       // Rate limiting only
+  withBotBlockingAndRateLimit,
+  type AuthenticatedContext
+} from "@/lib/middleware/api-wrappers";
+```
+
+#### Common Patterns
+
+| Goal | Code |
+|------|------|
+| **Public endpoint** | `withProtection(handler, { rateLimit: { key: "public-default" }, botBlocking: { enabled: true } })` |
+| **Authenticated endpoint** | `withProtection(handler, { auth: { required: true }, rateLimit: { key: "authenticated-default" } })` |
+| **Auth only (no rate limit)** | `withAuth(handler)` |
+
+#### Rate Limit Keys
+
+| Key | Requests/Min | Use Case |
+|-----|--------------|----------|
+| `public-default` | 60 | Standard public endpoints |
+| `authenticated-default` | 120 | Authenticated endpoints |
+| `beach-search` | 30 | Full-text search |
+| `recommendations` | 20 | AI recommendations |
+| `image-proxy` | 60 | Image proxy (SSRF risk) |
+
+See [API_MIDDLEWARE.md](/docs/API_MIDDLEWARE.md) for the complete rate limit keys table.
 
 ---
 
@@ -109,6 +145,7 @@ Server actions must return the following shape via the `withServerAction` wrappe
     *   ✅ `createSuccessResponse(beach)`
 2.  **Missing Error Context**: Always provide a custom message to `handleApiError` for better debugging.
 3.  **Direct DB Access**: Avoid raw Supabase calls in routes; use shared helpers or actions to ensure RLS and business logic consistency.
+
 
 
 

@@ -40,6 +40,7 @@ jest.mock("@/lib/analytics/auth-events", () => ({
 import { useAuth } from "@/context/auth-context";
 import * as authUtils from "@/lib/auth/auth-utils";
 import * as authEvents from "@/lib/analytics/auth-events";
+import { useRouter } from "next/navigation";
 
 describe("UnifiedAuthModal", () => {
   const mockOnClose = jest.fn();
@@ -436,7 +437,11 @@ describe("UnifiedAuthModal", () => {
         requires_verification: true,
       });
 
-      expect(screen.getByText("Check your email")).toBeInTheDocument();
+      // Email/password signup requires email confirmation; we redirect to landing
+      // and close the modal (unless on the dedicated /auth/sign-up page).
+      const router = useRouter();
+      expect(router.replace).toHaveBeenCalledWith("/?signup=confirm-email");
+      expect(mockOnClose).toHaveBeenCalled();
     });
 
     it("should show error for invalid email", async () => {

@@ -1,23 +1,14 @@
-import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError, createValidationError, methodNotAllowed, isValidUuid } from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
+import { withAuth, validateUuidParam, createSuccessResponse, methodNotAllowed, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: sessionId } = context.params;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return createValidationError("Invalid session id format");
-    }
-    const supabase = await createSupabaseServerClient();
+export const GET = withAuth(
+  async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    const uuidResult = validateUuidParam(params.id, "session");
+    if ("error" in uuidResult) return uuidResult.error;
 
-    // Determine if the current user liked this session (unauthenticated => false)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const sessionId = uuidResult.value;
 
+    // Determine if the current user liked this session (user is null if optional auth)
     let liked = false;
     if (user) {
       const { data: userLike, error: likeError } = await supabase
@@ -44,10 +35,9 @@ export async function GET(
     }
 
     return createSuccessResponse({ liked, likesCount: likesCount || 0 });
-  } catch (error) {
-    return handleApiError(error, "Failed to load like status");
-  }
-}
+  },
+  { optional: true, errorMessage: "Failed to load like status" }
+);
 
 export function POST() {
   return methodNotAllowed(["GET"]);

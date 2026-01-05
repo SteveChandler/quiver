@@ -17,6 +17,10 @@ import {
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
+import {
+  validatePassword,
+  MIN_PASSWORD_LENGTH,
+} from "@/lib/auth/auth-utils";
 
 // Configure post-reset destination
 const POST_RESET_DEST = "/";
@@ -58,21 +62,14 @@ export default function ResetPasswordPage() {
     checkSession();
   }, [router]);
 
-  const validatePassword = (password: string): string | null => {
-    if (password.length < 8) {
-      return "Password must be at least 8 characters long";
-    }
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validate password
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      setError(passwordError);
+    // Validate password using shared validation
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.error || "Invalid password");
       return;
     }
 
@@ -140,10 +137,10 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
               />
               <p className="text-sm text-muted-foreground">
-                Password must be at least 8 characters long
+                Password must be at least {MIN_PASSWORD_LENGTH} characters long
               </p>
             </div>
 
@@ -156,7 +153,7 @@ export default function ResetPasswordPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={MIN_PASSWORD_LENGTH}
               />
             </div>
 
