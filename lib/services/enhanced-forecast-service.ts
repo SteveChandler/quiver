@@ -238,7 +238,7 @@ export class EnhancedForecastService {
           selectedStation = await this.dataSourceManager.getCDIPService().getNearestStation(
             beach.lat ?? 0,
             beach.lon ?? 0,
-            150 // 150km radius to cover gaps where station 67 is blacklisted
+            150 // 150km radius to cover regional gaps (CDIP station density varies)
           );
         }
 

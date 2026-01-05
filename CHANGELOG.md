@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Profile API:** Ensured `GET /api/profile` includes `home_beach_name` (snake_case) to match API contract tests while preserving the legacy `homeBeachName` field.
 - **Boards API:** Fixed `POST /api/boards` to return **400** for invalid payloads (Zod validation) instead of bubbling DB constraint errors into **500** responses; updated boards contract tests to send required fields.
 - **Forecast monitoring:** When the enhanced latest-per-beach query times out, the health check now preserves `totalBeaches` and reports enhanced coverage/age as **unavailable** (not `0%`); suppresses misleading `[Forecast Coverage Gap]` logs in this state.
+- **CDIP integration:** Normalized ERDDAP `station_id` formatting for 1–2 digit stations (e.g. `67` → `067`) and pinned priority beaches (Zuma + Ocean Beach SF – Sloat) to explicit CDIP station overrides to reduce "no nearby CDIP station" warnings.
 - **Tests (reliability):** Added unit coverage for high-blast-radius fallbacks and SEO routing:
   - Spot data actions: slug normalization + DB/static merge + featured photo fallbacks + gallery error handling
   - Admin tools: sessions/reviews list filtering + search + stats aggregation (ignores soft-deleted, no divide-by-zero)

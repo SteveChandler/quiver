@@ -12,7 +12,7 @@ const mockMessaging = {
 };
 
 jest.mock("@/lib/services/firebase-admin", () => ({
-  messaging: mockMessaging,
+  getFirebaseAdminMessaging: jest.fn(() => mockMessaging),
   isFirebaseInitialized: jest.fn(() => true),
 }));
 
