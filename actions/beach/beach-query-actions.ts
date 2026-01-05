@@ -76,3 +76,33 @@ export async function getBeachBySlug(slug: string) {
       .single();
   });
 }
+
+/**
+ * Fetch 0..N beaches by slug without throwing on 0 results or duplicates.
+ *
+ * - Use this for public routing where duplicate slugs can exist and should be
+ *   disambiguated by URL context (state/city/country).
+ * - Excludes private beaches.
+ */
+export async function getBeachesBySlug(slug: string) {
+  return withDatabaseOperation<Beach[]>(async (supabase) => {
+    const normalized = slug.trim().toLowerCase();
+
+    if (!normalized) {
+      return { data: [], error: null };
+    }
+
+    const { data, error } = await supabase
+      .from("beaches")
+      .select(BEACH_DETAIL_FIELDS)
+      .eq("slug", normalized)
+      .or("is_private.is.null,is_private.eq.false")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    return { data: (data ?? []) as Beach[], error: null };
+  });
+}

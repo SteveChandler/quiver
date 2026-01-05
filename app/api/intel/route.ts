@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError, validateOrError, createAuthError, createValidationError } from "@/lib/api-utils";
+import { createSuccessResponse, handleApiError, validateOrError, createValidationError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import {
@@ -11,6 +11,7 @@ import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelPostCreateSchema } from "@/lib/validation/schemas";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
+import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
 
@@ -87,11 +88,12 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
 
     // Validate radius
     if (radius > INTEL_CONFIG.MAX_RADIUS_MILES) {
-      return NextResponse.json(
+      return createValidationError(
+        `Radius cannot exceed ${INTEL_CONFIG.MAX_RADIUS_MILES} miles`,
         {
-          error: `Radius cannot exceed ${INTEL_CONFIG.MAX_RADIUS_MILES} miles`,
-        },
-        { status: 400 }
+          providedRadiusMiles: radius,
+          maxRadiusMiles: INTEL_CONFIG.MAX_RADIUS_MILES,
+        }
       );
     }
 
@@ -204,19 +206,8 @@ export const GET = withBotBlockingAndRateLimit(intelGetHandler, "public-default"
  * POST /api/intel
  * Creates a new intel post (requires authentication)
  */
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createSupabaseServerClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return createAuthError();
-    }
-
+export const POST = withAuth(
+  async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     // Validate Content-Type and parse JSON
     const parseResult = await parseAndValidateJson(request);
     if ('error' in parseResult) {
@@ -319,7 +310,7 @@ export async function POST(request: NextRequest) {
     if (dedupeError) {
       console.error("Failed to check for duplicate intel posts:", dedupeError);
     } else {
-      const duplicateMatch = recentIntel?.find((existing) => {
+      const duplicateMatch = recentIntel?.find((existing: any) => {
         const existingHash = createIntelDedupeHash({
           userId: user.id,
           tag,
@@ -333,12 +324,10 @@ export async function POST(request: NextRequest) {
       });
 
       if (duplicateMatch) {
-        return NextResponse.json(
-          {
-            error:
-              "Looks like you've already shared this intel recently. Please update the existing post instead of creating a duplicate.",
-          },
-          { status: 409 }
+        return createValidationError(
+          "Looks like you've already shared this intel recently. Please update the existing post instead of creating a duplicate.",
+          { dedupe_window_minutes: DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES },
+          409
         );
       }
     }
@@ -366,7 +355,7 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error("Error creating intel post:", createError);
-      return handleApiError(createError, "Failed to create intel post");
+      throw createError;
     }
 
     // Get user profile for response
@@ -382,12 +371,10 @@ export async function POST(request: NextRequest) {
         full_name: profile?.full_name || "Anonymous",
         avatar_url: profile?.avatar_url || null,
       },
-      user_confirmed: false,
+      user_has_confirmed: false,
     };
 
     return createSuccessResponse(enrichedPost);
-  } catch (error) {
-    console.error("Intel API POST error:", error);
-    return handleApiError(error, "Failed to create intel post");
-  }
-}
+  },
+  { errorMessage: "Failed to create intel post" }
+);

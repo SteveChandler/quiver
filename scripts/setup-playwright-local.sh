@@ -15,46 +15,25 @@ if ! command -v npx &> /dev/null; then
     exit 1
 fi
 
-# Check if .env.playwright exists
-if [ ! -f ".env.playwright" ]; then
-    echo "📝 Creating .env.playwright from template..."
-    cp .env.playwright.example .env.playwright
-    echo "✅ Created .env.playwright"
-    echo ""
-    echo "⚠️  Please edit .env.playwright and set:"
-    echo "   - TEST_USER_EMAIL"
-    echo "   - TEST_USER_PASSWORD"
-    echo "   - NEXT_PUBLIC_SUPABASE_ANON_KEY (from 'supabase status')"
-    echo ""
-    read -p "Press Enter after updating .env.playwright..."
+# Prefer `.env.playwright.local` for local runs (no copy step needed).
+if [ -f ".env.playwright.local" ]; then
+    echo "✅ Found .env.playwright.local (will be loaded automatically by Playwright config)"
+else
+    echo "⚠️  .env.playwright.local not found."
+    echo "   Create it to pin BASE_URL=http://localhost:3000 and local-only toggles."
+    echo "   Note: Playwright loads env in this order: CLI/OS > .env.playwright.local > .env.playwright > .env"
 fi
 
-# Check if Supabase is running
-echo "🔍 Checking Supabase status..."
-if command -v supabase &> /dev/null; then
-    if supabase status &> /dev/null; then
-        echo "✅ Supabase is running"
-        SUPABASE_RUNNING=true
-    else
-        echo "⚠️  Supabase is not running"
-        echo ""
-        echo "To start Supabase:"
-        echo "  supabase start"
-        echo ""
-        read -p "Start Supabase now? (y/n) " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            supabase start
-            SUPABASE_RUNNING=true
-        else
-            SUPABASE_RUNNING=false
-        fi
-    fi
-else
-    echo "⚠️  Supabase CLI not found. Install it with:"
-    echo "  brew install supabase/tap/supabase"
-    SUPABASE_RUNNING=false
+# Ensure `.env.playwright` exists for shared/default settings (optional but recommended).
+if [ ! -f ".env.playwright" ]; then
+    echo ""
+    echo "📝 Creating .env.playwright from template (shared defaults)..."
+    cp .env.playwright.example .env.playwright
+    echo "✅ Created .env.playwright"
 fi
+
+# Note: local E2E runs can point at prod DB (via `.env.playwright`), so Supabase
+# may not be running locally. We keep this script focused on Playwright + localhost.
 
 # Install Playwright browsers
 echo ""
@@ -87,10 +66,8 @@ echo "========================="
 echo ""
 echo "Next steps:"
 echo ""
-echo "1. Ensure test user exists in Supabase:"
-echo "   - Go to http://127.0.0.1:54323 (Supabase Studio)"
-echo "   - Navigate to Authentication → Users"
-echo "   - Create user with email/password from .env.playwright"
+echo "1. Ensure the test user exists in the Supabase environment configured in .env.playwright"
+echo "   (Localhost runs may point at prod DB; there is no local Supabase Studio requirement.)"
 echo ""
 echo "2. Generate authentication state:"
 echo "   yarn test:e2e:auth:setup"

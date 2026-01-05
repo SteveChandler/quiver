@@ -4,7 +4,7 @@ import {
   parseTimeToHour,
   buildTwoHourBlocks,
   scoreForecast,
-} from "@/app/api/session-planner/optimal-times/route";
+} from "@/lib/session-planner/optimal-times-utils";
 
 describe("optimal-times analysis helpers", () => {
   test("parseTimeToHour supports HH:MM, HH:MM:SS and ISO-like strings", () => {

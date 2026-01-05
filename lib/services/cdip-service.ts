@@ -56,19 +56,28 @@ export class CDIPService {
     // Defaults include known-bad stations that frequently 404 on the current ERDDAP dataset.
     const fromEnv = (process.env.CDIP_BLACKLIST || "").split(",").map((s) => s.trim()).filter(Boolean);
     const defaults = [
-      "67", // San Pedro South ERDDAP endpoint frequently 404s
-      "71", // Half Moon Bay: observed 404s on wave_agg
       "46221", // Point Arena: observed 404s on wave_agg
       "46225", // Point Reyes: observed 404s on wave_agg
       "46236", // Monterey Bay: treat as non-CDIP for now; observed issues on wave_agg
     ];
-    this.blacklist = new Set([...
-      new Set<string>([...defaults, ...fromEnv])
-    ]);
+    // Deduplicate while preserving a readable defaults list.
+    this.blacklist = new Set<string>([...defaults, ...fromEnv]);
   }
 
   private isVerbose(): boolean {
     return isForecastVerboseLoggingEnabled();
+  }
+
+  /**
+   * ERDDAP station ids are sometimes zero-padded (e.g. "067", "071").
+   * Internally we store the canonical id without padding (e.g. "67", "71").
+   */
+  private normalizeStationIdForErddap(stationId: string): string {
+    const trimmed = String(stationId).trim();
+    if (/^\d{1,2}$/.test(trimmed)) {
+      return trimmed.padStart(3, "0");
+    }
+    return trimmed;
   }
 
   /**
@@ -265,7 +274,12 @@ export class CDIPService {
       // Import retry client dynamically to avoid circular dependencies
       const { apiClient } = await import("@/lib/utils/api-retry");
 
-      const url = `${CDIP_API_CONFIG.baseUrl}?stn=${stationId}&param=meta&format=${CDIP_API_CONFIG.formats.json}`;
+      const normalizedStationId = this.normalizeStationIdForErddap(stationId);
+      const endpoint = CDIP_API_CONFIG.endpoints.metadata.replace(
+        "{stationId}",
+        normalizedStationId
+      );
+      const url = `${CDIP_API_CONFIG.baseUrl}${endpoint}`;
 
       const response = await apiClient.fetchCDIPData(url, {
         headers: {
@@ -440,9 +454,10 @@ export class CDIPService {
       const { apiClient } = await import("@/lib/utils/api-retry");
       
       // Use ERDDAP API - construct the URL with wave data endpoint
+      const normalizedStationId = this.normalizeStationIdForErddap(stationId);
       const endpoint = CDIP_API_CONFIG.endpoints.waveData.replace(
         "{stationId}",
-        stationId
+        normalizedStationId
       );
       const url = `${CDIP_API_CONFIG.baseUrl}${endpoint}`;
 

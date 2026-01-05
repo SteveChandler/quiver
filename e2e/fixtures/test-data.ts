@@ -59,7 +59,7 @@ export const TEST_BEACHES = isDevEnvironment ? {
   blacks: {
     id: 'blacks',
     slug: 'blacks',
-    city: 'San Diego',
+    city: 'La Jolla',
     state: 'CA',
     name: 'Blacks'
   },

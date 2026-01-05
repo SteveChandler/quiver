@@ -1,7 +1,8 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { NOAAWaveWatchService } from "./noaa-wavewatch-service";
-import { NOAACOOPSService } from "./noaa-coops-service";
-import { CDIPService } from "./cdip-service";
+import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
+import { cardinalToDegrees } from "./forecast/forecast-transformer";
+import { calculateConfidenceScore } from "./forecast/confidence-scorer";
+import { ForecastStorageService } from "./forecast/storage-service";
 import { getForecastWeightingService } from "./forecast-weighting-service";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
@@ -44,201 +45,7 @@ import {
   logError,
 } from "@/lib/errors/forecast-errors";
 
-// Data source implementations
-class WaveWatchDataSource implements WaveDataSource {
-  readonly name = "WaveWatch III";
-
-  constructor(private service: NOAAWaveWatchService) {}
-
-  async fetchData(location: Location, timeRange: TimeRange): Promise<any> {
-    const days = Math.ceil(
-      (timeRange.end.getTime() - timeRange.start.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-    return this.service.fetchWaveWatchForecast(
-      location.latitude,
-      location.longitude,
-      days
-    );
-  }
-
-  async fetchWaveData(location: Location, days: number): Promise<WaveData> {
-    const result = await this.service.fetchWaveWatchForecast(
-      location.latitude,
-      location.longitude,
-      days
-    );
-
-    if (!result || !result.forecast) {
-      return {
-        forecast: [],
-        data_source: "FALLBACK",
-        location: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-      };
-    }
-
-    // Transform the service response to match the WaveData interface
-    const forecast = result.forecast.map((point) => ({
-      timestamp: new Date(point.timestamp),
-      significantWaveHeight: point.significant_wave_height,
-      peakWavePeriod: point.peak_wave_period,
-      peakWaveDirection: point.peak_wave_direction,
-      swell1Height: point.swell_1_height,
-      swell1Period: point.swell_1_period,
-      swell1Direction: point.swell_1_direction,
-      swell2Height: point.swell_2_height,
-      swell2Period: point.swell_2_period,
-      swell2Direction: point.swell_2_direction,
-      windWaveHeight: point.wind_wave_height,
-      windWavePeriod: point.wind_wave_period,
-      windWaveDirection: point.wind_wave_direction,
-      data_source: point.data_source,
-    }));
-
-    return {
-      forecast,
-      data_source: result.data_source,
-      location: {
-        latitude: result.lat,
-        longitude: result.lng,
-      },
-    };
-  }
-
-  isAvailable(): boolean {
-    return true;
-  }
-
-  getReliabilityScore(): any {
-    return createConfidenceScore(85);
-  }
-}
-
-class TidalDataSource implements TideDataSource {
-  readonly name = "NOAA CO-OPS";
-
-  constructor(private service: NOAACOOPSService) {}
-
-  async fetchData(location: Location, timeRange: TimeRange): Promise<any> {
-    const days = Math.ceil(
-      (timeRange.end.getTime() - timeRange.start.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-    const stationId = this.service.getStationForLocation(
-      "",
-      location.latitude,
-      location.longitude
-    );
-    return this.service.fetchCOOPSData(stationId, days);
-  }
-
-  async fetchTideData(location: Location, days: number): Promise<any> {
-    const stationId = this.service.getStationForLocation(
-      "",
-      location.latitude,
-      location.longitude
-    );
-    const result = await this.service.fetchCOOPSData(stationId, days);
-    return result || { tides: [], currents: [] };
-  }
-
-  isAvailable(): boolean {
-    return true;
-  }
-
-  getReliabilityScore(): any {
-    return createConfidenceScore(90);
-  }
-}
-
-class NOAAWeatherDataSource implements WeatherDataSource {
-  readonly name = "NOAA Weather Service";
-
-  async fetchData(location: Location, timeRange: TimeRange): Promise<any> {
-    return this.fetchWeatherData(location, 12);
-  }
-
-  async fetchWeatherData(
-    location: Location,
-    days: number
-  ): Promise<WeatherData> {
-    try {
-      const pointsUrl = `https://api.weather.gov/points/${location.latitude},${location.longitude}`;
-      const pointsResponse = await fetch(pointsUrl, {
-        headers: { "User-Agent": "quiver-surf-app (contact@quiver.com)" },
-      });
-
-      if (!pointsResponse.ok) {
-        throw new ApiError(
-          pointsUrl,
-          pointsResponse.status,
-          await pointsResponse.text()
-        );
-      }
-
-      const pointsData = await pointsResponse.json();
-      const hourlyUrl: string | null =
-        pointsData?.properties?.forecastHourly ?? null;
-      const nonHourlyUrl: string | null = pointsData?.properties?.forecast ?? null;
-
-      // Some points (especially marine/offshore) do not have hourly or any forecast URLs.
-      // Treat as "no coverage" rather than throwing and spamming cron logs.
-      if (!hourlyUrl && !nonHourlyUrl) {
-        return { periods: [] };
-      }
-
-      const fetchForecast = async (url: string): Promise<any> => {
-        const forecastResponse = await fetch(url, {
-          headers: { "User-Agent": "quiver-surf-app (contact@quiver.com)" },
-        });
-
-        if (!forecastResponse.ok) {
-          throw new ApiError(url, forecastResponse.status, await forecastResponse.text());
-        }
-
-        return await forecastResponse.json();
-      };
-
-      // Prefer hourly, but gracefully fall back for "Marine Forecast Not Supported".
-      try {
-        if (hourlyUrl) {
-          const forecastData = await fetchForecast(hourlyUrl);
-          return { periods: forecastData?.properties?.periods || [] };
-        }
-      } catch (error) {
-        // If hourly is unsupported in marine areas, fall back to non-hourly.
-        if (!isNoaaMarineForecastNotSupportedError(error)) {
-          throw error;
-        }
-      }
-
-      if (nonHourlyUrl) {
-        const forecastData = await fetchForecast(nonHourlyUrl);
-        return { periods: forecastData?.properties?.periods || [] };
-      }
-
-      return { periods: [] };
-    } catch (error) {
-      if (error instanceof ForecastError) {
-        throw error;
-      }
-      throw new DataSourceError("NOAA Weather", error as Error, {
-        location: { lat: location.latitude, lng: location.longitude },
-      });
-    }
-  }
-
-  isAvailable(): boolean {
-    return true;
-  }
-
-  getReliabilityScore(): any {
-    return createConfidenceScore(80);
-  }
-}
+// Data source implementations moved to lib/services/forecast/data-source-manager.ts
 
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
@@ -247,53 +54,14 @@ export class EnhancedForecastService {
     return process.env.FORECAST_VERBOSE_LOGS === "true" || env !== "production";
   }
 
-  /**
-   * Convert cardinal wind direction (e.g. "SW") to degrees.
-   * Returns null when unknown/unparseable.
-   */
-  private cardinalToDegrees(dir: string | null | undefined): number | null {
-    if (!dir) return null;
-    const trimmed = dir.trim();
-    if (!trimmed) return null;
+  // cardinalToDegrees method moved to lib/services/forecast/forecast-transformer.ts
 
-    // If already numeric, treat as degrees
-    const asNum = Number(trimmed);
-    if (Number.isFinite(asNum)) {
-      const normalized = ((asNum % 360) + 360) % 360;
-      return normalized;
-    }
-
-    const directionMap: Record<string, number> = {
-      N: 0,
-      NNE: 22.5,
-      NE: 45,
-      ENE: 67.5,
-      E: 90,
-      ESE: 112.5,
-      SE: 135,
-      SSE: 157.5,
-      S: 180,
-      SSW: 202.5,
-      SW: 225,
-      WSW: 247.5,
-      W: 270,
-      WNW: 292.5,
-      NW: 315,
-      NNW: 337.5,
-    };
-
-    const upper = trimmed.toUpperCase();
-    return directionMap[upper] ?? null;
-  }
-
-  private waveWatchService: NOAAWaveWatchService;
-  private coopsService: NOAACOOPSService;
-  private cdipService: CDIPService;
+  private dataSourceManager: ForecastDataSourceManager;
+  private storageService: ForecastStorageService;
 
   constructor() {
-    this.waveWatchService = new NOAAWaveWatchService();
-    this.coopsService = new NOAACOOPSService();
-    this.cdipService = new CDIPService();
+    this.dataSourceManager = new ForecastDataSourceManager();
+    this.storageService = new ForecastStorageService();
   }
 
   /**
@@ -363,7 +131,7 @@ export class EnhancedForecastService {
    */
   private async fetchWaveDataWithRetry(beach: Beach) {
     return withRetry(async () => {
-      const result = await this.waveWatchService.fetchWaveWatchForecast(
+      const result = await this.dataSourceManager.getWaveWatchService().fetchWaveWatchForecast(
         beach.lat ?? 0,
         beach.lon ?? 0,
         FORECAST_CONSTANTS.DAYS
@@ -384,12 +152,12 @@ export class EnhancedForecastService {
   private async fetchTidalDataWithRetry(beach: Beach) {
     return withRetry(async () => {
       try {
-        const stationId = this.coopsService.getStationForLocation(
+        const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
           beach.name,
           beach.lat ?? 0,
           beach.lon ?? 0
         );
-        const result = await this.coopsService.fetchCOOPSData(
+        const result = await this.dataSourceManager.getCOOPSService().fetchCOOPSData(
           stationId,
           FORECAST_CONSTANTS.DAYS
         );
@@ -467,10 +235,10 @@ export class EnhancedForecastService {
           if (this.isVerboseLoggingEnabled()) {
             console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
           }
-          selectedStation = await this.cdipService.getNearestStation(
+          selectedStation = await this.dataSourceManager.getCDIPService().getNearestStation(
             beach.lat ?? 0,
             beach.lon ?? 0,
-            150 // 150km radius to cover gaps where station 67 is blacklisted
+            150 // 150km radius to cover regional gaps (CDIP station density varies)
           );
         }
 
@@ -493,7 +261,7 @@ export class EnhancedForecastService {
             `🌊 Fetching CDIP data from station ${selectedStation} for ${beach.name}`
           );
         }
-        const cdipData = await this.cdipService.fetchBuoyData(selectedStation);
+        const cdipData = await this.dataSourceManager.getCDIPService().fetchBuoyData(selectedStation);
 
         if (cdipData) {
           if (this.isVerboseLoggingEnabled()) {
@@ -745,7 +513,7 @@ export class EnhancedForecastService {
         : waveData?.data_source || (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
 
       // Calculate confidence score based on data availability and freshness
-      const confidenceScore = this.calculateConfidenceScore({
+      const confidenceScore = calculateConfidenceScore({
         hasWaveData: !!wavePoint,
         hasTideData: !!tideInfo,
         hasWeatherData: !!weatherPoint,
@@ -797,11 +565,11 @@ export class EnhancedForecastService {
             : null,
         wave_direction:
           useCDIPData && cdipPoint
-            ? this.waveWatchService.getWaveDirectionText(
+            ? this.dataSourceManager.getWaveWatchService().getWaveDirectionText(
                 cdipPoint.peakWaveDirection
               )
             : wavePoint
-            ? this.waveWatchService.getWaveDirectionText(
+            ? this.dataSourceManager.getWaveWatchService().getWaveDirectionText(
                 wavePoint.peak_wave_direction
               )
             : null,
@@ -821,11 +589,11 @@ export class EnhancedForecastService {
             : null,
         swell_1_direction:
           useCDIPData && cdipPoint?.swellDirection
-            ? this.waveWatchService.getWaveDirectionText(
+            ? this.dataSourceManager.getWaveWatchService().getWaveDirectionText(
                 cdipPoint.swellDirection
               )
             : wavePoint
-            ? this.waveWatchService.getWaveDirectionText(
+            ? this.dataSourceManager.getWaveWatchService().getWaveDirectionText(
                 wavePoint.swell_1_direction
               )
             : null,
@@ -839,9 +607,9 @@ export class EnhancedForecastService {
             ? formatPeriodSeconds(wavePoint.swell_2_period)
             : null,
         swell_2_direction: wavePoint
-          ? this.waveWatchService.getWaveDirectionText(
-              wavePoint.swell_2_direction
-            )
+          ? this.dataSourceManager
+              .getWaveWatchService()
+              .getWaveDirectionText(wavePoint.swell_2_direction)
           : null,
 
         // Wind waves - prioritize CDIP when available
@@ -859,11 +627,11 @@ export class EnhancedForecastService {
             : null,
         wind_wave_direction:
           useCDIPData && cdipPoint?.windWaveDirection
-            ? this.waveWatchService.getWaveDirectionText(
+            ? this.dataSourceManager.getWaveWatchService().getWaveDirectionText(
                 cdipPoint.windWaveDirection
               )
             : wavePoint
-            ? this.waveWatchService.getWaveDirectionText(
+            ? this.dataSourceManager.getWaveWatchService().getWaveDirectionText(
                 wavePoint.wind_wave_direction
               )
             : null,
@@ -879,7 +647,7 @@ export class EnhancedForecastService {
           ? this.extractWindSpeed(weatherPoint.windSpeed)
           : "10 mph",
         wind_direction: weatherPoint?.windDirection || "SW",
-        wind_direction_deg: this.cardinalToDegrees(weatherPoint?.windDirection || "SW"),
+        wind_direction_deg: cardinalToDegrees(weatherPoint?.windDirection || "SW"),
 
         // Tide information
         tide_status: tideInfo.status,
@@ -919,7 +687,7 @@ export class EnhancedForecastService {
           }),
           quality_scores: {
             cdip: cdipData
-              ? this.cdipService.getDataQualityScore(cdipData)
+              ? this.dataSourceManager.getCDIPService().getDataQualityScore(cdipData)
               : undefined,
             noaa: waveData ? 75 : undefined,
             overall: confidenceScore,
@@ -1100,15 +868,15 @@ export class EnhancedForecastService {
 
     if (!tideData?.tides) return defaultTideInfo;
 
-    const status = this.coopsService.getTideStatusAtTime(
+    const status = this.dataSourceManager.getCOOPSService().getTideStatusAtTime(
       tideData.tides,
       targetTime
     );
-    const currentHeight = this.coopsService.getTideHeightAtTime(
+    const currentHeight = this.dataSourceManager.getCOOPSService().getTideHeightAtTime(
       tideData.tides,
       targetTime
     );
-    const nextTide = this.coopsService.getNextTideFromTime(
+    const nextTide = this.dataSourceManager.getCOOPSService().getNextTideFromTime(
       tideData.tides,
       targetTime
     );
@@ -1151,43 +919,7 @@ export class EnhancedForecastService {
     return closest;
   }
 
-  /**
-   * Calculate confidence score based on data availability
-   */
-  private calculateConfidenceScore({
-    hasWaveData,
-    hasTideData,
-    hasWeatherData,
-    hasBuoyData,
-    hasCDIPData,
-    forecastHoursAhead,
-  }: {
-    hasWaveData: boolean;
-    hasTideData: boolean;
-    hasWeatherData: boolean;
-    hasBuoyData: boolean;
-    hasCDIPData?: boolean;
-    forecastHoursAhead: number;
-  }): number {
-    let score = 50; // Base score
-
-    // Data availability bonuses - CDIP gets highest bonus for quality
-    if (hasCDIPData) score += 25; // Premium for high-quality CDIP buoy data
-    else if (hasWaveData) score += 20; // Standard wave model data
-
-    if (hasTideData) score += 15;
-    if (hasWeatherData) score += 10;
-    if (hasBuoyData) score += 15;
-
-    // Time penalty (forecasts get less reliable over time)
-    // CDIP data is real-time so less time penalty for recent forecasts
-    const timePenalty = hasCDIPData
-      ? Math.min(20, forecastHoursAhead * 0.3) // Reduced penalty for CDIP data
-      : Math.min(30, forecastHoursAhead * 0.5);
-    score -= timePenalty;
-
-    return Math.max(0, Math.min(100, Math.round(score)));
-  }
+  // calculateConfidenceScore moved to lib/services/forecast/confidence-scorer.ts
 
   /**
    * Helper functions
@@ -1306,7 +1038,7 @@ export class EnhancedForecastService {
       };
 
       const parseDirection = (str: string | null): number => {
-        return this.cardinalToDegrees(str) ?? 0;
+        return cardinalToDegrees(str) ?? 0;
       };
 
       // Create automated forecast data object
@@ -1359,8 +1091,21 @@ export class EnhancedForecastService {
 
   /**
    * Store enhanced forecasts in database
+   * Delegates to ForecastStorageService
    */
   async storeEnhancedForecasts(
+    beach: Beach,
+    forecasts: EnhancedForecastEntity[]
+  ) {
+    return this.storageService.storeEnhancedForecasts(beach, forecasts);
+  }
+
+  /**
+   * Legacy implementation - replaced by ForecastStorageService
+   * Kept for reference, will be removed after verification
+   * @deprecated
+   */
+  private async _legacyStoreEnhancedForecasts(
     beach: Beach,
     forecasts: EnhancedForecastEntity[]
   ) {
@@ -1787,7 +1532,7 @@ export class EnhancedForecastService {
     // Get unique station IDs for all beaches
     const stationIds = new Set<string>();
     for (const beach of beaches) {
-      const stationId = this.coopsService.getStationForLocation(
+      const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
         beach.name,
         beach.lat ?? 0,
         beach.lon ?? 0
@@ -1806,7 +1551,7 @@ export class EnhancedForecastService {
       const batch = uniqueStations.slice(i, i + STATION_BATCH_SIZE);
       await Promise.allSettled(
         batch.map((stationId) =>
-          this.coopsService.fetchCOOPSData(stationId, FORECAST_CONSTANTS.DAYS)
+          this.dataSourceManager.getCOOPSService().fetchCOOPSData(stationId, FORECAST_CONSTANTS.DAYS)
         )
       );
       // Small delay between station batches

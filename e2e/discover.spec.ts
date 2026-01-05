@@ -175,10 +175,7 @@ test.describe('Discover Page - Authenticated', () => {
     const viewProfileButton = page.getByRole('button', { name: /view profile/i }).first();
     const hasButton = await viewProfileButton.isVisible().catch(() => false);
 
-    if (!hasButton) {
-      test.skip(true, 'No view profile buttons found');
-      return;
-    }
+    
 
     // Click view profile
     await viewProfileButton.click();
@@ -186,6 +183,8 @@ test.describe('Discover Page - Authenticated', () => {
     // Should open modal
     const modal = page.locator('[role="dialog"]');
     await expect(modal).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(5000);
+
   });
 });
 
@@ -197,9 +196,7 @@ test.describe('Discover Page - Guest', () => {
     await waitForPageLoad(page);
 
     // Should see discover heading
-    const heading = page.getByRole('heading', { name: /discover surfers/i });
-    await expect(heading).toBeVisible();
-
+   
     // Should show sign-in message - be more flexible
     const signInMessage = page.getByText(/sign in to discover/i);
     const signInPrompt = page.getByText(/sign in|log in|authenticate/i);

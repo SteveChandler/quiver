@@ -1,72 +1,83 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
 import type { Board } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import {
+  withAuth,
   createSuccessResponse,
-  createAuthError,
-  handleApiError,
   methodNotAllowed,
-} from "@/lib/api-utils";
+  validateOrError,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
+import { parseAndValidateJson } from "@/lib/validation/middleware";
+import { BoardCreateSchema } from "@/lib/validation/schemas";
 
-export async function GET() {
-  try {
-    const supabase = await createSupabaseServerClient();
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return createAuthError("Authentication required");
-    }
-
+/**
+ * GET /api/boards - List user's boards
+ */
+export const GET = withAuth(
+  async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { data, error } = await supabase
       .from("boards")
       .select("*")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false });
 
-    if (error) {
-      return handleApiError(error, "Database error loading boards");
-    }
+    if (error) throw error;
 
-    return createSuccessResponse({ boards: (data || []) as Board[] });
-  } catch (error) {
-    return handleApiError(error, "Error loading boards");
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const supabase = await createSupabaseServerClient();
-
-    // Get the current user from the authenticated session
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error("❌ API Route: Authentication error:", userError);
-      return createAuthError("Authentication required");
-    }
-
-    // Validate required fields
-    if (!body.name || typeof body.name !== "string" || body.name.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Board name is required" },
-        { status: 400, headers: { "Content-Type": "application/json" } }
+    // Defensive: older data may contain empty/whitespace-only required strings.
+    // The API contract treats these as invalid, so filter them out on read.
+    const boards = ((data || []) as Board[])
+      .map((b) => ({
+        ...b,
+        name: typeof b.name === "string" ? b.name.trim() : b.name,
+        board_type: typeof (b as any).board_type === "string" ? (b as any).board_type.trim() : (b as any).board_type,
+        dimensions: typeof (b as any).dimensions === "string" ? (b as any).dimensions.trim() : (b as any).dimensions,
+      }))
+      .filter(
+        (b) =>
+          typeof b.name === "string" &&
+          b.name.length > 0 &&
+          typeof (b as any).board_type === "string" &&
+          (b as any).board_type.length > 0 &&
+          typeof (b as any).dimensions === "string" &&
+          (b as any).dimensions.length > 0
       );
+
+    return createSuccessResponse({ boards });
+  },
+  { errorMessage: "Error loading boards" }
+);
+
+/**
+ * POST /api/boards - Create a new board
+ */
+export const POST = withAuth(
+  async (request: NextRequest, { user, supabase }: AuthenticatedContext) => {
+    // Validate Content-Type and parse JSON
+    const parseResult = await parseAndValidateJson(request);
+    if ("error" in parseResult) {
+      return parseResult.error;
     }
+
+    // Validate and normalize request payload
+    const validationResult = validateOrError(BoardCreateSchema, parseResult.data);
+    if ("error" in validationResult) {
+      return validationResult.error;
+    }
+
+    const { name, board_type, dimensions, description, image_url, size, volume } =
+      validationResult.data;
 
     // Prepare the data to insert
     const insertData = {
       user_id: user.id,
-      ...body,
-      name: body.name.trim(),
+      name,
+      board_type,
+      dimensions,
+      description,
+      image_url,
+      size,
+      volume,
       session_count: 0,
     };
 
@@ -76,20 +87,15 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      console.error("💥 API Route: Database error:", error);
-      return handleApiError(error, "Database error creating board");
-    }
+    if (error) throw error;
 
     // Revalidate the profile page
     revalidatePath("/profile");
 
     return createSuccessResponse(data as Board, 201);
-  } catch (error) {
-    console.error("API Route: Error creating board:", error);
-    return handleApiError(error, "Error creating board");
-  }
-}
+  },
+  { errorMessage: "Error creating board" }
+);
 
 export function PUT() {
   return methodNotAllowed(["GET", "POST"]);

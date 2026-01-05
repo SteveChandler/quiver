@@ -3,6 +3,7 @@
 import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { hasUTMParams, getAttributionForAnalytics } from '@/lib/attribution'
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL"
@@ -85,6 +86,9 @@ export function AnalyticsLoader() {
   
   return (
     <>
+      {/* Vercel Web Analytics (page views + basic metrics) */}
+      <Analytics />
+
       {/* Google Analytics (GA4) - Load on ALL pages for attribution */}
       <Script
         id="ga-script"

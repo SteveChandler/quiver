@@ -1,18 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
-import {
-  createAuthError,
-  createSuccessResponse,
-  createValidationError,
-  DEFAULT_SECURITY_HEADERS,
-  handleApiError,
-  isValidUuid,
-  methodNotAllowed,
-  validateOrError,
-} from "@/lib/api-utils";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addFeaturedPhotoToSession } from "@/actions/session-actions";
+import {
+  withAuth,
+  validateUuidParam,
+  requireOwnership,
+  createSuccessResponse,
+  validateOrError,
+  methodNotAllowed,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
 const SessionUpdateSchema = z.object({
   notes: z.string().max(5000).optional(),
@@ -20,56 +18,28 @@ const SessionUpdateSchema = z.object({
   rating: z.number().int().min(0).max(5).optional(),
 });
 
-async function requireOwnedSession(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, sessionId: string, userId: string) {
-  const { data: existing, error: existingError } = await supabase
-    .from("sessions")
-    .select("id, user_id")
-    .eq("id", sessionId)
-    .single();
+/**
+ * PATCH /api/sessions/[id] - Update a session
+ */
+export const PATCH = withAuth(
+  async (request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    // Validate UUID
+    const uuidResult = validateUuidParam(params.id, "session");
+    if ("error" in uuidResult) return uuidResult.error;
+    const sessionId = uuidResult.value;
 
-  if (existingError) {
-    if (existingError.code === "PGRST116") {
-      return { error: NextResponse.json({ success: false, error: "Session not found", timestamp: new Date().toISOString() }, { status: 404, headers: DEFAULT_SECURITY_HEADERS }) };
-    }
-    throw existingError;
-  }
-
-  if (!existing || existing.user_id !== userId) {
-    return { error: NextResponse.json({ success: false, error: "Forbidden", timestamp: new Date().toISOString() }, { status: 403, headers: DEFAULT_SECURITY_HEADERS }) };
-  }
-
-  return { ok: true as const };
-}
-
-export async function PATCH(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: sessionId } = context.params;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return createValidationError("Invalid session id format");
-    }
-
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return createAuthError();
-    }
-
+    // Parse and validate request body
     const parseResult = await parseAndValidateJson(request);
     if ("error" in parseResult) return parseResult.error;
 
     const validation = validateOrError(SessionUpdateSchema, parseResult.data);
     if ("error" in validation) return validation.error;
 
-    const ownership = await requireOwnedSession(supabase, sessionId, user.id);
+    // Check ownership
+    const ownership = await requireOwnership(supabase, "sessions", sessionId, user.id, "Session");
     if ("error" in ownership) return ownership.error;
 
+    // Build update payload
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -88,32 +58,22 @@ export async function PATCH(
     if (updateError) throw updateError;
 
     return createSuccessResponse({ session: updated });
-  } catch (error) {
-    return handleApiError(error, "Failed to update session");
-  }
-}
+  },
+  { errorMessage: "Failed to update session" }
+);
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: sessionId } = context.params;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return createValidationError("Invalid session id format");
-    }
+/**
+ * GET /api/sessions/[id] - Get a session by ID
+ */
+export const GET = withAuth(
+  async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    // Validate UUID
+    const uuidResult = validateUuidParam(params.id, "session");
+    if ("error" in uuidResult) return uuidResult.error;
+    const sessionId = uuidResult.value;
 
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return createAuthError();
-    }
-
-    const ownership = await requireOwnedSession(supabase, sessionId, user.id);
+    // Check ownership
+    const ownership = await requireOwnership(supabase, "sessions", sessionId, user.id, "Session");
     if ("error" in ownership) return ownership.error;
 
     const { data, error } = await supabase
@@ -135,10 +95,9 @@ export async function GET(
 
     const enriched = await addFeaturedPhotoToSession(supabase, data);
     return createSuccessResponse({ session: enriched ?? data });
-  } catch (error) {
-    return handleApiError(error, "Failed to load session");
-  }
-}
+  },
+  { errorMessage: "Failed to load session" }
+);
 
 export function POST() {
   return methodNotAllowed(["GET", "PATCH", "DELETE"]);
@@ -148,27 +107,18 @@ export function PUT() {
   return methodNotAllowed(["GET", "PATCH", "DELETE"]);
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: sessionId } = context.params;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return createValidationError("Invalid session id format");
-    }
+/**
+ * DELETE /api/sessions/[id] - Delete a session
+ */
+export const DELETE = withAuth(
+  async (_request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    // Validate UUID
+    const uuidResult = validateUuidParam(params.id, "session");
+    if ("error" in uuidResult) return uuidResult.error;
+    const sessionId = uuidResult.value;
 
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return createAuthError();
-    }
-
-    const ownership = await requireOwnedSession(supabase, sessionId, user.id);
+    // Check ownership
+    const ownership = await requireOwnership(supabase, "sessions", sessionId, user.id, "Session");
     if ("error" in ownership) return ownership.error;
 
     const { error } = await supabase
@@ -180,9 +130,8 @@ export async function DELETE(
     if (error) throw error;
 
     return createSuccessResponse({ deleted: true });
-  } catch (error) {
-    return handleApiError(error, "Failed to delete session");
-  }
-}
+  },
+  { errorMessage: "Failed to delete session" }
+);
 
 

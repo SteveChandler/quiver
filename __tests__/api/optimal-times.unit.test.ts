@@ -4,7 +4,7 @@ import {
   scoreForecast,
   analyzeOptimalTimes,
   buildTwoHourBlocks,
-} from "@/app/api/session-planner/optimal-times/route";
+} from "@/lib/session-planner/optimal-times-utils";
 import { computeHourScoreBreakdown, computeHourScore, clamp01 } from '@/lib/surf/scoring';
 import { topMorningWindows, buildTwoHourWindows } from '@/lib/surf/windows';
 

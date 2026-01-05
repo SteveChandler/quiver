@@ -139,8 +139,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
     jest.setSystemTime(new Date("2024-01-15T12:00:00Z"));
 
     service = new EnhancedForecastService();
-    // Get the mocked CDIP service instance that the service uses internally
-    mockCDIPService = (service as any).cdipService;
+    // EnhancedForecastService now delegates CDIP access via ForecastDataSourceManager
+    mockCDIPService = (service as any).dataSourceManager.getCDIPService();
 
     jest.clearAllMocks();
 

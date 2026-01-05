@@ -16,11 +16,6 @@ const mockUseOnboardingStore = useOnboardingStore as unknown as jest.Mock;
 // Mock global fetch for HomeBeachStep and CompletionStep
 global.fetch = jest.fn();
 
-// Mock next/navigation for CompletionStep
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: jest.fn() }),
-}));
-
 // Mock profile context for CompletionStep
 jest.mock("@/context/profile-context", () => ({
   useProfileContext: () => ({ updateProfile: jest.fn() }),

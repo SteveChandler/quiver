@@ -1,32 +1,20 @@
 import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError, createAuthError } from "@/lib/api-utils";
+import { withAuth, createSuccessResponse, validateUuidParam, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 import { toggleSessionLike } from "@/actions/like-actions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function POST(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+export const POST = withAuth(
+  async (_request: NextRequest, { params }: AuthenticatedContext) => {
+    const uuidResult = validateUuidParam(params.id, "session");
+    if ("error" in uuidResult) return uuidResult.error;
 
-    if (error || !user) {
-      return createAuthError();
-    }
-
-    const result = await toggleSessionLike(context.params.id);
+    const result = await toggleSessionLike(uuidResult.value);
     if (!result.success) {
       throw new Error(result.error || "Failed to toggle like");
     }
 
     return createSuccessResponse(result);
-  } catch (error) {
-    return handleApiError(error, "Failed to toggle like");
-  }
-}
+  },
+  { errorMessage: "Failed to toggle like" }
+);
 
 

@@ -7,7 +7,13 @@
  * @project guest - No authentication required (uses coordinates)
  */
 
-import { test, expect, APIRequestContext, APIResponse } from "@playwright/test";
+import {
+  test,
+  expect,
+  APIRequestContext,
+  APIResponse,
+} from "@playwright/test";
+import { createIsolatedApiContext } from "./utils/api-request-helpers";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const ENDPOINT = `${BASE_URL}/api/v1/recommendations`;
@@ -52,13 +58,20 @@ async function fetchWithRateLimitRetry(
 }
 
 test.describe("Recommendations API", () => {
-  // Serial execution prevents rate limiter interference between tests
-  test.describe.configure({ mode: "serial" });
+  let api: APIRequestContext;
+
+  test.beforeEach(async ({ playwright }, testInfo) => {
+    api = await createIsolatedApiContext(playwright, BASE_URL, testInfo);
+  });
+
+  test.afterEach(async () => {
+    await api?.dispose();
+  });
 
   test.describe("Success Cases", () => {
-    test("should return 200 with valid coordinates", async ({ request }) => {
+    test("should return 200 with valid coordinates", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(200);
 
@@ -68,19 +81,18 @@ test.describe("Recommendations API", () => {
       expect(json.timestamp).toBeDefined();
     });
 
-    test("should return recommendations array", async ({ request }) => {
+    test("should return recommendations array", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       expect(Array.isArray(json.data.recommendations)).toBe(true);
     });
 
     test("should return top_picks array with max 3 items", async ({
-      request,
     }) => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       expect(Array.isArray(json.data.top_picks)).toBe(true);
@@ -88,10 +100,9 @@ test.describe("Recommendations API", () => {
     });
 
     test("should include required fields in recommendations", async ({
-      request,
     }) => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       if (json.data.recommendations.length > 0) {
@@ -120,9 +131,9 @@ test.describe("Recommendations API", () => {
       }
     });
 
-    test("should include metadata with query location", async ({ request }) => {
+    test("should include metadata with query location", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       expect(json.data.metadata).toBeDefined();
@@ -135,9 +146,9 @@ test.describe("Recommendations API", () => {
   });
 
   test.describe("Parameter Validation", () => {
-    test("should reject missing lat parameter", async ({ request }) => {
+    test("should reject missing lat parameter", async () => {
       const url = `${ENDPOINT}?lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
       const json = await response.json();
@@ -145,68 +156,68 @@ test.describe("Recommendations API", () => {
       expect(json.error).toBeDefined();
     });
 
-    test("should reject missing lon parameter", async ({ request }) => {
+    test("should reject missing lon parameter", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
       const json = await response.json();
       expect(json.success).toBe(false);
     });
 
-    test("should reject missing both lat and lon", async ({ request }) => {
-      const response = await fetchWithRateLimitRetry(request, ENDPOINT);
+    test("should reject missing both lat and lon", async () => {
+      const response = await fetchWithRateLimitRetry(api, ENDPOINT);
 
       expect(response.status()).toBe(400);
       const json = await response.json();
       expect(json.success).toBe(false);
     });
 
-    test("should reject lat out of range (> 90)", async ({ request }) => {
+    test("should reject lat out of range (> 90)", async () => {
       const url = `${ENDPOINT}?lat=91&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
 
-    test("should reject lat out of range (< -90)", async ({ request }) => {
+    test("should reject lat out of range (< -90)", async () => {
       const url = `${ENDPOINT}?lat=-91&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
 
-    test("should reject lon out of range (> 180)", async ({ request }) => {
+    test("should reject lon out of range (> 180)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=181`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
 
-    test("should reject lon out of range (< -180)", async ({ request }) => {
+    test("should reject lon out of range (< -180)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=-181`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
 
-    test("should reject non-numeric lat", async ({ request }) => {
+    test("should reject non-numeric lat", async () => {
       const url = `${ENDPOINT}?lat=abc&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
 
-    test("should reject non-numeric lon", async ({ request }) => {
+    test("should reject non-numeric lon", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=xyz`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
 
-    test("should reject invalid time format", async ({ request }) => {
+    test("should reject invalid time format", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}&time=invalid-date`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(400);
     });
@@ -214,38 +225,37 @@ test.describe("Recommendations API", () => {
 
   test.describe("Optional Parameters", () => {
     test("should accept time parameter in ISO 8601 format", async ({
-      request,
     }) => {
       const futureTime = new Date(Date.now() + 3600000).toISOString();
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}&time=${encodeURIComponent(futureTime)}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(200);
       const json = await response.json();
       expect(json.data.metadata.query_time).toBe(futureTime);
     });
 
-    test("should accept skill parameter (beginner)", async ({ request }) => {
+    test("should accept skill parameter (beginner)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}&skill=beginner`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(200);
       const json = await response.json();
       expect(json.data.metadata.user_skill).toBe("beginner");
     });
 
-    test("should accept skill parameter (intermediate)", async ({ request }) => {
+    test("should accept skill parameter (intermediate)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}&skill=intermediate`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(200);
       const json = await response.json();
       expect(json.data.metadata.user_skill).toBe("intermediate");
     });
 
-    test("should accept skill parameter (advanced)", async ({ request }) => {
+    test("should accept skill parameter (advanced)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}&skill=advanced`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       expect(response.status()).toBe(200);
       const json = await response.json();
@@ -254,18 +264,18 @@ test.describe("Recommendations API", () => {
   });
 
   test.describe("Response Headers", () => {
-    test("should include security headers", async ({ request }) => {
+    test("should include security headers", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       const headers = response.headers();
       expect(headers["x-content-type-options"]).toBe("nosniff");
       expect(headers["x-frame-options"]).toBe("DENY");
     });
 
-    test("should include rate limit headers on success", async ({ request }) => {
+    test("should include rate limit headers on success", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       if (response.status() === 200) {
         const headers = response.headers();
@@ -276,9 +286,9 @@ test.describe("Recommendations API", () => {
   });
 
   test.describe("Data Quality", () => {
-    test("should have valid UUID spotIds", async ({ request }) => {
+    test("should have valid UUID spotIds", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       json.data.recommendations.forEach((rec: { spotId: string }) => {
@@ -286,9 +296,9 @@ test.describe("Recommendations API", () => {
       });
     });
 
-    test("should not have duplicate spotIds", async ({ request }) => {
+    test("should not have duplicate spotIds", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       const ids = json.data.recommendations.map(
@@ -299,9 +309,9 @@ test.describe("Recommendations API", () => {
       expect(ids.length).toBe(uniqueIds.size);
     });
 
-    test("should have non-negative scores", async ({ request }) => {
+    test("should have non-negative scores", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       json.data.recommendations.forEach((rec: { score: number }) => {
@@ -310,10 +320,9 @@ test.describe("Recommendations API", () => {
     });
 
     test("top_picks should have snapshots with quality indicators", async ({
-      request,
     }) => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
       const json = await response.json();
 
       json.data.top_picks.forEach(
@@ -339,10 +348,10 @@ test.describe("Recommendations API", () => {
   });
 
   test.describe("Performance", () => {
-    test("should respond in < 2000ms", async ({ request }) => {
+    test("should respond in < 2000ms", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
       // Use retry helper to handle rate limiting, then measure from successful response
-      const response = await fetchWithRateLimitRetry(request, url);
+      const response = await fetchWithRateLimitRetry(api, url);
 
       // Verify we got a successful response (not still rate limited)
       expect(response.status()).toBe(200);
@@ -355,12 +364,12 @@ test.describe("Recommendations API", () => {
 
   // Rate limiting tests at END - they intentionally trigger 429s
   test.describe("Rate Limiting", () => {
-    test("should rate limit after burst", async ({ request }) => {
+    test("should rate limit after burst", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
 
       const results: number[] = [];
       for (let i = 0; i < 10; i++) {
-        const response = await request.get(url);
+        const response = await api.get(url);
         results.push(response.status());
       }
 
@@ -370,13 +379,12 @@ test.describe("Recommendations API", () => {
     });
 
     test("429 response should include Retry-After header", async ({
-      request,
     }) => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
 
       let response429;
       for (let i = 0; i < 15; i++) {
-        const response = await request.get(url);
+        const response = await api.get(url);
         if (response.status() === 429) {
           response429 = response;
           break;

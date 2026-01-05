@@ -160,7 +160,9 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
 
   describe("Transparency Controls", () => {
     it("should allow toggling transparency display", async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({
+        advanceTimers: jest.advanceTimersByTime,
+      });
 
       render(
         <BeachesEnhancedForecastWithTransparency
@@ -179,16 +181,15 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
 
       // Should be able to hide transparency
       await user.click(toggleButton);
-
-      await waitFor(() => {
-        expect(
-          screen.queryByTestId("forecast-transparency-indicator")
-        ).not.toBeInTheDocument();
-      });
+      expect(
+        screen.queryByTestId("forecast-transparency-indicator")
+      ).not.toBeInTheDocument();
     });
 
     it("should allow expanding detailed transparency information", async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({
+        advanceTimers: jest.advanceTimersByTime,
+      });
 
       render(
         <BeachesEnhancedForecastWithTransparency
@@ -258,7 +259,7 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
       );
 
       // Should show existing forecast features
-      expect(screen.getByText("Enhanced Forecast")).toBeInTheDocument();
+      expect(screen.getByText(/Enhanced Forecast/)).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /Refresh/ })
       ).toBeInTheDocument();
@@ -287,8 +288,6 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
     });
 
     it("should integrate with forecast refresh functionality", async () => {
-      const user = userEvent.setup();
-
       render(
         <BeachesEnhancedForecastWithTransparency
           beachId="beach-1"
@@ -298,7 +297,8 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
       );
 
       const refreshButton = screen.getByRole("button", { name: /Refresh/ });
-      await user.click(refreshButton);
+      // Avoid userEvent + fake timers interactions; refresh is a simple click handler.
+      refreshButton.click();
 
       // Should trigger refresh with transparency data
       expect(mockEnhancedForecastData.handleRefresh).toHaveBeenCalled();

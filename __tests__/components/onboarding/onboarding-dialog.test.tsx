@@ -93,7 +93,12 @@ describe("OnboardingDialog Logic", () => {
   });
 
   it("does not open dialog if dismissed for current user", () => {
-    localStorage.setItem("onboarding_dismissed_user-123", "true");
+    // OnboardingDialog uses a TTL-based dismissal key:
+    // `onboarding_dismissed_until_${userId}` stores a future timestamp (ms).
+    localStorage.setItem(
+      "onboarding_dismissed_until_user-123",
+      String(Date.now() + 24 * 60 * 60 * 1000)
+    );
 
     jest.useFakeTimers();
     render(<OnboardingDialog />);
@@ -107,7 +112,10 @@ describe("OnboardingDialog Logic", () => {
   });
 
   it("opens dialog if dismissed for different user", () => {
-    localStorage.setItem("onboarding_dismissed_other-user", "true");
+    localStorage.setItem(
+      "onboarding_dismissed_until_other-user",
+      String(Date.now() + 24 * 60 * 60 * 1000)
+    );
 
     jest.useFakeTimers();
     render(<OnboardingDialog />);

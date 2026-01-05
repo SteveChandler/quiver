@@ -24,7 +24,7 @@ describe("ConfidenceScoreExplanation", () => {
 
       // Should have high confidence styling
       const scoreDisplay = screen.getByTestId("confidence-score");
-      expect(scoreDisplay).toHaveClass("text-green-600", "bg-green-50");
+      expect(scoreDisplay).toHaveClass("bg-green-100", "text-green-700");
     });
 
     it("should display medium confidence score with caution styling", () => {
@@ -45,7 +45,7 @@ describe("ConfidenceScoreExplanation", () => {
 
       // Should have medium confidence styling
       const scoreDisplay = screen.getByTestId("confidence-score");
-      expect(scoreDisplay).toHaveClass("text-yellow-600", "bg-yellow-50");
+      expect(scoreDisplay).toHaveClass("bg-yellow-100", "text-yellow-700");
     });
 
     it("should display low confidence score with warning styling", () => {
@@ -66,7 +66,7 @@ describe("ConfidenceScoreExplanation", () => {
 
       // Should have low confidence warning styling
       const scoreDisplay = screen.getByTestId("confidence-score");
-      expect(scoreDisplay).toHaveClass("text-red-600", "bg-red-50");
+      expect(scoreDisplay).toHaveClass("bg-red-100", "text-red-700");
     });
   });
 

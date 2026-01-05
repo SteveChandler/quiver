@@ -1,22 +1,13 @@
 import { NextRequest } from "next/server";
-import {
-  createAuthError,
-  createSuccessResponse,
-  handleApiError,
-  methodNotAllowed,
-} from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
+import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 
-export async function GET(_request: NextRequest) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) return createAuthError();
-
+/**
+ * GET /api/gamification/badge-definitions - Get all available badge definitions
+ */
+export const GET = withAuth(
+  async (_request: NextRequest, { supabase }: { supabase: SupabaseClient<Database> }) => {
     const { data, error } = await supabase
       .from("badge_definitions")
       .select("*")
@@ -26,26 +17,11 @@ export async function GET(_request: NextRequest) {
     if (error) throw error;
 
     return createSuccessResponse({ badges: data || [] });
-  } catch (error) {
-    return handleApiError(error, "Failed to load badge definitions");
-  }
-}
+  },
+  { errorMessage: "Failed to load badge definitions" }
+);
 
-export function POST() {
-  return methodNotAllowed(["GET"]);
-}
 
-export function PUT() {
-  return methodNotAllowed(["GET"]);
-}
-
-export function PATCH() {
-  return methodNotAllowed(["GET"]);
-}
-
-export function DELETE() {
-  return methodNotAllowed(["GET"]);
-}
 
 
 

@@ -41,7 +41,7 @@ yarn test:e2e
 ### Prerequisites
 
 - Node.js 20.18+ installed
-- Local Supabase instance running (for local testing)
+- Access to the Supabase environment configured in `.env.playwright` (localhost runs may still point at prod DB)
 - Valid test user credentials
 
 ### Initial Configuration
@@ -61,11 +61,9 @@ yarn test:e2e
 
 3. **Verify Test User Exists**
 
-   For local testing, ensure the test user exists in your local Supabase instance:
+   Ensure the test user exists in the Supabase environment configured by `.env.playwright`:
    ```bash
-   # Check if user exists (should return 1)
-   PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
-     -c "SELECT email FROM auth.users WHERE email = 'your-test-user@example.com';"
+   # Tip: try logging in locally with the credentials from `.env.playwright`
    ```
 
 4. **Generate Authentication State**
@@ -143,7 +141,8 @@ yarn test:e2e:dev:headed
 
 ### Configuration Files
 
-- **`.env.playwright`** - Your local test configuration (gitignored)
+- **`.env.playwright`** - Shared/default Playwright settings
+- **`.env.playwright.local`** - Developer-local overrides (recommended for localhost-only toggles)
 - **`.env.playwright.example`** - Template for new developers
 - **`.env`** - Main application environment variables (fallback)
 
@@ -151,17 +150,17 @@ yarn test:e2e:dev:headed
 
 #### Local Testing (Default)
 
-Edit `.env.playwright`:
+Prefer editing `.env.playwright.local` for localhost-only toggles:
 ```bash
 TEST_ENV=local
 BASE_URL=http://localhost:3000
-TEST_USER_EMAIL=your-local-test-user@example.com
-TEST_USER_PASSWORD=your-password
 ```
+
+Keep Supabase + test user credentials in `.env.playwright` (so localhost can point at the prod DB with the same test user).
 
 #### Dev Environment Testing
 
-Edit `.env.playwright`:
+Edit `.env.playwright` (or set `BASE_URL=...` on the command line):
 ```bash
 TEST_ENV=dev
 BASE_URL=https://dev.quiversurf.app

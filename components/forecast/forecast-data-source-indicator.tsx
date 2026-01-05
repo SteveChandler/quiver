@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Wifi, WifiOff, Info, AlertTriangle, Clock, Loader2 } from "lucide-react";
 import { BuoyStationLink } from "./buoy-station-link";
 import type { ForecastDataState } from "@/types/forecast-states";
+import { getConfidenceInfo } from "@/lib/utils/forecast-freshness";
 
 interface DataQuality {
   cdip?: number;
@@ -74,14 +75,8 @@ export function ForecastDataSourceIndicator({
 }: ForecastDataSourceIndicatorProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
 
-  // Determine confidence level and styling
-  const getConfidenceLevel = (score: number) => {
-    if (score >= 75) return { level: "high", color: "green" };
-    if (score >= 50) return { level: "medium", color: "yellow" };
-    return { level: "low", color: "red" };
-  };
-
-  const { level: confidenceLevel, color } = getConfidenceLevel(confidenceScore);
+  // Determine confidence level and styling using shared utility
+  const { level: confidenceLevel, color } = getConfidenceInfo(confidenceScore);
 
   // Get data source display info
   const getDataSourceInfo = (source: string) => {

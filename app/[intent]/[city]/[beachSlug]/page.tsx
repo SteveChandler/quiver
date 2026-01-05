@@ -1,4 +1,3 @@
-import { getBeachBySlug } from "@/actions/beach/beach-query-actions";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -14,6 +13,7 @@ import {
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
 import { notFound } from "next/navigation";
+import type { Beach } from "@/types/database";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -27,6 +27,58 @@ interface PageProps {
     city: string;
     beachSlug: string;
   };
+}
+
+function isNextRouterSignal(error: unknown) {
+  if (!error || typeof error !== "object" || !("digest" in error)) return false;
+  const digest = (error as { digest?: unknown }).digest;
+  return (
+    digest === "NEXT_NOT_FOUND" ||
+    (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
+  );
+}
+
+function pickBestUsaBeachMatch(params: {
+  stateParam: string;
+  cityParam: string;
+  beaches: Beach[];
+}): Beach | null {
+  const { stateParam, cityParam, beaches } = params;
+
+  if (!Array.isArray(beaches) || beaches.length === 0) return null;
+
+  const stateLower = stateParam.toLowerCase();
+  const cityLower = cityParam.toLowerCase();
+
+  const withStateMatch = beaches.filter(
+    (b) => stateToSlug(b.state)?.toLowerCase() === stateLower
+  );
+
+  const statePool = withStateMatch.length > 0 ? withStateMatch : beaches;
+
+  const withCityMatch = statePool.filter(
+    (b) => cityToSlug(b.city)?.toLowerCase() === cityLower
+  );
+
+  const pool = withCityMatch.length > 0 ? withCityMatch : statePool;
+
+  const sorted = [...pool].sort((a, b) => {
+    const aHasCoords = Number(Boolean(a.lat && a.lon));
+    const bHasCoords = Number(Boolean(b.lat && b.lon));
+    if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
+
+    const aReviews = a.review_count ?? 0;
+    const bReviews = b.review_count ?? 0;
+    if (aReviews !== bReviews) return bReviews - aReviews;
+
+    const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
+    const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
+    if (aCreated !== bCreated) return bCreated - aCreated;
+
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  return sorted[0] ?? null;
 }
 
 /**
@@ -53,14 +105,19 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
   }
 
   try {
-    // Fetch beach data by slug
-    const result = await getBeachBySlug(beachSlug);
+    // Fetch candidate beach rows by slug; disambiguate by state+city from URL
+    const { getBeachesBySlug } = await import(
+      "@/actions/beach/beach-query-actions"
+    );
+    const candidatesResult = await getBeachesBySlug(beachSlug);
 
-    if (!result.success || !result.data) {
-      notFound();
-    }
+    const beach = pickBestUsaBeachMatch({
+      stateParam,
+      cityParam: city,
+      beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
+    });
 
-    const beach = result.data;
+    if (!beach) notFound();
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -143,6 +200,9 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
       </>
     );
   } catch (error) {
+    // Ensure Next.js router signals are not swallowed by this page-level try/catch.
+    if (isNextRouterSignal(error)) throw error;
+
     console.error("[GenericBeachDetailPage] Error rendering beach page:", {
       params,
       // Avoid logging full error objects in case of sensitive details
@@ -167,11 +227,17 @@ export async function generateMetadata({
   }
 
   try {
-    // Try to resolve beach by slug
-    const result = await getBeachBySlug(beachSlug);
+    const { getBeachesBySlug } = await import(
+      "@/actions/beach/beach-query-actions"
+    );
+    const candidatesResult = await getBeachesBySlug(beachSlug);
+    const beach = pickBestUsaBeachMatch({
+      stateParam,
+      cityParam: params.city,
+      beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
+    });
 
-    if (result.success && result.data) {
-      const beach = result.data;
+    if (beach) {
 
       // Format review count for title
       const reviewCount = beach.review_count ?? 0;

@@ -1,9 +1,11 @@
 import { config as dotenvConfig } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "fs";
 
 /**
  * Env precedence for Playwright runs:
  * - CLI / OS env (highest)
+ * - `.env.playwright.local`
  * - `.env.playwright`
  * - `.env` (lowest)
  *
@@ -18,6 +20,11 @@ dotenvConfig();
 
 // Load `.env.playwright` next (overrides `.env`, but NOT CLI/OS env)
 dotenvConfig({ path: ".env.playwright", override: true });
+
+// Load `.env.playwright.local` last (developer override, but NOT CLI/OS env)
+if (existsSync(".env.playwright.local")) {
+  dotenvConfig({ path: ".env.playwright.local", override: true });
+}
 
 // Restore any pre-existing env (CLI/OS) values
 for (const [key, value] of lockedEnv.entries()) {
@@ -88,7 +95,8 @@ export default defineConfig({
   webServer: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
     ? {
         command: "npm run dev",
-        url: process.env.BASE_URL || "http://localhost:3000",
+        // Use a deterministic health endpoint for readiness checks (homepage can legitimately error in dev)
+        url: `${process.env.BASE_URL || "http://localhost:3000"}/api/health`,
         reuseExistingServer: true,
         timeout: 120_000,
       }

@@ -1,22 +1,16 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import {
-  createAuthError,
+  withAuth,
   createSuccessResponse,
-  handleApiError,
   methodNotAllowed,
-} from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+  type AuthenticatedHandler,
+} from "@/lib/middleware/api-wrappers";
 
-export async function GET(_request: NextRequest) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) return createAuthError();
-
+/**
+ * GET /api/gamification/user-badges - Get current user's unlocked badges
+ */
+export const GET = withAuth(
+  (async (_request: NextRequest, { user, supabase }) => {
     const { data, error } = await supabase
       .from("user_badges")
       .select(
@@ -39,10 +33,9 @@ export async function GET(_request: NextRequest) {
     if (error) throw error;
 
     return createSuccessResponse({ badges: data || [] });
-  } catch (error) {
-    return handleApiError(error, "Failed to load user badges");
-  }
-}
+  }) as AuthenticatedHandler,
+  { errorMessage: "Failed to load user badges" }
+);
 
 export function POST() {
   return methodNotAllowed(["GET"]);
@@ -59,6 +52,8 @@ export function PATCH() {
 export function DELETE() {
   return methodNotAllowed(["GET"]);
 }
+
+
 
 
 

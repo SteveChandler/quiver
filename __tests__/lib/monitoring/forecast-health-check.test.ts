@@ -121,12 +121,18 @@ describe('Forecast Health Check', () => {
     const metrics = await checkForecastHealth();
 
     expect(metrics.totalBeaches).toBe(3);
+    expect(metrics.enhancedAvailable).toBe(true);
     expect(metrics.beachesWithForecasts).toBe(3);
     expect(metrics.coveragePercentage).toBe(1);
     expect(metrics.beachesWithStaleData).toBe(2);
     expect(metrics.beachesWithCriticalStaleData).toBe(1);
     expect(metrics.beachesWithWarningStaleData).toBe(1);
     expect(metrics.healthStatus).toBe('critical');
+
+    expect(metrics.sources.enhanced.available).toBe(true);
+    expect(metrics.sources.marine.available).toBe(true);
+    expect(metrics.sources.tide.available).toBe(true);
+    expect(metrics.sources.sun.available).toBe(true);
 
     expect(metrics.sources.enhanced.beachesWithStaleData).toBe(2);
     expect(metrics.sources.marine.coveragePercentage).toBe(1);
@@ -187,9 +193,54 @@ describe('Forecast Health Check', () => {
     const metrics = await checkForecastHealth();
 
     // Enhanced is healthy, so overall should be degraded (not critical) even though marine/tide are critical.
+    expect(metrics.enhancedAvailable).toBe(true);
     expect(metrics.sources.enhanced.beachesWithCriticalStaleData).toBe(0);
     expect(metrics.sources.marine.beachesWithCriticalStaleData).toBe(3);
     expect(metrics.sources.tide.beachesWithCriticalStaleData).toBe(3);
     expect(metrics.healthStatus).toBe('degraded');
+  });
+
+  it('preserves beach count and reports enhanced as unavailable when latest enhanced view query fails', async () => {
+    const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
+
+    enhancedLatestMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'canceling statement due to statement timeout' },
+    });
+
+    // Secondary sources still load (helps debugging even when enhanced fails)
+    marineLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', created_at: nowIso, ts: nowIso, source: 'ndbc', is_observed: true },
+        { beach_id: 'beach-2', created_at: nowIso, ts: nowIso, source: 'cdip', is_observed: true },
+        { beach_id: 'beach-3', created_at: nowIso, ts: nowIso, source: 'cdip_persistence', is_observed: false },
+      ],
+      error: null,
+    });
+
+    tideLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', created_at: nowIso, ts: nowIso, source: 'noaa' },
+        { beach_id: 'beach-2', created_at: nowIso, ts: nowIso, source: 'noaa' },
+        { beach_id: 'beach-3', created_at: nowIso, ts: nowIso, source: 'noaa' },
+      ],
+      error: null,
+    });
+
+    sunLatestMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+        { beach_id: 'beach-2', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+        { beach_id: 'beach-3', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+      ],
+      error: null,
+    });
+
+    const metrics = await checkForecastHealth();
+
+    expect(metrics.totalBeaches).toBe(3);
+    expect(metrics.enhancedAvailable).toBe(false);
+    expect(metrics.healthStatus).toBe('critical');
+    expect(metrics.issues.join(' | ')).toContain('statement timeout');
   });
 });

@@ -75,7 +75,8 @@ export function getStalenessDetails(
  * Fetch forecast from cache with staleness awareness
  *
  * CACHE-ONLY: Never calls external APIs or generates fresh forecasts.
- * Returns cached data even if stale, with clear staleness metadata.
+ * Never returns stale forecast rows. If cached data is stale, returns an empty
+ * forecast array with staleness metadata so callers can fail/degrade safely.
  *
  * This is the single source of truth for cache-backed forecast access.
  * Background jobs (cron, manual updateAllBeachForecasts) are responsible
@@ -127,15 +128,15 @@ export async function getFreshForecastFromCache(
 
     if (stalenessDetails.isStale) {
       console.warn(
-        `⚠️ [getFreshForecastFromCache] Cached data for beach ${beachId} is STALE (${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessDetails.threshold}h) - returning with warning (${duration}ms)`
+        `⚠️ [getFreshForecastFromCache] Cached data for beach ${beachId} is STALE (${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessDetails.threshold}h) - NOT returning stale rows (${duration}ms)`
       );
       return {
-        forecasts: result.forecasts,
+        forecasts: [],
         metadata: {
           cached: true,
           stale: true,
           missing: false,
-          reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - waiting for background refresh`,
+          reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - refusing to serve stale cache (waiting for background refresh)`,
           stalenessDetails,
         },
       };

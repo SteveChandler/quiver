@@ -1,27 +1,21 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import {
+  withAuth,
+  validateUuidParam,
   createSuccessResponse,
-  handleApiError,
-  createAuthError,
-  createValidationError,
   methodNotAllowed,
-  isValidUuid,
   validateOrError,
-} from "@/lib/api-utils";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { CommentSchema } from "@/lib/validation/schemas";
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: sessionId } = context.params;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return createValidationError("Invalid session id format");
-    }
-    const supabase = await createSupabaseServerClient();
+export const GET = withAuth(
+  async (_request: NextRequest, { supabase, params }: AuthenticatedContext) => {
+    const sessionResult = validateUuidParam(params.id, "session");
+    if ("error" in sessionResult) return sessionResult.error;
+
+    const sessionId = sessionResult.value;
 
     const { data, error } = await supabase
       .from("comments")
@@ -37,29 +31,16 @@ export async function GET(
     if (error) throw error;
 
     return createSuccessResponse({ comments: data || [] });
-  } catch (error) {
-    return handleApiError(error, "Failed to load comments");
-  }
-}
+  },
+  { optional: true, errorMessage: "Failed to load comments" }
+);
 
-export async function POST(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
-  try {
-    const { id: sessionId } = context.params;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return createValidationError("Invalid session id format");
-    }
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+export const POST = withAuth(
+  async (request: NextRequest, { user, supabase, params }: AuthenticatedContext) => {
+    const sessionResult = validateUuidParam(params.id, "session");
+    if ("error" in sessionResult) return sessionResult.error;
 
-    if (error || !user) {
-      return createAuthError();
-    }
+    const sessionId = sessionResult.value;
 
     // Validate Content-Type and parse JSON
     const parseResult = await parseAndValidateJson(request);
@@ -87,10 +68,9 @@ export async function POST(
     if (insertError) throw insertError;
 
     return createSuccessResponse({ message: "Comment created successfully" });
-  } catch (error) {
-    return handleApiError(error, "Failed to create comment");
-  }
-}
+  },
+  { errorMessage: "Failed to create comment" }
+);
 
 export function DELETE() {
   return methodNotAllowed(["GET", "POST"]);

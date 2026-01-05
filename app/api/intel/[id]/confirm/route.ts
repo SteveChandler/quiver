@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import type { NextRequest } from "next/server";
+import {
+  withAuth,
+  createSuccessResponse,
+  validateUuidParam,
+  createValidationError,
+  createNotFoundError,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
 
@@ -11,40 +17,16 @@ export const dynamic = "force-dynamic";
  * DELETE /api/intel/[id]/confirm - Remove confirmation from an intel post
  */
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
 /**
  * POST /api/intel/[id]/confirm
  * Adds a user confirmation to an intel post
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { id: intelPostId } = params;
-
-    if (!intelPostId) {
-      return NextResponse.json(
-        { error: "Intel post ID is required" },
-        { status: 400 }
-      );
-    }
-
-    const supabase = await createSupabaseServerClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const POST = withAuth(
+  async (_request: NextRequest, { params, user, supabase }: AuthenticatedContext) => {
+    // Validate UUID parameter
+    const uuidResult = validateUuidParam(params.id, "intel");
+    if ("error" in uuidResult) return uuidResult.error;
+    const intelPostId = uuidResult.value;
 
     // Check if intel post exists and is active
     const { data: intelPost, error: postError } = await supabase
@@ -54,33 +36,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (postError || !intelPost) {
-      return NextResponse.json(
-        { error: "Intel post not found" },
-        { status: 404 }
-      );
+      return createNotFoundError("Intel post");
     }
 
     if (!intelPost.is_active) {
-      return NextResponse.json(
-        { error: "Intel post is no longer active" },
-        { status: 400 }
-      );
+      return createValidationError("Intel post is no longer active");
     }
 
     // Check if post has expired
     if (intelPost.expires_at && new Date(intelPost.expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: "Intel post has expired" },
-        { status: 400 }
-      );
+      return createValidationError("Intel post has expired");
     }
 
     // Prevent users from confirming their own posts
     if (intelPost.user_id === user.id) {
-      return NextResponse.json(
-        { error: "You cannot confirm your own intel post" },
-        { status: 400 }
-      );
+      return createValidationError("You cannot confirm your own intel post");
     }
 
     // Check if user has already confirmed this post
@@ -94,14 +64,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (checkError && checkError.code !== "PGRST116") {
       // PGRST116 = no rows found
       console.error("Error checking existing confirmation:", checkError);
-      return handleApiError(checkError, "Failed to check confirmation status");
+      throw checkError;
     }
 
     if (existingConfirmation) {
-      return NextResponse.json(
-        { error: "You have already confirmed this intel post" },
-        { status: 400 }
-      );
+      return createValidationError("You have already confirmed this intel post");
     }
 
     // Create confirmation
@@ -116,7 +83,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (confirmError) {
       console.error("Error creating confirmation:", confirmError);
-      return handleApiError(confirmError, "Failed to confirm intel post");
+      throw confirmError;
     }
 
     // Get updated confirmations count
@@ -131,47 +98,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Don't fail the request, just return the confirmation
     }
 
-    return createSuccessResponse(
-      {
-        confirmed: true,
-        confirmations_count: updatedPost?.confirmations_count || 0,
-        confirmation_id: confirmation.id,
-      }
-    );
-  } catch (error) {
-    console.error("Intel confirmation POST error:", error);
-    return handleApiError(error, "Failed to confirm intel post");
-  }
-}
+    return createSuccessResponse({
+      confirmed: true,
+      confirmations_count: updatedPost?.confirmations_count || 0,
+      confirmation_id: confirmation.id,
+    });
+  },
+  { errorMessage: "Failed to confirm intel post" }
+);
 
 /**
  * DELETE /api/intel/[id]/confirm
  * Removes a user confirmation from an intel post
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { id: intelPostId } = params;
-
-    if (!intelPostId) {
-      return NextResponse.json(
-        { error: "Intel post ID is required" },
-        { status: 400 }
-      );
-    }
-
-    const supabase = await createSupabaseServerClient();
-
-    // Check authentication
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const DELETE = withAuth(
+  async (_request: NextRequest, { params, user, supabase }: AuthenticatedContext) => {
+    // Validate UUID parameter
+    const uuidResult = validateUuidParam(params.id, "intel");
+    if ("error" in uuidResult) return uuidResult.error;
+    const intelPostId = uuidResult.value;
 
     // Check if intel post exists
     const { data: intelPost, error: postError } = await supabase
@@ -181,10 +126,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (postError || !intelPost) {
-      return NextResponse.json(
-        { error: "Intel post not found" },
-        { status: 404 }
-      );
+      return createNotFoundError("Intel post");
     }
 
     // Find and delete the user's confirmation
@@ -199,13 +141,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (deleteError) {
       if (deleteError.code === "PGRST116") {
         // No rows found
-        return NextResponse.json(
-          { error: "You have not confirmed this intel post" },
-          { status: 400 }
-        );
+        return createValidationError("You have not confirmed this intel post");
       }
       console.error("Error deleting confirmation:", deleteError);
-      return handleApiError(deleteError, "Failed to remove confirmation");
+      throw deleteError;
     }
 
     // Get updated confirmations count
@@ -220,15 +159,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       // Don't fail the request, just return the confirmation
     }
 
-    return createSuccessResponse(
-      {
-        confirmed: false,
-        confirmations_count: updatedPost?.confirmations_count || 0,
-        confirmation_id: deletedConfirmation.id,
-      }
-    );
-  } catch (error) {
-    console.error("Intel confirmation DELETE error:", error);
-    return handleApiError(error, "Failed to remove intel post confirmation");
-  }
-}
+    return createSuccessResponse({
+      confirmed: false,
+      confirmations_count: updatedPost?.confirmations_count || 0,
+      confirmation_id: deletedConfirmation.id,
+    });
+  },
+  { errorMessage: "Failed to remove intel post confirmation" }
+);

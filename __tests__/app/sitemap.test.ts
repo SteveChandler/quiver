@@ -120,7 +120,7 @@ describe("Sitemap Generation", () => {
 
       SURF_CITY_SLUGS.forEach((slug) => {
         const route = result.find(
-          (r) => r.url === `${baseUrl}/ca/${slug}`
+          (r) => r.url === `${baseUrl}/beaches/usa/ca/${slug}`
         );
         expect(route).toBeDefined();
       });
@@ -129,7 +129,7 @@ describe("Sitemap Generation", () => {
     it("should set high priority (0.9) for city routes", async () => {
       const result = await sitemap();
       const cityRoute = result.find(
-        (r) => r.url === `${baseUrl}/ca/san-diego`
+        (r) => r.url === `${baseUrl}/beaches/usa/ca/san-diego`
       );
 
       expect(cityRoute?.priority).toBe(0.9);
@@ -138,11 +138,11 @@ describe("Sitemap Generation", () => {
     it("should use correct URL format /ca/{city}", async () => {
       const result = await sitemap();
       const cityRoutes = result.filter((r) =>
-        r.url.includes("/ca/")
+        r.url.includes("/beaches/usa/ca/")
       );
 
       cityRoutes.forEach((route) => {
-        expect(route.url).toMatch(/\/ca\/[a-z-]+$/);
+        expect(route.url).toMatch(/\/beaches\/usa\/ca\/[a-z-]+$/);
       });
     });
 
@@ -256,6 +256,52 @@ describe("Sitemap Generation", () => {
         r.url.endsWith("/mexico/baja-california/rosarito")
       );
       expect(rosaritoRoute).toBeDefined();
+    });
+
+    it("should include USA state index routes under /beaches/usa/{state}", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "La Jolla", state: "CA", country: "USA" },
+          { city: "Haleiwa", state: "HI", country: "USA" },
+          { city: "Rosarito", state: "Baja California", country: "Mexico" },
+        ],
+      });
+
+      const result = await sitemap();
+
+      const caStateIndex = result.find((r) => r.url === `${baseUrl}/beaches/usa/ca`);
+      expect(caStateIndex).toBeDefined();
+
+      const hiStateIndex = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi`);
+      expect(hiStateIndex).toBeDefined();
+
+      // Ensure we don't create a USA state index for non-USA locations
+      const bajaStateIndex = result.find((r) =>
+        r.url === `${baseUrl}/beaches/usa/baja-california`
+      );
+      expect(bajaStateIndex).toBeUndefined();
+    });
+
+    it("should emit both island-specific canonical URLs for HI Waimea (waimea-kauai + waimea-big-island)", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ city: "Waimea", state: "HI", country: "USA" }],
+      });
+
+      const result = await sitemap();
+
+      const kauai = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi/waimea-kauai`);
+      expect(kauai).toBeDefined();
+
+      const bigIsland = result.find(
+        (r) => r.url === `${baseUrl}/beaches/usa/hi/waimea-big-island`
+      );
+      expect(bigIsland).toBeDefined();
+
+      // Ensure ambiguous /waimea is not emitted
+      const ambiguous = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi/waimea`);
+      expect(ambiguous).toBeUndefined();
     });
 
     it("should emit ASCII-normalized canonical slugs for diacritics (Rincón -> rincon)", async () => {

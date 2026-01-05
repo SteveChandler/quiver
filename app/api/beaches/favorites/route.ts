@@ -1,14 +1,15 @@
-import { createSuccessResponse, handleApiError, createAuthError } from "@/lib/api-utils";
-import { getAuthenticatedAPIClient } from "@/lib/supabase/server";
+import type { NextRequest } from "next/server";
+import {
+  withAuth,
+  createSuccessResponse,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
-// GET /api/beaches/favorites - list authenticated user's favorite beaches
-export async function GET() {
-  try {
-    const { supabase, user, error } = await getAuthenticatedAPIClient();
-    if (error || !user || !supabase) {
-      return createAuthError();
-    }
-
+/**
+ * GET /api/beaches/favorites - List authenticated user's favorite beaches
+ */
+export const GET = withAuth(
+  async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { data, error: dbError } = await supabase
       .from("favorite_beaches")
       .select("rank, beaches(*)")
@@ -21,13 +22,10 @@ export async function GET() {
     }
 
     const beaches = (data || [])
-      .map((row: any) => row.beaches)
+      .map((row: { beaches: unknown }) => row.beaches)
       .filter(Boolean);
 
     return createSuccessResponse({ beaches });
-  } catch (err) {
-    return handleApiError(err);
-  }
-}
-
-
+  },
+  { errorMessage: "Failed to load favorite beaches" }
+);
