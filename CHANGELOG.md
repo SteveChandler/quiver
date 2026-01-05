@@ -12,8 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Analytics:** Wired Vercel Web Analytics (`@vercel/analytics`) via `<Analytics />` for production page view tracking.
 - **Forecast freshness:** Added a dedicated Vercel cron endpoint `/api/cron/enhanced-forecast-sync-cdip` to refresh **CDIP-sourced** enhanced forecasts on a shorter cadence (keeps discovery from excluding CDIP beaches as stale).
 
+### Changed
+
+- **Forecast cron:** Increased marine cron `maxBeaches` from 60 to 160, reducing full-cycle time from ~13h to ~4.9h (meets the 6h staleness threshold).
+
 ### Fixed
 
+- **Forecast monitoring:** Replaced `DISTINCT ON` view with `LATERAL + LIMIT 1` pattern in `v_enhanced_forecast_latest`, reducing query time from O(N sort) to O(beaches * index probe) (~10x faster, prevents statement timeouts in Edge runtime health checks).
+- **Migrations:** Fixed seed migration `20250817140000_seed_intel_posts.sql` to filter beaches without coordinates (prevents NOT NULL constraint violation).
+- **Migrations:** Fixed `20251117033703_fix_beach_photos_rls_security.sql` syntax errors (RAISE NOTICE outside DO block, COMMENT string concatenation).
+- **Migrations:** Fixed duplicate migration timestamps (`20251208000000`, `20251208100000`) that caused schema_migrations conflicts.
 - **Beaches (routing):** Prevented hierarchical beach pages from erroring when `beaches.slug` returns 0 or multiple rows by resolving from candidate matches (state/city/country context) instead of using `.single()`; added dedicated `/ca/[city]/[beachSlug]` route delegating to the generic state beach page.
 - **Beaches (content):** Stripped seeded leading markdown-bold spot names (e.g. `**Blacks Beach**`) from the beach “About” description when the beach record uses a shorter name like `Blacks`.
 - **Forecast freshness:** `getFreshForecastFromCache()` no longer returns stale cached forecast rows; stale cache is flagged via metadata and treated as unusable by consumers (e.g. surf discovery excludes stale beaches).
@@ -74,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Home (authenticated):** Removed the redundant Forecast-tab nearby-beaches chips + search bar to reduce clutter and bring forecast content higher on the page.
 - **[DRY Refactoring]** Eliminated duplicate unit conversion functions in `/app/api/v1/recommendations/route.ts`
   - Replaced inline `msToKts` and `mToFt` functions with shared utilities from `/lib/utils/unit-conversions.ts`
   - Reduced duplication and improved maintainability by using centralized conversion functions
