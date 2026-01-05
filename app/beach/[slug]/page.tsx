@@ -1,6 +1,5 @@
 import { BeachDetail } from "@/components/beach-detail";
 import {
-  getBeachBySlug,
   getBeachById,
 } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
@@ -25,9 +24,28 @@ export default async function BeachDetailBySlugPage({
     let beach: Beach | null = null;
 
     // Try slug lookup first
-    const bySlug = await getBeachBySlug(params.slug);
-    if (bySlug.success && bySlug.data) {
-      beach = bySlug.data;
+    const { getBeachesBySlug } = await import(
+      "@/actions/beach/beach-query-actions"
+    );
+    const bySlugCandidates = await getBeachesBySlug(params.slug);
+    const candidates = bySlugCandidates.success ? bySlugCandidates.data ?? [] : [];
+    if (candidates.length > 0) {
+      // Deterministic choice when duplicates exist: prefer coordinates, then review_count, then created_at.
+      beach = [...candidates].sort((a, b) => {
+        const aHasCoords = Number(Boolean(a.lat && a.lon));
+        const bHasCoords = Number(Boolean(b.lat && b.lon));
+        if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
+
+        const aReviews = a.review_count ?? 0;
+        const bReviews = b.review_count ?? 0;
+        if (aReviews !== bReviews) return bReviews - aReviews;
+
+        const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
+        const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
+        if (aCreated !== bCreated) return bCreated - aCreated;
+
+        return String(a.id).localeCompare(String(b.id));
+      })[0] ?? null;
     } else {
       // Back-compat: if slug lookup fails, try treating slug as an ID
       const byId = await getBeachById(params.slug);
@@ -119,9 +137,27 @@ export async function generateMetadata({
   let beach: Beach | null = null;
 
   // Try to resolve beach by slug first, then fall back to ID
-  const slugResult = await getBeachBySlug(slug);
-  if (slugResult.success && slugResult.data) {
-    beach = slugResult.data;
+  const { getBeachesBySlug } = await import(
+    "@/actions/beach/beach-query-actions"
+  );
+  const slugCandidatesResult = await getBeachesBySlug(slug);
+  const candidates = slugCandidatesResult.success ? slugCandidatesResult.data ?? [] : [];
+  if (candidates.length > 0) {
+    beach = [...candidates].sort((a, b) => {
+      const aHasCoords = Number(Boolean(a.lat && a.lon));
+      const bHasCoords = Number(Boolean(b.lat && b.lon));
+      if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
+
+      const aReviews = a.review_count ?? 0;
+      const bReviews = b.review_count ?? 0;
+      if (aReviews !== bReviews) return bReviews - aReviews;
+
+      const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
+      const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
+      if (aCreated !== bCreated) return bCreated - aCreated;
+
+      return String(a.id).localeCompare(String(b.id));
+    })[0] ?? null;
   } else {
     // Slug lookup failed (column may not exist yet), try ID lookup
     const idResult = await getBeachById(slug);

@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { createThenableQuery } from "@/__tests__/setup/admin-action-test-utils";
+
 jest.mock("@/lib/auth/admin", () => ({
   getCurrentUser: jest.fn(),
   assertIsAdmin: jest.fn(),
@@ -10,8 +12,6 @@ jest.mock("@/lib/auth/admin", () => ({
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
-
-import { createThenableQuery, QueryResult } from "./test-utils";
 
 describe("admin reviews actions", () => {
   beforeEach(() => {

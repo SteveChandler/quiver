@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Analytics:** Wired Vercel Web Analytics (`@vercel/analytics`) via `<Analytics />` for production page view tracking.
+
 ### Fixed
 
+- **Beaches (routing):** Prevented hierarchical beach pages from erroring when `beaches.slug` returns 0 or multiple rows by resolving from candidate matches (state/city/country context) instead of using `.single()`; added dedicated `/ca/[city]/[beachSlug]` route delegating to the generic state beach page.
+- **Forecast freshness:** `getFreshForecastFromCache()` no longer returns stale cached forecast rows; stale cache is flagged via metadata and treated as unusable by consumers (e.g. surf discovery excludes stale beaches).
+- **Push notifications (dev noise):** Firebase Admin SDK initialization is now lazy + log-once, preventing repeated "missing env vars" warnings unless push is actually attempted.
 - **[API Middleware]** Fixed `withRateLimit` error-path crash (undefined `limitKey`) and hardened rate limiting to **fail closed** (503 + `Retry-After`) on unexpected limiter errors; client identification now prefers `x-vercel-forwarded-for` when available.
 - **Profile API:** Added `skill_level` (aliased from `experience_level`) and timestamps to `GET /api/profile` to satisfy profile API contract tests.
 - **Profile API:** Normalized `created_at`/`updated_at` in `GET /api/profile` to ISO 8601 `Z` format (ms precision) for stable contract tests.
@@ -22,12 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **E2E:** Relaxed API contract performance thresholds for localhost/dev reliability (avoids flaky failures from cold starts and parallel load).
 - **Profile API:** Ensured `GET /api/profile` includes `home_beach_name` (snake_case) to match API contract tests while preserving the legacy `homeBeachName` field.
 - **Boards API:** Fixed `POST /api/boards` to return **400** for invalid payloads (Zod validation) instead of bubbling DB constraint errors into **500** responses; updated boards contract tests to send required fields.
+- **Forecast monitoring:** When the enhanced latest-per-beach query times out, the health check now preserves `totalBeaches` and reports enhanced coverage/age as **unavailable** (not `0%`); suppresses misleading `[Forecast Coverage Gap]` logs in this state.
 - **Tests (reliability):** Added unit coverage for high-blast-radius fallbacks and SEO routing:
   - Spot data actions: slug normalization + DB/static merge + featured photo fallbacks + gallery error handling
   - Admin tools: sessions/reviews list filtering + search + stats aggregation (ignores soft-deleted, no divide-by-zero)
   - URL/SEO: expanded middleware canonicalization + sitemap canonical URL matrices (including HI Waimea disambiguation and `/beaches/usa/{state}` state index)
 - **Tests (coverage):** Added unit tests for beach search matching + scoring (strategy behaviors, normalization edge cases, deterministic ordering).
 - **Tests (coverage):** Added unit tests for tide/wind analyzers and forecast confidence scoring helpers.
+- **Tests (reliability):** Fixed preexisting Jest failures by moving shared admin-action test helpers out of test discovery, extending Supabase query-chain mocks, and making API route request mocks compatible with bot-blocking/rate-limiting wrappers.
 - **Tests (coverage):** Added high-ROI coverage for previously 0%-covered modules:
   - Admin actions: photos + beaches + intel (query chains, soft-delete/restore flows, audit logging, zod validation)
   - Parser utilities: WaveCast HTML parsing via fixture-based tests

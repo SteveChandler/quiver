@@ -21,6 +21,7 @@ jest.mock("@/lib/api-utils", () => ({
     }),
     status: 200,
     ok: true,
+    headers: new Headers(),
   })),
   createErrorResponse: jest.fn((message, details, status = 500) => ({
     json: async () => ({
@@ -31,6 +32,7 @@ jest.mock("@/lib/api-utils", () => ({
     }),
     status: status || 500,
     ok: false,
+    headers: new Headers(),
   })),
 }));
 

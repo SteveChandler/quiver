@@ -1,4 +1,3 @@
-import { getBeachBySlug } from "@/actions/beach/beach-query-actions";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -14,6 +13,7 @@ import {
   regionToSlug,
 } from "@/lib/utils/beach-url-utils";
 import { notFound } from "next/navigation";
+import type { Beach } from "@/types/database";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -28,6 +28,62 @@ interface PageProps {
     beachSlug: string; // In this 4-segment context, this represents a city slug (e.g., "rosarito")
     intlBeachSlug: string; // Actual beach slug (e.g., "teresas")
   };
+}
+
+function isNextRouterSignal(error: unknown) {
+  if (!error || typeof error !== "object" || !("digest" in error)) return false;
+  const digest = (error as { digest?: unknown }).digest;
+  return (
+    digest === "NEXT_NOT_FOUND" ||
+    (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT"))
+  );
+}
+
+function pickBestInternationalBeachMatch(params: {
+  countryParam: string;
+  regionParam: string;
+  cityParam: string;
+  beaches: Beach[];
+}): Beach | null {
+  const { countryParam, regionParam, cityParam, beaches } = params;
+  if (!Array.isArray(beaches) || beaches.length === 0) return null;
+
+  const countryLower = countryParam.toLowerCase();
+  const regionLower = regionParam.toLowerCase();
+  const cityLower = cityParam.toLowerCase();
+
+  const withCountry = beaches.filter(
+    (b) => countryToSlug(b.country)?.toLowerCase() === countryLower
+  );
+  const countryPool = withCountry.length > 0 ? withCountry : beaches;
+
+  const withRegion = countryPool.filter(
+    (b) => regionToSlug(b.state)?.toLowerCase() === regionLower
+  );
+  const regionPool = withRegion.length > 0 ? withRegion : countryPool;
+
+  const withCity = regionPool.filter(
+    (b) => cityToSlug(b.city)?.toLowerCase() === cityLower
+  );
+  const pool = withCity.length > 0 ? withCity : regionPool;
+
+  const sorted = [...pool].sort((a, b) => {
+    const aHasCoords = Number(Boolean(a.lat && a.lon));
+    const bHasCoords = Number(Boolean(b.lat && b.lon));
+    if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
+
+    const aReviews = a.review_count ?? 0;
+    const bReviews = b.review_count ?? 0;
+    if (aReviews !== bReviews) return bReviews - aReviews;
+
+    const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
+    const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
+    if (aCreated !== bCreated) return bCreated - aCreated;
+
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  return sorted[0] ?? null;
 }
 
 /**
@@ -56,10 +112,18 @@ export default async function InternationalBeachDetailPage({
   if (isValidStateSlug(countryParam)) notFound();
 
   try {
-    const result = await getBeachBySlug(intlBeachSlug);
-    if (!result.success || !result.data) notFound();
+    const { getBeachesBySlug } = await import(
+      "@/actions/beach/beach-query-actions"
+    );
+    const candidatesResult = await getBeachesBySlug(intlBeachSlug);
+    const beach = pickBestInternationalBeachMatch({
+      countryParam,
+      regionParam,
+      cityParam,
+      beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
+    });
 
-    const beach = result.data;
+    if (!beach) notFound();
 
     const expectedCountrySlug = countryToSlug(beach.country);
     const expectedRegionSlug = regionToSlug(beach.state);
@@ -134,6 +198,7 @@ export default async function InternationalBeachDetailPage({
       </>
     );
   } catch (error) {
+    if (isNextRouterSignal(error)) throw error;
     console.error(
       "[InternationalBeachDetailPage] Error rendering beach page:",
       {
@@ -160,9 +225,18 @@ export async function generateMetadata({
   }
 
   try {
-    const result = await getBeachBySlug(intlBeachSlug);
-    if (result.success && result.data) {
-      const beach = result.data;
+    const { getBeachesBySlug } = await import(
+      "@/actions/beach/beach-query-actions"
+    );
+    const candidatesResult = await getBeachesBySlug(intlBeachSlug);
+    const beach = pickBestInternationalBeachMatch({
+      countryParam: params.intent,
+      regionParam: params.city,
+      cityParam: params.beachSlug,
+      beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
+    });
+
+    if (beach) {
 
       const reviewCount = beach.review_count ?? 0;
       const reviewText =
@@ -212,6 +286,7 @@ export async function generateMetadata({
     path: `/beach/${intlBeachSlug}`,
   });
 }
+
 
 
 

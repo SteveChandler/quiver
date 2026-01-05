@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { createThenableQuery } from "@/__tests__/setup/admin-action-test-utils";
+
 jest.mock("@/lib/auth/admin", () => ({
   getCurrentUser: jest.fn(),
   assertIsAdmin: jest.fn(),
@@ -14,8 +16,6 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/logging/admin-audit", () => ({
   recordAdminEvent: jest.fn().mockResolvedValue({ success: true }),
 }));
-
-import { createThenableQuery, QueryResult } from "./test-utils";
 
 describe("admin photos actions", () => {
   beforeEach(() => {

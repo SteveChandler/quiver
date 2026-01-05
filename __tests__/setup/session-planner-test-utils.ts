@@ -384,27 +384,51 @@ export const createMockRequest = (
     url.searchParams.set(key, value);
   });
 
-  return new Request(url.toString());
+  // Use browser-like headers so bot blocking middleware doesn't reject test requests.
+  const req: any = new Request(url.toString(), {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "accept-language": "en-US,en;q=0.9",
+      "x-forwarded-for": "127.0.0.1",
+    },
+  });
+
+  // Minimal NextRequest compatibility for middleware wrappers (rate limiting/bot blocking).
+  req.nextUrl = new URL(req.url);
+  return req;
 };
 
 export const createMockPostRequest = (body: any): any => {
-  return new Request("http://localhost:3000/api/test", {
+  const req: any = new Request("http://localhost:3000/api/test", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "accept-language": "en-US,en;q=0.9",
+      "x-forwarded-for": "127.0.0.1",
     },
     body: JSON.stringify(body),
   });
+  req.nextUrl = new URL(req.url);
+  return req;
 };
 
 export const createMockPatchRequest = (body: any): any => {
-  return new Request("http://localhost:3000/api/test", {
+  const req: any = new Request("http://localhost:3000/api/test", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "accept-language": "en-US,en;q=0.9",
+      "x-forwarded-for": "127.0.0.1",
     },
     body: JSON.stringify(body),
   });
+  req.nextUrl = new URL(req.url);
+  return req;
 };
 
 // Jest setup helpers

@@ -3,11 +3,14 @@
  */
 
 import BeachDetailBySlugPage from "@/app/beach/[slug]/page";
-import { getBeachById, getBeachBySlug } from "@/actions/beach/beach-query-actions";
+import {
+  getBeachById,
+  getBeachesBySlug,
+} from "@/actions/beach/beach-query-actions";
 import { notFound } from "next/navigation";
 
 jest.mock("@/actions/beach/beach-query-actions", () => ({
-  getBeachBySlug: jest.fn(),
+  getBeachesBySlug: jest.fn(),
   getBeachById: jest.fn(),
 }));
 
@@ -15,7 +18,7 @@ describe("legacy /beach/[slug] route", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    (getBeachBySlug as jest.Mock).mockResolvedValue({
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: false,
       data: null,
     });

@@ -4,7 +4,7 @@
  * Following patterns from lib/mailer/sessionInviteEmail.tsx
  */
 
-import { messaging, isFirebaseInitialized } from "./firebase-admin";
+import { getFirebaseAdminMessaging } from "./firebase-admin";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 interface SendSessionInvitePushParams {
@@ -22,6 +22,8 @@ interface PushResult {
   errors?: string[];
 }
 
+let firebaseSkipWarned = false;
+
 /**
  * Send push notifications for session invitations
  * Uses Firebase Cloud Messaging (FCM) to deliver notifications
@@ -38,9 +40,12 @@ export async function sendSessionInvitePush({
     return { success: 0, failed: 0 };
   }
 
-  // Check if Firebase is initialized
-  if (!isFirebaseInitialized() || !messaging) {
-    console.warn("Firebase Admin SDK not initialized, skipping push notifications");
+  const messaging = getFirebaseAdminMessaging();
+  if (!messaging) {
+    if (!firebaseSkipWarned) {
+      firebaseSkipWarned = true;
+      console.warn("Firebase Admin SDK not initialized, skipping push notifications");
+    }
     return { success: 0, failed: 0, errors: ["Firebase not configured"] };
   }
 
@@ -165,8 +170,12 @@ export async function sendPushNotification({
     return { success: 0, failed: 0 };
   }
 
-  if (!isFirebaseInitialized() || !messaging) {
-    console.warn("Firebase Admin SDK not initialized, skipping push notifications");
+  const messaging = getFirebaseAdminMessaging();
+  if (!messaging) {
+    if (!firebaseSkipWarned) {
+      firebaseSkipWarned = true;
+      console.warn("Firebase Admin SDK not initialized, skipping push notifications");
+    }
     return { success: 0, failed: 0, errors: ["Firebase not configured"] };
   }
 

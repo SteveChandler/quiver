@@ -523,7 +523,9 @@ These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService`
 **Purpose**: Single source of truth for cache-backed forecast access
 
 **Behavior**:
-- Returns cached data even if stale (with clear metadata)
+- Returns cached data only when fresh
+- If cached data is stale, returns an empty forecast array with `metadata.stale=true`
+  so callers can fail/degrade safely without serving stale conditions
 - Never calls external APIs
 - Provides staleness details using source-specific thresholds:
   - CDIP: 1.5 hours (buoy data updates hourly)
@@ -549,7 +551,7 @@ These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService`
 `surf-discovery-service` and other forecast-consuming services now:
 
 1. Call `getFreshForecastFromCache()` for all forecast access
-2. Return recommendations even with stale data (with warnings in metadata)
+2. Exclude stale cache from recommendations/responses (treat as missing/degraded)
 3. Log stale/missing data for monitoring
 4. Track data freshness in response metadata
 
@@ -570,7 +572,7 @@ These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService`
 **After** (cache-only):
 - Consistent ~500ms response times
 - No user-facing timeouts from API calls
-- Stale data marked clearly but still usable
+- Stale data is never served (callers can fail/degrade instead)
 - Background jobs handle all API load
 
 ### **Maintenance Services**

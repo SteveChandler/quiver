@@ -127,7 +127,7 @@ export async function discoverSurfSpots(
     // Log failures and staleness context
     if (failedForecasts.length > 0 || staleCount > 0) {
       console.warn(
-        `⚠️ [discoverSurfSpots] Forecast issues: ${failedForecasts.length} failed, ${staleCount} stale (stale data still used)`
+        `⚠️ [discoverSurfSpots] Forecast issues: ${failedForecasts.length} failed, ${staleCount} stale (stale data excluded)`
       );
     }
 
@@ -423,11 +423,11 @@ async function batchFetchForecasts(
         }
 
         if (result.metadata.stale) {
-          // Return stale data with warning
+          // Do not score/recommend against stale data
           return {
             beach,
-            forecasts: result.forecasts,
-            failed: false,
+            forecasts: null,
+            failed: true,
             reason: result.metadata.reason || 'Stale data',
             stale: true,
           };
@@ -471,8 +471,8 @@ async function batchFetchForecasts(
     }
   }
 
-  // Count stale beaches from successful results (stale data is still returned as successful)
-  const staleCount = results.filter(r => !r.failed && r.stale).length;
+  // Count stale beaches as failures (stale cache is not usable)
+  const staleCount = results.filter(r => r.failed && r.stale).length;
 
   const duration = Date.now() - startTime;
   console.log(`📊 [batchFetchForecasts] Complete in ${duration}ms:`, {

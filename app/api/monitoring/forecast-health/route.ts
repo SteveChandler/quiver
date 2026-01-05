@@ -12,6 +12,14 @@ import { forecastLogger } from '@/lib/monitoring/forecast-logger';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
+function formatCoverage(coverage: number): string {
+  return `${(coverage * 100).toFixed(1)}%`;
+}
+
+function formatHours(hours: number): string {
+  return `${hours.toFixed(2)}h`;
+}
+
 function getSupabaseProjectRef(): string | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) return null;
@@ -35,51 +43,56 @@ export async function GET(request: Request) {
     forecastLogger.healthCheck(metrics.healthStatus, {
       totalBeaches: metrics.totalBeaches,
       supabaseProjectRef: getSupabaseProjectRef(),
-      coverage: `${(metrics.coveragePercentage * 100).toFixed(1)}%`,
+      enhancedAvailable: metrics.enhancedAvailable,
+      coverage: metrics.enhancedAvailable ? formatCoverage(metrics.coveragePercentage) : 'unavailable',
       staleBeaches: metrics.beachesWithStaleData,
       criticalStale: metrics.beachesWithCriticalStaleData,
       warningStale: metrics.beachesWithWarningStaleData,
-      oldestForecastAge: `${metrics.oldestForecastAge.toFixed(2)}h`,
-      averageForecastAge: `${metrics.averageForecastAge.toFixed(2)}h`,
+      oldestForecastAge: metrics.enhancedAvailable ? formatHours(metrics.oldestForecastAge) : 'unavailable',
+      averageForecastAge: metrics.enhancedAvailable ? formatHours(metrics.averageForecastAge) : 'unavailable',
       sources: {
         enhanced: {
-          coverage: `${(sources.enhanced.coveragePercentage * 100).toFixed(1)}%`,
+          available: sources.enhanced.available,
+          coverage: sources.enhanced.available ? formatCoverage(sources.enhanced.coveragePercentage) : 'unavailable',
           stale: sources.enhanced.beachesWithStaleData,
           critical: sources.enhanced.beachesWithCriticalStaleData,
           warning: sources.enhanced.beachesWithWarningStaleData,
-          oldestAgeHours: Number(sources.enhanced.oldestAgeHours.toFixed(2)),
-          averageAgeHours: Number(sources.enhanced.averageAgeHours.toFixed(2)),
+          oldestAgeHours: sources.enhanced.available ? Number(sources.enhanced.oldestAgeHours.toFixed(2)) : null,
+          averageAgeHours: sources.enhanced.available ? Number(sources.enhanced.averageAgeHours.toFixed(2)) : null,
         },
         marine: {
-          coverage: `${(sources.marine.coveragePercentage * 100).toFixed(1)}%`,
+          available: sources.marine.available,
+          coverage: sources.marine.available ? formatCoverage(sources.marine.coveragePercentage) : 'unavailable',
           stale: sources.marine.beachesWithStaleData,
           critical: sources.marine.beachesWithCriticalStaleData,
           warning: sources.marine.beachesWithWarningStaleData,
-          oldestAgeHours: Number(sources.marine.oldestAgeHours.toFixed(2)),
-          averageAgeHours: Number(sources.marine.averageAgeHours.toFixed(2)),
+          oldestAgeHours: sources.marine.available ? Number(sources.marine.oldestAgeHours.toFixed(2)) : null,
+          averageAgeHours: sources.marine.available ? Number(sources.marine.averageAgeHours.toFixed(2)) : null,
         },
         tide: {
-          coverage: `${(sources.tide.coveragePercentage * 100).toFixed(1)}%`,
+          available: sources.tide.available,
+          coverage: sources.tide.available ? formatCoverage(sources.tide.coveragePercentage) : 'unavailable',
           stale: sources.tide.beachesWithStaleData,
           critical: sources.tide.beachesWithCriticalStaleData,
           warning: sources.tide.beachesWithWarningStaleData,
-          oldestAgeHours: Number(sources.tide.oldestAgeHours.toFixed(2)),
-          averageAgeHours: Number(sources.tide.averageAgeHours.toFixed(2)),
+          oldestAgeHours: sources.tide.available ? Number(sources.tide.oldestAgeHours.toFixed(2)) : null,
+          averageAgeHours: sources.tide.available ? Number(sources.tide.averageAgeHours.toFixed(2)) : null,
         },
         sun: {
-          coverage: `${(sources.sun.coveragePercentage * 100).toFixed(1)}%`,
+          available: sources.sun.available,
+          coverage: sources.sun.available ? formatCoverage(sources.sun.coveragePercentage) : 'unavailable',
           stale: sources.sun.beachesWithStaleData,
           critical: sources.sun.beachesWithCriticalStaleData,
           warning: sources.sun.beachesWithWarningStaleData,
-          oldestAgeHours: Number(sources.sun.oldestAgeHours.toFixed(2)),
-          averageAgeHours: Number(sources.sun.averageAgeHours.toFixed(2)),
+          oldestAgeHours: sources.sun.available ? Number(sources.sun.oldestAgeHours.toFixed(2)) : null,
+          averageAgeHours: sources.sun.available ? Number(sources.sun.averageAgeHours.toFixed(2)) : null,
         },
       },
       issues: metrics.issues,
     });
     
     // Log coverage gaps if present
-    if (metrics.coveragePercentage < 0.9) {
+    if (metrics.enhancedAvailable && metrics.coveragePercentage < 0.9) {
       forecastLogger.coverageGap(
         metrics.totalBeaches,
         metrics.beachesWithForecasts,
