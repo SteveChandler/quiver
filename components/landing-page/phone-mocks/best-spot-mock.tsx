@@ -11,21 +11,12 @@ import {
   Wind,
 } from "lucide-react";
 
-// Generate dynamic date for the phone mock
-const getFormattedDate = () => {
-  const today = new Date();
-  return today.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
-};
-
 /**
  * BestSpotMock - Phone screen content matching the "Your Best Spot Today" design
  */
 export function BestSpotMock() {
-  const formattedDate = getFormattedDate();
+  // Keep deterministic to avoid SSR/client Intl/date differences (hydration mismatch).
+  const formattedDate = "Monday, Jan 5";
 
   return (
     <div className="flex flex-col h-full bg-[#f8f9fa]" data-testid="phone-mock-forecast">

@@ -15,8 +15,6 @@ import {
  * HomeScreen components tested:
  * - Welcome section with greeting and action buttons
  * - Forecast and Local Intel tabs
- * - NearbyBeachChips
- * - BeachSearchBar
  * - ForecastTab content
  *
  * @project auth
@@ -89,6 +87,9 @@ test.describe('Authenticated Home Screen', () => {
 
       // Forecast tab should be selected/active by default
       await expect(forecastTab).toHaveAttribute('data-state', 'active');
+
+      // Authenticated HomeScreen should NOT show the extra home search bar
+      await expect(page.getByPlaceholder(/search by beach, spot, or region/i)).toHaveCount(0);
     });
 
     test('should display Local Intel tab', async ({ page }) => {
@@ -124,59 +125,6 @@ test.describe('Authenticated Home Screen', () => {
 
       // Local Intel tab should now be active
       await expect(localIntelTab).toHaveAttribute('data-state', 'active');
-    });
-  });
-
-  test.describe('Beach Search Bar', () => {
-    test('should display beach search bar on Forecast tab @smoke', async ({ page }) => {
-      // Beach search should be visible on the Forecast tab
-      // Placeholder is "Search by beach, spot, or region"
-      const searchInput = page.getByPlaceholder(/search by beach/i);
-      await expect(searchInput).toBeVisible({ timeout: 10000 });
-    });
-
-    test('should allow typing in search bar', async ({ page }) => {
-      const searchInput = page.getByPlaceholder(/search by beach/i);
-      await expect(searchInput).toBeVisible({ timeout: 10000 });
-
-      await searchInput.fill('Ocean');
-
-      // Should accept input
-      await expect(searchInput).toHaveValue('Ocean');
-    });
-
-    test('should show search suggestions when typing', async ({ page }) => {
-      const searchInput = page.getByPlaceholder(/search by beach/i);
-      await expect(searchInput).toBeVisible({ timeout: 10000 });
-
-      await searchInput.fill('Black');
-      await page.waitForTimeout(1000);
-
-      // Should show dropdown with suggestions
-      const suggestions = page.locator('[role="option"], [role="listbox"] li, [data-testid="search-result"]');
-      const suggestionCount = await suggestions.count();
-
-      // If suggestions appear, verify they're visible
-      if (suggestionCount > 0) {
-        await expect(suggestions.first()).toBeVisible();
-      }
-    });
-  });
-
-  test.describe('Nearby Beach Chips', () => {
-    test('should display nearby beach chips', async ({ page }) => {
-      // Wait for chips to load - they may take time to fetch nearby beaches
-      await page.waitForTimeout(2000);
-
-      // Look for the nearby chips container or individual chips
-      const chips = page.locator('button, a').filter({ hasText: /beach/i });
-      const chipCount = await chips.count();
-
-      // If user has location access, chips should appear
-      // This is optional - some users may not have granted location
-      if (chipCount > 0) {
-        await expect(chips.first()).toBeVisible();
-      }
     });
   });
 

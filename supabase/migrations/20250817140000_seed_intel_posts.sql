@@ -5,7 +5,7 @@ BEGIN;
 
 -- Create intel posts for beaches using realistic scenarios
 WITH beach_users AS (
-    SELECT 
+    SELECT
         b.id as beach_id,
         b.name as beach_name,
         b.latitude,
@@ -13,8 +13,10 @@ WITH beach_users AS (
         ARRAY_AGG(p.id) as user_ids,
         ARRAY_AGG(p.full_name) as user_names
     FROM public.beaches b
-    CROSS JOIN public.profiles p 
+    CROSS JOIN public.profiles p
     WHERE p.full_name LIKE '% %' -- Only mock users
+      AND b.latitude IS NOT NULL
+      AND b.longitude IS NOT NULL
     GROUP BY b.id, b.name, b.latitude, b.longitude
 )
 INSERT INTO public.intel_posts (

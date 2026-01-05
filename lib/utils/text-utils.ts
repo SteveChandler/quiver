@@ -73,21 +73,42 @@ export function sanitizeBeachDescription(
   const name = beachName.trim();
   if (!name) return description;
 
-  // Match only a leading "**...**" segment.
+  // Match only a leading "**...**" segment (optionally preceded by whitespace).
   // Capture:
-  // - 1: the bolded segment content
-  // - 2: any immediate whitespace after the segment
-  // - 3: the rest of the description
-  const match = description.match(/^\*\*([^*]+)\*\*(\s*)([\s\S]*)$/);
+  // - 1: any leading whitespace before the segment
+  // - 2: the bolded segment content
+  // - 3: any immediate whitespace after the segment
+  // - 4: the rest of the description
+  const match = description.match(/^(\s*)\*\*([^*]+)\*\*(\s*)([\s\S]*)$/);
   if (!match) return description;
 
-  const bolded = match[1]?.trim() ?? "";
-  const afterSpace = match[2] ?? "";
-  const rest = match[3] ?? "";
+  const leadingWhitespace = match[1] ?? "";
+  const bolded = match[2]?.trim() ?? "";
+  const afterSpace = match[3] ?? "";
+  const rest = match[4] ?? "";
 
   // Compare in a forgiving way (collapse whitespace, case-insensitive).
   const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
-  if (normalize(bolded) !== normalize(name)) return description;
+  const boldedNorm = normalize(bolded);
+  const nameNorm = normalize(name);
 
-  return `${name}${afterSpace}${rest}`;
+  // Primary: exact match with the provided beach name.
+  if (boldedNorm === nameNorm) {
+    return `${leadingWhitespace}${name}${afterSpace}${rest}`;
+  }
+
+  // Secondary: handle cases where the DB record uses a shorter canonical name
+  // but the seeded description includes a common suffix like "Beach".
+  //
+  // Example:
+  //   beachName = "Blacks"
+  //   description starts with "**Blacks Beach** ..."
+  //
+  // Only allow the specific suffix "beach" to avoid stripping meaningful bold markup.
+  if (boldedNorm === `${nameNorm} beach`) {
+    return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
+  }
+
+  return description;
+
 }

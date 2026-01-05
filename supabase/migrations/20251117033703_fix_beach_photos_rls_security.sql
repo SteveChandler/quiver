@@ -30,7 +30,9 @@ BEGIN;
 
 DROP POLICY IF EXISTS beach_photos_read ON public.beach_photos;
 
-RAISE NOTICE 'Dropped insecure beach_photos_read policy that allowed access to deleted photos';
+DO $$ BEGIN
+  RAISE NOTICE 'Dropped insecure beach_photos_read policy that allowed access to deleted photos';
+END $$;
 
 -- ================================================
 -- STEP 2: Create secure public read policy
@@ -45,10 +47,11 @@ CREATE POLICY beach_photos_read_public ON public.beach_photos
     );
 
 COMMENT ON POLICY beach_photos_read_public ON public.beach_photos IS
-    'Public read access restricted to active (not soft-deleted) and approved photos only. ' ||
-    'This prevents unauthorized access to deleted or unapproved content.';
+    'Public read access restricted to active (not soft-deleted) and approved photos only. This prevents unauthorized access to deleted or unapproved content.';
 
-RAISE NOTICE 'Created secure beach_photos_read_public policy with deleted_at and approved checks';
+DO $$ BEGIN
+  RAISE NOTICE 'Created secure beach_photos_read_public policy with deleted_at and approved checks';
+END $$;
 
 -- ================================================
 -- STEP 3: Verify admin policies exist (created in previous migration)
@@ -121,10 +124,7 @@ END $$;
 -- ================================================
 
 COMMENT ON TABLE public.beach_photos IS
-    'Beach photos from various sources. ' ||
-    'PUBLIC ACCESS: Only approved, non-deleted photos are visible. ' ||
-    'ADMIN ACCESS: Admins can view all photos including soft-deleted ones. ' ||
-    'SECURITY: RLS policies enforce data access controls.';
+    'Beach photos from various sources. PUBLIC ACCESS: Only approved, non-deleted photos are visible. ADMIN ACCESS: Admins can view all photos including soft-deleted ones. SECURITY: RLS policies enforce data access controls.';
 
 COMMIT;
 

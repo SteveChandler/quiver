@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
 import { LocationProvider } from "@/context/location-context";
@@ -70,11 +70,23 @@ function AuthBodyClassManager() {
 
 function AuthOverlays() {
   const { user } = useAuth();
-  const searchParams = useSearchParams();
+  const [allowUnauthedDebug, setAllowUnauthedDebug] = useState(false);
 
-  const allowUnauthedDebug =
-    searchParams?.get("showOnboarding") === "1" ||
-    searchParams?.get("showTour") === "1";
+  // Read URL params on the client after mount to avoid SSR/client rendering bailouts
+  // from using useSearchParams at the top-level.
+  useEffect(() => {
+    try {
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : null;
+      setAllowUnauthedDebug(
+        params?.get("showOnboarding") === "1" || params?.get("showTour") === "1"
+      );
+    } catch {
+      setAllowUnauthedDebug(false);
+    }
+  }, []);
 
   if (!user && !allowUnauthedDebug) return null;
 
