@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
 } from "react";
 import Image from "next/image";
 
@@ -78,6 +79,26 @@ export function HeroCarousel({
     slides.map((_, slideIndex) => slideIndex === 0)
   );
 
+  // Prevent hydration mismatches by buffering any "image loaded" updates that
+  // might fire before the first client effect has run.
+  const hasHydratedRef = useRef(false);
+  const pendingLoadedIndicesRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    hasHydratedRef.current = true;
+
+    if (pendingLoadedIndicesRef.current.size === 0) return;
+
+    const indices = Array.from(pendingLoadedIndicesRef.current);
+    pendingLoadedIndicesRef.current.clear();
+
+    setLoaded((prev) => {
+      const next = [...prev];
+      for (const i of indices) next[i] = true;
+      return next;
+    });
+  }, []);
+
   // Reset state whenever the slide data changes
   useEffect(() => {
     setIndex(0);
@@ -104,6 +125,11 @@ export function HeroCarousel({
   }, [index, loaded]);
 
   const handleLoad = useCallback((loadedIndex: number) => {
+    if (!hasHydratedRef.current) {
+      pendingLoadedIndicesRef.current.add(loadedIndex);
+      return;
+    }
+
     setLoaded((prev) => {
       if (prev[loadedIndex]) return prev;
       const next = [...prev];
@@ -142,7 +168,7 @@ export function HeroCarousel({
               }`}
               style={{ objectPosition, backgroundColor: "#000" }}
               sizes="100vw"
-              onLoadingComplete={() => handleLoad(slideIndex)}
+              onLoad={() => handleLoad(slideIndex)}
             />
           </div>
         );

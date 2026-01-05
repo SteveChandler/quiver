@@ -2,14 +2,14 @@
 
 import { useAuth } from "@/context/auth-context";
 import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
-import { LandingInteractiveSections } from "./landing-interactive-sections";
+import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
 import { toast } from "sonner";
 
 const HomeScreenDynamic = dynamic(
@@ -36,12 +36,24 @@ const HomeScreenDynamic = dynamic(
 export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const signupParam = searchParams.get("signup");
-  const isConfirmEmailSignup = signupParam === "confirm-email";
+  const [isConfirmEmailSignup, setIsConfirmEmailSignup] = useState(false);
   const redirectedRef = useRef(false);
   const didShowSignupToastRef = useRef(false);
   const [hasAuthCookie, setHasAuthCookie] = useState(false);
+
+  // Parse query params after mount to avoid SSR/client rendering bailouts that can
+  // lead to hydration mismatches.
+  useEffect(() => {
+    try {
+      const signupParam =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("signup")
+          : null;
+      setIsConfirmEmailSignup(signupParam === "confirm-email");
+    } catch {
+      setIsConfirmEmailSignup(false);
+    }
+  }, []);
 
   // Detect auth cookies after mount only, so SSR + first client render match (prevents hydration mismatch).
   useEffect(() => {

@@ -128,6 +128,22 @@ describe("Text Utilities", () => {
       );
     });
 
+    it('should strip markdown-bold markers when the bolded segment is the beach name plus "Beach"', () => {
+      const desc =
+        "**Blacks Beach** represents San Diego County's best beach break.";
+      expect(sanitizeBeachDescription(desc, "Blacks")).toBe(
+        "Blacks Beach represents San Diego County's best beach break."
+      );
+    });
+
+    it("should strip even if the description has leading whitespace/newlines before the bolded name", () => {
+      const desc =
+        "\n  **Blacks Beach** represents San Diego County's best beach break.";
+      expect(sanitizeBeachDescription(desc, "Blacks")).toBe(
+        "\n  Blacks Beach represents San Diego County's best beach break."
+      );
+    });
+
     it("should preserve whitespace after the bolded name (including newlines)", () => {
       const desc = "**Terramar Point**\nrepresents rare North San Diego County point break.";
       expect(sanitizeBeachDescription(desc, "Terramar Point")).toBe(

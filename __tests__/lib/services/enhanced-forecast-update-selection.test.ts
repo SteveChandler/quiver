@@ -108,5 +108,73 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     expect(idxB4).toBeGreaterThan(-1);
     expect(idxB3).toBeLessThan(idxB4);
   });
+
+  it("selects only stale CDIP beaches for updateCdipEnhancedForecasts()", async () => {
+    const beaches = [
+      makeBeach("b1", "CDIP stale old"),
+      makeBeach("b2", "CDIP stale newer"),
+      makeBeach("b3", "NOAA stale"),
+      makeBeach("b4", "CDIP fresh"),
+    ];
+
+    // System time is 2025-12-11T12:00:00Z from beforeEach()
+    const latestRows = [
+      { beach_id: "b1", updated_at: "2025-12-11T08:00:00Z", data_source: "CDIP" }, // 4h old (stale for 2h window)
+      { beach_id: "b2", updated_at: "2025-12-11T09:30:00Z", data_source: "CDIP" }, // 2.5h old (stale for 2h window)
+      { beach_id: "b3", updated_at: "2025-12-10T10:00:00Z", data_source: "NOAA_NWS" }, // irrelevant for CDIP-only
+      { beach_id: "b4", updated_at: "2025-12-11T11:30:00Z", data_source: "CDIP" }, // 0.5h old (fresh)
+    ];
+
+    const mockSupabase = {
+      from: (table: string) => {
+        if (table === "beaches") {
+          return {
+            select: () => Promise.resolve({ data: beaches, error: null }),
+          };
+        }
+
+        if (table === "v_enhanced_forecast_latest") {
+          return {
+            select: () =>
+              Promise.resolve({
+                data: latestRows,
+                error: null,
+              }),
+          };
+        }
+
+        throw new Error(`Unexpected table: ${table}`);
+      },
+    };
+
+    jest.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServiceRoleClient: async () => mockSupabase,
+    }));
+
+    const { EnhancedForecastService: Service } = await import(
+      "@/lib/services/enhanced-forecast-service"
+    );
+    const service = new Service() as any;
+
+    process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS = "2";
+    process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN = "10";
+
+    const processedBeachIds: string[] = [];
+    jest
+      .spyOn(service, "generateComprehensiveForecast")
+      .mockImplementation(async (beach: any) => {
+        processedBeachIds.push(beach.id);
+        return [];
+      });
+    jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
+    jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+
+    const run = service.updateCdipEnhancedForecasts();
+    await jest.runAllTimersAsync();
+    await run;
+
+    // Only b1 and b2 should be selected (CDIP + older than 2h), oldest first
+    expect(processedBeachIds).toEqual(["b1", "b2"]);
+  });
 });
 

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/enhanced-forecast-sync-cdip",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/enhanced-forecast-sync",
       "schedule": "0 */3 * * *"
     },

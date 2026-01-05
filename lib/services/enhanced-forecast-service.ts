@@ -1525,6 +1525,235 @@ export class EnhancedForecastService {
   }
 
   /**
+   * Update CDIP-sourced beaches with a shorter freshness window.
+   *
+   * Purpose: keep CDIP-backed enhanced forecasts fresh enough for strict cache
+   * consumers (e.g. discovery, which treats CDIP as near-real-time).
+   *
+   * This is intentionally separate from the main rotation updater, which uses a
+   * broader freshness window (default 12h) to fit within cron time budgets.
+   */
+  async updateCdipEnhancedForecasts(options: { deadlineMs?: number } = {}) {
+    console.log(
+      "📊 EnhancedForecastService.updateCdipEnhancedForecasts() starting (CDIP-only refresh)"
+    );
+    const supabase = await createSupabaseServiceRoleClient();
+    const deadlineMs = options.deadlineMs;
+    const hasDeadline = typeof deadlineMs === "number" && Number.isFinite(deadlineMs);
+    const msRemaining = () =>
+      hasDeadline ? (deadlineMs as number) - Date.now() : Number.POSITIVE_INFINITY;
+    const shouldStop = () => hasDeadline && msRemaining() <= 0;
+
+    const BATCH_SIZE = Number(process.env.FORECAST_BATCH_SIZE ?? 3);
+    const BATCH_DELAY_MS = Number(process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
+    const MAX_BEACHES_PER_RUN = Number(
+      process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN ??
+        process.env.FORECAST_MAX_BEACHES_PER_RUN ??
+        25
+    );
+    const FRESHNESS_WINDOW_HOURS = Number(
+      process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS ?? 2
+    );
+
+    try {
+      const staleThresholdMs = Date.now() - FRESHNESS_WINDOW_HOURS * 60 * 60 * 1000;
+
+      // Get all beaches (authoritative list)
+      const { data: allBeaches, error: beachError } = await supabase
+        .from("beaches")
+        .select("*");
+
+      if (beachError) {
+        throw beachError;
+      }
+
+      if (!allBeaches || allBeaches.length === 0) {
+        console.log("📭 No beaches found to update");
+        return { success: true, results: [] };
+      }
+
+      // Latest enhanced forecast row per beach (includes data_source)
+      const { data: latestRows, error: latestError } = await supabase
+        .from("v_enhanced_forecast_latest")
+        .select("beach_id, updated_at, data_source");
+
+      if (latestError) {
+        throw latestError;
+      }
+
+      const latestByBeach = new Map<
+        string,
+        { updated_at: string; data_source: string | null }
+      >();
+      for (const row of (latestRows ?? []) as Array<{
+        beach_id: string;
+        updated_at: string | null;
+        data_source: string | null;
+      }>) {
+        if (!row?.beach_id || !row.updated_at) continue;
+        latestByBeach.set(row.beach_id, {
+          updated_at: row.updated_at,
+          data_source: row.data_source ?? null,
+        });
+      }
+
+      // Select CDIP beaches older than the short freshness window (oldest first)
+      const cdipStale = allBeaches
+        .filter((b) => {
+          const latest = latestByBeach.get(b.id);
+          if (!latest) return false;
+          if ((latest.data_source || "").toUpperCase() !== "CDIP") return false;
+          const ts = new Date(latest.updated_at).getTime();
+          return Number.isFinite(ts) && ts < staleThresholdMs;
+        })
+        .sort((a, b) => {
+          const aUpdated = new Date(latestByBeach.get(a.id)!.updated_at).getTime();
+          const bUpdated = new Date(latestByBeach.get(b.id)!.updated_at).getTime();
+          return aUpdated - bUpdated;
+        });
+
+      const beaches = cdipStale.slice(0, MAX_BEACHES_PER_RUN);
+
+      console.log(
+        `🌊 Starting CDIP-only update for ${beaches.length}/${cdipStale.length} CDIP-stale beaches (stale>${FRESHNESS_WINDOW_HOURS}h, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`
+      );
+
+      const startTime = Date.now();
+
+      if (shouldStop()) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.warn("⏱️ Time budget exhausted before processing started; stopping early", {
+          selected: beaches.length,
+          attempted: 0,
+          remainingMs: msRemaining(),
+        });
+        return {
+          success: true,
+          results: [],
+          summary: {
+            total: beaches.length,
+            attempted: 0,
+            successful: 0,
+            failed: 0,
+            duration: `${duration}s`,
+            stoppedEarly: true,
+            stopReason: "time_budget",
+            remainingMs: msRemaining(),
+          },
+        };
+      }
+
+      // Pre-fetch tide data to avoid duplicate CO-OPS calls
+      await this.prefetchTideStations(beaches);
+
+      // Split beaches into batches
+      const batches: typeof beaches[] = [];
+      for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
+        batches.push(beaches.slice(i, i + BATCH_SIZE));
+      }
+
+      const allResults: Array<{ beach: string; success: boolean; error?: any }> = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        if (shouldStop()) {
+          console.warn("⏱️ Stopping early due to time budget (before starting next batch)", {
+            batchIndex,
+            totalBatches: batches.length,
+            attempted: allResults.length,
+            successful: successCount,
+            failed: failCount,
+            remainingMs: msRemaining(),
+          });
+          break;
+        }
+
+        const batch = batches[batchIndex];
+        const batchNum = batchIndex + 1;
+        const totalBatches = batches.length;
+
+        console.log(`📦 Processing CDIP batch ${batchNum}/${totalBatches} (${batch.length} beaches)`);
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (beach) => {
+            try {
+              const forecasts = await this.generateComprehensiveForecast(beach);
+              const result = await this.storeEnhancedForecasts(beach, forecasts);
+              if (result.success) {
+                console.log(`✅ ${beach.name}: ${forecasts.length} forecasts stored`);
+              } else {
+                console.warn(`⚠️ ${beach.name}: store failed - ${result.error}`);
+              }
+              return { beach: beach.name, success: result.success, error: result.error };
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              console.error(`❌ ${beach.name}: ${errorMsg}`);
+              return { beach: beach.name, success: false, error: errorMsg };
+            }
+          })
+        );
+
+        for (const result of batchResults) {
+          if (result.status === "fulfilled") {
+            allResults.push(result.value);
+            if (result.value.success) successCount++;
+            else failCount++;
+          } else {
+            allResults.push({ beach: "unknown", success: false, error: "Promise rejected" });
+            failCount++;
+          }
+        }
+
+        console.log(`📊 CDIP batch ${batchNum} complete: ${successCount} success, ${failCount} failed so far`);
+
+        if (batchIndex < batches.length - 1) {
+          if (hasDeadline && msRemaining() <= BATCH_DELAY_MS) {
+            console.warn("⏱️ Skipping batch delay and stopping early due to time budget", {
+              batchIndex,
+              attempted: allResults.length,
+              remainingMs: msRemaining(),
+            });
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      const attempted = allResults.length;
+      const stoppedEarly = attempted < beaches.length && hasDeadline;
+
+      console.log(
+        `🏁 CDIP-only update complete in ${duration}s: ${successCount}/${beaches.length} successful${
+          stoppedEarly ? " (stopped early)" : ""
+        }`
+      );
+
+      return {
+        success: true,
+        results: allResults,
+        summary: {
+          total: beaches.length,
+          attempted,
+          successful: successCount,
+          failed: failCount,
+          duration: `${duration}s`,
+          stoppedEarly,
+          stopReason: stoppedEarly ? "time_budget" : undefined,
+          remainingMs: hasDeadline ? msRemaining() : undefined,
+        },
+      };
+    } catch (error) {
+      console.error("Error updating CDIP enhanced forecasts:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
    * Pre-fetch tide data for all unique stations to populate the cache
    * This avoids duplicate API calls when multiple beaches share the same station
    */

@@ -74,6 +74,23 @@ export async function updateAllBeachForecasts(options: ForecastUpdateOptions = {
 }
 
 /**
+ * Update CDIP-sourced beaches with a shorter freshness window.
+ *
+ * Used by a dedicated cron endpoint to keep CDIP-backed enhanced forecasts
+ * within the strict freshness requirements used by discovery.
+ */
+export async function updateCdipBeachForecasts(options: ForecastUpdateOptions = {}) {
+  const service = getEnhancedForecastService();
+  const result = await service.updateCdipEnhancedForecasts(options);
+
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  return result;
+}
+
+/**
  * Fetch enhanced forecasts for a beach with standardized error handling
  */
 export async function fetchBeachForecasts(beachId: string, days = 12) {
