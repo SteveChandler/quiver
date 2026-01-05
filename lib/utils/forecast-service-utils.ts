@@ -102,11 +102,27 @@ export async function getFreshForecastFromCache(
   const startTime = Date.now();
 
   try {
-    // Fetch from database
-    const daysToFetch = Math.ceil(windowHours / 24);
-    const result = await fetchBeachForecasts(beachId, daysToFetch);
+    /**
+     * IMPORTANT:
+     * `fetchBeachForecasts()` returns rows ordered by forecast_date/forecast_time ASC,
+     * which is not a reliable proxy for the *latest write* time. Using `forecasts[0]`
+     * here can incorrectly flag fresh beaches as stale (it’s often the oldest row).
+     *
+     * Instead, use `v_enhanced_forecast_latest` (1 row/beach) as the source of truth
+     * for staleness checks.
+     */
+    const supabase = await createSupabaseServiceRoleClient();
+    const latestResult = await supabase
+      .from("v_enhanced_forecast_latest")
+      .select("updated_at, data_source")
+      .eq("beach_id", beachId)
+      .maybeSingle();
 
-    if (!result.forecasts || result.forecasts.length === 0) {
+    if (latestResult.error) {
+      throw new Error(latestResult.error.message);
+    }
+
+    if (!latestResult.data || !(latestResult.data as any).updated_at) {
       console.warn(`⚠️ [getFreshForecastFromCache] No cached data for beach ${beachId}`);
       return {
         forecasts: [],
@@ -114,15 +130,14 @@ export async function getFreshForecastFromCache(
           cached: false,
           stale: false,
           missing: true,
-          reason: 'No forecast data in cache - waiting for background job',
+          reason: "No forecast data in cache - waiting for background job",
         },
       };
     }
 
-    // Check staleness using source-specific thresholds
-    const mostRecent = result.forecasts[0];
-    const dataSource = mostRecent.data_source || 'FALLBACK';
-    const stalenessDetails = getStalenessDetails(mostRecent.updated_at, dataSource);
+    const latest = latestResult.data as { updated_at: string; data_source: string | null };
+    const dataSource = latest.data_source || "FALLBACK";
+    const stalenessDetails = getStalenessDetails(latest.updated_at, dataSource);
 
     const duration = Date.now() - startTime;
 
@@ -138,6 +153,23 @@ export async function getFreshForecastFromCache(
           missing: false,
           reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - refusing to serve stale cache (waiting for background refresh)`,
           stalenessDetails,
+        },
+      };
+    }
+
+    // Fresh: now load the actual cached forecast rows for the requested window.
+    const daysToFetch = Math.ceil(windowHours / 24);
+    const result = await fetchBeachForecasts(beachId, daysToFetch);
+
+    if (!result.forecasts || result.forecasts.length === 0) {
+      console.warn(`⚠️ [getFreshForecastFromCache] Latest metadata exists but no forecast rows returned for beach ${beachId}`);
+      return {
+        forecasts: [],
+        metadata: {
+          cached: false,
+          stale: false,
+          missing: true,
+          reason: "No forecast rows returned - waiting for background job",
         },
       };
     }
