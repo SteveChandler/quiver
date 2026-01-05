@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Beaches (routing):** Prevented hierarchical beach pages from erroring when `beaches.slug` returns 0 or multiple rows by resolving from candidate matches (state/city/country context) instead of using `.single()`; added dedicated `/ca/[city]/[beachSlug]` route delegating to the generic state beach page.
 - **Forecast freshness:** `getFreshForecastFromCache()` no longer returns stale cached forecast rows; stale cache is flagged via metadata and treated as unusable by consumers (e.g. surf discovery excludes stale beaches).
+- **Forecast freshness:** Fixed false-positive stale cache warnings by computing freshness from `public.v_enhanced_forecast_latest` (latest `updated_at` per beach) instead of relying on the first returned forecast row (which is ordered by time-of-day/date, not write recency).
+- **Forecast monitoring:** Ensured `public.v_enhanced_forecast_latest` has an index-backed definition to avoid statement timeouts in `/api/monitoring/forecast-health` (Edge runtime).
 - **Push notifications (dev noise):** Firebase Admin SDK initialization is now lazy + log-once, preventing repeated "missing env vars" warnings unless push is actually attempted.
 - **[API Middleware]** Fixed `withRateLimit` error-path crash (undefined `limitKey`) and hardened rate limiting to **fail closed** (503 + `Retry-After`) on unexpected limiter errors; client identification now prefers `x-vercel-forwarded-for` when available.
 - **Profile API:** Added `skill_level` (aliased from `experience_level`) and timestamps to `GET /api/profile` to satisfy profile API contract tests.
