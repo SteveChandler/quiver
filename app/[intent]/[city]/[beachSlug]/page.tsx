@@ -5,9 +5,8 @@ import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import {
   buildBeachUrl,
-  buildCityUrl,
-  buildStateUrl,
   buildHiCityUrlForBeach,
+  getUsStateRootPathOrNull,
   stateToSlug,
   cityToSlug,
   isValidStateSlug,
@@ -170,12 +169,9 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
           items={[
             { name: "Home", url: baseUrl },
             ...(() => {
-              const statePath = buildStateUrl(beach.state);
-              const segments = statePath.split("/").filter(Boolean);
-
-              // Only emit state-root URLs that are one segment (e.g. "/ca").
-              // This prevents schema from including dead routes like "/mexico/baja-california".
-              if (segments.length !== 1) return [];
+              const statePath = getUsStateRootPathOrNull(beach.state);
+              // Only emit US state-root URLs (e.g. "/ca"). Skip international states.
+              if (!statePath) return [];
 
               return [
                 {

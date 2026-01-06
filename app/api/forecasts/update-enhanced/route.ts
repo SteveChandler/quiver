@@ -7,7 +7,7 @@ import {
   updateBeachForecast,
   updateAllBeachForecasts,
 } from "@/lib/utils/forecast-server-utils";
-import { getStalenessDetails } from "@/lib/utils/forecast-client-utils";
+import { getStalenessDetails, getLatestUpdatedAt } from "@/lib/utils/forecast-client-utils";
 import { authenticateAdmin } from "@/lib/auth/admin";
 
 /**
@@ -108,29 +108,39 @@ export async function GET(request: NextRequest) {
     let dataAge = "unknown";
     let dataSource = "UNKNOWN";
     let stalenessThreshold = 6;
+    let lastUpdated: string | null = null;
 
     if (hasData) {
-      const mostRecent = data.forecasts[0];
-      dataSource = mostRecent.data_source || "FALLBACK";
+      /**
+       * Get accurate freshness timestamp using max(updated_at) from forecasts.
+       *
+       * The forecasts array includes lookback days (yesterday's data for tide charts)
+       * and is sorted by forecast_date ASC, so forecasts[0] is the OLDEST row,
+       * not the most recently written. getLatestUpdatedAt() finds the true latest.
+       */
+      lastUpdated = getLatestUpdatedAt(data.forecasts);
+      dataSource = data.forecasts[0]?.data_source || "FALLBACK";
 
-      // Use source-specific staleness check
-      const stalenessInfo = getStalenessDetails(mostRecent.updated_at, dataSource);
-      isStale = stalenessInfo.isStale;
-      stalenessThreshold = stalenessInfo.threshold;
+      if (lastUpdated) {
+        // Use source-specific staleness check with the CORRECT timestamp
+        const stalenessInfo = getStalenessDetails(lastUpdated, dataSource);
+        isStale = stalenessInfo.isStale;
+        stalenessThreshold = stalenessInfo.threshold;
 
-      // Calculate age for logging
-      const ageHours = Math.floor(stalenessInfo.hoursSinceUpdate);
-      dataAge = `${ageHours}h old`;
+        // Calculate age for logging
+        const ageHours = Math.floor(stalenessInfo.hoursSinceUpdate);
+        dataAge = `${ageHours}h old`;
 
-      // Enhanced logging with staleness details
-      console.log(`📊 Forecast data for beach ${beachId}:`, {
-        dataSource,
-        lastUpdated: mostRecent.updated_at,
-        hoursSinceUpdate: stalenessInfo.hoursSinceUpdate.toFixed(2),
-        threshold: stalenessThreshold,
-        isStale,
-        reason: stalenessInfo.reason
-      });
+        // Enhanced logging with staleness details
+        console.log(`📊 Forecast data for beach ${beachId}:`, {
+          dataSource,
+          lastUpdated,
+          hoursSinceUpdate: stalenessInfo.hoursSinceUpdate.toFixed(2),
+          threshold: stalenessThreshold,
+          isStale,
+          reason: stalenessInfo.reason,
+        });
+      }
     }
 
     // Log data status but DO NOT generate forecasts on page load
@@ -156,9 +166,11 @@ export async function GET(request: NextRequest) {
       days,
       ...data,
       // Include metadata for debugging/transparency
+      // IMPORTANT: lastUpdated comes from v_enhanced_forecast_latest view (or max updated_at),
+      // NOT from forecasts[0] which may be an older lookback row
       metadata: hasData ? {
         dataSource,
-        lastUpdated: data.forecasts[0].updated_at,
+        lastUpdated: lastUpdated || data.forecasts[0]?.updated_at,
         isStale,
         stalenessThreshold,
         dataAge

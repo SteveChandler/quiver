@@ -13,6 +13,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { StorageError } from "@/lib/errors/forecast-errors";
@@ -47,6 +48,11 @@ export interface StoreResult {
 export class ForecastStorageService {
   private readonly warnedSchemaColumns = new Set<string>();
   private readonly config: Required<StorageConfig>;
+
+  /** Track last cleanup time per beach to throttle cleanup operations */
+  private static lastCleanupTime: Map<string, number> = new Map();
+  /** Cleanup interval in milliseconds (1 hour) */
+  private static readonly CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
   constructor(config: StorageConfig = {}) {
     this.config = {
@@ -109,7 +115,7 @@ export class ForecastStorageService {
       let lastData: any = null;
       for (let i = 0; i < toRows.length; i += this.config.chunkSize) {
         let chunk: Array<Record<string, unknown>> = toRows.slice(i, i + this.config.chunkSize);
-        
+
         // Try upsert with schema compatibility handling
         const result = await this.upsertChunkWithRetry(supabase, chunk);
         if (!result.success) {
@@ -117,6 +123,11 @@ export class ForecastStorageService {
         }
         lastData = result.data;
       }
+
+      // Clean up old forecast rows (>7 days) to prevent database bloat
+      // This also helps prevent the forecasts[0] freshness bug from persisting
+      // with very old rows that could have stale updated_at timestamps
+      await this.cleanupOldForecasts(supabase, beach.id, 7);
 
       return { success: true, data: lastData };
     } catch (error) {
@@ -261,11 +272,61 @@ export class ForecastStorageService {
   }
 
   /**
+   * Clean up old forecast rows for a beach
+   *
+   * Deletes forecast rows older than the retention period to prevent
+   * database bloat and ensure freshness indicators use recent data.
+   *
+   * Throttled: Only runs once per hour per beach to avoid write amplification.
+   *
+   * @param supabase - Supabase client
+   * @param beachId - Beach ID to clean up
+   * @param retentionDays - Days to retain (default: 7)
+   */
+  private async cleanupOldForecasts(
+    supabase: SupabaseClient,
+    beachId: string,
+    retentionDays: number = 7
+  ): Promise<void> {
+    // Throttle: Skip if cleanup ran recently for this beach
+    const lastCleanup = ForecastStorageService.lastCleanupTime.get(beachId) || 0;
+    if (Date.now() - lastCleanup < ForecastStorageService.CLEANUP_INTERVAL_MS) {
+      return; // Skip cleanup, ran recently
+    }
+
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+      const cutoffDateStr = cutoffDate.toISOString().split("T")[0];
+
+      const { error, count } = await supabase
+        .from("enhanced_forecasts")
+        .delete({ count: "exact" })
+        .eq("beach_id", beachId)
+        .lt("forecast_date", cutoffDateStr);
+
+      if (error) {
+        // Log but don't fail the main operation
+        console.warn(`⚠️ Failed to cleanup old forecasts for beach ${beachId}:`, error.message);
+      } else {
+        // Mark cleanup as done regardless of whether rows were deleted
+        ForecastStorageService.lastCleanupTime.set(beachId, Date.now());
+        if (count && count > 0 && this.config.verboseLogging) {
+          console.log(`🗑️ Cleaned up ${count} old forecast rows for beach ${beachId} (older than ${retentionDays} days)`);
+        }
+      }
+    } catch (error) {
+      // Log but don't fail the main operation
+      console.warn(`⚠️ Error during forecast cleanup for beach ${beachId}:`, error);
+    }
+  }
+
+  /**
    * Fetch beaches that need forecast updates
-   * 
+   *
    * Returns beaches with stale or missing forecast data based on
    * the provided freshness window.
-   * 
+   *
    * @param freshnessWindowHours - Hours threshold for staleness
    * @param maxBeaches - Maximum beaches to return
    * @returns Array of beaches needing updates

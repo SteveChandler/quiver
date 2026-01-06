@@ -14,7 +14,7 @@ import {
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
-import { isDataStale } from "@/lib/utils/forecast-client-utils";
+import { isDataStale, getLatestUpdatedAt } from "@/lib/utils/forecast-client-utils";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -207,20 +207,26 @@ export function ForecastTab({
       currentForecast.raw_forecast as unknown as RawForecastData | null;
     const dataSource = currentForecast.data_source || "FALLBACK";
 
-    // Use source-specific staleness thresholds
-    const isStale = isDataStale(currentForecast.updated_at, dataSource);
+    // CRITICAL FIX: Use max(updated_at) across all forecasts for freshness display.
+    // The forecasts array includes lookback days (sorted ASC), so currentForecast
+    // may have an older updated_at than the latest write. Use the helper function
+    // to get the true latest timestamp.
+    const latestUpdatedAt = getLatestUpdatedAt(forecasts) || currentForecast.updated_at;
+
+    // Use source-specific staleness thresholds with the CORRECT timestamp
+    const isStale = isDataStale(latestUpdatedAt, dataSource);
 
     return {
       dataSource,
       confidenceScore: currentForecast.confidence_score ?? 50,
       dataSources: rawForecast?.data_sources || [dataSource],
-      lastUpdated: currentForecast.updated_at,
+      lastUpdated: latestUpdatedAt,
       isRealTimeData: currentForecast.data_source === "CDIP",
       isStaleData: isStale,
       cdipStation: rawForecast?.cdip_data?.stationId,
       cdipStationName: rawForecast?.cdip_data?.stationName,
     };
-  }, [currentForecast]);
+  }, [currentForecast, forecasts]);
 
   return (
     <div className="space-y-6 py-6">

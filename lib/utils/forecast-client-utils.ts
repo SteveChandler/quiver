@@ -66,3 +66,47 @@ export function getStalenessDetails(
       : 'Within freshness window'
   };
 }
+
+/**
+ * Get the latest (most recent) updated_at timestamp from an array of forecasts
+ *
+ * This is critical for accurate freshness display. When fetching forecasts,
+ * we include lookback days for tide charts, which means forecasts[0] may be
+ * yesterday's data with an older updated_at. This function finds the true
+ * latest write time across all forecasts.
+ *
+ * @param forecasts - Array of objects with optional updated_at field
+ * @returns The most recent updated_at timestamp, or null if none found
+ *
+ * @example
+ * ```typescript
+ * const forecasts = [
+ *   { updated_at: "2024-01-04T10:00:00Z" }, // yesterday's data
+ *   { updated_at: "2024-01-05T12:00:00Z" }, // today's data (latest)
+ * ];
+ * const latest = getLatestUpdatedAt(forecasts);
+ * // Returns "2024-01-05T12:00:00Z"
+ * ```
+ */
+export function getLatestUpdatedAt(
+  forecasts: { updated_at?: string | null }[]
+): string | null {
+  if (!forecasts.length) return null;
+
+  // Optimized: Single pass with timestamp caching
+  // Avoids creating 2 Date objects per comparison in the original reduce
+  let latestTimestamp = 0;
+  let latestValue: string | null = null;
+
+  for (const forecast of forecasts) {
+    if (forecast.updated_at) {
+      const ts = new Date(forecast.updated_at).getTime();
+      if (ts > latestTimestamp) {
+        latestTimestamp = ts;
+        latestValue = forecast.updated_at;
+      }
+    }
+  }
+
+  return latestValue;
+}

@@ -38,7 +38,10 @@ jest.mock("next/server", () => ({
 describe("Middleware", () => {
   beforeEach(() => {
     mockNext = jest.fn(() => ({ headers: new Headers(), cookies: { set: jest.fn(), delete: jest.fn() } }));
-    mockRedirect = jest.fn(() => ({}));
+    mockRedirect = jest.fn(() => ({
+      headers: new Headers(),
+      cookies: { set: jest.fn(), delete: jest.fn() },
+    }));
     mockUser = null;
     mockSession = null;
   });
@@ -47,6 +50,64 @@ describe("Middleware", () => {
     const request: any = { nextUrl: { pathname: "/api/health" }, method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
+  });
+
+  test("redirects / to sign-in for Capacitor UA when unauthenticated", async () => {
+    const headers = new Headers([
+      ["user-agent", "Capacitor"],
+    ]);
+    const request: any = {
+      nextUrl: { pathname: "/", search: "" },
+      url: "http://localhost/",
+      method: "GET",
+      headers,
+      cookies: { get: () => undefined },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+
+    const redirectArg = mockRedirect.mock.calls[0]?.[0];
+    expect(redirectArg).toBeInstanceOf(URL);
+    expect(redirectArg.pathname).toBe("/auth/sign-in");
+    expect(redirectArg.searchParams.get("redirectTo")).toBe("/");
+  });
+
+  test("redirects /?signup=confirm-email to sign-in for Capacitor UA when unauthenticated", async () => {
+    const headers = new Headers([
+      ["user-agent", "Capacitor"],
+    ]);
+    const request: any = {
+      nextUrl: { pathname: "/", search: "?signup=confirm-email" },
+      url: "http://localhost/?signup=confirm-email",
+      method: "GET",
+      headers,
+      cookies: { get: () => undefined },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+
+    const redirectArg = mockRedirect.mock.calls[0]?.[0];
+    expect(redirectArg).toBeInstanceOf(URL);
+    expect(redirectArg.pathname).toBe("/auth/sign-in");
+    // Native app does not preserve confirm-email landing flow; always redirectTo /
+    expect(redirectArg.searchParams.get("redirectTo")).toBe("/");
+  });
+
+  test("allows / for Capacitor UA when Supabase auth cookie is present", async () => {
+    const headers = new Headers([
+      ["user-agent", "Capacitor"],
+      ["cookie", "sb-vawdnbbgawichorsjiwe-auth-token.0=abc123; other=1"],
+    ]);
+    const request: any = {
+      nextUrl: { pathname: "/", search: "" },
+      url: "http://localhost/",
+      method: "GET",
+      headers,
+      cookies: { get: () => undefined },
+    };
+    await middleware(request);
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   test("redirects to sign-in for protected path when unauthenticated", async () => {

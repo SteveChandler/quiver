@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { InteractiveMap } from "@/components/map/interactive-map";
 import type { BeachWithMetrics } from "@/types/location";
 import type { Beach } from "@/types/database";
-import { slugify } from "@/lib/utils/text-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 
 interface LocationMapProps {
   beaches: BeachWithMetrics[];
@@ -75,9 +75,17 @@ export function LocationMap({
 
   // Handle beach click - navigate to beach detail page
   const handleBeachClick = (beach: Beach) => {
-    const stateSlug = slugify(state);
-    const beachSlug = beach.slug || slugify(beach.name);
-    router.push(`/${stateSlug}/${beachSlug}`);
+    const href = getBeachHrefSafe({
+      id: beach.id ?? null,
+      slug: beach.slug ?? null,
+      city: beach.city ?? city,
+      state: beach.state ?? state,
+      country: beach.country ?? null,
+    });
+
+    // Avoid pushing a dead route; if no href is possible, do nothing.
+    if (!href) return;
+    router.push(href);
   };
 
   // Empty state
