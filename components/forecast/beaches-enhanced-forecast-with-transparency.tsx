@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,10 @@ function formatLocalTime(value?: string | null): string | null {
 interface BeachesEnhancedForecastWithTransparencyProps {
   beachId?: string;
   beachName?: string;
+  /** Beach latitude - for timezone-aware tide time formatting */
+  beachLat?: number;
+  /** Beach longitude - for timezone-aware tide time formatting */
+  beachLon?: number;
   showHeader?: boolean;
   showTransparency?: boolean;
   showTransparencySummary?: boolean;
@@ -70,6 +75,8 @@ interface BeachesEnhancedForecastWithTransparencyProps {
 export function BeachesEnhancedForecastWithTransparency({
   beachId,
   beachName = "Beach",
+  beachLat,
+  beachLon,
   showHeader = true,
   showTransparency = true,
   showTransparencySummary = false,
@@ -488,10 +495,13 @@ export function BeachesEnhancedForecastWithTransparency({
                   <Droplet className="h-4 w-4 text-slate-500" />
                   <span>
                     {todayForecast.next_tide_type &&
-                    todayForecast.next_tide_time
-                      ? `${todayForecast.next_tide_type} @ ${formatLocalTime(
-                          todayForecast.next_tide_time
-                        )}`
+                    (todayForecast.next_tide_at || todayForecast.next_tide_time)
+                      ? `${todayForecast.next_tide_type} @ ${
+                          // Prefer timezone-aware formatting using ISO timestamp + coordinates
+                          todayForecast.next_tide_at && beachLat != null && beachLon != null
+                            ? formatTimeInBeachTimezone(todayForecast.next_tide_at, beachLat, beachLon)
+                            : formatLocalTime(todayForecast.next_tide_time)
+                        }`
                       : "Next tide —"}
                   </span>
                 </div>

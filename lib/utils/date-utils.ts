@@ -1,5 +1,47 @@
 // Consolidated date and time formatting utilities
 
+import { getTimezoneFromCoords } from './timezone-utils';
+
+/**
+ * Format an ISO timestamp in the local timezone of a beach location.
+ * Uses the beach's coordinates to determine the correct timezone,
+ * then formats the time using Intl.DateTimeFormat.
+ *
+ * @param isoTimestamp - ISO 8601 UTC timestamp (e.g., "2025-01-06T17:48:00.000Z")
+ * @param beachLat - Beach latitude
+ * @param beachLon - Beach longitude
+ * @returns Formatted time string (e.g., "5:48 PM")
+ *
+ * @example
+ * // UTC time 01:48 AM displayed as 5:48 PM in San Diego (PST)
+ * formatTimeInBeachTimezone("2026-01-07T01:48:00.000Z", 32.8667, -117.2573)
+ * // → "5:48 PM"
+ */
+export function formatTimeInBeachTimezone(
+  isoTimestamp: string,
+  beachLat: number,
+  beachLon: number
+): string {
+  try {
+    const timezone = getTimezoneFromCoords(beachLat, beachLon);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone,
+    }).format(new Date(isoTimestamp));
+  } catch (error) {
+    console.error('[formatTimeInBeachTimezone] Error formatting time:', error);
+    // Fallback to basic time formatting without timezone
+    const date = new Date(isoTimestamp);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+}
+
 export const dateUtils = {
   /**
    * Format a date string to short format (e.g., "Jan 15")

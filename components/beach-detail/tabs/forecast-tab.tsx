@@ -30,6 +30,7 @@ import { TideChartEnhanced } from "@/components/forecast/tide-chart-enhanced";
 import { generateTideDiagnosticsFromForecasts } from "@/lib/utils/tide-diagnostics-generator";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 
 const CamsSection = dynamic(
   () =>
@@ -155,7 +156,18 @@ export function ForecastTab({
     return fallback;
   };
 
-  const formatTimeString = (time?: string | null) => {
+  /**
+   * Format a time string with timezone awareness when possible.
+   * If nextTideAt (ISO timestamp) is available, uses beach coordinates
+   * for proper local timezone display.
+   */
+  const formatTimeString = (time?: string | null, nextTideAt?: string | null) => {
+    // Prefer timezone-aware formatting using ISO timestamp + beach coordinates
+    if (nextTideAt && beach.lat != null && beach.lon != null) {
+      return formatTimeInBeachTimezone(nextTideAt, beach.lat, beach.lon);
+    }
+
+    // Fallback to original behavior
     if (!time) return "—";
     if (time.includes("T")) {
       try {
@@ -334,7 +346,7 @@ export function ForecastTab({
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {heroNextTideHeight} ·{" "}
-                        {formatTimeString(currentForecast?.next_tide_time)}
+                        {formatTimeString(currentForecast?.next_tide_time, currentForecast?.next_tide_at)}
                       </div>
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">

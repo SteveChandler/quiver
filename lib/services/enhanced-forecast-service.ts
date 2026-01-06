@@ -655,6 +655,10 @@ export class EnhancedForecastService {
         next_tide_time: tideInfo.nextTideTime,
         next_tide_type: tideInfo.nextTideType,
         next_tide_height: tideInfo.nextTideHeight,
+        // UTC timestamp for client-side timezone-aware formatting
+        next_tide_at: tideInfo.nextTideAt,
+        // CO-OPS station ID for debugging/transparency
+        coops_station_id: tideData?.station_id || null,
 
         // Weather conditions
         weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
@@ -864,6 +868,7 @@ export class EnhancedForecastService {
       nextTideTime: "Unknown",
       nextTideType: "Unknown",
       nextTideHeight: "Unknown",
+      nextTideAt: null as string | null,
     };
 
     if (!tideData?.tides) return defaultTideInfo;
@@ -884,12 +889,17 @@ export class EnhancedForecastService {
     return {
       status,
       currentHeight: currentHeight ? `${currentHeight} ft` : "2.5 ft",
+      // Keep formatted time for backward compatibility with existing data consumers
       nextTideTime: nextTide
         ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           })
         : "Unknown",
+      // ISO timestamp for client-side timezone-aware formatting
+      nextTideAt: nextTide
+        ? new Date(nextTide.time * 1000).toISOString()
+        : null,
       nextTideType: nextTide?.name || "Unknown",
       nextTideHeight: nextTide ? `${nextTide.height} ft` : "Unknown",
     };

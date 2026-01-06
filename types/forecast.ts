@@ -147,6 +147,10 @@ export interface EnhancedForecastEntity {
   next_tide_time?: string | null;
   next_tide_type?: string | null;
   next_tide_height?: string | null;
+  /** UTC timestamp of next tide event (ISO 8601) for timezone-aware formatting */
+  next_tide_at?: string | null;
+  /** NOAA CO-OPS station ID used for tide data (e.g., "9410230" for La Jolla) */
+  coops_station_id?: string | null;
   weather_condition?: string | null;
   // Some tests refer to this alias; keep optional
   weather_description?: string | null;
