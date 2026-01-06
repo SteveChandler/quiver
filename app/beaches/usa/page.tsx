@@ -11,7 +11,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { normalizeCountry } from "@/lib/utils/location-slug";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Surf Beaches by State | Quiver",
+  title: "Surf Beaches by State",
   description:
     "Browse surf beaches by state. Explore top surf cities and their best beaches, AllTrails-style.",
   path: "/beaches/usa",

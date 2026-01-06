@@ -14,16 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Forecast cron:** Increased marine cron `maxBeaches` from 60 to 160, reducing full-cycle time from ~13h to ~4.9h (meets the 6h staleness threshold).
+- **Forecast cron:** Changed marine cron from `maxBeaches=60` every 3h to `maxBeaches=130` **hourly**, reducing full-cycle time from ~39h to ~6h (meets 6h staleness threshold while staying under Vercel's 5-minute timeout).
+- **Mobile:** Updated native iOS/Android launcher icon to use the Quiver logo (`public/logoQuiver.png`).
 
 ### Fixed
 
+- **Forecast monitoring (performance):** Parallelized health check database queries using `Promise.all()`, reducing sequential query latency by 3-4x (from ~3-9s to ~0.5-1s warm).
+- **Forecast monitoring (performance):** Optimized `v_marine_forecast_latest`, `v_tide_forecast_latest`, and `v_sun_times_latest` views with `LATERAL + LIMIT 1` pattern and composite indexes (matching the `v_enhanced_forecast_latest` optimization); reduces view query time from O(N sort) to O(beaches * index probe).
+- **SEO:** Removed duplicate `| Quiver` suffix from page-level titles; root layout template now appends it once (prevents "Title | Quiver | Quiver" in browser tabs).
 - **Forecast monitoring:** Replaced `DISTINCT ON` view with `LATERAL + LIMIT 1` pattern in `v_enhanced_forecast_latest`, reducing query time from O(N sort) to O(beaches * index probe) (~10x faster, prevents statement timeouts in Edge runtime health checks).
 - **Migrations:** Fixed seed migration `20250817140000_seed_intel_posts.sql` to filter beaches without coordinates (prevents NOT NULL constraint violation).
 - **Migrations:** Fixed `20251117033703_fix_beach_photos_rls_security.sql` syntax errors (RAISE NOTICE outside DO block, COMMENT string concatenation).
 - **Migrations:** Fixed duplicate migration timestamps (`20251208000000`, `20251208100000`) that caused schema_migrations conflicts.
 - **Beaches (routing):** Prevented hierarchical beach pages from erroring when `beaches.slug` returns 0 or multiple rows by resolving from candidate matches (state/city/country context) instead of using `.single()`; added dedicated `/ca/[city]/[beachSlug]` route delegating to the generic state beach page.
-- **Beaches (content):** Stripped seeded leading markdown-bold spot names (e.g. `**Blacks Beach**`) from the beach “About” description when the beach record uses a shorter name like `Blacks`.
+- **Beaches (content):** Stripped seeded leading markdown-bold spot names (e.g. `**Blacks Beach**`, `**Sunset Cliffs**`) from descriptions; now handles parenthetical qualifiers in beach names (e.g. "Sunset Cliffs (Garbage)") and applies sanitizer to city map views via `transformBeachToSurfSpot()`.
 - **Forecast freshness:** `getFreshForecastFromCache()` no longer returns stale cached forecast rows; stale cache is flagged via metadata and treated as unusable by consumers (e.g. surf discovery excludes stale beaches).
 - **Forecast freshness:** Fixed false-positive stale cache warnings by computing freshness from `public.v_enhanced_forecast_latest` (latest `updated_at` per beach) instead of relying on the first returned forecast row (which is ordered by time-of-day/date, not write recency).
 - **Forecast monitoring:** Ensured `public.v_enhanced_forecast_latest` has an index-backed definition to avoid statement timeouts in `/api/monitoring/forecast-health` (Edge runtime).
@@ -79,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created `P0_REFACTORING_COMPLETE.md` summarizing P0 security and performance audit results
 - Removed accidental `.cursor` plan file and reconciled P1 refactor documentation to reflect current green test status
 - Updated Playwright local testing docs/config to support `.env.playwright.local` localhost-only overrides (no copy step needed)
+- Fixed cycle time calculation error in `docs/FORECAST_HEALTH_RECOVERY.md` (was 4.9h, corrected to 14.6h for 780 beaches) and added beach count scaling table with recommendations
 
 ### Changed
 

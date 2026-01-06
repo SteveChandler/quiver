@@ -133,11 +133,21 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     /**
      * Read the latest rows per beach via DB views (1 row/beach).
      * This avoids PostgREST row-cap pitfalls on base tables.
+     *
+     * PERFORMANCE: All 4 view queries run in parallel to minimize latency.
+     * Each query is independent and can execute concurrently.
      */
-    const latestEnhancedByBeach = new Map<string, { beach_id: string; updated_at: string; data_source: string | null }>();
-    const latestEnhancedResult = await supabase
-      .from('v_enhanced_forecast_latest')
-      .select('beach_id, updated_at, data_source');
+    const [
+      latestEnhancedResult,
+      latestMarineResult,
+      latestTideResult,
+      latestSunResult,
+    ] = await Promise.all([
+      supabase.from('v_enhanced_forecast_latest').select('beach_id, updated_at, data_source'),
+      supabase.from('v_marine_forecast_latest').select('beach_id, created_at, ts, source, is_observed'),
+      supabase.from('v_tide_forecast_latest').select('beach_id, created_at, ts, source'),
+      supabase.from('v_sun_times_latest').select('beach_id, created_at, date, source'),
+    ]);
 
     const issues: string[] = [];
     let enhancedAvailable = true;
@@ -145,6 +155,8 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     let tideAvailable = true;
     let sunAvailable = true;
 
+    // Process enhanced forecasts
+    const latestEnhancedByBeach = new Map<string, { beach_id: string; updated_at: string; data_source: string | null }>();
     if (latestEnhancedResult.error) {
       enhancedAvailable = false;
       issues.push('Failed to fetch latest enhanced forecasts: ' + latestEnhancedResult.error.message);
@@ -162,11 +174,8 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       });
     }
 
+    // Process marine forecasts
     const latestMarineByBeach = new Map<string, { beach_id: string; created_at: string; ts: string; source: string | null; is_observed: boolean | null }>();
-    const latestMarineResult = await supabase
-      .from('v_marine_forecast_latest')
-      .select('beach_id, created_at, ts, source, is_observed');
-
     if (latestMarineResult.error) {
       marineAvailable = false;
       issues.push('Failed to fetch latest marine forecasts: ' + latestMarineResult.error.message);
@@ -184,11 +193,8 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       });
     }
 
+    // Process tide forecasts
     const latestTideByBeach = new Map<string, { beach_id: string; created_at: string; ts: string; source: string | null }>();
-    const latestTideResult = await supabase
-      .from('v_tide_forecast_latest')
-      .select('beach_id, created_at, ts, source');
-
     if (latestTideResult.error) {
       tideAvailable = false;
       issues.push('Failed to fetch latest tide forecasts: ' + latestTideResult.error.message);
@@ -205,11 +211,8 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       });
     }
 
+    // Process sun times
     const latestSunByBeach = new Map<string, { beach_id: string; created_at: string; date: string; source: string | null }>();
-    const latestSunResult = await supabase
-      .from('v_sun_times_latest')
-      .select('beach_id, created_at, date, source');
-
     if (latestSunResult.error) {
       sunAvailable = false;
       issues.push('Failed to fetch latest sun times: ' + latestSunResult.error.message);

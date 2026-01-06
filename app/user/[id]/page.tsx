@@ -45,7 +45,7 @@ export async function generateMetadata({
 
   // Fallback to generic metadata
   return buildPageMetadata({
-    title: `Surfer Profile | Quiver`,
+    title: "Surfer Profile",
     description:
       "View surfer profile, sessions, and stats on Quiver - the ultimate surf community platform.",
     path: `/user/${params.id}`,

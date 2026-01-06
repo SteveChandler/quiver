@@ -83,7 +83,7 @@ export async function generateMetadata({
 
   // Fallback to generic metadata
   return buildPageMetadata({
-    title: `Surf Session | Quiver`,
+    title: "Surf Session",
     description: "View surf session details, conditions, and photos on Quiver.",
     path: `/sessions/${params.id}`,
   });

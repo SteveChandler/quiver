@@ -3,7 +3,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import InboxPageClient from "./inbox-client";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Inbox - Surf Session Invitations | Quiver",
+  title: "Inbox - Surf Session Invitations",
   description:
     "View and respond to surf session invitations. Stay updated on surf activity and coordinate sessions with your crew. Sign in to manage your invitations and notifications.",
   path: "/inbox",

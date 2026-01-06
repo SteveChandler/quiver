@@ -30,7 +30,7 @@ export async function generateMetadata({
   const stateSlug = (params.state || "").toLowerCase();
   if (!isValidStateSlug(stateSlug)) {
     return buildPageMetadata({
-      title: "Surf Beaches by State | Quiver",
+      title: "Surf Beaches by State",
       description: "Browse surf beaches by state.",
       path: `/beaches/usa/${stateSlug}`,
     });
@@ -38,7 +38,7 @@ export async function generateMetadata({
 
   const stateName = getUsStateDisplayNameFromSlug(stateSlug);
   return buildPageMetadata({
-    title: `Best Surf Beaches in ${stateName} | Quiver`,
+    title: `Best Surf Beaches in ${stateName}`,
     description: `Explore surf cities and their top beaches across ${stateName}.`,
     path: `/beaches/usa/${stateSlug}`,
   });

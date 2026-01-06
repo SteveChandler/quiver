@@ -3,7 +3,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import DiscoverPageClient from "./discover-client";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Discover Surfers - Find Surf Buddies | Quiver",
+  title: "Discover Surfers - Find Surf Buddies",
   description:
     "Find and follow surfers in your community. Search for surf buddies, connect with local surfers, and build your crew. Sign in to discover surfers near you and coordinate surf sessions.",
   path: "/discover",

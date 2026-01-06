@@ -92,23 +92,54 @@ export function sanitizeBeachDescription(
   const boldedNorm = normalize(bolded);
   const nameNorm = normalize(name);
 
+  // Strip parenthetical qualifier from beach name for comparison.
+  // Example: "Sunset Cliffs (Garbage)" -> "Sunset Cliffs"
+  const nameWithoutParens = normalize(name.replace(/\s*\([^)]*\)\s*$/, ""));
+
   // Primary: exact match with the provided beach name.
   if (boldedNorm === nameNorm) {
     return `${leadingWhitespace}${name}${afterSpace}${rest}`;
   }
 
   // Secondary: handle cases where the DB record uses a shorter canonical name
-  // but the seeded description includes a common suffix like "Beach".
+  // but the seeded description includes a common suffix like "Beach" or "Pier".
   //
   // Example:
   //   beachName = "Blacks"
   //   description starts with "**Blacks Beach** ..."
+  //   OR beachName = "Scripps"
+  //   description starts with "**Scripps Pier** ..."
   //
-  // Only allow the specific suffix "beach" to avoid stripping meaningful bold markup.
-  if (boldedNorm === `${nameNorm} beach`) {
+  // Only allow specific suffixes to avoid stripping meaningful bold markup.
+  const allowedSuffixes = ["beach", "pier", "point", "reef"];
+  for (const suffix of allowedSuffixes) {
+    if (boldedNorm === `${nameNorm} ${suffix}`) {
+      return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
+    }
+  }
+
+  // Tertiary: handle cases where the DB record has a parenthetical qualifier
+  // but the seeded description uses the base name without parenthetical.
+  //
+  // Example:
+  //   beachName = "Sunset Cliffs (Garbage)"
+  //   description starts with "**Sunset Cliffs** ..."
+  if (nameWithoutParens !== nameNorm && boldedNorm === nameWithoutParens) {
     return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
   }
 
-  return description;
+  // Quaternary: combine parenthetical stripping with suffix handling.
+  //
+  // Example:
+  //   beachName = "Sunset Cliffs (Garbage)"
+  //   description starts with "**Sunset Cliffs Beach** ..."
+  if (nameWithoutParens !== nameNorm) {
+    for (const suffix of allowedSuffixes) {
+      if (boldedNorm === `${nameWithoutParens} ${suffix}`) {
+        return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
+      }
+    }
+  }
 
+  return description;
 }
