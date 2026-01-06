@@ -15,6 +15,7 @@ import {
 import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastStats } from "./forecast/forecast-stats";
 import { LoadingSpinner, ErrorDisplay } from "@/lib/utils/forecast-ui-utils";
+import { getLatestUpdatedAt } from "@/lib/utils/forecast-client-utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ForecastDataTransparency from "@/components/ui/forecast-data-transparency";
 import {
@@ -240,13 +241,13 @@ export function BeachesEnhancedForecast({
                   source="forecast-page"
                   className="min-h-[400px]"
                 >
-                  {/* Last Updated Info */}
+                  {/* Last Updated Info - uses max(updated_at) for accurate freshness */}
                   <div className="flex justify-end">
                     <div className="text-sm text-muted-foreground flex items-center gap-2">
                       <Clock className="h-4 w-4" />
                       Last updated:{" "}
-                      {forecasts.length > 0 &&
-                        new Date(forecasts[0].updated_at).toLocaleString()}
+                      {forecasts.length > 0 && getLatestUpdatedAt(forecasts) &&
+                        new Date(getLatestUpdatedAt(forecasts)!).toLocaleString()}
                     </div>
                   </div>
 
@@ -294,13 +295,13 @@ export function BeachesEnhancedForecast({
             ) : (
               <>
                 {/* Full content for authenticated users */}
-                {/* Last Updated Info */}
+                {/* Last Updated Info - uses max(updated_at) for accurate freshness */}
                 <div className="flex justify-end">
                   <div className="text-sm text-muted-foreground flex items-center gap-2">
                     <Clock className="h-4 w-4" />
                     Last updated:{" "}
-                    {forecasts.length > 0 &&
-                      new Date(forecasts[0].updated_at).toLocaleString()}
+                    {forecasts.length > 0 && getLatestUpdatedAt(forecasts) &&
+                      new Date(getLatestUpdatedAt(forecasts)!).toLocaleString()}
                   </div>
                 </div>
 

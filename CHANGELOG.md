@@ -16,9 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Forecast cron:** Changed marine cron from `maxBeaches=60` every 3h to `maxBeaches=130` **hourly**, reducing full-cycle time from ~39h to ~6h (meets 6h staleness threshold while staying under Vercel's 5-minute timeout).
 - **Mobile:** Updated native iOS/Android launcher icon to use the Quiver logo (`public/logoQuiver.png`).
+- **Forecast freshness (code quality):** Optimized `getLatestUpdatedAt()` to use single-pass iteration instead of creating 2 Date objects per comparison; removed redundant DB query to `v_enhanced_forecast_latest` view in GET handler (uses client-side calculation instead); added 1-hour throttle to forecast cleanup to reduce write amplification; improved TypeScript typing for Supabase client; deduplicated timestamp calculation logic between `tide-diagnostics-generator` and `forecast-client-utils`.
 
 ### Fixed
 
+- **Forecast freshness UI:** Fixed "Last updated" timestamps and tide staleness indicators to use the latest enhanced forecast write time (not the oldest lookback row). Previously, beach pages showed stale dates like "1/4" even after successful regeneration because the API used `forecasts[0].updated_at` which was the oldest lookback row for tide charts. Now uses `v_enhanced_forecast_latest` view (or `max(updated_at)` fallback) for accurate freshness display.
+- **Forecast freshness UI:** Added `getLatestUpdatedAt()` helper function to correctly find the most recent timestamp across all forecast rows.
+- **Forecast freshness UI:** Exposed `refreshForecast()` function from `useBeachDetailData` hook for admin auto-refresh after forecast updates.
+- **Forecast freshness UI:** Added automatic cleanup of forecast rows older than 7 days during each update to prevent database bloat and stale timestamp accumulation.
+- **Mobile:** On Capacitor app launch, `/` now redirects unauthenticated users directly to `/auth/sign-in` to avoid briefly rendering the public landing page.
 - **Forecast monitoring (performance):** Parallelized health check database queries using `Promise.all()`, reducing sequential query latency by 3-4x (from ~3-9s to ~0.5-1s warm).
 - **Forecast monitoring (performance):** Optimized `v_marine_forecast_latest`, `v_tide_forecast_latest`, and `v_sun_times_latest` views with `LATERAL + LIMIT 1` pattern and composite indexes (matching the `v_enhanced_forecast_latest` optimization); reduces view query time from O(N sort) to O(beaches * index probe).
 - **SEO:** Removed duplicate `| Quiver` suffix from page-level titles; root layout template now appends it once (prevents "Title | Quiver | Quiver" in browser tabs).
@@ -33,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Forecast monitoring:** Ensured `public.v_enhanced_forecast_latest` has an index-backed definition to avoid statement timeouts in `/api/monitoring/forecast-health` (Edge runtime).
 - **Push notifications (dev noise):** Firebase Admin SDK initialization is now lazy + log-once, preventing repeated "missing env vars" warnings unless push is actually attempted.
 - **[API Middleware]** Fixed `withRateLimit` error-path crash (undefined `limitKey`) and hardened rate limiting to **fail closed** (503 + `Retry-After`) on unexpected limiter errors; client identification now prefers `x-vercel-forwarded-for` when available.
+- **SEO (internal 404s):** Fixed `LocationMap` navigation emitting dead 2-segment routes and prevented beach breadcrumb JSON-LD from emitting non-US state-root URLs (e.g. `/baja-california`) that can be crawled as 404s.
 - **Profile API:** Added `skill_level` (aliased from `experience_level`) and timestamps to `GET /api/profile` to satisfy profile API contract tests.
 - **Profile API:** Normalized `created_at`/`updated_at` in `GET /api/profile` to ISO 8601 `Z` format (ms precision) for stable contract tests.
 - **Users API:** Ensured `GET /api/users/[id]/stats` returns **401** for unauthenticated requests (auth check occurs before parameter validation).

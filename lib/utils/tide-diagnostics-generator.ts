@@ -7,6 +7,7 @@
  */
 
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { getLatestUpdatedAt } from "./forecast-client-utils";
 import type {
   TideDiagnostics,
   TideExtreme,
@@ -163,19 +164,35 @@ function generateRawSample(
 }
 
 /**
+ * Get the latest (most recent) updated_at timestamp from forecasts array as milliseconds.
+ *
+ * Uses the shared getLatestUpdatedAt utility from forecast-client-utils.
+ * Returns 0 if no valid timestamp found.
+ */
+function getLatestUpdatedAtFromForecasts(
+  forecasts: EnhancedForecastEntity[]
+): number {
+  const latest = getLatestUpdatedAt(forecasts);
+  return latest ? new Date(latest).getTime() : 0;
+}
+
+/**
  * Determine data freshness based on forecast timestamps
+ *
+ * Uses the LATEST updated_at across all forecasts, not forecasts[0]
+ * which may be an older lookback row.
  */
 function getDataFreshness(
   forecasts: EnhancedForecastEntity[]
 ): TideDataFreshness {
   if (forecasts.length === 0) return "stale";
 
-  const firstForecast = forecasts[0];
-  if (!firstForecast.updated_at) return "cached";
+  // CRITICAL FIX: Use max(updated_at) instead of forecasts[0].updated_at
+  const latestUpdatedAt = getLatestUpdatedAtFromForecasts(forecasts);
+  if (latestUpdatedAt === 0) return "cached";
 
-  const updatedAt = new Date(firstForecast.updated_at);
   const now = new Date();
-  const ageMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
+  const ageMinutes = (now.getTime() - latestUpdatedAt) / (1000 * 60);
 
   if (ageMinutes < 30) return "fresh";
   if (ageMinutes < 120) return "cached";
@@ -264,9 +281,10 @@ export function generateTideDiagnosticsFromForecasts(
   // Determine data freshness
   const dataFreshness = getDataFreshness(forecasts);
 
-  // Get last fetch time from most recent forecast
-  const lastFetchTime = forecasts.length > 0 && forecasts[0].updated_at
-    ? new Date(forecasts[0].updated_at)
+  // Get last fetch time from the LATEST updated_at (not forecasts[0] which may be old)
+  const latestUpdatedAtMs = getLatestUpdatedAtFromForecasts(forecasts);
+  const lastFetchTime = latestUpdatedAtMs > 0
+    ? new Date(latestUpdatedAtMs)
     : now;
 
   // Count forecasts with tide data

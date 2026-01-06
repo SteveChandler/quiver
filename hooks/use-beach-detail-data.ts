@@ -148,9 +148,18 @@ export function useBeachDetailData({
     }
   }, [beach, forecasts, sources, loading]);
 
-  // Refetch function
+  // Refetch function - triggers SWR revalidation
   const refetch = useCallback(() => {
     mutateForecast(); // SWR mutate triggers revalidation
+  }, [mutateForecast]);
+
+  /**
+   * Force refresh forecast data immediately.
+   * Use this after admin updates to bypass cache and show fresh data.
+   * Triggers SWR revalidation to refetch from the server.
+   */
+  const refreshForecast = useCallback(async () => {
+    await mutateForecast();
   }, [mutateForecast]);
 
   return {
@@ -160,5 +169,6 @@ export function useBeachDetailData({
     loading,
     errors,
     refetch,
+    refreshForecast, // Explicitly named function for admin updates
   };
 }

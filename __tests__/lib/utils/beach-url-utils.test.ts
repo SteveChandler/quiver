@@ -9,6 +9,7 @@ import {
   buildInternationalCityUrl,
   buildInternationalBeachUrl,
   getBeachHrefSafe,
+  getUsStateRootPathOrNull,
   getValidStateSlugs,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
@@ -343,6 +344,26 @@ describe("Beach URL Utils", () => {
 
     it("should return / for empty string", () => {
       expect(buildStateUrl("")).toBe("/");
+    });
+  });
+
+  describe("getUsStateRootPathOrNull", () => {
+    it("should return a state-root path for valid US states", () => {
+      expect(getUsStateRootPathOrNull("CA")).toBe("/ca");
+      expect(getUsStateRootPathOrNull("California")).toBe("/ca");
+      expect(getUsStateRootPathOrNull("NJ")).toBe("/nj");
+      expect(getUsStateRootPathOrNull("New Jersey")).toBe("/nj");
+    });
+
+    it("should return null for international or non-US states", () => {
+      expect(getUsStateRootPathOrNull("Baja California")).toBeNull();
+      expect(getUsStateRootPathOrNull("mexico/baja-california")).toBeNull();
+    });
+
+    it("should return null for empty values", () => {
+      expect(getUsStateRootPathOrNull("")).toBeNull();
+      expect(getUsStateRootPathOrNull(null)).toBeNull();
+      expect(getUsStateRootPathOrNull(undefined)).toBeNull();
     });
   });
 

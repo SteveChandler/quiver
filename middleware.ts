@@ -40,6 +40,39 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /**
+   * Mobile (Capacitor) app launch behavior
+   *
+   * The native app should not render the public landing page on cold start.
+   * If an unauthenticated Capacitor request hits `/`, redirect directly to sign-in
+   * before any landing SSR/client UI can paint.
+   *
+   * Note: This intentionally does NOT preserve the `signup=confirm-email` landing
+   * toast flow for the native app.
+   */
+  if (pathname === "/") {
+    const ua = request.headers.get("user-agent") || "";
+    const isCapacitor = /capacitor/i.test(ua);
+
+    if (isCapacitor) {
+      const cookieHeader = request.headers.get("cookie") || "";
+      // Supabase cookie looks like: sb-<projectRef>-auth-token.<n>=...
+      const hasAuthCookie = /(?:^|;\s*)sb-[^=]+-auth-token\./.test(cookieHeader);
+
+      if (!hasAuthCookie) {
+        const signInUrl = new URL("/auth/sign-in", request.url);
+        signInUrl.searchParams.set("redirectTo", "/");
+
+        const redirectResponse = NextResponse.redirect(signInUrl);
+        // Apply baseline security headers for consistency.
+        Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
+          redirectResponse.headers.set(key, value as string);
+        });
+        return redirectResponse;
+      }
+    }
+  }
+
+  /**
    * Hawaii: disambiguate same-named cities by island (Waimea-only to start)
    *
    * Redirect ambiguous legacy URL to the primary island page.
