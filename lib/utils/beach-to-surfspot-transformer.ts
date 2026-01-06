@@ -12,6 +12,7 @@
 
 import type { BeachWithMetrics } from "@/types/location";
 import type { SurfSpot, SurfCitySlug, SurfIntentSlug } from "@/lib/data/surf-spots";
+import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 
 /**
  * Map database skill_level to SurfSpot skillLevel enum
@@ -108,8 +109,8 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
       lng: lon, // Explicit lon → lng mapping
     },
 
-    // Content fields
-    overview: beach.description ?? "No description available.",
+    // Content fields - sanitize description to strip leading **BeachName** markers
+    overview: sanitizeBeachDescription(beach.description, beach.name) ?? "No description available.",
     history: "", // Not available in database
     conditions: beach.best_conditions_prose ?? "",
     tideAdvice: "", // Not available in database
@@ -128,10 +129,11 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
     amenities: beach.features ?? [],
     nearby: [], // Would require separate query
 
-    // FAQ and voice
+    // FAQ and voice - sanitize description to strip leading **BeachName** markers
     faq: [],
     speakableSummary:
-      beach.description ?? `${beach.name} is a surf spot in ${beach.city ?? "California"}.`,
+      sanitizeBeachDescription(beach.description, beach.name) ??
+      `${beach.name} is a surf spot in ${beach.city ?? "California"}.`,
 
     // Optional fields
     beginnerNotes: beach.skill_level?.toLowerCase().includes("beginner")

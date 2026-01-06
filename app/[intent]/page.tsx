@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: StateRootPageProps) {
   const stateSlug = normalizeState(params.intent);
   if (!isValidStateSlug(stateSlug)) {
     return buildPageMetadata({
-      title: "Page Not Found | Quiver",
+      title: "Page Not Found",
       description: "This page could not be found.",
       path: `/${stateSlug}`,
     });
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: StateRootPageProps) {
 
   const stateName = getStateDisplayNameFromSlug(stateSlug);
   return buildPageMetadata({
-    title: `Best Surf Beaches in ${stateName} | Quiver`,
+    title: `Best Surf Beaches in ${stateName}`,
     description: `Explore top surf spots in ${stateName}. Find beaches, conditions, and the best times to surf with Quiver.`,
     path: `/${stateSlug}`,
   });

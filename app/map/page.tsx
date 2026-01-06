@@ -52,7 +52,7 @@ export async function generateMetadata({
   // Important: Keep `/map` indexable, but prevent indexing of parameterized
   // search variants like `/map?search=Capitola` (canonicalize to `/map`).
   const base = buildPageMetadata({
-    title: "Surf Spots Map | Quiver",
+    title: "Surf Spots Map",
     description:
       "Explore surf spots with reviews and live conditions. Find your next epic wave with Quiver's map.",
     path: "/map",

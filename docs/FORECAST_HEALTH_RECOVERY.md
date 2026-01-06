@@ -89,12 +89,12 @@ The `DESC` ordering is critical - it allows the `ORDER BY updated_at DESC LIMIT 
 
 ### Marine Cron Throughput
 
-**Change**: Updated `vercel.json` to increase `maxBeaches` from 60 to 160.
+**Change**: Updated `vercel.json` to run **hourly** with `maxBeaches=130` (previously every 3h with maxBeaches=60).
 
 ```json
 {
-  "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=160",
-  "schedule": "0 */3 * * *"
+  "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
+  "schedule": "0 * * * *"
 }
 ```
 
@@ -103,14 +103,30 @@ The `DESC` ordering is critical - it allows the `ORDER BY updated_at DESC LIMIT 
 ```
 Cycle Time = (Total Beaches / Beaches Per Run) * Run Interval
 
-Before: (780 / 60) * 3h  = 39 hours (PROBLEM: exceeds 6h threshold)
-After:  (780 / 160) * 3h = 4.9 hours (OK: under 6h threshold)
+Before: (780 / 60) * 3h   = 39 hours  (PROBLEM: exceeds 6h threshold)
+After:  (780 / 130) * 1h  = 6 hours   (OK: meets 6h threshold ✓)
 ```
 
-The 160 beach limit was chosen to:
-- Stay well under the 5-minute Vercel timeout
-- Provide headroom for API latency variations
-- Complete a full cycle in ~5 hours (under the 6h staleness threshold)
+**Why hourly with smaller batches instead of larger batches every 3h:**
+- Stays well under the 5-minute Vercel timeout (130 beaches << 390 needed for 3h interval)
+- Achieves the 6-hour staleness threshold
+- Provides headroom for API latency variations
+- Combined with oldest-first prioritization, ensures user-facing freshness
+
+## Beach Count Considerations
+
+The cycle time formula depends heavily on the total number of beaches in the database.
+
+**Current config:** `maxBeaches=130` running hourly
+
+| Total Beaches | Cycle Time (hourly, 130/run) | Meets 6h Threshold? |
+|---------------|------------------------------|---------------------|
+| 260 (dev)     | 2 hours                      | Yes ✓               |
+| 500           | 3.8 hours                    | Yes ✓               |
+| 780 (prod)    | 6 hours                      | Yes ✓               |
+| 1000          | 7.7 hours                    | No (need 167/run)   |
+
+**Recommendation:** If beach count exceeds 780, increase `maxBeaches` proportionally while staying under Vercel's 5-minute timeout limit.
 
 ## Configuration Reference
 
@@ -246,17 +262,18 @@ curl https://your-domain.com/api/monitoring/forecast-health
 2. Verify cron configuration in `vercel.json`:
    ```json
    {
-     "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=160",
-     "schedule": "0 */3 * * *"
+     "path": "/api/cron/forecasts/refresh?source=marine&maxBeaches=130",
+     "schedule": "0 * * * *"
    }
    ```
 
 3. Check for execution timeouts in logs.
 
 **Resolution:**
-- If timing out: Reduce `maxBeaches` to 120 or 100
+- If timing out: Reduce `maxBeaches` to 100 or 80
 - If not running: Verify cron is enabled in Vercel dashboard
 - If API errors: Check NDBC/CDIP service availability
+- If cycle time too long: Increase `maxBeaches` (stay under ~150 to avoid timeout risk)
 
 ### View Returns No Rows
 

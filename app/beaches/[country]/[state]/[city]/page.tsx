@@ -497,8 +497,8 @@ export async function generateMetadata({ params }: LocationPageProps) {
 
     // Use metro-specific metadata if applicable
     const title = metroConfig?.pageTitle
-      ? `${metroConfig.pageTitle} | Quiver`
-      : `Best Surf Beaches in ${displayCityName}, ${location.state} | Quiver`;
+      ? metroConfig.pageTitle
+      : `Best Surf Beaches in ${displayCityName}, ${location.state}`;
 
     const description = metroConfig?.description
       ? `${
@@ -552,7 +552,7 @@ export async function generateMetadata({ params }: LocationPageProps) {
     // Handle errors gracefully during build
     console.error("[generateMetadata] Error:", error);
     return {
-      title: "Surf Beaches | Quiver",
+      title: "Surf Beaches",
       description: "Discover surf beaches and conditions on Quiver",
     };
   }

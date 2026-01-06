@@ -7,7 +7,7 @@ import { ProfileView } from "@/components/profile-view";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "My Profile - Manage Your Surf Profile | Quiver",
+  title: "My Profile - Manage Your Surf Profile",
   description:
     "Manage your surf profile, update settings, view your sessions, and track your surfing journey. Sign in to access your personal surf journal and profile settings.",
   path: "/profile",

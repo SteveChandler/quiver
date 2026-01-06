@@ -136,6 +136,21 @@ describe("Text Utilities", () => {
       );
     });
 
+    it('should strip markdown-bold markers when the bolded segment is the beach name plus "Pier"', () => {
+      const desc =
+        "**Scripps Pier** offers beginner to intermediate beach break rated 6/10.";
+      expect(sanitizeBeachDescription(desc, "Scripps")).toBe(
+        "Scripps Pier offers beginner to intermediate beach break rated 6/10."
+      );
+    });
+
+    it('should strip markdown-bold markers when the bolded segment is the beach name plus "Point"', () => {
+      const desc = "**Terramar Point** represents rare North San Diego reef.";
+      expect(sanitizeBeachDescription(desc, "Terramar")).toBe(
+        "Terramar Point represents rare North San Diego reef."
+      );
+    });
+
     it("should strip even if the description has leading whitespace/newlines before the bolded name", () => {
       const desc =
         "\n  **Blacks Beach** represents San Diego County's best beach break.";
@@ -164,6 +179,33 @@ describe("Text Utilities", () => {
     it("should return null for null/undefined descriptions", () => {
       expect(sanitizeBeachDescription(null, "Terramar Point")).toBeNull();
       expect(sanitizeBeachDescription(undefined, "Terramar Point")).toBeNull();
+    });
+
+    it("should strip markdown-bold when beachName has parenthetical but description doesn't", () => {
+      const desc = "**Sunset Cliffs** offers dramatic coastal cliffs and reef breaks.";
+      expect(sanitizeBeachDescription(desc, "Sunset Cliffs (Garbage)")).toBe(
+        "Sunset Cliffs offers dramatic coastal cliffs and reef breaks."
+      );
+    });
+
+    it("should strip markdown-bold when beachName has parenthetical and description has Beach suffix", () => {
+      const desc = "**Sunset Cliffs Beach** offers dramatic coastal cliffs.";
+      expect(sanitizeBeachDescription(desc, "Sunset Cliffs (Garbage)")).toBe(
+        "Sunset Cliffs Beach offers dramatic coastal cliffs."
+      );
+    });
+
+    it("should handle multiple parentheticals in beach name", () => {
+      const desc = "**Waimea Bay** is a legendary big wave spot.";
+      expect(sanitizeBeachDescription(desc, "Waimea Bay (North Shore)")).toBe(
+        "Waimea Bay is a legendary big wave spot."
+      );
+    });
+
+    it("should not strip bold markup when parenthetical-stripped name doesn't match", () => {
+      const desc = "**Pipeline** is a legendary spot.";
+      // "Sunset Cliffs" without parens doesn't match "Pipeline"
+      expect(sanitizeBeachDescription(desc, "Sunset Cliffs (Garbage)")).toBe(desc);
     });
   });
 });
