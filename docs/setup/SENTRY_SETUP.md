@@ -18,7 +18,7 @@ yarn add @sentry/nextjs
 
 ### 1. Client Configuration
 
-**File**: `sentry.client.config.ts`
+**File**: `instrumentation-client.ts`
 
 - Initializes Sentry for client-side errors
 - Enabled only in production (`NODE_ENV === "production"`)
@@ -46,8 +46,8 @@ yarn add @sentry/nextjs
 **File**: `next.config.mjs`
 
 - Wrapped with `withSentryConfig()` for automatic instrumentation
-- Configures source map uploads
-- Enables automatic Vercel Cron Monitors
+- Configures source map uploads (disabled via `dryRun` when `SENTRY_AUTH_TOKEN` is missing)
+- Disables automatic Vercel Cron Monitors (not compatible with App Router route handlers)
 - Sets up `/monitoring` tunnel route to bypass ad-blockers
 
 ## Share Image API Integration

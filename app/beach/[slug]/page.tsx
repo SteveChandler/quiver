@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -58,6 +59,11 @@ export default async function BeachDetailBySlugPage({
       notFound();
     }
 
+    const beachTimezone =
+      beach.lat != null && beach.lon != null
+        ? getTimezoneFromCoords(beach.lat, beach.lon)
+        : null;
+
     // Redirect to hierarchical URL format if beach has the required data
     // This helps with SEO and provides a better URL structure
     if (beach.slug && beach.city && beach.state) {
@@ -95,7 +101,11 @@ export default async function BeachDetailBySlugPage({
         />
 
         {/* Client detail component with auth tracking */}
-        <BeachDetailClient beach={beach} slug={params.slug} />
+        <BeachDetailClient
+          beach={beach}
+          slug={params.slug}
+          beachTimezone={beachTimezone}
+        />
       </>
     );
   } catch (error) {

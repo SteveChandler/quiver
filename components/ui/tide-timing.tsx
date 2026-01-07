@@ -13,10 +13,8 @@ interface TideTimingProps {
   showFullSchedule?: boolean;
   /** ISO 8601 UTC timestamp for timezone-aware formatting (preferred over nextTideTime) */
   nextTideAt?: string | null;
-  /** Beach latitude - required for timezone-aware formatting */
-  beachLat?: number;
-  /** Beach longitude - required for timezone-aware formatting */
-  beachLon?: number;
+  /** Beach timezone (preferred; computed server-side when available) */
+  beachTimezone?: string | null;
 }
 
 interface TideScheduleProps {
@@ -27,10 +25,8 @@ interface TideScheduleProps {
     type?: "H" | "L";
   }>;
   className?: string;
-  /** Beach latitude - for timezone-aware formatting */
-  beachLat?: number;
-  /** Beach longitude - for timezone-aware formatting */
-  beachLon?: number;
+  /** Beach timezone (preferred; computed server-side when available) */
+  beachTimezone?: string | null;
 }
 
 export function TideTiming({
@@ -40,8 +36,7 @@ export function TideTiming({
   className,
   variant = "compact",
   nextTideAt,
-  beachLat,
-  beachLon,
+  beachTimezone,
 }: TideTimingProps) {
   const isHighTide = nextTideType.toLowerCase().includes("high");
   const isLowTide = nextTideType.toLowerCase().includes("low");
@@ -71,9 +66,9 @@ export function TideTiming({
    * Otherwise, fall back to the pre-formatted nextTideTime string.
    */
   const getFormattedTideTime = (): string => {
-    // Prefer timezone-aware formatting using ISO timestamp + coordinates
-    if (nextTideAt && beachLat != null && beachLon != null) {
-      return formatTimeInBeachTimezone(nextTideAt, beachLat, beachLon);
+    // Prefer timezone-aware formatting using ISO timestamp + timezone
+    if (nextTideAt && beachTimezone) {
+      return formatTimeInBeachTimezone(nextTideAt, beachTimezone);
     }
 
     // Fall back to parsing the pre-formatted time string
@@ -152,7 +147,11 @@ export function TideTiming({
   );
 }
 
-export function TideSchedule({ tides, className, beachLat, beachLon }: TideScheduleProps) {
+export function TideSchedule({
+  tides,
+  className,
+  beachTimezone,
+}: TideScheduleProps) {
   if (!tides || tides.length === 0) {
     return null;
   }
@@ -162,10 +161,10 @@ export function TideSchedule({ tides, className, beachLat, beachLon }: TideSched
    * Uses beach coordinates to determine timezone if available.
    */
   const formatTideTime = (timestamp: number): string => {
-    // If beach coordinates are provided, use timezone-aware formatting
-    if (beachLat != null && beachLon != null) {
+    // If beach timezone is provided, use timezone-aware formatting
+    if (beachTimezone) {
       const isoTimestamp = new Date(timestamp * 1000).toISOString();
-      return formatTimeInBeachTimezone(isoTimestamp, beachLat, beachLon);
+      return formatTimeInBeachTimezone(isoTimestamp, beachTimezone);
     }
 
     // Fallback to browser timezone

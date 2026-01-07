@@ -155,6 +155,7 @@ interface BeachDetailProps {
   id: string;
   publicMode?: boolean;
   initialBeach?: Beach;
+  beachTimezone?: string | null;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -173,6 +174,7 @@ function BeachDetailContent({
   id,
   publicMode = false,
   initialBeach,
+  beachTimezone,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -627,6 +629,7 @@ function BeachDetailContent({
               <Suspense fallback={<TabLoadingSkeleton />}>
                 <ForecastTab
                   beach={beach}
+                  beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
                   currentForecast={currentForecast}
                   hasCamera={hasCamera}

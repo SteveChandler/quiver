@@ -58,6 +58,8 @@ interface BeachesEnhancedForecastWithTransparencyProps {
   beachLat?: number;
   /** Beach longitude - for timezone-aware tide time formatting */
   beachLon?: number;
+  /** Beach timezone (preferred; computed server-side when available) */
+  beachTimezone?: string | null;
   showHeader?: boolean;
   showTransparency?: boolean;
   showTransparencySummary?: boolean;
@@ -77,6 +79,7 @@ export function BeachesEnhancedForecastWithTransparency({
   beachName = "Beach",
   beachLat,
   beachLon,
+  beachTimezone,
   showHeader = true,
   showTransparency = true,
   showTransparencySummary = false,
@@ -497,9 +500,9 @@ export function BeachesEnhancedForecastWithTransparency({
                     {todayForecast.next_tide_type &&
                     (todayForecast.next_tide_at || todayForecast.next_tide_time)
                       ? `${todayForecast.next_tide_type} @ ${
-                          // Prefer timezone-aware formatting using ISO timestamp + coordinates
-                          todayForecast.next_tide_at && beachLat != null && beachLon != null
-                            ? formatTimeInBeachTimezone(todayForecast.next_tide_at, beachLat, beachLon)
+                          // Prefer timezone-aware formatting using ISO timestamp + timezone
+                          todayForecast.next_tide_at && beachTimezone
+                            ? formatTimeInBeachTimezone(todayForecast.next_tide_at, beachTimezone)
                             : formatLocalTime(todayForecast.next_tide_time)
                         }`
                       : "Next tide —"}

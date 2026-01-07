@@ -14,7 +14,7 @@ jest.mock("@/lib/utils/forecast-service-utils", () => ({
   getFreshForecastFromCache: jest.fn(),
 }));
 
-jest.mock("@/lib/utils/timezone-utils", () => ({
+jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "UTC"),
   getLocalHour: jest.fn((d: Date) => d.getUTCHours()),
   isNightHour: jest.fn((h: number) => h >= 21 || h < 6),

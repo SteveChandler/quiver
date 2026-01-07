@@ -25,7 +25,7 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
-import { getTimezoneFromCoords, getLocalHour, isNightHour } from '@/lib/utils/timezone-utils';
+import { getTimezoneFromCoords, getLocalHour, isNightHour } from '@/lib/utils/timezone-utils.server';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {

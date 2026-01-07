@@ -59,6 +59,7 @@ interface ForecastTabProps {
   forecasts: EnhancedForecastEntity[];
   currentForecast: EnhancedForecastEntity | null;
   hasCamera: boolean;
+  beachTimezone?: string | null;
 }
 
 export function ForecastTab({
@@ -66,6 +67,7 @@ export function ForecastTab({
   forecasts,
   currentForecast,
   hasCamera,
+  beachTimezone,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -162,9 +164,9 @@ export function ForecastTab({
    * for proper local timezone display.
    */
   const formatTimeString = (time?: string | null, nextTideAt?: string | null) => {
-    // Prefer timezone-aware formatting using ISO timestamp + beach coordinates
-    if (nextTideAt && beach.lat != null && beach.lon != null) {
-      return formatTimeInBeachTimezone(nextTideAt, beach.lat, beach.lon);
+    // Prefer timezone-aware formatting using ISO timestamp + beach timezone
+    if (nextTideAt && beachTimezone) {
+      return formatTimeInBeachTimezone(nextTideAt, beachTimezone);
     }
 
     // Fallback to original behavior

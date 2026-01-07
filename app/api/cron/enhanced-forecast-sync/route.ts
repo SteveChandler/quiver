@@ -6,13 +6,13 @@
 
 import { NextRequest } from "next/server";
 import {
-  MAX_DURATION_SECONDS,
   runEnhancedForecastSync,
   runEnhancedForecastSyncHead,
 } from "./_shared";
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
-export const maxDuration = MAX_DURATION_SECONDS;
+// Next.js requires `maxDuration` to be statically analyzable (literal).
+export const maxDuration = 300;
 
 /**
  * GET - Vercel Cron entrypoint (Vercel scheduled crons issue GET requests)

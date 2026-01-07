@@ -5,7 +5,7 @@
  * nighttime hours that are unrealistic for surfing.
  */
 
-import { isNightHour, getLocalHour, getTimezoneFromCoords } from '@/lib/utils/timezone-utils';
+import { isNightHour, getLocalHour, getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 
 describe('timezone-utils', () => {
   describe('isNightHour', () => {
