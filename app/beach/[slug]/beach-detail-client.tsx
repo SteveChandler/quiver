@@ -12,9 +12,14 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 interface BeachDetailClientProps {
   beach: Beach;
   slug: string;
+  beachTimezone?: string | null;
 }
 
-export function BeachDetailClient({ beach, slug }: BeachDetailClientProps) {
+export function BeachDetailClient({
+  beach,
+  slug,
+  beachTimezone,
+}: BeachDetailClientProps) {
   const { user } = useAuth();
   const [personalizationData, setPersonalizationData] = useState<{
     score: PersonalizedScore | null;
@@ -44,6 +49,7 @@ export function BeachDetailClient({ beach, slug }: BeachDetailClientProps) {
         id={beach.id}
         publicMode={!user}
         initialBeach={beach}
+        beachTimezone={beachTimezone}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

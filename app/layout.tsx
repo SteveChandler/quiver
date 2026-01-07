@@ -151,11 +151,19 @@ export default async function RootLayout({
                   var host = window.location && window.location.hostname;
                   if (host !== "localhost" && host !== "127.0.0.1") return;
                   if (!("serviceWorker" in navigator)) return;
-                  if (window.sessionStorage && sessionStorage.getItem("__quiver_sw_cleared") === "1") return;
+                  // If a service worker is controlling the page, we *must* clear it even if we did this
+                  // earlier in the session (otherwise stale cached chunks can cause hydration failures).
+                  var hasController = !!navigator.serviceWorker.controller;
+                  if (
+                    window.sessionStorage &&
+                    sessionStorage.getItem("__quiver_sw_cleared") === "1" &&
+                    !hasController
+                  ) return;
 
                   navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    // On localhost we never want *any* SW controlling pages.
                     var targets = (regs || []).filter(function (reg) {
-                      return reg && reg.active && reg.active.scriptURL && reg.active.scriptURL.indexOf("/sw.js") !== -1;
+                      return reg && reg.active && reg.active.scriptURL;
                     });
                     if (targets.length === 0) return;
 

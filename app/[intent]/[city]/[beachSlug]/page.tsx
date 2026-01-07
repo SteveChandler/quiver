@@ -13,6 +13,7 @@ import {
 } from "@/lib/utils/beach-url-utils";
 import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
+import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -118,6 +119,11 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
 
     if (!beach) notFound();
 
+    const beachTimezone =
+      beach.lat != null && beach.lon != null
+        ? getTimezoneFromCoords(beach.lat, beach.lon)
+        : null;
+
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
     if (stateParam.toLowerCase() !== expectedStateSlug) {
@@ -192,7 +198,11 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
         />
 
         {/* Client detail component with auth tracking */}
-        <BeachDetailClient beach={beach} slug={beachSlug} />
+        <BeachDetailClient
+          beach={beach}
+          slug={beachSlug}
+          beachTimezone={beachTimezone}
+        />
       </>
     );
   } catch (error) {

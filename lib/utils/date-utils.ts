@@ -1,5 +1,44 @@
 // Consolidated date and time formatting utilities
 
+/**
+ * Format an ISO timestamp in a specific timezone (client-safe).
+ *
+ * IMPORTANT: Do not attempt to derive timezone from lat/lon in client code.
+ * If you need coordinate->timezone lookup, compute it server-side (e.g. using
+ * `lib/utils/timezone-utils.server.ts`) and pass the timezone down.
+ *
+ * @param isoTimestamp - ISO 8601 UTC timestamp (e.g., "2025-01-06T17:48:00.000Z")
+ * @param timezone - IANA timezone identifier (e.g. "America/Los_Angeles")
+ * @returns Formatted time string (e.g., "5:48 PM")
+ *
+ * @example
+ * // UTC time 01:48 AM displayed as 5:48 PM in San Diego (PST)
+ * formatTimeInBeachTimezone("2026-01-07T01:48:00.000Z", "America/Los_Angeles")
+ * // → "5:48 PM"
+ */
+export function formatTimeInBeachTimezone(
+  isoTimestamp: string,
+  timezone?: string | null
+): string {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(new Date(isoTimestamp));
+  } catch (error) {
+    console.error('[formatTimeInBeachTimezone] Error formatting time:', error);
+    // Fallback to basic time formatting without timezone
+    const date = new Date(isoTimestamp);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
+}
+
 export const dateUtils = {
   /**
    * Format a date string to short format (e.g., "Jan 15")

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { Clock, ArrowUp, ArrowDown, Timer } from "lucide-react";
 
 interface TideTimingProps {
@@ -10,6 +11,10 @@ interface TideTimingProps {
   className?: string;
   variant?: "compact" | "detailed";
   showFullSchedule?: boolean;
+  /** ISO 8601 UTC timestamp for timezone-aware formatting (preferred over nextTideTime) */
+  nextTideAt?: string | null;
+  /** Beach timezone (preferred; computed server-side when available) */
+  beachTimezone?: string | null;
 }
 
 interface TideScheduleProps {
@@ -20,6 +25,8 @@ interface TideScheduleProps {
     type?: "H" | "L";
   }>;
   className?: string;
+  /** Beach timezone (preferred; computed server-side when available) */
+  beachTimezone?: string | null;
 }
 
 export function TideTiming({
@@ -28,6 +35,8 @@ export function TideTiming({
   nextTideHeight,
   className,
   variant = "compact",
+  nextTideAt,
+  beachTimezone,
 }: TideTimingProps) {
   const isHighTide = nextTideType.toLowerCase().includes("high");
   const isLowTide = nextTideType.toLowerCase().includes("low");
@@ -48,6 +57,22 @@ export function TideTiming({
     if (isHighTide) return "bg-blue-50";
     if (isLowTide) return "bg-gray-50";
     return "bg-gray-50";
+  };
+
+  /**
+   * Format tide time with timezone awareness.
+   * If nextTideAt (ISO timestamp) and beach coordinates are available,
+   * use timezone-aware formatting to display time in beach's local timezone.
+   * Otherwise, fall back to the pre-formatted nextTideTime string.
+   */
+  const getFormattedTideTime = (): string => {
+    // Prefer timezone-aware formatting using ISO timestamp + timezone
+    if (nextTideAt && beachTimezone) {
+      return formatTimeInBeachTimezone(nextTideAt, beachTimezone);
+    }
+
+    // Fall back to parsing the pre-formatted time string
+    return formatTideTime(nextTideTime);
   };
 
   const formatTideTime = (timeStr: string) => {
@@ -80,7 +105,7 @@ export function TideTiming({
             {isHighTide ? "High" : isLowTide ? "Low" : "Next"}
           </span>
           <span className="text-sm text-muted-foreground">
-            {formatTideTime(nextTideTime)}
+            {getFormattedTideTime()}
           </span>
           {nextTideHeight && (
             <span className="text-xs text-muted-foreground">
@@ -109,7 +134,7 @@ export function TideTiming({
             Next {isHighTide ? "High Tide" : isLowTide ? "Low Tide" : "Tide"}
           </span>
           <span className="text-sm font-mono text-muted-foreground">
-            {formatTideTime(nextTideTime)}
+            {getFormattedTideTime()}
           </span>
         </div>
         {nextTideHeight && (
@@ -122,12 +147,27 @@ export function TideTiming({
   );
 }
 
-export function TideSchedule({ tides, className }: TideScheduleProps) {
+export function TideSchedule({
+  tides,
+  className,
+  beachTimezone,
+}: TideScheduleProps) {
   if (!tides || tides.length === 0) {
     return null;
   }
 
+  /**
+   * Format tide time with optional timezone awareness.
+   * Uses beach coordinates to determine timezone if available.
+   */
   const formatTideTime = (timestamp: number): string => {
+    // If beach timezone is provided, use timezone-aware formatting
+    if (beachTimezone) {
+      const isoTimestamp = new Date(timestamp * 1000).toISOString();
+      return formatTimeInBeachTimezone(isoTimestamp, beachTimezone);
+    }
+
+    // Fallback to browser timezone
     const date = new Date(timestamp * 1000);
     return date.toLocaleTimeString([], {
       hour: "numeric",

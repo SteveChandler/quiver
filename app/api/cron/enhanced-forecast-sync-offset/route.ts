@@ -6,9 +6,10 @@
  */
 
 import { NextRequest } from "next/server";
-import { MAX_DURATION_SECONDS, runEnhancedForecastSync, runEnhancedForecastSyncHead } from "../enhanced-forecast-sync/_shared";
+import { runEnhancedForecastSync, runEnhancedForecastSyncHead } from "../enhanced-forecast-sync/_shared";
 
-export const maxDuration = MAX_DURATION_SECONDS;
+// Next.js requires `maxDuration` to be statically analyzable (literal).
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest): Promise<Response> {
   return runEnhancedForecastSync(request);
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 export async function HEAD(request: NextRequest): Promise<Response> {
   return runEnhancedForecastSyncHead(request);
 }
+
 
 
 

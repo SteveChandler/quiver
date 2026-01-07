@@ -145,11 +145,24 @@ Workflow:
 ### Architecture Compliance (CRITICAL)
 
 Before implementing ANY feature, you MUST:
-1. Read relevant architecture documentation:
-   - `/components/ARCHITECTURE.md` - Component patterns and structure
-   - `/styles/ARCHITECTURE.md` - Styling conventions and Tailwind usage
-   - `/e2e/ARCHITECTURE.md` - Playwright testing patterns
+1. Read relevant architecture documentation (37 ARCHITECTURE.md files exist):
+
+   **Start here:**
+   - `/docs/ARCHITECTURE.md` - Top-level architecture index
+
+   **Core Documentation:**
+   - `/app/ARCHITECTURE.md` - Next.js App Router patterns
+   - `/app/api/ARCHITECTURE.md` - API routes architecture (710 lines)
+   - `/components/ARCHITECTURE.md` - Component patterns (+ 17 subdirectory docs)
+   - `/hooks/ARCHITECTURE.md` - Custom React hooks (838 lines)
+   - `/lib/services/ARCHITECTURE.md` - Services and personalization
+   - `/types/ARCHITECTURE.md` - TypeScript type system
    - `/supabase/ARCHITECTURE.md` - Database architecture and RLS patterns
+   - `/e2e/ARCHITECTURE.md` - Playwright testing patterns
+   - `/context/ARCHITECTURE.md` - React Context patterns
+   - `/actions/ARCHITECTURE.md` - Server actions patterns
+   - `/styles/ARCHITECTURE.md` - Styling conventions and Tailwind usage
+
 2. Follow existing patterns - NO duplicate implementations
 3. Maintain DRY principles throughout the codebase
 

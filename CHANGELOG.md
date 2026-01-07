@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Dev/build warnings:** Moved client Sentry init to `instrumentation-client.ts` (Turbopack-safe), disabled Sentry `automaticVercelMonitors` (prevents App Router route-handler `config` warnings), gated source map uploads via `dryRun` when `SENTRY_AUTH_TOKEN` is missing, and fixed Tailwind `duration-[900ms]` ambiguity in the landing hero carousel.
 - **Forecast freshness UI:** Fixed "Last updated" timestamps and tide staleness indicators to use the latest enhanced forecast write time (not the oldest lookback row). Previously, beach pages showed stale dates like "1/4" even after successful regeneration because the API used `forecasts[0].updated_at` which was the oldest lookback row for tide charts. Now uses `v_enhanced_forecast_latest` view (or `max(updated_at)` fallback) for accurate freshness display.
 - **Forecast freshness UI:** Added `getLatestUpdatedAt()` helper function to correctly find the most recent timestamp across all forecast rows.
 - **Forecast freshness UI:** Exposed `refreshForecast()` function from `useBeachDetailData` hook for admin auto-refresh after forecast updates.

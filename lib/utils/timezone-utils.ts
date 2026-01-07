@@ -1,58 +1,24 @@
 /**
- * Timezone Utilities
+ * Timezone Utilities (client-safe)
  *
- * Helper functions for timezone-aware operations, particularly for
- * determining local time at beach locations for filtering and display.
- *
- * Uses geo-tz for coordinate-to-timezone lookup (offline, no API calls).
- *
- * @module lib/utils/timezone-utils
+ * IMPORTANT: Do NOT import `geo-tz` here (it depends on Node `fs` and breaks
+ * client bundling). Server-only callers should import from
+ * `lib/utils/timezone-utils.server.ts`.
  */
-
-import { find } from 'geo-tz';
 
 /**
- * Default timezone fallback for when coordinates are missing or invalid
+ * Default timezone fallback for when timezone is unknown.
  */
-const DEFAULT_TIMEZONE = 'America/Los_Angeles';
+export const DEFAULT_TIMEZONE = "America/Los_Angeles";
 
 /**
- * Get the timezone for a given lat/lon coordinate
+ * Client-safe fallback for coordinate-to-timezone lookup.
  *
- * Uses geo-tz library which includes embedded timezone boundary data,
- * so no external API calls are needed.
- *
- * @param lat - Latitude coordinate
- * @param lon - Longitude coordinate
- * @returns IANA timezone identifier (e.g., 'America/Los_Angeles', 'Pacific/Honolulu')
- *
- * @example
- * getTimezoneFromCoords(32.7157, -117.1611) // San Diego → 'America/Los_Angeles'
- * getTimezoneFromCoords(21.3069, -157.8583) // Honolulu → 'Pacific/Honolulu'
- * getTimezoneFromCoords(25.7617, -80.1918)  // Miami → 'America/New_York'
+ * We cannot derive timezone from coordinates in the browser without shipping
+ * heavy boundary data or calling an external API, so we return a safe default.
  */
-export function getTimezoneFromCoords(lat: number, lon: number): string {
-  // Handle missing or invalid coordinates
-  if (!lat || !lon || !isFinite(lat) || !isFinite(lon)) {
-    console.warn(
-      `⚠️ [getTimezoneFromCoords] Invalid coordinates (${lat}, ${lon}), using fallback: ${DEFAULT_TIMEZONE}`
-    );
-    return DEFAULT_TIMEZONE;
-  }
-
-  try {
-    const timezones = find(lat, lon);
-    if (timezones.length === 0) {
-      console.warn(
-        `⚠️ [getTimezoneFromCoords] No timezone found for (${lat}, ${lon}), using fallback: ${DEFAULT_TIMEZONE}`
-      );
-      return DEFAULT_TIMEZONE;
-    }
-    return timezones[0];
-  } catch (error) {
-    console.error(`❌ [getTimezoneFromCoords] Error looking up timezone:`, error);
-    return DEFAULT_TIMEZONE;
-  }
+export function getTimezoneFromCoords(_lat: number, _lon: number): string {
+  return DEFAULT_TIMEZONE;
 }
 
 /**
@@ -73,9 +39,9 @@ export function getTimezoneFromCoords(lat: number, lon: number): string {
  */
 export function getLocalHour(date: Date, timezone: string): number {
   try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
+    const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
-      hour: 'numeric',
+      hour: "numeric",
       hour12: false,
     });
 
