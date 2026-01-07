@@ -11,12 +11,10 @@ export function BeachSelector({
   onBeachSelected,
   initialValue,
   inputId,
-  listId,
 }: {
   onBeachSelected: (beach: ClientBeach) => void;
   initialValue?: string;
   inputId?: string;
-  listId?: string;
 }) {
   const [allBeaches, setAllBeaches] = useState<ClientBeach[]>([]);
   const [query, setQuery] = useState(initialValue || "");
@@ -163,7 +161,6 @@ export function BeachSelector({
 
   const generatedInputId = useId();
   const inputIdToUse = inputId ?? `${generatedInputId}-beach-input`;
-  const listIdToUse = listId ?? `${inputIdToUse}-list`;
 
   return (
     <div className="relative">
@@ -176,7 +173,6 @@ export function BeachSelector({
         onBlur={handleBlur}
         onFocus={handleFocus}
         data-testid="beach-search-input"
-        list={listIdToUse}
       />
       {selectionMade && query && (
         <button
@@ -202,12 +198,6 @@ export function BeachSelector({
 
       {!selectionMade && query && (
         <>
-          <datalist id={listIdToUse}>
-            {matches.map((b) => (
-              <option key={b.id} value={b.name} />
-            ))}
-          </datalist>
-
           <ul className="absolute top-full left-0 right-0 z-50 mt-1 border rounded bg-white shadow-lg max-h-60 overflow-auto">
             {isSearching ? (
               <li className="p-2 text-gray-500 text-sm">Searching...</li>

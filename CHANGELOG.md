@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Beach Selector:** Removed the browser-native `<datalist>` popup during beach search so only the custom dropdown shows.
 - **Session Logging (Data Binding):** Fixed critical bug in ConditionsSection where condition fields (wave height, wind speed, wind direction, water temp) used local `useState` but never propagated values back to `formState` via `updateField()`. Data entered in the Conditions section is now correctly persisted on form submission.
 - **Surf Intel:** Fixed Surf Intel incorrectly showing "not available" late afternoon by aligning `forecast_date` semantics to the **beach's local date** (not UTC) and routing reads through the client data gateway + API.
 - **Tides UI:** "Next Tides" cards now display in chronological order (soonest tide first) to avoid confusion when the next event is a low tide.
