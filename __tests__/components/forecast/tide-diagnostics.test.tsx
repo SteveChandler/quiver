@@ -151,6 +151,34 @@ describe("TideNextExtreme", () => {
     expect(screen.getByText("0.8")).toBeInTheDocument();
   });
 
+  it("orders cards by soonest tide first (low before high when low is sooner)", () => {
+    const laterHigh = {
+      time: new Date(now.getTime() + 9 * 60 * 60 * 1000),
+      height: 5.2,
+    };
+    const soonerLow = {
+      time: new Date(now.getTime() + 3 * 60 * 60 * 1000),
+      height: 0.8,
+    };
+
+    render(
+      <TideNextExtreme
+        nextHigh={laterHigh}
+        nextLow={soonerLow}
+        minutesToHigh={540}
+        minutesToLow={180}
+        now={now}
+      />
+    );
+
+    const cardsContainer = screen.getByTestId("next-tides-cards");
+    const cards = Array.from(cardsContainer.children);
+
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveAttribute("data-testid", "next-tide-low");
+    expect(cards[1]).toHaveAttribute("data-testid", "next-tide-high");
+  });
+
   it("shows duration until next tide", () => {
     render(
       <TideNextExtreme

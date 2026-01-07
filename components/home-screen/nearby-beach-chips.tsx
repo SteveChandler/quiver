@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { LocationPermissionBanner } from "@/components/ui/location-permission-banner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export function NearbyBeachChips({
     coords,
     loading: geoLoading,
     error: geoError,
+    errorType,
     requestLocation,
     setLastBeach,
   } = useGeolocation({ autoRequest: false });
@@ -119,13 +121,18 @@ export function NearbyBeachChips({
   if (showCTA) {
     return (
       <div className={cn("space-y-2", className)}>
+        {errorType && (
+          <LocationPermissionBanner
+            errorType={errorType}
+            onRetry={handleUseLocation}
+          />
+        )}
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">See nearby spots</p>
           <Button size="sm" onClick={handleUseLocation} disabled={geoLoading}>
             {geoLoading ? "Detecting…" : "Use my location"}
           </Button>
         </div>
-        {geoError && <p className="text-xs text-yellow-600">{geoError}</p>}
       </div>
     );
   }

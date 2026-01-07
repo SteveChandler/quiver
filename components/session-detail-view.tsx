@@ -36,6 +36,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SessionComments } from "@/components/session-comments";
+import { ForecastComparison } from "@/components/session/forecast-comparison";
+import { parseForecastSnapshot } from "@/types/forecast-snapshot";
 import dynamic from "next/dynamic";
 import { MapImage } from "@/components/map-image";
 import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
@@ -493,6 +495,14 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             )}
           </div>
         </div>
+
+        {/* Forecast Comparison - Only for completed sessions with snapshot data */}
+        {!isPlannedSession && session.forecast_snapshot && (() => {
+          const parsedSnapshot = parseForecastSnapshot(session.forecast_snapshot);
+          return parsedSnapshot ? (
+            <ForecastComparison snapshot={parsedSnapshot} />
+          ) : null;
+        })()}
 
         {/* Session Photos */}
         {!photosLoading &&

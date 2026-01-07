@@ -34,6 +34,14 @@ jest.mock("@/components/forecast/tide-chart-recharts", () => ({
 
 describe("ForecastAndTides (smoke)", () => {
   it("renders without throwing and shows chips header", () => {
+    // BestSurfWindow fetches intel via the client data gateway; mock it to avoid network errors.
+    const originalFetch = global.fetch;
+    (global as any).fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { intel: null } }),
+    }));
+
     const beach = {
       id: "beach-uuid",
       name: "Test Beach",
@@ -48,5 +56,7 @@ describe("ForecastAndTides (smoke)", () => {
     expect(
       screen.getByText(/Sunrise\/Sunset shown in charts/i)
     ).toBeInTheDocument();
+
+    (global as any).fetch = originalFetch;
   });
 });

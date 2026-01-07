@@ -7,7 +7,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import type { Database } from "@/types/database";
+import type { Database, Json } from "@/types/database";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type {
   BeachPreferences,
   ForecastSlice,
@@ -24,8 +25,6 @@ import {
   analyzeConditions,
   getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
-
-const TIMEZONE = "America/Los_Angeles";
 
 export class IntelGenerationService {
   private supabase;
@@ -55,15 +54,19 @@ export class IntelGenerationService {
   /**
    * Generate intel for a specific beach
    */
-  async generateIntel(beachId: string, targetTime: string = "06:00"): Promise<MorningIntelData> {
+  async generateIntel(
+    beachId: string,
+    targetTime: string = "06:00",
+    timezone?: string | null
+  ): Promise<MorningIntelData> {
     // 1. Fetch beach preferences
     const beachPrefs = await this.fetchBeachPreferences(beachId);
     
     // 2. Fetch forecast data
-    const forecasts = await this.fetchForecasts(beachId);
+    const forecasts = await this.fetchForecasts(beachId, timezone);
     
     // 3. Analyze conditions
-    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime);
+    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime, timezone);
     
     return intel;
   }
@@ -155,10 +158,14 @@ export class IntelGenerationService {
   /**
    * Fetch forecast data
    */
-  private async fetchForecasts(beachId: string): Promise<ForecastSlice> {
+  private async fetchForecasts(
+    beachId: string,
+    timezone?: string | null
+  ): Promise<ForecastSlice> {
     const now = new Date();
-    const today = formatInTimeZone(now, TIMEZONE, "yyyy-MM-dd");
-    const tomorrow = formatInTimeZone(addDays(now, 1), TIMEZONE, "yyyy-MM-dd");
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
+    const tomorrow = formatInTimeZone(addDays(now, 1), tz, "yyyy-MM-dd");
 
     const { data: forecasts, error } = await this.supabase
       .from("enhanced_forecasts")
@@ -210,17 +217,19 @@ export class IntelGenerationService {
   private analyzeForecasts(
     slice: ForecastSlice,
     beachPrefs: BeachPreferences | null,
-    targetTime: string
+    targetTime: string,
+    timezone?: string | null
   ): MorningIntelData {
     const now = new Date();
-    const date = formatInTimeZone(now, TIMEZONE, "yyyy-MM-dd");
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const date = formatInTimeZone(now, tz, "yyyy-MM-dd");
 
     // Calculate metrics
     const surf = deriveSurfRange(slice.forecasts);
     const tide = recommendTideWindow(slice.forecasts, beachPrefs);
     const swells = primarySecondarySwell(slice.forecasts);
-    const wind = windAt(targetTime, slice.forecasts, TIMEZONE);
-    const bestWindow = bestWindowHeuristic(slice.forecasts, slice.tides, TIMEZONE);
+    const wind = windAt(targetTime, slice.forecasts, tz);
+    const bestWindow = bestWindowHeuristic(slice.forecasts, slice.tides, tz);
     const confidence = confidenceHeuristic(slice.forecasts, slice.tides);
 
     // Analyze conditions
@@ -316,9 +325,9 @@ export class IntelGenerationService {
               skillLevel: beachPrefs.skillLevel ?? null,
               hazards: beachPrefs.hazards ?? null,
               breakType: beachPrefs.breakType ?? null,
-              aspectDeg: (beachPrefs as any).aspectDeg ?? null,
+              aspectDeg: beachPrefs.aspectDeg ?? null,
               windOffshoreDegUsed: beachPrefs.windOffshoreDeg ?? null,
-              windOffshoreDegSource: (beachPrefs as any).windOffshoreDegSource ?? "db",
+              windOffshoreDegSource: beachPrefs.windOffshoreDegSource ?? "db",
             }
           : undefined,
       },
@@ -331,9 +340,20 @@ export class IntelGenerationService {
   async saveIntel(
     beachId: string,
     intel: MorningIntelData,
-    generationTime: string
+    generationTime: string,
+    timezone?: string | null
   ): Promise<void> {
-    const today = new Date().toISOString().split("T")[0];
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const today = formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
+
+    // Log timezone usage for debugging (safe for production - helps diagnose issues)
+    console.log(`[IntelGenerationService] Saving intel for beach ${beachId}:`, {
+      providedTimezone: timezone,
+      effectiveTimezone: tz,
+      computedForecastDate: today,
+      generationTime,
+      utcNow: new Date().toISOString(),
+    });
 
     // Parse best window string (e.g., "06:00–08:30 on the drop" or "06:00-08:30")
     // Handle both regular dash (-) and em-dash (–)
@@ -383,11 +403,11 @@ export class IntelGenerationService {
           surf_max_ft: intel.surf.max,
           surf_description: intel.surf.dominant,
 
-          // Tide
+          // Tide - access extended fields from payload.tide which has the full type
           tide_height_ft: intel.tide.height,
-          tide_time: (intel.tide as any).recommendedTime || null,
+          tide_time: intel.payload.tide.recommendedTime || null,
           tide_status: intel.tide.direction,
-          tide_optimal_range: (intel.tide as any).optimalRange || null,
+          tide_optimal_range: intel.payload.tide.optimalRange || null,
           next_tide_type: intel.tide.nextEvent?.type || null,
           next_tide_time: intel.tide.nextEvent?.time || null,
           next_tide_height_ft: intel.tide.nextEvent?.height || null,
@@ -415,8 +435,8 @@ export class IntelGenerationService {
           recommendation: intel.notes,
           conditions_score: intel.conditions?.score || null,
 
-          // Full data
-          raw_intel_data: intel as any,
+          // Full data - cast to Json type for JSONB column storage
+          raw_intel_data: intel as unknown as Json,
         },
         {
           onConflict: "beach_id,forecast_date,generation_time",

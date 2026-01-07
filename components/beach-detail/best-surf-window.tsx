@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getClientBrowserClient } from "@/lib/supabase";
 import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import { data } from "@/lib/data/client";
+import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 import {
   Clock,
   Waves,
@@ -20,6 +23,8 @@ import {
 interface BestSurfWindowProps {
   beachId: string;
   beachName: string;
+  beachTimezone?: string | null;
+  forecasts?: EnhancedForecastEntity[];
 }
 
 type WindowForecast = {
@@ -32,7 +37,14 @@ type WindowForecast = {
   tide_height: number | null;
 };
 
-export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
+export function BestSurfWindow({
+  beachId,
+  beachName,
+  beachTimezone,
+  forecasts,
+}: BestSurfWindowProps) {
+  const pathname = usePathname();
+
   // Format time helper
   const formatTime = (time: string | null) => {
     if (!time) return "";
@@ -46,80 +58,66 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     }
   };
 
-  // Fetch latest intel directly from Supabase (no edge function needed!)
+  const forecastDate = useMemo(() => {
+    const timezone = beachTimezone || DEFAULT_TIMEZONE;
+    const localDate = getLocalDateString(new Date(), timezone);
+
+    // Dev-only logging to catch timezone issues
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[BestSurfWindow] Computing forecast_date:', {
+        beachId,
+        beachName,
+        beachTimezone,
+        effectiveTimezone: timezone,
+        computedDate: localDate,
+        utcNow: new Date().toISOString(),
+      });
+    }
+
+    return localDate;
+  }, [beachTimezone, beachId, beachName]);
+
+  // Fetch latest intel via the client data gateway + API route
   const fetchIntel = useCallback(async () => {
-    const supabase = getClientBrowserClient();
-    const todayUtc = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("beach_daily_intel")
-      .select("*")
-      .eq("beach_id", beachId)
-      .eq("forecast_date", todayUtc)
-      .order("generated_at", { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-    // Return first record from array (or null if empty)
-    return data && data.length > 0 ? data[0] : null;
-  }, [beachId]);
-
-  // Fetch today's forecasts for next window calculation
-  const fetchForecasts = useCallback(async () => {
-    const supabase = getClientBrowserClient();
-    const todayUtc = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("enhanced_forecasts")
-      .select(
-        "forecast_time, forecast_date, wind_speed, wind_direction, wave_period, swell_1_period, tide_height"
-      )
-      .eq("beach_id", beachId)
-      .eq("forecast_date", todayUtc)
-      .order("forecast_time", { ascending: true });
-
-    if (error) throw error;
-
-    // Convert strings to numbers for the calculation
-    const mapped: WindowForecast[] = (data || []).map(
-      (f: {
-        forecast_time: string;
-        forecast_date: string;
-        wind_speed: string | null;
-        wind_direction: string | null;
-        wave_period: string | null;
-        swell_1_period: string | null;
-        tide_height: string | null;
-      }) => ({
-        forecast_time: f.forecast_time,
-        forecast_date: f.forecast_date,
-        wind_speed: f.wind_speed ? parseFloat(f.wind_speed) : null,
-        wind_direction: f.wind_direction ? parseFloat(f.wind_direction) : null,
-        wave_period: f.wave_period ? parseFloat(f.wave_period) : null,
-        swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period) : null,
-        tide_height: f.tide_height ? parseFloat(f.tide_height) : null,
-      })
-    );
-
-    return mapped;
-  }, [beachId]);
+    return await data.intel.getDaily(beachId, forecastDate);
+  }, [beachId, forecastDate]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
-  const { data: forecasts, loading: forecastsLoading } =
-    useDataFetcher(fetchForecasts);
+
+  const mappedForecasts: WindowForecast[] = useMemo(() => {
+    const rows = (forecasts || []).filter((f) => f.forecast_date === forecastDate);
+    return rows.map((f) => ({
+      forecast_time: f.forecast_time,
+      forecast_date: f.forecast_date,
+      wind_speed:
+        f.wind_speed == null ? null : Number.parseFloat(String(f.wind_speed)),
+      wind_direction:
+        f.wind_direction == null
+          ? null
+          : Number.parseFloat(String(f.wind_direction)),
+      wave_period:
+        f.wave_period == null ? null : Number.parseFloat(String(f.wave_period)),
+      swell_1_period:
+        f.swell_1_period == null
+          ? null
+          : Number.parseFloat(String(f.swell_1_period)),
+      tide_height:
+        f.tide_height == null ? null : Number.parseFloat(String(f.tide_height)),
+    }));
+  }, [forecasts, forecastDate]);
 
   // Calculate best window from forecasts (used when no intel or when intel window passed)
   const bestWindowFromForecasts = useMemo(() => {
-    if (!forecasts || forecasts.length === 0 || forecastsLoading) {
+    if (!mappedForecasts || mappedForecasts.length === 0) {
       return null;
     }
-    const computed = findNextBestWindow(forecasts, new Date());
+    const computed = findNextBestWindow(mappedForecasts, new Date());
 
     return computed;
-  }, [forecasts, forecastsLoading]);
+  }, [mappedForecasts]);
 
   // Loading state
-  if (loading || forecastsLoading) {
+  if (loading) {
     return (
       <Card className="rounded-3xl border-blue-100/60">
         <CardContent className="p-6 space-y-4">
@@ -203,7 +201,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     }
 
     const now = new Date();
-    const today = new Date().toISOString().split("T")[0];
+    const today = forecastDate;
 
     const startTime = new Date(`${today}T${intel.best_window_start}`);
     const endTime = new Date(`${today}T${intel.best_window_end}`);
@@ -277,8 +275,18 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
             variant="ghost"
             size="sm"
             onClick={() => {
-              // TODO: Add share functionality
-              console.log("Share surf intel");
+              // Share functionality - use native share if available
+              if (navigator.share) {
+                // eslint-disable-next-line no-restricted-properties -- Web Share API requires full URL with origin
+                const shareUrl = `${window.location.origin}${pathname}`;
+                navigator.share({
+                  title: `Surf Intel for ${beachName}`,
+                  text: `Best surf window: ${formatTime(intel.best_window_start)} - ${formatTime(intel.best_window_end)}`,
+                  url: shareUrl,
+                }).catch(() => {
+                  // User cancelled or share failed silently
+                });
+              }
             }}
             className="h-8 w-8 p-0 flex-shrink-0"
             title="Share surf intel"
@@ -366,7 +374,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               }`}
             >
               {intel.best_window_description ||
-                intel.raw_intel_data?.bestWindow ||
+                (intel.raw_intel_data as any)?.bestWindow ||
                 "No optimal window found"}
             </p>
           )}

@@ -91,6 +91,18 @@ export interface SessionUserProfile {
   avatar_url: string | null
 }
 
+/**
+ * Forecast snapshot data from session_forecast_snapshots table
+ * Returned when querying session with forecast comparison data
+ */
+export interface SessionForecastSnapshotData {
+  forecast_snapshot: Json
+  actual_conditions: Json
+  forecast_vs_actual: Json | null
+  forecast_confidence_score: number | null
+  data_source: string | null
+}
+
 export interface SessionWithDetails extends Session {
   // Canonical names (match Supabase relation naming)
   beaches: Beach | null
@@ -110,6 +122,13 @@ export interface SessionWithDetails extends Session {
    * Not a physical column on `sessions`.
    */
   featured_photo_url?: string | null
+
+  /**
+   * Forecast snapshot data from session_forecast_snapshots table.
+   * Contains forecast conditions at time of session, actual conditions reported,
+   * and diff between forecast vs actual for fields that were changed.
+   */
+  forecast_snapshot?: SessionForecastSnapshotData | null
 
   // Aliases for backward compatibility with existing code
   // These are optional since queries may return either naming convention

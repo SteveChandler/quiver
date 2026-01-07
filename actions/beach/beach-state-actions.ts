@@ -21,6 +21,7 @@ function toFullBeach(row: StateMapBeachRow): Beach {
     best_conditions_prose: null,
     best_months: null,
     break_type: null,
+    cdip_station: null,
     city: row.city ?? null,
     country: row.country ?? null,
     created_at: row.created_at,

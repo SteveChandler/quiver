@@ -22,3 +22,4 @@ grant select on public.v_enhanced_forecast_latest to service_role;
 commit;
 
 
+

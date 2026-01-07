@@ -31,6 +31,7 @@ import { generateTideDiagnosticsFromForecasts } from "@/lib/utils/tide-diagnosti
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 
 const CamsSection = dynamic(
   () =>
@@ -127,12 +128,8 @@ export function ForecastTab({
   }, [sortedDates, forecastsByDate]);
 
   const todayStr = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }, []);
+    return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
+  }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
     () => forecasts.filter((f) => f.forecast_date === todayStr),
@@ -408,7 +405,12 @@ export function ForecastTab({
           )}
 
           {/* Best Surf Window */}
-          <BestSurfWindow beachId={beach.id} beachName={beach.name} />
+          <BestSurfWindow
+            beachId={beach.id}
+            beachName={beach.name}
+            beachTimezone={beachTimezone}
+            forecasts={todaysForecasts}
+          />
 
           {/* 5-Day Outlook */}
           {forecasts.length > 0 && (

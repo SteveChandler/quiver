@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -246,6 +241,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "beach_daily_intel_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_daily_intel_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_daily_intel_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_daily_intel_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       beach_forecast_accuracy: {
@@ -295,6 +318,34 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_forecast_accuracy_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_forecast_accuracy_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_forecast_accuracy_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_forecast_accuracy_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -357,6 +408,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -501,6 +580,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "beach_recommendation_calibration_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_recommendation_calibration_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_recommendation_calibration_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_recommendation_calibration_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       beach_review_likes: {
@@ -605,6 +712,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_reviews_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_reviews_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_reviews_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_reviews_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
           {
             foreignKeyName: "beach_reviews_user_id_fkey"
@@ -733,6 +868,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "beach_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       beaches: {
@@ -743,6 +906,7 @@ export type Database = {
           best_conditions_prose: string | null
           best_months: number[] | null
           break_type: string | null
+          cdip_station: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -789,6 +953,7 @@ export type Database = {
           best_conditions_prose?: string | null
           best_months?: number[] | null
           break_type?: string | null
+          cdip_station?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -835,6 +1000,7 @@ export type Database = {
           best_conditions_prose?: string | null
           best_months?: number[] | null
           break_type?: string | null
+          cdip_station?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -1332,11 +1498,13 @@ export type Database = {
           air_temperature: string | null
           beach_id: string
           confidence_score: number
+          coops_station_id: string | null
           created_at: string
           data_source: string | null
           forecast_date: string
           forecast_time: string
           id: string
+          next_tide_at: string | null
           next_tide_height: string | null
           next_tide_time: string | null
           next_tide_type: string | null
@@ -1356,7 +1524,6 @@ export type Database = {
           wave_period: string | null
           weather_condition: string | null
           wind_direction: string | null
-          wind_direction_deg: number | null
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
@@ -1366,11 +1533,13 @@ export type Database = {
           air_temperature?: string | null
           beach_id: string
           confidence_score?: number
+          coops_station_id?: string | null
           created_at?: string
           data_source?: string | null
           forecast_date: string
           forecast_time: string
           id?: string
+          next_tide_at?: string | null
           next_tide_height?: string | null
           next_tide_time?: string | null
           next_tide_type?: string | null
@@ -1390,7 +1559,6 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
-          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -1400,11 +1568,13 @@ export type Database = {
           air_temperature?: string | null
           beach_id?: string
           confidence_score?: number
+          coops_station_id?: string | null
           created_at?: string
           data_source?: string | null
           forecast_date?: string
           forecast_time?: string
           id?: string
+          next_tide_at?: string | null
           next_tide_height?: string | null
           next_tide_time?: string | null
           next_tide_type?: string | null
@@ -1424,21 +1594,12 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
-          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
           wind_wave_period?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "enhanced_forecasts_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       favorite_beaches: {
         Row: {
@@ -1469,6 +1630,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorite_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "favorite_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "favorite_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "favorite_beaches_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
           {
             foreignKeyName: "favorite_beaches_user_id_fkey"
@@ -1532,6 +1721,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "forecast_accuracy_votes_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "forecast_accuracy_votes_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "forecast_accuracy_votes_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "forecast_accuracy_votes_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
             foreignKeyName: "forecast_accuracy_votes_forecast_id_fkey"
             columns: ["forecast_id"]
             isOneToOne: false
@@ -1558,6 +1775,75 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles_with_home_beach"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      forecast_alert_deliveries: {
+        Row: {
+          alert_type: string
+          beach_id: string
+          created_at: string
+          id: string
+          last_matching_forecast_ts: string | null
+          last_sent_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          beach_id: string
+          created_at?: string
+          id?: string
+          last_matching_forecast_ts?: string | null
+          last_sent_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          beach_id?: string
+          created_at?: string
+          id?: string
+          last_matching_forecast_ts?: string | null
+          last_sent_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecast_alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "forecast_alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "forecast_alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "forecast_alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -1671,6 +1957,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "intel_posts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "intel_posts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "intel_posts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "intel_posts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
             foreignKeyName: "intel_posts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -1752,6 +2066,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       notifications: {
@@ -1805,8 +2147,8 @@ export type Database = {
           is_mock: boolean
           location: string | null
           notif_email_enabled: boolean
-          notif_forecast_alerts: boolean
           notif_follows: boolean
+          notif_forecast_alerts: boolean
           notif_inapp_enabled: boolean
           notif_likes: boolean
           notif_push_enabled: boolean
@@ -1845,8 +2187,8 @@ export type Database = {
           is_mock?: boolean
           location?: string | null
           notif_email_enabled?: boolean
-          notif_forecast_alerts?: boolean
           notif_follows?: boolean
+          notif_forecast_alerts?: boolean
           notif_inapp_enabled?: boolean
           notif_likes?: boolean
           notif_push_enabled?: boolean
@@ -1885,8 +2227,8 @@ export type Database = {
           is_mock?: boolean
           location?: string | null
           notif_email_enabled?: boolean
-          notif_forecast_alerts?: boolean
           notif_follows?: boolean
+          notif_forecast_alerts?: boolean
           notif_inapp_enabled?: boolean
           notif_likes?: boolean
           notif_push_enabled?: boolean
@@ -1911,8 +2253,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
             foreignKeyName: "profiles_favorite_spot_id_fkey"
             columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
@@ -1921,8 +2326,29 @@ export type Database = {
             foreignKeyName: "profiles_home_beach_id_fkey"
             columns: ["home_beach_id"]
             isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -2047,6 +2473,7 @@ export type Database = {
           data_source: string | null
           forecast_confidence_score: number | null
           forecast_snapshot: Json
+          forecast_vs_actual: Json | null
           id: string
           session_date: string
           session_id: string
@@ -2060,6 +2487,7 @@ export type Database = {
           data_source?: string | null
           forecast_confidence_score?: number | null
           forecast_snapshot: Json
+          forecast_vs_actual?: Json | null
           id?: string
           session_date: string
           session_id: string
@@ -2073,6 +2501,7 @@ export type Database = {
           data_source?: string | null
           forecast_confidence_score?: number | null
           forecast_snapshot?: Json
+          forecast_vs_actual?: Json | null
           id?: string
           session_date?: string
           session_id?: string
@@ -2086,6 +2515,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_forecast_snapshots_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "session_forecast_snapshots_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "session_forecast_snapshots_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "session_forecast_snapshots_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
           {
             foreignKeyName: "session_forecast_snapshots_session_id_fkey"
@@ -2428,6 +2885,7 @@ export type Database = {
           beach_id: string
           beach_name: string | null
           board_id: string | null
+          board_snapshot: Json | null
           comments_count: number
           created_at: string
           crowd_level: number | null
@@ -2447,6 +2905,8 @@ export type Database = {
           rating: number | null
           share_count: number
           status: string | null
+          tide_height_ft: number | null
+          tide_status: string | null
           user_id: string
           water_temp: number | null
           wave_height_ft: number | null
@@ -2459,6 +2919,7 @@ export type Database = {
           beach_id: string
           beach_name?: string | null
           board_id?: string | null
+          board_snapshot?: Json | null
           comments_count?: number
           created_at?: string
           crowd_level?: number | null
@@ -2478,6 +2939,8 @@ export type Database = {
           rating?: number | null
           share_count?: number
           status?: string | null
+          tide_height_ft?: number | null
+          tide_status?: string | null
           user_id: string
           water_temp?: number | null
           wave_height_ft?: number | null
@@ -2490,6 +2953,7 @@ export type Database = {
           beach_id?: string
           beach_name?: string | null
           board_id?: string | null
+          board_snapshot?: Json | null
           comments_count?: number
           created_at?: string
           crowd_level?: number | null
@@ -2509,6 +2973,8 @@ export type Database = {
           rating?: number | null
           share_count?: number
           status?: string | null
+          tide_height_ft?: number | null
+          tide_status?: string | null
           user_id?: string
           water_temp?: number | null
           wave_height_ft?: number | null
@@ -2523,6 +2989,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sessions_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sessions_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sessions_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
           {
             foreignKeyName: "sessions_board_id_fkey"
@@ -2575,6 +3069,8 @@ export type Database = {
           profile_id: string | null
           rating: number | null
           status: string | null
+          tide_height_ft: number | null
+          tide_status: string | null
           user_id: string | null
           water_temp: number | null
           wave_height_ft: number | null
@@ -2609,6 +3105,8 @@ export type Database = {
           profile_id?: string | null
           rating?: number | null
           status?: string | null
+          tide_height_ft?: number | null
+          tide_status?: string | null
           user_id?: string | null
           water_temp?: number | null
           wave_height_ft?: number | null
@@ -2643,6 +3141,8 @@ export type Database = {
           profile_id?: string | null
           rating?: number | null
           status?: string | null
+          tide_height_ft?: number | null
+          tide_status?: string | null
           user_id?: string | null
           water_temp?: number | null
           wave_height_ft?: number | null
@@ -2729,6 +3229,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spot_feedback_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "spot_feedback_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "spot_feedback_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "spot_feedback_spot_id_fkey"
+            columns: ["spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -2837,6 +3365,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sun_times_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sun_times_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sun_times_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sun_times_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       tide_forecasts: {
@@ -2880,6 +3436,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tide_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "tide_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "tide_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "tide_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -2995,6 +3579,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_beach_affinity_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_beach_affinity_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_beach_affinity_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_beach_affinity_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -3257,6 +3869,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       geography_columns: {
@@ -3321,6 +3961,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       mv_best_times: {
@@ -3339,6 +4007,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -3375,8 +4071,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_default_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
             foreignKeyName: "profiles_favorite_spot_id_fkey"
             columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_favorite_spot_id_fkey"
+            columns: ["favorite_spot_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
             isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
@@ -3385,8 +4144,29 @@ export type Database = {
             foreignKeyName: "profiles_home_beach_id_fkey"
             columns: ["home_beach_id"]
             isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "profiles_home_beach_id_fkey"
+            columns: ["home_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -3490,15 +4270,7 @@ export type Database = {
           wind_wave_height?: string | null
           wind_wave_period?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "enhanced_forecasts_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_beach_hourly_scores: {
         Row: {
@@ -3520,6 +4292,34 @@ export type Database = {
             referencedRelation: "beaches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
         ]
       }
       v_enhanced_forecast_latest: {
@@ -3528,15 +4328,7 @@ export type Database = {
           data_source: string | null
           updated_at: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "enhanced_forecasts_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_marine_forecast_latest: {
         Row: {
@@ -3546,15 +4338,7 @@ export type Database = {
           source: string | null
           ts: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "marine_forecasts_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_sun_times_latest: {
         Row: {
@@ -3563,15 +4347,7 @@ export type Database = {
           date: string | null
           source: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "sun_times_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_tide_forecast_latest: {
         Row: {
@@ -3580,15 +4356,7 @@ export type Database = {
           source: string | null
           ts: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "tide_forecasts_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
@@ -5108,3 +5876,4 @@ export const Constants = {
     },
   },
 } as const
+

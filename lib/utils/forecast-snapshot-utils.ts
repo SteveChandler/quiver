@@ -20,6 +20,12 @@ interface SessionForSnapshot {
   rating?: number | null;
   notes?: string | null;
   duration_minutes?: number | null;
+  wave_height_ft?: number | null;
+  wind_speed_mph?: number | null;
+  wind_direction?: string | null;
+  forecast_accuracy?: string | null;
+  tide_height_ft?: number | null;
+  tide_status?: string | null;
 }
 
 interface EnhancedForecast {
@@ -42,6 +48,7 @@ interface EnhancedForecast {
   wind_speed?: string | null;
   wind_speed_mph?: number | null;
   wind_direction?: string | null;
+  wind_direction_deg?: number | null;
   air_temperature?: string | null;
   water_temp?: string | null;
   tide_height?: string | null;
@@ -52,6 +59,93 @@ interface EnhancedForecast {
   raw_forecast?: Record<string, any> | null;
   created_at?: string;
   updated_at?: string;
+}
+
+interface ForecastVsActualDiff {
+  wave_height_ft?: { forecast: number; actual: number; diff: number };
+  wind_speed_mph?: { forecast: number; actual: number; diff: number };
+  wind_direction?: { forecast: string; actual: string };
+  tide_height_ft?: { forecast: number; actual: number; diff: number };
+  tide_status?: { forecast: string; actual: string };
+}
+
+/**
+ * Calculates the forecast vs actual diff for fields where both values exist and differ.
+ *
+ * @param forecast - The forecast data
+ * @param session - The session data with actual conditions
+ * @returns Diff object containing only fields where forecast and actual differ
+ */
+function calculateForecastVsActual(
+  forecast: EnhancedForecast,
+  session: SessionForSnapshot
+): ForecastVsActualDiff {
+  const diff: ForecastVsActualDiff = {};
+
+  // Wave height comparison (forecast is string, session is number)
+  if (forecast.wave_height && session.wave_height_ft != null) {
+    const forecastHeight = parseFloat(forecast.wave_height);
+    const actualHeight = session.wave_height_ft;
+    if (!isNaN(forecastHeight) && forecastHeight !== actualHeight) {
+      diff.wave_height_ft = {
+        forecast: forecastHeight,
+        actual: actualHeight,
+        diff: actualHeight - forecastHeight,
+      };
+    }
+  }
+
+  // Wind speed comparison
+  if (forecast.wind_speed_mph != null && session.wind_speed_mph != null) {
+    const forecastSpeed = forecast.wind_speed_mph;
+    const actualSpeed = session.wind_speed_mph;
+    if (forecastSpeed !== actualSpeed) {
+      diff.wind_speed_mph = {
+        forecast: forecastSpeed,
+        actual: actualSpeed,
+        diff: actualSpeed - forecastSpeed,
+      };
+    }
+  }
+
+  // Wind direction comparison (string)
+  if (forecast.wind_direction && session.wind_direction) {
+    const forecastDir = forecast.wind_direction;
+    const actualDir = session.wind_direction;
+    if (forecastDir !== actualDir) {
+      diff.wind_direction = {
+        forecast: forecastDir,
+        actual: actualDir,
+      };
+    }
+  }
+
+  // Tide height comparison (forecast is string, session is number)
+  if (forecast.tide_height && session.tide_height_ft != null) {
+    const forecastTide = parseFloat(forecast.tide_height);
+    const actualTide = session.tide_height_ft;
+    if (!isNaN(forecastTide) && forecastTide !== actualTide) {
+      diff.tide_height_ft = {
+        forecast: forecastTide,
+        actual: actualTide,
+        diff: actualTide - forecastTide,
+      };
+    }
+  }
+
+  // Tide status comparison (string)
+  if (forecast.tide_status && session.tide_status) {
+    const forecastStatus = forecast.tide_status;
+    const actualStatus = session.tide_status;
+    if (forecastStatus !== actualStatus) {
+      diff.tide_status = {
+        forecast: forecastStatus,
+        actual: actualStatus,
+      };
+    }
+  }
+
+  return diff;
 }
 
 /**
@@ -86,25 +180,28 @@ export async function createForecastSnapshotForSession(
     const arrivalDateStr = arrivalDate.toISOString().split('T')[0];
     const arrivalTimeStr = arrivalDate.toISOString().split('T')[1].substring(0, 5); // HH:MM
 
-    // Get session details if userId not provided
-    let sessionUserId = userId;
-    let session: SessionForSnapshot | null = null;
+    // Always fetch session to verify ownership and get data
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, user_id, beach_id, arrival_time, wave_quality, water_temp, crowd_level, parking_ease, rating, notes, duration_minutes, wave_height_ft, wind_speed_mph, wind_direction, forecast_accuracy, tide_height_ft, tide_status')
+      .eq('id', sessionId)
+      .single();
 
-    if (!sessionUserId) {
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('sessions')
-        .select('id, user_id, beach_id, arrival_time, wave_quality, water_temp, crowd_level, parking_ease, rating, notes, duration_minutes')
-        .eq('id', sessionId)
-        .single();
-
-      if (sessionError) {
-        console.error('[Snapshot] Failed to fetch session:', sessionError);
-        return { success: false, error: 'Failed to fetch session' };
-      }
-
-      session = sessionData;
-      sessionUserId = sessionData.user_id;
+    if (sessionError) {
+      console.error('[Snapshot] Failed to fetch session:', sessionError);
+      return { success: false, error: 'Failed to fetch session' };
     }
+
+    const session: SessionForSnapshot = sessionData;
+
+    // Security: Validate that provided userId matches the session's user_id
+    // This prevents inserting snapshots for sessions owned by other users
+    if (userId && userId !== session.user_id) {
+      console.error('[Snapshot] userId mismatch:', { provided: userId, actual: session.user_id });
+      return { success: false, error: 'User ID does not match session owner' };
+    }
+
+    const sessionUserId = session.user_id;
 
     // Check if snapshot already exists
     const { data: existingSnapshot } = await supabase
@@ -162,21 +259,7 @@ export async function createForecastSnapshotForSession(
       return { success: false, error: 'Could not find closest forecast' };
     }
 
-    // Get session data for actual conditions if not already fetched
-    if (!session) {
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('sessions')
-        .select('id, user_id, beach_id, arrival_time, wave_quality, water_temp, crowd_level, parking_ease, rating, notes, duration_minutes')
-        .eq('id', sessionId)
-        .single();
-
-      if (sessionError) {
-        console.error('[Snapshot] Failed to fetch session for conditions:', sessionError);
-        return { success: false, error: 'Failed to fetch session' };
-      }
-
-      session = sessionData;
-    }
+    // Session was already fetched above for ownership validation
 
     // Build forecast snapshot (full forecast record as JSON)
     const forecastSnapshot = closestForecast;
@@ -191,7 +274,16 @@ export async function createForecastSnapshotForSession(
       notes: session?.notes,
       duration_minutes: session?.duration_minutes,
       arrival_time: session?.arrival_time,
+      wave_height_ft: session?.wave_height_ft,
+      wind_speed_mph: session?.wind_speed_mph,
+      wind_direction: session?.wind_direction,
+      forecast_accuracy: session?.forecast_accuracy,
+      tide_height_ft: session?.tide_height_ft,
+      tide_status: session?.tide_status,
     };
+
+    // Calculate forecast vs actual diff
+    const forecastVsActual = calculateForecastVsActual(closestForecast, session);
 
     // Insert snapshot
     const { data: snapshot, error: insertError } = await supabase
@@ -202,6 +294,7 @@ export async function createForecastSnapshotForSession(
         beach_id: beachId,
         forecast_snapshot: forecastSnapshot,
         actual_conditions: actualConditions,
+        forecast_vs_actual: forecastVsActual,
         forecast_confidence_score: closestForecast.confidence_score || null,
         data_source: closestForecast.data_source || null,
         session_date: arrivalDateStr,

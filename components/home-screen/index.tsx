@@ -55,8 +55,13 @@ export function HomeScreen() {
 
   // Home screen should never auto-prompt for location.
   // We still expose `requestLocation()` for explicit CTAs (e.g. NearbyBeachChips).
+  // Polling is enabled to detect traveling users - it only activates after permission is granted
+  // and will update nearest beaches if the user has moved more than 1km.
   const { coords, source, requestLocation } = useGeolocation({
     autoRequest: false,
+    enablePolling: true,
+    pollingIntervalMs: 5 * 60 * 1000, // 5 minutes
+    minDistanceChangeMeters: 1000, // 1 km
   });
 
   return (

@@ -233,6 +233,15 @@ export function transformSessionFormStateToDbSchema(
     dbData.forecast_accuracy = formState.forecastAccuracy;
   }
 
+  // NEW FIELDS: Handle tide data
+  if (formState.tideHeight !== undefined) {
+    dbData.tide_height_ft = formState.tideHeight;
+  }
+
+  if (formState.tideStatus) {
+    dbData.tide_status = formState.tideStatus;
+  }
+
   // Handle wave types as goals (session planning feature)
   if (formState.waveTypes && formState.waveTypes.length > 0) {
     dbData.goals = formState.waveTypes;
@@ -312,6 +321,10 @@ export function sessionToFormState(session: any): any {
     windSpeed: session.wind_speed_mph || undefined,
     windDirection: session.wind_direction || undefined,
     waterTemp: session.water_temp?.toString() || "",
+
+    // Tide conditions (NEW FIELDS)
+    tideHeight: session.tide_height_ft || undefined,
+    tideStatus: session.tide_status || undefined,
 
     // Experience ratings
     crowdLevel: session.crowd_level?.toString() || "",

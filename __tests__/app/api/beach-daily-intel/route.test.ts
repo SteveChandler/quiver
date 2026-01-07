@@ -1,0 +1,384 @@
+/**
+ * @jest-environment node
+ *
+ * Tests for the Beach Daily Intel API route.
+ *
+ * This route is critical for the Surf Intel feature, which provides
+ * personalized surfing recommendations based on forecast data and user preferences.
+ *
+ * Key fix tested here: The route now uses per-beach local dates (via getLocalDateString)
+ * to avoid UTC date mismatches that caused "Intel not available" after 4pm PT.
+ */
+
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: jest.fn(),
+}));
+
+import { NextRequest } from "next/server";
+import { GET } from "@/app/api/beach-daily-intel/route";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+describe("/api/beach-daily-intel", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("input validation", () => {
+    it("returns 400 for missing beachId parameter", async () => {
+      const req = new NextRequest(
+        new URL("http://localhost/api/beach-daily-intel?forecastDate=2026-01-06")
+      );
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toBeDefined();
+    });
+
+    it("returns 400 for missing forecastDate parameter", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111"
+        )
+      );
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toBeDefined();
+    });
+
+    it("returns 400 for both missing params", async () => {
+      const req = new NextRequest(new URL("http://localhost/api/beach-daily-intel"));
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+
+    it("returns 400 for invalid beachId (not a UUID)", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=not-a-uuid&forecastDate=2026-01-06"
+        )
+      );
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toBeDefined();
+    });
+
+    it("returns 400 for invalid forecastDate format (not YYYY-MM-DD)", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=01/06/2026"
+        )
+      );
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toBeDefined();
+    });
+
+    it("returns 400 for invalid forecastDate format (missing leading zeros)", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-1-6"
+        )
+      );
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+
+    it("accepts valid UUID and date format", async () => {
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("successful data retrieval", () => {
+    it("returns latest intel record for valid params", async () => {
+      const intelRow = {
+        beach_id: "11111111-1111-4111-8111-111111111111",
+        forecast_date: "2026-01-06",
+        generation_time: "06:00",
+        generated_at: "2026-01-06T14:00:00.000Z",
+        summary: "Great conditions for morning surf!",
+        best_time_range: "08:00-10:00",
+        confidence_score: 0.85,
+      };
+
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: intelRow, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.data.intel).toMatchObject({
+        beach_id: intelRow.beach_id,
+        forecast_date: intelRow.forecast_date,
+        generation_time: intelRow.generation_time,
+        summary: intelRow.summary,
+        best_time_range: intelRow.best_time_range,
+        confidence_score: intelRow.confidence_score,
+      });
+    });
+
+    it("returns null intel when no data found (not a 404)", async () => {
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.data.intel).toBeNull();
+    });
+  });
+
+  describe("response structure", () => {
+    it("returns data in standardized success format", async () => {
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+      const json = await res.json();
+
+      // Standard API response structure
+      expect(json).toHaveProperty("success");
+      expect(json).toHaveProperty("data");
+      expect(json.data).toHaveProperty("intel");
+    });
+
+    it("includes error details in validation failure response", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=invalid&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+      const json = await res.json();
+
+      expect(json.success).toBe(false);
+      expect(json).toHaveProperty("error");
+      expect(json).toHaveProperty("details");
+      expect(Array.isArray(json.details)).toBe(true);
+    });
+  });
+
+  describe("database query verification", () => {
+    it("queries beach_daily_intel table with correct filters", async () => {
+      const beachId = "22222222-2222-4222-8222-222222222222";
+      const forecastDate = "2024-12-05";
+
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          `http://localhost/api/beach-daily-intel?beachId=${beachId}&forecastDate=${forecastDate}`
+        )
+      );
+
+      await GET(req);
+
+      // Verify query chain
+      expect(mockSupabase.from).toHaveBeenCalledWith("beach_daily_intel");
+      expect(chain.select).toHaveBeenCalledWith("*");
+      expect(chain.eq).toHaveBeenCalledWith("beach_id", beachId);
+      expect(chain.eq).toHaveBeenCalledWith("forecast_date", forecastDate);
+      expect(chain.order).toHaveBeenCalledWith("generated_at", { ascending: false });
+      expect(chain.limit).toHaveBeenCalledWith(1);
+      expect(chain.maybeSingle).toHaveBeenCalled();
+    });
+
+    it("orders results by generated_at DESC to get latest intel", async () => {
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-01-06"
+        )
+      );
+
+      await GET(req);
+
+      expect(chain.order).toHaveBeenCalledWith("generated_at", { ascending: false });
+    });
+  });
+
+  describe("error handling", () => {
+    it("handles database errors gracefully", async () => {
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({
+          data: null,
+          error: { message: "Database connection failed" },
+        })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toBeDefined();
+    });
+  });
+
+  describe("regression tests for UTC date mismatch bug", () => {
+    it("accepts local date string matching beach timezone (not UTC date)", async () => {
+      // Critical: The forecastDate should be the beach's LOCAL date,
+      // not the UTC date. This is what getLocalDateString() provides.
+      // For example, at 11 PM PT Dec 5, UTC is Dec 6, but forecastDate should be 2024-12-05
+      const chain: any = {
+        select: jest.fn(() => chain),
+        eq: jest.fn(() => chain),
+        order: jest.fn(() => chain),
+        limit: jest.fn(() => chain),
+        maybeSingle: jest.fn(async () => ({
+          data: {
+            beach_id: "33333333-3333-4333-8333-333333333333",
+            forecast_date: "2024-12-05", // Beach local date
+            generated_at: "2024-12-06T07:00:00Z", // 11 PM PT Dec 5
+            summary: "Evening conditions still good",
+          },
+          error: null,
+        })),
+      };
+      const mockSupabase = {
+        from: jest.fn(() => chain),
+      };
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabase as any);
+
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=33333333-3333-4333-8333-333333333333&forecastDate=2024-12-05"
+        )
+      );
+
+      const res = await GET(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.data.intel).toBeDefined();
+      expect(json.data.intel.forecast_date).toBe("2024-12-05");
+    });
+
+    it("validates that forecastDate uses YYYY-MM-DD format (as getLocalDateString returns)", async () => {
+      // Ensure the API enforces the format that getLocalDateString produces
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=11111111-1111-4111-8111-111111111111&forecastDate=2024-12-5"
+        )
+      );
+
+      const res = await GET(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+  });
+});
+
+
