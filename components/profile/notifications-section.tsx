@@ -10,6 +10,7 @@ import {
   Clock,
   Sparkles,
   ChevronDown,
+  CloudSun,
 } from "lucide-react";
 import { FormSwitch } from "@/components/ui/form-fields";
 import type { Control } from "react-hook-form";
@@ -69,6 +70,13 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
         </summary>
 
         <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <FormSwitch
+            control={control}
+            name="notif_forecast_alerts"
+            label="Forecast Alerts"
+            icon={CloudSun}
+            variant="row"
+          />
           <FormSwitch
             control={control}
             name="notif_session_invites"

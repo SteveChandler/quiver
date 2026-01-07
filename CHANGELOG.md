@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Testing (Push Notification Deeplinks):** Added comprehensive integration test suite for push notification deeplink routing (`__tests__/lib/services/forecast-alerts-deeplink.test.ts` and `e2e/push-deeplink-routing.spec.ts`). Validates that forecast alert push notifications correctly navigate users to beach detail pages via `data.url` payload field. 13 unit tests verify URL construction (`/beach/{slug}` format), payload structure, service worker contract, and edge cases. 18 E2E tests verify navigation behavior, cross-browser compatibility, tab management, and loading performance. Includes comprehensive documentation (`docs/testing/PUSH_DEEPLINK_TESTING.md`) with manual testing procedures, troubleshooting guide, and service worker behavior specification.
+- **Activation Sprint (Home Screen):** Implemented activation-focused home experience to improve first-win engagement:
+  - Added "Remind Me" CTA to PersonalizedForecastCard that enables forecast alerts with a single tap
+  - Inline home beach prompt when user clicks "Remind Me" without a home beach set - single action sets both home beach and notification preferences
+  - Removed duplicate Plan/Log CTAs from above-the-fold area (actions available in card footer)
+  - Added Forecast Alerts toggle to notification settings (Advanced Settings section)
+  - Created `useWebPushRegistration` hook for web/PWA push notification registration
+  - Added activation analytics events: `first_win_impression`, `first_win_plan_clicked`, `first_win_reminder_enabled`, `first_win_reminder_declined`
+  - E2E test coverage for activation flow (`e2e/home-activation.spec.ts`)
+  - Unit tests for web push registration hook (`__tests__/hooks/useWebPushRegistration.test.ts`)
+  - Comprehensive unit tests for `handleEnableReminder` function covering web push, native push, profile updates, and all error scenarios (`__tests__/components/home-screen/forecast-tab-enable-reminder.test.tsx`)
+
 - **E2E Tests (Session Autofill):** Added comprehensive E2E test suite for auto-forecast autofill feature in session logging wizard (`e2e/session-wizard-autofill.spec.ts`). Tests validate forecast condition auto-population (waves, wind, water temp, tide), user edit preservation, night session handling, missing forecast scenarios, and data persistence. 9 test scenarios with 100% pass rate (6/6 passing, 3 skipping as expected). Includes detailed test summary documentation and integration with existing session wizard tests.
 - **Session Logging (Auto-Prefill):** Session logging now automatically pulls forecast values (wave height, wind speed/direction, water temperature, tide height/status) when selecting a beach and date/time. Fields are prefilled only when empty, and users can override any value. Supports a state-machine pattern (empty -> prefilled -> user-edited) to track field provenance.
 - **Session Logging (Night Detection):** Added `isNightSession` flag to `useSessionForecast` hook that detects evening/night sessions using `isNightHour()` utility. Night sessions display a visual indicator but never present night-time windows as "recommended" surf times.
@@ -37,7 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Profile Cache (Reminder UI):** Fixed profile cache invalidation after successful reminder enable. After enabling forecast alerts via "Remind Me" CTA, the profile cache is now immediately refreshed so UI shows updated `forecastAlertsEnabled` status without waiting for the 5-minute TTL to expire.
 - **Beach Selector:** Removed the browser-native `<datalist>` popup during beach search so only the custom dropdown shows.
+- **Push Notifications (Native Apps):** Fixed silent failure in `handleEnableReminder` for Capacitor app users on iOS/Android. The function now detects native apps using `isNativeApp()` and calls `useNativePushRegistration` for FCM token registration instead of incorrectly attempting web push registration. Added platform-specific error messages ("device settings" vs "browser settings") and analytics tracking with `platform` field. Profile notification flags still update even if push registration is unsupported.
 - **Session Logging (Data Binding):** Fixed critical bug in ConditionsSection where condition fields (wave height, wind speed, wind direction, water temp) used local `useState` but never propagated values back to `formState` via `updateField()`. Data entered in the Conditions section is now correctly persisted on form submission.
 - **Surf Intel:** Fixed Surf Intel incorrectly showing "not available" late afternoon by aligning `forecast_date` semantics to the **beach's local date** (not UTC) and routing reads through the client data gateway + API.
 - **Tides UI:** "Next Tides" cards now display in chronological order (soonest tide first) to avoid confusion when the next event is a low tide.

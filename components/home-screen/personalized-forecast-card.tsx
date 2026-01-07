@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import {
   Card,
@@ -27,12 +27,43 @@ import {
   Ruler,
   ChevronRight,
   Share2,
+  Bell,
+  BellRing,
+  Home,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
+import { isNativeApp } from "@/lib/mobile/platform";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 import type {
   PersonalizedForecastRecommendation,
   PersonalizedInsights,
 } from "@/types/personalization";
+
+/**
+ * Reminder state for the card
+ */
+type ReminderState =
+  | "idle"           // Initial state, can show reminder CTA
+  | "needs_home"     // Needs home beach to be set first
+  | "enabling"       // Enabling notifications
+  | "enabled"        // Notifications enabled successfully
+  | "error"          // Error enabling notifications
+  | "denied";        // Push permission denied at browser/OS level
+
+/**
+ * Result from the onEnableReminder callback
+ * Provides structured feedback for error recovery UI
+ */
+export type ReminderResult = {
+  success: boolean;
+  /** Error type for UI differentiation */
+  errorType?: "denied" | "error" | "unsupported";
+  /** Optional error message for display */
+  errorMessage?: string;
+};
 
 /**
  * Props for PersonalizedForecastCard component
@@ -54,6 +85,13 @@ interface PersonalizedForecastCardProps {
   onViewBeach: (beachId: string) => void;
   /** Callback when user clicks "View Similar Sessions" */
   onViewSimilarSessions?: () => void;
+  /** User's current home beach ID (null if not set) */
+  homeBeachId?: string | null;
+  /** Whether forecast alerts are already enabled */
+  forecastAlertsEnabled?: boolean;
+  /** Callback to enable reminder (sets home beach + notification flags)
+   * Returns either a boolean (legacy) or ReminderResult for detailed error handling */
+  onEnableReminder?: (beachId: string, beachName: string) => Promise<boolean | ReminderResult>;
 }
 
 /**
@@ -143,10 +181,52 @@ function formatTime(date: Date): string {
 }
 
 /**
- * Format date range for display
+ * Format date range for display (detailed version with minutes)
  */
 function formatTimeRange(start: Date, end: Date): string {
   return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
+/**
+ * Format time compactly for headlines (e.g., "7am", "10am")
+ * Omits minutes if on the hour for cleaner display
+ */
+function formatTimeCompact(date: Date): string {
+  const minutes = date.getMinutes();
+  if (minutes === 0) {
+    return format(date, "ha").toLowerCase(); // "7am"
+  }
+  return format(date, "h:mma").toLowerCase(); // "7:30am"
+}
+
+/**
+ * Format time range compactly for headlines (e.g., "7-10am", "7am-1pm")
+ * Uses shared am/pm suffix when both times are in same period
+ */
+function formatTimeRangeCompact(start: Date, end: Date): string {
+  const startHour = start.getHours();
+  const endHour = end.getHours();
+  const startIsPM = startHour >= 12;
+  const endIsPM = endHour >= 12;
+
+  // If both in same period (AM or PM), share the suffix
+  if (startIsPM === endIsPM) {
+    const startMinutes = start.getMinutes();
+    const endMinutes = end.getMinutes();
+
+    // Format start without am/pm
+    const startStr = startMinutes === 0
+      ? format(start, "h")
+      : format(start, "h:mm");
+
+    // Format end with am/pm
+    const endStr = formatTimeCompact(end);
+
+    return `${startStr}-${endStr}`;
+  }
+
+  // Different periods, show both
+  return `${formatTimeCompact(start)}-${formatTimeCompact(end)}`;
 }
 
 /**
@@ -186,6 +266,73 @@ function getConfidenceIndicator(confidence: number): {
 }
 
 /**
+ * Window timing relative to today
+ */
+type WindowTiming = "today" | "tomorrow" | "later";
+
+/**
+ * Determine if the best window is today, tomorrow, or further out
+ * Uses local dates for comparison (not UTC)
+ */
+function getWindowTiming(windowStart: Date): WindowTiming {
+  const now = new Date();
+  const windowDate = new Date(windowStart);
+
+  // Get dates at midnight for comparison
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const windowDay = new Date(
+    windowDate.getFullYear(),
+    windowDate.getMonth(),
+    windowDate.getDate()
+  );
+
+  // Calculate difference in days
+  const diffTime = windowDay.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "tomorrow";
+  return "later";
+}
+
+/**
+ * Get title text based on window timing, including specific time window
+ * @param timing - Whether the window is today, tomorrow, or later
+ * @param start - Optional start time of the window
+ * @param end - Optional end time of the window
+ * @returns Title string with time (e.g., "Best Surf 7-10am")
+ */
+function getWindowTitle(
+  timing: WindowTiming,
+  start?: Date,
+  end?: Date
+): string {
+  // If we have valid dates, include the time range
+  if (start && end) {
+    const timeRange = formatTimeRangeCompact(start, end);
+
+    switch (timing) {
+      case "today":
+        return `Best Surf ${timeRange}`;
+      case "tomorrow":
+        return `Best Tomorrow ${timeRange}`;
+      case "later":
+        return `Best ${format(start, "EEE")} ${timeRange}`;
+    }
+  }
+
+  // Fallback without time (for edge cases)
+  switch (timing) {
+    case "today":
+      return "Your Best Spot Today";
+    case "tomorrow":
+      return "Tomorrow Looks Better";
+    case "later":
+      return "Best Conditions Ahead";
+  }
+}
+
+/**
  * PersonalizedForecastCard displays a personalized surf forecast recommendation
  * with optimal time window, conditions, and action buttons.
  *
@@ -210,10 +357,173 @@ export const PersonalizedForecastCard = React.memo(
     onPlanSession,
     onViewBeach,
     onViewSimilarSessions,
+    homeBeachId,
+    forecastAlertsEnabled = false,
+    onEnableReminder,
   }: PersonalizedForecastCardProps) {
     // Share sheet state - must be called before any early returns
     const [shareSheetOpen, setShareSheetOpen] = useState(false);
     const [shareImageUrl, setShareImageUrl] = useState("");
+
+    // Reminder state
+    const [reminderState, setReminderState] = useState<ReminderState>("idle");
+    const [showHomeBeachPrompt, setShowHomeBeachPrompt] = useState(false);
+
+    // Calculate window timing (today, tomorrow, or later)
+    const windowTiming = recommendation
+      ? getWindowTiming(recommendation.window.start)
+      : "today";
+
+    // Track first-win impression on mount
+    const hasTrackedImpression = React.useRef(false);
+    useEffect(() => {
+      if (recommendation && !hasTrackedImpression.current) {
+        hasTrackedImpression.current = true;
+        const timing = getWindowTiming(recommendation.window.start);
+        track("first_win_impression", {
+          beach_id: recommendation.beach.id,
+          beach_name: recommendation.beach.name,
+          best_window_start: recommendation.window.start.toISOString(),
+          best_window_end: recommendation.window.end.toISOString(),
+          has_home_beach: !!homeBeachId,
+          forecast_alerts_enabled: forecastAlertsEnabled,
+          window_timing: timing,
+        });
+
+        // Track tomorrow framing specifically when shown
+        if (timing !== "today") {
+          track("first_win_tomorrow_shown", {
+            beach_id: recommendation.beach.id,
+            beach_name: recommendation.beach.name,
+            window_timing: timing,
+            best_window_start: recommendation.window.start.toISOString(),
+          });
+        }
+      }
+    }, [recommendation, homeBeachId, forecastAlertsEnabled]);
+
+    // Determine if reminder CTA should be shown (not during error/denied states - they show inline UI)
+    const showReminderCTA = onEnableReminder &&
+      reminderState !== "enabled" &&
+      reminderState !== "error" &&
+      reminderState !== "denied" &&
+      !forecastAlertsEnabled;
+
+    // Helper to parse reminder result (handles both boolean and ReminderResult)
+    const parseReminderResult = (result: boolean | ReminderResult): { success: boolean; errorType?: "denied" | "error" | "unsupported" } => {
+      if (typeof result === "boolean") {
+        return { success: result, errorType: result ? undefined : "error" };
+      }
+      return { success: result.success, errorType: result.errorType };
+    };
+
+    // Handle reminder CTA click
+    const handleReminderClick = useCallback(async () => {
+      if (!recommendation || !onEnableReminder) return;
+
+      const beachId = recommendation.beach.id;
+      const beachName = recommendation.beach.name;
+
+      // Check if home beach needs to be set
+      if (!homeBeachId) {
+        setShowHomeBeachPrompt(true);
+        setReminderState("needs_home");
+        return;
+      }
+
+      // Enable notifications
+      setReminderState("enabling");
+      try {
+        const result = await onEnableReminder(beachId, beachName);
+        const { success, errorType } = parseReminderResult(result);
+
+        if (success) {
+          setReminderState("enabled");
+          track("first_win_reminder_enabled", {
+            beach_id: beachId,
+            beach_name: beachName,
+            set_home_beach: false,
+          });
+        } else if (errorType === "denied") {
+          setReminderState("denied");
+          track("first_win_reminder_declined", {
+            beach_id: beachId,
+            beach_name: beachName,
+            dismissal_reason: "permission_denied",
+          });
+        } else {
+          setReminderState("error");
+          track("first_win_reminder_declined", {
+            beach_id: beachId,
+            beach_name: beachName,
+            dismissal_reason: "enable_failed",
+          });
+        }
+      } catch {
+        setReminderState("error");
+      }
+    }, [recommendation, homeBeachId, onEnableReminder]);
+
+    // Handle setting home beach + enabling reminders in one step
+    const handleSetHomeAndEnable = useCallback(async () => {
+      if (!recommendation || !onEnableReminder) return;
+
+      const beachId = recommendation.beach.id;
+      const beachName = recommendation.beach.name;
+
+      setReminderState("enabling");
+      setShowHomeBeachPrompt(false);
+
+      try {
+        const result = await onEnableReminder(beachId, beachName);
+        const { success, errorType } = parseReminderResult(result);
+
+        if (success) {
+          setReminderState("enabled");
+          track("first_win_reminder_enabled", {
+            beach_id: beachId,
+            beach_name: beachName,
+            set_home_beach: true,
+          });
+        } else if (errorType === "denied") {
+          setReminderState("denied");
+        } else {
+          setReminderState("error");
+        }
+      } catch {
+        setReminderState("error");
+      }
+    }, [recommendation, onEnableReminder]);
+
+    // Handle dismissing the home beach prompt
+    const handleDismissHomePrompt = useCallback(() => {
+      setShowHomeBeachPrompt(false);
+      setReminderState("idle");
+      if (recommendation) {
+        track("first_win_reminder_declined", {
+          beach_id: recommendation.beach.id,
+          beach_name: recommendation.beach.name,
+          dismissal_reason: "home_beach_declined",
+        });
+      }
+    }, [recommendation]);
+
+    // Handle retry after error
+    const handleRetryReminder = useCallback(() => {
+      if (recommendation) {
+        track("first_win_reminder_retry", {
+          beach_id: recommendation.beach.id,
+          beach_name: recommendation.beach.name,
+          previous_state: reminderState,
+        });
+      }
+      // Reset state and trigger the reminder flow again
+      setReminderState("idle");
+      // Use setTimeout to ensure state update completes before re-triggering
+      setTimeout(() => {
+        handleReminderClick();
+      }, 0);
+    }, [recommendation, reminderState, handleReminderClick]);
 
     const handleShare = useCallback(() => {
       if (!recommendation) return;
@@ -226,6 +536,17 @@ export const PersonalizedForecastCard = React.memo(
       setShareImageUrl(url);
       setShareSheetOpen(true);
     }, [recommendation]);
+
+    // Track plan session click
+    const handlePlanSessionClick = useCallback(() => {
+      if (recommendation) {
+        track("first_win_plan_clicked", {
+          beach_id: recommendation.beach.id,
+          beach_name: recommendation.beach.name,
+        });
+      }
+      onPlanSession();
+    }, [recommendation, onPlanSession]);
 
     // Handle loading state
     if (loading) {
@@ -272,13 +593,21 @@ export const PersonalizedForecastCard = React.memo(
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 flex-wrap">
-                <Target className="h-5 w-5 text-blue-600" />
-                Your Best Spot Today
+              <CardTitle
+                className="text-xl sm:text-2xl flex items-center gap-2 flex-wrap"
+                data-testid="personalized-forecast-title"
+              >
+                <Target className="h-5 w-5 text-blue-600 shrink-0" />
+                <span className="font-bold">
+                  {getWindowTitle(windowTiming, window.start, window.end)}
+                </span>
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {format(window.start, "EEEE, MMM d")}
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span className="truncate">{beach.name}</span>
+                <span className="text-muted-foreground/60 mx-1">·</span>
+                <Calendar className="h-4 w-4 shrink-0" />
+                {format(window.start, "EEE, MMM d")}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -543,21 +872,169 @@ export const PersonalizedForecastCard = React.memo(
           </div>
         </CardContent>
 
-        <CardFooter className="flex gap-3">
-          <Button
-            className="flex-1"
-            onClick={onPlanSession}
-            data-testid="plan-session-from-personalized"
-          >
-            Plan Session
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => onViewBeach(beach.id)}
-          >
-            View Forecast
-          </Button>
+        <CardFooter className="flex flex-col gap-3">
+          {/* Home Beach Prompt - shown when user needs to set home beach first */}
+          {showHomeBeachPrompt && (
+            <div className="w-full p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <div className="flex items-start gap-2">
+                <Home className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-900 mb-1">
+                    Set {beach.name} as your home beach?
+                  </p>
+                  <p className="text-xs text-amber-700 mb-3">
+                    You&apos;ll get notified when conditions are good for surfing.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSetHomeAndEnable}
+                      disabled={reminderState === "enabling"}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      {reminderState === "enabling" ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Setting...
+                        </>
+                      ) : (
+                        <>
+                          <Home className="h-3 w-3 mr-1" />
+                          Set & Notify Me
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleDismissHomePrompt}
+                      disabled={reminderState === "enabling"}
+                    >
+                      Not now
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reminder Enabled Success */}
+          {reminderState === "enabled" && (
+            <div className="w-full p-3 rounded-lg bg-green-50 border border-green-200">
+              <div className="flex items-center gap-2">
+                <BellRing className="h-4 w-4 text-green-600" />
+                <p className="text-sm font-medium text-green-800">
+                  You&apos;ll be notified when conditions look good!
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Reminder Error State - Generic error with retry */}
+          {reminderState === "error" && (
+            <div
+              className="w-full p-3 rounded-lg bg-red-50 border border-red-200"
+              data-testid="reminder-error-state"
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800 mb-1">
+                    Couldn&apos;t enable reminders
+                  </p>
+                  <p className="text-xs text-red-700 mb-3">
+                    Something went wrong. Please try again.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRetryReminder}
+                    className="border-red-200 text-red-700 hover:bg-red-100 hover:text-red-800"
+                    data-testid="reminder-retry-button"
+                    aria-label="Retry enabling reminders"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reminder Denied State - Permission blocked with platform-specific instructions */}
+          {reminderState === "denied" && (
+            <div
+              className="w-full p-3 rounded-lg bg-amber-50 border border-amber-200"
+              data-testid="reminder-denied-state"
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800 mb-1">
+                    Notifications are blocked
+                  </p>
+                  <p className="text-xs text-amber-700 mb-2">
+                    {isNativeApp() ? (
+                      <>Go to <span className="font-medium">Settings &gt; Quiver</span> and enable notifications to get alerts.</>
+                    ) : (
+                      <>Click the <span className="font-medium">lock icon</span> in your address bar and allow notifications for this site.</>
+                    )}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRetryReminder}
+                    className="border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                    data-testid="reminder-denied-retry-button"
+                    aria-label="Try enabling reminders again after changing settings"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    I&apos;ve Enabled Notifications
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 w-full">
+            <Button
+              className="flex-1"
+              onClick={handlePlanSessionClick}
+              data-testid="plan-session-from-personalized"
+            >
+              Plan Session
+            </Button>
+            {showReminderCTA && !showHomeBeachPrompt ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleReminderClick}
+                disabled={reminderState === "enabling"}
+                data-testid="remind-me-cta"
+              >
+                {reminderState === "enabling" ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enabling...
+                  </>
+                ) : (
+                  <>
+                    <Bell className="h-4 w-4 mr-2" />
+                    Remind Me
+                  </>
+                )}
+              </Button>
+            ) : reminderState !== "enabled" && reminderState !== "error" && reminderState !== "denied" ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => onViewBeach(beach.id)}
+              >
+                View Forecast
+              </Button>
+            ) : null}
+          </div>
         </CardFooter>
 
         {/* Share Sheet */}

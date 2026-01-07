@@ -3,15 +3,12 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useHomeData } from "./use-home-data";
 
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 import { track } from "@/lib/analytics";
-import { BookOpen, Plus } from "lucide-react";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -50,7 +47,7 @@ export function HomeScreen() {
   };
 
   // Use cached profile hook to prevent flickering on navigation
-  const { profile, homeBeach, profileLoading, hasCachedData } =
+  const { profile, homeBeach, profileLoading, hasCachedData, refreshProfile } =
     useCachedProfile();
 
   // Home screen should never auto-prompt for location.
@@ -83,36 +80,7 @@ export function HomeScreen() {
             </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3 my-5">
-            <Button
-              onClick={() => {
-                track("plan_session_clicked", {
-                  source: "home",
-                  user_authenticated: !!user,
-                });
-                router.push("/sessions/new?mode=plan");
-              }}
-              className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
-            >
-              <BookOpen className="h-5 w-5 mr-2" />
-              Plan Session
-            </Button>
-            <Button
-              onClick={() => {
-                track("log_session_clicked", {
-                  source: "home",
-                  user_authenticated: !!user,
-                });
-                router.push("/sessions/new?mode=log");
-              }}
-              variant="outline"
-              className="h-12 px-5 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Log Session
-            </Button>
-          </div>
+          {/* Action buttons removed from above-fold - available in PersonalizedForecastCard footer */}
         </section>
 
         {/* Tabs Section */}
@@ -142,6 +110,7 @@ export function HomeScreen() {
               <ForecastTab
                 profile={profile}
                 homeBeach={homeBeach}
+                onProfileUpdate={refreshProfile}
               />
             </TabsContent>
 
