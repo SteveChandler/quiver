@@ -28,6 +28,9 @@ export type SessionFormState = {
   windSpeed?: number; // Wind speed in mph
   windDirection?: string; // Wind direction (N, NE, E, etc.)
   forecastAccuracy?: "accurate" | "somewhat" | "inaccurate"; // User-reported forecast accuracy
+  // Tide fields for session conditions:
+  tideHeight?: number; // User-reported tide height in feet
+  tideStatus?: string; // User-reported tide status (rising, falling, high, low)
   // New Session Planner Pro fields
   optimalTimes?: Array<{
     time: string;
@@ -114,6 +117,9 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     windSpeed: undefined,
     windDirection: undefined,
     forecastAccuracy: undefined,
+    // Tide fields (initialize to undefined)
+    tideHeight: undefined,
+    tideStatus: undefined,
     // Initialize new Session Planner Pro fields
     optimalTimes: undefined,
     selectedOptimalTime: undefined,

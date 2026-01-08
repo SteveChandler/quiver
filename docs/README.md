@@ -60,6 +60,12 @@ Feature-specific implementation documentation:
 - **[features/SOCIAL_SHARING.md](features/SOCIAL_SHARING.md)** - Native-first sharing via Capacitor share sheet and client-side generation
 - **[features/LOCATION_PAGES.md](features/LOCATION_PAGES.md)** - AllTrails-style location browsing with intelligent ranking
 
+### 📊 **Analytics**
+
+Product analytics, funnels, and event tracking:
+
+- **[analytics/ACTIVATION_FUNNEL.md](analytics/ACTIVATION_FUNNEL.md)** ⭐ - Activation funnel definition, GA4 setup, and success metrics
+
 ### 🔬 **Research & Analysis**
 
 Research findings and competitive analysis:
@@ -155,7 +161,14 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ## 🔄 **Recent Updates**
 
-**November 2025 (Latest)**: Phase 2 Documentation Consolidation - reduced redundancy
+**January 2025 (Latest)**: Added Analytics documentation
+
+**January 2025 Changes:**
+
+- 📊 **NEW:** Analytics documentation category with activation funnel definition
+  - `analytics/ACTIVATION_FUNNEL.md` - Complete GA4 funnel setup and benchmarks
+
+**November 2025**: Phase 2 Documentation Consolidation - reduced redundancy
 
 **Phase 2 Changes:**
 
@@ -193,6 +206,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - **Follow code standards** → [architecture/STYLE_GUIDE.md](architecture/STYLE_GUIDE.md) and [architecture/DESIGN_PRINCIPLES.md](architecture/DESIGN_PRINCIPLES.md)
 - **Research a topic** → [research/](research/)
 - **Check data schema** → [data/](data/)
+- **Set up analytics funnel** → [analytics/ACTIVATION_FUNNEL.md](analytics/ACTIVATION_FUNNEL.md)
 
 ---
 
@@ -202,6 +216,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - **Developer Guides**: 7 files
 - **Architecture**: 5+ files (includes MIDDLEWARE.md)
 - **Features**: 6 files (consolidated from 13)
+- **Analytics**: 1 file
 - **Research**: 7 files
 - **Reference**: 6 files
 - **Quick Start**: 3 files
@@ -209,6 +224,6 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ---
 
-**Last Updated**: November 2025
+**Last Updated**: January 2025
 **Status**: Complete reorganization by purpose
-**Next Review**: December 2025
+**Next Review**: February 2025

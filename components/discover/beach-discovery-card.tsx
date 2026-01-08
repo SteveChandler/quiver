@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import * as dateFns from "date-fns";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +15,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { formatBeachTimeRange } from "@/lib/utils/date-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
-const { format } = dateFns;
 
 interface BeachDiscoveryCardProps {
   recommendation: SurfDiscoveryRecommendation;
@@ -130,12 +129,11 @@ export function BeachDiscoveryCard({
         {/* Summary */}
         <p className="text-sm text-gray-700">{summary}</p>
 
-        {/* Best Window */}
+        {/* Best Window - formatted in beach local timezone */}
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Clock className="h-4 w-4" />
           <span>
-            {format(window.start, "EEE h:mm a")} -{" "}
-            {format(window.end, "h:mm a")}
+            {formatBeachTimeRange(window.start, window.end, window.timezone)}
           </span>
         </div>
 

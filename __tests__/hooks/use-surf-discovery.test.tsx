@@ -58,6 +58,7 @@ describe("useSurfDiscovery", () => {
           wavePeriod: "12s",
           dataSource: "NOAA_NWS",
           confidence: 85,
+          timezone: "America/Los_Angeles",
         },
         forecast: {} as any,
         score: 85,

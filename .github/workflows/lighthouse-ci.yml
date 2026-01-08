@@ -1,0 +1,246 @@
+name: Lighthouse CI
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main]
+
+env:
+    NODE_VERSION: "20"
+
+jobs:
+    lighthouse:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "yarn"
+
+            - name: Enable Corepack
+              run: corepack enable
+
+            - name: Install dependencies
+              run: yarn install --frozen-lockfile
+
+            - name: Build application
+              id: build
+              run: |
+                  echo "🏗️ Building Next.js application for Lighthouse CI..."
+
+                  if yarn build 2>&1 | tee build_output.log; then
+                    echo "✅ Build completed successfully"
+                    echo "success=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "❌ Build failed"
+                    echo "success=false" >> $GITHUB_OUTPUT
+                    exit 1
+                  fi
+              env:
+                  # Supabase Configuration
+                  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+                  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+                  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+                  # Application URLs
+                  NEXT_PUBLIC_SITE_URL: http://localhost:3000
+                  BASE_URL: http://localhost:3000
+
+                  # Mapbox (Required for maps)
+                  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+
+                  # Firebase (Required for push notifications)
+                  FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+                  FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+                  FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+                  NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+                  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+                  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+                  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+                  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+                  NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+                  NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
+
+            - name: Upload build logs
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-log-${{ github.run_number }}
+                  path: build_output.log
+                  retention-days: 7
+
+            - name: Start production server
+              id: start-server
+              run: |
+                  echo "🚀 Starting Next.js production server..."
+                  nohup yarn start > server_output.log 2>&1 &
+                  echo "SERVER_PID=$!" >> $GITHUB_ENV
+                  echo "✅ Server started with PID: $!"
+              env:
+                  # Supabase Configuration
+                  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+                  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+                  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+                  # Application URLs
+                  NEXT_PUBLIC_SITE_URL: http://localhost:3000
+                  BASE_URL: http://localhost:3000
+
+                  # Mapbox
+                  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+
+                  # Firebase
+                  FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+                  FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+                  FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+                  NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+                  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+                  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+                  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+                  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+                  NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+                  NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
+
+            - name: Wait for server to be ready
+              run: |
+                  echo "⏳ Waiting for server at http://localhost:3000..."
+                  npx wait-on http://localhost:3000 --timeout 60000 --interval 1000
+                  echo "✅ Server is ready!"
+
+                  # Verify server is responding
+                  curl -f http://localhost:3000 || (echo "❌ Server health check failed" && exit 1)
+                  echo "✅ Server health check passed"
+
+            - name: Install Lighthouse CI and Puppeteer
+              run: |
+                  echo "📦 Installing Lighthouse CI..."
+                  npm install -g @lhci/cli@0.15.1
+                  echo "📦 Installing Puppeteer for authenticated testing..."
+                  npm install -g puppeteer
+                  echo "✅ Lighthouse CI and Puppeteer installed"
+
+            - name: Run Lighthouse CI
+              id: lighthouse
+              run: |
+                  echo "🔍 Running Lighthouse CI audits..."
+                  echo "📄 Using configuration from .lighthouserc.json"
+                  echo "🔐 Testing authenticated flows"
+                  echo ""
+
+                  if lhci autorun 2>&1 | tee lighthouse_output.log; then
+                    echo "✅ Lighthouse CI completed successfully"
+                    echo "success=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "⚠️ Lighthouse CI completed with warnings/errors"
+                    echo "success=false" >> $GITHUB_OUTPUT
+                    # Don't fail the workflow, just mark as unsuccessful
+                  fi
+              env:
+                  LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+                  # Test user credentials for authenticated Lighthouse tests
+                  LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
+                  LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
+
+            - name: Stop server
+              if: always()
+              run: |
+                  if [ ! -z "$SERVER_PID" ]; then
+                    echo "🛑 Stopping server (PID: $SERVER_PID)..."
+                    kill $SERVER_PID || true
+                    echo "✅ Server stopped"
+                  fi
+
+            - name: Upload Lighthouse results
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: lighthouse-results-${{ github.run_number }}
+                  path: .lighthouseci/
+                  retention-days: 30
+
+            - name: Upload server logs
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: server-log-${{ github.run_number }}
+                  path: server_output.log
+                  retention-days: 7
+
+            - name: Upload Lighthouse output
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: lighthouse-output-${{ github.run_number }}
+                  path: lighthouse_output.log
+                  retention-days: 7
+
+            - name: Create performance summary
+              if: always()
+              run: |
+                  echo "## 🔍 Lighthouse CI Performance Report" >> $GITHUB_STEP_SUMMARY
+                  echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+                  echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+                  echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+                  echo "**Status:** ${{ steps.lighthouse.outputs.success == 'true' && '✅ Passed' || '⚠️ Failed/Warnings' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  echo "### Audited URLs (Authenticated)" >> $GITHUB_STEP_SUMMARY
+                  echo "- Home: http://localhost:3000" >> $GITHUB_STEP_SUMMARY
+                  echo "- Discover: http://localhost:3000/discover" >> $GITHUB_STEP_SUMMARY
+                  echo "- Map: http://localhost:3000/map" >> $GITHUB_STEP_SUMMARY
+                  echo "- Profile: http://localhost:3000/profile" >> $GITHUB_STEP_SUMMARY
+                  echo "- Beach (OB Pier): http://localhost:3000/ca/san-diego/ocean-beach-pier" >> $GITHUB_STEP_SUMMARY
+                  echo "- Beach (Blacks): http://localhost:3000/ca/la-jolla/blacks" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Runs per URL:** 3" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Form Factor:** Mobile (Pixel 5 emulation)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Categories:** Performance, Accessibility, Best Practices, SEO" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Authentication:** Puppeteer login script" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  echo "### Thresholds" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Performance:** ≥70% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Accessibility:** ≥90% (error)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Best Practices:** ≥85% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **SEO:** ≥85% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **LCP:** ≤4000ms" >> $GITHUB_STEP_SUMMARY
+                  echo "- **CLS:** ≤0.1" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  echo "### 📊 Detailed Results" >> $GITHUB_STEP_SUMMARY
+                  echo "Download the \`lighthouse-results-${{ github.run_number }}\` artifact for full reports." >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  if [ -f lighthouse_output.log ]; then
+                    echo "### Output Log (Last 50 Lines)" >> $GITHUB_STEP_SUMMARY
+                    echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                    tail -50 lighthouse_output.log >> $GITHUB_STEP_SUMMARY
+                    echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+            - name: Notify on failure
+              if: failure()
+              run: |
+                  echo "🚨 Lighthouse CI Workflow Failed"
+                  echo "Check the artifacts and logs for detailed error information"
+
+                  if [ -f server_output.log ]; then
+                    echo ""
+                    echo "=== Server Output (Last 20 Lines) ==="
+                    tail -20 server_output.log
+                  fi
+
+                  if [ -f lighthouse_output.log ]; then
+                    echo ""
+                    echo "=== Lighthouse Output (Last 20 Lines) ==="
+                    tail -20 lighthouse_output.log
+                  fi

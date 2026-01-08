@@ -2,12 +2,16 @@
 
 import { useMemo, useCallback } from "react";
 import { useDataFetcher } from "./use-data-fetcher";
+import { isNightHour } from "@/lib/utils/timezone-utils";
 
 interface SessionForecastData {
   wave_height?: number;
   wind_speed?: number;
   wind_direction?: string;
   water_temp?: number;
+  tide_height: number | null;
+  tide_status: string | null;
+  isNightSession: boolean;
 }
 
 interface UseSessionForecastResult {
@@ -109,11 +113,21 @@ export function useSessionForecast(
     const parsedWindSpeed = parseNumericValue(bestForecast.wind_speed);
     const parsedWaterTemp = parseNumericValue(bestForecast.water_temp);
 
+    // Parse tide_height from string to number (handles values like "2.5 ft")
+    const parsedTideHeight = parseNumericValue(bestForecast.tide_height);
+
+    // Determine if this is a night session based on the forecast hour
+    const forecastHour = bestForecast.forecastHour ?? 0;
+    const isNightSession = isNightHour(Math.floor(forecastHour));
+
     return {
       wave_height: parsedWaveHeight,
       wind_speed: parsedWindSpeed,
       wind_direction: bestForecast.wind_direction || undefined,
       water_temp: parsedWaterTemp,
+      tide_height: parsedTideHeight ?? null,
+      tide_status: bestForecast.tide_status || null,
+      isNightSession,
     };
   }, [forecasts, sessionTime]);
 

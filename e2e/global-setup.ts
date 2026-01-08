@@ -79,9 +79,16 @@ async function globalSetup(config: FullConfig) {
       console.log(`[Global Setup] Navigating to ${baseURL}...`);
       await page.goto(baseURL!, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-      // Wait for page to load
-      await page.waitForLoadState('networkidle', { timeout: 30000 });
-      console.log('[Global Setup] Page loaded');
+      // Wait for React to hydrate (js-loaded class is added after hydration)
+      // Don't use networkidle - SPAs with real-time features never reach it
+      try {
+        await page.waitForSelector('body.js-loaded, body.authenticated', { timeout: 15000 });
+        console.log('[Global Setup] React hydration complete');
+      } catch {
+        // Fallback: wait for load event if js-loaded not found (may be authenticated)
+        await page.waitForLoadState('load', { timeout: 15000 });
+        console.log('[Global Setup] Page loaded (fallback)');
+      }
 
       // Check if already authenticated
       const isAlreadyAuth = await verifySupabaseAuth(page);
@@ -113,7 +120,9 @@ async function globalSetup(config: FullConfig) {
         throw new Error('Login button not found after 15 seconds. Page may still be checking authentication.');
       }
 
-      await loginButton.click();
+      // Use force:true to bypass any overlay issues during SSR-to-client transition
+      // This is appropriate for setup since we're not testing click behavior
+      await loginButton.click({ force: true });
       console.log('[Global Setup] Clicked login button');
 
       // Wait for auth modal to appear

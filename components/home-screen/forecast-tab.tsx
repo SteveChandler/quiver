@@ -37,8 +37,13 @@ import { slugify } from "@/lib/utils/text-utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useInsights } from "@/hooks/use-insights";
+import { useWebPushRegistration } from "@/hooks/useWebPushRegistration";
+import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
+import { useToast } from "@/hooks/use-toast";
 import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
-import { PersonalizedForecastCard } from "@/components/home-screen/personalized-forecast-card";
+import { updateProfile } from "@/actions/profile-actions";
+import { isNativeApp } from "@/lib/mobile/platform";
+import { PersonalizedForecastCard, type ReminderResult } from "@/components/home-screen/personalized-forecast-card";
 import { BeachDiscoveryList } from "@/components/discover/beach-discovery-list";
 import { SimilarSessionsDrawer } from "@/components/home-screen/similar-sessions-drawer";
 
@@ -46,12 +51,14 @@ interface ForecastTabProps {
   profile: Profile | null;
   homeBeach?: Beach | null;
   overrideBeach?: Beach | null;
+  onProfileUpdate?: () => void;
 }
 
 export function ForecastTab({
   profile,
   homeBeach,
   overrideBeach,
+  onProfileUpdate,
 }: ForecastTabProps) {
   const router = useRouter();
 
@@ -70,6 +77,141 @@ export function ForecastTab({
   const [forecastState, setForecastState] =
     useState<ForecastDataState>("loading");
   const [forecastError, setForecastError] = useState<Error | null>(null);
+
+  // Push registration for reminder flow (web and native)
+  const { requestPushOptIn: requestWebPush, isSupported: webPushSupported } = useWebPushRegistration();
+  const { requestPushOptIn: requestNativePush, status: nativePushStatus } = useNativePushRegistration();
+  const { toast } = useToast();
+
+  // Handler for enabling forecast reminders
+  const handleEnableReminder = useCallback(async (beachId: string, beachName: string): Promise<ReminderResult> => {
+    try {
+      // Platform-specific push registration
+      if (isNativeApp()) {
+        // Native app: use FCM push registration
+        const pushResult = await requestNativePush();
+
+        if (pushResult.status === "denied") {
+          toast({
+            title: "Push notifications disabled",
+            description: "Enable notifications in your device settings to get alerts.",
+            variant: "destructive",
+          });
+          track("first_win_reminder_declined", {
+            beach_id: beachId,
+            beach_name: beachName,
+            platform: "native",
+            reason: "push_denied",
+          });
+          return { success: false, errorType: "denied" };
+        }
+
+        if (pushResult.status === "error") {
+          toast({
+            title: "Couldn't enable push notifications",
+            description: pushResult.detail || "Please try again or check your settings.",
+            variant: "destructive",
+          });
+          track("first_win_reminder_declined", {
+            beach_id: beachId,
+            beach_name: beachName,
+            platform: "native",
+            reason: "push_error",
+          });
+          return { success: false, errorType: "error", errorMessage: pushResult.detail };
+        }
+
+        // "unsupported" status: log warning but continue (profile flags still update)
+        if (pushResult.status === "unsupported") {
+          console.warn("Native push not supported, continuing with profile update only");
+        }
+      } else {
+        // Web/PWA: use web push registration
+        if (webPushSupported) {
+          const pushResult = await requestWebPush();
+
+          if (pushResult.status === "denied") {
+            toast({
+              title: "Push notifications blocked",
+              description: "Enable notifications in browser settings to get alerts.",
+              variant: "destructive",
+            });
+            track("first_win_reminder_declined", {
+              beach_id: beachId,
+              beach_name: beachName,
+              platform: "web",
+              reason: "push_denied",
+            });
+            return { success: false, errorType: "denied" };
+          }
+
+          if (pushResult.status === "error") {
+            toast({
+              title: "Couldn't enable push notifications",
+              description: pushResult.detail || "Please try again or check your settings.",
+              variant: "destructive",
+            });
+            track("first_win_reminder_declined", {
+              beach_id: beachId,
+              beach_name: beachName,
+              platform: "web",
+              reason: "push_error",
+            });
+            return { success: false, errorType: "error", errorMessage: pushResult.detail };
+          }
+
+          // "unsupported" status: log warning but continue (profile flags still update)
+          if (pushResult.status === "unsupported") {
+            console.warn("Web push not supported, continuing with profile update only");
+          }
+        }
+      }
+
+      // Update profile with home beach (if needed) + notification flags
+      const updateData: Record<string, unknown> = {
+        notif_push_enabled: true,
+        notif_forecast_alerts: true,
+      };
+
+      // Set home beach if not already set
+      if (!homeBeach?.id) {
+        updateData.home_beach_id = beachId;
+      }
+
+      await updateProfile(updateData);
+
+      // Invalidate profile cache to ensure UI reflects updated notification flags immediately
+      onProfileUpdate?.();
+
+      toast({
+        title: "Reminders enabled!",
+        description: `We'll notify you when ${beachName} has good conditions.`,
+      });
+
+      track("first_win_reminder_enabled", {
+        beach_id: beachId,
+        beach_name: beachName,
+        platform: isNativeApp() ? "native" : "web",
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to enable reminder:", error);
+      toast({
+        title: "Couldn't enable reminders",
+        description: "Please try again or check your settings.",
+        variant: "destructive",
+      });
+      track("first_win_reminder_declined", {
+        beach_id: beachId,
+        beach_name: beachName,
+        platform: isNativeApp() ? "native" : "web",
+        reason: "error",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { success: false, errorType: "error", errorMessage: error instanceof Error ? error.message : "Unknown error" };
+    }
+  }, [homeBeach?.id, webPushSupported, requestWebPush, requestNativePush, toast, onProfileUpdate]);
 
   // When no home beach is set, pick a popular beach to display instead
   const fetchPopularBeach = useCallback(async () => {
@@ -480,6 +622,9 @@ export function ForecastTab({
           onPlanSession={handlePlanSession}
           onViewBeach={handleViewBeachFromPersonalized}
           onViewSimilarSessions={() => setShowSimilarSessions(true)}
+          homeBeachId={homeBeach?.id ?? null}
+          forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
+          onEnableReminder={handleEnableReminder}
         />
       )}
       {/* Surf Discovery - Top Spots for You (uses same data as personalized card) */}

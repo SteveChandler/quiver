@@ -51,6 +51,7 @@ function TideExtremeCard({
 
   return (
     <div
+      data-testid={`next-tide-${type}`}
       className={cn(
         "flex-1 rounded-lg border p-3",
         isHigh
@@ -104,7 +105,10 @@ function TideExtremeCard({
  */
 function TideExtremeEmpty({ type }: { type: "high" | "low" }) {
   return (
-    <div className="flex-1 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3">
+    <div
+      data-testid={`next-tide-${type}`}
+      className="flex-1 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3"
+    >
       <div className="flex items-center gap-1.5 mb-2">
         {type === "high" ? (
           <ArrowUp className="h-4 w-4 text-slate-400" />
@@ -141,11 +145,12 @@ export function TideNextExtreme({
     return null;
   }
 
-  return (
-    <div className={cn("space-y-2", className)}>
-      <h4 className="text-sm font-medium text-slate-700">Next Tides</h4>
-      <div className="flex gap-3">
-        {nextHigh && minutesToHigh !== null ? (
+  const tideCards = [
+    {
+      type: "high" as const,
+      sortMinutes: minutesToHigh ?? Number.POSITIVE_INFINITY,
+      node:
+        nextHigh && minutesToHigh !== null ? (
           <TideExtremeCard
             type="high"
             time={nextHigh.time}
@@ -155,8 +160,13 @@ export function TideNextExtreme({
           />
         ) : (
           <TideExtremeEmpty type="high" />
-        )}
-        {nextLow && minutesToLow !== null ? (
+        ),
+    },
+    {
+      type: "low" as const,
+      sortMinutes: minutesToLow ?? Number.POSITIVE_INFINITY,
+      node:
+        nextLow && minutesToLow !== null ? (
           <TideExtremeCard
             type="low"
             time={nextLow.time}
@@ -166,7 +176,22 @@ export function TideNextExtreme({
           />
         ) : (
           <TideExtremeEmpty type="low" />
-        )}
+        ),
+    },
+  ].sort((a, b) => {
+    if (a.sortMinutes !== b.sortMinutes) return a.sortMinutes - b.sortMinutes;
+    // Deterministic tie-breaker
+    if (a.type === b.type) return 0;
+    return a.type === "high" ? -1 : 1;
+  });
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      <h4 className="text-sm font-medium text-slate-700">Next Tides</h4>
+      <div data-testid="next-tides-cards" className="flex gap-3">
+        {tideCards.map((c) => (
+          <React.Fragment key={c.type}>{c.node}</React.Fragment>
+        ))}
       </div>
     </div>
   );
@@ -187,6 +212,53 @@ export function TideNextExtremeCompact({
     return null;
   }
 
+  const items = [
+    {
+      type: "high" as const,
+      sortMinutes: minutesToHigh ?? Number.POSITIVE_INFINITY,
+      node:
+        nextHigh && minutesToHigh !== null ? (
+          <div
+            className="flex items-center gap-1.5"
+            data-testid="next-tide-high"
+          >
+            <ArrowUp className="h-4 w-4 text-blue-600" />
+            <span className="font-medium">
+              {nextHigh.height.toFixed(1)} {unit}
+            </span>
+            <span className="text-slate-500">
+              @ {formatTime(nextHigh.time)}
+            </span>
+          </div>
+        ) : null,
+    },
+    {
+      type: "low" as const,
+      sortMinutes: minutesToLow ?? Number.POSITIVE_INFINITY,
+      node:
+        nextLow && minutesToLow !== null ? (
+          <div
+            className="flex items-center gap-1.5"
+            data-testid="next-tide-low"
+          >
+            <ArrowDown className="h-4 w-4 text-slate-600" />
+            <span className="font-medium">
+              {nextLow.height.toFixed(1)} {unit}
+            </span>
+            <span className="text-slate-500">
+              @ {formatTime(nextLow.time)}
+            </span>
+          </div>
+        ) : null,
+    },
+  ]
+    .filter((i) => i.node !== null)
+    .sort((a, b) => {
+      if (a.sortMinutes !== b.sortMinutes) return a.sortMinutes - b.sortMinutes;
+      if (a.type === b.type) return 0;
+      return a.type === "high" ? -1 : 1;
+    });
+
   return (
     <div
       className={cn(
@@ -194,28 +266,9 @@ export function TideNextExtremeCompact({
         className
       )}
     >
-      {nextHigh && minutesToHigh !== null && (
-        <div className="flex items-center gap-1.5">
-          <ArrowUp className="h-4 w-4 text-blue-600" />
-          <span className="font-medium">
-            {nextHigh.height.toFixed(1)} {unit}
-          </span>
-          <span className="text-slate-500">
-            @ {formatTime(nextHigh.time)}
-          </span>
-        </div>
-      )}
-      {nextLow && minutesToLow !== null && (
-        <div className="flex items-center gap-1.5">
-          <ArrowDown className="h-4 w-4 text-slate-600" />
-          <span className="font-medium">
-            {nextLow.height.toFixed(1)} {unit}
-          </span>
-          <span className="text-slate-500">
-            @ {formatTime(nextLow.time)}
-          </span>
-        </div>
-      )}
+      {items.map((i) => (
+        <React.Fragment key={i.type}>{i.node}</React.Fragment>
+      ))}
     </div>
   );
 }

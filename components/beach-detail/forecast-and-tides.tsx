@@ -22,13 +22,19 @@ import type { Beach } from "@/types/database";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { BestSurfWindow } from "./best-surf-window";
+import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 
 interface ForecastAndTidesProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[] | null;
+  beachTimezone?: string | null;
 }
 
-export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
+export function ForecastAndTides({
+  beach,
+  forecasts,
+  beachTimezone,
+}: ForecastAndTidesProps) {
   // Ensure forecasts is always a stable array reference
   const safeForecasts = useMemo(() => forecasts || [], [forecasts]);
   // Default to showing the 5-day tide chart
@@ -47,12 +53,8 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
   ];
 
   const todayStr = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }, []);
+    return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
+  }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
     () => safeForecasts.filter((f) => f.forecast_date === todayStr),
@@ -113,7 +115,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
 
           <TabsContent value="today" className="mt-4">
             {/* Best Surf Window Intel */}
-            <BestSurfWindow beachId={beach.id} beachName={beach.name} />
+            <BestSurfWindow
+              beachId={beach.id}
+              beachName={beach.name}
+              beachTimezone={beachTimezone}
+              forecasts={todaysForecasts}
+            />
 
             {/* Collapsible Detailed Forecast Table */}
             <Collapsible className="mt-4">

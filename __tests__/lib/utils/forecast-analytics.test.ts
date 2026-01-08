@@ -93,6 +93,7 @@ describe("Forecast Analytics Utils", () => {
         wind_speed: "12",
         water_temp: "70",
       },
+      forecast_vs_actual: null,
       forecast_confidence_score: 85,
       data_source: "NOAA_NWS",
       session_date: "2024-01-15",

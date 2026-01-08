@@ -6,6 +6,7 @@
  */
 
 import { isNightHour, getLocalHour, getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { getLocalDateString } from "@/lib/utils/timezone-utils";
 
 describe('timezone-utils', () => {
   describe('isNightHour', () => {
@@ -170,6 +171,188 @@ describe('timezone-utils', () => {
       const utcDate = new Date('2025-01-15T08:00:00Z'); // 8 AM UTC = midnight Pacific
       const localHour = getLocalHour(utcDate, 'America/Los_Angeles');
       expect(localHour).toBe(0);
+    });
+  });
+
+  describe("getLocalDateString", () => {
+    describe("Pacific Time (America/Los_Angeles)", () => {
+      it("should return the beach-local date across UTC rollover (LA)", () => {
+        // 00:30Z is still the prior day in America/Los_Angeles (PST)
+        const utcDate = new Date("2026-01-07T00:30:00Z");
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2026-01-06");
+      });
+
+      it("should handle late evening Pacific time without UTC flip (regression test)", () => {
+        // Critical bug fix: 11 PM PT Dec 5 should NOT flip to Dec 6
+        // This was the root cause of "Surf Intel not available" after 4pm PT
+        const utcDate = new Date("2024-12-06T07:00:00Z"); // 11 PM PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle 4pm Pacific time correctly", () => {
+        // 4pm PT is when the bug manifested (midnight UTC)
+        const utcDate = new Date("2024-12-06T00:00:00Z"); // 4 PM PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle midnight Pacific time (start of day)", () => {
+        const utcDate = new Date("2024-12-05T08:00:00Z"); // Midnight PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle noon Pacific time (middle of day)", () => {
+        const utcDate = new Date("2024-12-05T20:00:00Z"); // Noon PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle DST transition dates correctly", () => {
+        // March DST transition (PST → PDT): UTC-8 → UTC-7
+        const utcDateSpring = new Date("2024-03-10T09:00:00Z"); // 1 AM PST (before DST)
+        const localDateSpring = getLocalDateString(utcDateSpring, "America/Los_Angeles");
+        expect(localDateSpring).toBe("2024-03-10");
+
+        // November DST transition (PDT → PST): UTC-7 → UTC-8
+        const utcDateFall = new Date("2024-11-03T09:00:00Z"); // 2 AM PDT (before DST ends)
+        const localDateFall = getLocalDateString(utcDateFall, "America/Los_Angeles");
+        expect(localDateFall).toBe("2024-11-03");
+      });
+    });
+
+    describe("Eastern Time (America/New_York)", () => {
+      it("should return correct date for Eastern timezone", () => {
+        // 02:00 UTC is 9 PM ET previous day (EST, UTC-5)
+        const utcDate = new Date("2024-12-06T02:00:00Z");
+        const localDate = getLocalDateString(utcDate, "America/New_York");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle midnight Eastern time", () => {
+        const utcDate = new Date("2024-12-05T05:00:00Z"); // Midnight ET Dec 5
+        const localDate = getLocalDateString(utcDate, "America/New_York");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle late evening Eastern time", () => {
+        const utcDate = new Date("2024-12-06T04:00:00Z"); // 11 PM ET Dec 5
+        const localDate = getLocalDateString(utcDate, "America/New_York");
+        expect(localDate).toBe("2024-12-05");
+      });
+    });
+
+    describe("Hawaii Time (Pacific/Honolulu)", () => {
+      it("should return correct date for Hawaii timezone", () => {
+        // 09:00 UTC is 11 PM HST previous day (HST, UTC-10)
+        const utcDate = new Date("2024-12-06T09:00:00Z");
+        const localDate = getLocalDateString(utcDate, "Pacific/Honolulu");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle midnight Hawaii time", () => {
+        const utcDate = new Date("2024-12-05T10:00:00Z"); // Midnight HST Dec 5
+        const localDate = getLocalDateString(utcDate, "Pacific/Honolulu");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should handle late evening Hawaii time", () => {
+        const utcDate = new Date("2024-12-06T09:00:00Z"); // 11 PM HST Dec 5
+        const localDate = getLocalDateString(utcDate, "Pacific/Honolulu");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should not have DST transitions (Hawaii doesn't observe DST)", () => {
+        // Hawaii stays at UTC-10 year-round, no DST
+        const summerDate = new Date("2024-07-15T10:00:00Z"); // Midnight HST
+        const winterDate = new Date("2024-01-15T10:00:00Z"); // Midnight HST
+
+        expect(getLocalDateString(summerDate, "Pacific/Honolulu")).toBe("2024-07-15");
+        expect(getLocalDateString(winterDate, "Pacific/Honolulu")).toBe("2024-01-15");
+      });
+    });
+
+    describe("edge cases and format validation", () => {
+      it("should return YYYY-MM-DD format", () => {
+        const utcDate = new Date("2024-01-05T12:00:00Z");
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
+
+      it("should pad single-digit months and days with zeros", () => {
+        const utcDate = new Date("2024-01-05T12:00:00Z");
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-01-05");
+      });
+
+      it("should handle year boundaries correctly (New Year's Eve/Day)", () => {
+        // 9 AM UTC Jan 1 = 1 AM PT Jan 1
+        const newYearUTC = new Date("2025-01-01T09:00:00Z");
+        expect(getLocalDateString(newYearUTC, "America/Los_Angeles")).toBe("2025-01-01");
+
+        // 2 AM UTC Jan 1 = 6 PM PT Dec 31
+        const newYearEveUTC = new Date("2025-01-01T02:00:00Z");
+        expect(getLocalDateString(newYearEveUTC, "America/Los_Angeles")).toBe("2024-12-31");
+      });
+
+      it("should handle null timezone by using default", () => {
+        const utcDate = new Date("2024-12-05T12:00:00Z");
+        const localDate = getLocalDateString(utcDate, null);
+        // Should use DEFAULT_TIMEZONE (America/Los_Angeles)
+        expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
+
+      it("should handle undefined timezone by using default", () => {
+        const utcDate = new Date("2024-12-05T12:00:00Z");
+        const localDate = getLocalDateString(utcDate);
+        // Should use DEFAULT_TIMEZONE (America/Los_Angeles)
+        expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
+
+      it("should handle leap year date correctly", () => {
+        const leapYearDate = new Date("2024-02-29T12:00:00Z");
+        const localDate = getLocalDateString(leapYearDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-02-29");
+      });
+
+      it("should handle last day of month correctly", () => {
+        const endOfMonth = new Date("2024-12-31T23:00:00Z"); // 3 PM PT Dec 31
+        const localDate = getLocalDateString(endOfMonth, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-31");
+      });
+    });
+
+    describe("fallback behavior on error", () => {
+      it("should fallback gracefully for invalid timezone", () => {
+        const utcDate = new Date("2024-12-05T12:00:00Z");
+        // Invalid timezone string - formatInTimeZone will throw, but getLocalDateString handles it
+        const localDate = getLocalDateString(utcDate, "Invalid/Timezone");
+        // Should still return a valid date string (fallback to local machine date)
+        expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      });
+    });
+
+    describe("real-world Surf Intel scenarios", () => {
+      it("should match forecast_date for morning surf session (6 AM PT)", () => {
+        const utcDate = new Date("2024-12-05T14:00:00Z"); // 6 AM PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should match forecast_date for afternoon surf session (2 PM PT)", () => {
+        const utcDate = new Date("2024-12-05T22:00:00Z"); // 2 PM PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
+
+      it("should match forecast_date for evening surf session (5 PM PT)", () => {
+        // This is critical: 5 PM PT should still be Dec 5, not Dec 6
+        const utcDate = new Date("2024-12-06T01:00:00Z"); // 5 PM PT Dec 5
+        const localDate = getLocalDateString(utcDate, "America/Los_Angeles");
+        expect(localDate).toBe("2024-12-05");
+      });
     });
   });
 });

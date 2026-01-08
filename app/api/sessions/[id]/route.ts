@@ -84,7 +84,14 @@ export const GET = withAuth(
         session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
-        user:profiles(*)
+        user:profiles(*),
+        forecast_snapshot:session_forecast_snapshots(
+          forecast_snapshot,
+          actual_conditions,
+          forecast_vs_actual,
+          forecast_confidence_score,
+          data_source
+        )
       `
       )
       .eq("id", sessionId)
@@ -93,8 +100,16 @@ export const GET = withAuth(
 
     if (error) throw error;
 
-    const enriched = await addFeaturedPhotoToSession(supabase, data);
-    return createSuccessResponse({ session: enriched ?? data });
+    // Transform the forecast_snapshot array to a single object (it's 1:1 relationship)
+    const sessionWithSnapshot = {
+      ...data,
+      forecast_snapshot: Array.isArray(data.forecast_snapshot) && data.forecast_snapshot.length > 0
+        ? data.forecast_snapshot[0]
+        : null,
+    };
+
+    const enriched = await addFeaturedPhotoToSession(supabase, sessionWithSnapshot);
+    return createSuccessResponse({ session: enriched ?? sessionWithSnapshot });
   },
   { errorMessage: "Failed to load session" }
 );

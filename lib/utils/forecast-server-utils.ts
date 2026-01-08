@@ -8,12 +8,26 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
+// Re-export from forecast-service-utils for convenience
+export { getFreshForecastFromCache } from "./forecast-service-utils";
+
 export type ForecastUpdateOptions = {
   /**
    * Absolute unix timestamp (ms) after which the updater should stop starting new work.
    * Used by Vercel cron to avoid runtime hard timeouts.
    */
   deadlineMs?: number;
+  /**
+   * Shard index (0-based) for deterministic beach partitioning.
+   * When set along with shardCount, only beaches where hash(beach_id) % shardCount === shard
+   * are processed. This enables horizontal scaling of cron jobs.
+   */
+  shard?: number;
+  /**
+   * Total number of shards for partitioning beaches.
+   * Required when shard is set.
+   */
+  shardCount?: number;
 };
 
 /**
@@ -61,10 +75,16 @@ export async function updateBeachForecast(beachId: string) {
 
 /**
  * Update forecasts for all beaches
+ * 
+ * Supports sharding via options.shard and options.shardCount for horizontal scaling.
  */
 export async function updateAllBeachForecasts(options: ForecastUpdateOptions = {}) {
   const service = getEnhancedForecastService();
-  const result = await service.updateAllEnhancedForecasts(options);
+  const result = await service.updateAllEnhancedForecasts({
+    deadlineMs: options.deadlineMs,
+    shard: options.shard,
+    shardCount: options.shardCount,
+  });
 
   if (!result.success) {
     throw new Error(result.error);

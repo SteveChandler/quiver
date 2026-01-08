@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getClientBrowserClient } from "@/lib/supabase";
+import { useMagicHour } from "@/hooks/use-magic-hour";
 import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import { data } from "@/lib/data/client";
+import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 import {
   Clock,
   Waves,
@@ -15,11 +19,14 @@ import {
   AlertCircle,
   Share2,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 interface BestSurfWindowProps {
   beachId: string;
   beachName: string;
+  beachTimezone?: string | null;
+  forecasts?: EnhancedForecastEntity[];
 }
 
 type WindowForecast = {
@@ -32,7 +39,14 @@ type WindowForecast = {
   tide_height: number | null;
 };
 
-export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
+export function BestSurfWindow({
+  beachId,
+  beachName,
+  beachTimezone,
+  forecasts,
+}: BestSurfWindowProps) {
+  const pathname = usePathname();
+
   // Format time helper
   const formatTime = (time: string | null) => {
     if (!time) return "";
@@ -46,80 +60,100 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     }
   };
 
-  // Fetch latest intel directly from Supabase (no edge function needed!)
+  // Format peak time from Date object
+  const formatPeakTime = (peakTime: Date | null) => {
+    if (!peakTime) return "";
+    try {
+      return peakTime.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  // Wind quality display helper
+  const getWindQualityDisplay = (
+    quality: "perfect" | "acceptable" | "cross" | "onshore" | null
+  ) => {
+    switch (quality) {
+      case "perfect":
+        return { label: "Offshore", color: "text-green-600", bg: "bg-green-100" };
+      case "acceptable":
+        return { label: "Light/Variable", color: "text-blue-600", bg: "bg-blue-100" };
+      case "cross":
+        return { label: "Cross-shore", color: "text-yellow-600", bg: "bg-yellow-100" };
+      case "onshore":
+        return { label: "Onshore", color: "text-orange-600", bg: "bg-orange-100" };
+      default:
+        return null;
+    }
+  };
+
+  const forecastDate = useMemo(() => {
+    const timezone = beachTimezone || DEFAULT_TIMEZONE;
+    const localDate = getLocalDateString(new Date(), timezone);
+
+    // Dev-only logging to catch timezone issues
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[BestSurfWindow] Computing forecast_date:', {
+        beachId,
+        beachName,
+        beachTimezone,
+        effectiveTimezone: timezone,
+        computedDate: localDate,
+        utcNow: new Date().toISOString(),
+      });
+    }
+
+    return localDate;
+  }, [beachTimezone, beachId, beachName]);
+
+  // Fetch latest intel via the client data gateway + API route
   const fetchIntel = useCallback(async () => {
-    const supabase = getClientBrowserClient();
-    const todayUtc = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("beach_daily_intel")
-      .select("*")
-      .eq("beach_id", beachId)
-      .eq("forecast_date", todayUtc)
-      .order("generated_at", { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-    // Return first record from array (or null if empty)
-    return data && data.length > 0 ? data[0] : null;
-  }, [beachId]);
-
-  // Fetch today's forecasts for next window calculation
-  const fetchForecasts = useCallback(async () => {
-    const supabase = getClientBrowserClient();
-    const todayUtc = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("enhanced_forecasts")
-      .select(
-        "forecast_time, forecast_date, wind_speed, wind_direction, wave_period, swell_1_period, tide_height"
-      )
-      .eq("beach_id", beachId)
-      .eq("forecast_date", todayUtc)
-      .order("forecast_time", { ascending: true });
-
-    if (error) throw error;
-
-    // Convert strings to numbers for the calculation
-    const mapped: WindowForecast[] = (data || []).map(
-      (f: {
-        forecast_time: string;
-        forecast_date: string;
-        wind_speed: string | null;
-        wind_direction: string | null;
-        wave_period: string | null;
-        swell_1_period: string | null;
-        tide_height: string | null;
-      }) => ({
-        forecast_time: f.forecast_time,
-        forecast_date: f.forecast_date,
-        wind_speed: f.wind_speed ? parseFloat(f.wind_speed) : null,
-        wind_direction: f.wind_direction ? parseFloat(f.wind_direction) : null,
-        wave_period: f.wave_period ? parseFloat(f.wave_period) : null,
-        swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period) : null,
-        tide_height: f.tide_height ? parseFloat(f.tide_height) : null,
-      })
-    );
-
-    return mapped;
-  }, [beachId]);
+    return await data.intel.getDaily(beachId, forecastDate);
+  }, [beachId, forecastDate]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
-  const { data: forecasts, loading: forecastsLoading } =
-    useDataFetcher(fetchForecasts);
+
+  // Magic Hour: Interpolated peak time calculation
+  const { magicHour, isLoading: magicHourLoading } = useMagicHour(beachId);
+
+  const mappedForecasts: WindowForecast[] = useMemo(() => {
+    const rows = (forecasts || []).filter((f) => f.forecast_date === forecastDate);
+    return rows.map((f) => ({
+      forecast_time: f.forecast_time,
+      forecast_date: f.forecast_date,
+      wind_speed:
+        f.wind_speed == null ? null : Number.parseFloat(String(f.wind_speed)),
+      wind_direction:
+        f.wind_direction == null
+          ? null
+          : Number.parseFloat(String(f.wind_direction)),
+      wave_period:
+        f.wave_period == null ? null : Number.parseFloat(String(f.wave_period)),
+      swell_1_period:
+        f.swell_1_period == null
+          ? null
+          : Number.parseFloat(String(f.swell_1_period)),
+      tide_height:
+        f.tide_height == null ? null : Number.parseFloat(String(f.tide_height)),
+    }));
+  }, [forecasts, forecastDate]);
 
   // Calculate best window from forecasts (used when no intel or when intel window passed)
   const bestWindowFromForecasts = useMemo(() => {
-    if (!forecasts || forecasts.length === 0 || forecastsLoading) {
+    if (!mappedForecasts || mappedForecasts.length === 0) {
       return null;
     }
-    const computed = findNextBestWindow(forecasts, new Date());
+    const computed = findNextBestWindow(mappedForecasts, new Date());
 
     return computed;
-  }, [forecasts, forecastsLoading]);
+  }, [mappedForecasts]);
 
   // Loading state
-  if (loading || forecastsLoading) {
+  if (loading) {
     return (
       <Card className="rounded-3xl border-blue-100/60">
         <CardContent className="p-6 space-y-4">
@@ -172,6 +206,72 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
                 {bestWindowFromForecasts.conditions}
               </p>
             </div>
+
+            {/* Magic Hour: Interpolated Peak Time (fallback view) */}
+            {magicHour?.found && (
+              <div className="bg-gradient-to-br from-purple-50/80 to-indigo-50/50 rounded-xl p-4 border border-purple-200/60">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-900">Magic Hour</h4>
+                  </div>
+                  {magicHour.confidence > 0.8 && (
+                    <span className="text-xs font-medium px-2 py-1 rounded bg-purple-200 text-purple-800">
+                      High confidence
+                    </span>
+                  )}
+                </div>
+
+                {magicHour.windowStart && magicHour.windowEnd && (
+                  <div className="mb-2">
+                    <p className="text-sm text-purple-700 font-medium">Best Window</p>
+                    <p className="text-xl font-bold text-purple-600">
+                      {magicHour.windowStart} - {magicHour.windowEnd}
+                    </p>
+                  </div>
+                )}
+
+                {magicHour.peakTime && (
+                  <div className="mb-3">
+                    <p className="text-sm text-purple-700 font-medium">Peak Conditions</p>
+                    <p className="text-lg font-bold text-purple-600">
+                      {formatPeakTime(magicHour.peakTime)}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {magicHour.windQuality && (
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded ${
+                        getWindQualityDisplay(magicHour.windQuality)?.bg
+                      } ${getWindQualityDisplay(magicHour.windQuality)?.color}`}
+                    >
+                      {getWindQualityDisplay(magicHour.windQuality)?.label} winds
+                    </span>
+                  )}
+                  {magicHour.swellMatch && (
+                    <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-600">
+                      Swell aligned
+                    </span>
+                  )}
+                  {magicHour.tideInRange && (
+                    <span className="text-xs font-medium px-2 py-1 rounded bg-teal-100 text-teal-600">
+                      Optimal tide
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {magicHourLoading && !magicHour && (
+              <div className="bg-purple-50/50 rounded-xl p-3 border border-purple-100/50">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                  <span className="text-sm text-purple-600">Calculating peak time...</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       );
@@ -203,7 +303,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     }
 
     const now = new Date();
-    const today = new Date().toISOString().split("T")[0];
+    const today = forecastDate;
 
     const startTime = new Date(`${today}T${intel.best_window_start}`);
     const endTime = new Date(`${today}T${intel.best_window_end}`);
@@ -277,8 +377,18 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
             variant="ghost"
             size="sm"
             onClick={() => {
-              // TODO: Add share functionality
-              console.log("Share surf intel");
+              // Share functionality - use native share if available
+              if (navigator.share) {
+                // eslint-disable-next-line no-restricted-properties -- Web Share API requires full URL with origin
+                const shareUrl = `${window.location.origin}${pathname}`;
+                navigator.share({
+                  title: `Surf Intel for ${beachName}`,
+                  text: `Best surf window: ${formatTime(intel.best_window_start)} - ${formatTime(intel.best_window_end)}`,
+                  url: shareUrl,
+                }).catch(() => {
+                  // User cancelled or share failed silently
+                });
+              }
             }}
             className="h-8 w-8 p-0 flex-shrink-0"
             title="Share surf intel"
@@ -366,7 +476,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               }`}
             >
               {intel.best_window_description ||
-                intel.raw_intel_data?.bestWindow ||
+                (intel.raw_intel_data as any)?.bestWindow ||
                 "No optimal window found"}
             </p>
           )}
@@ -386,6 +496,81 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               </p>
             )}
         </div>
+
+        {/* Magic Hour: Interpolated Peak Time */}
+        {magicHour?.found && windowStatus.status !== "passed" && (
+          <div className="bg-gradient-to-br from-purple-50/80 to-indigo-50/50 rounded-xl p-4 border border-purple-200/60">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                <h4 className="font-semibold text-purple-900">Magic Hour</h4>
+              </div>
+              {magicHour.confidence > 0.8 && (
+                <span className="text-xs font-medium px-2 py-1 rounded bg-purple-200 text-purple-800">
+                  High confidence
+                </span>
+              )}
+            </div>
+
+            {/* Best Window Range */}
+            {magicHour.windowStart && magicHour.windowEnd && (
+              <div className="mb-2">
+                <p className="text-sm text-purple-700 font-medium">Best Window</p>
+                <p className="text-xl font-bold text-purple-600">
+                  {magicHour.windowStart} - {magicHour.windowEnd}
+                </p>
+              </div>
+            )}
+
+            {/* Peak Time */}
+            {magicHour.peakTime && (
+              <div className="mb-3">
+                <p className="text-sm text-purple-700 font-medium">Peak Conditions</p>
+                <p className="text-lg font-bold text-purple-600">
+                  {formatPeakTime(magicHour.peakTime)}
+                </p>
+              </div>
+            )}
+
+            {/* Condition Indicators */}
+            <div className="flex flex-wrap gap-2">
+              {/* Wind Quality Badge */}
+              {magicHour.windQuality && (
+                <span
+                  className={`text-xs font-medium px-2 py-1 rounded ${
+                    getWindQualityDisplay(magicHour.windQuality)?.bg
+                  } ${getWindQualityDisplay(magicHour.windQuality)?.color}`}
+                >
+                  {getWindQualityDisplay(magicHour.windQuality)?.label} winds
+                </span>
+              )}
+
+              {/* Swell Match Indicator */}
+              {magicHour.swellMatch && (
+                <span className="text-xs font-medium px-2 py-1 rounded bg-blue-100 text-blue-600">
+                  Swell aligned
+                </span>
+              )}
+
+              {/* Tide in Range Indicator */}
+              {magicHour.tideInRange && (
+                <span className="text-xs font-medium px-2 py-1 rounded bg-teal-100 text-teal-600">
+                  Optimal tide
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Magic Hour Loading State */}
+        {magicHourLoading && !magicHour && windowStatus.status !== "passed" && (
+          <div className="bg-purple-50/50 rounded-xl p-3 border border-purple-100/50">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+              <span className="text-sm text-purple-600">Calculating peak time...</span>
+            </div>
+          </div>
+        )}
 
         {/* Show next best window if primary has passed */}
         {windowStatus.status === "passed" && nextWindow && (

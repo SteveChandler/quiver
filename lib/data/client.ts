@@ -24,6 +24,7 @@ const __cache = {
   usersSessions: new Map<string, __CacheEntry<any[]>>(), // key: `${userId}:${limit}`
   boards: new Map<string, __CacheEntry<any[]>>(), // key: "me"
   sessionLikesStatus: new Map<string, __CacheEntry<{ liked: boolean; likesCount: number }>>(),
+  dailyIntel: new Map<string, __CacheEntry<ClientBeachDailyIntel | null>>(), // key: `${beachId}:${forecastDate}`
   inflight: new Map<string, Promise<any>>(),
 };
 
@@ -64,9 +65,81 @@ async function getAllBeaches(): Promise<ClientBeach[]> {
   return beaches;
 }
 
+export type ClientBeachDailyIntel = {
+  beach_id: string;
+  forecast_date: string;
+  generation_time: string;
+  generated_at: string;
+
+  best_window_start: string | null;
+  best_window_end: string | null;
+  best_window_description: string | null;
+
+  surf_min_ft: number | null;
+  surf_max_ft: number | null;
+  surf_description: string | null;
+
+  tide_height_ft: number | null;
+  tide_time: string | null;
+  tide_status: string | null;
+  tide_optimal_range: string | null;
+  next_tide_type: string | null;
+  next_tide_time: string | null;
+  next_tide_height_ft: number | null;
+
+  wind_speed_mph: number | null;
+  wind_direction_deg: number | null;
+  wind_direction_text: string | null;
+  wind_quality: string | null;
+  wind_description: string | null;
+
+  confidence: string | null;
+  recommendation: string | null;
+  conditions_score: number | null;
+
+  raw_intel_data: unknown;
+};
+
+async function getDailyIntel(
+  beachId: string,
+  forecastDate: string
+): Promise<ClientBeachDailyIntel | null> {
+  const cacheKey = `${beachId}:${forecastDate}`;
+  const cached = __getCached(__cache.dailyIntel, cacheKey);
+  if (cached !== null) return cached;
+
+  const inflightKey = `dailyIntel:${cacheKey}`;
+  const inflight = __cache.inflight.get(inflightKey);
+  if (inflight) return inflight;
+
+  const p = (async () => {
+    const params = new URLSearchParams({ beachId, forecastDate });
+    const res = await fetch(`/api/beach-daily-intel?${params.toString()}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`Failed to load daily intel: ${res.status}`);
+    const json = await res.json();
+    const intel = (json?.data?.intel ?? null) as ClientBeachDailyIntel | null;
+    __setCached(__cache.dailyIntel, cacheKey, intel);
+    return intel;
+  })();
+
+  __cache.inflight.set(inflightKey, p);
+  try {
+    return await p;
+  } finally {
+    __cache.inflight.delete(inflightKey);
+  }
+}
+
 export const data = {
   beaches: {
     getAll: getAllBeaches,
+  },
+  intel: {
+    getDaily: getDailyIntel,
   },
   boards: {
     async list() {

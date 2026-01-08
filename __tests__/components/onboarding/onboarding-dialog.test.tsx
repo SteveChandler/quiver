@@ -37,6 +37,7 @@ describe("OnboardingDialog Logic", () => {
     });
     (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       isOpen: false,
+      isCompleted: false,
       currentStep: 0,
       openDialog: mockOpenDialog,
       reset: mockReset,
@@ -55,6 +56,27 @@ describe("OnboardingDialog Logic", () => {
     });
 
     expect(mockOpenDialog).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("does not auto-open dialog if onboarding was completed in this session", () => {
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
+      isOpen: false,
+      isCompleted: true,
+      currentStep: 0,
+      openDialog: mockOpenDialog,
+      reset: mockReset,
+      checkUserId: mockCheckUserId,
+    });
+
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).not.toHaveBeenCalled();
     jest.useRealTimers();
   });
 

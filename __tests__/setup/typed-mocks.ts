@@ -216,6 +216,7 @@ export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
     wind_offshore_tol_deg: null,
     wind_cross_shore_ok_kt: null,
     wind_onshore_bad_kt: null,
+    cdip_station: null,
     ...overrides,
   };
 }
@@ -320,6 +321,9 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     goals: [],
     invitee_ids: [],
     image_url: null,
+    board_snapshot: null,
+    tide_height_ft: null,
+    tide_status: null,
     ...overrides,
   };
 }
@@ -328,12 +332,6 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
  * Creates a mock Forecast with required fields
  */
 export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast {
-  // `Forecast` has some non-optional fields where `Partial<>` introduces `undefined`
-  // via object spread. Normalize those fields explicitly to keep the return type strict.
-  const { wind_direction_deg, ...restOverrides } = overrides as Partial<Forecast> & {
-    wind_direction_deg?: number | null;
-  };
-
   return {
     id: `forecast-${Date.now()}`,
     beach_id: "beach-123",
@@ -351,6 +349,8 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     data_source: "surfline",
     air_temperature: "72",
     water_temp: "65",
+    coops_station_id: null,
+    next_tide_at: null,
     // Primary swell
     swell_1_height: "4ft",
     swell_1_period: "12s",
@@ -370,8 +370,7 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     next_tide_time: "14:00:00",
     next_tide_type: "high",
     raw_forecast: null,
-    wind_direction_deg: wind_direction_deg ?? null,
-    ...restOverrides,
+    ...overrides,
   };
 }
 

@@ -40,6 +40,8 @@ interface SessionFormProps {
   initialMode?: SessionFormMode;
   beachId?: string;
   beachName?: string;
+  /** Initial time value in HH:MM format (e.g., "08:30") */
+  initialTime?: string;
   onSuccess?: () => void;
 }
 
@@ -47,6 +49,7 @@ export function SessionForm({
   initialMode = "plan",
   beachId,
   beachName,
+  initialTime,
   onSuccess,
 }: SessionFormProps) {
   const { user } = useAuth();
@@ -94,6 +97,13 @@ export function SessionForm({
     }
     // Intentionally only reacts to explicit prop changes
   }, [beachId, beachName, updateField]);
+
+  // Optional: prefill time when provided (e.g., from Magic Hour suggestion)
+  useEffect(() => {
+    if (initialTime) {
+      updateField("selectedTime", initialTime);
+    }
+  }, [initialTime, updateField]);
 
   useEffect(() => {
     setMode(paramMode);

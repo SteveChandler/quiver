@@ -235,9 +235,19 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       warningHours: MONITORING_CONFIG.WARNING_STALE_HOURS,
       criticalHours: MONITORING_CONFIG.CRITICAL_STALE_HOURS,
     };
-    const MARINE_THRESHOLDS = { warningHours: 2, criticalHours: 6 };
-    const TIDE_THRESHOLDS = { warningHours: 24, criticalHours: 48 };
-    const SUN_THRESHOLDS = { warningHours: 24 * 7, criticalHours: 24 * 14 };
+    // Use configurable thresholds from MONITORING_CONFIG (aligned with cron refresh windows)
+    const MARINE_THRESHOLDS = {
+      warningHours: MONITORING_CONFIG.MARINE_WARNING_HOURS,
+      criticalHours: MONITORING_CONFIG.MARINE_CRITICAL_HOURS,
+    };
+    const TIDE_THRESHOLDS = {
+      warningHours: MONITORING_CONFIG.TIDE_WARNING_HOURS,
+      criticalHours: MONITORING_CONFIG.TIDE_CRITICAL_HOURS,
+    };
+    const SUN_THRESHOLDS = {
+      warningHours: MONITORING_CONFIG.SUN_WARNING_HOURS,
+      criticalHours: MONITORING_CONFIG.SUN_CRITICAL_HOURS,
+    };
 
     const enhancedStaleBeaches: ForecastHealthMetrics['staleBeaches'] = [];
     const dataSourceCounts: Record<string, number> = {};

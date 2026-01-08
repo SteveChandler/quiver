@@ -204,6 +204,13 @@
   }
 }
 
+/* SSR beach section z-index: ensure it's below the navbar (z-50)
+   This prevents the section from intercepting pointer events on the navbar */
+.ssr-beach-section {
+  position: relative;
+  z-index: 0;
+}
+
 /* Hide SSR beach section when user is authenticated
    The SSR section is rendered in layout.tsx for SEO but should be hidden
    for authenticated users who see the HomeScreen instead */

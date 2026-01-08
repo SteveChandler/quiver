@@ -69,6 +69,7 @@ export function OnboardingDialog() {
   const searchParams = useSearchParams();
   const {
     isOpen,
+    isCompleted,
     currentStep,
     setCurrentStep,
     openDialog,
@@ -85,6 +86,7 @@ export function OnboardingDialog() {
   // This prevents showing the dialog on the landing page after logout
   const shouldRender =
     isOpen &&
+    !isCompleted &&
     (isTesting || (user && !hasCompletedOnboarding && !substantiallyComplete));
 
   // Guard against stale persisted step indexes from older onboarding versions.
@@ -112,6 +114,10 @@ export function OnboardingDialog() {
     // This prevents existing users from seeing onboarding when API errors occur
     if (profileError) return;
 
+    // If the user just completed onboarding in this session, avoid re-opening
+    // while the profile context refreshes `onboarding_completed_at`.
+    if (isCompleted) return;
+
     const dismissedUntilKey = `onboarding_dismissed_until_${user.id}`;
     const dismissedUntilRaw = safeGetLocalStorage(dismissedUntilKey);
     if (dismissedUntilRaw) {
@@ -136,7 +142,7 @@ export function OnboardingDialog() {
       // Cleanup: cancel timeout if effect re-runs (e.g., profile loads with onboarding_completed_at)
       return () => clearTimeout(timeoutId);
     }
-  }, [user, profile, profileLoading, profileError, openDialog]);
+  }, [user, profile, profileLoading, profileError, isCompleted, openDialog]);
 
   // Allow forcing the dialog with query param for testing
   useEffect(() => {

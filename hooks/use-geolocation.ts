@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Coordinates } from "@/lib/types/coordinates";
+import { calculateDistanceMeters } from "@/lib/utils/distance";
 
 // Default to Ocean Beach, San Diego coordinates (ultimate fallback)
 const OCEAN_BEACH_COORDS: Coordinates = {
@@ -10,6 +11,10 @@ const OCEAN_BEACH_COORDS: Coordinates = {
 // Safety timeout for iOS/mobile where geolocation can hang
 const SAFETY_TIMEOUT_MS = 10000; // 10 seconds
 
+// Polling defaults for traveling user detection
+const DEFAULT_POLLING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_MIN_DISTANCE_CHANGE_METERS = 1000;   // 1 km
+
 type GeoSource = "browser" | "lastUsedBeach" | "default";
 
 const DEFAULT_LAST_BEACH_KEY = "quiver:lastBeach";
@@ -19,9 +24,12 @@ type LastBeachMeta = Coordinates & {
   name?: string;
 };
 
+export type GeolocationErrorType = 'denied' | 'unavailable' | 'timeout' | null;
+
 interface GeolocationState {
   userLocation: Coordinates | null;
   locationError: string | null;
+  errorType: GeolocationErrorType;
   usingDefaultLocation: boolean;
   loading: boolean;
   hasTimedOut: boolean;
@@ -34,6 +42,12 @@ interface UseGeolocationOptions {
   autoRequest?: boolean;
   /** localStorage key for "last used beach" fallback. */
   lastBeachStorageKey?: string;
+  /** Enable periodic location polling for traveling user detection. Default: false */
+  enablePolling?: boolean;
+  /** Polling interval in milliseconds. Default: 300000 (5 minutes) */
+  pollingIntervalMs?: number;
+  /** Minimum distance change in meters to trigger location update. Default: 1000 (1 km) */
+  minDistanceChangeMeters?: number;
 }
 
 export function useGeolocation(options: UseGeolocationOptions = {}) {
@@ -41,6 +55,9 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     defaultLocation,
     autoRequest = true,
     lastBeachStorageKey = DEFAULT_LAST_BEACH_KEY,
+    enablePolling = false,
+    pollingIntervalMs = DEFAULT_POLLING_INTERVAL_MS,
+    minDistanceChangeMeters = DEFAULT_MIN_DISTANCE_CHANGE_METERS,
   } = options;
 
   const readLastBeach = useCallback((): LastBeachMeta | null => {
@@ -83,6 +100,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   const [state, setState] = useState<GeolocationState>({
     userLocation: fallbackCoords, // Start with fallback
     locationError: null,
+    errorType: null,
     usingDefaultLocation: true, // Start as default
     loading: autoRequest, // Only loading if we'll auto-request
     hasTimedOut: false,
@@ -99,6 +117,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       usingDefaultLocation: true,
       userLocation: fallbackCoords,
       locationError: null,
+      errorType: null,
       loading: false,
       hasTimedOut: false,
       source: fallbackSource,
@@ -111,13 +130,13 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       ...prev,
       hasTimedOut: false,
       locationError: null,
+      errorType: null,
     }));
   }, []);
 
   const getUserLocation = useCallback(async (forceRetry = false): Promise<void> => {
     // Prevent multiple simultaneous requests (unless force retry)
     if (isRequestInFlightRef.current && !forceRetry) {
-      console.log("[useGeolocation] Request already in flight, skipping");
       return;
     }
 
@@ -147,6 +166,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         usingDefaultLocation: true,
         userLocation: fallbackCoords,
         locationError: "Location request timed out - using fallback location",
+        errorType: 'timeout',
         loading: false,
         hasTimedOut: true,
         source: fallbackSource,
@@ -155,9 +175,11 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
 
     if (typeof window === "undefined" || !navigator.geolocation) {
       clearTimeout(safetyTimeoutRef.current);
+      isRequestInFlightRef.current = false;
       setState((prev) => ({
         ...prev,
         locationError: "Location services not supported",
+        errorType: 'unavailable',
         loading: false,
         source: fallbackSource,
       }));
@@ -181,6 +203,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           userLocation: { lat: latitude, lon: longitude },
           usingDefaultLocation: false,
           locationError: null,
+          errorType: null,
           loading: false,
           hasTimedOut: false,
           source: "browser",
@@ -190,12 +213,16 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         clearTimeout(safetyTimeoutRef.current);
         isRequestInFlightRef.current = false; // Clear in-flight flag
         let errorMessage = "Location access denied";
+        let errorType: GeolocationErrorType = 'denied';
 
         if (error.code === error.PERMISSION_DENIED) {
+          errorType = 'denied';
           errorMessage = "Location access denied - using default location";
         } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorType = 'unavailable';
           errorMessage = "Location unavailable - using default location";
         } else if (error.code === error.TIMEOUT) {
+          errorType = 'timeout';
           errorMessage = "Location request timed out - using default location";
         }
 
@@ -203,6 +230,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         setState((prev) => ({
           ...prev,
           locationError: errorMessage,
+          errorType,
           loading: false,
           usingDefaultLocation: true,
           userLocation: fallbackCoords,
@@ -230,6 +258,69 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
+
+  // Polling effect for traveling user detection
+  useEffect(() => {
+    // Only poll when enabled AND we have a valid browser-sourced location
+    if (!enablePolling || !state.userLocation || state.source !== 'browser') return;
+
+    let pollingInterval: NodeJS.Timeout | null = null;
+
+    const checkLocationChange = () => {
+      // Only poll when app is visible (foreground)
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+
+      // Don't check if geolocation is unavailable
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLat = position.coords.latitude;
+          const newLon = position.coords.longitude;
+          const currentLat = state.userLocation?.lat ?? 0;
+          const currentLon = state.userLocation?.lon ?? 0;
+
+          const distance = calculateDistanceMeters(
+            currentLat, currentLon, newLat, newLon
+          );
+
+          // Only update if user has moved beyond threshold
+          if (distance >= minDistanceChangeMeters) {
+            setState(prev => ({
+              ...prev,
+              userLocation: { lat: newLat, lon: newLon },
+              source: 'browser',
+              usingDefaultLocation: false,
+            }));
+          }
+        },
+        () => {}, // Silent fail on polling errors - don't disrupt UX
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      );
+    };
+
+    const handleVisibilityChange = () => {
+      // Immediately check location when app returns to foreground
+      if (document.visibilityState === 'visible') {
+        checkLocationChange();
+      }
+    };
+
+    // Set up visibility change listener
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    // Start polling interval
+    pollingInterval = setInterval(checkLocationChange, pollingIntervalMs);
+
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [enablePolling, state.userLocation, state.source, pollingIntervalMs, minDistanceChangeMeters]);
 
   return {
     ...state,

@@ -44,19 +44,14 @@ test.describe('Authenticated Home Screen', () => {
     });
 
     test('should display Plan Session button @smoke', async ({ page }) => {
-      // Use first() since there may be multiple Plan Session buttons (welcome section + forecast cards)
+      // Use first() since there may be multiple Plan Session buttons (e.g., forecast cards)
       await page.waitForTimeout(5000);
       const planButton = page.getByRole('button', { name: /plan session/i }).first();
       await expect(planButton).toBeVisible({ timeout: 10000 });
     });
 
-    test('should display Log Session button @smoke', async ({ page }) => {
-      const logButton = page.getByRole('button', { name: /log session/i }).first();
-      await expect(logButton).toBeVisible({ timeout: 10000 });
-    });
-
     test('should navigate to plan session wizard when clicking Plan Session', async ({ page }) => {
-      // Use first() to get the main action button in welcome section
+      // Use first() to get the main action button available on the page
       const planButton = page.getByRole('button', { name: /plan session/i }).first();
       await expect(planButton).toBeVisible({ timeout: 10000 });
 
@@ -65,17 +60,6 @@ test.describe('Authenticated Home Screen', () => {
       // Should navigate to session wizard in plan mode
       await page.waitForURL('**/sessions/new?mode=plan', { timeout: 10000 });
       expect(page.url()).toContain('/sessions/new?mode=plan');
-    });
-
-    test('should navigate to log session wizard when clicking Log Session', async ({ page }) => {
-      const logButton = page.getByRole('button', { name: /log session/i }).first();
-      await expect(logButton).toBeVisible({ timeout: 10000 });
-
-      await logButton.click();
-
-      // Should navigate to session wizard in log mode
-      await page.waitForURL('**/sessions/new?mode=log', { timeout: 10000 });
-      expect(page.url()).toContain('/sessions/new?mode=log');
     });
   });
 
@@ -160,10 +144,7 @@ test.describe('Authenticated Home Screen', () => {
 
       // Action buttons should be visible (use first() since multiple Plan Session buttons exist)
       const planButton = page.getByRole('button', { name: /plan session/i }).first();
-      const logButton = page.getByRole('button', { name: /log session/i }).first();
-
       await expect(planButton).toBeVisible();
-      await expect(logButton).toBeVisible();
 
       // Tabs should be visible
       const forecastTab = page.getByRole('tab', { name: /forecast/i });

@@ -104,6 +104,7 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
     average_rating: null,
     best_conditions_prose: spot.conditions,
     best_months: null,
+    cdip_station: null,
     crowd_tips: null,
     deleted_at: null,
     features: spot.amenities,
