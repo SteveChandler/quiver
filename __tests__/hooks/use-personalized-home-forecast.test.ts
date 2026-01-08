@@ -38,6 +38,7 @@ describe("usePersonalizedHomeForecast", () => {
           wavePeriod: "12-14s",
           dataSource: "CDIP",
           confidence: 0.85,
+          timezone: "America/Los_Angeles",
         },
         forecast: {} as any,
         score: 85, // Discovery uses 0-100 scale

@@ -1,4 +1,10 @@
-import { dateUtils } from "@/lib/utils/date-utils";
+import {
+  dateUtils,
+  formatTimeInBeachTimezone,
+  formatBeachDateTime,
+  formatBeachTimeRange,
+  formatBestAtLabel,
+} from "@/lib/utils/date-utils";
 
 describe("dateUtils", () => {
   test("formatDate returns short month and day", () => {
@@ -68,5 +74,129 @@ describe("dateUtils", () => {
     expect(dateUtils.getRelativeDayName(yesterday)).toBe("Yesterday");
 
     expect(dateUtils.getRelativeDayName("2025-01-15")).toMatch(/Jan\s\d{1,2}/);
+  });
+});
+
+describe("formatTimeInBeachTimezone", () => {
+  it("formats UTC time in specified timezone", () => {
+    // 2025-01-15T18:00:00Z is 10:00 AM Pacific (UTC-8 in winter)
+    const result = formatTimeInBeachTimezone(
+      "2025-01-15T18:00:00Z",
+      "America/Los_Angeles"
+    );
+    expect(result).toBe("10:00 AM");
+  });
+
+  it("handles Date objects", () => {
+    const date = new Date("2025-01-15T18:00:00Z");
+    const result = formatTimeInBeachTimezone(date, "America/Los_Angeles");
+    expect(result).toBe("10:00 AM");
+  });
+
+  it("uses default timezone when none provided", () => {
+    // Default is America/Los_Angeles
+    const result = formatTimeInBeachTimezone("2025-01-15T18:00:00Z");
+    expect(result).toBe("10:00 AM");
+  });
+});
+
+describe("formatBeachDateTime", () => {
+  const testDate = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
+
+  it("formats EEE pattern (short weekday)", () => {
+    const result = formatBeachDateTime(testDate, "America/Los_Angeles", "EEE");
+    expect(result).toBe("Wed");
+  });
+
+  it("formats EEE h:mm a pattern", () => {
+    const result = formatBeachDateTime(
+      testDate,
+      "America/Los_Angeles",
+      "EEE h:mm a"
+    );
+    expect(result).toBe("Wed 10:00 AM");
+  });
+
+  it("formats EEE, MMM d pattern", () => {
+    const result = formatBeachDateTime(
+      testDate,
+      "America/Los_Angeles",
+      "EEE, MMM d"
+    );
+    expect(result).toBe("Wed, Jan 15");
+  });
+
+  it("formats h:mm a pattern", () => {
+    const result = formatBeachDateTime(
+      testDate,
+      "America/Los_Angeles",
+      "h:mm a"
+    );
+    expect(result).toBe("10:00 AM");
+  });
+
+  it("formats ha pattern", () => {
+    const result = formatBeachDateTime(testDate, "America/Los_Angeles", "ha");
+    expect(result).toBe("10AM");
+  });
+
+  it("formats H pattern (24-hour)", () => {
+    const result = formatBeachDateTime(testDate, "America/Los_Angeles", "H");
+    expect(result).toBe("10");
+  });
+
+  it("formats m pattern (minutes)", () => {
+    const result = formatBeachDateTime(testDate, "America/Los_Angeles", "m");
+    expect(result).toBe("0");
+  });
+
+  it("handles different timezones correctly", () => {
+    // 2025-01-15T18:00:00Z is:
+    // - 10:00 AM Pacific (UTC-8)
+    // - 1:00 PM Eastern (UTC-5)
+    // - 8:00 AM Hawaii (UTC-10)
+    expect(
+      formatBeachDateTime(testDate, "America/Los_Angeles", "h:mm a")
+    ).toBe("10:00 AM");
+    expect(formatBeachDateTime(testDate, "America/New_York", "h:mm a")).toBe(
+      "1:00 PM"
+    );
+    expect(formatBeachDateTime(testDate, "Pacific/Honolulu", "h:mm a")).toBe(
+      "8:00 AM"
+    );
+  });
+});
+
+describe("formatBeachTimeRange", () => {
+  it("formats time range on same day", () => {
+    const start = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
+    const end = new Date("2025-01-15T21:00:00Z"); // 1:00 PM Pacific
+    const result = formatBeachTimeRange(start, end, "America/Los_Angeles");
+    expect(result).toBe("Wed 10:00 AM - 1:00 PM");
+  });
+
+  it("formats time range crossing midnight", () => {
+    const start = new Date("2025-01-16T07:00:00Z"); // 11:00 PM Pacific Jan 15
+    const end = new Date("2025-01-16T10:00:00Z"); // 2:00 AM Pacific Jan 16
+    const result = formatBeachTimeRange(start, end, "America/Los_Angeles");
+    expect(result).toBe("Wed 11:00 PM - Thu 2:00 AM");
+  });
+});
+
+describe("formatBestAtLabel", () => {
+  it("formats compact time range with shared AM/PM", () => {
+    const start = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
+    const end = new Date("2025-01-15T21:00:00Z"); // 1:00 PM Pacific
+    const result = formatBestAtLabel(start, end, "America/Los_Angeles");
+    // Both are in different periods (AM/PM), so format should be "Best Wed 10am-1pm"
+    expect(result).toBe("Best Wed 10am-1pm");
+  });
+
+  it("formats compact time range within same period", () => {
+    const start = new Date("2025-01-15T15:00:00Z"); // 7:00 AM Pacific
+    const end = new Date("2025-01-15T18:00:00Z"); // 10:00 AM Pacific
+    const result = formatBestAtLabel(start, end, "America/Los_Angeles");
+    // Both are AM, so should share suffix: "Best Wed 7-10am"
+    expect(result).toBe("Best Wed 7-10am");
   });
 });

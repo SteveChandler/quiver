@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Timezone Display (Discovery Cards):** Fixed "Best at Thu 6:00 PM" vs "Thu 10:00 AM - 1:00 PM" mismatch on surf discovery cards. The server-generated summary no longer embeds a pre-formatted timestamp; instead, all time displays are now formatted client-side using the beach's local IANA timezone. Added shared `formatBeachDateTime`, `formatBeachTimeRange`, and `formatBestAtLabel` helpers to `lib/utils/date-utils.ts` to ensure consistent beach-local time formatting across all UI surfaces.
+
+### Changed
+
+- **Discovery Summary (No Embedded Time):** Surf discovery recommendations no longer include "Best at {time}" in the `summary` field. Time information is now derived solely from `window.start/end` + `window.timezone` and formatted by the UI layer. This prevents server-side timezone/locale issues from causing display mismatches.
+- **Discovery Card (Shared Date Utils):** Migrated `BeachDiscoveryCard` and `PersonalizedForecastCard` from `date-fns-tz formatInTimeZone` to shared `lib/utils/date-utils.ts` helpers for consistent beach timezone formatting.
+
 ### Added
 
 - **Forecast Cron Sharding:** Implemented deterministic sharding for enhanced forecast refreshes to enable horizontal scaling. New `shard` and `shardCount` query parameters on `/api/cron/enhanced-forecast-sync` partition beaches via `hash(beach_id) % shardCount`. Vercel cron now runs 4 shards every 2 hours (staggered at 0/30 minutes), reducing the expected full-sweep time from ~13h to ~3h and keeping forecasts within the 12h freshness threshold. Tests added for shard parameter handling.

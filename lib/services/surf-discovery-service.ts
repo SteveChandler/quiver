@@ -1030,29 +1030,19 @@ function selectBestWindow(
 // ============================================================================
 
 /**
- * Generate human-readable summary for discovery recommendation
+ * Generate human-readable summary for discovery recommendation.
+ *
+ * NOTE: The summary no longer embeds a formatted "Best at {time}" string.
+ * Time formatting is the responsibility of the UI layer using shared helpers
+ * (`formatBeachTimeRange`, `formatBestAtLabel`) with `window.start/end` and
+ * `window.timezone`. This ensures the displayed time is always consistent
+ * regardless of server locale or serialization.
  */
 function generateDiscoverySummary(
   beach: Beach,
   window: PersonalizedForecastWindow,
   score: DetailedScore
 ): string {
-  // NOTE: Avoid date-fns here to keep this service robust in all runtimes.
-  // `Intl.DateTimeFormat` is available in Node/Edge and won't fail due to ESM/CJS interop.
-  // Use beach's local timezone to ensure consistent display with client-side formatting.
-  const timeStr = (() => {
-    try {
-      return new Intl.DateTimeFormat('en-US', {
-        weekday: 'short',
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone: window.timezone,
-      }).format(window.start);
-    } catch {
-      return window.start.toISOString();
-    }
-  })();
-
   const matchDesc =
     score.matchQuality === 'perfect'
       ? 'Perfect match'
@@ -1070,7 +1060,8 @@ function generateDiscoverySummary(
 
   const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
 
-  return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}. Best at ${timeStr}.${warningSuffix}`;
+  // Return conditions summary without embedded time; UI will format time from window.start/end
+  return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}.${warningSuffix}`;
 }
 
 // ============================================================================

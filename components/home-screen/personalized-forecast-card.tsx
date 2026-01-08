@@ -2,7 +2,11 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { format } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import {
+  formatBeachDateTime,
+  formatBeachTimeRange,
+  formatBestAtLabel,
+} from "@/lib/utils/date-utils";
 import {
   Card,
   CardHeader,
@@ -176,41 +180,48 @@ function PersonalizedForecastCardError({ error }: { error: Error }) {
 }
 
 /**
- * Format time from Date object to readable string in beach's timezone
+ * Format time from Date object to readable string in beach's timezone.
+ * Uses shared date-utils for consistent timezone handling.
  */
 function formatTime(date: Date, timezone: string): string {
-  return formatInTimeZone(date, timezone, "h:mm a");
+  return formatBeachDateTime(date, timezone, "h:mm a");
 }
 
 /**
- * Format date range for display (detailed version with minutes) in beach's timezone
+ * Format date range for display (detailed version with minutes) in beach's timezone.
+ * Uses shared date-utils for consistent timezone handling.
  */
 function formatTimeRange(start: Date, end: Date, timezone: string): string {
+  // Simple approach: use formatBeachTimeRange which handles the full range
+  // But we want just time without weekday here, so compose manually
   return `${formatTime(start, timezone)} - ${formatTime(end, timezone)}`;
 }
 
 /**
- * Format time compactly for headlines (e.g., "7am", "10am") in beach's timezone
- * Omits minutes if on the hour for cleaner display
+ * Format time compactly for headlines (e.g., "7am", "10am") in beach's timezone.
+ * Omits minutes if on the hour for cleaner display.
+ * Uses shared date-utils for consistent timezone handling.
  */
 function formatTimeCompact(date: Date, timezone: string): string {
-  // Get the local hour in the beach timezone to check if on the hour
-  const localTimeStr = formatInTimeZone(date, timezone, "m");
-  const minutes = parseInt(localTimeStr, 10);
+  const minutesStr = formatBeachDateTime(date, timezone, "m");
+  const minutes = parseInt(minutesStr, 10);
   if (minutes === 0) {
-    return formatInTimeZone(date, timezone, "ha").toLowerCase(); // "7am"
+    return formatBeachDateTime(date, timezone, "ha").toLowerCase(); // "7am"
   }
-  return formatInTimeZone(date, timezone, "h:mma").toLowerCase(); // "7:30am"
+  // For non-zero minutes, compose manually
+  const hourStr = formatBeachDateTime(date, timezone, "h:mm a");
+  return hourStr.replace(/ /g, "").toLowerCase(); // "7:30am"
 }
 
 /**
- * Format time range compactly for headlines (e.g., "7-10am", "7am-1pm") in beach's timezone
- * Uses shared am/pm suffix when both times are in same period
+ * Format time range compactly for headlines (e.g., "7-10am", "7am-1pm") in beach's timezone.
+ * Uses shared am/pm suffix when both times are in same period.
+ * Uses shared date-utils for consistent timezone handling.
  */
 function formatTimeRangeCompact(start: Date, end: Date, timezone: string): string {
   // Get local hours in the beach timezone to determine AM/PM
-  const startHourStr = formatInTimeZone(start, timezone, "H");
-  const endHourStr = formatInTimeZone(end, timezone, "H");
+  const startHourStr = formatBeachDateTime(start, timezone, "H");
+  const endHourStr = formatBeachDateTime(end, timezone, "H");
   const startHour = parseInt(startHourStr, 10);
   const endHour = parseInt(endHourStr, 10);
   const startIsPM = startHour >= 12;
@@ -218,13 +229,16 @@ function formatTimeRangeCompact(start: Date, end: Date, timezone: string): strin
 
   // If both in same period (AM or PM), share the suffix
   if (startIsPM === endIsPM) {
-    const startMinutesStr = formatInTimeZone(start, timezone, "m");
+    const startMinutesStr = formatBeachDateTime(start, timezone, "m");
     const startMinutes = parseInt(startMinutesStr, 10);
 
-    // Format start without am/pm
+    // Format start without am/pm - extract just hour (and minutes if needed)
+    const startFullTime = formatBeachDateTime(start, timezone, "h:mm a");
+    const startParts = startFullTime.split(" ");
+    const startTimeOnly = startParts[0]; // "10:00" or "7:30"
     const startStr = startMinutes === 0
-      ? formatInTimeZone(start, timezone, "h")
-      : formatInTimeZone(start, timezone, "h:mm");
+      ? startTimeOnly.split(":")[0] // Just hour: "10"
+      : startTimeOnly; // With minutes: "7:30"
 
     // Format end with am/pm
     const endStr = formatTimeCompact(end, timezone);
@@ -326,7 +340,7 @@ function getWindowTitle(
       case "tomorrow":
         return `Best Tomorrow ${timeRange}`;
       case "later":
-        return `Best ${formatInTimeZone(start, timezone, "EEE")} ${timeRange}`;
+        return `Best ${formatBeachDateTime(start, timezone, "EEE")} ${timeRange}`;
     }
   }
 
@@ -621,7 +635,7 @@ export const PersonalizedForecastCard = React.memo(
                 <span className="truncate">{beach.name}</span>
                 <span className="text-muted-foreground/60 mx-1">·</span>
                 <Calendar className="h-4 w-4 shrink-0" />
-                {formatInTimeZone(window.start, window.timezone, "EEE, MMM d")}
+                {formatBeachDateTime(window.start, window.timezone, "EEE, MMM d")}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
