@@ -34,6 +34,8 @@ export interface PersonalizedForecastWindow {
   dataSource: string;
   /** Confidence score for this window (0-100) */
   confidence: number;
+  /** Beach's IANA timezone for consistent time display (e.g., "America/Los_Angeles") */
+  timezone: string;
 }
 
 /**

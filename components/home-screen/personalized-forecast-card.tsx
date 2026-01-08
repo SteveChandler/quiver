@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   Card,
   CardHeader,
@@ -175,59 +176,64 @@ function PersonalizedForecastCardError({ error }: { error: Error }) {
 }
 
 /**
- * Format time from Date object to readable string
+ * Format time from Date object to readable string in beach's timezone
  */
-function formatTime(date: Date): string {
-  return format(date, "h:mm a");
+function formatTime(date: Date, timezone: string): string {
+  return formatInTimeZone(date, timezone, "h:mm a");
 }
 
 /**
- * Format date range for display (detailed version with minutes)
+ * Format date range for display (detailed version with minutes) in beach's timezone
  */
-function formatTimeRange(start: Date, end: Date): string {
-  return `${formatTime(start)} - ${formatTime(end)}`;
+function formatTimeRange(start: Date, end: Date, timezone: string): string {
+  return `${formatTime(start, timezone)} - ${formatTime(end, timezone)}`;
 }
 
 /**
- * Format time compactly for headlines (e.g., "7am", "10am")
+ * Format time compactly for headlines (e.g., "7am", "10am") in beach's timezone
  * Omits minutes if on the hour for cleaner display
  */
-function formatTimeCompact(date: Date): string {
-  const minutes = date.getMinutes();
+function formatTimeCompact(date: Date, timezone: string): string {
+  // Get the local hour in the beach timezone to check if on the hour
+  const localTimeStr = formatInTimeZone(date, timezone, "m");
+  const minutes = parseInt(localTimeStr, 10);
   if (minutes === 0) {
-    return format(date, "ha").toLowerCase(); // "7am"
+    return formatInTimeZone(date, timezone, "ha").toLowerCase(); // "7am"
   }
-  return format(date, "h:mma").toLowerCase(); // "7:30am"
+  return formatInTimeZone(date, timezone, "h:mma").toLowerCase(); // "7:30am"
 }
 
 /**
- * Format time range compactly for headlines (e.g., "7-10am", "7am-1pm")
+ * Format time range compactly for headlines (e.g., "7-10am", "7am-1pm") in beach's timezone
  * Uses shared am/pm suffix when both times are in same period
  */
-function formatTimeRangeCompact(start: Date, end: Date): string {
-  const startHour = start.getHours();
-  const endHour = end.getHours();
+function formatTimeRangeCompact(start: Date, end: Date, timezone: string): string {
+  // Get local hours in the beach timezone to determine AM/PM
+  const startHourStr = formatInTimeZone(start, timezone, "H");
+  const endHourStr = formatInTimeZone(end, timezone, "H");
+  const startHour = parseInt(startHourStr, 10);
+  const endHour = parseInt(endHourStr, 10);
   const startIsPM = startHour >= 12;
   const endIsPM = endHour >= 12;
 
   // If both in same period (AM or PM), share the suffix
   if (startIsPM === endIsPM) {
-    const startMinutes = start.getMinutes();
-    const endMinutes = end.getMinutes();
+    const startMinutesStr = formatInTimeZone(start, timezone, "m");
+    const startMinutes = parseInt(startMinutesStr, 10);
 
     // Format start without am/pm
     const startStr = startMinutes === 0
-      ? format(start, "h")
-      : format(start, "h:mm");
+      ? formatInTimeZone(start, timezone, "h")
+      : formatInTimeZone(start, timezone, "h:mm");
 
     // Format end with am/pm
-    const endStr = formatTimeCompact(end);
+    const endStr = formatTimeCompact(end, timezone);
 
     return `${startStr}-${endStr}`;
   }
 
   // Different periods, show both
-  return `${formatTimeCompact(start)}-${formatTimeCompact(end)}`;
+  return `${formatTimeCompact(start, timezone)}-${formatTimeCompact(end, timezone)}`;
 }
 
 /**
@@ -297,20 +303,22 @@ function getWindowTiming(windowStart: Date): WindowTiming {
 }
 
 /**
- * Get title text based on window timing, including specific time window
+ * Get title text based on window timing, including specific time window in beach's timezone
  * @param timing - Whether the window is today, tomorrow, or later
  * @param start - Optional start time of the window
  * @param end - Optional end time of the window
+ * @param timezone - Beach's IANA timezone for consistent display
  * @returns Title string with time (e.g., "Best Surf 7-10am")
  */
 function getWindowTitle(
   timing: WindowTiming,
   start?: Date,
-  end?: Date
+  end?: Date,
+  timezone?: string
 ): string {
-  // If we have valid dates, include the time range
-  if (start && end) {
-    const timeRange = formatTimeRangeCompact(start, end);
+  // If we have valid dates and timezone, include the time range
+  if (start && end && timezone) {
+    const timeRange = formatTimeRangeCompact(start, end, timezone);
 
     switch (timing) {
       case "today":
@@ -318,7 +326,7 @@ function getWindowTitle(
       case "tomorrow":
         return `Best Tomorrow ${timeRange}`;
       case "later":
-        return `Best ${format(start, "EEE")} ${timeRange}`;
+        return `Best ${formatInTimeZone(start, timezone, "EEE")} ${timeRange}`;
     }
   }
 
@@ -605,7 +613,7 @@ export const PersonalizedForecastCard = React.memo(
               >
                 <Target className="h-5 w-5 text-blue-600 shrink-0" />
                 <span className="font-bold">
-                  {getWindowTitle(windowTiming, window.start, window.end)}
+                  {getWindowTitle(windowTiming, window.start, window.end, window.timezone)}
                 </span>
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
@@ -613,7 +621,7 @@ export const PersonalizedForecastCard = React.memo(
                 <span className="truncate">{beach.name}</span>
                 <span className="text-muted-foreground/60 mx-1">·</span>
                 <Calendar className="h-4 w-4 shrink-0" />
-                {format(window.start, "EEE, MMM d")}
+                {formatInTimeZone(window.start, window.timezone, "EEE, MMM d")}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -679,7 +687,7 @@ export const PersonalizedForecastCard = React.memo(
                       Time
                     </div>
                     <div className="text-sm font-semibold text-blue-700">
-                      {formatTimeRange(window.start, window.end)}
+                      {formatTimeRange(window.start, window.end, window.timezone)}
                     </div>
                     {/* Peak time from Magic Hour */}
                     {!magicHourLoading &&
@@ -689,7 +697,7 @@ export const PersonalizedForecastCard = React.memo(
                           className="text-xs text-blue-500 mt-0.5"
                           data-testid="magic-hour-peak-time"
                         >
-                          Peak at {formatTime(magicHour.peakTime)}
+                          Peak at {formatTime(magicHour.peakTime, window.timezone)}
                         </div>
                       )}
                   </div>

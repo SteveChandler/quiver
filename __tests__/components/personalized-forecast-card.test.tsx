@@ -71,6 +71,81 @@ jest.mock("date-fns", () => {
   };
 });
 
+// Mock date-fns-tz formatInTimeZone function
+jest.mock("date-fns-tz", () => {
+  const mockFormatInTimeZone = jest.fn((date: Date, _timezone: string, pattern: string): string => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // h:mm a - e.g., "9:00 AM"
+    if (pattern === "h:mm a") {
+      const hours = date.getUTCHours();
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const ampm = hours >= 12 ? "PM" : "AM";
+      return `${displayHours}:${pad(date.getUTCMinutes())} ${ampm}`;
+    }
+
+    // ha - e.g., "9am"
+    if (pattern === "ha") {
+      const hours = date.getUTCHours();
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const ampm = hours >= 12 ? "pm" : "am";
+      return `${displayHours}${ampm}`;
+    }
+
+    // h:mma - e.g., "9:30am"
+    if (pattern === "h:mma") {
+      const hours = date.getUTCHours();
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const ampm = hours >= 12 ? "pm" : "am";
+      return `${displayHours}:${pad(date.getUTCMinutes())}${ampm}`;
+    }
+
+    // EEE, MMM d - e.g., "Thu, Nov 21"
+    if (pattern === "EEE, MMM d") {
+      const dayName = dayNames[date.getUTCDay()];
+      const monthName = monthNames[date.getUTCMonth()];
+      return `${dayName}, ${monthName} ${date.getUTCDate()}`;
+    }
+
+    // EEE - e.g., "Thu"
+    if (pattern === "EEE") {
+      return dayNames[date.getUTCDay()];
+    }
+
+    // m - for checking minutes
+    if (pattern === "m") {
+      return date.getUTCMinutes().toString();
+    }
+
+    // H - 24-hour format (for determining AM/PM)
+    if (pattern === "H") {
+      return date.getUTCHours().toString();
+    }
+
+    // h - 12-hour format without am/pm
+    if (pattern === "h") {
+      const hours = date.getUTCHours();
+      return (hours === 0 ? 12 : hours > 12 ? hours - 12 : hours).toString();
+    }
+
+    // h:mm - e.g., "9:30" (without am/pm)
+    if (pattern === "h:mm") {
+      const hours = date.getUTCHours();
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      return `${displayHours}:${pad(date.getUTCMinutes())}`;
+    }
+
+    throw new Error(`Unsupported date-fns-tz format pattern in test mock: ${pattern}`);
+  });
+
+  return {
+    __esModule: true,
+    formatInTimeZone: mockFormatInTimeZone,
+  };
+});
+
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PersonalizedForecastCard } from "@/components/home-screen/personalized-forecast-card";
@@ -121,7 +196,23 @@ jest.mock("lucide-react", () => ({
   RefreshCw: () => <div data-testid="refreshcw-icon" />,
   Share2: () => <div data-testid="share2-icon" />,
   ChevronRight: () => <div data-testid="chevronright-icon" />,
+  ChevronDown: () => <div data-testid="chevrondown-icon" />,
+  Sparkles: () => <div data-testid="sparkles-icon" />,
   Ruler: () => <div data-testid="ruler-icon" />,
+}));
+
+// Mock Radix UI components used by PersonalizedBadge
+jest.mock("@/components/ui/tooltip", () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div data-testid="tooltip-content">{children}</div>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+jest.mock("@/components/ui/collapsible", () => ({
+  Collapsible: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleTrigger: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
 
 describe("PersonalizedForecastCard", () => {
@@ -171,6 +262,7 @@ describe("PersonalizedForecastCard", () => {
       wavePeriod: "12s",
       dataSource: mockForecast.data_source,
       confidence: 85,
+      timezone: "America/Los_Angeles",
     },
     forecast: mockForecast,
     score: 92,
@@ -324,6 +416,7 @@ describe("Window Timing Logic (Integration)", () => {
       wavePeriod: "12s",
       dataSource: "NOAA_NWS",
       confidence: 85,
+      timezone: "America/Los_Angeles",
     },
     forecast: {
       id: "forecast-1",
@@ -442,6 +535,7 @@ describe("PersonalizedForecastCard - Reminder State Machine", () => {
       wavePeriod: "12s",
       dataSource: mockForecast.data_source,
       confidence: 85,
+      timezone: "America/Los_Angeles",
     },
     forecast: mockForecast,
     score: 92,

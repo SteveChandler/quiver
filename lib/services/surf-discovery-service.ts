@@ -1021,6 +1021,7 @@ function selectBestWindow(
     wavePeriod: bestForecast.wave_period || 'Unknown',
     dataSource: bestForecast.data_source || 'FALLBACK',
     confidence: bestForecast.confidence_score || 50,
+    timezone: beachTz,
   };
 }
 
@@ -1038,12 +1039,14 @@ function generateDiscoverySummary(
 ): string {
   // NOTE: Avoid date-fns here to keep this service robust in all runtimes.
   // `Intl.DateTimeFormat` is available in Node/Edge and won't fail due to ESM/CJS interop.
+  // Use beach's local timezone to ensure consistent display with client-side formatting.
   const timeStr = (() => {
     try {
       return new Intl.DateTimeFormat('en-US', {
         weekday: 'short',
         hour: 'numeric',
         minute: '2-digit',
+        timeZone: window.timezone,
       }).format(window.start);
     } catch {
       return window.start.toISOString();

@@ -70,6 +70,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       wavePeriod: "12s",
       dataSource: "CDIP",
       confidence: 85,
+      timezone: "America/Los_Angeles",
     },
     summary: `Best at ${format(
       startDate,
