@@ -37,6 +37,7 @@ import {
 import { isNativeApp } from "@/lib/mobile/platform";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { useMagicHour } from "@/hooks/use-magic-hour";
 import type {
   PersonalizedForecastRecommendation,
   PersonalizedInsights,
@@ -369,6 +370,11 @@ export const PersonalizedForecastCard = React.memo(
     const [reminderState, setReminderState] = useState<ReminderState>("idle");
     const [showHomeBeachPrompt, setShowHomeBeachPrompt] = useState(false);
 
+    // Magic Hour for peak time display
+    const { magicHour, isLoading: magicHourLoading } = useMagicHour(
+      recommendation?.beach?.id ?? null
+    );
+
     // Calculate window timing (today, tomorrow, or later)
     const windowTiming = recommendation
       ? getWindowTiming(recommendation.window.start)
@@ -675,6 +681,17 @@ export const PersonalizedForecastCard = React.memo(
                     <div className="text-sm font-semibold text-blue-700">
                       {formatTimeRange(window.start, window.end)}
                     </div>
+                    {/* Peak time from Magic Hour */}
+                    {!magicHourLoading &&
+                      magicHour?.found &&
+                      magicHour.peakTime && (
+                        <div
+                          className="text-xs text-blue-500 mt-0.5"
+                          data-testid="magic-hour-peak-time"
+                        >
+                          Peak at {formatTime(magicHour.peakTime)}
+                        </div>
+                      )}
                   </div>
                   <Clock className="h-5 w-5 text-blue-500" />
                 </div>

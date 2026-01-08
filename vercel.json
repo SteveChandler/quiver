@@ -51,6 +51,10 @@
     {
       "path": "/api/monitoring/forecast-health",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/forecast-digest-email",
+      "schedule": "0 14 * * *"
     }
   ]
 }
