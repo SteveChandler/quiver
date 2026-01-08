@@ -5,11 +5,52 @@
  * cron job health, and API performance.
  */
 
+/**
+ * Parse an environment variable as a number, returning the fallback if not set or invalid.
+ */
+function envNumber(key: string, fallback: number): number {
+  const val = process.env[key];
+  if (val == null || val.trim() === "") return fallback;
+  const parsed = Number(val);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export const MONITORING_CONFIG = {
-  // Staleness alerts
+  // Staleness alerts (enhanced forecasts - primary source)
   STALE_DATA_THRESHOLD_BEACHES: 10,  // Alert if >10 beaches have stale data
   CRITICAL_STALE_HOURS: 24,          // Critical if data >24h old
   WARNING_STALE_HOURS: 12,           // Warning if data >12h old
+  
+  /**
+   * Source-specific staleness thresholds (warning / critical hours).
+   * Aligned with respective cron refresh windows to avoid false positives.
+   * 
+   * Override via environment variables:
+   * - MONITORING_MARINE_WARNING_HOURS / MONITORING_MARINE_CRITICAL_HOURS
+   * - MONITORING_TIDE_WARNING_HOURS / MONITORING_TIDE_CRITICAL_HOURS
+   * - MONITORING_SUN_WARNING_HOURS / MONITORING_SUN_CRITICAL_HOURS
+   */
+  get MARINE_WARNING_HOURS() {
+    // Marine cron runs hourly with 130 beaches; 3h window in selection
+    return envNumber("MONITORING_MARINE_WARNING_HOURS", 3);
+  },
+  get MARINE_CRITICAL_HOURS() {
+    return envNumber("MONITORING_MARINE_CRITICAL_HOURS", 6);
+  },
+  get TIDE_WARNING_HOURS() {
+    // Tide cron runs every 6h with 60 beaches; ~26h full sweep possible
+    return envNumber("MONITORING_TIDE_WARNING_HOURS", 26);
+  },
+  get TIDE_CRITICAL_HOURS() {
+    return envNumber("MONITORING_TIDE_CRITICAL_HOURS", 48);
+  },
+  get SUN_WARNING_HOURS() {
+    // Sun cron runs daily; 7 day (168h) threshold is appropriate
+    return envNumber("MONITORING_SUN_WARNING_HOURS", 168);
+  },
+  get SUN_CRITICAL_HOURS() {
+    return envNumber("MONITORING_SUN_CRITICAL_HOURS", 336);
+  },
   
   // Cron job monitoring
   EXPECTED_CRON_INTERVAL_HOURS: 2,   // Cron should run every 2h
@@ -26,7 +67,7 @@ export const MONITORING_CONFIG = {
   // Performance
   SLOW_QUERY_THRESHOLD_MS: 1000,     // Log queries slower than 1s
   BATCH_SIZE_RECOMMENDATION: 5,      // Recommended batch size for processing
-} as const;
+};
 
 /**
  * Health status levels

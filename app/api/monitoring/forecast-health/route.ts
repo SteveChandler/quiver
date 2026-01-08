@@ -102,7 +102,8 @@ export async function GET(request: Request) {
     }
     
     // Log individual stale beaches
-    const enhancedWarningHours = sources.enhanced.thresholds.warningHours;
+    // NOTE: staleBeaches only contains beaches that exceed the warning threshold,
+    // so severity is either 'critical' (>24h) or 'warning' (>12h but <=24h).
     const enhancedCriticalHours = sources.enhanced.thresholds.criticalHours;
     metrics.staleBeaches.slice(0, 10).forEach(beach => {
       forecastLogger.staleDataDetected(
@@ -110,11 +111,7 @@ export async function GET(request: Request) {
         beach.beachName,
         beach.ageHours,
         beach.dataSource,
-        beach.ageHours > enhancedCriticalHours
-          ? 'critical'
-          : beach.ageHours > enhancedWarningHours
-            ? 'error'
-            : 'warning'
+        beach.ageHours > enhancedCriticalHours ? 'critical' : 'warning'
       );
     });
     

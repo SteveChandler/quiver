@@ -49,8 +49,9 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
   const originalVercelEnv = process.env.VERCEL_ENV;
   const originalCronBudget = process.env.FORECAST_CRON_TIME_BUDGET_MS;
 
-  const mockRequest = (headers: Record<string, string> = {}) => {
+  const mockRequest = (headers: Record<string, string> = {}, url = "http://localhost/api/cron/enhanced-forecast-sync") => {
     return {
+      url,
       headers: {
         get: jest.fn((name: string) => headers[name] || null),
       },
@@ -148,6 +149,43 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
       expect(data.success).toBe(true);
       expect(data.data).toHaveProperty("executionId");
+    });
+
+    it("should pass shard parameters from query string to updateAllBeachForecasts", async () => {
+      const request = mockRequest(
+        { authorization: "Bearer valid-cron-secret" },
+        "http://localhost/api/cron/enhanced-forecast-sync?shard=1&shardCount=4"
+      );
+
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(data.success).toBe(true);
+      expect(updateAllBeachForecasts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deadlineMs: expect.any(Number),
+          shard: 1,
+          shardCount: 4,
+        })
+      );
+    });
+
+    it("should not pass shard params when not provided in query string", async () => {
+      (updateAllBeachForecasts as jest.Mock).mockClear();
+      const request = mockRequest(
+        { authorization: "Bearer valid-cron-secret" },
+        "http://localhost/api/cron/enhanced-forecast-sync"
+      );
+
+      await GET(request);
+
+      expect(updateAllBeachForecasts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deadlineMs: expect.any(Number),
+          shard: undefined,
+          shardCount: undefined,
+        })
+      );
     });
   });
 });

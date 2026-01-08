@@ -1262,12 +1262,33 @@ export class EnhancedForecastService {
   }
 
   /**
+   * Simple deterministic hash function for sharding.
+   * Uses djb2 algorithm to produce a stable hash from a string.
+   */
+  private hashString(str: string): number {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+    }
+    // Convert to unsigned 32-bit integer
+    return hash >>> 0;
+  }
+
+  /**
    * Update all beaches with enhanced forecasts
    * Uses batch processing to avoid overwhelming external APIs and preventing timeouts
    * Pre-fetches shared data (tide stations) to avoid duplicate API calls
+   * 
+   * Supports sharding for horizontal scaling:
+   * - shard: 0-based shard index
+   * - shardCount: total number of shards
+   * When both are set, only beaches where hash(beach_id) % shardCount === shard are processed.
    */
-  async updateAllEnhancedForecasts(options: { deadlineMs?: number } = {}) {
-    console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v3 with stale-only updates)");
+  async updateAllEnhancedForecasts(options: { deadlineMs?: number; shard?: number; shardCount?: number } = {}) {
+    const { shard, shardCount } = options;
+    const isSharded = typeof shard === "number" && typeof shardCount === "number" && shardCount > 0;
+    const shardInfo = isSharded ? ` [shard ${shard}/${shardCount}]` : "";
+    console.log(`📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v3 with stale-only updates)${shardInfo}`);
     const supabase = await createSupabaseServiceRoleClient();
     const deadlineMs = options.deadlineMs;
     const hasDeadline = typeof deadlineMs === "number" && Number.isFinite(deadlineMs);
@@ -1307,7 +1328,18 @@ export class EnhancedForecastService {
         return { success: true, results: [] };
       }
 
-      const totalBeaches = allBeaches.length;
+      // Apply shard filtering if sharding is enabled
+      // This enables horizontal scaling by partitioning beaches across multiple cron jobs
+      let eligibleBeaches = allBeaches;
+      if (isSharded) {
+        eligibleBeaches = allBeaches.filter((b) => {
+          const beachHash = this.hashString(b.id);
+          return beachHash % (shardCount as number) === shard;
+        });
+        console.log(`📊 Shard ${shard}/${shardCount}: ${eligibleBeaches.length}/${allBeaches.length} beaches in this shard`);
+      }
+
+      const totalBeaches = eligibleBeaches.length;
 
       /**
        * Build a per-beach "latest updated_at" map.
@@ -1329,8 +1361,9 @@ export class EnhancedForecastService {
         latestUpdatedAtByBeachMs.set(row.beach_id, ts);
       }
 
-      const missingBeaches = allBeaches.filter((b) => !latestUpdatedAtByBeachMs.has(b.id));
-      const staleBeaches = allBeaches
+      // Filter based on eligible beaches (respects sharding if enabled)
+      const missingBeaches = eligibleBeaches.filter((b) => !latestUpdatedAtByBeachMs.has(b.id));
+      const staleBeaches = eligibleBeaches
         .filter((b) => {
           const updatedAtMs = latestUpdatedAtByBeachMs.get(b.id);
           return Boolean(updatedAtMs && updatedAtMs < staleThresholdMs);
@@ -1348,9 +1381,9 @@ export class EnhancedForecastService {
       // If everything is fresh and present, rotate a few oldest anyway
       if (beachesToUpdate.length === 0) {
         console.log(
-          "✅ All beaches have fresh forecasts, updating oldest 5 for rotation"
+          `✅ All beaches have fresh forecasts${shardInfo}, updating oldest 5 for rotation`
         );
-        beachesToUpdate = allBeaches
+        beachesToUpdate = eligibleBeaches
           .filter((b) => latestUpdatedAtByBeachMs.has(b.id))
           .sort((a, b) => {
             const aUpdated = latestUpdatedAtByBeachMs.get(a.id) ?? 0;
@@ -1365,7 +1398,7 @@ export class EnhancedForecastService {
       const selectedMissing = beaches.filter((b) => !latestUpdatedAtByBeachMs.has(b.id)).length;
 
       console.log(
-        `🌊 Starting batch forecast update for ${beaches.length}/${allBeaches.length} beaches (missing: ${missingBeaches.length}, stale>${FRESHNESS_WINDOW_HOURS}h: ${staleBeaches.length}, selectedMissing: ${selectedMissing}, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`
+        `🌊 Starting batch forecast update for ${beaches.length}/${eligibleBeaches.length} beaches${shardInfo} (missing: ${missingBeaches.length}, stale>${FRESHNESS_WINDOW_HOURS}h: ${staleBeaches.length}, selectedMissing: ${selectedMissing}, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`
       );
       const startTime = Date.now();
 

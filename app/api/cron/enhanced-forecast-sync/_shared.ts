@@ -47,17 +47,47 @@ function getSupabaseProjectRef(): string | null {
   }
 }
 
+function parseShardParams(url: URL): { shard?: number; shardCount?: number } {
+  const shardRaw = url.searchParams.get("shard");
+  const shardCountRaw = url.searchParams.get("shardCount");
+  
+  let shard: number | undefined;
+  let shardCount: number | undefined;
+  
+  if (shardCountRaw != null) {
+    const parsed = parseInt(shardCountRaw, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      shardCount = parsed;
+    }
+  }
+  
+  if (shardRaw != null && shardCount != null) {
+    const parsed = parseInt(shardRaw, 10);
+    if (!Number.isNaN(parsed) && parsed >= 0 && parsed < shardCount) {
+      shard = parsed;
+    }
+  }
+  
+  return { shard, shardCount };
+}
+
 export async function runEnhancedForecastSync(
   request: NextRequest
 ): Promise<Response> {
   const startTime = Date.now();
   const executionId = crypto.randomUUID();
 
+  // Parse shard parameters from URL
+  const url = new URL(request.url);
+  const { shard, shardCount } = parseShardParams(url);
+  const isSharded = shard !== undefined && shardCount !== undefined;
+
   // Log cron job start
   forecastLogger.cronStart(executionId, {
     triggeredBy: request.headers.get("user-agent"),
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
     supabaseProjectRef: getSupabaseProjectRef(),
+    ...(isSharded ? { shard, shardCount } : {}),
   });
 
   try {
@@ -89,7 +119,7 @@ export async function runEnhancedForecastSync(
     }
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
-    const result = await updateAllBeachForecasts({ deadlineMs });
+    const result = await updateAllBeachForecasts({ deadlineMs, shard, shardCount });
     const duration = Date.now() - startTime;
     const summary = (result as any)?.summary as
       | {
@@ -125,6 +155,7 @@ export async function runEnhancedForecastSync(
       timeBudgetMs,
       safetyMarginMs,
       deadlineMs,
+      ...(isSharded ? { shard, shardCount } : {}),
     });
 
     return createSuccessResponse(

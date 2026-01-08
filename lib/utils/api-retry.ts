@@ -3,6 +3,8 @@
  * Implements exponential backoff with jitter and circuit breaker patterns
  */
 
+import { ApiError } from "@/lib/errors/forecast-errors";
+
 interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
@@ -175,7 +177,24 @@ class RetryableAPIClient {
           
           // Check if response indicates a retryable error
           if (!response.ok) {
-            const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // For NOAA, read response text to enable proper error classification (e.g. InvalidPoint detection)
+            let responseText = "";
+            if (serviceName === "NOAA") {
+              try {
+                responseText = await response.clone().text();
+              } catch {
+                // ignore
+              }
+            }
+            
+            // Use ApiError for NOAA so isNoaaInvalidPointError() can classify it
+            const error = serviceName === "NOAA"
+              ? new ApiError(url, response.status, responseText)
+              : Object.assign(new Error(`HTTP ${response.status}: ${response.statusText}`), {
+                  status: response.status,
+                  url,
+                  responseText,
+                });
             (error as any).status = response.status;
             
             if (finalOptions.retryCondition!(error) && attempt < finalOptions.maxRetries!) {
@@ -202,7 +221,18 @@ class RetryableAPIClient {
           }
 
           // Max retries reached or non-retryable error
-          console.error(`[${serviceName}] Failed after ${attempt + 1} attempts:`, error);
+          // Downgrade log level for expected NOAA 404s on /points/ (off-coverage locations like Mexico)
+          const status = (error as any)?.status;
+          const isExpectedNoaa404 =
+            serviceName === "NOAA" &&
+            status === 404 &&
+            url.includes("api.weather.gov/points/");
+          
+          if (isExpectedNoaa404) {
+            console.warn(`[${serviceName}] No coverage for point (404 on /points/): ${url}`);
+          } else {
+            console.error(`[${serviceName}] Failed after ${attempt + 1} attempts:`, error);
+          }
           throw error;
         }
       }
