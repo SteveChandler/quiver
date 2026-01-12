@@ -42,6 +42,20 @@ describe("/map metadata", () => {
     expect((meta.robots as any).googleBot?.index).toBe(false);
     expect((meta.robots as any).googleBot?.follow).toBe(true);
   });
+
+  it("noindexes /map?city=* variants but canonicalizes to /map", async () => {
+    const meta = await generateMetadata({ searchParams: { city: "san-diego" } });
+
+    expect(typeof meta.alternates?.canonical).toBe("string");
+    expect(String(meta.alternates?.canonical)).toContain("/map");
+
+    expect(meta.robots && typeof meta.robots === "object").toBe(true);
+    expect((meta.robots as any).index).toBe(false);
+    expect((meta.robots as any).follow).toBe(true);
+
+    expect((meta.robots as any).googleBot?.index).toBe(false);
+    expect((meta.robots as any).googleBot?.follow).toBe(true);
+  });
 });
 
 

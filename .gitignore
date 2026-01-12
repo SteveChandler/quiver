@@ -29,6 +29,7 @@ yarn-debug.log*
 yarn-error.log*
 jest-run*.log
 jest-run*.pid
+jest-*.json
 test-error.log
 test-output.log
 
@@ -75,7 +76,6 @@ scripts/setup-dev-cron.sh
 .env
 .supabase
 .codex/
-.cursorrules
 
 
 # Performance testing results
@@ -133,6 +133,3 @@ docs/*.csv
 docs/*_surf_spots.json
 ios/surf_spots_data.json
 
-# Cursor (keep config tracked, ignore logs)
-.cursor/*.log
-.cursor/debug.log

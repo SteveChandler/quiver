@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { validateURL } from "@/lib/security/ip-validation";
 
 // Force dynamic rendering - this route uses request.url

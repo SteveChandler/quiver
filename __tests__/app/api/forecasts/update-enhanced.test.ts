@@ -12,7 +12,7 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
-const mockGetFreshForecastFromCache = jest.fn();
+const mockGetFreshForecastFromCache = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<any>>;
 
 jest.mock("@/lib/utils/forecast-server-utils", () => ({
   updateBeachForecast: jest.fn(),
@@ -21,7 +21,7 @@ jest.mock("@/lib/utils/forecast-server-utils", () => ({
 }));
 
 jest.mock("@/lib/auth/admin", () => ({
-  authenticateAdmin: jest.fn().mockResolvedValue({ success: false, status: 401, error: "Unauthorized" }),
+  authenticateAdmin: jest.fn(() => Promise.resolve({ success: false, status: 401, error: "Unauthorized" })),
 }));
 
 describe("GET /api/forecasts/update-enhanced", () => {
@@ -49,7 +49,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
 
     const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
     const res = await GET(
-      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id")
+      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id") as any
     );
 
     const json = await res.json();
@@ -78,7 +78,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
 
     const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
     const res = await GET(
-      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id")
+      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id") as any
     );
 
     const json = await res.json();
@@ -123,7 +123,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
 
     const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
     const res = await GET(
-      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id")
+      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach-id") as any
     );
 
     const json = await res.json();
@@ -141,7 +141,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
   it("returns error when beachId is missing", async () => {
     const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
     const res = await GET(
-      new Request("http://localhost:3000/api/forecasts/update-enhanced")
+      new Request("http://localhost:3000/api/forecasts/update-enhanced") as any
     );
 
     const json = await res.json();
@@ -165,7 +165,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
 
     const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
     await GET(
-      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach&days=5")
+      new Request("http://localhost:3000/api/forecasts/update-enhanced?beachId=test-beach&days=5") as any
     );
 
     // 5 days * 24 hours = 120 hours

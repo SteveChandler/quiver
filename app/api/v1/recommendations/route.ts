@@ -6,7 +6,7 @@ import {
   handleApiError,
 } from "@/lib/api-utils";
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
-import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { Beach } from "@/types/database";
 import type {
   BeachWithDistance,

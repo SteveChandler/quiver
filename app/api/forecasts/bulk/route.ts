@@ -5,7 +5,7 @@ import {
 } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/server";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
-import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';
 

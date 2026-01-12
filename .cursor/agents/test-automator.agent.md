@@ -1,1 +1,0 @@
-../.claude/agents/test-automator.md

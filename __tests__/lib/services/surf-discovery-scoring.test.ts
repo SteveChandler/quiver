@@ -12,6 +12,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 
 jest.mock("@/lib/utils/forecast-service-utils", () => ({
   getFreshForecastFromCache: jest.fn(),
+  getBatchFreshForecastsFromCache: jest.fn(),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
@@ -220,7 +221,7 @@ describe("discoverSurfSpots scoring behavior", () => {
   });
 
   it("scores the same forecast entry as the selected best window", async () => {
-    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
 
     // forecasts[0] is intentionally worse than the later forecast
     const a = mkForecast("2025-01-20T13:00:00Z", {
@@ -238,10 +239,15 @@ describe("discoverSurfSpots scoring behavior", () => {
       wind_direction: "NW",
     });
 
-    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-      forecasts: [a, b],
-      metadata: { cached: true, stale: false, missing: false, reason: null },
-    });
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [a, b],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
 
     const result = await discoverSurfSpots("user-1", { maxResults: 1 });
 
@@ -261,7 +267,7 @@ describe("discoverSurfSpots scoring behavior", () => {
   });
 
   it("uses wind_direction_deg for wind alignment scoring", async () => {
-    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
 
     // Configure beach wind metadata
     const { __setMockProfile } = require("@/lib/supabase/server");
@@ -287,10 +293,15 @@ describe("discoverSurfSpots scoring behavior", () => {
       wind_direction_deg: 225,
     });
 
-    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-      forecasts: [f],
-      metadata: { cached: true, stale: false, missing: false, reason: null },
-    });
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
 
     const result = await discoverSurfSpots("user-1", { maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
@@ -300,7 +311,7 @@ describe("discoverSurfSpots scoring behavior", () => {
   });
 
   it("normalizes conditions so 100 is achievable without wind/tide beach metadata", async () => {
-    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
     const { getUserSurfPreferences } = require("@/lib/services/preference-learning-service");
 
     // Provide learned prefs so waveHeightFit can reach 25 (vs 20 default)
@@ -323,10 +334,15 @@ describe("discoverSurfSpots scoring behavior", () => {
       wind_direction: "NW",
     });
 
-    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-      forecasts: [f],
-      metadata: { cached: true, stale: false, missing: false, reason: null },
-    });
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
 
     const result = await discoverSurfSpots("user-1", { maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
@@ -336,7 +352,7 @@ describe("discoverSurfSpots scoring behavior", () => {
   });
 
   it("caps score and warns when forecast waves are below user's preferred wave size (3-6 ft)", async () => {
-    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
     const { __setMockProfile } = require("@/lib/supabase/server");
 
     __setMockProfile({
@@ -364,10 +380,15 @@ describe("discoverSurfSpots scoring behavior", () => {
       confidence_score: 90,
     });
 
-    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-      forecasts: [f],
-      metadata: { cached: true, stale: false, missing: false, reason: null },
-    });
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
 
     const result = await discoverSurfSpots("user-1", { maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
@@ -381,7 +402,7 @@ describe("discoverSurfSpots scoring behavior", () => {
   });
 
   it("adds nearby beaches via get_nearby_beaches RPC when userLocation is provided", async () => {
-    const { getFreshForecastFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
     const {
       __setMockNearby,
       __setMockBeaches,
@@ -438,10 +459,31 @@ describe("discoverSurfSpots scoring behavior", () => {
       wind_direction: "NW",
     });
 
-    (getFreshForecastFromCache as jest.Mock).mockResolvedValue({
-      forecasts: [f],
-      metadata: { cached: true, stale: false, missing: false, reason: null },
-    });
+    // Mock batch results for all beaches
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+        ["beach-2", {
+          beachId: "beach-2",
+          forecasts: [{ ...f, beach_id: "beach-2" }],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+        ["beach-3", {
+          beachId: "beach-3",
+          forecasts: [{ ...f, beach_id: "beach-3" }],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+        ["beach-4", {
+          beachId: "beach-4",
+          forecasts: [{ ...f, beach_id: "beach-4" }],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
 
     const result = await discoverSurfSpots("user-1", {
       maxResults: 5,

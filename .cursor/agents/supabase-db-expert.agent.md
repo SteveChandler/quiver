@@ -1,1 +1,0 @@
-../.claude/agents/supabase-db-expert.md

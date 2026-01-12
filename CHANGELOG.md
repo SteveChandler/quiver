@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Share Intel (Conditions Autofill):** Share Intel form now auto-prefills wave height, wind speed, wind direction, and water temp from the current forecast when the `conditions` tag is selected and a beach is known. Fields are only prefilled when empty; user edits are preserved and never overwritten. Uses the same forward-looking forecast selection logic as session logging. Test coverage added for prefill behavior (`__tests__/components/intel/intel-post-form-prefill.test.tsx`).
+
 ### Fixed
 
 - **Timezone Display (Discovery Cards):** Fixed "Best at Thu 6:00 PM" vs "Thu 10:00 AM - 1:00 PM" mismatch on surf discovery cards. The server-generated summary no longer embeds a pre-formatted timestamp; instead, all time displays are now formatted client-side using the beach's local IANA timezone. Added shared `formatBeachDateTime`, `formatBeachTimeRange`, and `formatBestAtLabel` helpers to `lib/utils/date-utils.ts` to ensure consistent beach-local time formatting across all UI surfaces.
+- **Magic Hour Peak Time (Top Card):** Fixed Magic Hour peak time drifting by timezone offset (e.g. showing "Peak at 3:00 PM" when the window is "7:00 AM - 10:00 AM") by parsing enhanced forecast timestamps explicitly as UTC (`...T...Z`) before formatting in the beach’s timezone.
+- **SEO (Query Param Variants):** Prevented parameterized versions of `/map` and `/discover` (e.g. `?search=`, `?city=`, `?level=`) from being indexable while keeping the canonical base routes indexable.
 
 ### Changed
 

@@ -77,13 +77,14 @@ describe('Forecast Health Check', () => {
 
   it('reports full-stack health using latest-per-beach views', async () => {
     const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
-    const thirteenHoursAgo = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString();
+    // Use 18h for warning stale (between WARNING_STALE_HOURS=16 and CRITICAL_STALE_HOURS=24)
+    const eighteenHoursAgo = new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString();
     const twentyFiveHoursAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
 
     enhancedLatestMock.mockResolvedValueOnce({
       data: [
         { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
-        { beach_id: 'beach-2', updated_at: thirteenHoursAgo, data_source: 'CDIP' },
+        { beach_id: 'beach-2', updated_at: eighteenHoursAgo, data_source: 'CDIP' },
         { beach_id: 'beach-3', updated_at: twentyFiveHoursAgo, data_source: 'NOAA_NWS' },
         // Orphaned row should be ignored by the health check filter
         { beach_id: 'beach-999', updated_at: nowIso, data_source: 'NOAA_NWS' },

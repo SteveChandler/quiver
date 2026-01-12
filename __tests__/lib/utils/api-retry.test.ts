@@ -21,12 +21,12 @@ jest.mock("@/lib/errors/forecast-errors", () => ({
 
 describe("api-retry", () => {
   let originalFetch: typeof global.fetch;
-  
+
   beforeEach(() => {
     originalFetch = global.fetch;
     jest.useFakeTimers();
   });
-  
+
   afterEach(() => {
     global.fetch = originalFetch;
     jest.useRealTimers();
@@ -44,8 +44,8 @@ describe("api-retry", () => {
           text: () => Promise.resolve('{"type": "https://api.weather.gov/problems/InvalidPoint"}'),
         }),
       } as unknown as Response;
-      
-      global.fetch = jest.fn().mockResolvedValue(mockResponse);
+
+      (global.fetch as any) = jest.fn(() => Promise.resolve(mockResponse));
       
       // Need to import after mocking
       const { apiClient } = await import("@/lib/utils/api-retry");

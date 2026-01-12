@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSuccessResponse, createValidationError, handleApiError, methodNotAllowed } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 function parseLimit(url: URL, defaultValue = 5, max = 20) {
   const raw = url.searchParams.get("limit");

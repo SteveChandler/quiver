@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Coordinates } from "@/lib/types/coordinates";
-import { calculateDistanceMeters } from "@/lib/utils/distance";
+import { calculateDistance } from "@/lib/utils/distance-utils";
 
 // Default to Ocean Beach, San Diego coordinates (ultimate fallback)
 const OCEAN_BEACH_COORDS: Coordinates = {
@@ -280,8 +280,10 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           const currentLat = state.userLocation?.lat ?? 0;
           const currentLon = state.userLocation?.lon ?? 0;
 
-          const distance = calculateDistanceMeters(
-            currentLat, currentLon, newLat, newLon
+          const distance = calculateDistance(
+            { lat: currentLat, lon: currentLon },
+            { lat: newLat, lon: newLon },
+            "meters"
           );
 
           // Only update if user has moved beyond threshold

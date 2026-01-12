@@ -7,7 +7,7 @@ import {
   handleApiError,
   validateOrError,
 } from '@/lib/api-utils';
-import { withRateLimit } from '@/lib/middleware/rate-limiter';
+import { withRateLimit } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
 import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
 

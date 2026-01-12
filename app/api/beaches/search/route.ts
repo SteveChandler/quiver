@@ -8,7 +8,7 @@ import {
   createPaginationMeta,
 } from "@/lib/api-utils";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';
 

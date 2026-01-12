@@ -1,6 +1,6 @@
 ---
 name: quiver-design-reviewer
-description: Use this agent when reviewing designs and changes for the Quiver application, including product specs, Figma links, PRs/diffs, screenshots, and API proposals. Examples: (1) After implementing a new feature like a session sharing modal: user: 'I just implemented the share session feature, here's the PR link and Figma design' → assistant: 'I'll use the quiver-design-reviewer agent to review this against Quiver's design principles and run validation tests'; (2) When proposing API changes: user: 'Here's my new API contract for the forecast endpoint' → assistant: 'Let me use the quiver-design-reviewer agent to evaluate this API proposal against Quiver's design principles and architecture patterns'; (3) For comprehensive design reviews: user: 'Please review this complete user flow from Map → Beach → Plan Session → Share → Log' → assistant: 'I'll launch the quiver-design-reviewer agent to conduct a full design review including Playwright exploration of this flow
+description: "Use this agent when reviewing designs and changes for the Quiver application, including product specs, Figma links, PRs/diffs, screenshots, and API proposals."
 model: opus
 ---
 

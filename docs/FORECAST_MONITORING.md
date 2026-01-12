@@ -10,9 +10,9 @@ Comprehensive monitoring and logging system for forecast data freshness, cron jo
 
 Defines thresholds and settings:
 
-- `STALE_DATA_THRESHOLD_BEACHES`: Alert if >10 beaches have stale data
+- `STALE_DATA_THRESHOLD_BEACHES`: Alert if >35 beaches have stale data
 - `CRITICAL_STALE_HOURS`: Critical alert if data >24h old
-- `WARNING_STALE_HOURS`: Warning alert if data >12h old
+- `WARNING_STALE_HOURS`: Warning alert if data >16h old
 - `MIN_FORECAST_COVERAGE`: Alert if <90% coverage
 - `EXPECTED_CRON_INTERVAL_HOURS`: Expected cron frequency (2 hours)
 
@@ -138,12 +138,12 @@ The React dashboard component (`components/admin/forecast-health-dashboard.tsx`)
 
 | Metric             | Warning | Critical |
 | ------------------ | ------- | -------- |
-| Enhanced Forecasts | >12h    | >24h     |
-| Marine             | >2h     | >6h      |
-| Tides              | >24h    | >48h     |
+| Enhanced Forecasts | >16h    | >24h     |
+| Marine             | >3h     | >6h      |
+| Tides              | >26h    | >48h     |
 | Sun times          | >7d     | >14d     |
 | Coverage           | <95%    | <90%     |
-| Stale Beaches      | >5      | >10      |
+| Stale Beaches      | >17     | >35      |
 | API Error Rate     | >5%     | >10%     |
 
 ## Log Formats
@@ -241,7 +241,7 @@ if (metrics.healthStatus === 'critical') {
   await fetch(process.env.SLACK_WEBHOOK_URL, {
     method: 'POST',
     body: JSON.stringify({
-      text: \`🚨 Forecast Health Critical: \${metrics.issues.join(', ')}\`,
+      text: `🚨 Forecast Health Critical: ${metrics.issues.join(', ')}`,
     }),
   });
 }

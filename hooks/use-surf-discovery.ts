@@ -349,26 +349,3 @@ export function useSurfDiscovery(
     clearCacheAndRefetch,
   };
 }
-
-/**
- * Clear all discovery caches for a user (call when profile/preferences change)
- */
-export function clearDiscoveryCache(userId?: string): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(CACHE_KEY_PREFIX)) {
-        // If userId provided, only clear that user's cache
-        if (!userId || key.includes(userId)) {
-          keysToRemove.push(key);
-        }
-      }
-    }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
-  } catch (error) {
-    console.warn("Failed to clear discovery cache:", error);
-  }
-}

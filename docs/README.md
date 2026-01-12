@@ -34,6 +34,7 @@ Day-to-day development references:
 - **[guides/DEV_TESTING.md](guides/DEV_TESTING.md)** - Testing against dev.quiversurf.app
 - **[guides/DEPLOYMENT_CHECKLIST.md](guides/DEPLOYMENT_CHECKLIST.md)** - Production deployment checklist
 - **[guides/IOS_RELEASE_GUIDE.md](guides/IOS_RELEASE_GUIDE.md)** - Complete iOS App Store submission guide
+- **[guides/ANDROID_RELEASE_GUIDE.md](guides/ANDROID_RELEASE_GUIDE.md)** - Complete Android build, Firebase App Distribution, and Play Store guide
 - **[guides/TUNNEL_AUTOMATION_SUMMARY.md](guides/TUNNEL_AUTOMATION_SUMMARY.md)** - Mobile development tunnel automation
 - **[guides/E2E_TEST_PLAN.md](guides/E2E_TEST_PLAN.md)** - End-to-end testing strategy
 
@@ -207,13 +208,15 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - **Research a topic** → [research/](research/)
 - **Check data schema** → [data/](data/)
 - **Set up analytics funnel** → [analytics/ACTIVATION_FUNNEL.md](analytics/ACTIVATION_FUNNEL.md)
+- **Release iOS app** → [guides/IOS_RELEASE_GUIDE.md](guides/IOS_RELEASE_GUIDE.md)
+- **Release Android app** → [guides/ANDROID_RELEASE_GUIDE.md](guides/ANDROID_RELEASE_GUIDE.md)
 
 ---
 
 ## 📊 **Documentation Stats**
 
 - **Setup Guides**: 5 files
-- **Developer Guides**: 7 files
+- **Developer Guides**: 8 files
 - **Architecture**: 5+ files (includes MIDDLEWARE.md)
 - **Features**: 6 files (consolidated from 13)
 - **Analytics**: 1 file

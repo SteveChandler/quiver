@@ -8,7 +8,7 @@ import {
   expectSuccessResponse,
 } from "@/test-utils/api-test-helpers";
 
-jest.mock("@/lib/middleware/rate-limiter", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   withBotBlockingAndRateLimit: (handler: any) => handler,
 }));
 

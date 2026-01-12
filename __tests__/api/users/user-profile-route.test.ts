@@ -12,7 +12,7 @@ import {
 
 let mockSupabaseClient: any;
 
-jest.mock("@/lib/middleware/rate-limiter", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   withBotBlockingAndRateLimit: (handler: any) => handler,
 }));
 

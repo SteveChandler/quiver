@@ -10,9 +10,9 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
-const mockStaleDataDetected = jest.fn();
-const mockHealthCheck = jest.fn();
-const mockLogHealthCheck = jest.fn();
+const mockStaleDataDetected = jest.fn() as jest.MockedFunction<(...args: any[]) => any>;
+const mockHealthCheck = jest.fn() as jest.MockedFunction<() => Promise<any>>;
+const mockLogHealthCheck = jest.fn() as jest.MockedFunction<(...args: any[]) => any>;
 
 jest.mock("@/lib/monitoring/forecast-health-check", () => ({
   checkForecastHealth: () => mockHealthCheck(),

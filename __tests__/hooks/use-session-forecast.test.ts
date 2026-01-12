@@ -86,13 +86,13 @@ describe("useSessionForecast", () => {
     expect(result.current.error).toBe("Boom");
   });
 
-  it("parses tide data and detects night sessions", async () => {
+  it("parses tide data for evening session", async () => {
     mockGetEnhanced.mockResolvedValue({
       success: true,
       data: [
         {
           forecast_date: "2024-01-17",
-          forecast_time: "19:00", // 7 PM is night time (>= 18:00)
+          forecast_time: "19:00", // 7 PM is valid evening time (< 21:00)
           wave_height: "3.5 ft",
           wind_speed: "5 mph",
           wind_direction: "SW",
@@ -116,17 +116,17 @@ describe("useSessionForecast", () => {
       water_temp: 58,
       tide_height: 4.2,
       tide_status: "rising",
-      isNightSession: true, // 19:00 >= 18:00
+      isNightSession: false, // 19:00 is valid (< 21:00)
     });
   });
 
-  it("detects early morning as night session", async () => {
+  it("detects dawn patrol as daytime session", async () => {
     mockGetEnhanced.mockResolvedValue({
       success: true,
       data: [
         {
           forecast_date: "2024-01-17",
-          forecast_time: "05:00", // 5 AM is night time (< 6:00)
+          forecast_time: "05:00", // 5 AM is dawn patrol time (>= 5:00)
           wave_height: 4,
           wind_speed: 8,
           wind_direction: "N",
@@ -137,6 +137,30 @@ describe("useSessionForecast", () => {
 
     const { result } = renderHook(() =>
       useSessionForecast("beach-1", "2024-01-17", "05:00")
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.forecastData?.isNightSession).toBe(false);
+  });
+
+  it("detects 4 AM as night session", async () => {
+    mockGetEnhanced.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          forecast_date: "2024-01-17",
+          forecast_time: "04:00", // 4 AM is too early (< 5:00)
+          wave_height: 4,
+          wind_speed: 8,
+          wind_direction: "N",
+          water_temp: 55,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useSessionForecast("beach-1", "2024-01-17", "04:00")
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -369,13 +393,13 @@ describe("useSessionForecast", () => {
   });
 
   describe("night detection comprehensive tests", () => {
-    it("detects 7 PM as night session", async () => {
+    it("detects 7 PM as daytime session (evening glass-off)", async () => {
       mockGetEnhanced.mockResolvedValue({
         success: true,
         data: [
           {
             forecast_date: "2024-01-17",
-            forecast_time: "19:00", // 7 PM
+            forecast_time: "19:00", // 7 PM - valid for evening sessions
             wave_height: 4,
             wind_speed: 8,
             wind_direction: "W",
@@ -390,16 +414,16 @@ describe("useSessionForecast", () => {
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      expect(result.current.forecastData?.isNightSession).toBe(true);
+      expect(result.current.forecastData?.isNightSession).toBe(false);
     });
 
-    it("detects 8 PM as night session", async () => {
+    it("detects 8 PM as daytime session (summer sunset)", async () => {
       mockGetEnhanced.mockResolvedValue({
         success: true,
         data: [
           {
             forecast_date: "2024-01-17",
-            forecast_time: "20:00", // 8 PM
+            forecast_time: "20:00", // 8 PM - valid for summer sunset sessions
             wave_height: 3,
             wind_speed: 6,
             wind_direction: "SW",
@@ -410,6 +434,30 @@ describe("useSessionForecast", () => {
 
       const { result } = renderHook(() =>
         useSessionForecast("beach-1", "2024-01-17", "20:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.forecastData?.isNightSession).toBe(false);
+    });
+
+    it("detects 9 PM as night session", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "21:00", // 9 PM - too late
+            wave_height: 3,
+            wind_speed: 5,
+            wind_direction: "SW",
+            water_temp: 58,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "21:00")
       );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -513,13 +561,13 @@ describe("useSessionForecast", () => {
       expect(result.current.forecastData?.isNightSession).toBe(false);
     });
 
-    it("detects 6 PM as night session (boundary)", async () => {
+    it("detects 6 PM as daytime session (evening glass-off)", async () => {
       mockGetEnhanced.mockResolvedValue({
         success: true,
         data: [
           {
             forecast_date: "2024-01-17",
-            forecast_time: "18:00", // 6 PM
+            forecast_time: "18:00", // 6 PM - valid for evening sessions
             wave_height: 3,
             wind_speed: 7,
             wind_direction: "SW",
@@ -530,6 +578,30 @@ describe("useSessionForecast", () => {
 
       const { result } = renderHook(() =>
         useSessionForecast("beach-1", "2024-01-17", "18:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.forecastData?.isNightSession).toBe(false);
+    });
+
+    it("detects 9 PM as night session (boundary)", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "21:00", // 9 PM - first night hour
+            wave_height: 3,
+            wind_speed: 7,
+            wind_direction: "SW",
+            water_temp: 62,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "21:00")
       );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -545,7 +617,7 @@ describe("useSessionForecast", () => {
         data: [
           {
             forecast_date: "2024-01-17",
-            forecast_time: "20:00", // 8 PM - should be night
+            forecast_time: "20:00", // 8 PM - valid evening session (summer sunset)
             wave_height: "3-5 ft",
             wind_speed: "8 mph",
             wind_direction: "offshore",
@@ -569,7 +641,7 @@ describe("useSessionForecast", () => {
         water_temp: 60,
         tide_height: 6.2,
         tide_status: "high",
-        isNightSession: true,
+        isNightSession: false,
       });
     });
 

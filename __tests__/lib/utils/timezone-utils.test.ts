@@ -33,25 +33,25 @@ describe('timezone-utils', () => {
         expect(isNightHour(15)).toBe(false);
       });
 
-      it('should return false for 5 PM (last valid hour)', () => {
+      it('should return false for 5 PM', () => {
         expect(isNightHour(17)).toBe(false);
+      });
+
+      it('should return false for 6 PM (evening glass-off sessions)', () => {
+        expect(isNightHour(18)).toBe(false);
+      });
+
+      it('should return false for 7 PM', () => {
+        expect(isNightHour(19)).toBe(false);
+      });
+
+      it('should return false for 8 PM (last valid hour for summer sunset sessions)', () => {
+        expect(isNightHour(20)).toBe(false);
       });
     });
 
     describe('evening hours (too late for surfing)', () => {
-      it('should return true for 6 PM (first invalid evening hour)', () => {
-        expect(isNightHour(18)).toBe(true);
-      });
-
-      it('should return true for 7 PM', () => {
-        expect(isNightHour(19)).toBe(true);
-      });
-
-      it('should return true for 8 PM', () => {
-        expect(isNightHour(20)).toBe(true);
-      });
-
-      it('should return true for 9 PM', () => {
+      it('should return true for 9 PM (first invalid evening hour)', () => {
         expect(isNightHour(21)).toBe(true);
       });
 
@@ -77,45 +77,63 @@ describe('timezone-utils', () => {
         expect(isNightHour(3)).toBe(true);
       });
 
-      it('should return true for 5 AM (last invalid morning hour)', () => {
-        expect(isNightHour(5)).toBe(true);
+      it('should return true for 4 AM (last invalid morning hour)', () => {
+        expect(isNightHour(4)).toBe(true);
+      });
+    });
+
+    describe('dawn patrol hours (valid for early surfing)', () => {
+      it('should return false for 5 AM (dawn patrol start)', () => {
+        expect(isNightHour(5)).toBe(false);
       });
     });
 
     describe('boundary conditions', () => {
-      it('should correctly identify 5:59 AM as night (hour 5)', () => {
-        // Hour 5 represents 5:00-5:59 AM
-        expect(isNightHour(5)).toBe(true);
+      it('should correctly identify 4:59 AM as night (hour 4)', () => {
+        // Hour 4 represents 4:00-4:59 AM
+        expect(isNightHour(4)).toBe(true);
       });
 
-      it('should correctly identify 6:00 AM as day (hour 6)', () => {
-        // Hour 6 represents 6:00-6:59 AM
-        expect(isNightHour(6)).toBe(false);
+      it('should correctly identify 5:00 AM as day (hour 5) - dawn patrol', () => {
+        // Hour 5 represents 5:00-5:59 AM - dawn patrol starts
+        expect(isNightHour(5)).toBe(false);
       });
 
-      it('should correctly identify 5:59 PM as day (hour 17)', () => {
-        // Hour 17 represents 5:00-5:59 PM
-        expect(isNightHour(17)).toBe(false);
+      it('should correctly identify 8:59 PM as day (hour 20)', () => {
+        // Hour 20 represents 8:00-8:59 PM - last valid hour
+        expect(isNightHour(20)).toBe(false);
       });
 
-      it('should correctly identify 6:00 PM as night (hour 18)', () => {
-        // Hour 18 represents 6:00-6:59 PM
-        expect(isNightHour(18)).toBe(true);
+      it('should correctly identify 9:00 PM as night (hour 21)', () => {
+        // Hour 21 represents 9:00-9:59 PM - too late for surfing
+        expect(isNightHour(21)).toBe(true);
       });
     });
 
-    describe('regression tests for late evening bug', () => {
-      it('should filter out 7 PM recommendations', () => {
-        // This was the bug: 7 PM was being recommended as a valid surf time
-        expect(isNightHour(19)).toBe(true);
+    describe('regression tests for night hour filtering', () => {
+      it('should allow 7 PM for evening glass-off sessions', () => {
+        // 7 PM is valid for summer evening sessions when sunset is late
+        expect(isNightHour(19)).toBe(false);
       });
 
-      it('should filter out 8 PM recommendations', () => {
-        expect(isNightHour(20)).toBe(true);
+      it('should allow 8 PM for late summer sunset sessions', () => {
+        // 8 PM can still have surfable light in summer
+        expect(isNightHour(20)).toBe(false);
       });
 
-      it('should filter out 9 PM recommendations', () => {
+      it('should filter out 9 PM recommendations (too dark)', () => {
+        // 9 PM is always too late regardless of season
         expect(isNightHour(21)).toBe(true);
+      });
+
+      it('should allow 5 AM for dawn patrol', () => {
+        // 5 AM should be valid for early morning sessions
+        expect(isNightHour(5)).toBe(false);
+      });
+
+      it('should filter out midnight recommendations', () => {
+        // Midnight should never be recommended
+        expect(isNightHour(0)).toBe(true);
       });
     });
   });

@@ -1,1 +1,0 @@
-../.claude/agents/qa-expert.md

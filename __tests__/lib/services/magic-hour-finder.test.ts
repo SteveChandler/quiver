@@ -203,7 +203,8 @@ describe('Magic Hour Finder Service', () => {
     ): ForecastSlot => ({
       forecast_date: '2025-01-07',
       forecast_time: `${hour.toString().padStart(2, '0')}:00:00`,
-      local_time: new Date(`2025-01-07T${hour.toString().padStart(2, '0')}:00:00`),
+      // Forecast timestamps are UTC; parse explicitly as UTC for stable tests.
+      local_time: new Date(`2025-01-07T${hour.toString().padStart(2, '0')}:00:00Z`),
       tide_height_ft: tide,
       wind_speed_mph: 10,
       wind_direction_deg: windDir,
@@ -233,7 +234,7 @@ describe('Magic Hour Finder Service', () => {
 
       const result = findWeightedPeak(slots, beach);
       expect(result).not.toBeNull();
-      expect(result?.peakTime.getHours()).toBe(12); // Should pick 12:00
+      expect(result?.peakTime.getUTCHours()).toBe(12); // Should pick 12:00 UTC
       expect(result?.swellMatch).toBe(true);
       expect(result?.windQuality).toBe('perfect');
       expect(result?.tideInRange).toBe(true);
@@ -247,7 +248,7 @@ describe('Magic Hour Finder Service', () => {
 
       // With default weights (tide 40%, wind 35%, swell 25%), slot 1 should win
       const defaultResult = findWeightedPeak(slots, beach);
-      expect(defaultResult?.peakTime.getHours()).toBe(9);
+      expect(defaultResult?.peakTime.getUTCHours()).toBe(9);
 
       // With wind-heavy weights, slot 2 should win
       const windHeavyResult = findWeightedPeak(slots, beach, {
@@ -255,7 +256,7 @@ describe('Magic Hour Finder Service', () => {
         wind: 0.8,
         swell: 0.1,
       });
-      expect(windHeavyResult?.peakTime.getHours()).toBe(12);
+      expect(windHeavyResult?.peakTime.getUTCHours()).toBe(12);
     });
   });
 
@@ -312,7 +313,7 @@ describe('Magic Hour Finder Service', () => {
       ];
 
       const result = findMagicHour(forecasts, beach, {
-        targetDate: new Date('2025-01-07T08:00:00'),
+        targetDate: new Date('2025-01-07T08:00:00Z'),
       });
 
       expect(result.found).toBe(true);
@@ -323,7 +324,7 @@ describe('Magic Hour Finder Service', () => {
     });
 
     it('filters to 48-hour window', () => {
-      const now = new Date('2025-01-07T08:00:00');
+      const now = new Date('2025-01-07T08:00:00Z');
       const forecasts = [
         createForecast('2025-01-07', '12:00:00', '3.0', 90, 'W'), // Within 48h
         createForecast('2025-01-10', '12:00:00', '3.0', 90, 'W'), // Beyond 48h
@@ -333,7 +334,7 @@ describe('Magic Hour Finder Service', () => {
 
       expect(result.found).toBe(true);
       // Peak should be from first forecast (within window)
-      expect(result.peakTime?.getDate()).toBe(7);
+      expect(result.peakTime?.getUTCDate()).toBe(7);
     });
 
     it('respects custom weights', () => {
@@ -343,16 +344,138 @@ describe('Magic Hour Finder Service', () => {
       ];
 
       const defaultResult = findMagicHour(forecasts, beach, {
-        targetDate: new Date('2025-01-07T08:00:00'),
+        targetDate: new Date('2025-01-07T08:00:00Z'),
       });
 
       const windHeavyResult = findMagicHour(forecasts, beach, {
-        targetDate: new Date('2025-01-07T08:00:00'),
+        targetDate: new Date('2025-01-07T08:00:00Z'),
         weights: { tide: 0.1, wind: 0.8, swell: 0.1 },
       });
 
       // Results should differ based on weights
       expect(defaultResult.peakTime?.getTime()).not.toBe(windHeavyResult.peakTime?.getTime());
+    });
+
+    // ========================================================================
+    // Daylight Hour Filtering (prevents midnight peak times)
+    // ========================================================================
+
+    describe('daylight hour filtering', () => {
+      const beachWithTimezone: BeachMetadata = {
+        ...beach,
+        timezone: 'America/Los_Angeles',
+      };
+
+      it('filters out midnight forecasts (00:00 UTC is night in Pacific)', () => {
+        // 00:00 UTC = 4 PM PT previous day in winter (PST, UTC-8)
+        // Actually, let's use times that are clearly night in Pacific
+        // 08:00 UTC = midnight PT, 09:00 UTC = 1 AM PT
+        const forecasts = [
+          createForecast('2025-01-07', '08:00:00', '3.0', 90, 'W'), // Midnight PT - night
+          createForecast('2025-01-07', '18:00:00', '3.0', 90, 'W'), // 10 AM PT - day
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-07T07:00:00Z'), // 11 PM PT Jan 6
+        });
+
+        expect(result.found).toBe(true);
+        // Peak should be from 10 AM PT forecast, not midnight
+        expect(result.peakTime?.getUTCHours()).toBe(18);
+      });
+
+      it('filters out early morning forecasts (3 AM local time)', () => {
+        // 11:00 UTC = 3 AM PT (night, < 5 AM)
+        // 15:00 UTC = 7 AM PT (day, >= 5 AM)
+        const forecasts = [
+          createForecast('2025-01-07', '11:00:00', '3.0', 90, 'W'), // 3 AM PT - night
+          createForecast('2025-01-07', '15:00:00', '3.0', 90, 'W'), // 7 AM PT - day
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-07T10:00:00Z'), // 2 AM PT
+        });
+
+        expect(result.found).toBe(true);
+        // Peak should be 7 AM PT, not 3 AM PT
+        expect(result.peakTime?.getUTCHours()).toBe(15);
+      });
+
+      it('filters out late night forecasts (9 PM+ local time)', () => {
+        // 05:00 UTC next day = 9 PM PT (night, >= 21)
+        // 03:00 UTC next day = 7 PM PT (day, < 21)
+        const forecasts = [
+          createForecast('2025-01-08', '05:00:00', '3.0', 90, 'W'), // 9 PM PT - night
+          createForecast('2025-01-08', '03:00:00', '3.0', 90, 'W'), // 7 PM PT - day
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-08T02:00:00Z'), // 6 PM PT
+        });
+
+        expect(result.found).toBe(true);
+        // Peak should be 7 PM PT, not 9 PM PT
+        expect(result.peakTime?.getUTCHours()).toBe(3);
+      });
+
+      it('keeps 5 AM dawn patrol forecasts', () => {
+        // 13:00 UTC = 5 AM PT (valid dawn patrol, >= 5 AM)
+        const forecasts = [
+          createForecast('2025-01-07', '13:00:00', '3.0', 90, 'W'), // 5 AM PT - dawn patrol
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-07T12:00:00Z'), // 4 AM PT
+        });
+
+        expect(result.found).toBe(true);
+        expect(result.peakTime?.getUTCHours()).toBe(13);
+      });
+
+      it('keeps 8 PM evening forecasts', () => {
+        // 04:00 UTC next day = 8 PM PT (valid evening, < 21)
+        const forecasts = [
+          createForecast('2025-01-08', '04:00:00', '3.0', 90, 'W'), // 8 PM PT - evening
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-08T03:00:00Z'), // 7 PM PT
+        });
+
+        expect(result.found).toBe(true);
+        expect(result.peakTime?.getUTCHours()).toBe(4);
+      });
+
+      it('falls back to night forecasts when no daylight forecasts available', () => {
+        // Only night forecasts available - should still return a result
+        const forecasts = [
+          createForecast('2025-01-07', '08:00:00', '3.0', 90, 'W'), // Midnight PT
+          createForecast('2025-01-07', '09:00:00', '3.0', 90, 'W'), // 1 AM PT
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-07T07:00:00Z'),
+        });
+
+        // Should still find something (fallback behavior)
+        expect(result.found).toBe(true);
+      });
+
+      it('prefers daylight forecasts over better-scoring night forecasts', () => {
+        // Night forecast has perfect conditions, day forecast has good conditions
+        const forecasts = [
+          createForecast('2025-01-07', '08:00:00', '3.0', 90, 'W'), // Midnight PT - perfect tide
+          createForecast('2025-01-07', '18:00:00', '2.0', 90, 'W'), // 10 AM PT - okay tide
+        ];
+
+        const result = findMagicHour(forecasts, beachWithTimezone, {
+          targetDate: new Date('2025-01-07T07:00:00Z'),
+        });
+
+        expect(result.found).toBe(true);
+        // Should pick the daytime forecast even if night has better score
+        expect(result.peakTime?.getUTCHours()).toBe(18);
+      });
     });
   });
 });

@@ -1,1 +1,0 @@
-../.claude/agents/performance-optimizer.md

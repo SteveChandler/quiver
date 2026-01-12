@@ -1,1 +1,0 @@
-../.claude/agents/specialized/python/security-expert.md

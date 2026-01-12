@@ -188,6 +188,16 @@ function formatTime(date: Date, timezone: string): string {
 }
 
 /**
+ * Check if a time is during valid surfing daylight hours (6 AM - 8 PM).
+ * This prevents displaying nonsensical peak times like midnight.
+ */
+function isValidDaylightHour(date: Date, timezone: string): boolean {
+  const hourStr = formatBeachDateTime(date, timezone, "H");
+  const hour = parseInt(hourStr, 10);
+  return hour >= 6 && hour < 20;
+}
+
+/**
  * Format date range for display (detailed version with minutes) in beach's timezone.
  * Uses shared date-utils for consistent timezone handling.
  */
@@ -703,10 +713,11 @@ export const PersonalizedForecastCard = React.memo(
                     <div className="text-sm font-semibold text-blue-700">
                       {formatTimeRange(window.start, window.end, window.timezone)}
                     </div>
-                    {/* Peak time from Magic Hour */}
+                    {/* Peak time from Magic Hour - only show if during daylight hours */}
                     {!magicHourLoading &&
                       magicHour?.found &&
-                      magicHour.peakTime && (
+                      magicHour.peakTime &&
+                      isValidDaylightHour(magicHour.peakTime, window.timezone) && (
                         <div
                           className="text-xs text-blue-500 mt-0.5"
                           data-testid="magic-hour-peak-time"
@@ -1076,15 +1087,15 @@ export const PersonalizedForecastCard = React.memo(
           </div>
         </CardFooter>
 
-        {/* Share Sheet */}
+        {/* Share Sheet - with defensive null checks for safety */}
         <ShareSheet
           open={shareSheetOpen}
           onOpenChange={setShareSheetOpen}
           type="wave"
           imageUrl={shareImageUrl}
           filename="quiver-forecast"
-          title={`${window.waveHeight} at ${beach.name}`}
-          text={`Check out the waves! ${window.waveHeight} at ${beach.name} - ${window.tide}, ${window.wind}`}
+          title={`${window?.waveHeight ?? 'Waves'} at ${beach?.name ?? 'Beach'}`}
+          text={`Check out the waves! ${window?.waveHeight ?? 'Waves'} at ${beach?.name ?? 'Beach'} - ${window?.tide ?? ''}, ${window?.wind ?? ''}`}
         />
       </Card>
     );

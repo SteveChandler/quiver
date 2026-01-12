@@ -177,6 +177,7 @@ graph LR
         iOSBuild[Xcode Build<br/>iOS App]
         AndroidBuild[Gradle Build<br/>Android App]
         TestFlight[TestFlight<br/>Beta Testing]
+        FirebaseAppDist[Firebase App Distribution<br/>Android Beta]
         PlayBeta[Google Play<br/>Beta Track]
     end
 
@@ -209,7 +210,8 @@ graph LR
     CapBuild --> AndroidBuild
 
     iOSBuild --> TestFlight
-    AndroidBuild --> PlayBeta
+    AndroidBuild --> FirebaseAppDist
+    FirebaseAppDist -.->|Tested| PlayBeta
 
     TestFlight -.->|Approved| AppStore[App Store Release]
     PlayBeta -.->|Approved| PlayStore[Play Store Release]
@@ -360,15 +362,77 @@ graph TD
 
 #### Android Deployment
 
-```bash
-# Build for Android
-yarn build:android
-npx cap sync android
+```mermaid
+graph TD
+    Start[Code Ready] --> CapSync[yarn build<br/>yarn mobile:sync:prod]
+    CapSync --> BuildAPK[Build APK<br/>./gradlew assembleDebug]
 
-# Open Android Studio and build AAB
-# Build > Generate Signed Bundle / APK
-# Upload to Google Play Console (Internal Testing → Beta → Production)
+    BuildAPK --> BetaChoice{Distribution<br/>Channel?}
+
+    BetaChoice -->|Internal/Beta| FirebaseDist[Firebase App Distribution]
+    BetaChoice -->|Production| PlayStore[Google Play Store]
+
+    subgraph "Firebase App Distribution (Beta Testing)"
+        FirebaseDist --> UploadAPK[Upload APK<br/>Console or CLI]
+        UploadAPK --> AddTesters[Add Testers<br/>Email Invites]
+        AddTesters --> TesterInstall[Testers Install<br/>via Firebase Tester App]
+        TesterInstall --> BetaFeedback[Collect Feedback]
+    end
+
+    BetaFeedback --> ReadyProd{Ready for<br/>Production?}
+    ReadyProd -->|No| FixIssues[Fix Issues]
+    FixIssues --> BuildAPK
+    ReadyProd -->|Yes| BuildAAB[Build AAB<br/>./gradlew bundleRelease]
+
+    subgraph "Google Play Store (Production)"
+        PlayStore --> BuildAAB
+        BuildAAB --> SignApp[Sign with Release Key]
+        SignApp --> UploadPlay[Upload to Play Console]
+        UploadPlay --> InternalTrack[Internal Testing Track]
+        InternalTrack --> BetaTrack[Closed/Open Beta Track]
+        BetaTrack --> GoogleReview[Google Review<br/>1-3 days]
+        GoogleReview --> ProdRelease[Production Release]
+    end
+
+    ProdRelease --> End[App Live on Play Store]
+
+    classDef buildClass fill:#4A90E2,stroke:#2E5C8A,stroke-width:2px,color:#fff
+    classDef betaClass fill:#FFB84D,stroke:#CC8800,stroke-width:2px
+    classDef prodClass fill:#50C878,stroke:#2E8B57,stroke-width:2px,color:#fff
+
+    class CapSync,BuildAPK,BuildAAB,SignApp buildClass
+    class FirebaseDist,UploadAPK,AddTesters,TesterInstall,BetaFeedback betaClass
+    class UploadPlay,InternalTrack,BetaTrack,GoogleReview,ProdRelease,End prodClass
 ```
+
+**Firebase App Distribution (Recommended for Beta)**:
+
+```bash
+# Build debug APK
+yarn build && yarn mobile:sync:prod
+cd android && ./gradlew assembleDebug
+
+# Upload via Firebase CLI
+firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk \
+  --app 1:230741354184:android:51b22556e66b39db3c67fd \
+  --groups "internal-team" \
+  --release-notes "Beta release description"
+
+# Or upload via Firebase Console:
+# https://console.firebase.google.com/project/quiver-1f787/appdistribution
+```
+
+**Google Play Store (Production)**:
+
+```bash
+# Build signed release AAB
+cd android && ./gradlew bundleRelease
+
+# Output: android/app/build/outputs/bundle/release/app-release.aab
+# Upload to Google Play Console → Internal Testing → Beta → Production
+```
+
+**Documentation**: See [ANDROID_RELEASE_GUIDE.md](../guides/ANDROID_RELEASE_GUIDE.md) for complete instructions.
 
 ---
 

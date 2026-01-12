@@ -9,7 +9,7 @@ import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-servic
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // Re-export from forecast-service-utils for convenience
-export { getFreshForecastFromCache } from "./forecast-service-utils";
+export { getFreshForecastFromCache, fetchBeachForecasts } from "./forecast-service-utils";
 
 export type ForecastUpdateOptions = {
   /**
@@ -110,46 +110,3 @@ export async function updateCdipBeachForecasts(options: ForecastUpdateOptions = 
   return result;
 }
 
-/**
- * Fetch enhanced forecasts for a beach with standardized error handling
- */
-export async function fetchBeachForecasts(beachId: string, days = 12) {
-  const supabase = await createSupabaseServiceRoleClient();
-
-  // Include yesterday's data for tide chart lookback window (6 hours ago)
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-
-  const { data: forecasts, error } = await supabase
-    .from("enhanced_forecasts")
-    .select("*")
-    .eq("beach_id", beachId)
-    .gte("forecast_date", yesterday)
-    .lte(
-      "forecast_date",
-      new Date(Date.now() + days * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0]
-    )
-    .order("forecast_date", { ascending: true })
-    .order("forecast_time", { ascending: true });
-
-  if (error) {
-    throw new Error("Failed to fetch enhanced forecasts");
-  }
-
-  // Group forecasts by date
-  const forecastsByDate = forecasts.reduce((acc: any, forecast: any) => {
-    const date = forecast.forecast_date;
-    if (!acc[date]) {
-      acc[date] = [];
-    }
-    acc[date].push(forecast);
-    return acc;
-  }, {});
-
-  return {
-    forecasts,
-    forecastsByDate,
-    totalForecasts: forecasts.length,
-  };
-}

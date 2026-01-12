@@ -5,7 +5,7 @@ import {
   createSuccessResponse,
   methodNotAllowed,
 } from "@/lib/api-utils";
-import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { getFeaturedBeaches } from "@/lib/data/server/featured-beaches";
 
 /**

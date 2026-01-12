@@ -18,12 +18,6 @@ import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
  * @param updatedAt - Timestamp when the forecast was last updated
  * @param dataSource - The forecast data source (e.g., "CDIP", "NOAA_NWS")
  * @returns true if the data is stale based on source-specific threshold
- *
- * @example
- * ```typescript
- * const isStale = isDataStale("2024-01-15T10:00:00Z", "CDIP");
- * // Returns true if more than 1.5 hours have passed
- * ```
  */
 export function isDataStale(
   updatedAt: string | Date,
@@ -62,8 +56,8 @@ export function getStalenessDetails(
     threshold,
     isStale,
     reason: isStale
-      ? 'Exceeded source-specific threshold'
-      : 'Within freshness window'
+      ? "Exceeded source-specific threshold"
+      : "Within freshness window",
   };
 }
 

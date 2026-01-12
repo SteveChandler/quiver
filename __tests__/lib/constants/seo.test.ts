@@ -30,3 +30,4 @@ describe("SEO_CONFIG structured data", () => {
 
 
 
+
