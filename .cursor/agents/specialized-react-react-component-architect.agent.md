@@ -1,1 +1,0 @@
-../.claude/agents/specialized/react/react-component-architect.md

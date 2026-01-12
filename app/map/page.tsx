@@ -50,7 +50,8 @@ export async function generateMetadata({
   searchParams?: Record<string, string | string[] | undefined>;
 }): Promise<Metadata> {
   // Important: Keep `/map` indexable, but prevent indexing of parameterized
-  // search variants like `/map?search=Capitola` (canonicalize to `/map`).
+  // variants like `/map?search=Capitola` or `/map?city=san-diego`
+  // (canonicalize to `/map`).
   const base = buildPageMetadata({
     title: "Surf Spots Map",
     description:
@@ -58,10 +59,16 @@ export async function generateMetadata({
     path: "/map",
   });
 
-  const hasSearchQuery =
-    typeof searchParams?.search === "string" && searchParams.search.length > 0;
+  const hasAnyQueryParam = (() => {
+    if (!searchParams) return false;
+    return Object.values(searchParams).some((value) => {
+      if (typeof value === "string") return value.length > 0;
+      if (Array.isArray(value)) return value.some((v) => typeof v === "string" && v.length > 0);
+      return false;
+    });
+  })();
 
-  if (!hasSearchQuery) return base;
+  if (!hasAnyQueryParam) return base;
 
   return {
     ...base,

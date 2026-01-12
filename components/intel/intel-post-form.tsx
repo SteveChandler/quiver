@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import { INTEL_CONFIG, INTEL_UI_TEXT, INTEL_TAGS } from "@/lib/constants/intel";
 import { createIntelPost } from "@/actions/intel-actions";
+import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
+import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { uploadImage } from "@/lib/image-upload";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import { toast } from "sonner";
@@ -48,6 +50,26 @@ import { cn } from "@/lib/utils";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+
+// Field state tracking for auto-prefill (conditions tag only)
+type FieldPrefillState = "empty" | "prefilled" | "user-edited";
+type ConditionFieldStates = {
+  wave_height: FieldPrefillState;
+  wind_speed: FieldPrefillState;
+  wind_direction: FieldPrefillState;
+  water_temp: FieldPrefillState;
+};
+
+// Parse numeric values from forecast strings (e.g., "3.5 ft" -> 3.5)
+function parseNumericValue(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value !== "string") return undefined;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
 
 // Form validation schema
 const intelPostSchema = z.object({
@@ -185,6 +207,16 @@ export function IntelPostForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Forecast prefill state (conditions tag only)
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const fieldStatesRef = useRef<ConditionFieldStates>({
+    wave_height: "empty",
+    wind_speed: "empty",
+    wind_direction: "empty",
+    water_temp: "empty",
+  });
+  const lastPrefillKeyRef = useRef<string | null>(null);
+
   const lockedTag = variant === "check-in" ? "conditions" : undefined;
   const form = useForm<IntelPostFormData>({
     resolver: zodResolver(intelPostSchema),
@@ -207,6 +239,120 @@ export function IntelPostForm({
       form.setValue("tag", lockedTag);
     }
   }, [form, lockedTag]);
+
+  // Watch tag for prefill logic
+  const watchedTag = form.watch("tag");
+
+  // Fetch forecast and auto-prefill conditions fields when:
+  // 1. Modal is open
+  // 2. Tag is "conditions"
+  // 3. We have a beachId
+  useEffect(() => {
+    const shouldFetch = isOpen && watchedTag === "conditions" && beachId;
+
+    if (!shouldFetch) {
+      return;
+    }
+
+    // Create a key for this beach to avoid duplicate fetches
+    const prefillKey = `${beachId}-${isOpen}`;
+    if (prefillKey === lastPrefillKeyRef.current) {
+      return;
+    }
+    lastPrefillKeyRef.current = prefillKey;
+
+    // Reset field states when modal opens fresh
+    fieldStatesRef.current = {
+      wave_height: "empty",
+      wind_speed: "empty",
+      wind_direction: "empty",
+      water_temp: "empty",
+    };
+
+    const fetchAndPrefill = async () => {
+      setForecastLoading(true);
+      try {
+        const result = await getEnhancedBeachForecasts(beachId, 2);
+
+        if (!result.success || !result.data || result.data.length === 0) {
+          return;
+        }
+
+        // Select the best forecast using forward-looking time logic
+        const bestForecast = getCurrentForecast(result.data);
+        if (!bestForecast) {
+          return;
+        }
+
+        // Prefill fields only if they are still empty (not user-edited)
+        const parsedWaveHeight = parseNumericValue(bestForecast.wave_height);
+        const parsedWindSpeed = parseNumericValue(bestForecast.wind_speed);
+        const parsedWaterTemp = parseNumericValue(bestForecast.water_temp);
+        const windDirection = bestForecast.wind_direction || undefined;
+
+        // Wave Height
+        if (
+          fieldStatesRef.current.wave_height === "empty" &&
+          parsedWaveHeight !== undefined
+        ) {
+          form.setValue("wave_height", parsedWaveHeight);
+          fieldStatesRef.current.wave_height = "prefilled";
+        }
+
+        // Wind Speed
+        if (
+          fieldStatesRef.current.wind_speed === "empty" &&
+          parsedWindSpeed !== undefined
+        ) {
+          form.setValue("wind_speed", parsedWindSpeed);
+          fieldStatesRef.current.wind_speed = "prefilled";
+        }
+
+        // Wind Direction
+        if (
+          fieldStatesRef.current.wind_direction === "empty" &&
+          windDirection
+        ) {
+          // Map forecast wind direction to our enum values
+          const directionMap: Record<string, string> = {
+            N: "N", NE: "NE", E: "E", SE: "SE",
+            S: "S", SW: "SW", W: "W", NW: "NW",
+            North: "N", Northeast: "NE", East: "E", Southeast: "SE",
+            South: "S", Southwest: "SW", West: "W", Northwest: "NW",
+            Offshore: "OFFSHORE", Onshore: "ONSHORE", Cross: "CROSS",
+            "Cross-shore": "CROSS",
+          };
+          const mapped = directionMap[windDirection] || windDirection.toUpperCase();
+          if (["N", "NE", "E", "SE", "S", "SW", "W", "NW", "OFFSHORE", "ONSHORE", "CROSS"].includes(mapped)) {
+            form.setValue("wind_direction", mapped as any);
+            fieldStatesRef.current.wind_direction = "prefilled";
+          }
+        }
+
+        // Water Temp
+        if (
+          fieldStatesRef.current.water_temp === "empty" &&
+          parsedWaterTemp !== undefined
+        ) {
+          form.setValue("water_temp", parsedWaterTemp);
+          fieldStatesRef.current.water_temp = "prefilled";
+        }
+
+        console.debug("[IntelPostForm] Prefilled conditions from forecast", {
+          wave_height: parsedWaveHeight,
+          wind_speed: parsedWindSpeed,
+          wind_direction: windDirection,
+          water_temp: parsedWaterTemp,
+        });
+      } catch (error) {
+        console.error("[IntelPostForm] Failed to fetch forecast for prefill:", error);
+      } finally {
+        setForecastLoading(false);
+      }
+    };
+
+    fetchAndPrefill();
+  }, [isOpen, beachId, watchedTag, form]);
 
   // Get user's current location
   const getCurrentLocation = useCallback(() => {
@@ -536,6 +682,14 @@ export function IntelPostForm({
       setLocationError(null);
       setSelectedPhoto(null);
       setPhotoPreview(null);
+      // Reset prefill tracking
+      fieldStatesRef.current = {
+        wave_height: "empty",
+        wind_speed: "empty",
+        wind_direction: "empty",
+        water_temp: "empty",
+      };
+      lastPrefillKeyRef.current = null;
     }
   }, [isOpen, form, initialLocation]);
 
@@ -714,12 +868,13 @@ export function IntelPostForm({
                     max="50"
                     placeholder="3.5"
                     value={form.watch("wave_height") ?? ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      fieldStatesRef.current.wave_height = "user-edited";
                       form.setValue(
                         "wave_height",
                         e.target.value ? parseFloat(e.target.value) : null
-                      )
-                    }
+                      );
+                    }}
                   />
                 </div>
 
@@ -735,12 +890,13 @@ export function IntelPostForm({
                     max="100"
                     placeholder="68"
                     value={form.watch("water_temp") ?? ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      fieldStatesRef.current.water_temp = "user-edited";
                       form.setValue(
                         "water_temp",
                         e.target.value ? parseFloat(e.target.value) : null
-                      )
-                    }
+                      );
+                    }}
                   />
                 </div>
 
@@ -757,12 +913,13 @@ export function IntelPostForm({
                     max="150"
                     placeholder="10"
                     value={form.watch("wind_speed") ?? ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      fieldStatesRef.current.wind_speed = "user-edited";
                       form.setValue(
                         "wind_speed",
                         e.target.value ? parseFloat(e.target.value) : null
-                      )
-                    }
+                      );
+                    }}
                   />
                 </div>
 
@@ -771,9 +928,10 @@ export function IntelPostForm({
                   <Label>Wind Direction</Label>
                   <Select
                     value={form.watch("wind_direction") || ""}
-                    onValueChange={(value) =>
-                      form.setValue("wind_direction", value as any)
-                    }
+                    onValueChange={(value) => {
+                      fieldStatesRef.current.wind_direction = "user-edited";
+                      form.setValue("wind_direction", value as any);
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select direction" />

@@ -1,1 +1,0 @@
-../.claude/agents/documentation-specialist.md

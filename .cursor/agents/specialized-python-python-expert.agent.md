@@ -1,1 +1,0 @@
-../.claude/agents/specialized/python/python-expert.md

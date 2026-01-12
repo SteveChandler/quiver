@@ -667,7 +667,9 @@ function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlot[] {
         return {
           forecast_date: f.forecast_date,
           forecast_time: f.forecast_time,
-          local_time: new Date(`${f.forecast_date}T${f.forecast_time}`),
+          // Forecast timestamps are stored in UTC (same convention as discovery service).
+          // Parse explicitly as UTC to avoid local-machine timezone drift (e.g. +8h in PST vs UTC).
+          local_time: new Date(`${f.forecast_date}T${f.forecast_time}Z`),
           tide_height_ft: parseFloat(f.tide_height ?? '0'),
           wind_speed_mph: parseFloat(f.wind_speed ?? '0'),
           wind_direction_deg: f.wind_direction_deg ?? 0,

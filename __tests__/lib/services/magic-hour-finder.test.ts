@@ -203,7 +203,8 @@ describe('Magic Hour Finder Service', () => {
     ): ForecastSlot => ({
       forecast_date: '2025-01-07',
       forecast_time: `${hour.toString().padStart(2, '0')}:00:00`,
-      local_time: new Date(`2025-01-07T${hour.toString().padStart(2, '0')}:00:00`),
+      // Forecast timestamps are UTC; parse explicitly as UTC for stable tests.
+      local_time: new Date(`2025-01-07T${hour.toString().padStart(2, '0')}:00:00Z`),
       tide_height_ft: tide,
       wind_speed_mph: 10,
       wind_direction_deg: windDir,
@@ -233,7 +234,7 @@ describe('Magic Hour Finder Service', () => {
 
       const result = findWeightedPeak(slots, beach);
       expect(result).not.toBeNull();
-      expect(result?.peakTime.getHours()).toBe(12); // Should pick 12:00
+      expect(result?.peakTime.getUTCHours()).toBe(12); // Should pick 12:00 UTC
       expect(result?.swellMatch).toBe(true);
       expect(result?.windQuality).toBe('perfect');
       expect(result?.tideInRange).toBe(true);
@@ -247,7 +248,7 @@ describe('Magic Hour Finder Service', () => {
 
       // With default weights (tide 40%, wind 35%, swell 25%), slot 1 should win
       const defaultResult = findWeightedPeak(slots, beach);
-      expect(defaultResult?.peakTime.getHours()).toBe(9);
+      expect(defaultResult?.peakTime.getUTCHours()).toBe(9);
 
       // With wind-heavy weights, slot 2 should win
       const windHeavyResult = findWeightedPeak(slots, beach, {
@@ -255,7 +256,7 @@ describe('Magic Hour Finder Service', () => {
         wind: 0.8,
         swell: 0.1,
       });
-      expect(windHeavyResult?.peakTime.getHours()).toBe(12);
+      expect(windHeavyResult?.peakTime.getUTCHours()).toBe(12);
     });
   });
 
@@ -312,7 +313,7 @@ describe('Magic Hour Finder Service', () => {
       ];
 
       const result = findMagicHour(forecasts, beach, {
-        targetDate: new Date('2025-01-07T08:00:00'),
+        targetDate: new Date('2025-01-07T08:00:00Z'),
       });
 
       expect(result.found).toBe(true);
@@ -323,7 +324,7 @@ describe('Magic Hour Finder Service', () => {
     });
 
     it('filters to 48-hour window', () => {
-      const now = new Date('2025-01-07T08:00:00');
+      const now = new Date('2025-01-07T08:00:00Z');
       const forecasts = [
         createForecast('2025-01-07', '12:00:00', '3.0', 90, 'W'), // Within 48h
         createForecast('2025-01-10', '12:00:00', '3.0', 90, 'W'), // Beyond 48h
@@ -333,7 +334,7 @@ describe('Magic Hour Finder Service', () => {
 
       expect(result.found).toBe(true);
       // Peak should be from first forecast (within window)
-      expect(result.peakTime?.getDate()).toBe(7);
+      expect(result.peakTime?.getUTCDate()).toBe(7);
     });
 
     it('respects custom weights', () => {
@@ -343,11 +344,11 @@ describe('Magic Hour Finder Service', () => {
       ];
 
       const defaultResult = findMagicHour(forecasts, beach, {
-        targetDate: new Date('2025-01-07T08:00:00'),
+        targetDate: new Date('2025-01-07T08:00:00Z'),
       });
 
       const windHeavyResult = findMagicHour(forecasts, beach, {
-        targetDate: new Date('2025-01-07T08:00:00'),
+        targetDate: new Date('2025-01-07T08:00:00Z'),
         weights: { tide: 0.1, wind: 0.8, swell: 0.1 },
       });
 

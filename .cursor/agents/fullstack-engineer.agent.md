@@ -1,1 +1,0 @@
-../.claude/agents/fullstack-engineer.md
