@@ -17,9 +17,12 @@ function envNumber(key: string, fallback: number): number {
 
 export const MONITORING_CONFIG = {
   // Staleness alerts (enhanced forecasts - primary source)
-  STALE_DATA_THRESHOLD_BEACHES: 10,  // Alert if >10 beaches have stale data
+  // Note: STALE_DATA_THRESHOLD_BEACHES and WARNING_STALE_HOURS are tuned to match
+  // actual cron capacity. With 261 beaches, ~20 updates/hour, and a 12h freshness
+  // window, ~30 beaches will naturally be in the 12-16h range at any given time.
+  STALE_DATA_THRESHOLD_BEACHES: 35,  // Alert if >35 beaches have stale data (allows for normal variance)
   CRITICAL_STALE_HOURS: 24,          // Critical if data >24h old
-  WARNING_STALE_HOURS: 12,           // Warning if data >12h old
+  WARNING_STALE_HOURS: 16,           // Warning if data >16h old (4h buffer after 12h freshness window)
   
   /**
    * Source-specific staleness thresholds (warning / critical hours).
