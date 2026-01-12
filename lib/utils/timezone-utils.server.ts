@@ -58,10 +58,13 @@ export function getLocalHour(date: Date, timezone: string): number {
 /**
  * Check if an hour is during nighttime (unrealistic for surfing).
  *
- * Night hours are defined as 6 PM to 6 AM (18:00 - 05:59).
+ * Night hours are defined as 9 PM to 5 AM (21:00 - 04:59).
+ * This allows for:
+ * - Dawn patrol sessions starting around 5-6 AM
+ * - Evening glass-off sessions until sunset (varies by season, ~8 PM in summer)
  */
 export function isNightHour(hour: number): boolean {
-  return hour >= 18 || hour < 6;
+  return hour >= 21 || hour < 5;
 }
 
 /**

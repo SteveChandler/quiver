@@ -13,6 +13,8 @@
  * @module lib/services/magic-hour-finder
  */
 
+import { getLocalHour } from "@/lib/utils/timezone-utils";
+
 // ============================================================================
 // Type Definitions
 // ============================================================================
@@ -48,6 +50,8 @@ export interface BeachMetadata {
   wind_offshore_tol_deg: number | null;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
+  /** IANA timezone identifier for the beach location */
+  timezone?: string;
 }
 
 /**
@@ -638,8 +642,21 @@ export function findMagicHour(
     return nullResult();
   }
 
-  // Find weighted peak
-  const peak = findWeightedPeak(windowedSlots, beach, options.weights);
+  // Filter to daylight hours only (6 AM - 8 PM) in the beach's local timezone
+  // Peak surf times should only be during reasonable daylight hours
+  const beachTimezone = beach.timezone || "America/Los_Angeles";
+  const daylightSlots = windowedSlots.filter((slot) => {
+    // Use timezone-aware hour conversion for accurate daylight filtering
+    const localHour = getLocalHour(slot.local_time, beachTimezone);
+    return localHour >= 6 && localHour < 20;
+  });
+
+  // If no daylight slots available, fall back to windowed slots
+  // but this shouldn't happen in normal conditions
+  const slotsToEvaluate = daylightSlots.length > 0 ? daylightSlots : windowedSlots;
+
+  // Find weighted peak from daylight-filtered slots
+  const peak = findWeightedPeak(slotsToEvaluate, beach, options.weights);
 
   if (!peak) {
     return nullResult();

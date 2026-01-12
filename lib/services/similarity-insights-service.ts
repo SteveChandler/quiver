@@ -123,15 +123,24 @@ export async function computeSimilarityInsights(
 
     // Sessions fetched - proceed with scoring
 
-    // 2. Check if we have enough data
+    // 2. Check if we have enough data - provide specific guidance based on count
     if (sessions.length < MIN_SESSIONS_FOR_INSIGHTS) {
+      const sessionsNeeded = MIN_SESSIONS_FOR_INSIGHTS - sessions.length;
+      const reasonBullets =
+        sessions.length === 0
+          ? [
+              'Start logging surf sessions to unlock personalized insights',
+              'Rate each session to help us learn your preferences',
+            ]
+          : [
+              `${sessionsNeeded} more rated session${sessionsNeeded > 1 ? 's' : ''} needed for insights`,
+              'Keep logging and rating your sessions!',
+            ];
+
       return {
         matchPercent: 0,
         label: 'Insufficient Data',
-        reasonBullets: [
-          'Log more surf sessions to see personalized insights',
-          'Rate your sessions to help us understand your preferences',
-        ],
+        reasonBullets,
         similarSessions: [],
         boardTip: null,
         sessionCount: sessions.length,
@@ -465,30 +474,72 @@ function computeSimilarityScore(
 }
 
 /**
- * Check if two values fall in the same bucket
+ * Boundary proximity threshold for bucket matching.
+ * Values within this distance of a bucket boundary get partial credit.
+ * Set to 0.25 to provide smoother transitions (e.g., 3.8-4.2 ft gets
+ * partial credit at the 4.0 ft boundary).
+ *
+ * @internal Exported for testing purposes
  */
-function bucketMatch(
+export const BUCKET_BOUNDARY_THRESHOLD = 0.25;
+
+/**
+ * Check if two values fall in the same bucket
+ *
+ * Uses inclusive upper bounds (<=) to avoid discontinuity at exact boundary values.
+ * Values at exact boundaries (e.g., 4.0 ft) will match the lower bucket.
+ * Additionally provides partial credit (0.75) for values close to bucket
+ * boundaries to smooth out transitions.
+ *
+ * @internal Exported for testing purposes
+ */
+export function bucketMatch(
   value1: number,
   value2: number,
   buckets: Array<{ min: number; max: number; label: string }>
 ): number {
-  const bucket1 = buckets.find((b) => value1 >= b.min && value1 < b.max);
-  const bucket2 = buckets.find((b) => value2 >= b.min && value2 < b.max);
+  // Helper to find bucket with inclusive upper bound
+  // For values at exact boundaries, this assigns them to the lower bucket
+  const findBucket = (value: number) => {
+    // Check if we're close to a bucket boundary (within threshold)
+    for (let i = 0; i < buckets.length - 1; i++) {
+      const boundary = buckets[i].max;
+      if (Math.abs(value - boundary) < BUCKET_BOUNDARY_THRESHOLD) {
+        // Return both adjacent bucket indices for boundary values
+        return { index: i, nearBoundary: true, adjacentIndex: i + 1 };
+      }
+    }
+    // Standard bucket lookup with inclusive upper bound for last bucket
+    const index = buckets.findIndex((b, i) =>
+      value >= b.min && (value < b.max || i === buckets.length - 1)
+    );
+    return { index, nearBoundary: false, adjacentIndex: -1 };
+  };
 
-  if (bucket1 && bucket2 && bucket1.label === bucket2.label) {
-    return 1.0; // Perfect match - same bucket
-  }
+  const result1 = findBucket(value1);
+  const result2 = findBucket(value2);
 
-  // If either value falls outside all bucket ranges, no match
-  if (!bucket1 || !bucket2) {
+  // If either value couldn't be bucketed, no match
+  if (result1.index === -1 || result2.index === -1) {
     return 0.0;
   }
 
-  // Adjacent bucket match gets 50% credit
-  const bucket1Index = buckets.indexOf(bucket1);
-  const bucket2Index = buckets.indexOf(bucket2);
+  // Same bucket = perfect match
+  if (result1.index === result2.index) {
+    return 1.0;
+  }
 
-  if (Math.abs(bucket1Index - bucket2Index) === 1) {
+  // Handle boundary proximity: if one value is near a boundary,
+  // give partial credit if the other value is in the adjacent bucket
+  if (result1.nearBoundary && result2.index === result1.adjacentIndex) {
+    return 0.75; // Partial credit for boundary proximity
+  }
+  if (result2.nearBoundary && result1.index === result2.adjacentIndex) {
+    return 0.75; // Partial credit for boundary proximity
+  }
+
+  // Adjacent bucket match gets 50% credit
+  if (Math.abs(result1.index - result2.index) === 1) {
     return 0.5;
   }
 
