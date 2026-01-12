@@ -100,48 +100,6 @@ export async function getLatestBeachForecast(beachId: string) {
   }
 }
 
-// Check if enhanced forecast data exists for a beach
-export async function checkEnhancedForecastExists(beachId: string) {
-  try {
-    const supabase = await createSupabaseServiceRoleClient();
-
-    const today = new Date().toISOString().split("T")[0];
-
-    const { data, error } = await supabase
-      .from("enhanced_forecasts")
-      .select("id, forecast_date, updated_at")
-      .eq("beach_id", beachId)
-      .gte("forecast_date", today)
-      .order("forecast_date", { ascending: true })
-      .limit(1);
-
-    if (error) {
-      console.error("Error checking enhanced forecast existence:", error);
-      return { success: false, error: error.message };
-    }
-
-    const exists = data && data.length > 0;
-    const isStale =
-      exists && data[0].updated_at
-        ? Date.now() - new Date(data[0].updated_at).getTime() >
-          24 * 60 * 60 * 1000 // 24 hours
-        : false;
-
-    return {
-      success: true,
-      exists,
-      isStale,
-      lastUpdated: exists ? data[0].updated_at : null,
-    };
-  } catch (error) {
-    console.error("Error in checkEnhancedForecastExists:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
 // Enhanced forecast with metadata interface
 export interface EnhancedForecastWithMetadata extends EnhancedForecastEntity {
   metadata: ForecastMetadata;
@@ -212,42 +170,6 @@ export async function getEnhancedBeachForecasts(
     return { success: true, data: forecastsWithMetadata };
   } catch (error) {
     console.error("Error in getEnhancedBeachForecasts:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-// Generate enhanced forecast for a beach (server action)
-export async function generateBeachForecast(beachId: string) {
-  try {
-    // First, verify the beach exists
-    const supabase = await createSupabaseServiceRoleClient();
-    const { data: beach, error: beachError } = await supabase
-      .from("beaches")
-      .select("*")
-      .eq("id", beachId)
-      .single();
-
-    if (beachError || !beach) {
-      console.error("Beach lookup error:", beachError);
-      return {
-        success: false,
-        error: `Beach not found: ${beachId}. Please verify the beach exists in the database.`,
-      };
-    }
-
-    const result = await updateBeachForecast(beachId);
-
-    return {
-      success: true,
-      message: result.message,
-      forecastsGenerated: result.forecastsGenerated,
-      beach: result.beach,
-    };
-  } catch (error) {
-    console.error("Error generating beach forecast:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

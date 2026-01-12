@@ -3,7 +3,7 @@
  */
 
 import { GET } from "@/app/api/users/search/route";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import {
   createMockSupabaseClient,
   createMockUser,
@@ -38,7 +38,7 @@ interface UserSearchResponse {
 // Mock the Supabase API server client
 const mockSupabaseClient = createMockSupabaseClient();
 
-jest.mock("@/lib/middleware/rate-limiter", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   withBotBlockingAndRateLimit: (handler: any) => handler,
 }));
 

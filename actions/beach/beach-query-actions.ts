@@ -64,19 +64,6 @@ export async function getBeachById(id: string) {
   });
 }
 
-export async function getBeachBySlug(slug: string) {
-  return withDatabaseOperation<Beach>(async (supabase) => {
-    // Slugs are stored lowercase; enforce lowercase match
-    const normalized = slug.trim().toLowerCase();
-    // Fetch full details for single beach view
-    return supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .eq("slug", normalized)
-      .single();
-  });
-}
-
 /**
  * Fetch 0..N beaches by slug without throwing on 0 results or duplicates.
  *

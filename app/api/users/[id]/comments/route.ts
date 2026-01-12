@@ -7,7 +7,7 @@ import {
   isValidUuid,
 } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 /**
  * Core handler for fetching user comments

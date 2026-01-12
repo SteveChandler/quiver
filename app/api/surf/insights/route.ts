@@ -7,7 +7,7 @@ import {
   handleApiError,
   validateOrError,
 } from '@/lib/api-utils';
-import { withRateLimit } from '@/lib/middleware/rate-limiter';
+import { withRateLimit } from '@/lib/middleware/api-wrappers';
 import { computeSimilarityInsights } from '@/lib/services/similarity-insights-service';
 
 export const dynamic = 'force-dynamic';

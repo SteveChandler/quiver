@@ -386,5 +386,3 @@ export function TideDiagnosticsHeader({
     </div>
   );
 }
-
-export default TideDiagnosticsPanel;

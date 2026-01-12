@@ -11,7 +11,7 @@ import {
 
 const mockSupabaseClient = createMockSupabaseClient();
 
-jest.mock("@/lib/middleware/rate-limiter", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   withBotBlockingAndRateLimit: (handler: any) => handler,
 }));
 

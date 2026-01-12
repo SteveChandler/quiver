@@ -5,7 +5,7 @@ import {
   createSuccessResponse,
   createValidationError,
 } from "@/lib/api-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";

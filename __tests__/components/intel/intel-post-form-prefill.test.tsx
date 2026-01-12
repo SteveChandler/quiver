@@ -52,6 +52,14 @@ const mockForecast = {
   generated_at: null,
   generation_method: null,
   source_weights: null,
+  confidence_score: 75,
+  metadata: {
+    primarySource: "test",
+    allSources: ["test"],
+    confidenceScore: 75,
+    lastUpdated: new Date().toISOString(),
+    isStaleData: false,
+  },
 };
 
 const defaultProps = {

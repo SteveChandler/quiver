@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';
 

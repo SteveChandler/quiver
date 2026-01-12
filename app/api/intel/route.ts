@@ -9,7 +9,7 @@ import {
 } from "@/lib/utils/intel-dedupe";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelPostCreateSchema } from "@/lib/validation/schemas";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 

@@ -8,7 +8,7 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
-import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
 

@@ -371,5 +371,3 @@ export function TideChartWithDiagnosticsHeader({
     </div>
   );
 }
-
-export default TideChartEnhanced;

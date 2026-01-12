@@ -9,7 +9,7 @@ import {
   checkNotModified,
 } from "@/lib/api-utils";
 import { isAdmin } from "@/lib/auth/admin";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 // GET method to retrieve all beaches with optimized caching
 async function beachesHandler(request: NextRequest) {
