@@ -14,8 +14,22 @@ import {
   Camera,
   Thermometer,
   Droplets,
+  Plus,
+  MoreVertical,
+  Flag,
 } from "lucide-react";
 import { formatTimeAgo } from "@/lib/utils/time-formatters";
+import { QuickCheckinSheet } from "../intel/quick-checkin-sheet";
+import { PhotoModal } from "../intel/photo-modal";
+import { EmojiRatingDisplay } from "../intel/emoji-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import type { IntelEmojiRating } from "@/types/database";
 
 /**
  * Source type for Coast Pulse items
@@ -41,6 +55,7 @@ interface CoastPulseItem {
   };
   trend?: "up" | "down" | "stable";
   photoUrl?: string;
+  emoji_rating?: IntelEmojiRating;
 }
 
 /**
@@ -177,6 +192,8 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
   const [summary, setSummary] = useState<CoastPulseSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const [photoModal, setPhotoModal] = useState<{ open: boolean; url: string; caption?: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (lat == null || lon == null) return;
@@ -223,6 +240,25 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
     }
   }, [lat, lon, fetchData]);
 
+  const handleReport = useCallback(async (postId: string) => {
+    try {
+      const response = await fetch(`/api/intel/${postId}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Inappropriate content" }),
+      });
+
+      if (response.ok) {
+        toast.success("Report submitted. Thank you!");
+      } else {
+        const data = await response.json();
+        toast.error(data.message || "Failed to report");
+      }
+    } catch {
+      toast.error("Failed to report post");
+    }
+  }, []);
+
   // Don't render if no coordinates provided
   if (lat == null || lon == null) {
     return null;
@@ -233,21 +269,32 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       className="bg-[#1e1e1e] rounded-2xl p-4 space-y-4"
       data-testid="coast-pulse-section"
     >
-      {/* Header with Live indicator */}
+      {/* Header with Live indicator and Add button */}
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white">
           <Activity className="text-[#f97316]" size={16} />
           Live Coast Pulse
         </h3>
-        <span className="flex items-center gap-1.5">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative h-2 w-2 rounded-full bg-green-500" />
+        <div className="flex items-center gap-2">
+          {/* Add Check-in Button */}
+          <button
+            onClick={() => setCheckinOpen(true)}
+            className="w-7 h-7 rounded-full bg-[#f97316] hover:bg-[#ea580c] flex items-center justify-center transition-colors"
+            aria-label="Add check-in"
+          >
+            <Plus className="w-4 h-4 text-white" />
+          </button>
+          {/* Live Indicator */}
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+              Live
+            </span>
           </span>
-          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-            Live
-          </span>
-        </span>
+        </div>
       </div>
 
       {/* Summary Section */}
@@ -351,18 +398,52 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
                     <p className="text-xs font-medium text-gray-400 truncate max-w-[180px]">
                       {item.source.name}
                     </p>
+
+                    {/* Overflow menu for intel items */}
+                    {item.source.type === "intel" && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="ml-auto p-1 hover:bg-white/10 rounded">
+                            <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-[#2a2a2a] border-white/10">
+                          <DropdownMenuItem
+                            onClick={() => handleReport(item.id.replace("intel-", ""))}
+                            className="text-red-400 focus:text-red-400"
+                          >
+                            <Flag className="w-3.5 h-3.5 mr-2" />
+                            Report
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
 
-                  {/* Message */}
+                  {/* Message with emoji rating if present */}
                   <div className="flex items-start gap-2">
+                    {item.emoji_rating && (
+                      <EmojiRatingDisplay rating={item.emoji_rating} />
+                    )}
                     <p className="text-sm text-white leading-snug flex-1">
                       {item.message}
                     </p>
                     {item.trend && getTrendIcon(item.trend)}
-                    {item.photoUrl && (
-                      <Camera className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                    )}
                   </div>
+
+                  {/* Photo thumbnail */}
+                  {item.photoUrl && (
+                    <button
+                      onClick={() => setPhotoModal({ open: true, url: item.photoUrl!, caption: item.message })}
+                      className="mt-2"
+                    >
+                      <img
+                        src={item.photoUrl}
+                        alt="Intel photo"
+                        className="w-12 h-12 rounded-lg object-cover hover:opacity-80 transition-opacity"
+                      />
+                    </button>
+                  )}
 
                   {/* Timestamp and distance */}
                   <div className="flex items-center gap-2 text-[10px] text-gray-500">
@@ -379,6 +460,23 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
             );
           })}
         </div>
+      )}
+
+      {/* Quick Check-in Sheet */}
+      <QuickCheckinSheet
+        open={checkinOpen}
+        onOpenChange={setCheckinOpen}
+        onSuccess={fetchData}
+      />
+
+      {/* Photo Modal */}
+      {photoModal && (
+        <PhotoModal
+          open={photoModal.open}
+          onOpenChange={(open) => setPhotoModal(open ? photoModal : null)}
+          photoUrl={photoModal.url}
+          caption={photoModal.caption}
+        />
       )}
     </div>
   );
