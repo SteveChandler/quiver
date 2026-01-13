@@ -25,6 +25,8 @@ supabase/
 │   ├── 20251204030000_create_city_editorial_content.sql
 │   ├── 20251204120000_case_insensitive_location_search.sql
 │   └── 20251204120001_update_session_log_template_link.sql
+│   ├── 20260113200001_add_npc_profile_fields.sql
+│   ├── 20260113200002_create_npc_templates_table.sql
 └── ARCHITECTURE.md                       # This documentation file
 ```
 
@@ -762,6 +764,90 @@ COMMENT ON COLUMN profiles.home_beach_id IS 'User''s preferred home beach for fo
 - Consistent naming across API, components, and database
 - Improved home screen personalization
 
+#### **NPC Intel Bots System (20260113200001, 20260113200002)**
+
+**Purpose**: Realistic community content generation with personality-driven NPC behavior.
+
+**Migration 1: Profile Enhancements (20260113200001_add_npc_profile_fields.sql)**
+
+Adds behavioral configuration fields to the `profiles` table:
+
+```sql
+-- Regional assignment for NPC
+home_region TEXT                    -- e.g., 'north-san-diego', 'sf-bay-area'
+
+-- Beach preferences (UUID arrays)
+home_beach_ids UUID[]               -- Primary beaches (70% of posts)
+secondary_beaches UUID[]            -- Regional beaches (25% of posts)
+
+-- Posting behavior
+posting_window JSONB                -- {"primary": [5, 8], "secondary": [16, 19]}
+activity_level TEXT                 -- 'high', 'medium', 'low'
+CHECK (activity_level IN ('high', 'medium', 'low'))
+
+-- Personality configuration
+personality_type TEXT               -- 'rookie', 'local', 'traveler', etc.
+CHECK (personality_type IN ('rookie', 'local', 'traveler', 'photographer', 'tactical', 'competitor', 'forecaster'))
+
+-- System account flag
+is_system_account BOOLEAN DEFAULT false  -- true for Quiver Surf Forecast bot
+
+-- Performance index
+CREATE INDEX idx_profiles_npc_config ON profiles (activity_level, personality_type)
+WHERE is_mock = true;
+```
+
+**Migration 2: Content Templates (20260113200002_create_npc_templates_table.sql)**
+
+New table for AI-generated content templates:
+
+```sql
+CREATE TABLE npc_content_templates (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content_type    TEXT NOT NULL,      -- 'intel', 'session_note', 'review'
+  personality     TEXT NOT NULL,      -- 'rookie', 'local', etc.
+  tag             TEXT,               -- For intel: 'conditions', 'parking', 'crowd', 'access'
+  template        TEXT NOT NULL,      -- Content with {{variables}}
+  variables       TEXT[],             -- ['beach_name', 'wave_range', ...]
+  use_count       INT DEFAULT 0,      -- Staleness tracking
+  last_used_at    TIMESTAMPTZ,
+  archived        BOOLEAN DEFAULT false,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- Lookup index for content generation
+CREATE INDEX idx_templates_lookup
+ON npc_content_templates(content_type, personality, tag)
+WHERE archived = false;
+
+-- Staleness detection index
+CREATE INDEX idx_templates_freshness
+ON npc_content_templates(use_count, last_used_at)
+WHERE archived = false;
+
+-- RLS: Public read access
+ALTER TABLE npc_content_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY npc_templates_select_all ON npc_content_templates
+  FOR SELECT USING (true);
+```
+
+**Features**:
+
+- 25 unique NPC profiles with distinct personalities
+- Personality-driven posting windows (dawn patrol for locals, midday for rookies)
+- Weighted beach selection (70% home, 25% secondary, 5% adventure)
+- Template variable hydration with real forecast data
+- Staleness monitoring to prevent repetitive content
+- System account for daily regional forecasts
+
+**Application Integration**:
+
+- Config files: `config/npc-roster.ts`, `config/regions.ts`
+- Utilities: `lib/npc/` (template-hydration, beach-selection, posting-windows, forecast-formatter)
+- Scripts: `scripts/migrate-npc-profiles.ts`, `scripts/morning-forecast.ts`, `scripts/check-template-health.ts`
+
+**Documentation**: See [docs/features/NPC_INTEL_BOTS.md](/docs/features/NPC_INTEL_BOTS.md) for comprehensive details.
+
 ## 🔄 **Future Migration Strategy**
 
 ### **Planned Enhancements**
@@ -794,7 +880,7 @@ Before any new migration:
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: January 2026
 **Status**: Production-ready with growth optimizations
 **Next Review**: After reaching 100 active users
 

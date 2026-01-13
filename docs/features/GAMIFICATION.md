@@ -1,6 +1,6 @@
 # Quiver Gamification (Canonical)
 
-Authoritative reference for Quiver’s gamification system: current status, condensed spec, schema, integration points, testing, and next steps.
+Authoritative reference for Quiver's gamification system: current status, condensed spec, schema, integration points, testing, and next steps.
 
 ---
 
@@ -15,7 +15,7 @@ Authoritative reference for Quiver’s gamification system: current status, cond
 
 ## Spec Summary
 
-- Levels: 9 tiers (Kook → Quiver King/Queen) based on total XP thresholds.
+- Levels: 9 tiers (Kook -> Quiver King/Queen) based on total XP thresholds.
 - XP Actions:
   - plan_session 50, add_board 30, tag_board_to_session 20, post_beach_intel 50, review_intel 25,
     tag_friends_in_session 20, invite_friend 100, post_surf_photos 15, get_like_upvote 10,
@@ -87,7 +87,7 @@ Authoritative reference for Quiver’s gamification system: current status, cond
 1) Session participants on accept
    - Where: `app/api/session-planner/invitations/route.ts` (PATCH)
    - Action: When invitation is accepted, insert into `session_participants (session_id, user_id)` if absent
-   - Accept: Profile’s team badges get accurate counts; duplicate-safe; revalidate affected pages
+   - Accept: Profile's team badges get accurate counts; duplicate-safe; revalidate affected pages
 
 2) Badge unlock E2E scenarios
    - Add end-to-end tests that perform actions and assert unlock toasts and profile badge presence
@@ -106,7 +106,7 @@ Authoritative reference for Quiver’s gamification system: current status, cond
    - Accept: No noticeable lag on profile; minimal Supabase roundtrips
 
 6) Optional API: `/api/gamification/badges`
-   - Return `badge_definitions` (+ user’s unlocked if authed)
+   - Return `badge_definitions` (+ user's unlocked if authed)
    - Enables simpler clients and E2E checks
 
 ---
@@ -124,100 +124,84 @@ Authoritative reference for Quiver’s gamification system: current status, cond
 
 **Purpose:** Automated community content generation to keep production environment engaging
 
-**Status:** Production-ready with GitHub Actions automation
+**Status:** Production-ready with enhanced realism (January 2026 update)
+
+**Full Documentation:** See [NPC_INTEL_BOTS.md](NPC_INTEL_BOTS.md) for comprehensive details.
 
 ### Overview
 
-The NPC Daily Activity Seeder creates realistic community content daily by selecting 3-5 mock users (NPCs) to generate sessions, intel posts, and beach reviews with personality-driven content.
+The NPC system creates realistic community content using 25 distinct profiles with:
 
-### Execution
+- **Natural identities** - Real-sounding names (Marcus Chen, Sofia Reyes, etc.)
+- **Personality types** - rookie, local, traveler, photographer, tactical, competitor, forecaster
+- **Regional focus** - Each NPC is assigned to a California coast region
+- **Behavioral realism** - Posts during personality-appropriate time windows
+- **Real forecast integration** - Content reflects actual surf/weather conditions
 
-**Manual:**
+### Quick Reference
+
+**Scripts:**
 ```bash
-# Development
-CONFIRM_TARGET=DEV npm run npc:daily
+# Migrate NPC profiles to new configuration
+CONFIRM_TARGET=DEV yarn npc:migrate
 
-# Production (requires confirmation)
-CONFIRM_TARGET=PROD CONFIRM_PROD=YES npm run npc:daily
+# Post morning regional forecasts
+yarn npc:forecast
+
+# Check template health
+yarn npc:health
+
+# Run daily activity (existing)
+CONFIRM_TARGET=DEV yarn npc:daily
 ```
 
-**Automated:** Runs daily at 9am PT (17:00 UTC) via `.github/workflows/npc-daily.yml`
+**Key Files:**
+- `config/npc-roster.ts` - 25 NPC profile definitions
+- `config/regions.ts` - California region mappings
+- `lib/npc/` - Utility libraries (template hydration, beach selection, posting windows)
+- `scripts/morning-forecast.ts` - Daily regional forecast posts
 
 ### Content Generation
 
 **Daily Volume:**
-- 3-5 sessions (1 per selected NPC)
-- 3-5 intel posts (various tags: conditions, parking, crowd, access)
-- 3-5 beach reviews (3-5 star ratings across 5 categories)
-- **Total:** 9-15 pieces of content daily
+- 9-15 pieces of content daily
+- 3 regional forecasts from "Quiver Surf Forecast" system account
+- Sessions, intel posts, and beach reviews from NPCs
 
-**Personality Types:**
-- **Rookie:** Enthusiastic, learning-focused, high ratings (4-5 stars)
-- **Local:** Knowledgeable, tips-focused, balanced ratings (3-5 stars)
-- **Traveler:** Comparative, spot comparisons, balanced (3-5 stars)
-- **Photographer:** Aesthetic, visual conditions, high ratings (4-5 stars)
-- **Tactical:** Analytical, precise reports, consistent (4 stars)
-- **Competitor:** Performance-focused, training emphasis, critical (3-4 stars)
+**Personality-Based Posting Windows:**
 
-**Content Features:**
-- Sessions: Backdated within last 24h, 45-180 min duration, personality-specific notes
-- Intel: Realistic coordinates with offsets, surf conditions JSON for conditions posts
-- Reviews: Backdated within last 3 days, personality-driven titles and content
+| Personality | Primary Window | Secondary Window |
+|-------------|----------------|------------------|
+| local | 5-8am | 4-7pm |
+| rookie | 9am-12pm | 2-5pm |
+| photographer | 5-7am | 5-8pm |
+| competitor | 6-9am | 3-6pm |
+| forecaster | 5-6am | - |
+
+### Database Additions (January 2026)
+
+**profiles table:**
+- `home_region`, `home_beach_ids`, `secondary_beaches`
+- `posting_window`, `activity_level`, `personality_type`
+- `is_system_account`
+
+**npc_content_templates table:**
+- AI-generated templates with `{{variables}}`
+- Staleness tracking via `use_count` and `last_used_at`
 
 ### Safety Features
 
-1. **Environment Validation:** Requires `CONFIRM_TARGET=DEV/PROD` and `CONFIRM_PROD=YES` for production
-2. **Mock User Protection:** Only operates on users with `is_mock=true`
-3. **Error Handling:** Comprehensive try/catch with detailed logging
-
-### Monitoring
-
-**Verification Queries:** `scripts/verify-npc-activity.sql`
-
-**Key Metrics:**
-- Daily content creation (sessions, intel, reviews)
-- NPC activity distribution
-- Content quality (ratings, tags)
-- Beach coverage
-
-**Quick Check:**
-```bash
-npm run check-mock-users
-gh run list --workflow="Daily NPC Activity Seeder"
-```
-
-### Database Requirements
-
-**Tables:** `profiles` (with `is_mock` column), `sessions`, `intel_posts`, `beach_reviews`, `beaches`
-
-**Permissions:** Service role with INSERT on content tables, SELECT on profiles/beaches, RLS bypass
-
-### Expected Output
-
-**Weekly Trends:**
-- Consistent daily activity Monday-Sunday
-- Varied content distribution across beaches
-- Natural personality-based content variety
-
-**Success Metrics:**
-- ✅ 9-15 pieces of content created daily
-- ✅ Different writing styles and focuses
-- ✅ Content spread across multiple beaches
-- ✅ NPCs maintaining 3-5 star positive ratings
-- ✅ Clean GitHub Actions runs with no failures
-
-### Files
-
-- **Seeder:** `scripts/npc-daily-activity.ts`
-- **Workflow:** `.github/workflows/npc-daily.yml`
-- **Verification:** `scripts/verify-npc-activity.sql`
+1. **Environment Validation:** Requires `CONFIRM_TARGET=DEV/PROD`
+2. **Production Guard:** Requires `CONFIRM_PROD=YES` for production
+3. **Mock User Protection:** Only operates on users with `is_mock=true`
 
 ---
 
 ## References
 
+- NPC System: `docs/features/NPC_INTEL_BOTS.md` (comprehensive NPC documentation)
+- Design: `docs/plans/2026-01-13-realistic-intel-bots-design.md` (original design)
 - Spec: `docs/quiver-gamification-spec.md` (source detail)
 - Status: `docs/gamification-system-status.md`
 - Social Sharing: `docs/features/SOCIAL_SHARING.md`
 - Branch Review: `docs/gamification-branch-status-review.md`
-
