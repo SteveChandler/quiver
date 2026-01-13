@@ -16,7 +16,7 @@ The `/components` directory implements a comprehensive, scalable component syste
 
 ## Architecture Principles
 
-### 🏗️ **Component Design Patterns**
+### **Component Design Patterns**
 
 #### **Composition Over Inheritance**
 
@@ -59,14 +59,14 @@ interface ComponentProps {
 - Zod schema integration for runtime validation
 - Variant props using `class-variance-authority`
 
-#### **Coordinate Naming Conventions** ⚠️
+#### **Coordinate Naming Conventions**
 
 **CRITICAL**: Coordinate naming must be consistent to prevent mapping bugs.
 
 **Standard Naming**:
 ```typescript
-✅ CORRECT: lat, lon, latitude, longitude
-❌ INCORRECT: lng (do not use in new code)
+// CORRECT: lat, lon, latitude, longitude
+// INCORRECT: lng (do not use in new code)
 ```
 
 **Database to Component Mapping**:
@@ -114,10 +114,10 @@ useEffect(() => {
 ```
 
 **Common Pitfalls**:
-1. ❌ Using `lng` instead of `lon`
-2. ❌ Assuming `beach.latitude` exists (it's `beach.center_lat`)
-3. ❌ Swapping latitude and longitude values
-4. ❌ Not validating coordinates before API calls
+1. Using `lng` instead of `lon`
+2. Assuming `beach.latitude` exists (it's `beach.center_lat`)
+3. Swapping latitude and longitude values
+4. Not validating coordinates before API calls
 
 **See**: [COORDINATE_CONVENTIONS.md](/docs/COORDINATE_CONVENTIONS.md) for comprehensive guide.
 
@@ -126,12 +126,11 @@ useEffect(() => {
 
 ## Directory Structure & Component Domains
 
-### 📁 **Root Level Components** - Global Utilities
+### **Root Level Components** - Global Utilities
 
 #### Core Application Components
 
 - **`app-header.tsx`** - Main navigation header with auth state
-- **`bottom-navigation.tsx`** - Mobile-optimized bottom navigation
 - **`beach-search.tsx`** - Comprehensive beach discovery with forecasting
 - **`beach-detail.tsx`** - Beach information aggregation wrapper
 - **`profile-view.tsx`** - User profile display and management
@@ -159,7 +158,7 @@ useEffect(() => {
 
 ---
 
-### 📁 **`/auth`** - Authentication System
+### **`/auth`** - Authentication System
 
 #### Core Authentication Components
 
@@ -207,7 +206,7 @@ useEffect(() => {
 
 ---
 
-### 📁 **`/beach`** - Beach Data Management
+### **`/beach`** - Beach Data Management
 
 #### Components
 
@@ -223,7 +222,7 @@ useEffect(() => {
 
 ---
 
-### 📁 **`/beach-detail`** - Beach Information Display
+### **`/beach-detail`** - Beach Information Display
 
 #### Components
 
@@ -242,7 +241,7 @@ useEffect(() => {
 
 ---
 
-### 📁 **`/buoy`** - Oceanographic Data Display
+### **`/buoy`** - Oceanographic Data Display
 
 #### Components
 
@@ -261,7 +260,7 @@ useEffect(() => {
 
 ---
 
-### 📁 **`/city`** - City-Level Surf Destination Pages
+### **`/city`** - City-Level Surf Destination Pages
 
 #### Components
 
@@ -286,7 +285,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/forecast`** - Weather & Surf Forecasting
+### **`/forecast`** - Weather & Surf Forecasting
 
 #### Core Forecast Components
 
@@ -318,25 +317,57 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/home-screen`** - Dashboard Interface
+### **`/home-screen`** - Dashboard Interface
 
 #### Components
 
-- **`index.tsx`** - Main dashboard orchestrator
-- **`forecast-tab.tsx`** - Personalized forecast view
-- **`community-tab.tsx`** - Social activity feed
+- **`index.tsx`** - Main dashboard orchestrator with single vertical feed layout
+- **`bottom-nav.tsx`** - Fixed mobile bottom navigation (md:hidden)
+- **`greeting-section.tsx`** - Time-aware personalized greeting
+- **`hero-recommendation.tsx`** - Top surf recommendation card with orange accents
+- **`primary-actions.tsx`** - "I'm at the beach" / "Plan Weekend" CTA buttons
+- **`top-spots-carousel.tsx`** - Horizontal carousel of additional spots
+- **`compact-spot-card.tsx`** - Card component for carousel spots
 - **`use-home-data.ts`** - Centralized data management hook
+
+#### Layout Architecture
+
+Single vertical feed with dark gradient header section:
+
+```
+HomeScreen (Container)
++-- Dark Gradient Header (from-[#0f172a] to-[#1e293b])
+|   +-- GreetingSection (white/translucent text)
+|   +-- HeroRecommendation (orange score badge #f97316)
+|   +-- PrimaryActions (translucent buttons)
++-- Content Section (default background)
+|   +-- TopSpotsCarousel
+|   +-- CoastPulse (dark bg #1e1e1e, vertical timeline)
+|   +-- ProfileStrength
++-- BottomNav (mobile-only, fixed, orange active state)
+```
+
+#### Design Tokens
+
+- Header gradient: `bg-gradient-to-b from-[#0f172a] to-[#1e293b]`
+- Primary accent: `#f97316` (orange)
+- Coast Pulse background: `#1e1e1e`
+- Translucent elements: `bg-white/10`, `border-white/20`
+- Muted text: `text-white/80`
 
 #### Features
 
-- **Tabbed Interface**: Forecast, Community sections
-- **Personalization**: User preference-driven content
-- **Real-time Updates**: Live data feeds and notifications
-- **Performance**: Lazy loading and data caching
+- **Single Vertical Feed**: No tabs, continuous scroll experience
+- **Dark Theme Header**: High-contrast visual impact
+- **Discovery-Based Personalization**: User location and preference driven
+- **Mobile Bottom Navigation**: Safe area handling, 44px touch targets
+- **Real-time Updates**: Live coast conditions via CoastPulse
+
+For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/components/home-screen/ARCHITECTURE.md).
 
 ---
 
-### 📁 **`/intel`** - Community Intelligence System
+### **`/intel`** - Community Intelligence System
 
 #### Core Components
 
@@ -370,7 +401,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/journal`** - Session Journaling & Analytics
+### **`/journal`** - Session Journaling & Analytics
 
 #### Components
 
@@ -389,7 +420,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/landing-page`** - Marketing & Conversion
+### **`/landing-page`** - Marketing & Conversion
 
 #### Core Sections
 
@@ -415,7 +446,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/gamification`** - User Engagement & Progression System
+### **`/gamification`** - User Engagement & Progression System
 
 #### Core Components
 
@@ -443,7 +474,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/home`** - Home Beach Personalization
+### **`/home`** - Home Beach Personalization
 
 #### Components
 
@@ -454,7 +485,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 #### Integration Points
 
 - **Home Screen**: Banner shows when no home beach is set
-- **Profile Page**: Tile displays current home beach or "—" if unset
+- **Profile Page**: Tile displays current home beach or "-" if unset
 - **Edit Profile**: Selector allows changing home beach preference
 - **Forecast Tab**: Uses home beach for personalized forecasts
 
@@ -467,7 +498,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/map`** - Interactive Mapping
+### **`/map`** - Interactive Mapping
 
 #### Core Components
 
@@ -492,7 +523,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/media`** - Media Management
+### **`/media`** - Media Management
 
 #### Components
 
@@ -509,7 +540,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/profile`** - User Profile Management
+### **`/profile`** - User Profile Management
 
 #### Components
 
@@ -541,7 +572,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/session-forms`** - Session Management
+### **`/session-forms`** - Session Management
 
 #### Core Form Components
 
@@ -579,7 +610,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/skeletons`** - Loading States
+### **`/skeletons`** - Loading States
 
 #### Components
 
@@ -595,7 +626,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/social`** - Social Features
+### **`/social`** - Social Features
 
 #### Core Components
 
@@ -615,7 +646,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ---
 
-### 📁 **`/ui`** - Design System Foundation
+### **`/ui`** - Design System Foundation
 
 #### Form Components
 
@@ -691,7 +722,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 
 ## Design System Architecture
 
-### 🎨 **Design Token System**
+### **Design Token System**
 
 #### Color Palette
 
@@ -722,7 +753,7 @@ For detailed component specifications, data flow, and integration patterns, see 
 - **Scale**: 0, 1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64
 - **Component Spacing**: Consistent internal spacing patterns
 
-### 🧩 **Component Composition Patterns**
+### **Component Composition Patterns**
 
 #### Compound Components
 
@@ -767,7 +798,7 @@ const withAuth = (Component) => (props) => {
 };
 ```
 
-### 📱 **Responsive Design System**
+### **Responsive Design System**
 
 #### Breakpoints
 
@@ -817,7 +848,7 @@ const breakpoints = {
 
 ## Performance Architecture
 
-### ⚡ **Optimization Strategies**
+### **Optimization Strategies**
 
 #### Code Splitting
 
@@ -853,7 +884,7 @@ const useExpensiveCalculation = (data) => {
 - Windowing for large data sets
 - Intersection Observer for lazy loading
 
-### 🔄 **Data Flow Patterns**
+### **Data Flow Patterns**
 
 #### State Management
 
@@ -893,7 +924,7 @@ const useDataFetcher = (fetchFn) => {
 
 ## Accessibility Architecture
 
-### ♿ **WCAG 2.1 AA Compliance**
+### **WCAG 2.1 AA Compliance**
 
 #### Semantic HTML
 
@@ -932,7 +963,7 @@ const useDataFetcher = (fetchFn) => {
 - Skip links for navigation
 - Status announcements
 
-### 🎯 **Focus Management**
+### **Focus Management**
 
 ```typescript
 // Focus management hook
@@ -955,7 +986,7 @@ const useFocusManagement = () => {
 
 ## Testing Architecture
 
-### 🧪 **Testing Strategy**
+### **Testing Strategy**
 
 #### Unit Testing
 
@@ -984,7 +1015,7 @@ const useFocusManagement = () => {
 - Mobile device testing
 - Performance testing
 
-### 📝 **Testing Patterns**
+### **Testing Patterns**
 
 ```typescript
 // Example: Component test pattern
@@ -1024,18 +1055,18 @@ describe("BeachCard", () => {
 
 ## Development Guidelines
 
-### 🔧 **Component Development**
+### **Component Development**
 
 #### File Structure
 
 ```
 ComponentName/
-├── index.ts           // Barrel export
-├── ComponentName.tsx  // Main component
-├── ComponentName.test.tsx
-├── ComponentName.stories.tsx
-├── types.ts          // Component-specific types
-└── hooks.ts          // Component-specific hooks
++-- index.ts           // Barrel export
++-- ComponentName.tsx  // Main component
++-- ComponentName.test.tsx
++-- ComponentName.stories.tsx
++-- types.ts          // Component-specific types
++-- hooks.ts          // Component-specific hooks
 ```
 
 #### Naming Conventions
@@ -1078,7 +1109,7 @@ export function BeachCard({
 }
 ```
 
-### 📦 **Import/Export Patterns**
+### **Import/Export Patterns**
 
 #### Barrel Exports
 
@@ -1106,7 +1137,7 @@ import { Button, Card, CardContent } from "@/components/ui";
 
 ## Future Roadmap
 
-### 🚀 **Planned Enhancements**
+### **Planned Enhancements**
 
 #### Component Library Package
 
@@ -1133,7 +1164,7 @@ import { Button, Card, CardContent } from "@/components/ui";
 - High contrast mode
 - Reduced motion preferences
 
-### 🎯 **Component Priorities**
+### **Component Priorities**
 
 #### High Priority
 

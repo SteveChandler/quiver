@@ -45,10 +45,9 @@ export function AuthAwareLandingWrapper() {
   // lead to hydration mismatches.
   useEffect(() => {
     try {
-      const signupParam =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("signup")
-          : null;
+      // eslint-disable-next-line no-restricted-properties -- Reading URL on mount, not for navigation
+      const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+      const signupParam = url?.searchParams.get("signup") ?? null;
       setIsConfirmEmailSignup(signupParam === "confirm-email");
     } catch {
       setIsConfirmEmailSignup(false);

@@ -45,3 +45,19 @@ export type SurfStyle = typeof SURF_STYLES[number]['value'];
 export type WaveSize = typeof WAVE_SIZES[number]['value'];
 export type BreakType = typeof BREAK_TYPES[number]['value'];
 export type CrowdPreference = typeof CROWD_PREFERENCES[number]['value'];
+
+// Board type to wave height matching ranges (in feet)
+// Used for personalized dashboard recommendations
+export const BOARD_WAVE_MATCHING = {
+  shortboard: { min: 2, max: 8, label: 'Shortboard' },
+  longboard: { min: 0.5, max: 4, label: 'Longboard' },
+  fish: { min: 1, max: 5, label: 'Fish' },
+  'mid-length': { min: 1.5, max: 6, label: 'Mid-Length' },
+  funboard: { min: 1.5, max: 6, label: 'Funboard' },
+  'step-up': { min: 4, max: 12, label: 'Step-Up' },
+  softboard: { min: 0.5, max: 4, label: 'Softboard' },
+  gun: { min: 6, max: 20, label: 'Gun' },
+  sup: { min: 0.5, max: 4, label: 'SUP' },
+} as const;
+
+export type BoardTypeKey = keyof typeof BOARD_WAVE_MATCHING;

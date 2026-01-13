@@ -23,6 +23,8 @@ interface BeachDiscoveryCardProps {
   recommendation: SurfDiscoveryRecommendation;
   rank: number;
   onPlanSession: (beachId: string) => void;
+  /** Optional personalized board-wave matching feedback from matchBoardToWaves() */
+  boardReasoning?: string;
 }
 
 /**
@@ -35,6 +37,7 @@ export function BeachDiscoveryCard({
   recommendation,
   rank,
   onPlanSession,
+  boardReasoning,
 }: BeachDiscoveryCardProps) {
   const {
     beach,
@@ -128,6 +131,14 @@ export function BeachDiscoveryCard({
       <CardContent className="space-y-4">
         {/* Summary */}
         <p className="text-sm text-gray-700">{summary}</p>
+
+        {/* Board-Wave Match Reasoning */}
+        {boardReasoning && (
+          <div className="mt-2 flex items-center gap-2 text-xs font-medium text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
+            <span className="text-base">🏄</span>
+            {boardReasoning}
+          </div>
+        )}
 
         {/* Best Window - formatted in beach local timezone */}
         <div className="flex items-center gap-2 text-sm text-gray-600">

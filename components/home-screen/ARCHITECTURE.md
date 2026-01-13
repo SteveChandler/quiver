@@ -1,496 +1,297 @@
 # Home Screen Components Architecture
 
-## 🎯 **PURPOSE**
+## Purpose
 
-The home screen components create the main application dashboard with personalized forecasts and community intel through a tabbed interface with lazy loading and caching.
+The home screen components create the main application dashboard with personalized surf recommendations displayed in a single vertical feed layout with a dark gradient header section.
 
-## 📁 **COMPONENT STRUCTURE**
+## Component Structure
 
 ```
 components/home-screen/
-├── index.tsx           # Main HomeScreen container with tab management
-├── forecast-tab.tsx    # Personalized forecast for user's home beach
-├── community-tab.tsx   # Local intel dashboard (replaces community feed)
-├── use-home-data.ts    # Shared data fetching hook
-└── nearby-beach-chips.tsx # Location-permissioned chip row for nearest beaches
+├── index.tsx                  # Main HomeScreen container with single-feed layout
+├── bottom-nav.tsx             # Fixed mobile bottom navigation (md:hidden)
+├── greeting-section.tsx       # Time-aware greeting component
+├── hero-recommendation.tsx    # Top surf recommendation card
+├── primary-actions.tsx        # "I'm at the beach" / "Plan Weekend" buttons
+├── top-spots-carousel.tsx     # Horizontal carousel of top spots
+├── compact-spot-card.tsx      # Card component for carousel spots
+├── use-time-of-day.ts         # Hook for time-of-day detection
+├── personalized-forecast-card.tsx # Forecast with personalized insights
+├── similar-sessions-drawer.tsx    # Session history comparison drawer
+├── use-home-data.ts           # Shared data fetching hook
+├── beach-search-bar.tsx       # Beach search input
+└── GREETING_README.md         # Greeting system documentation
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## Architecture Patterns
 
-### **Tab-Based Architecture**
+### Single Vertical Feed Layout
+
+The home screen uses a single vertical feed (no tabs) with a dark gradient header section:
 
 ```typescript
 HomeScreen (Container)
-├── TabsComponent (UI Framework)
-├── ForecastTab (Direct Import - see note below)
-└── CommunityTab (Direct Import - see note below)
+├── Dark Gradient Header (bg-gradient-to-b from-[#0f172a] to-[#1e293b])
+│   ├── GreetingSection         # Time-based greeting
+│   ├── HeroRecommendation      # Top recommendation card
+│   └── PrimaryActions          # Quick action buttons
+├── Content Section (default background)
+│   ├── TopSpotsCarousel        # Additional recommendations
+│   ├── CoastPulse              # Live coast updates timeline
+│   └── ProfileStrength         # Onboarding progress (auto-hides)
+└── BottomNav                   # Mobile-only fixed navigation
 ```
 
-### **Lazy Loading Pattern** (CURRENT STATUS: DISABLED)
+### Dark Theme Header Pattern
 
-**Target Architecture:**
+The header uses a dark gradient with light text for visual impact:
 
 ```typescript
-// Performance optimization with dynamic imports
-const ForecastTab = lazy(() =>
-  import("./forecast-tab").then((m) => ({ default: m.ForecastTab }))
-);
-
-// Suspense boundaries with loading states
-<Suspense fallback={<TabSkeleton />}>
-  <ForecastTab profile={profile} homeBeach={homeBeach} />
-</Suspense>;
+// Dark gradient background
+<div className="bg-gradient-to-b from-[#0f172a] to-[#1e293b]">
+  // White/light text for contrast
+  <h1 className="text-white/80">...</h1>
+  // Translucent elements
+  <button className="bg-white/10 border-white/20">...</button>
+</div>
 ```
 
-**Current Implementation:**
+### Mobile Bottom Navigation
 
 ```typescript
-// Temporary direct imports to debug lazy loading issue (lines 19-22 in index.tsx)
-import { ForecastTab } from "./forecast-tab";
-import { CommunityTab } from "./community-tab";
+// BottomNav component features:
+// - Fixed position at bottom of screen
+// - Safe area insets for iOS (pb-[env(safe-area-inset-bottom)])
+// - Hidden on md+ screens (md:hidden)
+// - 44px minimum touch targets
+// - Orange accent color for active state (#f97316)
 
-// Lazy loading disabled for debugging
-// TODO: Re-enable lazy loading once issue is resolved
+<BottomNav />
+// Routes: Home, Map, Log, Profile
 ```
 
-**Status Notes:**
-
-- Lazy loading is currently disabled via direct imports
-- Original lazy loading pattern caused loading/rendering issues
-- Direct imports provide immediate component availability
-- Performance impact is minimal due to component size
-- Target: Re-enable lazy loading after identifying root cause
-- Tracking: See index.tsx lines 19-22 for current implementation
-
-**Investigation Needed:**
-
-- Root cause of lazy loading failure
-- Impact on bundle size and load performance
-- Alternative lazy loading strategies (route-level vs component-level)
-- Suspense boundary configuration
-
-### **Shared Data Strategy**
+### Discovery-Based Data Flow
 
 ```typescript
-// Centralized data fetching with memoization
-const { beaches, sessions, loading } = useHomeData();
+// Uses useSurfDiscovery hook for personalized recommendations
+const { discovery, loading, error } = useSurfDiscovery({
+  maxResults: 6,
+  horizonHours: 24,
+  enabled: !!profile,
+  userLocation: seedDiscoveryLocation,
+});
 
-// Cached profile data to prevent flickering
-const { profile, homeBeach, profileLoading, hasCachedData } =
-  useCachedProfile();
+// Top recommendation becomes hero
+const topRecommendation = discovery?.recommendations[0];
+// Remaining spots go to carousel
+const topSpots = discovery?.recommendations.slice(1);
 ```
 
-### **Location-Permissioned Nearby Chips**
+### Location-Aware Personalization
 
 ```typescript
-// Follows useDataFetcher pattern and `useGeolocation({ autoRequest: false })` for permissioned location
-<NearbyBeachChips onSelect={(b) => setSelectedBeachOverride(b)} />
+// Location priority for discovery:
+// 1. Browser geolocation (if granted and not default)
+// 2. User's home beach coordinates
+// 3. Fallback to default location
 
-// Chip click sets override beach to immediately preview Today at <beach>
-<ForecastTab overrideBeach={selectedBeachOverride} />
+const seedDiscoveryLocation =
+  geoSource === "browser" && !usingDefaultLocation && geoCoords
+    ? { lat: geoCoords.lat, lon: geoCoords.lon }
+    : homeBeach?.lat != null
+      ? { lat: homeBeach.lat, lon: homeBeach.lon }
+      : undefined;
 ```
 
-Behavior:
+## Component Responsibilities
 
-- Prominent "Use my location" CTA for first-time visitors (no auto-prompt).
-- After grant, fetches `/api/beaches/nearby?latitude&longitude&limit=5`.
-- Renders horizontally scrollable chips; tap to preview and optionally Set Home Beach.
+### HomeScreen (Main Container)
 
-Constraints:
-
-- Uses `useDataFetcher` and `useGeolocation` (manual request) per hooks/ARCHITECTURE.md.
-- No new data fetching patterns introduced.
-
-## 📊 **COMPONENT RESPONSIBILITIES**
-
-### **HomeScreen** (Main Container)
-
-- **Purpose**: Tab orchestration and layout management
-- **State Management**: Active tab state, user authentication
+- **Purpose**: Layout orchestration and data management
 - **Features**:
-  - ~~Lazy loading of tab components~~ (disabled - see note above)
-  - Direct component imports for stability
-  - Shared data distribution
-  - Responsive welcome section
-  - Bottom navigation integration
+  - Single vertical feed layout
+  - Dark gradient header section
+  - Discovery-based recommendations
+  - Push notification setup for reminders
+  - Bottom navigation for mobile
 
-**Key Features:**
+### BottomNav (Mobile Navigation)
 
-```typescript
-// Tab management
-const [activeTab, setActiveTab] = useState("forecast");
-
-// Direct imports (lazy loading disabled)
-import { ForecastTab } from "./forecast-tab";
-import { CommunityTab } from "./community-tab";
-
-// Components rendered directly (no Suspense wrapper currently)
-<ForecastTab profile={profile} homeBeach={homeBeach} />;
-
-// Welcome personalization
-{
-  user ? profile?.full_name || "Surfer" : "Guest";
-}
-```
-
-### **ForecastTab** (Personalized Forecasts)
-
-- **Purpose**: Home beach forecast with community calibration
-- **Props**: `profile: Profile | null, homeBeach: Beach | null`
+- **Purpose**: Fixed bottom navigation for mobile devices
+- **Props**: None (uses pathname for active state)
 - **Features**:
-  - Personalized forecast for user's home beach
-  - Community-adjusted vs raw forecast toggle
-  - Beach intel integration
-  - Action buttons for session planning
+  - Fixed position with safe area insets
+  - Four navigation items: Home, Map, Log, Profile
+  - Orange accent (#f97316) for active state
+  - Hidden on md+ screens (uses header nav instead)
+  - Lucide icons (Home, Map, BookOpen, User)
 
-**Data Flow:**
+### GreetingSection (Time-Aware Greeting)
 
-```typescript
-// Forecast fetching with skip logic
-const fetchTodaysForecast = useCallback(async () => {
-  if (!homeBeach?.id) return null;
-  return await getForecastForToday(homeBeach.id);
-}, [homeBeach?.id]);
-
-// Community calibration integration
-const { beachAccuracy, getConfidenceLevel, accuracyStats } =
-  useForecastCalibration({ beachId: homeBeach?.id });
-```
-
-**Forecast States:**
-
-- **No Home Beach**: Prompt to set home beach
-- **Forecast Loading**: Skeleton animation
-- **Forecast Available**: Full forecast display with adjustments
-- **Forecast Unavailable**: Error state with fallback actions
-
-### **CommunityTab** (Local Intel)
-
-- **Purpose**: Local intel dashboard (replaced community feed)
-- **Props**: `sessions?: any[], loading?: boolean` (legacy compatibility)
+- **Purpose**: Display personalized, time-based greeting
+- **Props**: `userName: string | null`, `timeOfDay: TimeOfDay`
 - **Features**:
-  - Intel dashboard integration
-  - Full-height container optimization
-  - Simplified interface
+  - Time periods: morning (5am-12pm), afternoon (12pm-5pm), evening (5pm-5am)
+  - Falls back to "Surfer" when no name provided
+  - White/translucent text for dark background
+  - See `GREETING_README.md` for full documentation
 
-**Modern Implementation:**
+### HeroRecommendation (Top Recommendation)
 
-```typescript
-// Simplified to intel dashboard
-export function CommunityTab({ sessions, loading }: CommunityTabProps) {
-  return (
-    <div className="h-[calc(100vh-200px)] max-w-full mx-auto">
-      <IntelDashboard />
-    </div>
-  );
-}
-```
-
-### **useHomeData** (Shared Data Hook)
-
-- **Purpose**: Centralized data fetching for beaches and sessions
-- **Returns**: `beaches[], sessions[], loading, error, refetch`
+- **Purpose**: Featured surf spot with conditions
+- **Props**: `recommendation`, `loading`, `error`, callbacks
 - **Features**:
-  - Memoized fetch functions
-  - Parallel data fetching
-  - Error handling and retries
+  - Orange score badge (#f97316)
+  - White text on dark/image background
+  - Translucent badges for conditions
+  - Enable reminder CTA integration
+  - Loading skeleton state
 
-**Implementation Pattern:**
+### PrimaryActions (Quick Actions)
 
-```typescript
-// Prevent infinite loops with useCallback
-const fetchBeaches = useCallback(async () => {
-  const result = await getBeaches();
-  if (result.success && result.data) return result.data;
-  throw new Error(result.error || "Failed to fetch beaches");
-}, []);
+- **Purpose**: Main CTA buttons below hero
+- **Props**: `topRecommendation`, callbacks, `disabled`
+- **Features**:
+  - "I'm at the beach" button (solid)
+  - "Plan Weekend" button (translucent for dark bg)
+  - Pre-fills session form with recommendation data
 
-// Parallel data fetching
-const { data: beachesData, loading: beachesLoading } =
-  useDataFetcher(fetchBeaches);
-const { data: sessionsData, loading: sessionsLoading } =
-  useDataFetcher(fetchSessions);
+### TopSpotsCarousel (Recommendations Carousel)
+
+- **Purpose**: Horizontal scroll of additional spots
+- **Props**: `spots`, `loading`, callbacks, location CTA props
+- **Features**:
+  - Edge-to-edge horizontal scroll
+  - CompactSpotCard for each spot
+  - Optional "Use my location" CTA
+  - No artificial limit on spots displayed
+
+### CompactSpotCard (Carousel Card)
+
+- **Purpose**: Individual spot card in carousel
+- **Features**:
+  - White card background
+  - Orange score (#f97316)
+  - Ruler/Wind icons for conditions
+  - Time window display
+
+## Design System Integration
+
+### Color Tokens Used
+
+```css
+/* Dark header gradient */
+--header-gradient-start: #0f172a;
+--header-gradient-end: #1e293b;
+
+/* Primary accent (orange) */
+--accent-orange: #f97316;
+
+/* Coast Pulse dark */
+--coast-pulse-bg: #1e1e1e;
+
+/* Translucent elements */
+--translucent-white: rgba(255, 255, 255, 0.1);
+--translucent-border: rgba(255, 255, 255, 0.2);
+--text-white-muted: rgba(255, 255, 255, 0.8);
 ```
 
-## 🎨 **DESIGN PATTERNS**
-
-### **Responsive Layout System**
+### Responsive Breakpoints
 
 ```typescript
 // Mobile-first responsive classes
-<main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12">
-
-// Responsive typography
-<h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-
-// Responsive tab system
-<TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto h-12 sm:h-14">
+<main className="pb-20 md:pb-0">  // Bottom padding for nav on mobile only
+<nav className="md:hidden">        // Bottom nav hidden on md+
 ```
 
-## 🔎 Home Search Bar
+## Performance Optimizations
 
-- Location: Centered container directly under the `Forecast | Local Intel` tabs on the Home screen.
-- Component: `components/home-screen/beach-search-bar.tsx`
-- Behavior:
-  - Uses `useDataFetcher` with a memoized fetch function that calls `searchBeachesByName` for fuzzy/close matches (supports abbreviations like "OB", "PB").
-  - On success, calls `onSelect(beach)` which sets `selectedBeachOverride` in `HomeScreen`.
-  - On failure, shows an inline error: "No beach found. Try again." without altering current forecast.
-
-### State Flow
+### Data Fetching Strategy
 
 ```typescript
-HomeScreen
-  state: selectedBeachOverride: Beach | null
-  └─ <BeachSearchBar onSelect={setSelectedBeachOverride} />
-  └─ <ForecastTab overrideBeach={selectedBeachOverride} homeBeach={homeBeach} />
+// Single discovery fetch provides all recommendations
+const { discovery, loading } = useSurfDiscovery({
+  maxResults: 6,
+  horizonHours: 24,
+  enabled: !!profile,
+});
 
-// Precedence used inside ForecastTab
-effectiveBeach = overrideBeach || homeBeach || popularBeach;
-```
-
-### Data Fetching Pattern
-
-```typescript
-const performSearch = useCallback(async () => {
-  return await searchBeachesByName(query);
-}, [query]);
-
-const { loading, refetch } = useDataFetcher(performSearch, {
-  immediate: false,
-  onSuccess: (beach) =>
-    beach ? onSelect(beach) : setError("No beach found. Try again."),
+// Skip fetches when no profile
+const { data: boardsResponse } = useDataFetcher(() => getUserBoards(), {
+  skip: !profile,
 });
 ```
 
-### Error Handling UX
-
-- Inline message under the search bar for not-found or network errors
-- Does not change the current `effectiveBeach` unless a valid match is found
-
-### **Loading State Hierarchy**
+### Memoization Patterns
 
 ```typescript
-// Component-level loading
-if (forecastLoading) return <SkeletonAnimation />;
+// Memoized handlers to prevent unnecessary re-renders
+const handleAtBeach = useCallback(() => {
+  // Navigate with pre-filled data
+}, [topRecommendation, router]);
 
-// Tab-level loading (currently disabled - see lazy loading notes)
-// <Suspense fallback={<TabSkeleton />}>
-
-// Data-level loading
-{
-  loading && <Loader2 className="animate-spin" />;
-}
+const handleViewBeach = useCallback((beachId: string) => {
+  router.push(`/beach/${beachId}?from=home_hero`);
+}, [router]);
 ```
 
-### **Color-Coded Information Architecture**
+## Mobile Optimization
+
+### Touch-Friendly Interface
+
+- Bottom nav items: 44px+ touch targets
+- Cards with adequate padding for finger taps
+- Horizontal scroll for carousel (natural mobile gesture)
+
+### Safe Area Handling
 
 ```typescript
-// Forecast data visualization
-<div className="text-center p-3 bg-blue-50 rounded-lg">
-  <div className="text-2xl font-bold text-blue-600">{waveHeight}</div>
-  <div className="text-xs text-blue-500">Wave Height</div>
-</div>
-
-// Community trust levels
-<div className={`p-3 rounded-lg ${confidenceLevel.bg}`}>
-  <confidenceLevel.icon className={confidenceLevel.color} />
-  <span className={confidenceLevel.color}>
-    Community Trust: {confidenceLevel.level}
-  </span>
-</div>
+// iOS safe area for bottom nav
+<nav className="pb-[env(safe-area-inset-bottom)]">
 ```
 
-## 🚀 **PERFORMANCE OPTIMIZATIONS**
-
-### **Lazy Loading Strategy** (CURRENTLY DISABLED)
+### Responsive Spacing
 
 ```typescript
-// Target pattern (currently not in use):
-const ForecastTab = lazy(() => import("./forecast-tab"));
-
-// Current pattern (direct import for stability):
-import { ForecastTab } from "./forecast-tab";
-
-// Code splitting by tab - PLANNED, not active
-// Only loads tab components when accessed
+// Progressive spacing
+<div className="space-y-6 xs:space-y-8">
+<section className="px-4 sm:px-0">
 ```
 
-**Performance Notes:**
+## Testing Considerations
 
-- Direct imports bundle tab components with main chunk
-- Minimal performance impact due to component size
-- Future optimization: Re-enable lazy loading after debugging
-- Alternative: Route-level code splitting instead of component-level
+### Component Testing
 
-### **Memoization Patterns**
+- BottomNav active state detection
+- GreetingSection time-of-day display
+- HeroRecommendation loading/error states
+- Carousel scroll behavior
 
-```typescript
-// Memoized beach processing
-const displayBeaches = useMemo(() => beaches.slice(0, 5), [beaches]);
+### Integration Testing
 
-// Memoized beach IDs for stable dependencies
-const beachIds = useMemo(
-  () => displayBeaches.map((beach) => beach.id),
-  [displayBeaches]
-);
-```
+- Discovery data flow to components
+- Navigation between routes
+- Reminder enable flow
+- Session form pre-fill
 
-### **Data Caching**
+### E2E Testing
 
-```typescript
-// Profile caching to prevent flicker
-const { profile, homeBeach, hasCachedData } = useCachedProfile();
+- See `e2e/HOME_SCREEN_LAYOUT_TESTS.md` for layout test documentation
 
-// Skip unnecessary fetches
-const { skip: !homeBeach?.id } // Skip forecast fetch without beach
-```
+## Related Documentation
 
-## 🔄 **DATA INTEGRATION**
-
-### **Authentication Flow**
-
-```typescript
-// User state management
-const { user } = useAuth();
-
-// Profile data with caching
-const { profile, homeBeach } = useCachedProfile();
-
-// Conditional rendering based on auth state
-{
-  user ? profile?.full_name || "Surfer" : "Guest";
-}
-```
-
-### **Forecast Integration**
-
-```typescript
-// Today's forecast with error handling
-const fetchTodaysForecast = useCallback(async () => {
-  if (!homeBeach?.id) return null;
-  return await getForecastForToday(homeBeach.id);
-}, [homeBeach?.id]);
-
-// Community calibration
-const { beachAccuracy } = useForecastCalibration({
-  beachId: homeBeach?.id,
-});
-```
-
-## 📱 **MOBILE OPTIMIZATION**
-
-### **Touch-Friendly Interface**
-
-- Large tab targets (h-12 sm:h-14)
-- Proper spacing for touch interaction
-- Responsive button layouts
-
-### **Mobile-First Responsive Design**
-
-- Progressive enhancement from mobile
-- Flexible layouts that scale up
-- Optimized image loading
-
-## 🧪 **TESTING CONSIDERATIONS**
-
-### **Component Testing**
-
-- Tab switching functionality
-- ~~Lazy loading behavior~~ (not currently active)
-- Loading state displays
-- Error state handling
-
-### **Integration Testing**
-
-- Data flow between tabs
-- Authentication state changes
-- Profile updates and caching
-
-## 🔮 **FUTURE ENHANCEMENTS**
-
-### **Planned Features**
-
-- Push notifications for forecasts
-- Personalized recommendations
-- Social activity feeds
-- Weather alerts integration
-
-### **Performance Improvements**
-
-- **Re-enable lazy loading** (top priority for code splitting)
-- Service worker caching
-- Background data sync
-- Optimistic UI updates
-
-### **Technical Debt**
-
-- [ ] Resolve lazy loading issue and re-enable dynamic imports
-- [ ] Investigate Suspense boundary configuration
-- [ ] Measure performance impact of direct imports vs lazy loading
-- [ ] Consider route-level code splitting as alternative
+- `/lib/utils/greeting-utils.ts` - Greeting utility functions
+- `/hooks/use-surf-discovery.ts` - Discovery hook
+- `/components/dashboard/coast-pulse.tsx` - Live updates component
+- `/components/dashboard/profile-strength.tsx` - Onboarding widget
 
 ---
 
-**Last Updated**: December 17, 2025
-**Status**: Production-ready with lazy loading temporarily disabled for debugging
-**Next Review**: After lazy loading issue is resolved
+**Last Updated**: January 2025
+**Status**: Production-ready with single vertical feed layout
 **Recent Changes**:
-
-- Documented lazy loading disabled status (Dec 17, 2025)
-- Added technical debt tracking for lazy loading re-enablement
-- Removed Best Conditions and Nearby Tab features (Nov 18, 2025)
-
-## 🔮 **Personalized Insights Integration (December 2025)**
-
-### **PersonalizedForecastCard** - Enhanced with Insights
-
-- **File**: `components/home-screen/personalized-forecast-card.tsx`
-- **New Features**:
-  - Displays personalized insights comparing forecast to user's session history
-  - "For You" KPI tile shows match label (Perfect/Great/Good) or personalization boost
-  - Board recommendations displayed in amber tip box when detected
-  - Similar sessions drawer accessible via button or clicking "For You" tile
-  - Three states: ready (insights shown), onboarding (encouragement message), degraded (graceful fallback)
-- **Props**:
-  - `insights`: PersonalizedInsights from useInsights hook
-  - `insightsLoading`: boolean loading state
-  - `onViewSimilarSessions`: callback to open drawer
-- **UI Elements**:
-  - Match percentage badge (e.g., "85% Match")
-  - Reason bullets in summary section
-  - Board tip in amber box with ruler icon
-  - "View X similar sessions" button when available
-  - Clickable "For You" tile opens similar sessions drawer
-
-### **SimilarSessionsDrawer** - Session History Comparison
-
-- **File**: `components/home-screen/similar-sessions-drawer.tsx`
-- **Purpose**: Display user's past sessions with similar conditions
-- **Features**:
-  - Current forecast conditions summary at top
-  - List of similar sessions sorted by similarity score
-  - Match quality badges (Perfect green, Great blue, Good yellow, Low outline)
-  - Session details: beach name, date, rating (stars), conditions (wave/wind), board used
-  - Empty state when no similar sessions found
-  - Touch-friendly mobile design
-- **Props**:
-  - `open`: boolean drawer state
-  - `onOpenChange`: state setter callback
-  - `sessions`: SimilarSessionInsight[] array
-  - `currentConditions`: { waveHeight, wavePeriod, wind } for comparison header
-- **Design**:
-  - Max height 85vh with scrollable content
-  - Color-coded match badges
-  - Icon-based condition indicators (Waves, Wind, Ruler for board)
-  - Close button in header
-
----
-
-**Last Updated**: December 17, 2025
-**Status**: Production-ready with lazy loading temporarily disabled, includes personalized insights feature
-**Next Review**: After lazy loading issue is resolved and push notifications implementation
-**Recent Changes**:
-
-- Documented lazy loading disabled status with debugging context (Dec 17, 2025)
-- Added PersonalizedInsights integration with ML-powered session matching (Dec 16, 2025)
-- Added technical debt tracking for lazy loading re-enablement (Dec 17, 2025)
+- Replaced tab-based layout with single vertical feed
+- Added dark gradient header section
+- Added BottomNav mobile navigation
+- Updated GreetingSection for dark background
+- Integrated CoastPulse timeline component

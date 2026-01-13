@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Home Screen (Single Vertical Feed):** Refactored home screen from tab-based to single vertical feed design. Removed Radix UI Tabs component and replaced with unified feed layout featuring: (1) GreetingSection with time-aware greeting, (2) HeroRecommendation showing top surf spot with score, (3) PrimaryActions with "I'm at the beach" and "Plan Weekend" buttons, (4) TopSpotsCarousel showing next 3 surf recommendations, (5) CoastPulse showing live buoy data, (6) ProfileStrength onboarding widget (auto-hides when complete). All components use `useSurfDiscovery` hook for data fetching with localStorage caching. Removed ForecastTab component import and moved essential logic into main HomeScreen. Community tab content now accessible via future routing. Preserved all push notification, reminder flow, and geolocation functionality. Simplified architecture reduces component nesting and improves performance with single data fetch.
+
 ### Added
 
+- **Time-Based Greeting System:** Created time-based greeting utility and component for personalized home screen experience. Includes `lib/utils/greeting-utils.ts` with time-of-day detection (morning: 5am-12pm, afternoon: 12pm-5pm, evening: 5pm-5am), `components/home-screen/use-time-of-day.ts` custom hook with automatic period updates, and `components/home-screen/greeting-section.tsx` component that displays "Good morning/afternoon/evening, [Name]." greeting. Component handles timezone properly and updates automatically when time period changes. Fully tested with 9 unit tests covering all time ranges and edge cases.
+- **Dashboard Components (Forecast Tab):** Integrated ProfileStrength and CoastPulse dashboard components into the forecast tab home screen. ProfileStrength auto-hides when user profile is 100% complete and displays completion progress with missing fields. CoastPulse shows live buoy data in a horizontal scrollable carousel format. Both components render conditionally based on user authentication and data availability. Data fetched via `useDataFetcher` with proper skip conditions.
 - **Share Intel (Conditions Autofill):** Share Intel form now auto-prefills wave height, wind speed, wind direction, and water temp from the current forecast when the `conditions` tag is selected and a beach is known. Fields are only prefilled when empty; user edits are preserved and never overwritten. Uses the same forward-looking forecast selection logic as session logging. Test coverage added for prefill behavior (`__tests__/components/intel/intel-post-form-prefill.test.tsx`).
 
 ### Fixed

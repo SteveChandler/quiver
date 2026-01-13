@@ -93,3 +93,36 @@ export function formatRatingSimple(
 ): string {
   return formatRating(rating, { fallback });
 }
+
+/**
+ * Format a surf discovery score from 0-100 scale to X.X display format.
+ * Specifically for SurfDiscoveryRecommendation scores.
+ *
+ * @param score - The score value (0-100)
+ * @returns Formatted string like "8.5" (without the "/10" suffix)
+ *
+ * @example
+ * formatDiscoveryScore(85)
+ * // Returns: "8.5"
+ *
+ * @example
+ * formatDiscoveryScore(100)
+ * // Returns: "10.0"
+ */
+export function formatDiscoveryScore(score: number): string {
+  return (score / 10).toFixed(1);
+}
+
+/**
+ * Format a surf discovery score with "/10" suffix.
+ *
+ * @param score - The score value (0-100)
+ * @returns Formatted string like "8.5/10"
+ *
+ * @example
+ * formatDiscoveryScoreWithSuffix(85)
+ * // Returns: "8.5/10"
+ */
+export function formatDiscoveryScoreWithSuffix(score: number): string {
+  return `${formatDiscoveryScore(score)}/10`;
+}

@@ -70,6 +70,9 @@ export async function withAuthenticatedAction<T>(
 // New: Curried version that returns a callable authenticated action.
 // Enables: export const doThing = makeAuthenticatedAction(async (user, supabase, arg1, arg2) => { ... })
 // Then call: await doThing(arg1, arg2)
+//
+// IMPORTANT: Files using this must have "use server" at the top level.
+// Do NOT add "use server" inside the returned function - it conflicts with file-level directive.
 export function makeAuthenticatedAction<
   TArgs extends any[],
   T
@@ -83,7 +86,7 @@ export function makeAuthenticatedAction<
   const serverAction = async (
     ...args: TArgs
   ): Promise<ServerActionResponse<T>> => {
-    "use server";
+    // Note: "use server" is NOT here - the calling file must have it at file level
     try {
       const supabase = await createSupabaseServerClient();
       const {

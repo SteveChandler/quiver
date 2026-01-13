@@ -312,7 +312,7 @@ export class NOAABuoySync {
       try {
         const [lat, lng] = station.coordinates;
 
-        // Create primary buoy record (matches Ruby: kind: :buoy)
+        // Create buoy record
         console.log(
           `Upserting buoy ${station.stationId}: ${station.stationName} at [${lat}, ${lng}]`
         );
@@ -321,14 +321,12 @@ export class NOAABuoySync {
           {
             buoy_uuid: station.stationId,
             buoy_name: station.stationName,
-            kind: "buoy",
             coordinates: `POINT(${lng} ${lat})`,
             active: true,
-            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
           {
-            onConflict: "buoy_uuid,kind",
+            onConflict: "buoy_uuid",
           }
         );
 
@@ -341,35 +339,6 @@ export class NOAABuoySync {
         }
         console.log(`✅ Successfully upserted buoy ${station.stationId}`);
         buoysAdded++;
-
-        // Create station record if name contains " - " (matches Ruby logic)
-        const stationRecord = this.extractStationRecord(station);
-        if (stationRecord) {
-          const stationResult = await this.supabase.from("buoys").upsert(
-            {
-              buoy_uuid: stationRecord.id,
-              buoy_name: stationRecord.name,
-              kind: "station",
-              coordinates: `POINT(${lng} ${lat})`,
-              active: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            {
-              onConflict: "buoy_uuid,kind",
-            }
-          );
-
-          if (stationResult.error) {
-            console.error(
-              `❌ Failed to upsert station ${stationRecord.id}:`,
-              JSON.stringify(stationResult.error, null, 2)
-            );
-          } else {
-            console.log(`✅ Successfully upserted station ${stationRecord.id}`);
-            stationsAdded++;
-          }
-        }
       } catch (error) {
         console.error(`Error processing station ${station.stationId}:`, error);
       }
