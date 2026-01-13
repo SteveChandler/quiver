@@ -32,6 +32,18 @@ export type IntelPostInsert = Database['public']['Tables']['intel_posts']['Inser
 export type IntelPostUpdate = Database['public']['Tables']['intel_posts']['Update']
 export type IntelPostTag = Database['public']['Enums']['intel_post_tag']
 
+/**
+ * Emoji rating options for intel posts
+ * fire = excellent conditions
+ * shaka = good conditions
+ * meh = average conditions
+ * thumbsdown = poor conditions
+ */
+export type IntelEmojiRating = 'fire' | 'shaka' | 'meh' | 'thumbsdown';
+
+export type IntelReport = Database['public']['Tables']['intel_reports']['Row']
+export type IntelReportInsert = Database['public']['Tables']['intel_reports']['Insert']
+
 // Note: follows table not yet in schema - uncomment when migration is applied
 // export type Follow = Database['public']['Tables']['follows']['Row']
 // export type FollowInsert = Database['public']['Tables']['follows']['Insert']
