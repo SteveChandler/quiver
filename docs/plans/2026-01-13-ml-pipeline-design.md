@@ -22,6 +22,33 @@ Connect the existing XGBoost bias correction model (`ml/`) to production data an
 
 ---
 
+## Critical Production Considerations
+
+### 1. Cold Start Mitigation (Free Tier)
+
+Free tier containers sleep after ~15 minutes of inactivity. When the cron job hits after 3 hours, the container will be cold (5-10s boot time). Vercel functions may timeout waiting.
+
+**Mitigations:**
+- Wake-up ping before heavy payload
+- Retry logic with exponential backoff
+- `maxDuration` config for Vercel routes
+
+### 2. Timezone Handling
+
+NOAA forecasts are often in **local time** (Pacific). CDIP/NDBC buoys report in **UTC**. Supabase `TIMESTAMPTZ` enforces UTC.
+
+**Risk:** Joining 8:00 AM PST (NOAA) with 8:00 AM UTC (CDIP) = 7-8 hour mismatch.
+
+**Fix:** Convert NOAA timestamps to UTC using beach timezone before joining.
+
+### 3. API Security
+
+The Python service is exposed to the public internet. Without auth, bots can spam the endpoint and exhaust free tier credits.
+
+**Fix:** Shared secret via `X-Internal-Secret` header.
+
+---
+
 ## Architecture
 
 ### System Overview
@@ -83,24 +110,28 @@ Connect the existing XGBoost bias correction model (`ml/`) to production data an
 
 ### Training Data Query
 
+**Important:** NOAA forecasts are in local time, observations are in UTC. Must convert before joining.
+
 ```sql
--- Pair forecasts with nearest observations
+-- Pair forecasts with nearest observations (timezone-aware)
 WITH forecasts AS (
   SELECT
-    beach_id,
-    forecast_date + forecast_time AS forecast_ts,
-    wave_height,
-    wave_period,
-    wave_direction,
-    wind_speed,
-    wind_direction
-  FROM enhanced_forecasts
-  WHERE data_source = 'NOAA_NWS'
+    ef.beach_id,
+    -- Convert local time to UTC using beach timezone
+    (ef.forecast_date + ef.forecast_time) AT TIME ZONE COALESCE(b.timezone, 'America/Los_Angeles') AS forecast_ts_utc,
+    ef.wave_height,
+    ef.wave_period,
+    ef.wave_direction,
+    ef.wind_speed,
+    ef.wind_direction
+  FROM enhanced_forecasts ef
+  JOIN beaches b ON ef.beach_id = b.id
+  WHERE ef.data_source = 'NOAA_NWS'
 ),
 observations AS (
   SELECT
     beach_id,
-    ts AS observed_ts,
+    ts AS observed_ts,  -- Already in UTC
     wave_height_m,
     wave_period_s,
     wave_direction_deg
@@ -110,7 +141,7 @@ observations AS (
 )
 SELECT
   f.beach_id,
-  f.forecast_ts,
+  f.forecast_ts_utc,
   f.wave_height AS forecast_height_text,
   f.wave_period AS forecast_period_text,
   f.wave_direction AS forecast_dir_text,
@@ -123,8 +154,13 @@ SELECT
 FROM forecasts f
 JOIN observations o
   ON f.beach_id = o.beach_id
-  AND ABS(EXTRACT(EPOCH FROM (f.forecast_ts - o.observed_ts))) < 7200  -- within 2 hours
-ORDER BY f.forecast_ts;
+  AND ABS(EXTRACT(EPOCH FROM (f.forecast_ts_utc - o.observed_ts))) < 7200  -- within 2 hours
+ORDER BY f.forecast_ts_utc;
+```
+
+**Prerequisite:** Add `timezone` column to `beaches` table if not present:
+```sql
+ALTER TABLE beaches ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'America/Los_Angeles';
 ```
 
 ### Text Parsing Rules
@@ -139,22 +175,32 @@ ORDER BY f.forecast_ts;
 | "Flat" | 0.15 |
 
 ```python
-def parse_wave_height(text: str) -> float:
-    """Parse wave height text to meters."""
-    if not text or text.lower() == 'flat':
+def parse_wave_height(text: str) -> float | None:
+    """
+    Parse wave height text to meters.
+
+    Handles various NOAA formats:
+    - "3-4ft", "3 to 4 ft", "3-4 ft plus"
+    - "3ft", "3 ft"
+    - "Flat", "flat"
+    """
+    if not text or 'flat' in text.lower():
         return 0.15
 
-    # Handle range "3-4ft"
-    match = re.match(r'(\d+)-(\d+)\s*ft', text, re.IGNORECASE)
-    if match:
-        low, high = float(match.group(1)), float(match.group(2))
-        return ((low + high) / 2) * 0.3048
+    # Clean text: remove "plus", "occasional", "to", keep only digits and hyphens
+    clean = re.sub(r'[^\d\-\.]', ' ', text).strip()
 
-    # Handle single value "3ft"
-    match = re.match(r'(\d+)\s*ft', text, re.IGNORECASE)
-    if match:
-        return float(match.group(1)) * 0.3048
+    # Find all numbers in the string
+    nums = [float(n) for n in re.findall(r'\d*\.?\d+', clean)]
 
+    if len(nums) == 2:
+        # Range: take midpoint
+        return ((nums[0] + nums[1]) / 2) * 0.3048
+    elif len(nums) == 1:
+        # Single value
+        return nums[0] * 0.3048
+
+    # Unparseable - return None and let filter drop this row
     return None
 ```
 
@@ -250,13 +296,15 @@ ml/
     └── bias_model_v1.json
 ```
 
-### API Endpoints
+### API Endpoints (with Authentication)
 
 ```python
 # ml/api.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security, status
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import List
+import pandas as pd
 import os
 
 from model import QuiverBiasModel
@@ -264,19 +312,38 @@ from transformers import FeatureEngineer
 
 app = FastAPI(title="Quiver ML Bias Correction")
 
-# Load model on startup
+# ----- Authentication -----
+api_key_header = APIKeyHeader(name="X-Internal-Secret", auto_error=False)
+INTERNAL_SECRET = os.getenv("INTERNAL_SECRET")
+
+def verify_api_key(api_key: str = Security(api_key_header)):
+    """Verify the internal API key for protected endpoints."""
+    if not INTERNAL_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="INTERNAL_SECRET not configured"
+        )
+    if api_key != INTERNAL_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing API key"
+        )
+    return api_key
+
+# ----- Model Loading -----
 model = QuiverBiasModel()
 model.load(os.getenv("MODEL_PATH", "models/bias_model_v1.json"))
 fe = FeatureEngineer()
 
+# ----- Models -----
 class ForecastInput(BaseModel):
     beach_id: str
     forecast_ts: str
     wave_height_m: float
     wave_period_s: float
     wave_direction_deg: float
-    wind_speed_ms: float
-    wind_direction_deg: float
+    wind_speed_ms: float | None = None  # Optional, will impute if missing
+    wind_direction_deg: float | None = None
 
 class CorrectionOutput(BaseModel):
     beach_id: str
@@ -293,14 +360,21 @@ class BatchOutput(BaseModel):
     corrections: List[CorrectionOutput]
     model_version: str
 
+# ----- Endpoints -----
 @app.get("/health")
 def health():
+    """Health check - no auth required (for wake-up pings)."""
     return {"status": "ok", "model_loaded": model.model is not None}
 
-@app.post("/correct", response_model=CorrectionOutput)
+@app.post("/correct", response_model=CorrectionOutput, dependencies=[Security(verify_api_key)])
 def correct_single(input: ForecastInput):
-    """Correct a single forecast."""
+    """Correct a single forecast. Requires X-Internal-Secret header."""
     df = pd.DataFrame([input.dict()])
+
+    # Impute missing values
+    df['wind_speed_ms'] = df['wind_speed_ms'].fillna(0)
+    df['wind_direction_deg'] = df['wind_direction_deg'].fillna(270)
+
     X = fe.preprocess(df)
 
     features = X.drop(columns=['beach_id', 'forecast_ts'], errors='ignore')
@@ -317,13 +391,18 @@ def correct_single(input: ForecastInput):
         model_version=os.getenv("MODEL_VERSION", "v1")
     )
 
-@app.post("/correct/batch", response_model=BatchOutput)
+@app.post("/correct/batch", response_model=BatchOutput, dependencies=[Security(verify_api_key)])
 def correct_batch(input: BatchInput):
-    """Correct multiple forecasts in one request."""
+    """Correct multiple forecasts in one request. Requires X-Internal-Secret header."""
     if not input.forecasts:
         raise HTTPException(status_code=400, detail="No forecasts provided")
 
     df = pd.DataFrame([f.dict() for f in input.forecasts])
+
+    # Impute missing values (match training behavior)
+    df['wind_speed_ms'] = df['wind_speed_ms'].fillna(0)
+    df['wind_direction_deg'] = df['wind_direction_deg'].fillna(270)
+
     X = fe.preprocess(df)
 
     features = X.drop(columns=['beach_id', 'forecast_ts'], errors='ignore')
@@ -391,13 +470,69 @@ python-dotenv==1.0.0
 // app/api/cron/ml/correct-forecasts/route.ts
 import { createClient } from '@supabase/supabase-js';
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL;
+// Allow up to 60 seconds for cold start + processing
+export const maxDuration = 60;
+
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL!;
+const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET!;
+
+// ----- Helper: Retry with backoff -----
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok || response.status < 500) {
+        return response;
+      }
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      lastError = err as Error;
+    }
+
+    // Exponential backoff: 1s, 2s, 4s
+    if (attempt < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+
+  throw lastError;
+}
+
+// ----- Helper: Wake up the service -----
+async function wakeUpService(): Promise<boolean> {
+  try {
+    const response = await fetch(`${ML_SERVICE_URL}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(15000), // 15s timeout for cold start
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 export async function GET(request: Request) {
   // Verify cron secret
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Wake up the ML service (handles cold start)
+  const isAwake = await wakeUpService();
+  if (!isAwake) {
+    // Retry wake-up once
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const retryAwake = await wakeUpService();
+    if (!retryAwake) {
+      return Response.json({ error: 'ML service unavailable after wake-up attempts' }, { status: 503 });
+    }
   }
 
   const supabase = createClient(
@@ -428,15 +563,22 @@ export async function GET(request: Request) {
     wind_direction_deg: parseFloat(f.wind_direction) || 270
   })).filter(f => f.wave_height_m !== null);
 
-  // Call ML service
-  const response = await fetch(`${ML_SERVICE_URL}/correct/batch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ forecasts: parsed })
-  });
+  // Call ML service with auth header and retry logic
+  const response = await fetchWithRetry(
+    `${ML_SERVICE_URL}/correct/batch`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Secret': ML_INTERNAL_SECRET,
+      },
+      body: JSON.stringify({ forecasts: parsed }),
+    }
+  );
 
   if (!response.ok) {
-    return Response.json({ error: 'ML service error' }, { status: 502 });
+    const errorText = await response.text();
+    return Response.json({ error: `ML service error: ${errorText}` }, { status: 502 });
   }
 
   const { corrections } = await response.json();
@@ -610,26 +752,37 @@ def check_health():
 
 ## Implementation Plan
 
-### Phase 1: Training Data Pipeline (Week 1)
-1. Create `ml/extract_training_data.py`
-2. Implement text parsing utilities
-3. Generate first training dataset
+### Phase 0: Prerequisites
+1. Add `timezone` column to `beaches` table (default: `America/Los_Angeles`)
+2. Verify all California beaches have correct timezone
+3. Generate and store `ML_INTERNAL_SECRET` in password manager
+
+### Phase 1: Training Data Pipeline
+1. Create `ml/extract_training_data.py` with timezone-aware query
+2. Implement robust text parsing utilities
+3. Generate first training dataset (~30k pairs)
 4. Update `ml/train.py` to load real data
 5. Train and evaluate model v1
+6. Document imputation strategy (match inference behavior)
 
-### Phase 2: Python Service (Week 1-2)
-1. Create `ml/api.py` with FastAPI
+### Phase 2: Python Service
+1. Create `ml/api.py` with FastAPI + authentication
 2. Create Dockerfile and requirements.txt
 3. Deploy to Railway/Fly.io free tier
-4. Test health and batch endpoints
+4. Configure `INTERNAL_SECRET` environment variable
+5. Test health endpoint (no auth) and batch endpoint (with auth)
 
-### Phase 3: Integration (Week 2)
+### Phase 3: Integration
 1. Create database migrations for new tables
-2. Create correction cron job
+2. Create correction cron job with:
+   - Wake-up ping logic
+   - Retry with backoff
+   - `maxDuration = 60`
+   - `X-Internal-Secret` header
 3. Create backfill observations cron job
 4. Test end-to-end flow
 
-### Phase 4: Monitoring (Week 2-3)
+### Phase 4: Monitoring
 1. Create weekly metrics SQL function
 2. Create health check script
 3. Set up alerting (Slack webhook or email)
@@ -690,13 +843,20 @@ supabase/migrations/
 ## Appendix: Environment Variables
 
 ```bash
-# Python service
+# Python service (Railway/Fly.io)
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_KEY=xxx
 MODEL_PATH=models/bias_model_v1.json
 MODEL_VERSION=v1
+INTERNAL_SECRET=xxx  # Shared secret for API auth
 
-# Next.js app
+# Next.js app (Vercel)
 ML_SERVICE_URL=https://quiver-ml.fly.dev
-CRON_SECRET=xxx
+ML_INTERNAL_SECRET=xxx  # Same as INTERNAL_SECRET above
+CRON_SECRET=xxx  # Vercel cron auth
+```
+
+**Security note:** Generate `INTERNAL_SECRET` with:
+```bash
+openssl rand -hex 32
 ```
