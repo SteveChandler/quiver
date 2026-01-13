@@ -78,7 +78,7 @@ async function enrichWithPhotos(
     .from('beach_photos')
     .select('beach_id, image_url')
     .in('beach_id', beachIds)
-    .order('created_at', { ascending: false });
+    .order('fetched_at', { ascending: false });
 
   const { data: photos } = await withApprovedPhotos(baseQuery);
 
