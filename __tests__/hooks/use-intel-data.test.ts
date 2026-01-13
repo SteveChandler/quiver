@@ -55,6 +55,8 @@ describe("useIntelData", () => {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     dedupe_hash: null,
+    emoji_rating: null,
+    report_count: 0,
     user: {
       full_name: "Test User",
       avatar_url: null,
