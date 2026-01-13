@@ -30,13 +30,13 @@ async function main() {
   console.log('Forecaster ID:', forecaster.id);
 
   for (const [key, regionConfig] of Object.entries(FORECAST_REGIONS)) {
-    const { data: beach, error: beachError } = await supabase
+    const { data: beaches, error: beachError } = await supabase
       .from('beaches')
-      .select('id, center_lat, center_lng')
+      .select('id, lat, lon')
       .ilike('name', '%' + regionConfig.primaryBeach + '%')
-      .limit(1)
-      .single();
+      .limit(1);
 
+    const beach = beaches?.[0];
     if (beachError || !beach) {
       console.log('⚠️ Beach not found for ' + regionConfig.name + ': ' + regionConfig.primaryBeach);
       continue;
@@ -59,8 +59,8 @@ async function main() {
     const { error: insertError } = await supabase.from('intel_posts').insert({
       user_id: forecaster.id,
       beach_id: beach.id,
-      latitude: beach.center_lat,
-      longitude: beach.center_lng,
+      latitude: beach.lat,
+      longitude: beach.lon,
       tag: 'conditions',
       title,
       description,
