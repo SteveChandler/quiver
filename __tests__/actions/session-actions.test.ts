@@ -17,6 +17,13 @@ import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 // Import the module for testing
 import * as sessionActionsModule from "@/actions/session-actions";
 
+// Type for test sessions that matches the function's expected input
+type TestSession = {
+  id: string;
+  featured_photo_url?: string | null;
+  image_url?: string | null;
+};
+
 // Helper to create mock Supabase client for addFeaturedPhotoToSessions
 function createMockSupabaseClient(mockResult: { data: any; error: any }) {
   const chain = {
@@ -82,7 +89,7 @@ describe("session-actions", () => {
         error: null,
       });
 
-      const sessions = [{ id: "s1" }]; // No featured_photo_url
+      const sessions: TestSession[] = [{ id: "s1" }]; // No featured_photo_url
 
       const result = await sessionActionsModule.addFeaturedPhotoToSessions(mockClient, sessions);
       expect(result[0].featured_photo_url).toBe("fetched-photo.jpg");
@@ -94,7 +101,7 @@ describe("session-actions", () => {
         error: { message: "DB error" },
       });
 
-      const sessions = [{ id: "s1" }];
+      const sessions: TestSession[] = [{ id: "s1" }];
 
       // Should not throw, just return sessions without featured photos
       const result = await sessionActionsModule.addFeaturedPhotoToSessions(mockClient, sessions);
@@ -108,7 +115,7 @@ describe("session-actions", () => {
         error: null,
       });
 
-      const sessions = [{ id: "s1" }];
+      const sessions: TestSession[] = [{ id: "s1" }];
 
       const result = await sessionActionsModule.addFeaturedPhotoToSessions(mockClient, sessions);
       expect(result).toHaveLength(1);
@@ -148,7 +155,7 @@ describe("session-actions", () => {
         error: null,
       });
 
-      const sessions = [{ id: "s1" }];
+      const sessions: TestSession[] = [{ id: "s1" }];
 
       const result = await sessionActionsModule.addFeaturedPhotoToSessions(mockClient, sessions);
       expect(result[0].featured_photo_url).toBe("newest-photo.jpg");
@@ -163,7 +170,7 @@ describe("session-actions", () => {
         error: null,
       });
 
-      const sessions = [
+      const sessions: TestSession[] = [
         { id: "s1" },
         { id: "s2" }, // No photo for this session
       ];
