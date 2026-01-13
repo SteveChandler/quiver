@@ -102,6 +102,7 @@ export const IntelPostCreateSchema = z.object({
     .min(1, 'Description is required')
     .max(500, 'Description cannot exceed 500 characters')
     .trim(),
+  emoji_rating: z.enum(['fire', 'shaka', 'meh', 'thumbsdown']).optional(),
   photo_url: urlSchema,
   photo_storage_path: z.string().max(500, 'Storage path too long').optional(),
   wave_height: z.number()
@@ -129,6 +130,15 @@ export const IntelPostCreateSchema = z.object({
 });
 
 export type IntelPostCreateInput = z.infer<typeof IntelPostCreateSchema>;
+
+export const IntelReportSchema = z.object({
+  reason: z.string()
+    .max(500, 'Reason cannot exceed 500 characters')
+    .trim()
+    .optional(),
+});
+
+export type IntelReportInput = z.infer<typeof IntelReportSchema>;
 
 // ============================================================================
 // Beach Search
