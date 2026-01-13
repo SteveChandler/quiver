@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Activity,
   Wind,
@@ -435,12 +436,14 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
                   {item.photoUrl && (
                     <button
                       onClick={() => setPhotoModal({ open: true, url: item.photoUrl!, caption: item.message })}
-                      className="mt-2"
+                      className="mt-2 relative w-12 h-12"
                     >
-                      <img
+                      <Image
                         src={item.photoUrl}
                         alt="Intel photo"
-                        className="w-12 h-12 rounded-lg object-cover hover:opacity-80 transition-opacity"
+                        fill
+                        className="rounded-lg object-cover hover:opacity-80 transition-opacity"
+                        sizes="48px"
                       />
                     </button>
                   )}
