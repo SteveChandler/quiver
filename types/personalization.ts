@@ -141,8 +141,8 @@ export interface DetailedScore {
  * match quality indicators, and distance information for GPS phase.
  */
 export interface SurfDiscoveryRecommendation {
-  /** Beach with location coordinates */
-  beach: Beach;
+  /** Beach with location coordinates and optional photo */
+  beach: Beach & { photo_url?: string | null };
   /** Optimal time window for surfing */
   window: PersonalizedForecastWindow;
   /** Full forecast data for the window */
