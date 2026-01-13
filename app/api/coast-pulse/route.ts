@@ -545,7 +545,10 @@ async function fetchRecentIntel(
         photo_url,
         latitude,
         longitude,
-        confirmations_count
+        confirmations_count,
+        profiles:user_id (
+          full_name
+        )
       `
       )
       .eq("is_active", true)
@@ -562,23 +565,28 @@ async function fetchRecentIntel(
       return dist <= 50; // Within 50km
     });
 
-    return nearbyPosts.slice(0, 5).map((post: any) => ({
-      id: `intel-${post.id}`,
-      source: {
-        name: "Local Surfer",
-        type: "intel" as const,
-        credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2, // Boost credibility with confirmations
-      },
-      message: truncateText(post.description || post.title, 100),
-      timestamp: new Date(post.created_at),
-      location: {
-        lat: post.latitude,
-        lon: post.longitude,
-        distanceKm: haversineDistance(lat, lon, post.latitude, post.longitude),
-      },
-      photoUrl: post.photo_url || undefined,
-      emoji_rating: post.emoji_rating || undefined,
-    }));
+    return nearbyPosts.slice(0, 5).map((post: any) => {
+      // Get surfer name from joined profile, fallback to "Local Surfer"
+      const surferName = post.profiles?.full_name || "Local Surfer";
+
+      return {
+        id: `intel-${post.id}`,
+        source: {
+          name: surferName,
+          type: "intel" as const,
+          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2, // Boost credibility with confirmations
+        },
+        message: truncateText(post.description || post.title, 100),
+        timestamp: new Date(post.created_at),
+        location: {
+          lat: post.latitude,
+          lon: post.longitude,
+          distanceKm: haversineDistance(lat, lon, post.latitude, post.longitude),
+        },
+        photoUrl: post.photo_url || undefined,
+        emoji_rating: post.emoji_rating || undefined,
+      };
+    });
   } catch (err) {
     console.error("Intel fetch error:", err);
     return [];
