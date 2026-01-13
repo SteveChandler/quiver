@@ -126,8 +126,8 @@ test.describe('Coast Pulse Intel Features', () => {
       const coastPulse = page.locator('[data-testid="coast-pulse-section"]');
       await expect(coastPulse).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      // Check for live indicator
-      const liveIndicator = coastPulse.locator('text=Live');
+      // Check for live indicator badge (the small "Live" text next to the pulsing dot)
+      const liveIndicator = coastPulse.getByText('Live', { exact: true });
       await expect(liveIndicator).toBeVisible();
     });
 
