@@ -50,7 +50,8 @@ const boardFormSchema = z.object({
     .string()
     .max(300, "Description must be less than 300 characters")
     .optional(),
-  image_url: z.string().optional(),
+  image_url: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  volume: z.number().min(0).max(500).optional(),
 });
 
 type BoardFormValues = z.infer<typeof boardFormSchema>;
@@ -77,6 +78,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
       dimensions: "",
       description: "",
       image_url: "",
+      volume: undefined,
     },
   });
 
@@ -87,6 +89,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
       dimensions: "",
       description: "",
       image_url: "",
+      volume: undefined,
     });
   };
 
@@ -107,7 +110,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         image_url: data.image_url || null,
         description: data.description || null,
         size: null,
-        volume: null,
+        volume: data.volume || null,
       });
 
       if (!result.success) {
@@ -150,6 +153,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         ...data,
         image_url: data.image_url || null,
         description: data.description || null,
+        volume: data.volume || null,
       });
 
       if (!result.success) {
@@ -222,6 +226,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
       dimensions: board.dimensions,
       description: board.description || "",
       image_url: board.image_url || "",
+      volume: board.volume || undefined,
     });
     setIsEditDialogOpen(true);
   };

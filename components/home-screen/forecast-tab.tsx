@@ -46,6 +46,9 @@ import { isNativeApp } from "@/lib/mobile/platform";
 import { PersonalizedForecastCard, type ReminderResult } from "@/components/home-screen/personalized-forecast-card";
 import { BeachDiscoveryList } from "@/components/discover/beach-discovery-list";
 import { SimilarSessionsDrawer } from "@/components/home-screen/similar-sessions-drawer";
+import { CoastPulse } from "@/components/dashboard/coast-pulse";
+import { ProfileStrength } from "@/components/dashboard/profile-strength";
+import { getUserBoards, getProfileStrength } from "@/actions/dashboard-actions";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -248,6 +251,20 @@ export function ForecastTab({
     fetchPopularBeach,
     { skip: !!homeBeach?.id, initialData: null }
   );
+
+  // Fetch user's boards for personalization
+  const { data: boardsResponse } = useDataFetcher(
+    () => getUserBoards(),
+    { skip: !profile, initialData: null }
+  );
+  const boards = boardsResponse?.data || [];
+
+  // Fetch profile strength for onboarding widget
+  const { data: strengthResponse } = useDataFetcher(
+    () => getProfileStrength(),
+    { skip: !profile, initialData: null }
+  );
+  const profileStrength = strengthResponse?.data || null;
 
   const effectiveBeach = (overrideBeach ||
     homeBeach ||
@@ -611,6 +628,17 @@ export function ForecastTab({
           selectedBeachName={effectiveBeach.name}
         />
       )}
+
+      {/* Profile Strength - auto-hides when complete */}
+      {profile && (
+        <ProfileStrength strength={profileStrength} />
+      )}
+
+      {/* Live Coast Pulse - shows real-time buoy data */}
+      {profile && effectiveBeach?.lat && effectiveBeach?.lon && (
+        <CoastPulse lat={effectiveBeach.lat} lon={effectiveBeach.lon} />
+      )}
+
       {/* Personalized Forecast Recommendation */}
       {profile && (
         <PersonalizedForecastCard

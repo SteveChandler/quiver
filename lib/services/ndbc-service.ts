@@ -16,6 +16,7 @@ type NDBCObservation = {
   wave_direction_deg: number | null; // MWD degrees
   wind_speed_ms: number | null; // WSPD m/s
   wind_direction_deg: number | null; // WDIR degrees
+  water_temp_c: number | null; // WTMP water temperature in Celsius
 };
 
 /**
@@ -25,6 +26,15 @@ const stationCache: { at: number; stations: NDBCStation[] } = {
   at: 0,
   stations: [],
 };
+
+/**
+ * Cache for NDBC observations (10-minute TTL to reduce API calls)
+ */
+const observationCache: Map<
+  string,
+  { at: number; obs: NDBCObservation | null }
+> = new Map();
+const OBS_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 async function getActiveNDBCStations(): Promise<NDBCStation[]> {
   const now = Date.now();
@@ -76,13 +86,24 @@ export async function getNearestNDBCStation(
 
 /**
  * Fetch latest realtime2 observation file and parse header/row
+ * Uses in-memory cache with 10-minute TTL to reduce external API calls
  */
 export async function fetchLatestNDBCObservation(
   stationId: string
 ): Promise<NDBCObservation | null> {
+  // Check cache first
+  const cached = observationCache.get(stationId);
+  if (cached && Date.now() - cached.at < OBS_CACHE_TTL) {
+    return cached.obs;
+  }
+
   const url = `https://www.ndbc.noaa.gov/data/realtime2/${stationId}.txt`;
   const res = await fetchWithTimeout(url, { timeoutMs: 15000 });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    // Cache null result to avoid repeated failed requests
+    observationCache.set(stationId, { at: Date.now(), obs: null });
+    return null;
+  }
   const text = await res.text();
   const lines = text.split(/\r?\n/).filter(Boolean);
   // Find header line starting with '#YY'
@@ -120,6 +141,7 @@ export async function fetchLatestNDBCObservation(
   const MWD = asNum(get("MWD"));
   const WSPD = asNum(get("WSPD"));
   const WDIR = asNum(get("WDIR"));
+  const WTMP = asNum(get("WTMP")); // water temperature in Celsius
 
   const obs: NDBCObservation = {
     ts,
@@ -128,6 +150,11 @@ export async function fetchLatestNDBCObservation(
     wave_direction_deg: isFinite(MWD) ? MWD : null,
     wind_speed_ms: isFinite(WSPD) ? WSPD : null,
     wind_direction_deg: isFinite(WDIR) ? WDIR : null,
+    water_temp_c: isFinite(WTMP) ? WTMP : null,
   };
+
+  // Cache the observation
+  observationCache.set(stationId, { at: Date.now(), obs });
+
   return obs;
 }

@@ -1,7 +1,12 @@
 "use client";
 
 import { Control, FieldValues, Path } from "react-hook-form";
-import { FormInput, FormTextarea } from "@/components/ui/form-fields";
+import {
+  FormInput,
+  FormTextarea,
+  FormSelect,
+  FormNumberInput,
+} from "@/components/ui/form-fields";
 
 /**
  * Shape of board form values - matches the boardFormSchema used in boards-manager and add-board-dialog
@@ -12,7 +17,24 @@ export interface BoardFormFieldValues {
   dimensions: string;
   description?: string;
   image_url?: string;
+  volume?: number;
 }
+
+/**
+ * Board type options for the dropdown
+ */
+const BOARD_TYPE_OPTIONS = [
+  { value: "shortboard", label: "Shortboard" },
+  { value: "longboard", label: "Longboard" },
+  { value: "fish", label: "Fish" },
+  { value: "mid-length", label: "Mid-Length" },
+  { value: "funboard", label: "Funboard" },
+  { value: "step-up", label: "Step-Up" },
+  { value: "softboard", label: "Softboard" },
+  { value: "gun", label: "Gun" },
+  { value: "sup", label: "SUP" },
+  { value: "other", label: "Other" },
+];
 
 interface BoardFormFieldsProps<
   TFieldValues extends FieldValues = BoardFormFieldValues
@@ -48,15 +70,24 @@ export function BoardFormFields<
         placeholder={showPlaceholders ? "My Favorite Shortboard" : undefined}
         disabled={disabled}
       />
-      <FormInput
-        control={control}
-        name={"board_type" as Path<TFieldValues>}
-        label="Board Type"
-        placeholder={
-          showPlaceholders ? "Shortboard, Longboard, Fish, etc." : undefined
-        }
-        disabled={disabled}
-      />
+      <div className="grid grid-cols-2 gap-4">
+        <FormSelect
+          control={control}
+          name={"board_type" as Path<TFieldValues>}
+          label="Board Type"
+          options={BOARD_TYPE_OPTIONS}
+          placeholder={showPlaceholders ? "Select board type" : undefined}
+          disabled={disabled}
+        />
+        <FormNumberInput
+          control={control}
+          name={"volume" as Path<TFieldValues>}
+          label="Volume (L)"
+          placeholder={showPlaceholders ? "32.5" : undefined}
+          step="0.1"
+          disabled={disabled}
+        />
+      </div>
       <FormInput
         control={control}
         name={"dimensions" as Path<TFieldValues>}

@@ -108,6 +108,25 @@ jest.mock("@/lib/supabase/server", () => {
             };
           }
 
+          // beach_photos table used by enrichWithPhotos()
+          if (table === "beach_photos") {
+            return {
+              in() {
+                return {
+                  order() {
+                    return {
+                      eq() {
+                        return {
+                          is: async () => ({ data: [], error: null }),
+                        };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          }
+
           // Default: empty
           return {
             eq() {

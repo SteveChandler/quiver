@@ -398,6 +398,8 @@ export function createMockIntelPost(
     photo_url: null,
     photo_storage_path: null,
     surf_conditions: null,
+    emoji_rating: null,
+    report_count: 0,
     ...overrides,
   };
 }

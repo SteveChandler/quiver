@@ -50,6 +50,7 @@ export const FEATURED_BEACHES_LIMIT = 50;
 export const FALLBACK_IMAGE_BY_NAME = {
   "Black's Beach": "/images/blacks.webp",
   "Blacks Beach": "/images/blacks.webp",
+  Blacks: "/images/blacks.webp",
   "Swami's": "/images/Winter-Swamis.webp",
   Swamis: "/images/Winter-Swamis.webp",
   Tourmaline: "/images/tourmaline.png",

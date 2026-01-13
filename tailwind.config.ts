@@ -49,6 +49,11 @@ const config: Config = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          orange: "#f97316", // Primary accent for home screen
+        },
+        header: {
+          start: "#0f172a", // Dark gradient start (slate-900)
+          end: "#1e293b", // Dark gradient end (slate-800)
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",

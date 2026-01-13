@@ -76,10 +76,9 @@ function AuthOverlays() {
   // from using useSearchParams at the top-level.
   useEffect(() => {
     try {
-      const params =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search)
-          : null;
+      // eslint-disable-next-line no-restricted-properties -- Reading URL on mount, not for navigation
+      const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+      const params = url?.searchParams;
       setAllowUnauthedDebug(
         params?.get("showOnboarding") === "1" || params?.get("showTour") === "1"
       );

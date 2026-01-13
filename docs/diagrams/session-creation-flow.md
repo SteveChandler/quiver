@@ -5,7 +5,7 @@
 **Audience**: Full-stack developers, product managers
 
 **Created**: October 28, 2025
-**Last Updated**: October 28, 2025
+**Last Updated**: January 13, 2026
 
 ---
 
@@ -22,6 +22,174 @@ The session creation flow demonstrates Quiver's complete data pipeline:
 7. Activity feed generation
 8. Real-time updates to followers
 9. Push notifications
+
+---
+
+## Condition Fields Data Flow (Critical)
+
+### Overview
+
+Session logging includes condition fields (wave height, wind, tide, forecast accuracy) that flow from the UI through multiple code paths to the database. This section documents the complete data flow to prevent data loss bugs.
+
+### Architecture Warning
+
+**IMPORTANT**: The session wizard has TWO code paths that both build session data objects. When adding or modifying condition fields, BOTH paths must be updated:
+
+1. **Path 1**: `AnimatedSessionWizard.tsx` (handleInternalSubmit) - builds sessionData internally
+2. **Path 2**: `app/sessions/new/page.tsx` (handleSessionComplete) - builds loggedSessionData from callback
+
+### Complete Condition Fields Flow
+
+```mermaid
+flowchart TD
+    subgraph UI["UI Layer"]
+        CS[ConditionsSection.tsx]
+        WH[Wave Height Input]
+        WS[Wind Speed Input]
+        WD[Wind Direction Select]
+        TH[Tide Height Input]
+        TS[Tide Status Select]
+        FA[Forecast Accuracy Buttons<br/>Yes / Kinda / No]
+    end
+
+    subgraph State["Form State Layer"]
+        FS[formState via updateField]
+        WH --> |waveHeight| FS
+        WS --> |windSpeed| FS
+        WD --> |windDirection| FS
+        TH --> |tideHeight| FS
+        TS --> |tideStatus| FS
+        FA --> |forecastAccuracy| FS
+    end
+
+    subgraph Wizard["Session Wizard Layer"]
+        ASW[AnimatedSessionWizard.tsx]
+        HIS[handleInternalSubmit]
+        OC[onComplete callback]
+
+        FS --> ASW
+        ASW --> HIS
+        HIS --> OC
+    end
+
+    subgraph Page["Page Layer"]
+        PG[app/sessions/new/page.tsx]
+        HSC[handleSessionComplete]
+        LSD[loggedSessionData object]
+
+        OC --> PG
+        PG --> HSC
+        HSC --> LSD
+    end
+
+    subgraph Action["Server Action Layer"]
+        CLS[createLoggedSession]
+        LSD --> CLS
+    end
+
+    subgraph DB["Database Layer"]
+        ST[(sessions table)]
+        CLS --> ST
+    end
+
+    classDef critical fill:#ff6b6b,stroke:#c92a2a,stroke-width:2px
+    classDef warning fill:#ffd93d,stroke:#ffa500,stroke-width:2px
+    classDef success fill:#50C878,stroke:#2E8B57,stroke-width:2px
+
+    class HSC,LSD critical
+    class HIS,OC warning
+    class ST success
+```
+
+### Field Mapping Reference
+
+| UI Component | Form State Field | Database Column | Type | Valid Values |
+|-------------|------------------|-----------------|------|--------------|
+| Wave Height Input | `waveHeight` | `wave_height_ft` | float | 0-50 |
+| Wind Speed Input | `windSpeed` | `wind_speed_mph` | float | 0-100 |
+| Wind Direction Select | `windDirection` | `wind_direction` | text | N, NE, E, SE, S, SW, W, NW, OFFSHORE, ONSHORE, CROSS |
+| Tide Height Input | `tideHeight` | `tide_height_ft` | float | -10 to 50 |
+| Tide Status Select | `tideStatus` | `tide_status` | text | rising, falling, high, low |
+| Forecast Accuracy Buttons | `forecastAccuracy` | `forecast_accuracy` | text | accurate, somewhat, inaccurate |
+
+### Page Handler Implementation (Critical)
+
+The `handleSessionComplete` function in `app/sessions/new/page.tsx` MUST include all condition field mappings:
+
+```typescript
+const handleSessionComplete = async (sessionData: SessionFormState) => {
+  // ... validation code ...
+
+  const loggedSessionData = {
+    // Core session fields
+    beach_id: selectedBeach.id,
+    arrival_time: arrivalTime,
+    status: "completed",
+    is_public: true,
+
+    // Quality ratings
+    ...(sessionData.waveQuality && {
+      wave_quality: parseInt(sessionData.waveQuality),
+    }),
+    ...(sessionData.crowdLevel && {
+      crowd_level: parseInt(sessionData.crowdLevel),
+    }),
+    ...(sessionData.parkingEase && {
+      parking_ease: parseInt(sessionData.parkingEase),
+    }),
+    ...(sessionData.overallRating && {
+      rating: parseInt(sessionData.overallRating),
+    }),
+
+    // CONDITION FIELDS - All must be included!
+    ...(sessionData.waveHeight !== undefined && {
+      wave_height_ft: sessionData.waveHeight,
+    }),
+    ...(sessionData.windSpeed !== undefined && {
+      wind_speed_mph: sessionData.windSpeed,
+    }),
+    ...(sessionData.windDirection && {
+      wind_direction: sessionData.windDirection,
+    }),
+    ...(sessionData.tideHeight !== undefined && {
+      tide_height_ft: sessionData.tideHeight,
+    }),
+    ...(sessionData.tideStatus && {
+      tide_status: sessionData.tideStatus,
+    }),
+
+    // FORECAST ACCURACY - Critical for calibration
+    ...(sessionData.forecastAccuracy && {
+      forecast_accuracy: sessionData.forecastAccuracy,
+    }),
+  };
+
+  result = await createLoggedSession(loggedSessionData);
+};
+```
+
+### Historical Bug (Fixed January 2025)
+
+**Symptom**: User-submitted forecast accuracy feedback (Yes/Kinda/No buttons) was not being saved. The `sessions.forecast_accuracy` column was always NULL.
+
+**Root Cause**: The page-level handler (`app/sessions/new/page.tsx`) was missing the condition field mappings. The wizard component passed the data correctly, but the page handler that builds `loggedSessionData` did not include:
+- `wave_height_ft`
+- `wind_speed_mph`
+- `wind_direction`
+- `tide_height_ft`
+- `tide_status`
+- `forecast_accuracy`
+
+**Fix**: Added all condition field mappings to `handleSessionComplete` in `app/sessions/new/page.tsx` (lines 409-431).
+
+**Prevention**: When adding new condition fields:
+1. Add to `SessionFormState` type in `hooks/use-session-form.ts`
+2. Add UI component in `ConditionsSection.tsx` with `updateField()` call
+3. Update BOTH submission handlers:
+   - `AnimatedSessionWizard.tsx` (handleInternalSubmit)
+   - `app/sessions/new/page.tsx` (handleSessionComplete)
+4. Add database column if needed
+5. Add to server action if field validation is required
 
 ---
 
@@ -138,7 +306,7 @@ sequenceDiagram
 
     alt User has followers
         Action->>FCM: Build notification payload
-        FCM->>FCM: Personalize message<br/>"[User] logged a [rating]★ session"
+        FCM->>FCM: Personalize message<br/>"[User] logged a [rating] session"
 
         loop Each Follower Device
             FCM->>Followers: Send push notification
@@ -555,7 +723,7 @@ graph TD
 
     PhotoBonus --> CheckRating{Rating?}
 
-    CheckRating --> RatingBonus[Rating × 5 XP]
+    CheckRating --> RatingBonus[Rating x 5 XP]
     RatingBonus --> CheckBoard{Used Board?}
 
     CheckBoard -->|Yes| BoardBonus[+5 XP]
@@ -832,7 +1000,7 @@ async function notifyFollowers(
     await sendPushNotification({
       token: device.device_token,
       title: 'New Session',
-      body: `${user.username} logged a ${session.rating}★ session at ${session.beaches.name}`,
+      body: `${user.username} logged a ${session.rating} star session at ${session.beaches.name}`,
       data: {
         type: 'session',
         session_id: sessionId,
@@ -982,6 +1150,7 @@ await Promise.all([
 - [System Architecture Guide](../architecture/SYSTEM_ARCHITECTURE.md)
 - [API Documentation](../architecture/API_DOCUMENTATION.md) - Session API endpoints
 - [Data Flow Guides](../architecture/DATA_FLOWS.md) - Other data flows
+- [Session Forms Architecture](/components/session-forms/ARCHITECTURE.md) - Condition fields data flow details
 
 ---
 
@@ -993,3 +1162,4 @@ await Promise.all([
 - Push notifications drive re-engagement
 - Transaction-like error handling ensures data consistency
 - Parallel operations optimize performance
+- **Condition fields have dual code paths - both must be updated when adding fields**

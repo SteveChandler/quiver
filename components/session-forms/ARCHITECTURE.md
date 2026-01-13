@@ -1,18 +1,18 @@
 # Session Forms Components Architecture
 
-## 🎯 **PURPOSE**
+## PURPOSE
 
 The session forms components provide a comprehensive, multi-step session planning and logging system with forecast integration, equipment management, and community features.
 
-## 📁 **COMPONENT STRUCTURE**
+## COMPONENT STRUCTURE
 
 ```
 components/session-forms/
 ├── SessionForm.tsx               # Main container with business logic
 ├── SessionFormWrapper.tsx       # Auth wrapper and error boundaries
 ├── SessionFormHeader.tsx        # Mode-aware header component
-├── session-wizard.tsx           # 🆕 Phase 2 Wizard Component (Primary Interface)
-├── index.ts                     # 🆕 Component exports
+├── session-wizard.tsx           # Phase 2 Wizard Component (Primary Interface)
+├── index.ts                     # Component exports
 ├── ProgressIndicator.tsx        # Step progress visualization
 ├── FormNavigation.tsx           # Step navigation controls
 ├── DateTimeSection.tsx          # Date/time selection (dual mode)
@@ -28,9 +28,9 @@ components/session-forms/
 └── GroupInvitationsSection.tsx  # Social session invitations
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## ARCHITECTURE PATTERNS
 
-### **Dual-Mode Architecture**
+### Dual-Mode Architecture
 
 ```typescript
 type SessionFormMode = "plan" | "log";
@@ -44,7 +44,7 @@ const getFormSteps = (mode: SessionFormMode) => {
 };
 ```
 
-### **Step-Based State Management**
+### Step-Based State Management
 
 ```typescript
 interface SessionFormState {
@@ -67,7 +67,7 @@ interface SessionFormState {
 }
 ```
 
-### **Controlled Form Pattern**
+### Controlled Form Pattern
 
 ```typescript
 // Centralized state management
@@ -81,9 +81,104 @@ const updateField = <K extends keyof SessionFormState>(
 };
 ```
 
-## 📊 **COMPONENT RESPONSIBILITIES**
+## SESSION LOGGING DATA FLOW (CRITICAL)
 
-### **SessionWizard** (🆕 Phase 2 Primary Interface)
+### Overview
+
+Session logging has **two code paths** that must both include condition fields. This dual-path architecture exists because the Session Wizard component and the page-level handler both build session data objects.
+
+### Data Flow Diagram
+
+```
+UI Layer: ConditionsSection.tsx
+│
+│  User interacts with:
+│  - Wave height input
+│  - Wind speed/direction selectors
+│  - Tide height/status inputs
+│  - Forecast accuracy buttons (Yes/Kinda/No)
+│
+└─▶ formState (via updateField callback)
+    │
+    │  State fields updated:
+    │  - formState.waveHeight (number)
+    │  - formState.windSpeed (number)
+    │  - formState.windDirection (string)
+    │  - formState.tideHeight (number)
+    │  - formState.tideStatus (string)
+    │  - formState.forecastAccuracy ("accurate" | "somewhat" | "inaccurate")
+    │
+    ├─▶ Path 1: AnimatedSessionWizard.tsx (handleInternalSubmit)
+    │   │
+    │   │  Internal submission handler builds sessionData
+    │   │  and passes to onComplete callback
+    │   │
+    │   └─▶ page.tsx handleSessionComplete()
+    │
+    └─▶ Path 2: page.tsx handleSessionComplete()
+        │
+        │  CRITICAL: Must map ALL condition fields to loggedSessionData:
+        │
+        │  loggedSessionData = {
+        │    wave_height_ft: sessionData.waveHeight,
+        │    wind_speed_mph: sessionData.windSpeed,
+        │    wind_direction: sessionData.windDirection,
+        │    tide_height_ft: sessionData.tideHeight,
+        │    tide_status: sessionData.tideStatus,
+        │    forecast_accuracy: sessionData.forecastAccuracy,
+        │    ...other fields
+        │  }
+        │
+        └─▶ createLoggedSession() server action
+            │
+            └─▶ Supabase sessions table
+                │
+                Columns populated:
+                - wave_height_ft (float)
+                - wind_speed_mph (float)
+                - wind_direction (text)
+                - tide_height_ft (float)
+                - tide_status (text)
+                - forecast_accuracy (text: 'accurate'|'somewhat'|'inaccurate')
+```
+
+### Condition Fields Reference
+
+| Form State Field | Database Column | Type | Values |
+|-----------------|-----------------|------|--------|
+| `waveHeight` | `wave_height_ft` | float | 0-50 |
+| `windSpeed` | `wind_speed_mph` | float | 0-100 |
+| `windDirection` | `wind_direction` | text | N, NE, E, SE, S, SW, W, NW, OFFSHORE, ONSHORE, CROSS |
+| `tideHeight` | `tide_height_ft` | float | -10 to 50 |
+| `tideStatus` | `tide_status` | text | rising, falling, high, low |
+| `forecastAccuracy` | `forecast_accuracy` | text | accurate, somewhat, inaccurate |
+
+### Dual Code Path Warning
+
+**IMPORTANT**: When adding new condition fields to `ConditionsSection.tsx`:
+
+1. Add the field to `SessionFormState` type in `hooks/use-session-form.ts`
+2. Update `ConditionsSection.tsx` to use `updateField()` for the new field
+3. Update BOTH submission handlers:
+   - `components/session/wizard/AnimatedSessionWizard.tsx` (handleInternalSubmit)
+   - `app/sessions/new/page.tsx` (handleSessionComplete)
+4. Add the database column mapping in both locations
+5. Update `actions/session-actions.ts` if the server action needs changes
+
+Failure to update both paths will result in data loss where the field appears to work in the UI but is never persisted to the database.
+
+### Historical Bug Reference (January 2025)
+
+A bug was fixed where `forecast_accuracy` and other condition fields were not being saved to the database. The root cause was that `app/sessions/new/page.tsx` had its own `handleSessionComplete` function that built `loggedSessionData` without including these fields, even though:
+- `ConditionsSection.tsx` correctly captured user input
+- `AnimatedSessionWizard.tsx` correctly passed the data
+- The server action was capable of storing the fields
+
+The fix required adding all condition field mappings to the page-level handler.
+
+## COMPONENT RESPONSIBILITIES
+
+### SessionWizard (Phase 2 Primary Interface)
 
 - **Purpose**: Modern wizard-style interface for session creation with enhanced UX
 - **Features**:
@@ -150,7 +245,7 @@ variants={PHASE2_ANIMATIONS.formValidation.error}
 - Improved completion rates with auto-save functionality
 - Better mobile experience with touch-optimized interface
 
-### **SessionForm** (Legacy Main Controller)
+### SessionForm (Legacy Main Controller)
 
 - **Purpose**: Orchestrates the entire session form experience
 - **Features**:
@@ -180,7 +275,7 @@ useEffect(() => {
 }, [searchParams, formState.mode]);
 ```
 
-### **SessionFormWrapper** (Security & Error Handling)
+### SessionFormWrapper (Security & Error Handling)
 
 - **Purpose**: Authentication wrapper and error boundaries
 - **Features**:
@@ -189,9 +284,9 @@ useEffect(() => {
   - Loading state management
   - Fallback UI for errors
 
-### **Step Components** (Modular UI)
+### Step Components (Modular UI)
 
-#### **DateTimeSection/DateTimeStep**
+#### DateTimeSection/DateTimeStep
 
 - **Purpose**: Date and time selection with mode-specific behavior
 - **Features**:
@@ -218,7 +313,7 @@ const validateDate = (date: string, mode: SessionFormMode) => {
 };
 ```
 
-#### **LocationStep**
+#### LocationStep
 
 - **Purpose**: Beach selection with search and filtering
 - **Features**:
@@ -227,7 +322,7 @@ const validateDate = (date: string, mode: SessionFormMode) => {
   - Distance-based sorting
   - Recent beaches prioritization
 
-#### **EquipmentStep**
+#### EquipmentStep
 
 - **Purpose**: Board selection with inline creation
 - **Features**:
@@ -236,45 +331,45 @@ const validateDate = (date: string, mode: SessionFormMode) => {
   - Board recommendation system
   - Equipment suggestions based on conditions
 
-#### **ConditionsSection** (Logging Mode)
+#### ConditionsSection (Logging Mode)
 
-- **Purpose**: Session condition rating and feedback
+- **Purpose**: Session condition rating and forecast accuracy feedback
 - **Features**:
   - Wave quality rating (1-5 stars)
   - Crowd level assessment
   - Parking ease rating
-  - Weather condition notes
+  - Weather condition inputs (wave height, wind, tide)
+  - Forecast accuracy feedback (Yes/Kinda/No buttons)
+  - Auto-prefill from forecast data with user override capability
+
+**Condition Fields:**
 
 ```typescript
-// Rating component pattern
-function RatingInput({
-  label,
-  value,
-  onChange,
-  ratingType,
-  emptyText,
-}: RatingInputProps) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center space-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Button
-            key={star}
-            variant={parseInt(value) >= star ? "default" : "outline"}
-            size="sm"
-            onClick={() => onChange(star.toString())}
-          >
-            ⭐
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
+// Field state tracking for auto-prefill
+type FieldState = "empty" | "prefilled" | "user-edited";
+
+// Fields managed by ConditionsSection
+interface ConditionFields {
+  waveHeight: number;           // Wave height in feet
+  windSpeed: number;            // Wind speed in mph
+  windDirection: string;        // Wind direction code
+  tideHeight: number;           // Tide height in feet
+  tideStatus: string;           // rising | falling | high | low
+  forecastAccuracy: string;     // accurate | somewhat | inaccurate
 }
 ```
 
-#### **OptimalTimesSection** (Planning Mode)
+**Forecast Accuracy Options:**
+
+```typescript
+const accuracyOptions = [
+  { value: "accurate", label: "Yes", description: "Forecast was spot on" },
+  { value: "somewhat", label: "Kinda", description: "Close but not perfect" },
+  { value: "inaccurate", label: "No", description: "Forecast was wrong" },
+];
+```
+
+#### OptimalTimesSection (Planning Mode)
 
 - **Purpose**: AI-powered optimal session time recommendations
 - **Features**:
@@ -300,7 +395,7 @@ interface OptimalTimeSlot {
 }
 ```
 
-#### **GearSuggestionsSection**
+#### GearSuggestionsSection
 
 - **Purpose**: Smart board recommendations based on conditions
 - **Features**:
@@ -309,7 +404,7 @@ interface OptimalTimeSlot {
   - Confidence scoring
   - Alternative suggestions
 
-#### **PhotoSelectionSection**
+#### PhotoSelectionSection
 
 - **Purpose**: Photo upload integration for logged sessions
 - **Features**:
@@ -318,9 +413,9 @@ interface OptimalTimeSlot {
   - Drag & drop support
   - Size limit enforcement
 
-## 🎨 **DESIGN PATTERNS**
+## DESIGN PATTERNS
 
-### **Progressive Disclosure**
+### Progressive Disclosure
 
 ```typescript
 // Show advanced options based on user progress
@@ -337,7 +432,7 @@ interface OptimalTimeSlot {
 }
 ```
 
-### **Conditional Rendering by Mode**
+### Conditional Rendering by Mode
 
 ```typescript
 // Mode-specific section rendering
@@ -358,7 +453,7 @@ interface OptimalTimeSlot {
 }
 ```
 
-### **Smart Defaults and Persistence**
+### Smart Defaults and Persistence
 
 ```typescript
 // Intelligent form defaults
@@ -384,9 +479,9 @@ useEffect(() => {
 }, [formState]);
 ```
 
-## 🚀 **PERFORMANCE OPTIMIZATIONS**
+## PERFORMANCE OPTIMIZATIONS
 
-### **Lazy Loading of Heavy Components**
+### Lazy Loading of Heavy Components
 
 ```typescript
 // Dynamic imports for complex sections
@@ -403,7 +498,7 @@ const GearSuggestionsSection = lazy(() => import("./GearSuggestionsSection"));
 }
 ```
 
-### **Debounced Auto-Save**
+### Debounced Auto-Save
 
 ```typescript
 // Auto-save form progress
@@ -420,7 +515,7 @@ useEffect(() => {
 }, [formState, debouncedSave]);
 ```
 
-### **Memoized Expensive Calculations**
+### Memoized Expensive Calculations
 
 ```typescript
 // Memoize gear suggestions
@@ -433,9 +528,9 @@ const gearSuggestions = useMemo(() => {
 }, [userBoards, forecastData, historicalData]);
 ```
 
-## 🔄 **DATA INTEGRATION**
+## DATA INTEGRATION
 
-### **Forecast Integration**
+### Forecast Integration
 
 ```typescript
 // Real-time forecast data loading
@@ -461,7 +556,7 @@ useEffect(() => {
 }, [formState.beachId, formState.sessionDate]);
 ```
 
-### **Server Actions Integration**
+### Server Actions Integration
 
 ```typescript
 // Form submission with proper error handling
@@ -489,9 +584,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 ```
 
-## 📱 **MOBILE OPTIMIZATION**
+## MOBILE OPTIMIZATION
 
-### **Touch-Friendly Interface**
+### Touch-Friendly Interface
 
 ```typescript
 // Large touch targets for ratings
@@ -501,11 +596,11 @@ const handleSubmit = async (e: React.FormEvent) => {
   className="min-h-[44px] min-w-[44px]"
   onClick={handleRatingClick}
 >
-  ⭐
+  Star
 </Button>
 ```
 
-### **Mobile-Specific Features**
+### Mobile-Specific Features
 
 ```typescript
 // Mobile photo capture
@@ -518,25 +613,36 @@ const handleSubmit = async (e: React.FormEvent) => {
 />
 ```
 
-## 🧪 **TESTING CONSIDERATIONS**
+## TESTING CONSIDERATIONS
 
-### **Component Testing**
+### Component Testing
 
 - Step navigation functionality
 - Form validation and submission
 - Mode switching behavior
 - Photo upload integration
+- **Condition field data persistence** (verify fields reach database)
 
-### **Integration Testing**
+### Integration Testing
 
 - Complete session creation flows
 - Forecast data integration
 - Server action integration
 - Error handling scenarios
+- **Dual code path validation** (test both wizard and page handlers)
 
-## 🔮 **FUTURE ENHANCEMENTS**
+### Regression Testing
 
-### **Planned Features**
+When modifying condition fields, verify:
+1. UI captures the value correctly
+2. formState is updated via updateField
+3. Both submission handlers include the field
+4. Server action persists to database
+5. Database column contains expected value
+
+## FUTURE ENHANCEMENTS
+
+### Planned Features
 
 - Voice notes integration
 - Advanced photo editing
@@ -544,16 +650,16 @@ const handleSubmit = async (e: React.FormEvent) => {
 - Collaborative planning
 - Real-time weather alerts
 
-### **Performance Improvements**
+### Performance Improvements
 
 - Form state optimization
 - Background data sync
 - Offline capability
 - Progressive web app features
 
-## 🚀 **PHASE 2 MIGRATION STRATEGY**
+## PHASE 2 MIGRATION STRATEGY
 
-### **Component Relationship**
+### Component Relationship
 
 The **SessionWizard** component represents the modern Phase 2 interface that builds on the solid foundation of the existing **SessionForm** architecture:
 
@@ -562,7 +668,7 @@ The **SessionWizard** component represents the modern Phase 2 interface that bui
 - **Shared Step Components**: Both interfaces use the same underlying step components
 - **Common State Management**: Both use `useSessionForm` hook for consistency
 
-### **Migration Path**
+### Migration Path
 
 ```typescript
 // Phase 2: Introduce wizard as alternative interface
@@ -578,7 +684,7 @@ return useWizardInterface ? (
 );
 ```
 
-### **Benefits of Dual Architecture**
+### Benefits of Dual Architecture
 
 1. **Risk Mitigation**: Maintain proven SessionForm while introducing new features
 2. **A/B Testing**: Compare user engagement between interfaces
@@ -588,6 +694,6 @@ return useWizardInterface ? (
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with Phase 2 wizard interface and comprehensive session management  
+**Last Updated**: January 2025
+**Status**: Production-ready with Phase 2 wizard interface and comprehensive session management
 **Next Review**: After wizard A/B testing results and user feedback analysis

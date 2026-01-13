@@ -498,6 +498,26 @@ export function SessionForm({
           ...(formState.overallRating && {
             rating: parseInt(formState.overallRating),
           }),
+          // Condition fields
+          ...(formState.waveHeight !== undefined && {
+            wave_height_ft: formState.waveHeight,
+          }),
+          ...(formState.windSpeed !== undefined && {
+            wind_speed_mph: formState.windSpeed,
+          }),
+          ...(formState.windDirection && {
+            wind_direction: formState.windDirection,
+          }),
+          ...(formState.tideHeight !== undefined && {
+            tide_height_ft: formState.tideHeight,
+          }),
+          ...(formState.tideStatus && {
+            tide_status: formState.tideStatus,
+          }),
+          // Forecast accuracy feedback
+          ...(formState.forecastAccuracy && {
+            forecast_accuracy: formState.forecastAccuracy,
+          }),
         };
 
         const sessionResult = await createLoggedSession(loggedSessionData);

@@ -133,3 +133,12 @@ docs/*.csv
 docs/*_surf_spots.json
 ios/surf_spots_data.json
 
+# Lighthouse CI reports (may contain tokens)
+.lighthouseci/
+
+# Python virtual environment
+venv/
+
+# ML model files (should use Git LFS or CDN)
+beach_bias_model_v1.json
+

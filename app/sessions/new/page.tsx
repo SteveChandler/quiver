@@ -83,10 +83,6 @@ function NewSessionPageContent({
   // Server actions also enforce auth as a safety measure
 
   const startCelebrationAndRedirect = (modeToCelebrate: SessionFormMode) => {
-    // Show celebration with enhanced logging
-    console.log(
-      `🎉 Session ${modeToCelebrate} completed successfully! Showing celebration...`
-    );
     setShowCelebration(true);
 
     // Trigger celebration with confetti
@@ -94,28 +90,23 @@ function NewSessionPageContent({
       const reduce = window.matchMedia(
         "(prefers-reduced-motion: reduce)"
       ).matches;
-      console.log(`Reduced motion preference: ${reduce}`);
       if (!reduce) {
         import("canvas-confetti")
           .then(({ default: confetti }) => {
-            console.log("🎊 Launching confetti animation!");
             confetti({
               particleCount: 140,
               spread: 70,
               origin: { y: 0.6 },
             });
           })
-          .catch((error) => {
-            console.error("Failed to load confetti:", error);
+          .catch(() => {
+            // Silently fail - confetti is non-essential
           });
-      } else {
-        console.log("Confetti skipped due to reduced motion preference");
       }
     }
 
     // Redirect to profile after extended celebration (5 seconds for better visibility)
     setTimeout(() => {
-      console.log("🎉 Celebration complete, redirecting to profile...");
       router.push("/profile");
     }, 5000);
   };
@@ -408,6 +399,26 @@ function NewSessionPageContent({
           }),
           ...(sessionData.overallRating && {
             rating: parseInt(sessionData.overallRating),
+          }),
+          // Condition fields
+          ...(sessionData.waveHeight !== undefined && {
+            wave_height_ft: sessionData.waveHeight,
+          }),
+          ...(sessionData.windSpeed !== undefined && {
+            wind_speed_mph: sessionData.windSpeed,
+          }),
+          ...(sessionData.windDirection && {
+            wind_direction: sessionData.windDirection,
+          }),
+          ...(sessionData.tideHeight !== undefined && {
+            tide_height_ft: sessionData.tideHeight,
+          }),
+          ...(sessionData.tideStatus && {
+            tide_status: sessionData.tideStatus,
+          }),
+          // Forecast accuracy feedback
+          ...(sessionData.forecastAccuracy && {
+            forecast_accuracy: sessionData.forecastAccuracy,
           }),
         };
 

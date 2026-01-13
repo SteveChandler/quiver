@@ -692,7 +692,15 @@ export function ConditionsSection({
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
             Was the forecast accurate?
+            {mode === "log" && (
+              <span className="text-red-500 ml-1">*</span>
+            )}
           </h3>
+          {mode === "log" && !formState.forecastAccuracy && (
+            <p className="text-xs text-amber-600">
+              Please select an option to help improve our forecasts
+            </p>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             {accuracyOptions.map((option) => {
@@ -703,12 +711,12 @@ export function ConditionsSection({
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
                     updateField(
                       "forecastAccuracy",
                       option.value as "accurate" | "somewhat" | "inaccurate"
-                    )
-                  }
+                    );
+                  }}
                   className={`p-4 rounded-lg border-2 transition-all ${
                     isSelected
                       ? "border-blue-500 bg-blue-50"

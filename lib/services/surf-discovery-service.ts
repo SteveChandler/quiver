@@ -35,6 +35,8 @@ import type {
   DetailedScore,
   PersonalizedForecastWindow,
 } from '@/types/personalization';
+import { withApprovedPhotos } from '@/lib/supabase/query-builders';
+import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 
 // ============================================================================
 // Constants
@@ -50,6 +52,65 @@ const FORECAST_WINDOW_HOURS = 48;
 // Time-priority window selection constants
 const TIME_DECAY_PER_HOUR = 0.5; // Points deducted per hour in future
 const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (12 points max)
+
+// ============================================================================
+// Photo Enrichment
+// ============================================================================
+
+/**
+ * Enrich recommendations with beach photo URLs
+ *
+ * Photo resolution order:
+ * 1. Approved photo from beach_photos table
+ * 2. Named fallback from FALLBACK_IMAGE_BY_NAME
+ * 3. null (component will render gradient)
+ */
+async function enrichWithPhotos(
+  recommendations: SurfDiscoveryRecommendation[]
+): Promise<SurfDiscoveryRecommendation[]> {
+  if (recommendations.length === 0) return recommendations;
+
+  const supabase = createSupabaseServiceRoleClient();
+  const beachIds = recommendations.map((r) => r.beach.id);
+
+  // Fetch approved photos for all beaches in one query
+  const baseQuery = supabase
+    .from('beach_photos')
+    .select('beach_id, image_url')
+    .in('beach_id', beachIds)
+    .order('fetched_at', { ascending: false });
+
+  const { data: photos } = await withApprovedPhotos(baseQuery);
+
+  // Build beach_id -> photo_url map (first photo per beach)
+  const photoMap = new Map<string, string>();
+  if (photos) {
+    for (const photo of photos) {
+      if (!photoMap.has(photo.beach_id)) {
+        photoMap.set(photo.beach_id, photo.image_url);
+      }
+    }
+  }
+
+  // Enrich each recommendation
+  return recommendations.map((rec) => {
+    // Try database photo first
+    let photoUrl = photoMap.get(rec.beach.id) || null;
+
+    // Fall back to named fallback
+    if (!photoUrl) {
+      photoUrl = FALLBACK_IMAGE_BY_NAME[rec.beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME] || null;
+    }
+
+    return {
+      ...rec,
+      beach: {
+        ...rec.beach,
+        photo_url: photoUrl,
+      },
+    };
+  });
+}
 
 // ============================================================================
 // Main Entry Point
@@ -201,13 +262,16 @@ export async function discoverSurfSpots(
     // 4. Sort and slice to maxResults
     const ranked = scored.sort((a, b) => b.score - a.score).slice(0, maxResults);
 
+    // Enrich with photos
+    const enrichedRanked = await enrichWithPhotos(ranked);
+
     const duration = Date.now() - startTime;
     console.log(
-      `✅ Discovery complete in ${duration}ms: ${ranked.length} recommendations from ${finalCandidates.length} candidates`
+      `✅ Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
     );
 
     return {
-      recommendations: ranked,
+      recommendations: enrichedRanked,
       searchCriteria: {
         userLocation,
         radiusMiles,
