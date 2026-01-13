@@ -830,25 +830,40 @@ function formatBuoyConditions(buoy: any): string {
 function formatForecastConditions(forecast: any): string {
   const parts: string[] = [];
 
-  if (forecast.min_wave_height != null && forecast.max_wave_height != null) {
-    parts.push(`${forecast.min_wave_height}-${forecast.max_wave_height}ft`);
-  } else if (forecast.wave_height != null) {
-    parts.push(`${forecast.wave_height.toFixed(1)}ft`);
+  // Helper to safely convert to number
+  const toNum = (val: unknown): number | null => {
+    if (val == null) return null;
+    const num = Number(val);
+    return isNaN(num) ? null : num;
+  };
+
+  const minHeight = toNum(forecast.min_wave_height);
+  const maxHeight = toNum(forecast.max_wave_height);
+  const waveHeight = toNum(forecast.wave_height);
+  const wavePeriod = toNum(forecast.wave_period);
+  const windSpeed = toNum(forecast.wind_speed);
+  const windDirection = toNum(forecast.wind_direction);
+  const surfRating = toNum(forecast.surf_rating);
+
+  if (minHeight != null && maxHeight != null) {
+    parts.push(`${minHeight}-${maxHeight}ft`);
+  } else if (waveHeight != null) {
+    parts.push(`${waveHeight.toFixed(1)}ft`);
   }
 
-  if (forecast.wave_period != null) {
-    parts.push(`@ ${forecast.wave_period.toFixed(0)}s`);
+  if (wavePeriod != null) {
+    parts.push(`@ ${wavePeriod.toFixed(0)}s`);
   }
 
-  if (forecast.wind_speed != null) {
-    const windDir = forecast.wind_direction
-      ? ` ${degreesToCardinal(forecast.wind_direction)}`
+  if (windSpeed != null) {
+    const windDir = windDirection != null
+      ? ` ${degreesToCardinal(windDirection)}`
       : "";
-    parts.push(`${forecast.wind_speed.toFixed(0)}kt${windDir}`);
+    parts.push(`${windSpeed.toFixed(0)}kt${windDir}`);
   }
 
-  if (forecast.surf_rating != null) {
-    parts.push(`Rating: ${forecast.surf_rating}/10`);
+  if (surfRating != null) {
+    parts.push(`Rating: ${surfRating}/10`);
   }
 
   return parts.length > 0 ? parts.join(", ") : "Forecast available";
