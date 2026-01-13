@@ -325,31 +325,37 @@ export function AnimatedSessionWizard({
     (targetStepIndex: number): boolean => {
       // Step 1 (index 0) - Location: Requires beach
       if (targetStepIndex > 0 && !formState.selectedBeachId) {
-        console.warn(
-          "Cannot jump to step",
-          targetStepIndex + 1,
-          "- missing beach selection"
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.warn(
+            "Cannot jump to step",
+            targetStepIndex + 1,
+            "- missing beach selection"
+          );
+        }
         return false;
       }
 
       // Step 2 (index 1) - DateTime: Requires date and time (for plan mode)
       if (targetStepIndex > 1) {
         if (!formState.selectedDate) {
-          console.warn(
-            "Cannot jump to step",
-            targetStepIndex + 1,
-            "- missing date selection"
-          );
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              "Cannot jump to step",
+              targetStepIndex + 1,
+              "- missing date selection"
+            );
+          }
           return false;
         }
         // Time is only required for plan mode
         if (mode === "plan" && !formState.selectedTime) {
-          console.warn(
-            "Cannot jump to step",
-            targetStepIndex + 1,
-            "- missing time selection (plan mode)"
-          );
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              "Cannot jump to step",
+              targetStepIndex + 1,
+              "- missing time selection (plan mode)"
+            );
+          }
           return false;
         }
       }
@@ -375,9 +381,11 @@ export function AnimatedSessionWizard({
       // Validate target step is in valid range (1-indexed to 0-indexed conversion)
       const targetStepIndex = targetStep - 1;
       if (targetStepIndex < 0 || targetStepIndex >= steps.length) {
-        console.warn(
-          `Invalid targetStep: ${targetStep}. Must be between 1 and ${steps.length}`
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.warn(
+            `Invalid targetStep: ${targetStep}. Must be between 1 and ${steps.length}`
+          );
+        }
         return;
       }
 
@@ -385,15 +393,19 @@ export function AnimatedSessionWizard({
       const canJump = validateStepsUpTo(targetStepIndex);
 
       if (canJump) {
-        console.log(
-          `Auto-jumping to step ${targetStep} (index ${targetStepIndex})`
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `Auto-jumping to step ${targetStep} (index ${targetStepIndex})`
+          );
+        }
         setCurrentStep(targetStepIndex);
         hasJumpedRef.current = true;
       } else {
-        console.warn(
-          `Cannot auto-jump to step ${targetStep} - validation failed. Starting at step 1.`
-        );
+        if (process.env.NODE_ENV === "development") {
+          console.warn(
+            `Cannot auto-jump to step ${targetStep} - validation failed. Starting at step 1.`
+          );
+        }
         hasJumpedRef.current = true; // Mark as attempted to prevent retry
       }
     }
@@ -413,6 +425,12 @@ export function AnimatedSessionWizard({
             return Boolean(formState.selectedDate && formState.selectedTime);
           }
           return Boolean(formState.selectedDate);
+        case "conditions":
+          // Forecast accuracy is required for completed sessions (log mode)
+          if (mode === "log") {
+            return Boolean(formState.forecastAccuracy);
+          }
+          return true;
         default:
           return true; // Non-required steps are always valid
       }
@@ -588,6 +606,26 @@ export function AnimatedSessionWizard({
         }),
         ...(sessionData.overallRating && {
           rating: parseInt(sessionData.overallRating),
+        }),
+        // Condition fields
+        ...(sessionData.waveHeight !== undefined && {
+          wave_height_ft: sessionData.waveHeight,
+        }),
+        ...(sessionData.windSpeed !== undefined && {
+          wind_speed_mph: sessionData.windSpeed,
+        }),
+        ...(sessionData.windDirection && {
+          wind_direction: sessionData.windDirection,
+        }),
+        ...(sessionData.tideHeight !== undefined && {
+          tide_height_ft: sessionData.tideHeight,
+        }),
+        ...(sessionData.tideStatus && {
+          tide_status: sessionData.tideStatus,
+        }),
+        // Forecast accuracy feedback
+        ...(sessionData.forecastAccuracy && {
+          forecast_accuracy: sessionData.forecastAccuracy,
         }),
       };
 

@@ -18,7 +18,9 @@ import { HeroRecommendation } from "./hero-recommendation";
 import { PrimaryActions } from "./primary-actions";
 import { TopSpotsCarousel } from "./top-spots-carousel";
 import { CoastPulse } from "../dashboard/coast-pulse";
+import { LivePulseCarousel } from "../dashboard/live-pulse-carousel";
 import { ProfileStrength } from "../dashboard/profile-strength";
+import { transformToLivePulseItems } from "@/lib/utils/coast-pulse-transforms";
 import { BottomNav } from "./bottom-nav";
 
 // Existing components
@@ -66,6 +68,35 @@ export function HomeScreen() {
     { skip: !profile, initialData: null }
   );
   const profileStrength = strengthResponse?.data || null;
+
+  // Determine coast pulse coordinates (fallback chain: homeBeach > geolocation > San Diego)
+  const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
+  const coastPulseCoords =
+    homeBeach?.lat != null && homeBeach?.lon != null
+      ? { lat: homeBeach.lat, lon: homeBeach.lon }
+      : geoCoords?.lat != null && geoCoords?.lon != null
+        ? { lat: geoCoords.lat, lon: geoCoords.lon }
+        : DEFAULT_LOCATION;
+
+  // Fetch coast pulse data for LivePulseCarousel
+  const { data: coastPulseData } = useDataFetcher(
+    async () => {
+      const { lat, lon } = coastPulseCoords;
+      const res = await fetch(`/api/coast-pulse?lat=${lat}&lon=${lon}&limit=12`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.success ? json.data : null;
+    },
+    {
+      skip: !profile,
+      initialData: null,
+    }
+  );
+
+  // Transform coast pulse items for carousel
+  const livePulseItems = coastPulseData?.items
+    ? transformToLivePulseItems(coastPulseData.items)
+    : [];
 
   // Validate coordinates helper
   const isValidCoordinate = (lat: number, lon: number): boolean =>
@@ -238,14 +269,21 @@ export function HomeScreen() {
             </section>
           )}
 
-          {/* 5. Coast Pulse */}
-          {profile && homeBeach?.lat && homeBeach?.lon && (
+          {/* 5. Live Pulse Carousel - horizontal scrolling cards */}
+          {profile && livePulseItems.length > 0 && (
             <section className="centered-container px-4 sm:px-0">
-              <CoastPulse lat={homeBeach.lat} lon={homeBeach.lon} />
+              <LivePulseCarousel data={livePulseItems} />
             </section>
           )}
 
-          {/* 6. Profile Strength (auto-hides when complete) */}
+          {/* 6. Coast Pulse Timeline - detailed vertical list */}
+          {profile && (
+            <section className="centered-container px-4 sm:px-0">
+              <CoastPulse lat={coastPulseCoords.lat} lon={coastPulseCoords.lon} />
+            </section>
+          )}
+
+          {/* 7. Profile Strength (auto-hides when complete) */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
               <ProfileStrength strength={profileStrength} />

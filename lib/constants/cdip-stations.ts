@@ -14,15 +14,75 @@
 import { CDIPStationConfig } from "@/types/forecast";
 
 export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
-  // Southern California Primary Stations
+  // San Diego Area Stations (from CDIP ERDDAP API)
   "100": {
     id: "100",
     name: "Torrey Pines Outer",
-    latitude: 32.921,
-    longitude: -117.39,
-    deployDepth: 550, // meters
+    latitude: 32.93,
+    longitude: -117.392,
+    deployDepth: 550,
     hullType: "3-meter discus buoy",
     parameters: ["wave", "weather", "drifter"],
+  },
+
+  "155": {
+    id: "155",
+    name: "Imperial Beach Nearshore",
+    latitude: 32.56968,
+    longitude: -117.16895,
+    deployDepth: 18,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
+  "191": {
+    id: "191",
+    name: "Point Loma South",
+    latitude: 32.51753,
+    longitude: -117.4253,
+    deployDepth: 200,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
+  "201": {
+    id: "201",
+    name: "Scripps Nearshore",
+    latitude: 32.86785,
+    longitude: -117.26667,
+    deployDepth: 20,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
+  "153": {
+    id: "153",
+    name: "Del Mar Nearshore",
+    latitude: 32.95654,
+    longitude: -117.2796,
+    deployDepth: 15,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
+  "220": {
+    id: "220",
+    name: "Mission Bay West",
+    latitude: 32.74942,
+    longitude: -117.4985,
+    deployDepth: 100,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
+  "208": {
+    id: "208",
+    name: "Torrey Pines North",
+    latitude: 32.951,
+    longitude: -117.3846,
+    deployDepth: 100,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
   },
 
   "46225": {
@@ -56,8 +116,8 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave", "weather"],
   },
 
-  "191": {
-    id: "191",
+  "071": {
+    id: "071",
     name: "Harvest",
     latitude: 34.443,
     longitude: -120.775,
@@ -105,7 +165,7 @@ export const SOCAL_PRIMARY_STATIONS = ["100", "67", "191"];
 export const STATION_COVERAGE_RADIUS = {
   "100": 100, // Covers most of San Diego County
   "67": 75, // Covers LA/Orange County
-  "191": 50, // Covers Santa Barbara area
+  "191": 50, // Covers Point Loma / South San Diego
   "157": 60, // Covers Big Sur area
   "46236": 80, // Covers Monterey Bay area
   "71": 50, // Covers San Francisco Peninsula

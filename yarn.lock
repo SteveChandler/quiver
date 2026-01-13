@@ -4834,6 +4834,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/ngeohash@^0.6.8":
+  version "0.6.8"
+  resolved "https://registry.yarnpkg.com/@types/ngeohash/-/ngeohash-0.6.8.tgz#7d4c44933a3f0fd10b2bb45df879618904cb3c9e"
+  integrity sha512-A90x3HMwE1yXbWCnd0ztHzv8rAQPjwTzX2diYI/6OrWm/3oairDaehw5WPWJFgZ+8+J/OuF99IbipmMa2le6tQ==
+
 "@types/node@*", "@types/node@>=12.12.47", "@types/node@>=13.7.0":
   version "24.10.1"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-24.10.1.tgz#91e92182c93db8bd6224fca031e2370cef9a8f01"
@@ -10984,6 +10989,11 @@ next@14.2.32:
     "@next/swc-win32-arm64-msvc" "14.2.32"
     "@next/swc-win32-ia32-msvc" "14.2.32"
     "@next/swc-win32-x64-msvc" "14.2.32"
+
+ngeohash@^0.6.3:
+  version "0.6.3"
+  resolved "https://registry.yarnpkg.com/ngeohash/-/ngeohash-0.6.3.tgz#10b1e80be5488262ec95c56cf2dbb6c45fbdf245"
+  integrity sha512-kltF0cOxgx1AbmVzKxYZaoB0aj7mOxZeHaerEtQV0YaqnkXNq26WWqMmJ6lTqShYxVRWZ/mwvvTrNeOwdslWiw==
 
 node-abi@^3.3.0:
   version "3.85.0"

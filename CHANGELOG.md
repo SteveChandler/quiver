@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Session Logging (Forecast Accuracy Persistence):** Fixed critical bug where user-submitted forecast accuracy feedback (Yes/Kinda/No buttons) and condition fields were not being saved to the database. The `sessions.forecast_accuracy`, `wave_height_ft`, `wind_speed_mph`, `wind_direction`, `tide_height_ft`, and `tide_status` columns were always NULL. Root cause: `app/sessions/new/page.tsx` had its own `handleSessionComplete` function that built `loggedSessionData` without including these fields, even though `ConditionsSection.tsx` captured them and `AnimatedSessionWizard.tsx` passed them correctly. Fixed by adding all condition field mappings to the page-level handler (lines 409-431). Updated architecture documentation to document the dual code path requirement.
 - **Timezone Display (Discovery Cards):** Fixed "Best at Thu 6:00 PM" vs "Thu 10:00 AM - 1:00 PM" mismatch on surf discovery cards. The server-generated summary no longer embeds a pre-formatted timestamp; instead, all time displays are now formatted client-side using the beach's local IANA timezone. Added shared `formatBeachDateTime`, `formatBeachTimeRange`, and `formatBestAtLabel` helpers to `lib/utils/date-utils.ts` to ensure consistent beach-local time formatting across all UI surfaces.
-- **Magic Hour Peak Time (Top Card):** Fixed Magic Hour peak time drifting by timezone offset (e.g. showing "Peak at 3:00 PM" when the window is "7:00 AM - 10:00 AM") by parsing enhanced forecast timestamps explicitly as UTC (`...T...Z`) before formatting in the beach’s timezone.
+- **Magic Hour Peak Time (Top Card):** Fixed Magic Hour peak time drifting by timezone offset (e.g. showing "Peak at 3:00 PM" when the window is "7:00 AM - 10:00 AM") by parsing enhanced forecast timestamps explicitly as UTC (`...T...Z`) before formatting in the beach's timezone.
 - **SEO (Query Param Variants):** Prevented parameterized versions of `/map` and `/discover` (e.g. `?search=`, `?city=`, `?level=`) from being indexable while keeping the canonical base routes indexable.
 
 ### Changed
@@ -165,6 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed accidental `.cursor` plan file and reconciled P1 refactor documentation to reflect current green test status
 - Updated Playwright local testing docs/config to support `.env.playwright.local` localhost-only overrides (no copy step needed)
 - Fixed cycle time calculation error in `docs/FORECAST_HEALTH_RECOVERY.md` (was 4.9h, corrected to 14.6h for 780 beaches) and added beach count scaling table with recommendations
+- **Session Logging (Dual Code Path):** Added comprehensive documentation for the session logging condition fields data flow in `components/session-forms/ARCHITECTURE.md` and `docs/diagrams/session-creation-flow.md`. Documents the dual code path architecture, field mapping reference, and prevention guidelines for future data loss bugs.
 
 ### Changed
 

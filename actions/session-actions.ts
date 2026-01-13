@@ -308,7 +308,8 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
     let sessionData: Partial<Session>;
     if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
       // This is SessionFormState, transform it
-      sessionData = transformSessionFormStateToDbSchema(data as SessionFormState);
+      const formData = data as SessionFormState;
+      sessionData = transformSessionFormStateToDbSchema(formData);
     } else {
       // This is already SessionInput, use as-is
       sessionData = data as SessionInput;

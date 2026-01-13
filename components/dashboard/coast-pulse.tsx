@@ -12,13 +12,15 @@ import {
   TrendingDown,
   Minus,
   Camera,
+  Thermometer,
+  Droplets,
 } from "lucide-react";
 import { formatTimeAgo } from "@/lib/utils/time-formatters";
 
 /**
  * Source type for Coast Pulse items
  */
-type SourceType = "local" | "cdip" | "ndbc" | "forecast" | "intel" | "wind";
+type SourceType = "local" | "cdip" | "ndbc" | "forecast" | "intel" | "wind" | "tide";
 
 /**
  * Coast Pulse item from API
@@ -47,6 +49,8 @@ interface CoastPulseItem {
 interface CoastPulseSummary {
   waveHeight: string | null;
   windSpeed: string | null;
+  tideHeight: string | null;
+  waterTemp: string | null;
   trend: "improving" | "stable" | "declining" | null;
   lastUpdated: string;
 }
@@ -98,6 +102,11 @@ const SOURCE_CONFIG: Record<
     label: "WIND",
     colorClass: "text-sky-400 bg-sky-400/10",
     icon: <Wind className="h-3 w-3" />,
+  },
+  tide: {
+    label: "TIDE",
+    colorClass: "text-teal-400 bg-teal-400/10",
+    icon: <Waves className="h-3 w-3" />,
   },
 };
 
@@ -242,8 +251,8 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       </div>
 
       {/* Summary Section */}
-      {!loading && !error && summary && (summary.waveHeight || summary.windSpeed) && (
-        <div className="flex items-center gap-3 text-xs text-gray-300 bg-[#2a2a2a] rounded-lg px-3 py-2">
+      {!loading && !error && summary && (summary.waveHeight || summary.windSpeed || summary.tideHeight || summary.waterTemp) && (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300 bg-[#2a2a2a] rounded-lg px-3 py-2">
           {summary.waveHeight && (
             <span className="flex items-center gap-1">
               <Waves className="h-3.5 w-3.5 text-blue-400" />
@@ -254,6 +263,18 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
             <span className="flex items-center gap-1">
               <Wind className="h-3.5 w-3.5 text-cyan-400" />
               {summary.windSpeed}
+            </span>
+          )}
+          {summary.tideHeight && (
+            <span className="flex items-center gap-1">
+              <Droplets className="h-3.5 w-3.5 text-teal-400" />
+              {summary.tideHeight}
+            </span>
+          )}
+          {summary.waterTemp && (
+            <span className="flex items-center gap-1">
+              <Thermometer className="h-3.5 w-3.5 text-orange-400" />
+              {summary.waterTemp}
             </span>
           )}
           {getSummaryTrendIndicator(summary.trend)}
@@ -349,7 +370,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
                     {item.location && item.location.distanceKm > 0 && (
                       <>
                         <span>·</span>
-                        <span>{item.location.distanceKm.toFixed(0)} km away</span>
+                        <span>{Math.round(item.location.distanceKm * 0.621371)} mi away</span>
                       </>
                     )}
                   </div>
