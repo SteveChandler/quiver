@@ -1,8 +1,8 @@
 ## Quiver Architecture (Top-Level)
 
-This document is the canonical, high-level overview of Quiver’s architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
+This document is the canonical, high-level overview of Quiver's architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-**Last Updated:** December 2025
+**Last Updated:** January 2026
 
 ---
 
@@ -12,9 +12,10 @@ This document is the canonical, high-level overview of Quiver’s architecture a
 - **Supabase** (PostgreSQL, Auth, RLS, Realtime)
 - **Tailwind CSS + shadcn/ui**
 - **TypeScript** across frontend and backend
+- **Python/FastAPI** (ML Service on Fly.io)
 
 **App Status**: Production-ready foundation with comprehensive tests.
-**Current Focus**: User acquisition and viral growth (7 → 1,000 users).
+**Current Focus**: User acquisition and viral growth (7 -> 1,000 users).
 
 ---
 
@@ -33,14 +34,15 @@ This document is the canonical, high-level overview of Quiver’s architecture a
 
 ### Codebase Layout (Index)
 
-- `app/` — Next.js routes and API routes (see `app/ARCHITECTURE.md`)
-- `components/` — Reusable UI, DRY form components (see `components/ARCHITECTURE.md`)
-- `hooks/` — Custom React hooks (see `hooks/ARCHITECTURE.md`)
-- `lib/` — Utilities, services, auth, Supabase clients (see `lib/ARCHITECTURE.md`)
-- `supabase/` — DB migrations, RLS, performance (see `supabase/ARCHITECTURE.md`)
-- `types/` — TypeScript domain models (see `types/ARCHITECTURE.md`)
-- `test-utils/` — Testing helpers (see `test-utils/ARCHITECTURE.md`)
-- `e2e/` — Playwright tests (see `e2e/ARCHITECTURE.md`)
+- `app/` - Next.js routes and API routes (see `app/ARCHITECTURE.md`)
+- `components/` - Reusable UI, DRY form components (see `components/ARCHITECTURE.md`)
+- `hooks/` - Custom React hooks (see `hooks/ARCHITECTURE.md`)
+- `lib/` - Utilities, services, auth, Supabase clients (see `lib/ARCHITECTURE.md`)
+- `ml/` - Python ML service for bias correction (see `ml/ARCHITECTURE.md`)
+- `supabase/` - DB migrations, RLS, performance (see `supabase/ARCHITECTURE.md`)
+- `types/` - TypeScript domain models (see `types/ARCHITECTURE.md`)
+- `test-utils/` - Testing helpers (see `test-utils/ARCHITECTURE.md`)
+- `e2e/` - Playwright tests (see `e2e/ARCHITECTURE.md`)
 
 **Primary Reference**: `docs/STYLE_GUIDE.md` (Brand, patterns, accessibility).
 
@@ -99,11 +101,42 @@ Subscribe with cleanup in `useEffect`.
 
 ---
 
+### ML System
+
+**Status**: Production (Fly.io)
+
+The ML bias correction pipeline improves NOAA wave height forecast accuracy using XGBoost.
+
+**Components:**
+- **Python ML Service** (`ml/`): FastAPI service on Fly.io at `https://quiver-ml.fly.dev`
+- **TypeScript Parsers** (`lib/ml/`): NOAA text parsing utilities
+- **Cron Jobs** (`app/api/cron/ml/`): Batch correction and ground truth backfill
+
+**Data Flow:**
+```
+NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
+                                    |
+                              Backfill Ground Truth
+                                    |
+                              Monitor Accuracy
+```
+
+**Documentation:**
+| Document | Description |
+|----------|-------------|
+| [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Feature overview, schema, integration |
+| [ML Service](../ml/ARCHITECTURE.md) | Python FastAPI service, XGBoost model |
+| [TypeScript Module](../lib/ml/ARCHITECTURE.md) | Parsing utilities |
+| [Cron Jobs](../app/api/cron/ml/ARCHITECTURE.md) | Vercel cron configuration |
+
+---
+
 ### Feature Status Highlights
 
 - **Personalization**: "Single User Experience" engine with affinity/history learning.
 - **Social Platform**: Follows, feeds, likes, comments, real-time updates.
 - **Forecasting**: 10-day NOAA integration with confidence scoring.
+- **ML Bias Correction**: XGBoost-corrected wave height forecasts.
 - **Media**: Photo upload, galleries, optimized storage.
 - **Session Management**: Logging, planning, rich metadata.
 - **Attribution**: UTM tracking and referral system for growth analytics.
@@ -123,6 +156,7 @@ Subscribe with cleanup in `useEffect`.
 | **Architecture** | [Cache Strategy](architecture/CACHE_STRATEGY.md) | Multi-tier caching patterns |
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
+| **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
 | **Reference** | [Coverage Areas](COVERAGE_AREAS.md) | Geographic coverage details |
 
@@ -147,7 +181,7 @@ Subscribe with cleanup in `useEffect`.
 
 ---
 
-### Supabase Access (Remote → Local)
+### Supabase Access (Remote -> Local)
 
 Project ref: `vawdnbbgawichorsjiwe` (quiverDB).
 

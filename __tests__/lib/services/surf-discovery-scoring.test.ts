@@ -127,6 +127,17 @@ jest.mock("@/lib/supabase/server", () => {
             };
           }
 
+          // sun_times table used by getBatchSunTimes()
+          if (table === "sun_times") {
+            return {
+              in() {
+                return {
+                  in: async () => ({ data: [], error: null }),
+                };
+              },
+            };
+          }
+
           // Default: empty
           return {
             eq() {

@@ -43,6 +43,7 @@ function toFullBeach(row: StateMapBeachRow): Beach {
     preference_model: null,
     preferred_tide_ft_max: null,
     preferred_tide_ft_min: null,
+    preferred_tide_direction: null,
     real_takeaways: null,
     region: null,
     region_id: null,

@@ -29,7 +29,6 @@ import { Badge } from "@/components/ui/badge";
 import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
-// no notifications bell; link in avatar menu instead
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +44,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+/** Shape of invitation data from the API */
+interface Invitation {
+  status: string;
+  seen_at: string | null;
+}
 
 export function AppHeader() {
   const { user, isLoading: authLoading, signOut } = useAuth();
@@ -76,11 +81,14 @@ export function AppHeader() {
       );
       if (!res.ok) return 0;
       const json = await res.json();
-      const list: any[] = json?.data?.invitations || [];
-      return list.filter(
+      const invitations: Invitation[] = json?.data?.invitations || [];
+      return invitations.filter(
         (i) => i.status === "pending" && (!i.seen_at || i.seen_at === null)
       ).length;
-    } catch {
+    } catch (e) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Notification fetch failed:", e);
+      }
       return 0;
     } finally {
       clearTimeout(timeout);
@@ -134,16 +142,16 @@ export function AppHeader() {
   const isUserAdmin = profile?.is_admin === true;
 
   // Navigation items - different for authenticated vs unauthenticated users
-  const navItems: { name: string; href: string; icon: null }[] = user
+  const navItems: { name: string; href: string }[] = user
     ? [
-        { name: "Discover", href: "/map", icon: null },
-        { name: "Sessions", href: "/profile?tab=sessions", icon: null },
-        { name: "Community", href: "/?tab=community", icon: null },
-        ...(isUserAdmin ? [{ name: "Admin", href: "/admin", icon: null }] : []),
+        { name: "Discover", href: "/map" },
+        { name: "Sessions", href: "/profile?tab=sessions" },
+        { name: "Community", href: "/?tab=community" },
+        ...(isUserAdmin ? [{ name: "Admin", href: "/admin" }] : []),
       ]
     : [
-        { name: "Features", href: "/features", icon: null },
-        { name: "About", href: "/about", icon: null },
+        { name: "Features", href: "/features" },
+        { name: "About", href: "/about" },
       ];
 
   // Mobile navigation items for hamburger menu
@@ -186,12 +194,12 @@ export function AppHeader() {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-2 pt-[calc(var(--app-safe-area-top)+1.5rem)] md:py-0"
+      className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-2 pt-[calc(var(--app-safe-area-top)+0.75rem)] md:py-0"
       style={safeAreaStyles}
     >
       <div
         className="flex w-full items-center md:h-16 gap-4"
-        style={{ minHeight: "calc(var(--app-safe-area-top) + 4rem)" }}
+        style={{ minHeight: "calc(var(--app-safe-area-top) + 3.5rem)" }}
       >
         {/* Left side with logo - uses container padding */}
         <div className="flex items-center pl-2 md:pl-4 shrink-0">
@@ -343,31 +351,23 @@ export function AppHeader() {
 
                   {/* Primary Navigation */}
                   <nav className="flex-1 py-4 flex flex-col gap-1">
-                    {mobileNavItems.map((item) => {
-                      const isActive =
-                        pathname === item.href ||
-                        (item.href !== "/" && pathname.startsWith(item.href));
-
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
-                            isActive
-                              ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
-                              : "text-foreground/80 hover:bg-muted hover:text-foreground"
-                          )}
-                          onClick={(e) => {
-                            setMobileMenuOpen(false);
-                          }}
-                          data-testid={`mobile-nav-${item.name.toLowerCase()}`}
-                        >
-                          <item.icon className="h-5 w-5" />
-                          <span>{item.name}</span>
-                        </Link>
-                      );
-                    })}
+                    {mobileNavItems.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                          isActiveRoute(item.href)
+                            ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
+                            : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                        )}
+                        onClick={() => setMobileMenuOpen(false)}
+                        data-testid={`mobile-nav-${item.name.toLowerCase()}`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.name}</span>
+                      </Link>
+                    ))}
                   </nav>
 
                   {/* Quick Actions */}
@@ -549,7 +549,7 @@ export function AppHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer text-red-600 focus:text-red-600"
-                  onClick={async () => {
+                  onSelect={async () => {
                     try {
                       await signOut();
                       router.push("/");

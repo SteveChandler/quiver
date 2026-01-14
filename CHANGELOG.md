@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ML Bias Correction Pipeline:** Deployed XGBoost-based wave height forecast correction system. Components include:
+  - **Python ML Service** (`ml/`): FastAPI service on Fly.io (`https://quiver-ml.fly.dev`) with XGBoost regressor that predicts forecast residuals (Observed - Model) to correct NOAA wave height forecasts. Features cyclical direction encoding (sin/cos), temporal features (hour/month), and physical constraints (minimum 0.01m). Authenticated via `X-Internal-Secret` header with batch processing up to 1000 forecasts.
+  - **TypeScript Parsers** (`lib/ml/parse-wave-height.ts`): NOAA text parsing utilities that convert "3-4ft" to 1.07m (midpoint in meters) and wind speeds to m/s. Handles range formats, "Flat" conditions, and multiple unit types (mph, knots).
+  - **Vercel Cron Jobs** (`app/api/cron/ml/`): `correct-forecasts` runs every 3 hours to process uncorrected NOAA forecasts with cold-start handling and retry logic. `backfill-observations` runs hourly to match predictions with ground truth from buoy observations for model monitoring.
+  - **Database Schema**: Three migrations add `ml_predictions_log` (stores all predictions with ground truth backfill), `corrected_forecasts` (stores latest corrections for fast reads), and `get_ml_weekly_metrics()` function for monitoring model performance (avg error improvement, % improved).
+  - **Unit Tests** (`__tests__/lib/ml/parse-wave-height.test.ts`): Coverage for wave height parsing (ranges, single values, flat), wind speed parsing (mph, knots), and edge cases.
+
 ### Changed
 
 - **Home Screen (Single Vertical Feed):** Refactored home screen from tab-based to single vertical feed design. Removed Radix UI Tabs component and replaced with unified feed layout featuring: (1) GreetingSection with time-aware greeting, (2) HeroRecommendation showing top surf spot with score, (3) PrimaryActions with "I'm at the beach" and "Plan Weekend" buttons, (4) TopSpotsCarousel showing next 3 surf recommendations, (5) CoastPulse showing live buoy data, (6) ProfileStrength onboarding widget (auto-hides when complete). All components use `useSurfDiscovery` hook for data fetching with localStorage caching. Removed ForecastTab component import and moved essential logic into main HomeScreen. Community tab content now accessible via future routing. Preserved all push notification, reminder flow, and geolocation functionality. Simplified architecture reduces component nesting and improves performance with single data fetch.
@@ -36,18 +45,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Forecast API (Never Serve Stale):** Refactored `GET /api/forecasts/update-enhanced` to use `getFreshForecastFromCache()` as the single source of truth for staleness. The endpoint now **never returns stale forecast data**—if cached data exceeds the source-specific threshold, it returns an empty forecasts array with `metadata.stale: true`. Response includes `Cache-Control: no-store` for stale/missing data to prevent CDN caching of degraded responses.
+- **Forecast API (Never Serve Stale):** Refactored `GET /api/forecasts/update-enhanced` to use `getFreshForecastFromCache()` as the single source of truth for staleness. The endpoint now **never returns stale forecast data**--if cached data exceeds the source-specific threshold, it returns an empty forecasts array with `metadata.stale: true`. Response includes `Cache-Control: no-store` for stale/missing data to prevent CDN caching of degraded responses.
 - **NOAA 404 Handling:** Modified `lib/utils/api-retry.ts` to throw `ApiError` for NOAA service calls (instead of generic `Error`), enabling `isNoaaInvalidPointError()` to correctly classify 404s from off-coverage locations (e.g., Mexico). Downgraded log level from `error` to `warn` for expected NOAA `/points/` 404 responses to reduce noise.
 
 ### Fixed
 
-- **Monitoring Severity Mapping:** Fixed bug in `/api/monitoring/forecast-health` where warning-level staleness (>12h but ≤24h) was incorrectly logged with `severity: 'error'`. Now correctly logs as `severity: 'warning'`. Added regression test to prevent recurrence.
+- **Monitoring Severity Mapping:** Fixed bug in `/api/monitoring/forecast-health` where warning-level staleness (>12h but <=24h) was incorrectly logged with `severity: 'error'`. Now correctly logs as `severity: 'warning'`. Added regression test to prevent recurrence.
 
 ### Added (continued)
 
 - **Cron (Forecast Digest Email):** Added daily digest email cron job at `/app/api/cron/forecast-digest-email/route.ts` that runs daily at 14:00 UTC (6 AM Pacific). Evaluates all eligible users (notif_email_enabled=true, notif_forecast_alerts=true, has home_beach) against their home beach's 48h forecast window using multi-gate matching logic. Sends personalized emails via Resend for matches (perfect/excellent/good/fair), with deduplication window of 20 hours to prevent double-sends. Includes crowd intel from last 24h, formatted wave/wind/tide snapshot, best surf window timing, and personalized "why text" explaining the match. Tracks delivery state in `forecast_alert_deliveries` table. Returns comprehensive summary stats (sent, skipped breakdown, duration). Uses `ForecastDigestEmail` React email template with responsive HTML. Schedule configured in `vercel.json`.
 - **Services (Forecast Digest):** Added `lib/services/forecast-digest-service.ts` that implements multi-gate matching logic for daily digest email recommendations. Features three-gate evaluation system: (1) Skill Gate (STRICT - blocks if user skill < beach skill), (2) Swell Window Gate (blocks if swell direction outside beach's optimal window), (3) Wind Gate (WARNING only - never blocks but provides quality assessment). Integrates with Magic Hour finder to identify optimal surf windows, calculates match quality (perfect/excellent/good/fair), and generates personalized "why text" bullets explaining the recommendation. Supports user preference integration (wave range, wind tolerance, tide preferences) and provides crowd warnings for weekend perfect-match scenarios. Exported functions: `evaluateDigestMatch` (main entry point), `checkSkillGate`, `checkSwellGate`, `checkWindGate`. Designed for cron job integration to power automated digest emails.
-- **Services (Magic Hour Finder):** Added `lib/services/magic-hour-finder.ts` utility for finding optimal surf windows ("Magic Hour") via interpolation between 3-hour forecast blocks. Implements circular direction math for accurate wind/swell analysis at 0°/360° boundary, linear interpolation to find exact peak conditions, multi-metric weighted scoring (tide 40%, wind 35%, swell 25%), and guards against division by zero during slack tide periods. Exported functions: `findMagicHour` (main entry point), `calculateOptimalWindow` (interpolation), `findWeightedPeak` (multi-metric scoring), `isSwellInWindow`, `checkWindOffshore`, `circularAngleDiff`. Supports custom weight configurations and target date filtering. Enables sophisticated surf condition analysis for recommendation features.
+- **Services (Magic Hour Finder):** Added `lib/services/magic-hour-finder.ts` utility for finding optimal surf windows ("Magic Hour") via interpolation between 3-hour forecast blocks. Implements circular direction math for accurate wind/swell analysis at 0/360 boundary, linear interpolation to find exact peak conditions, multi-metric weighted scoring (tide 40%, wind 35%, swell 25%), and guards against division by zero during slack tide periods. Exported functions: `findMagicHour` (main entry point), `calculateOptimalWindow` (interpolation), `findWeightedPeak` (multi-metric scoring), `isSwellInWindow`, `checkWindOffshore`, `circularAngleDiff`. Supports custom weight configurations and target date filtering. Enables sophisticated surf condition analysis for recommendation features.
 - **Testing (Push Notification Deeplinks):** Added comprehensive integration test suite for push notification deeplink routing (`__tests__/lib/services/forecast-alerts-deeplink.test.ts` and `e2e/push-deeplink-routing.spec.ts`). Validates that forecast alert push notifications correctly navigate users to beach detail pages via `data.url` payload field. 13 unit tests verify URL construction (`/beach/{slug}` format), payload structure, service worker contract, and edge cases. 18 E2E tests verify navigation behavior, cross-browser compatibility, tab management, and loading performance. Includes comprehensive documentation (`docs/testing/PUSH_DEEPLINK_TESTING.md`) with manual testing procedures, troubleshooting guide, and service worker behavior specification.
 - **Activation Sprint (Home Screen):** Implemented activation-focused home experience to improve first-win engagement:
   - Added "Remind Me" CTA to PersonalizedForecastCard that enables forecast alerts with a single tap
@@ -128,7 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Profile API:** Ensured `GET /api/profile` includes `home_beach_name` (snake_case) to match API contract tests while preserving the legacy `homeBeachName` field.
 - **Boards API:** Fixed `POST /api/boards` to return **400** for invalid payloads (Zod validation) instead of bubbling DB constraint errors into **500** responses; updated boards contract tests to send required fields.
 - **Forecast monitoring:** When the enhanced latest-per-beach query times out, the health check now preserves `totalBeaches` and reports enhanced coverage/age as **unavailable** (not `0%`); suppresses misleading `[Forecast Coverage Gap]` logs in this state.
-- **CDIP integration:** Normalized ERDDAP `station_id` formatting for 1–2 digit stations (e.g. `67` -> `067`) and pinned priority beaches (Zuma + Ocean Beach SF - Sloat) to explicit CDIP station overrides to reduce "no nearby CDIP station" warnings.
+- **CDIP integration:** Normalized ERDDAP `station_id` formatting for 1-2 digit stations (e.g. `67` -> `067`) and pinned priority beaches (Zuma + Ocean Beach SF - Sloat) to explicit CDIP station overrides to reduce "no nearby CDIP station" warnings.
 - **Tests (reliability):** Added unit coverage for high-blast-radius fallbacks and SEO routing:
   - Spot data actions: slug normalization + DB/static merge + featured photo fallbacks + gallery error handling
   - Admin tools: sessions/reviews list filtering + search + stats aggregation (ignores soft-deleted, no divide-by-zero)
@@ -167,6 +176,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated Playwright local testing docs/config to support `.env.playwright.local` localhost-only overrides (no copy step needed)
 - Fixed cycle time calculation error in `docs/FORECAST_HEALTH_RECOVERY.md` (was 4.9h, corrected to 14.6h for 780 beaches) and added beach count scaling table with recommendations
 - **Session Logging (Dual Code Path):** Added comprehensive documentation for the session logging condition fields data flow in `components/session-forms/ARCHITECTURE.md` and `docs/diagrams/session-creation-flow.md`. Documents the dual code path architecture, field mapping reference, and prevention guidelines for future data loss bugs.
+- **ML Bias Correction Pipeline:** Added comprehensive documentation for the ML bias correction system:
+  - `docs/features/ML_BIAS_CORRECTION.md` - Feature overview, database schema, integration points, testing, deployment
+  - `ml/ARCHITECTURE.md` - Python FastAPI service, XGBoost model, API reference, training pipeline
+  - `lib/ml/ARCHITECTURE.md` - TypeScript parsing utilities, API reference, unit tests
+  - `app/api/cron/ml/ARCHITECTURE.md` - Vercel cron configuration, cold start handling, monitoring
+  - Updated `docs/ARCHITECTURE.md` - Added ML System section with component overview and documentation links
 
 ### Changed
 

@@ -25,7 +25,7 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
-import { getTimezoneFromCoords, getLocalHour, isNightHour } from '@/lib/utils/timezone-utils.server';
+import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -37,6 +37,50 @@ import type {
 } from '@/types/personalization';
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
+
+// ============================================================================
+// Sunset Time Fetching
+// ============================================================================
+
+/**
+ * Batch fetch sunset times for multiple beaches and dates.
+ * Returns a Map keyed by `${beachId}_${YYYY-MM-DD}` → sunset Date (UTC).
+ */
+export async function getBatchSunTimes(
+  beachIds: string[],
+  dates: string[]
+): Promise<Map<string, Date>> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const uniqueBeachIds = [...new Set(beachIds)];
+  const uniqueDates = [...new Set(dates)];
+
+  if (uniqueBeachIds.length === 0 || uniqueDates.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from('sun_times')
+    .select('beach_id, date, sunset_utc')
+    .in('beach_id', uniqueBeachIds)
+    .in('date', uniqueDates);
+
+  if (error) {
+    console.error('Error fetching sun times:', error);
+    return new Map();
+  }
+
+  const sunMap = new Map<string, Date>();
+
+  data?.forEach((row) => {
+    if (row.sunset_utc) {
+      const key = `${row.beach_id}_${row.date}`;
+      sunMap.set(key, new Date(row.sunset_utc));
+    }
+  });
+
+  return sunMap;
+}
 
 // ============================================================================
 // Constants
@@ -52,6 +96,11 @@ const FORECAST_WINDOW_HOURS = 48;
 // Time-priority window selection constants
 const TIME_DECAY_PER_HOUR = 0.5; // Points deducted per hour in future
 const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (12 points max)
+
+// Sunset-aware window constants
+const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
+const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor"
+const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
 
 // ============================================================================
 // Photo Enrichment
@@ -197,6 +246,22 @@ export async function discoverSurfSpots(
       return emptyResponse(maxResults);
     }
 
+    // Collect all dates from forecasts and fetch sun times
+    const allDates = new Set<string>();
+    const allBeachIds = new Set<string>();
+
+    for (const { beach, forecasts } of beachForecasts) {
+      allBeachIds.add(beach.id);
+      for (const f of forecasts) {
+        allDates.add(f.forecast_date);
+      }
+    }
+
+    const sunTimesCache = await getBatchSunTimes(
+      Array.from(allBeachIds),
+      Array.from(allDates)
+    );
+
     // 3. Score each beach with detailed breakdown
     const scored: SurfDiscoveryRecommendation[] = [];
 
@@ -207,7 +272,7 @@ export async function discoverSurfSpots(
     ]);
 
     for (const { beach, forecasts } of beachForecasts) {
-      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours);
+      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache);
       if (!bestWindow) {
         console.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
@@ -746,6 +811,24 @@ async function scoreBeachForDiscovery(args: {
     subscores.tideFit = 8;
   }
 
+  // 4b. Tide Direction Penalty
+  // If beach has a preferred tide direction, penalize when forecast doesn't match
+  const beachTideDir = beach.preferred_tide_direction;
+  if (beachTideDir && beachTideDir !== 'either' && tideStatus) {
+    // Normalize tide status to match our enum (rising/falling/slack)
+    const forecastTideDir = tideStatus.includes('rising') ? 'rising'
+      : tideStatus.includes('falling') ? 'falling'
+      : tideStatus.includes('slack') || tideStatus.includes('high') || tideStatus.includes('low') ? 'slack'
+      : null;
+
+    if (forecastTideDir && beachTideDir !== forecastTideDir) {
+      // Full penalty for opposite direction, partial for slack mismatch
+      const dirPenalty = forecastTideDir === 'slack' ? 6 : 12;
+      subscores.tideFit = Math.max(0, subscores.tideFit - dirPenalty);
+      warnings.push(`Tide is ${forecastTideDir}, beach works best on ${beachTideDir} tide`);
+    }
+  }
+
   // 5. Affinity Bonus (0-15 points)
   if (affinity && affinity.affinity_score > 10) {
     subscores.affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
@@ -812,10 +895,12 @@ async function scoreBeachForDiscovery(args: {
         : 0;
 
     if (outsideRange > 0) {
-      // Graduated penalty: -8 points per 0.5ft outside range, max -30
-      // This allows "almost in range" conditions to still show as "good"
-      const penalty = Math.min(30, Math.floor(outsideRange / 0.5) * 8);
+      // Graduated penalty: -12 points per 0.5ft outside range, max -36
+      // Waves outside preferred range can never be "Perfect Match"
+      const penalty = Math.min(36, Math.floor(outsideRange / 0.5) * 12);
       total = Math.max(0, total - penalty);
+      // Cap score at 75 - waves outside preference should max at "Excellent", never "Perfect"
+      total = Math.min(total, 75);
     }
   }
 
@@ -980,119 +1065,185 @@ function scoreForecastWindow(
 }
 
 /**
- * Select best 3-hour window from forecast using composite scoring with time-priority
+ * Select best surf window from forecast using composite scoring with time-priority.
+ * Now sunset-aware: caps windows at sunset and skips windows too close to dark.
  *
  * ALGORITHM:
- * 1. For each forecast entry, calculate:
- *    - windowScore: Evaluate conditions (waves, wind, tide) using scoreForecastWindow
- *    - confidenceScore: Normalize confidence_score to 0-100 scale
- * 2. Combine with weighted average: composite = (windowScore * 0.7) + (confidenceScore * 0.3)
- * 3. Apply time-decay penalty: adjustedScore = composite - (hoursAhead * TIME_DECAY_PER_HOUR)
+ * 1. Score all forecasts upfront and filter past times
+ * 2. For each valid forecast window start:
+ *    - Skip if score below MIN_SCORE_THRESHOLD
+ *    - Skip if too close to sunset (< MIN_SESSION_HOURS)
+ *    - Extend window end until conditions degrade or MAX_WINDOW_HOURS reached
+ *    - Use linear interpolation to find precise degradation time
+ *    - Cap window end at sunset
+ * 3. Apply time-decay penalty for ranking
  * 4. Select highest adjusted score
- * 5. Tie-breaking: If adjusted scores tie, prefer higher composite, then windowScore, then later time
  *
- * This prioritizes near-term forecasts while still respecting conditions quality.
+ * This prioritizes near-term forecasts while respecting conditions quality and sunset.
  * Time decay: 0.5 pts/hour (capped at 24 hours = 12 points max penalty).
  *
  * @param forecasts - Array of forecast entities for the beach
  * @param beach - Beach metadata for wind/tide preferences
  * @param userPrefs - User surf preferences (optional, for wave size/period matching)
+ * @param horizonHours - Optional max hours ahead to consider
+ * @param sunTimesCache - Optional Map of beach_id_date -> sunset Date for capping windows
  * @returns Best window or null if none viable
  */
-function selectBestWindow(
+export function selectBestWindow(
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
-  horizonHours?: number
+  horizonHours?: number,
+  sunTimesCache?: Map<string, Date>
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
   const now = new Date();
-
-  // Get beach's local timezone from coordinates for accurate night filtering
   const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
 
-  // Track best window with detailed scoring
+  // Score all forecasts upfront and filter past times
+  // Note: Night hour filtering removed - sunset-aware logic handles evening edge cases
+  // by capping windows at sunset from sunTimesCache
+  const scoredForecasts = forecasts
+    .map((forecast) => {
+      const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
+      const score = scoreForecastWindow(forecast, beach, userPrefs);
+      return { forecast, forecastTime, score };
+    })
+    .filter(({ forecastTime }) => forecastTime > now)
+    .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
+
+  if (scoredForecasts.length === 0) return null;
+
+  let bestWindow: {
+    forecast: EnhancedForecastEntity;
+    start: Date;
+    end: Date;
+    score: number;
+  } | null = null;
   let bestAdjustedScore = -1;
-  let bestComposite = -1;
-  let bestWindowScore = -1;
-  let bestForecast: EnhancedForecastEntity | null = null;
 
-  for (const forecast of forecasts) {
-    // Parse forecast time as UTC since that's how it's stored
-    const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
-    if (forecastTime < now) {
-      continue;
+  for (let i = 0; i < scoredForecasts.length; i++) {
+    const { forecast, forecastTime: startTime, score: startScore } = scoredForecasts[i];
+
+    // Skip low-scoring start times
+    if (startScore < MIN_SCORE_THRESHOLD) continue;
+
+    // Get sunset for this date
+    const dateKey = forecast.forecast_date;
+    const sunset = sunTimesCache?.get(`${beach.id}_${dateKey}`);
+
+    // Skip if too close to sunset
+    if (sunset) {
+      const hoursUntilSunset = (sunset.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      if (hoursUntilSunset < MIN_SESSION_HOURS) continue;
     }
 
-    // Skip nighttime hours (9pm - 6am) in the beach's local timezone
-    // This ensures we show realistic surf times regardless of server timezone
-    const localHour = getLocalHour(forecastTime, beachTz);
-    if (isNightHour(localHour)) {
-      continue;
+    // Check horizon constraint
+    const hoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (horizonHours && hoursAhead > horizonHours) continue;
+
+    // Default end time: MAX_WINDOW_HOURS from start
+    let endTime = new Date(startTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+
+    // Look ahead to find when conditions degrade
+    for (let j = i; j < scoredForecasts.length - 1; j++) {
+      const current = scoredForecasts[j];
+      const next = scoredForecasts[j + 1];
+
+      // Stop if next forecast is on a different date
+      if (current.forecast.forecast_date !== next.forecast.forecast_date) break;
+
+      // Check if conditions drop below threshold
+      if (current.score >= MIN_SCORE_THRESHOLD && next.score < MIN_SCORE_THRESHOLD) {
+        // Linear interpolation to find precise degradation time
+        const dropAmount = current.score - next.score;
+        const thresholdDiff = current.score - MIN_SCORE_THRESHOLD;
+        const fractionOfHour = dropAmount > 0 ? thresholdDiff / dropAmount : 0;
+
+        const degradationTime = new Date(
+          current.forecastTime.getTime() + fractionOfHour * 60 * 60 * 1000
+        );
+
+        if (degradationTime < endTime) {
+          endTime = degradationTime;
+        }
+        break;
+      }
+
+      // Stop extending if we've gone past max window
+      const windowDuration = (next.forecastTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      if (windowDuration >= MAX_WINDOW_HOURS) {
+        endTime = new Date(startTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+        break;
+      }
     }
 
-    // 1. Calculate conditions score for this time slot (0-80 points)
-    const windowScore = scoreForecastWindow(forecast, beach, userPrefs);
-
-    // 2. Normalize confidence score to 0-100 scale
-    const confidenceScore = forecast.confidence_score || 50;
-
-    // 3. Composite score: 70% conditions quality + 30% confidence
-    const composite = windowScore * 0.7 + confidenceScore * 0.3;
-
-    // 4. Apply time-decay penalty
-    const hoursAhead = (forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    // Optional hard horizon for "next 24 hours" UX: ignore windows beyond the horizon.
-    if (
-      typeof horizonHours === "number" &&
-      Number.isFinite(horizonHours) &&
-      hoursAhead > horizonHours
-    ) {
-      continue;
+    // Cap at sunset
+    if (sunset && sunset < endTime) {
+      endTime = sunset;
     }
 
+    // Validate minimum session length
+    const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    if (durationHours < MIN_SESSION_HOURS) continue;
+
+    // Apply time decay for ranking
     const cappedHours = Math.min(hoursAhead, MAX_TIME_DECAY_HOURS);
     const timeDecay = cappedHours * TIME_DECAY_PER_HOUR;
-    const adjustedScore = composite - timeDecay;
+    const adjustedScore = startScore - timeDecay;
 
-    // 5. Select best, with updated tie-breaking logic
-    const isBetter =
-      adjustedScore > bestAdjustedScore ||
-      (adjustedScore === bestAdjustedScore && composite > bestComposite) ||
-      (adjustedScore === bestAdjustedScore &&
-        composite === bestComposite &&
-        windowScore > bestWindowScore) ||
-      (adjustedScore === bestAdjustedScore &&
-        composite === bestComposite &&
-        windowScore === bestWindowScore &&
-        bestForecast &&
-        forecastTime > new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}Z`));
-
-    if (isBetter) {
+    if (adjustedScore > bestAdjustedScore) {
       bestAdjustedScore = adjustedScore;
-      bestComposite = composite;
-      bestWindowScore = windowScore;
-      bestForecast = forecast;
+      bestWindow = { forecast, start: startTime, end: endTime, score: startScore };
     }
   }
 
-  if (!bestForecast) return null;
+  // Fallback: if no forecasts passed threshold, use the best available anyway
+  // This ensures we still return recommendations with low scores (with warnings)
+  // rather than returning nothing when conditions are poor
+  if (!bestWindow && scoredForecasts.length > 0) {
+    const best = scoredForecasts.reduce((prev, curr) =>
+      curr.score > prev.score ? curr : prev
+    );
 
-  // Build window from best forecast
-  // Parse as UTC since forecast times are stored in UTC
-  const windowStart = new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}Z`);
+    // Check horizon constraint for fallback
+    const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (!horizonHours || hoursAhead <= horizonHours) {
+      const dateKey = best.forecast.forecast_date;
+      const sunset = sunTimesCache?.get(`${beach.id}_${dateKey}`);
 
+      // Calculate end time (fallback uses default window, capped at sunset)
+      let endTime = new Date(best.forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+      if (sunset && sunset < endTime) {
+        endTime = sunset;
+      }
+
+      // Only use if we have at least MIN_SESSION_HOURS
+      const durationHours = (endTime.getTime() - best.forecastTime.getTime()) / (1000 * 60 * 60);
+      if (durationHours >= MIN_SESSION_HOURS) {
+        bestWindow = {
+          forecast: best.forecast,
+          start: best.forecastTime,
+          end: endTime,
+          score: best.score,
+        };
+      }
+    }
+  }
+
+  if (!bestWindow) return null;
+
+  // Build the PersonalizedForecastWindow
   return {
-    start: windowStart,
-    end: new Date(windowStart.getTime() + WINDOW_HOURS * 60 * 60 * 1000),
-    tide: bestForecast.tide_status || 'Unknown',
-    wind: `${bestForecast.wind_speed} ${bestForecast.wind_direction}`,
-    waveHeight: bestForecast.wave_height || 'Unknown',
-    wavePeriod: bestForecast.wave_period || 'Unknown',
-    dataSource: bestForecast.data_source || 'FALLBACK',
-    confidence: bestForecast.confidence_score || 50,
+    start: bestWindow.start,
+    end: bestWindow.end,
+    tide: bestWindow.forecast.tide_status || 'Unknown',
+    wind: `${bestWindow.forecast.wind_speed} ${bestWindow.forecast.wind_direction}`,
+    waveHeight: bestWindow.forecast.wave_height || 'Unknown',
+    wavePeriod: bestWindow.forecast.wave_period || 'Unknown',
+    dataSource: bestWindow.forecast.data_source || 'FALLBACK',
+    confidence: bestWindow.forecast.confidence_score || 50,
     timezone: beachTz,
   };
 }

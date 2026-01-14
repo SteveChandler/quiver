@@ -142,3 +142,8 @@ venv/
 # ML model files (should use Git LFS or CDN)
 beach_bias_model_v1.json
 
+.worktrees/
+
+# ML model files (keep .gitkeep)
+ml/models/*.json
+!ml/models/.gitkeep

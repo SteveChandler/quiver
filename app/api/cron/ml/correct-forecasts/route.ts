@@ -1,0 +1,202 @@
+import { createClient } from '@supabase/supabase-js';
+import { parseWaveHeight, parseWindSpeed } from '@/lib/ml/parse-wave-height';
+
+// Allow up to 60 seconds for cold start + processing
+export const maxDuration = 60;
+
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL!;
+const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET!;
+
+// ----- Helper: Retry with backoff -----
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok || response.status < 500) {
+        return response;
+      }
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      lastError = err as Error;
+    }
+
+    // Exponential backoff: 1s, 2s, 4s
+    if (attempt < maxRetries - 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * Math.pow(2, attempt))
+      );
+    }
+  }
+
+  throw lastError;
+}
+
+// ----- Helper: Wake up the service -----
+async function wakeUpService(): Promise<boolean> {
+  try {
+    const response = await fetch(`${ML_SERVICE_URL}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(15000), // 15s timeout for cold start
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function GET(request: Request) {
+  // Verify cron secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Check required env vars
+  if (!ML_SERVICE_URL || !ML_INTERNAL_SECRET) {
+    return Response.json(
+      { error: 'ML_SERVICE_URL or ML_INTERNAL_SECRET not configured' },
+      { status: 500 }
+    );
+  }
+
+  // Wake up the ML service (handles cold start)
+  console.log('Waking up ML service...');
+  const isAwake = await wakeUpService();
+  if (!isAwake) {
+    // Retry wake-up once
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const retryAwake = await wakeUpService();
+    if (!retryAwake) {
+      return Response.json(
+        { error: 'ML service unavailable after wake-up attempts' },
+        { status: 503 }
+      );
+    }
+  }
+  console.log('ML service is awake');
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Get forecasts needing correction (next 24 hours)
+  const today = new Date().toISOString().split('T')[0];
+  const { data: forecasts, error } = await supabase
+    .from('enhanced_forecasts')
+    .select(
+      'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
+    )
+    .eq('data_source', 'NOAA_NWS')
+    .gte('forecast_date', today)
+    .limit(500);
+
+  if (error) {
+    console.error('Error fetching forecasts:', error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!forecasts?.length) {
+    return Response.json({ message: 'No forecasts to correct', corrected: 0 });
+  }
+
+  console.log(`Found ${forecasts.length} forecasts to correct`);
+
+  // Parse and prepare for ML service
+  const parsed = forecasts
+    .map((f) => ({
+      beach_id: f.beach_id,
+      forecast_ts: `${f.forecast_date}T${f.forecast_time}`,
+      wave_height_m: parseWaveHeight(f.wave_height),
+      wave_period_s: parseFloat(f.wave_period) || 10,
+      wave_direction_deg: parseFloat(f.wave_direction) || 270,
+      wind_speed_ms: parseWindSpeed(f.wind_speed),
+      wind_direction_deg: parseFloat(f.wind_direction) || 270,
+    }))
+    .filter((f) => f.wave_height_m !== null);
+
+  if (parsed.length === 0) {
+    return Response.json({
+      message: 'No parseable forecasts',
+      corrected: 0,
+    });
+  }
+
+  console.log(`Sending ${parsed.length} forecasts to ML service`);
+
+  // Call ML service with auth header and retry logic
+  let response: Response;
+  try {
+    response = await fetchWithRetry(`${ML_SERVICE_URL}/correct/batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Secret': ML_INTERNAL_SECRET,
+      },
+      body: JSON.stringify({ forecasts: parsed }),
+    });
+  } catch (err) {
+    console.error('ML service request failed:', err);
+    return Response.json(
+      { error: `ML service error: ${(err as Error).message}` },
+      { status: 502 }
+    );
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('ML service error:', errorText);
+    return Response.json(
+      { error: `ML service error: ${errorText}` },
+      { status: 502 }
+    );
+  }
+
+  const { corrections, model_version } = await response.json();
+  console.log(`Received ${corrections.length} corrections`);
+
+  // Upsert corrected forecasts
+  const { error: upsertError } = await supabase.from('corrected_forecasts').upsert(
+    corrections.map((c: any) => ({
+      beach_id: c.beach_id,
+      forecast_ts: c.forecast_ts,
+      valid_time_utc: c.forecast_ts,
+      raw_height_m: c.raw_height_m,
+      corrected_height_m: c.corrected_height_m,
+      bias_applied_m: c.bias_applied_m,
+      model_version: c.model_version,
+    })),
+    { onConflict: 'beach_id,forecast_ts' }
+  );
+
+  if (upsertError) {
+    console.error('Error upserting corrections:', upsertError);
+  }
+
+  // Also log for monitoring
+  const { error: logError } = await supabase.from('ml_predictions_log').insert(
+    corrections.map((c: any) => ({
+      beach_id: c.beach_id,
+      predicted_at: c.forecast_ts,
+      raw_forecast_m: c.raw_height_m,
+      corrected_forecast_m: c.corrected_height_m,
+      bias_applied_m: c.bias_applied_m,
+      model_version: c.model_version,
+    }))
+  );
+
+  if (logError) {
+    console.error('Error logging predictions:', logError);
+  }
+
+  return Response.json({
+    corrected: corrections.length,
+    model_version: model_version,
+  });
+}
