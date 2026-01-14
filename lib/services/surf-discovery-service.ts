@@ -1179,6 +1179,39 @@ export function selectBestWindow(
     }
   }
 
+  // Fallback: if no forecasts passed threshold, use the best available anyway
+  // This ensures we still return recommendations with low scores (with warnings)
+  // rather than returning nothing when conditions are poor
+  if (!bestWindow && scoredForecasts.length > 0) {
+    const best = scoredForecasts.reduce((prev, curr) =>
+      curr.score > prev.score ? curr : prev
+    );
+
+    // Check horizon constraint for fallback
+    const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (!horizonHours || hoursAhead <= horizonHours) {
+      const dateKey = best.forecast.forecast_date;
+      const sunset = sunTimesCache?.get(`${beach.id}_${dateKey}`);
+
+      // Calculate end time (fallback uses default window, capped at sunset)
+      let endTime = new Date(best.forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+      if (sunset && sunset < endTime) {
+        endTime = sunset;
+      }
+
+      // Only use if we have at least MIN_SESSION_HOURS
+      const durationHours = (endTime.getTime() - best.forecastTime.getTime()) / (1000 * 60 * 60);
+      if (durationHours >= MIN_SESSION_HOURS) {
+        bestWindow = {
+          forecast: best.forecast,
+          start: best.forecastTime,
+          end: endTime,
+          score: best.score,
+        };
+      }
+    }
+  }
+
   if (!bestWindow) return null;
 
   // Build the PersonalizedForecastWindow
