@@ -32,10 +32,11 @@ CREATE POLICY corrected_forecasts_select_all
 
 CREATE POLICY corrected_forecasts_service_role_write
   ON corrected_forecasts FOR INSERT
-  USING (auth.jwt() ->> 'role' = 'service_role');
+  WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
 
 CREATE POLICY corrected_forecasts_service_role_update
   ON corrected_forecasts FOR UPDATE
-  USING (auth.jwt() ->> 'role' = 'service_role');
+  USING (auth.jwt() ->> 'role' = 'service_role')
+  WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
 
 COMMIT;
