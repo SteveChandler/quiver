@@ -39,6 +39,50 @@ import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 
 // ============================================================================
+// Sunset Time Fetching
+// ============================================================================
+
+/**
+ * Batch fetch sunset times for multiple beaches and dates.
+ * Returns a Map keyed by `${beachId}_${YYYY-MM-DD}` → sunset Date (UTC).
+ */
+export async function getBatchSunTimes(
+  beachIds: string[],
+  dates: string[]
+): Promise<Map<string, Date>> {
+  const supabase = createSupabaseServiceRoleClient();
+
+  const uniqueBeachIds = [...new Set(beachIds)];
+  const uniqueDates = [...new Set(dates)];
+
+  if (uniqueBeachIds.length === 0 || uniqueDates.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from('sun_times')
+    .select('beach_id, date, sunset_utc')
+    .in('beach_id', uniqueBeachIds)
+    .in('date', uniqueDates);
+
+  if (error) {
+    console.error('Error fetching sun times:', error);
+    return new Map();
+  }
+
+  const sunMap = new Map<string, Date>();
+
+  data?.forEach((row) => {
+    if (row.sunset_utc) {
+      const key = `${row.beach_id}_${row.date}`;
+      sunMap.set(key, new Date(row.sunset_utc));
+    }
+  });
+
+  return sunMap;
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
