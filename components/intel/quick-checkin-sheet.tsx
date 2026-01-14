@@ -49,7 +49,7 @@ export function QuickCheckinSheet({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { coords } = useGeolocation({ autoRequest: false });
+  const { coords, loading: locationLoading, source } = useGeolocation({ autoRequest: true });
 
   const handlePhotoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,7 +79,7 @@ export function QuickCheckinSheet({
       return;
     }
 
-    if (!coords) {
+    if (!coords || source !== "browser") {
       toast.error("Location required. Please enable location services.");
       return;
     }
@@ -132,7 +132,7 @@ export function QuickCheckinSheet({
     } finally {
       setSubmitting(false);
     }
-  }, [rating, note, photoFile, coords, clearPhoto, onOpenChange, onSuccess]);
+  }, [rating, note, photoFile, coords, source, clearPhoto, onOpenChange, onSuccess]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -203,9 +203,15 @@ export function QuickCheckinSheet({
 
             {/* Location Indicator */}
             <div className="flex items-center gap-1.5 text-sm text-gray-400">
-              <MapPin className="w-4 h-4" />
-              <span className="truncate max-w-[120px]">
-                {nearestBeachName || (coords ? "Location detected" : "No location")}
+              {locationLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MapPin className="w-4 h-4" />
+              )}
+              <span>
+                {locationLoading
+                  ? "Getting location..."
+                  : nearestBeachName || (source === "browser" ? "Location detected" : "No location")}
               </span>
             </div>
           </div>
@@ -213,7 +219,7 @@ export function QuickCheckinSheet({
           {/* Submit Button */}
           <Button
             onClick={handleSubmit}
-            disabled={!rating || submitting}
+            disabled={!rating || submitting || locationLoading || source !== "browser"}
             className="w-full bg-[#f97316] hover:bg-[#ea580c] text-white font-semibold"
           >
             {submitting ? (
