@@ -6,54 +6,6 @@ from supabase import create_client
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, MAX_TIME_DIFF_SECONDS
 from parsing import parse_wave_height, parse_wind_speed
 
-# MAX_TIME_DIFF_SECONDS is a module constant (7200 = 2 hours) that defines
-# the maximum time difference allowed between a forecast and an observation
-# for them to be paired as training data. This ensures temporal proximity.
-TRAINING_QUERY = """
-WITH forecasts AS (
-  SELECT
-    ef.beach_id,
-    (ef.forecast_date + ef.forecast_time) AT TIME ZONE COALESCE(b.timezone, 'America/Los_Angeles') AS forecast_ts_utc,
-    ef.wave_height,
-    ef.wave_period,
-    ef.wave_direction,
-    ef.wind_speed,
-    ef.wind_direction
-  FROM enhanced_forecasts ef
-  JOIN beaches b ON ef.beach_id = b.id
-  WHERE ef.data_source = 'NOAA_NWS'
-),
-observations AS (
-  SELECT
-    beach_id,
-    ts AS observed_ts,
-    wave_height_m,
-    wave_period_s,
-    wave_direction_deg
-  FROM marine_forecasts
-  WHERE is_observed = true
-    AND source IN ('cdip', 'ndbc')
-    AND wave_height_m IS NOT NULL
-)
-SELECT
-  f.beach_id,
-  f.forecast_ts_utc,
-  f.wave_height AS forecast_height_text,
-  f.wave_period AS forecast_period_text,
-  f.wave_direction AS forecast_dir_text,
-  f.wind_speed AS wind_speed_text,
-  f.wind_direction AS wind_dir_text,
-  o.wave_height_m AS observed_height_m,
-  o.wave_period_s AS observed_period_s,
-  o.wave_direction_deg AS observed_dir_deg,
-  o.observed_ts
-FROM forecasts f
-JOIN observations o
-  ON f.beach_id = o.beach_id
-  AND ABS(EXTRACT(EPOCH FROM (f.forecast_ts_utc - o.observed_ts))) < {max_time_diff}
-ORDER BY f.forecast_ts_utc
-""".format(max_time_diff=MAX_TIME_DIFF_SECONDS)
-
 
 def extract_training_data(output_path: str = "data/training_data.csv") -> pd.DataFrame:
     """
@@ -65,17 +17,89 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
     print("Connecting to Supabase...")
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    print("Executing training data query...")
-    result = supabase.rpc('exec_sql', {'query': TRAINING_QUERY}).execute()
+    # Fetch forecasts from enhanced_forecasts
+    print("Fetching NOAA forecasts...")
+    forecasts_result = supabase.from_('enhanced_forecasts').select(
+        'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
+    ).eq('data_source', 'NOAA_NWS').execute()
 
-    if not result.data:
-        # Fallback: execute raw SQL
-        print("Using direct query fallback...")
-        result = supabase.from_('enhanced_forecasts').select('*').limit(1).execute()
-        raise NotImplementedError("Direct SQL execution not available. Export data manually.")
+    forecasts_df = pd.DataFrame(forecasts_result.data)
+    print(f"  Retrieved {len(forecasts_df)} forecasts")
 
-    df = pd.DataFrame(result.data)
-    print(f"Retrieved {len(df)} raw rows")
+    if len(forecasts_df) == 0:
+        print("No forecasts found")
+        return pd.DataFrame()
+
+    # Fetch observations from marine_forecasts
+    print("Fetching observations...")
+    obs_result = supabase.from_('marine_forecasts').select(
+        'beach_id, ts, wave_height_m, wave_period_s, wave_direction_deg'
+    ).eq('is_observed', True).in_('source', ['cdip', 'ndbc']).not_.is_('wave_height_m', 'null').execute()
+
+    obs_df = pd.DataFrame(obs_result.data)
+    print(f"  Retrieved {len(obs_df)} observations")
+
+    if len(obs_df) == 0:
+        print("No observations found")
+        return pd.DataFrame()
+
+    # Convert forecast date+time to datetime
+    forecasts_df['forecast_ts'] = pd.to_datetime(
+        forecasts_df['forecast_date'] + ' ' + forecasts_df['forecast_time'].fillna('00:00:00'),
+        errors='coerce'
+    )
+
+    # Convert observation timestamp
+    obs_df['observed_ts'] = pd.to_datetime(obs_df['ts'], errors='coerce')
+
+    # Join forecasts with observations on beach_id and time proximity
+    print("Matching forecasts with observations...")
+
+    matched_rows = []
+    for _, forecast in forecasts_df.iterrows():
+        beach_id = forecast['beach_id']
+        forecast_ts = forecast['forecast_ts']
+
+        if pd.isna(forecast_ts):
+            continue
+
+        # Find observations for this beach within time window
+        beach_obs = obs_df[obs_df['beach_id'] == beach_id]
+        if len(beach_obs) == 0:
+            continue
+
+        # Calculate time difference in seconds
+        time_diff = abs((beach_obs['observed_ts'] - forecast_ts).dt.total_seconds())
+
+        # Find closest observation within MAX_TIME_DIFF_SECONDS (2 hours)
+        valid_obs = beach_obs[time_diff < MAX_TIME_DIFF_SECONDS]
+        if len(valid_obs) == 0:
+            continue
+
+        # Take the closest one
+        closest_idx = time_diff[time_diff < MAX_TIME_DIFF_SECONDS].idxmin()
+        obs = obs_df.loc[closest_idx]
+
+        matched_rows.append({
+            'beach_id': beach_id,
+            'forecast_ts_utc': forecast_ts,
+            'forecast_height_text': forecast['wave_height'],
+            'forecast_period_text': forecast['wave_period'],
+            'forecast_dir_text': forecast['wave_direction'],
+            'wind_speed_text': forecast['wind_speed'],
+            'wind_dir_text': forecast['wind_direction'],
+            'observed_height_m': obs['wave_height_m'],
+            'observed_period_s': obs['wave_period_s'],
+            'observed_dir_deg': obs['wave_direction_deg'],
+            'observed_ts': obs['observed_ts']
+        })
+
+    if not matched_rows:
+        print("No forecast-observation pairs found within time window")
+        return pd.DataFrame()
+
+    df = pd.DataFrame(matched_rows)
+    print(f"Matched {len(df)} forecast-observation pairs")
 
     # Parse text fields to numeric
     df['forecast_height_m'] = df['forecast_height_text'].apply(parse_wave_height)
@@ -91,12 +115,11 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
     required_cols = ['forecast_height_m', 'observed_height_m', 'residual_m']
     df_clean = df.dropna(subset=required_cols).copy()
 
-    # Handle empty dataset case
     if len(df) > 0:
         print(f"Clean dataset: {len(df_clean)} rows ({len(df_clean)/len(df)*100:.1f}% retained)")
     else:
         print("Warning: No data retrieved from query")
-        return pd.DataFrame()  # Return empty DataFrame
+        return pd.DataFrame()
 
     # Fill missing optional values (match inference behavior)
     df_clean['wind_speed_ms'] = df_clean['wind_speed_ms'].fillna(0)
@@ -123,8 +146,11 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
 
 if __name__ == "__main__":
     df = extract_training_data()
-    print(f"\nDataset summary:")
-    print(f"  Rows: {len(df)}")
-    print(f"  Date range: {df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}")
-    print(f"  Mean residual: {df['residual_m'].mean():.3f}m")
-    print(f"  Std residual: {df['residual_m'].std():.3f}m")
+    if len(df) > 0:
+        print(f"\nDataset summary:")
+        print(f"  Rows: {len(df)}")
+        print(f"  Date range: {df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}")
+        print(f"  Mean residual: {df['residual_m'].mean():.3f}m")
+        print(f"  Std residual: {df['residual_m'].std():.3f}m")
+    else:
+        print("\nNo training data extracted")

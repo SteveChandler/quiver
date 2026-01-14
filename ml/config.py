@@ -1,11 +1,16 @@
 """Configuration for ML pipeline."""
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env.local first (production), then .env (local dev)
+project_root = Path(__file__).parent.parent
+load_dotenv(project_root / '.env.local')  # Production config
+load_dotenv(project_root / '.env')  # Local dev fallback
+load_dotenv()  # Also try ml/.env if exists
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 MODEL_PATH = os.getenv("MODEL_PATH", "models/bias_model_v1.json")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET")

@@ -67,6 +67,14 @@
     {
       "path": "/api/cron/update-buoy-conditions",
       "schedule": "0 14,16,18,20,22,0,2,4 * * *"
+    },
+    {
+      "path": "/api/cron/ml/correct-forecasts",
+      "schedule": "0 */3 * * *"
+    },
+    {
+      "path": "/api/cron/ml/backfill-observations",
+      "schedule": "30 * * * *"
     }
   ]
 }
