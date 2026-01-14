@@ -116,6 +116,7 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
     preference_model: null,
     preferred_tide_ft_max: null,
     preferred_tide_ft_min: null,
+    preferred_tide_direction: null,
     real_takeaways: null,
     region: spot.region,
     region_id: null,

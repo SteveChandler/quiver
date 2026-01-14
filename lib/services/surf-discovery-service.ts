@@ -811,6 +811,24 @@ async function scoreBeachForDiscovery(args: {
     subscores.tideFit = 8;
   }
 
+  // 4b. Tide Direction Penalty
+  // If beach has a preferred tide direction, penalize when forecast doesn't match
+  const beachTideDir = beach.preferred_tide_direction;
+  if (beachTideDir && beachTideDir !== 'either' && tideStatus) {
+    // Normalize tide status to match our enum (rising/falling/slack)
+    const forecastTideDir = tideStatus.includes('rising') ? 'rising'
+      : tideStatus.includes('falling') ? 'falling'
+      : tideStatus.includes('slack') || tideStatus.includes('high') || tideStatus.includes('low') ? 'slack'
+      : null;
+
+    if (forecastTideDir && beachTideDir !== forecastTideDir) {
+      // Full penalty for opposite direction, partial for slack mismatch
+      const dirPenalty = forecastTideDir === 'slack' ? 6 : 12;
+      subscores.tideFit = Math.max(0, subscores.tideFit - dirPenalty);
+      warnings.push(`Tide is ${forecastTideDir}, beach works best on ${beachTideDir} tide`);
+    }
+  }
+
   // 5. Affinity Bonus (0-15 points)
   if (affinity && affinity.affinity_score > 10) {
     subscores.affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
@@ -877,10 +895,12 @@ async function scoreBeachForDiscovery(args: {
         : 0;
 
     if (outsideRange > 0) {
-      // Graduated penalty: -8 points per 0.5ft outside range, max -30
-      // This allows "almost in range" conditions to still show as "good"
-      const penalty = Math.min(30, Math.floor(outsideRange / 0.5) * 8);
+      // Graduated penalty: -12 points per 0.5ft outside range, max -36
+      // Waves outside preferred range can never be "Perfect Match"
+      const penalty = Math.min(36, Math.floor(outsideRange / 0.5) * 12);
       total = Math.max(0, total - penalty);
+      // Cap score at 75 - waves outside preference should max at "Excellent", never "Perfect"
+      total = Math.min(total, 75);
     }
   }
 
