@@ -97,6 +97,11 @@ const FORECAST_WINDOW_HOURS = 48;
 const TIME_DECAY_PER_HOUR = 0.5; // Points deducted per hour in future
 const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (12 points max)
 
+// Sunset-aware window constants
+const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
+const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor"
+const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
+
 // ============================================================================
 // Photo Enrichment
 // ============================================================================
