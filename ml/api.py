@@ -7,10 +7,14 @@ from typing import List, Optional
 import pandas as pd
 import numpy as np
 import os
+import secrets
 
 from model import QuiverBiasModel
 from transformers import FeatureEngineer
 from config import MODEL_PATH, MODEL_VERSION, INTERNAL_SECRET
+
+# ----- Constants -----
+MAX_BATCH_SIZE = 1000
 
 app = FastAPI(
     title="Quiver ML Bias Correction",
@@ -28,7 +32,7 @@ def verify_api_key(api_key: str = Security(api_key_header)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="INTERNAL_SECRET not configured"
         )
-    if api_key != INTERNAL_SECRET:
+    if not api_key or not secrets.compare_digest(api_key, INTERNAL_SECRET):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid or missing API key"
@@ -36,16 +40,20 @@ def verify_api_key(api_key: str = Security(api_key_header)):
     return api_key
 
 # ----- Model Loading -----
-print(f"Loading model from {MODEL_PATH}...")
-model = QuiverBiasModel()
-try:
-    model.load(MODEL_PATH)
-    print("Model loaded successfully")
-except Exception as e:
-    print(f"Warning: Could not load model: {e}")
-    model = None
-
+model = None
 fe = FeatureEngineer()
+
+@app.on_event("startup")
+async def load_model_on_startup():
+    global model
+    print(f"Loading model from {MODEL_PATH}...")
+    model = QuiverBiasModel()
+    try:
+        model.load(MODEL_PATH)
+        print("Model loaded successfully")
+    except Exception as e:
+        print(f"Warning: Could not load model: {e}")
+        model = None
 
 # ----- Request/Response Models -----
 class ForecastInput(BaseModel):
@@ -130,6 +138,12 @@ def correct_batch(input: BatchInput):
 
     if not input.forecasts:
         raise HTTPException(status_code=400, detail="No forecasts provided")
+
+    if len(input.forecasts) > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size {len(input.forecasts)} exceeds limit of {MAX_BATCH_SIZE}"
+        )
 
     # Prepare DataFrame
     data = {
