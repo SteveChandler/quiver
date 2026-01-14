@@ -39,4 +39,8 @@ CREATE POLICY corrected_forecasts_service_role_update
   USING (auth.jwt() ->> 'role' = 'service_role')
   WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
 
+CREATE POLICY corrected_forecasts_service_role_delete
+  ON corrected_forecasts FOR DELETE
+  USING (auth.jwt() ->> 'role' = 'service_role');
+
 COMMIT;
