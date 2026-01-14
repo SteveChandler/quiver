@@ -121,9 +121,12 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
         print("Warning: No data retrieved from query")
         return pd.DataFrame()
 
+    # Track missing wind data before filling (allows model to learn different behavior)
+    df_clean['wind_missing'] = df_clean['wind_speed_ms'].isna().astype(int)
+
     # Fill missing optional values (match inference behavior)
     df_clean['wind_speed_ms'] = df_clean['wind_speed_ms'].fillna(0)
-    df_clean['wind_dir_deg'] = df_clean['wind_dir_deg'].fillna(270)
+    df_clean['wind_dir_deg'] = df_clean['wind_dir_deg'].fillna(0)  # Use 0, not 270
     df_clean['forecast_period_s'] = df_clean['forecast_period_s'].fillna(10)
     df_clean['forecast_dir_deg'] = df_clean['forecast_dir_deg'].fillna(270)
 
@@ -132,7 +135,7 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
         'beach_id', 'forecast_ts_utc', 'observed_ts',
         'forecast_height_m', 'observed_height_m', 'residual_m',
         'forecast_period_s', 'forecast_dir_deg',
-        'wind_speed_ms', 'wind_dir_deg'
+        'wind_speed_ms', 'wind_dir_deg', 'wind_missing'
     ]
     df_final = df_clean[final_cols]
 

@@ -1,8 +1,10 @@
 # ml/api.py
 """FastAPI service for ML bias correction."""
+from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 import pandas as pd
 import numpy as np
@@ -16,10 +18,29 @@ from config import MODEL_PATH, MODEL_VERSION, INTERNAL_SECRET
 # ----- Constants -----
 MAX_BATCH_SIZE = 1000
 
+# ----- Model Loading (Lifespan) -----
+model = None
+fe = FeatureEngineer()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model on startup, fail fast if not available."""
+    global model
+    print(f"Loading model from {MODEL_PATH}...")
+    model = QuiverBiasModel()
+    try:
+        model.load(MODEL_PATH)
+        print("Model loaded successfully")
+    except Exception as e:
+        print(f"FATAL: Could not load model: {e}")
+        raise RuntimeError(f"Model load failed: {e}")
+    yield
+
 app = FastAPI(
     title="Quiver ML Bias Correction",
     description="Corrects wave height forecasts using XGBoost bias model",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # ----- Authentication -----
@@ -39,31 +60,26 @@ def verify_api_key(api_key: str = Security(api_key_header)):
         )
     return api_key
 
-# ----- Model Loading -----
-model = None
-fe = FeatureEngineer()
-
-@app.on_event("startup")
-async def load_model_on_startup():
-    global model
-    print(f"Loading model from {MODEL_PATH}...")
-    model = QuiverBiasModel()
-    try:
-        model.load(MODEL_PATH)
-        print("Model loaded successfully")
-    except Exception as e:
-        print(f"Warning: Could not load model: {e}")
-        model = None
-
 # ----- Request/Response Models -----
 class ForecastInput(BaseModel):
+    """Input model with physical bounds validation."""
     beach_id: str
     forecast_ts: str
-    wave_height_m: float
-    wave_period_s: float
-    wave_direction_deg: float
-    wind_speed_ms: Optional[float] = None
-    wind_direction_deg: Optional[float] = None
+    wave_height_m: float = Field(ge=0.0, le=30.0, description="Wave height in meters (0-30m)")
+    wave_period_s: float = Field(ge=1.0, le=30.0, description="Wave period in seconds (1-30s)")
+    wave_direction_deg: float = Field(ge=0.0, le=360.0, description="Wave direction in degrees (0-360)")
+    wind_speed_ms: Optional[float] = Field(default=None, ge=0.0, le=100.0, description="Wind speed in m/s (0-100)")
+    wind_direction_deg: Optional[float] = Field(default=None, ge=0.0, le=360.0, description="Wind direction in degrees (0-360)")
+
+    @field_validator('forecast_ts')
+    @classmethod
+    def validate_timestamp(cls, v):
+        """Validate ISO timestamp format."""
+        try:
+            datetime.fromisoformat(v.replace('Z', '+00:00'))
+        except ValueError:
+            raise ValueError('Invalid ISO timestamp format. Expected format: YYYY-MM-DDTHH:MM:SSZ')
+        return v
 
 class CorrectionOutput(BaseModel):
     beach_id: str
@@ -102,13 +118,17 @@ def correct_single(input: ForecastInput):
     if not model or not model.model:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
+    # Track if wind data is missing (allows model to learn different behavior)
+    wind_missing = 1 if input.wind_speed_ms is None else 0
+
     # Prepare DataFrame
     data = {
         'wave_height_model': [input.wave_height_m],
         'wave_period': [input.wave_period_s],
         'wave_direction': [input.wave_direction_deg],
         'wind_speed': [input.wind_speed_ms if input.wind_speed_ms is not None else 0],
-        'wind_direction': [input.wind_direction_deg if input.wind_direction_deg is not None else 270],
+        'wind_direction': [input.wind_direction_deg if input.wind_direction_deg is not None else 0],
+        'wind_missing': [wind_missing],
         'timestamp': [pd.to_datetime(input.forecast_ts)]
     }
     df = pd.DataFrame(data)
@@ -145,13 +165,14 @@ def correct_batch(input: BatchInput):
             detail=f"Batch size {len(input.forecasts)} exceeds limit of {MAX_BATCH_SIZE}"
         )
 
-    # Prepare DataFrame
+    # Prepare DataFrame with wind_missing flag
     data = {
         'wave_height_model': [f.wave_height_m for f in input.forecasts],
         'wave_period': [f.wave_period_s for f in input.forecasts],
         'wave_direction': [f.wave_direction_deg for f in input.forecasts],
         'wind_speed': [f.wind_speed_ms if f.wind_speed_ms is not None else 0 for f in input.forecasts],
-        'wind_direction': [f.wind_direction_deg if f.wind_direction_deg is not None else 270 for f in input.forecasts],
+        'wind_direction': [f.wind_direction_deg if f.wind_direction_deg is not None else 0 for f in input.forecasts],
+        'wind_missing': [1 if f.wind_speed_ms is None else 0 for f in input.forecasts],
         'timestamp': [pd.to_datetime(f.forecast_ts) for f in input.forecasts]
     }
     df = pd.DataFrame(data)

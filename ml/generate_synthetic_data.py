@@ -47,8 +47,15 @@ def generate_synthetic_training_data(
         # Other features
         wave_period = np.random.uniform(8, 16)
         wave_dir = np.random.uniform(200, 320)  # Typical SW-NW swell
-        wind_speed = np.random.exponential(3)  # m/s
-        wind_dir = np.random.uniform(180, 360)
+
+        # Simulate missing wind data ~15% of the time
+        wind_missing = 1 if np.random.random() < 0.15 else 0
+        if wind_missing:
+            wind_speed = 0
+            wind_dir = 0
+        else:
+            wind_speed = np.random.exponential(3)  # m/s
+            wind_dir = np.random.uniform(180, 360)
 
         # Observation is the "true" value with small measurement noise
         observed_height = true_height + np.random.normal(0, 0.05)
@@ -68,6 +75,7 @@ def generate_synthetic_training_data(
             'forecast_dir_deg': round(wave_dir, 0),
             'wind_speed_ms': round(wind_speed, 1),
             'wind_dir_deg': round(wind_dir, 0),
+            'wind_missing': wind_missing,
         })
 
     df = pd.DataFrame(data)
