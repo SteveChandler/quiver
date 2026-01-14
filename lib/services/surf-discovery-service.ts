@@ -25,7 +25,7 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
-import { getTimezoneFromCoords, getLocalHour, isNightHour } from '@/lib/utils/timezone-utils.server';
+import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -246,6 +246,22 @@ export async function discoverSurfSpots(
       return emptyResponse(maxResults);
     }
 
+    // Collect all dates from forecasts and fetch sun times
+    const allDates = new Set<string>();
+    const allBeachIds = new Set<string>();
+
+    for (const { beach, forecasts } of beachForecasts) {
+      allBeachIds.add(beach.id);
+      for (const f of forecasts) {
+        allDates.add(f.forecast_date);
+      }
+    }
+
+    const sunTimesCache = await getBatchSunTimes(
+      Array.from(allBeachIds),
+      Array.from(allDates)
+    );
+
     // 3. Score each beach with detailed breakdown
     const scored: SurfDiscoveryRecommendation[] = [];
 
@@ -256,7 +272,7 @@ export async function discoverSurfSpots(
     ]);
 
     for (const { beach, forecasts } of beachForecasts) {
-      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours);
+      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache);
       if (!bestWindow) {
         console.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
@@ -1066,6 +1082,8 @@ export function selectBestWindow(
   const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
 
   // Score all forecasts upfront and filter past times
+  // Note: Night hour filtering removed - sunset-aware logic handles evening edge cases
+  // by capping windows at sunset from sunTimesCache
   const scoredForecasts = forecasts
     .map((forecast) => {
       const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
@@ -1073,11 +1091,6 @@ export function selectBestWindow(
       return { forecast, forecastTime, score };
     })
     .filter(({ forecastTime }) => forecastTime > now)
-    .filter(({ forecastTime }) => {
-      // Skip nighttime hours (9pm - 6am) in the beach's local timezone
-      const localHour = getLocalHour(forecastTime, beachTz);
-      return !isNightHour(localHour);
-    })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
   if (scoredForecasts.length === 0) return null;
