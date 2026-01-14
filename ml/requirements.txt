@@ -1,8 +1,9 @@
-numpy>=1.24.0
-pandas>=2.0.0
-xgboost>=1.7.0
-scikit-learn>=1.2.0
-joblib>=1.2.0
-fastapi>=0.109.0
-uvicorn>=0.27.0
-python-dotenv>=1.0.0
+# ml/requirements.txt
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+xgboost==2.0.3
+pandas==2.1.4
+numpy==1.26.3
+scikit-learn==1.4.0
+supabase==2.3.0
+python-dotenv==1.0.0
