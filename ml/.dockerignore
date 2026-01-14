@@ -1,9 +1,18 @@
-# ml/.dockerignore
 __pycache__/
 *.pyc
 *.pyo
-.env
 .git/
-data/
-tests/
+.gitignore
+README.md
 *.md
+.env
+.env.*
+tests/
+*_test.py
+test_*.py
+.coverage
+htmlcov/
+.venv/
+*.log
+.pytest_cache/
+.mypy_cache/
