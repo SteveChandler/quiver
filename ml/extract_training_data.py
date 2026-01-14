@@ -1,9 +1,14 @@
 """Extract training data from Supabase."""
+import os
+
 import pandas as pd
 from supabase import create_client
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, MAX_TIME_DIFF_SECONDS
 from parsing import parse_wave_height, parse_wind_speed
 
+# MAX_TIME_DIFF_SECONDS is a module constant (7200 = 2 hours) that defines
+# the maximum time difference allowed between a forecast and an observation
+# for them to be paired as training data. This ensures temporal proximity.
 TRAINING_QUERY = """
 WITH forecasts AS (
   SELECT
@@ -84,15 +89,20 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
 
     # Drop rows with missing critical values
     required_cols = ['forecast_height_m', 'observed_height_m', 'residual_m']
-    df_clean = df.dropna(subset=required_cols)
+    df_clean = df.dropna(subset=required_cols).copy()
+
+    # Handle empty dataset case
+    if len(df) > 0:
+        print(f"Clean dataset: {len(df_clean)} rows ({len(df_clean)/len(df)*100:.1f}% retained)")
+    else:
+        print("Warning: No data retrieved from query")
+        return pd.DataFrame()  # Return empty DataFrame
 
     # Fill missing optional values (match inference behavior)
     df_clean['wind_speed_ms'] = df_clean['wind_speed_ms'].fillna(0)
     df_clean['wind_dir_deg'] = df_clean['wind_dir_deg'].fillna(270)
     df_clean['forecast_period_s'] = df_clean['forecast_period_s'].fillna(10)
     df_clean['forecast_dir_deg'] = df_clean['forecast_dir_deg'].fillna(270)
-
-    print(f"Clean dataset: {len(df_clean)} rows ({len(df_clean)/len(df)*100:.1f}% retained)")
 
     # Select final columns
     final_cols = [
@@ -104,7 +114,6 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
     df_final = df_clean[final_cols]
 
     # Save to file
-    import os
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df_final.to_csv(output_path, index=False)
     print(f"Saved training data to {output_path}")

@@ -13,3 +13,9 @@ INTERNAL_SECRET = os.getenv("INTERNAL_SECRET")
 # Training config
 MIN_TRAINING_SAMPLES = 1000
 MAX_TIME_DIFF_SECONDS = 7200  # 2 hours
+
+
+def validate_config():
+    """Validate required configuration is present."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set")
