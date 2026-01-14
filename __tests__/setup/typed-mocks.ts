@@ -217,6 +217,7 @@ export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
     wind_cross_shore_ok_kt: null,
     wind_onshore_bad_kt: null,
     cdip_station: null,
+    preferred_tide_direction: null,
     ...overrides,
   };
 }
@@ -398,8 +399,10 @@ export function createMockIntelPost(
     photo_url: null,
     photo_storage_path: null,
     surf_conditions: null,
-    emoji_rating: null,
-    report_count: 0,
+    // Note: emoji_rating and report_count added by migration 20260113145000
+    // Uncomment when migration is applied and types regenerated
+    // emoji_rating: null,
+    // report_count: 0,
     ...overrides,
   };
 }

@@ -55,7 +55,9 @@ export const POST = withAuth(
     }
 
     // Check if user has already reported this post
-    const { data: existingReport, error: checkError } = await supabase
+    // Note: intel_reports table created by migration 20260113145000
+    // Using type assertion until types are regenerated after migration
+    const { data: existingReport, error: checkError } = await (supabase as any)
       .from("intel_reports")
       .select("id")
       .eq("intel_post_id", intelPostId)
@@ -73,7 +75,8 @@ export const POST = withAuth(
     }
 
     // Create the report
-    const { error: reportError } = await supabase
+    // Note: intel_reports table created by migration 20260113145000
+    const { error: reportError } = await (supabase as any)
       .from("intel_reports")
       .insert({
         intel_post_id: intelPostId,

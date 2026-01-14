@@ -41,8 +41,24 @@ export type IntelPostTag = Database['public']['Enums']['intel_post_tag']
  */
 export type IntelEmojiRating = 'fire' | 'shaka' | 'meh' | 'thumbsdown';
 
-export type IntelReport = Database['public']['Tables']['intel_reports']['Row']
-export type IntelReportInsert = Database['public']['Tables']['intel_reports']['Insert']
+// Note: intel_reports table not yet in schema - uncomment when migration 20260113145000 is applied
+// export type IntelReport = Database['public']['Tables']['intel_reports']['Row']
+// export type IntelReportInsert = Database['public']['Tables']['intel_reports']['Insert']
+
+// Temporary manual type definition until migration is applied
+export interface IntelReport {
+  id: string;
+  intel_post_id: string;
+  user_id: string;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface IntelReportInsert {
+  intel_post_id: string;
+  user_id: string;
+  reason?: string | null;
+}
 
 // Note: follows table not yet in schema - uncomment when migration is applied
 // export type Follow = Database['public']['Tables']['follows']['Row']
