@@ -255,11 +255,12 @@ describe('selectBestWindow with sunset', () => {
     expect(durationHours).toBeLessThanOrEqual(4);
   });
 
-  it('returns null when all forecasts are in the past', () => {
+  it('returns null when all forecasts are in the past (beyond lookback)', () => {
+    // Now is 10am PT (18:00 UTC). With 3-hour lookback, anything before 7am PT (15:00 UTC) is too old.
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '16:00:00', // 8am PT, before "now" at 10am PT
+        forecast_time: '14:00:00', // 6am PT, more than 3 hours before "now" at 10am PT
       }),
     ];
 

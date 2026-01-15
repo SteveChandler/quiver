@@ -1259,7 +1259,12 @@ export function selectBestWindow(
 
       return { forecast, forecastTime, score, isToday, localHourStr };
     })
-    .filter(({ forecastTime }) => forecastTime > now)
+    .filter(({ forecastTime }) => {
+      // Allow windows that started within lookback period (3 hours)
+      const lookbackMs = WINDOW_HOURS * 60 * 60 * 1000;
+      const minEligible = new Date(now.getTime() - lookbackMs);
+      return forecastTime >= minEligible;
+    })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
   // DEBUG: Log morning priority state and first 10 forecasts
@@ -1336,7 +1341,9 @@ export function selectBestWindow(
     }
 
     // Check horizon constraint
-    const hoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    // Clamp to zero so past-start windows don't get bonus from negative decay
+    const rawHoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursAhead = Math.max(0, rawHoursAhead);
     if (horizonHours && hoursAhead > horizonHours) continue;
 
     // Night filter (6am-9pm local hour check) handles pre-sunrise times
