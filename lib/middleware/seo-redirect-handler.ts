@@ -94,6 +94,11 @@ export function extractBeachSlugFromPath(pathname: string): string | null {
     return null;
   }
 
+  // Validate this is actually an old beach URL pattern first
+  if (!isOldBeachUrlPattern(pathname)) {
+    return null;
+  }
+
   const segments = pathname.split("/").filter(Boolean);
 
   if (segments.length === 3 || segments.length === 4) {

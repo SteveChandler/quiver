@@ -78,5 +78,19 @@ describe("SeoRedirectHandler", () => {
         extractBeachSlugFromPath("/ca/orange-county/huntington-pier/")
       ).toBe("huntington-pier");
     });
+
+    it("returns null for invalid path patterns", () => {
+      expect(extractBeachSlugFromPath("/admin/users/settings")).toBe(null);
+      expect(extractBeachSlugFromPath("/api/someservice/endpoint")).toBe(null);
+      expect(extractBeachSlugFromPath("/auth/sign-in/confirm")).toBe(null);
+      expect(extractBeachSlugFromPath("/app/features/forecast")).toBe(null);
+      expect(extractBeachSlugFromPath("/beach/san-diego/ocean")).toBe(null);
+      expect(
+        extractBeachSlugFromPath("/invalid/city/beach")
+      ).toBe(null);
+      expect(
+        extractBeachSlugFromPath("/xyz/somewhere/somebeach")
+      ).toBe(null);
+    });
   });
 });
