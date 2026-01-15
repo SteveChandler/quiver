@@ -1,4 +1,4 @@
-# Morning Intel Improvements Design
+# Unified Surf Scoring & Window Logic
 
 **Date**: 2026-01-14
 **Status**: Draft
@@ -6,128 +6,164 @@
 
 ## Problem Statement
 
-The Morning Surf Intel feature has two issues:
+Two systems display surf recommendations with inconsistent logic:
 
-1. **Score/Recommendation Disconnect**: An 8/10 score displays as "Maybe" because the recommendation logic is categorical (any "acceptable" factor = Maybe), not score-based. This confuses users — 8/10 should feel like a good day.
+### 1. Morning Surf Intel (daily notification)
+- **Score/Recommendation Disconnect**: 8/10 displays as "Maybe" because logic is categorical (any "acceptable" factor = Maybe), not score-based
+- **Arbitrary Time Windows**: Shows "06:00–09:00" instead of actual optimal times based on condition transitions
 
-2. **Arbitrary Time Windows**: The "Best" window shows fixed hour blocks like "06:00–09:00" rather than actual optimal times based on when conditions change (e.g., tide entering range at 6:15, wind picking up at 8:45).
+### 2. Home Screen "Best Bet" (discovery service)
+- Already uses score-based match quality and condition-based windows with interpolation
+- **Missing**: Per-beach wind thresholds (hardcoded), natural messages explaining WHY
+
+**Root cause**: Two separate implementations that should share logic.
 
 ## Goals
 
-- Make the score and recommendation label feel consistent
-- Calculate windows from actual condition transitions, not arbitrary hours
-- Generate natural, contextual messages that explain the recommendation
+- Unify scoring and window logic into a shared module
+- Make score and recommendation labels consistent across both systems
+- Calculate windows from actual condition transitions
+- Generate natural, contextual messages explaining recommendations
+- Support per-beach wind thresholds
 
 ## Non-Goals
 
-- Populate tide direction preferences for all beaches (just Ocean Beach Pier for now)
-- UI/design changes to the intel card
+- Populate all beaches with new fields (just Ocean Beach Pier for now)
+- UI/design changes
 - Push notification delivery
+
+---
+
+## Current State Analysis
+
+### Discovery Service (Home Screen) — More Sophisticated
+
+Located in `lib/services/surf-discovery-service.ts`:
+
+**Already does well:**
+- Score-based match quality mapping:
+  ```
+  >= 85 → "perfect"
+  >= 70 → "excellent"
+  >= 55 → "good"
+  < 55  → "fair"
+  ```
+- Condition-based window with interpolation (produces times like "4-5:06pm")
+- Sunset awareness (caps windows at sunset)
+- Tide direction penalty (lines 816-829)
+- Detailed subscores (wave height, period, wind, tide, affinity, distance)
+
+**Missing:**
+- Per-beach wind thresholds (uses hardcoded values)
+- Natural message generation explaining the recommendation
+
+### Morning Intel — Needs Upgrade
+
+Located in `lib/analyzers/conditions-analyzer.ts` and `lib/scorers/session-window-scorer.ts`:
+
+**Current issues:**
+- Categorical recommendation logic disconnected from numeric score
+- `bestWindowHeuristic()` returns arbitrary hour ranges, not condition-based
+- No interpolation for transition times
 
 ---
 
 ## Design
 
-### 1. Weighted Factor Logic
+### 1. Shared Scoring Module
 
-Current logic treats all factors equally and uses pure categorical matching:
-- Worth it = ALL factors optimal
-- Maybe = no poor factors, at least one acceptable
-- Skip = any poor factor
+Create `lib/scoring/surf-conditions-scorer.ts` with:
 
-**New approach**: Weight factors by surfability impact.
+```typescript
+interface ConditionScore {
+  total: number;           // 0-100
+  subscores: {
+    waveHeightFit: number;
+    periodEnergy: number;
+    windAlignment: number;
+    tideFit: number;
+  };
+  matchQuality: 'perfect' | 'excellent' | 'good' | 'fair' | 'skip';
+  reasons: string[];       // What's working
+  warnings: string[];      // What to watch
+  message: string;         // Natural language summary
+}
 
-| Factor | Poor Threshold | Impact |
-|--------|----------------|--------|
-| Swell direction | >45° off window | Can't surf wrong swell → **Skip** |
-| Wind | >threshold onshore | Choppy but surfable → **Maybe** at most |
-| Tide | Outside range OR wrong direction | Timing-dependent → **Maybe** if close |
-
-**New recommendation logic**:
-
-```
-1. If swell.status === 'poor':
-   → Skip: "swell direction is off for this spot"
-
-2. If wind.speed > beach.max_wind_any_mph:
-   → Skip: "too windy"
-
-3. If wind.speed > beach.max_wind_onshore_mph AND wind is onshore:
-   → Skip: "onshore winds will chop it up"
-
-4. If all factors optimal:
-   → Worth it: highlight what's working
-
-5. If swell optimal + (wind OR tide acceptable) + score >= 7:
-   → Worth it: "swell is dialed, [acceptable factor] is manageable"
-
-6. Otherwise:
-   → Maybe: call out what to watch
+function scoreConditions(
+  forecast: ForecastData,
+  beach: BeachWithThresholds,
+  userPrefs?: UserSurfPreferences
+): ConditionScore;
 ```
 
-This ensures:
-- 8/10 with good swell + acceptable wind = **Worth it**
-- 6/10 with poor swell = **Skip** (swell trumps everything)
-
-### 2. Condition-Based Window Calculation
-
-Current logic filters forecasts from 06:00-10:00 that pass basic thresholds, then returns first-to-last matching times. This produces generic windows.
-
-**New approach**: Find the intersection of good conditions by tracking state transitions.
-
-**Algorithm**:
-
+**Match quality thresholds** (aligned with discovery service):
 ```
-Input: forecasts[], beach preferences
-Output: { start: "06:15", end: "08:45", reason: "incoming tide before wind picks up" }
-
-Steps:
-
-1. Build condition timeline for each factor:
-   - tide_in_range: true/false at each forecast time
-   - tide_direction_ok: true/false (if beach has preference)
-   - wind_ok: true/false based on speed + direction + beach thresholds
-
-2. Find transition points (interpolate between hourly forecasts):
-   - tide crosses min threshold → start candidate
-   - tide crosses max threshold → end candidate
-   - wind crosses threshold → end candidate
-
-3. Compute intersection:
-   - window_start = latest "good" start across all factors
-   - window_end = earliest "bad" transition across all factors
-
-4. Build reason string from what's driving each boundary:
-   - "06:15" → "incoming tide hits 2ft"
-   - "08:45" → "wind picks up"
-   - Combined: "06:15–08:45; ride the incoming before wind picks up"
+>= 85 → "perfect"   → "Worth it"
+>= 70 → "excellent" → "Worth it"
+>= 55 → "good"      → "Maybe"
+>= 40 → "fair"      → "Maybe"
+< 40  → "skip"      → "Skip"
 ```
 
-**Edge cases**:
-- No good window → "Conditions don't line up this morning"
-- Window < 30 min → "Brief window around 7:00, conditions are marginal"
-- Window spans entire morning → "Good all morning; best around [peak score time]"
+**Skip conditions** (override score):
+- Swell direction > 45° off window → Skip regardless of score
+- Wind > `beach.max_wind_any_mph` → Skip
+- Wind > `beach.max_wind_onshore_mph` AND onshore → Skip
 
-**Interpolation**: Forecasts are hourly. To find when tide crosses 2.0ft between 6:00 (1.8ft) and 7:00 (2.4ft):
+### 2. Shared Window Calculator
+
+Create `lib/scoring/window-calculator.ts` with:
+
+```typescript
+interface OptimalWindow {
+  start: Date;
+  end: Date;
+  startReason: string;     // "tide enters range"
+  endReason: string;       // "wind picks up"
+  message: string;         // "06:15–08:45; ride the incoming before wind picks up"
+}
+
+function calculateOptimalWindow(
+  forecasts: ForecastData[],
+  beach: BeachWithThresholds,
+  options?: {
+    horizonHours?: number;
+    sunsetTime?: Date;
+  }
+): OptimalWindow | null;
 ```
-crossing_time = 6:00 + (2.0 - 1.8) / (2.4 - 1.8) * 60min = 6:20
-```
+
+**Algorithm** (adapted from discovery service's `selectBestWindow`):
+
+1. Score all forecasts, filter past times
+2. For each viable start time:
+   - Skip if score < threshold (40)
+   - Skip if < 1 hour until sunset
+   - Extend window until conditions degrade
+   - Use linear interpolation for precise transition times
+   - Cap at sunset
+3. Track what's driving each boundary for message generation
+4. Return best window with natural language explanation
 
 ### 3. Natural Message Generation
 
-Messages should read naturally based on what's driving the recommendation.
+Messages constructed from condition factors:
 
-**Worth it examples**:
+**Worth it (score >= 70)**:
 - "Worth it — offshore winds and tide in the sweet spot"
-- "Worth it — swell direction is dialed, light winds"
+- "Worth it — swell is dialed, conditions are clean"
 
-**Maybe examples**:
-- "Maybe — swell is good but wind picks up after 8"
-- "Maybe — tide will be high, best on the drop before 7:30"
+**Maybe (score 40-69)**:
+- "Maybe — swell looks good but wind picks up after 8"
+- "Maybe — brief window while tide is in range"
 
-**Skip examples**:
-- "Skip — swell is too south for this spot"
+**Skip (score < 40 or override)**:
+- "Skip — swell direction is off for this spot"
 - "Skip — onshore winds all morning"
+
+**Window context**:
+- "Window ends when wind picks up around 9"
+- "Best on the incoming tide before it gets too high"
 
 ---
 
@@ -141,13 +177,12 @@ Messages should read naturally based on what's driving the recommendation.
 | `max_wind_onshore_mph` | `numeric` | Wind speed that degrades conditions when onshore |
 | `max_wind_any_mph` | `numeric` | Wind speed that's too much regardless of direction |
 
-**Note**: Existing `wind_onshore_bad_kt` column has unclear semantics and uses knots. Adding new columns with clear naming and mph units.
+**Note**: Column `preferred_tide_direction` already exists but isn't populated. Wind columns are new.
 
 ### Migration
 
 ```sql
 ALTER TABLE beaches
-ADD COLUMN IF NOT EXISTS preferred_tide_direction text,
 ADD COLUMN IF NOT EXISTS max_wind_onshore_mph numeric,
 ADD COLUMN IF NOT EXISTS max_wind_any_mph numeric;
 
@@ -164,28 +199,39 @@ WHERE lower(name) = 'ocean beach pier';
 
 ## Example Output
 
-### Before (current)
+### Morning Intel
+
+**Before:**
 ```
 Maybe (8/10) • Best: 06:00–09:00; cleaner before onshores
 • Surf 1.7–2.8ft • Wind 0mph SW • Tide 2.9ft falling
 • Maybe — keep an eye on the wind.
 ```
 
-### After (proposed)
+**After:**
 ```
 Worth it (8/10) • Best: 06:15–08:45
 • Surf 1.7–2.8ft • Wind 0mph SW • Tide 2.9ft falling
 • Worth it — offshore winds and tide in the sweet spot. Window ends when wind picks up around 9.
 ```
 
-### Marginal conditions
+### Home Screen Best Bet
+
+**Before:**
 ```
-Maybe (5/10) • Best: 07:00–07:45
-• Surf 1.5–2.2ft • Wind 8mph W • Tide 4.8ft rising
-• Maybe — brief window while tide is in range. Gets too high after 8.
+Ocean Beach Pier is your best bet at 7.1/10.
+4-5:06pm • Excellent Match
 ```
 
-### Skip day
+**After:**
+```
+Ocean Beach Pier is your best bet at 7.1/10.
+4-5:06pm • Excellent Match
+Offshore winds and tide dropping into the sweet spot.
+```
+
+### Skip Day (both systems)
+
 ```
 Skip (3/10) • No good window
 • Surf 2.0–3.0ft • Wind 15mph W • Tide 3.2ft falling
@@ -196,51 +242,96 @@ Skip (3/10) • No good window
 
 ## Implementation Plan
 
-### Files to modify
+### Phase 1: Shared Module
 
-1. **Database migration** (new file)
-   - `supabase/migrations/YYYYMMDDHHMMSS_add_beach_condition_thresholds.sql`
+1. **Create shared scoring module**
+   - `lib/scoring/surf-conditions-scorer.ts` — unified condition scoring
+   - `lib/scoring/window-calculator.ts` — unified window calculation
+   - `lib/scoring/message-generator.ts` — natural language messages
+   - `lib/scoring/types.ts` — shared types
 
-2. **Conditions analyzer**
-   - `lib/analyzers/conditions-analyzer.ts` — refactor `getConservativeRecommendation()`
+2. **Database migration**
+   - `supabase/migrations/YYYYMMDDHHMMSS_add_beach_wind_thresholds.sql`
 
-3. **Session window scorer**
-   - `lib/scorers/session-window-scorer.ts` — refactor `bestWindowHeuristic()` to condition-based calculation
+### Phase 2: Morning Intel Integration
 
-4. **Types**
-   - `types/morning-intel.ts` — add new beach preference fields
+3. **Update Morning Intel to use shared module**
+   - `scripts/morningIntel.ts` — use new scoring/window functions
+   - `lib/analyzers/conditions-analyzer.ts` — deprecate old logic, re-export from shared
+   - `lib/scorers/session-window-scorer.ts` — deprecate `bestWindowHeuristic`, re-export from shared
 
-5. **Morning intel script**
-   - `scripts/morningIntel.ts` — fetch new beach fields, pass to analyzers
+4. **Update tests**
+   - `__tests__/lib/scoring/` — new tests for shared module
+   - Update existing morning intel tests
 
-6. **Tests**
-   - `__tests__/lib/utils/morning-intel-recommendation.test.ts` — update for new logic
-   - Add tests for window interpolation
+### Phase 3: Discovery Service Integration
 
-### Out of scope
+5. **Update Discovery Service to use shared module**
+   - `lib/services/surf-discovery-service.ts` — import scoring from shared module
+   - Keep discovery-specific logic (affinity, distance) in service
+   - Add natural message to recommendation response
 
-- Populating all beaches with new fields (just OB Pier for now)
-- UI changes to intel card display
-- Push notification delivery
+6. **Update home screen component**
+   - `components/home-screen/hero-recommendation.tsx` — display natural message
+
+### Files Summary
+
+| Action | File |
+|--------|------|
+| **Create** | `lib/scoring/surf-conditions-scorer.ts` |
+| **Create** | `lib/scoring/window-calculator.ts` |
+| **Create** | `lib/scoring/message-generator.ts` |
+| **Create** | `lib/scoring/types.ts` |
+| **Create** | `lib/scoring/index.ts` |
+| **Create** | `supabase/migrations/YYYYMMDDHHMMSS_add_beach_wind_thresholds.sql` |
+| **Modify** | `scripts/morningIntel.ts` |
+| **Modify** | `lib/services/surf-discovery-service.ts` |
+| **Modify** | `components/home-screen/hero-recommendation.tsx` |
+| **Deprecate** | `lib/analyzers/conditions-analyzer.ts` (re-export from shared) |
+| **Deprecate** | `lib/scorers/session-window-scorer.ts` (re-export from shared) |
 
 ---
 
-## Open Questions
+## Testing Strategy
 
-None — design is approved.
+1. **Unit tests for shared module**
+   - Score calculation with various conditions
+   - Window calculation with interpolation
+   - Message generation for all match qualities
+   - Skip condition overrides
+
+2. **Integration tests**
+   - Morning Intel produces correct output
+   - Discovery Service produces correct output
+   - Both use same thresholds for same beach
+
+3. **Snapshot tests**
+   - Example outputs match expected format
 
 ---
 
-## Appendix: Current Beach Data (Ocean Beach Pier)
+## Migration Path
 
+1. Create shared module with new logic
+2. Morning Intel imports from shared (breaking change contained to intel)
+3. Discovery Service imports from shared (larger surface area, more careful)
+4. Deprecate old modules with re-exports for backwards compatibility
+5. Remove deprecated code after validation
+
+---
+
+## Appendix: Beach Data (Ocean Beach Pier)
+
+**Current:**
 ```
 preferred_tide_ft_min: 2.0
 preferred_tide_ft_max: 5.0
 swell_window_min_deg: 200
 swell_window_max_deg: 320
+preferred_tide_direction: null (column exists)
 ```
 
-Will add:
+**Will add:**
 ```
 preferred_tide_direction: 'any'
 max_wind_onshore_mph: 10
