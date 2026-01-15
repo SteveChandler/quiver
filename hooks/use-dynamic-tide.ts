@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 export interface TideExtreme {
@@ -103,6 +103,20 @@ export function useDynamicTide(
       usingFallback: false,
     };
   }, [tideSchedule, computedAt]);
+
+  // Recompute on mount and when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setComputedAt(Date.now());
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   return tideResult;
 }

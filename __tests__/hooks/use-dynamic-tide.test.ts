@@ -127,3 +127,46 @@ describe("useDynamicTide - schedule extraction", () => {
     expect(result.current.nextTide?.type).toBe("low");
   });
 });
+
+describe("useDynamicTide - visibility recomputation", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-01-14T17:00:00Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("recomputes when tab becomes visible", async () => {
+    const { act } = await import("@testing-library/react");
+    const initialTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour away
+    const forecasts = [
+      createMockForecast([
+        { time: initialTime, height: 5.2, type: "high" },
+      ]),
+    ];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    // Initial: ~60 minutes until tide
+    expect(result.current.minutesUntil).toBeCloseTo(60, -1);
+
+    // Advance time by 30 minutes
+    act(() => {
+      jest.advanceTimersByTime(30 * 60 * 1000);
+    });
+
+    // Simulate tab becoming visible
+    act(() => {
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    // Should now show ~30 minutes
+    expect(result.current.minutesUntil).toBeCloseTo(30, -1);
+  });
+});
