@@ -1398,8 +1398,16 @@ export function selectBestWindow(
     const cappedHours = Math.min(hoursAhead, MAX_TIME_DECAY_HOURS);
     const timeDecay = cappedHours * TIME_DECAY_PER_HOUR;
 
+    // Start-soon bonus (smooth step based on proximity)
+    let soonBonus = 0;
+    if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
+    else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+
+    // Underway bonus for windows already in progress
+    const isUnderway = rawHoursAhead < 0;
+    const underwayBonus = isUnderway ? UNDERWAY_BONUS : 0;
+
     // Morning priority: add bonus to today's forecasts before noon
-    // Also add extra bonus for morning/afternoon times (before 5pm) during morning hours
     const todayBonus = (isMorning && isToday) ? TODAY_BONUS_POINTS : 0;
 
     // Get local hour of forecast start time to determine morning time bonus
@@ -1423,7 +1431,7 @@ export function selectBestWindow(
       }
     }
 
-    const adjustedScore = startScore - timeDecay + todayBonus + morningTimeBonus;
+    const adjustedScore = startScore - timeDecay + todayBonus + morningTimeBonus + soonBonus + underwayBonus;
 
     if (adjustedScore > bestAdjustedScore) {
       bestAdjustedScore = adjustedScore;
