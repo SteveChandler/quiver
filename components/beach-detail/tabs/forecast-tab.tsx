@@ -34,6 +34,8 @@ import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
+import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
+import { getTideAlert } from "@/lib/surf/tide-direction";
 
 const CamsSection = dynamic(
   () =>
@@ -140,6 +142,19 @@ export function ForecastTab({
 
   // Dynamic tide computation (always fresh, relative to now)
   const dynamicTide = useDynamicTide(forecasts, beachTimezone);
+
+  // Tide alert based on direction match
+  const tideAlert = useMemo(() => {
+    return getTideAlert(
+      beach.preferred_tide_direction,
+      dynamicTide.currentDirection,
+      dynamicTide.minutesToDirectionChange
+    );
+  }, [
+    beach.preferred_tide_direction,
+    dynamicTide.currentDirection,
+    dynamicTide.minutesToDirectionChange,
+  ]);
 
   const formatMetric = (
     value: string | number | null | undefined,
@@ -364,6 +379,12 @@ export function ForecastTab({
                     Right now
                   </span>
                 </div>
+
+                {/* Tide Alert */}
+                {beach.preferred_tide_direction && (
+                  <TideAlertBadge alert={tideAlert} />
+                )}
+
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
                   <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
