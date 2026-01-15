@@ -38,19 +38,76 @@ import type {
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel, MatchQuality } from '@/lib/scoring';
+import type { ConditionBadge } from '@/types/personalization';
 
 // ============================================================================
-// Sunset Time Fetching
+// Badge Generation
 // ============================================================================
 
 /**
- * Batch fetch sunset times for multiple beaches.
- * Returns a Map keyed by beachId -> sort list of sunset Dates (UTC).
+ * Generate condition badges based on thresholds
+ * Returns top 2-3 badges sorted by contribution
+ */
+function generateConditionBadges(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+  subscores: { waveHeightFit: number; periodEnergyScore: number; windAlignment: number; tideFit: number }
+): ConditionBadge[] {
+  const badges: ConditionBadge[] = [];
+
+  const windSpeed = parseFloat(String(forecast.wind_speed ?? '0'));
+  const windDirection = forecast.wind_direction_deg ?? null;
+  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
+  const offshoreDir = beach.wind_offshore_deg ?? 90;
+
+  // Glass: wind < 5 mph
+  if (windSpeed < 5) {
+    badges.push({ label: 'Glass', contribution: subscores.windAlignment });
+  }
+  // Light Offshore: offshore direction AND < 10 mph
+  else if (windDirection !== null && windSpeed < 10) {
+    const angleDiff = Math.abs(windDirection - offshoreDir) % 360;
+    const isOffshore = angleDiff <= 45 || angleDiff >= 315;
+    if (isOffshore) {
+      badges.push({ label: 'Light Offshore', contribution: subscores.windAlignment });
+    }
+  }
+
+  // Clean Swell: period >= 12s
+  if (wavePeriod >= 12) {
+    badges.push({ label: 'Clean Swell', contribution: subscores.periodEnergyScore });
+  }
+
+  // Good Tide: if tide score is high (>= 12 out of 15)
+  if (subscores.tideFit >= 12) {
+    const tideStatus = forecast.tide_status?.toLowerCase() || '';
+    if (tideStatus.includes('rising') || tideStatus.includes('incoming')) {
+      badges.push({ label: 'Rising Tide', contribution: subscores.tideFit });
+    } else if (tideStatus.includes('falling') || tideStatus.includes('outgoing')) {
+      badges.push({ label: 'Falling Tide', contribution: subscores.tideFit });
+    } else {
+      badges.push({ label: 'Good Tide', contribution: subscores.tideFit });
+    }
+  }
+
+  // Sort by contribution descending, take top 3
+  return badges
+    .sort((a, b) => b.contribution - a.contribution)
+    .slice(0, 3);
+}
+
+// ============================================================================
+// Sun Time Fetching
+// ============================================================================
+
+/**
+ * Batch fetch sun times (sunrise and sunset) for multiple beaches.
+ * Returns a Map keyed by beachId -> { sunrises: Date[], sunsets: Date[] }
  */
 export async function getBatchSunTimes(
   beachIds: string[],
   dates: string[]
-): Promise<Map<string, Date[]>> {
+): Promise<Map<string, { sunrises: Date[]; sunsets: Date[] }>> {
   const supabase = createSupabaseServiceRoleClient();
 
   const uniqueBeachIds = [...new Set(beachIds)];
@@ -62,28 +119,39 @@ export async function getBatchSunTimes(
 
   const { data, error } = await supabase
     .from('sun_times')
-    .select('beach_id, sunset_utc')
+    .select('beach_id, sunrise_utc, sunset_utc')
     .in('beach_id', uniqueBeachIds)
     .in('date', uniqueDates)
-    .order('sunset_utc', { ascending: true }); // Important: sort by time
+    .order('sunrise_utc', { ascending: true });
 
   if (error) {
     console.error('Error fetching sun times:', error);
     return new Map();
   }
 
-  const sunMap = new Map<string, Date[]>();
+  const sunMap = new Map<string, { sunrises: Date[]; sunsets: Date[] }>();
 
   data?.forEach((row) => {
-    if (row.sunset_utc) {
-      const beachId = row.beach_id;
-      const sunset = new Date(row.sunset_utc);
-      
-      if (!sunMap.has(beachId)) {
-        sunMap.set(beachId, []);
-      }
-      sunMap.get(beachId)?.push(sunset);
+    const beachId = row.beach_id;
+
+    if (!sunMap.has(beachId)) {
+      sunMap.set(beachId, { sunrises: [], sunsets: [] });
     }
+
+    const entry = sunMap.get(beachId)!;
+
+    if (row.sunrise_utc) {
+      entry.sunrises.push(new Date(row.sunrise_utc));
+    }
+    if (row.sunset_utc) {
+      entry.sunsets.push(new Date(row.sunset_utc));
+    }
+  });
+
+  // Sort arrays
+  sunMap.forEach((entry) => {
+    entry.sunrises.sort((a, b) => a.getTime() - b.getTime());
+    entry.sunsets.sort((a, b) => a.getTime() - b.getTime());
   });
 
   return sunMap;
@@ -329,6 +397,7 @@ export async function discoverSurfSpots(
         message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),
         reasons: detailedScore.reasons,
         warnings: detailedScore.warnings,
+        conditionBadges: detailedScore.conditionBadges,
         distanceMiles,
         drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
         generated_at: new Date().toISOString(),
@@ -958,12 +1027,21 @@ export async function scoreBeachForDiscovery(args: {
     }
   }
 
+  // Generate condition badges
+  const conditionBadges = generateConditionBadges(forecast, beach, {
+    waveHeightFit: subscores.waveHeightFit,
+    periodEnergyScore: subscores.periodEnergyScore,
+    windAlignment: subscores.windAlignment,
+    tideFit: subscores.tideFit,
+  });
+
   return {
     total,
     subscores,
     matchQuality,
     reasons: reasons.slice(0, 5),
     warnings,
+    conditionBadges,
   };
 }
 
@@ -1102,7 +1180,7 @@ function scoreForecastWindow(
  * @param beach - Beach metadata for wind/tide preferences
  * @param userPrefs - User surf preferences (optional, for wave size/period matching)
  * @param horizonHours - Optional max hours ahead to consider
- * @param sunTimesCache - Optional Map of beach_id -> Date[] (sorted sunsets)
+ * @param sunTimesCache - Optional Map of beach_id -> { sunrises: Date[], sunsets: Date[] }
  * @returns Best window or null if none viable
  */
 export function selectBestWindow(
@@ -1110,7 +1188,7 @@ export function selectBestWindow(
   beach: Beach,
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
   horizonHours?: number,
-  sunTimesCache?: Map<string, Date[]>
+  sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
@@ -1137,8 +1215,10 @@ export function selectBestWindow(
   } | null = null;
   let bestAdjustedScore = -1;
 
-  // Get sorted sunsets for this beach
-  const sunsets = sunTimesCache?.get(beach.id) || [];
+  // Get sun times for this beach
+  const sunTimes = sunTimesCache?.get(beach.id);
+  const sunsets = sunTimes?.sunsets || [];
+  const sunrises = sunTimes?.sunrises || [];
 
   for (let i = 0; i < scoredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore } = scoredForecasts[i];
@@ -1252,14 +1332,13 @@ export function selectBestWindow(
     const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (!horizonHours || hoursAhead <= horizonHours) {
       // Logic for fallback end time (next sunset or default)
-      const sunsets = sunTimesCache?.get(beach.id) || [];
       const nextSunset = sunsets.find(s => s.getTime() > best.forecastTime.getTime());
-      
+
       let endTime = new Date(best.forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
       if (nextSunset && nextSunset < endTime) {
         endTime = nextSunset;
       }
-      
+
       const durationHours = (endTime.getTime() - best.forecastTime.getTime()) / (1000 * 60 * 60);
 
       if (durationHours >= MIN_SESSION_HOURS) {

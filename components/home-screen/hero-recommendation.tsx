@@ -223,20 +223,13 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     return <HeroRecommendationEmpty />;
   }
 
-  const { beach, score, window, matchQuality, recommendationLabel, message } = recommendation;
+  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const timeWindow = formatTimeWindowCompact(
     window.start,
     window.end,
     window.timezone
   );
-
-  // Determine badge styling based on recommendation label
-  const labelBadgeClass = recommendationLabel === 'Worth it'
-    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
-    : recommendationLabel === 'Maybe'
-      ? 'bg-amber-500/20 text-amber-300 border-amber-400/30'
-      : 'bg-red-500/20 text-red-300 border-red-400/30';
 
   return (
     <div className="space-y-3 px-4 sm:px-1" data-testid="hero-recommendation">
@@ -260,7 +253,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
         </p>
       )}
 
-      {/* Time window and recommendation label badges */}
+      {/* Time window and condition badges */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge
           variant="outline"
@@ -270,22 +263,26 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           {timeWindow}
         </Badge>
 
-        {/* Recommendation label badge (if available) */}
-        {recommendationLabel ? (
+        {/* Recommendation label badge (Perfect Match for high scores) */}
+        {score >= 90 && (
           <Badge
             variant="outline"
-            className={`text-xs sm:text-sm font-medium py-1.5 px-2.5 ${labelBadgeClass}`}
+            className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
           >
-            {recommendationLabel}
-          </Badge>
-        ) : (
-          <Badge
-            variant="outline"
-            className="text-xs sm:text-sm font-medium capitalize py-1.5 px-2.5 bg-white/10 text-white border-white/20"
-          >
-            {matchQuality} match
+            Perfect Match
           </Badge>
         )}
+
+        {/* Condition badges */}
+        {conditionBadges?.slice(0, 3).map((badge) => (
+          <Badge
+            key={badge.label}
+            variant="outline"
+            className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-white/10 text-white border-white/20"
+          >
+            {badge.label}
+          </Badge>
+        ))}
       </div>
     </div>
   );

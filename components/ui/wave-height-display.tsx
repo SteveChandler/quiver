@@ -14,6 +14,8 @@ interface WaveHeightDisplayProps {
   className?: string;
   dataSource?: string | null;
   confidenceScore?: number | null;
+  /** Whether this forecast has ML bias correction applied */
+  isMlCalibrated?: boolean;
 }
 
 export function WaveHeightDisplay({
@@ -22,12 +24,25 @@ export function WaveHeightDisplay({
   className = "",
   dataSource = null,
   confidenceScore = null,
+  isMlCalibrated = false,
 }: WaveHeightDisplayProps) {
   if (!height) {
     return <span className={className}>--</span>;
   }
 
-  const content = <span className={className}>{height}</span>;
+  // ML badge component for consistent styling
+  const mlBadge = isMlCalibrated ? (
+    <span className="text-[10px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-medium ml-1">
+      ML
+    </span>
+  ) : null;
+
+  const content = (
+    <span className={`${className} flex items-center`}>
+      {height}
+      {mlBadge}
+    </span>
+  );
 
   if (!showTooltip) {
     return content;
@@ -86,17 +101,44 @@ export function WaveHeightDisplay({
         <TooltipTrigger asChild>
           <span className={`${className} cursor-help flex items-center gap-1`}>
             {height}
+            {mlBadge}
             <InfoIcon className="w-3 h-3 text-muted-foreground" />
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
           <div className="space-y-2 text-xs">
-            <div className="font-medium">Face Height (Calibrated)</div>
-            <div>
-              This wave height represents the &quot;face height&quot; that
-              surfers typically experience, calibrated from scientific
-              measurements to match real-world surf conditions.
+            <div className="font-medium">
+              Face Height {isMlCalibrated ? "(ML-Calibrated)" : "(Calibrated)"}
             </div>
+            <div>
+              {isMlCalibrated ? (
+                <>
+                  This wave height has been refined by our machine learning model,
+                  trained on historical surf conditions at this beach for more
+                  accurate predictions.
+                </>
+              ) : (
+                <>
+                  This wave height represents the &quot;face height&quot; that
+                  surfers typically experience, calibrated from scientific
+                  measurements to match real-world surf conditions.
+                </>
+              )}
+            </div>
+
+            {isMlCalibrated && (
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-medium">
+                    ML
+                  </span>
+                  <span className="font-medium">ML Bias Correction</span>
+                </div>
+                <div className="text-muted-foreground mt-1">
+                  Adjusts raw forecast based on historical accuracy at this beach
+                </div>
+              </div>
+            )}
 
             <div className="pt-2 border-t border-gray-200">
               <div className="font-medium mb-1">Data Source</div>

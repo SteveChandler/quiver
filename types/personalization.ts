@@ -38,6 +38,14 @@ export interface PersonalizedForecastWindow {
   timezone: string;
 }
 
+/** Condition badge shown on recommendations */
+export interface ConditionBadge {
+  /** Badge label (e.g., "Glass", "Clean Swell") */
+  label: string;
+  /** Score contribution (for ranking top badges) */
+  contribution: number;
+}
+
 /**
  * Complete personalized forecast recommendation
  *
@@ -132,6 +140,8 @@ export interface DetailedScore {
   reasons: string[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
+  /** Top condition badges explaining why conditions are good */
+  conditionBadges?: ConditionBadge[];
 }
 
 /**
@@ -163,6 +173,8 @@ export interface SurfDiscoveryRecommendation {
   reasons: string[];
   /** Warnings or cautions about the spot */
   warnings: string[];
+  /** Top condition badges explaining why conditions are good */
+  conditionBadges?: ConditionBadge[];
   /** Distance in miles (GPS phase) */
   distanceMiles?: number;
   /** Estimated driving time in minutes (GPS phase) */

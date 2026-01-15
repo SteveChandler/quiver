@@ -9,6 +9,83 @@ import {
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
 import { authenticateAdmin } from "@/lib/auth/admin";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+
+/** Conversion factor: meters to feet */
+const METERS_TO_FEET = 3.28084;
+
+/**
+ * Merge ML bias corrections into forecast entities
+ *
+ * Fetches ML corrections from corrected_forecasts table and
+ * adds ml_corrected_height, is_ml_calibrated, ml_model_version
+ * to matching forecast objects.
+ */
+async function mergeMLCorrections(
+  forecasts: EnhancedForecastEntity[],
+  beachId: string
+): Promise<EnhancedForecastEntity[]> {
+  if (forecasts.length === 0) return forecasts;
+
+  try {
+    const supabase = await createSupabaseServiceRoleClient();
+
+    // Get date range from forecasts
+    const dates = forecasts.map(f => f.forecast_date);
+    const minDate = dates.reduce((a, b) => a < b ? a : b);
+    const maxDate = dates.reduce((a, b) => a > b ? a : b);
+
+    // Fetch ML corrections for this beach and date range
+    const { data: corrections, error } = await supabase
+      .from("corrected_forecasts")
+      .select("forecast_date, forecast_time, corrected_height, model_version")
+      .eq("beach_id", beachId)
+      .gte("forecast_date", minDate)
+      .lte("forecast_date", maxDate);
+
+    if (error) {
+      console.warn(`⚠️ Failed to fetch ML corrections for beach ${beachId}:`, error.message);
+      return forecasts; // Return original forecasts without ML data
+    }
+
+    if (!corrections || corrections.length === 0) {
+      return forecasts; // No ML corrections available
+    }
+
+    // Build lookup map for O(1) access
+    const correctionMap = new Map<string, { corrected_height: number; model_version: string }>();
+    corrections.forEach((c) => {
+      const key = `${c.forecast_date}|${c.forecast_time}`;
+      correctionMap.set(key, {
+        corrected_height: c.corrected_height,
+        model_version: c.model_version,
+      });
+    });
+
+    // Merge corrections into forecasts
+    return forecasts.map((forecast) => {
+      const key = `${forecast.forecast_date}|${forecast.forecast_time}`;
+      const correction = correctionMap.get(key);
+
+      if (correction) {
+        // Convert corrected_height from meters to feet and format
+        const correctedFeet = correction.corrected_height * METERS_TO_FEET;
+        return {
+          ...forecast,
+          ml_corrected_height: `${correctedFeet.toFixed(1)} ft`,
+          is_ml_calibrated: true,
+          ml_model_version: correction.model_version,
+        };
+      }
+
+      return forecast;
+    });
+  } catch (error) {
+    console.warn(`⚠️ Error merging ML corrections:`, error);
+    return forecasts; // Return original forecasts on error
+  }
+}
 
 /**
  * Enhanced Forecast Update API Endpoint
@@ -107,7 +184,12 @@ export async function GET(request: NextRequest) {
     const windowHours = days * 24;
     const result = await getFreshForecastFromCache(beachId, windowHours);
 
-    const { forecasts, metadata } = result;
+    const { metadata } = result;
+
+    // Merge ML bias corrections into forecasts
+    // This adds ml_corrected_height, is_ml_calibrated, ml_model_version
+    // to forecasts that have ML corrections available
+    const forecasts = await mergeMLCorrections(result.forecasts, beachId);
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape
