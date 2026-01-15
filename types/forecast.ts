@@ -158,6 +158,14 @@ export interface EnhancedForecastEntity {
   data_source: "NOAA_NWS" | "CDIP" | "FALLBACK" | string;
   created_at: string;
   updated_at: string;
+  // ML Bias Correction fields (populated when ML corrections are available)
+  /** ML-corrected wave height in feet (if available) */
+  ml_corrected_height?: string | null;
+  /** Whether this forecast has ML bias correction applied */
+  is_ml_calibrated?: boolean;
+  /** ML model version used for correction (e.g., "xgboost_v1") */
+  ml_model_version?: string | null;
+
   // Optional raw forecast payload for transparency/debugging
   raw_forecast?: {
     cdip_data?: any;
