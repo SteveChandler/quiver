@@ -1205,6 +1205,20 @@ export function selectBestWindow(
   const now = new Date();
   const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
 
+  // Helper: get local date string for a timestamp in beach timezone
+  const getLocalDateStr = (time: Date): string => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: beachTz,
+      }).format(time);
+    } catch {
+      return time.toISOString().slice(0, 10); // Fallback to UTC
+    }
+  };
+
   // Check if it's "morning" (before noon) in beach timezone - prefer today's forecasts
   let isMorning = false;
   let todayDateStr = '';
@@ -1357,8 +1371,10 @@ export function selectBestWindow(
       const current = scoredForecasts[j];
       const next = scoredForecasts[j + 1];
 
-      // Stop if next forecast is on a different date
-      if (current.forecast.forecast_date !== next.forecast.forecast_date) break;
+      // Stop if next forecast is on a different date (use local dates instead of UTC date strings)
+      const currentLocalDate = getLocalDateStr(current.forecastTime);
+      const nextLocalDate = getLocalDateStr(next.forecastTime);
+      if (currentLocalDate !== nextLocalDate) break;
 
       // Check if conditions drop below threshold
       if (current.score >= MIN_SCORE_THRESHOLD && next.score < MIN_SCORE_THRESHOLD) {
