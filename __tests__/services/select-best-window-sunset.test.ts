@@ -533,3 +533,147 @@ describe('selectBestWindow local date boundary', () => {
     expect(result!.end.getTime()).toBeLessThan(fivePmPT);
   });
 });
+
+describe('selectBestWindow threshold consistency', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Set "now" to 8am PT = 16:00 UTC (morning hours)
+    jest.setSystemTime(new Date('2026-01-13T16:00:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('uses morning threshold consistently during extension', () => {
+    // Morning window with score ~38 (above morning threshold 35, below standard 50)
+    // Should extend properly when conditions stay consistent.
+    //
+    // Score breakdown for these conditions (no user prefs, no beach wind data):
+    // - Wave height 1.5ft (out of 2-6ft range): 10 points
+    // - Wave period 8s (below 9s): 5 points
+    // - Wind speed 8mph (<=10): 15 points
+    // - Tide (no prefs): 8 points
+    // Total: 38 points
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '17:00:00', // 9am PT
+        wave_height: '1.5',        // Out of 2-6ft range = 10pts
+        wave_period: '8s',         // Below 9s = 5pts
+        wind_speed: '8',           // Light wind = 15pts
+        tide_height: '3.0',        // No prefs = 8pts
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '18:00:00', // 10am PT
+        wave_height: '1.5',        // Same conditions = 38pts
+        wave_period: '8s',
+        wind_speed: '8',
+        tide_height: '3.0',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '19:00:00', // 11am PT
+        wave_height: '1.5',        // Same conditions = 38pts
+        wave_period: '8s',
+        wind_speed: '8',
+        tide_height: '3.0',
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2026-01-13T14:30:00Z')],
+        sunsets: [new Date('2026-01-14T01:05:00Z')],
+      }],
+    ]);
+
+    const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
+
+    expect(result).not.toBeNull();
+    // Window should extend beyond 9am since conditions stay above morning threshold (35)
+    const tenAm = new Date('2026-01-13T18:00:00Z').getTime();
+    expect(result!.end.getTime()).toBeGreaterThan(tenAm);
+  });
+
+  it('truncates morning window when conditions degrade below morning threshold', () => {
+    // Morning window starts with score ~38 (above morning threshold 35)
+    // Then conditions degrade to score ~25 (below morning threshold 35)
+    // Window should be interpolated to end when score drops below 35
+    //
+    // BUG: The extension loop uses MIN_SCORE_THRESHOLD (50) for interpolation.
+    // When score drops from 38 to 25:
+    // - Correct behavior: Interpolate when score crosses 35 (morning threshold)
+    // - Bug behavior: Since 38 < 50, interpolation never triggers, window extends to MAX_WINDOW_HOURS
+    //
+    // Score breakdown for degraded conditions:
+    // - Wave height 1.0ft (tiny): 10 points
+    // - Wave period 6s (short): 5 points
+    // - Wind speed 18mph (strong): 0 points (>15mph)
+    // - Tide (no prefs): 8 points
+    // Total: 23 points
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '17:00:00', // 9am PT - GOOD (score 38)
+        wave_height: '1.5',
+        wave_period: '8s',
+        wind_speed: '8',
+        tide_height: '3.0',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '18:00:00', // 10am PT - GOOD (score 38)
+        wave_height: '1.5',
+        wave_period: '8s',
+        wind_speed: '8',
+        tide_height: '3.0',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '19:00:00', // 11am PT - BAD (score 23)
+        wave_height: '1.0',        // Tiny
+        wave_period: '6s',         // Short
+        wind_speed: '18',          // Strong wind, >15mph = 0 pts
+        tide_height: '3.0',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '20:00:00', // 12pm PT - BAD (score 23)
+        wave_height: '1.0',
+        wave_period: '6s',
+        wind_speed: '18',
+        tide_height: '3.0',
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2026-01-13T14:30:00Z')],
+        sunsets: [new Date('2026-01-14T01:05:00Z')],
+      }],
+    ]);
+
+    const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
+
+    expect(result).not.toBeNull();
+    // Window should be truncated when conditions degrade below morning threshold
+    // Expected: End should be interpolated between 10am and 11am (when score drops from 38 to 23)
+    // The interpolation should find when score crosses 35 (morning threshold)
+    const tenAm = new Date('2026-01-13T18:00:00Z').getTime();
+    const elevenAm = new Date('2026-01-13T19:00:00Z').getTime();
+    const noon = new Date('2026-01-13T20:00:00Z').getTime();
+
+    // BUG: Current code uses MIN_SCORE_THRESHOLD (50) for interpolation.
+    // Since score 38 < 50, the condition `current.score >= MIN_SCORE_THRESHOLD` fails,
+    // so interpolation never triggers. Window extends to MAX_WINDOW_HOURS (4h = 1pm PT).
+    //
+    // EXPECTED (fixed): Should interpolate when score drops below 35 (morning threshold).
+    // Window should end between 10am and 11am.
+    expect(result!.end.getTime()).toBeGreaterThan(tenAm);
+    expect(result!.end.getTime()).toBeLessThan(elevenAm);
+  });
+});
