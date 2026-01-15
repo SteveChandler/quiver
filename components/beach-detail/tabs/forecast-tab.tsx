@@ -33,6 +33,7 @@ import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
+import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
 
 const CamsSection = dynamic(
   () =>
@@ -547,6 +548,12 @@ export function ForecastTab({
               showVerifiedBadge={!!tideDiagnostics}
             />
           </section>
+
+          {/* Tide Conditions Card */}
+          <TideConditionsCard
+            prose={beach.best_conditions_prose}
+            preferredDirection={beach.preferred_tide_direction}
+          />
         </TabsContent>
 
         {/* Conditions Tab */}
