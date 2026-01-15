@@ -168,3 +168,72 @@ describe("useDynamicTide - visibility recomputation", () => {
     expect(result.current.minutesUntil).toBeCloseTo(30, -1);
   });
 });
+
+describe("useDynamicTide - direction detection", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-01-14T17:00:00Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("returns 'rising' when next tide is high", () => {
+    const futureTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+    const forecasts = [
+      createMockForecast([
+        { time: futureTime, height: 5.2, type: "high" },
+        { time: futureTime + 21600, height: 0.5, type: "low" }, // 6 hours later
+      ]),
+    ];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    expect(result.current.currentDirection).toBe("rising");
+  });
+
+  it("returns 'falling' when next tide is low", () => {
+    const futureTime = Math.floor(Date.now() / 1000) + 3600;
+    const forecasts = [
+      createMockForecast([
+        { time: futureTime, height: 0.5, type: "low" },
+        { time: futureTime + 21600, height: 5.2, type: "high" },
+      ]),
+    ];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    expect(result.current.currentDirection).toBe("falling");
+  });
+
+  it("returns 'slack' when within 30 minutes of extreme", () => {
+    const futureTime = Math.floor(Date.now() / 1000) + 1500; // 25 minutes
+    const forecasts = [
+      createMockForecast([{ time: futureTime, height: 5.2, type: "high" }]),
+    ];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    expect(result.current.currentDirection).toBe("slack");
+  });
+
+  it("returns null when no tide schedule", () => {
+    const forecasts = [createMockForecast()];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    expect(result.current.currentDirection).toBeNull();
+  });
+
+  it("calculates minutesToDirectionChange correctly", () => {
+    const futureTime = Math.floor(Date.now() / 1000) + 7200; // 2 hours
+    const forecasts = [
+      createMockForecast([{ time: futureTime, height: 5.2, type: "high" }]),
+    ];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    expect(result.current.minutesToDirectionChange).toBe(120);
+  });
+});
