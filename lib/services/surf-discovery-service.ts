@@ -8,7 +8,7 @@
  * 4. Familiarity (session history at each beach)
  * 5. Distance (GPS phase - currently stubbed)
  *
- * Transforms "personalized home forecast" (single beach) into
+ * Transforms "personalized forecast" (single beach) into
  * "where should I surf?" (ranked discovery list).
  *
  * WINDOW SELECTION ALGORITHM:
@@ -37,19 +37,20 @@ import type {
 } from '@/types/personalization';
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
+import type { RecommendationLabel, MatchQuality } from '@/lib/scoring';
 
 // ============================================================================
 // Sunset Time Fetching
 // ============================================================================
 
 /**
- * Batch fetch sunset times for multiple beaches and dates.
- * Returns a Map keyed by `${beachId}_${YYYY-MM-DD}` → sunset Date (UTC).
+ * Batch fetch sunset times for multiple beaches.
+ * Returns a Map keyed by beachId -> sort list of sunset Dates (UTC).
  */
 export async function getBatchSunTimes(
   beachIds: string[],
   dates: string[]
-): Promise<Map<string, Date>> {
+): Promise<Map<string, Date[]>> {
   const supabase = createSupabaseServiceRoleClient();
 
   const uniqueBeachIds = [...new Set(beachIds)];
@@ -61,21 +62,27 @@ export async function getBatchSunTimes(
 
   const { data, error } = await supabase
     .from('sun_times')
-    .select('beach_id, date, sunset_utc')
+    .select('beach_id, sunset_utc')
     .in('beach_id', uniqueBeachIds)
-    .in('date', uniqueDates);
+    .in('date', uniqueDates)
+    .order('sunset_utc', { ascending: true }); // Important: sort by time
 
   if (error) {
     console.error('Error fetching sun times:', error);
     return new Map();
   }
 
-  const sunMap = new Map<string, Date>();
+  const sunMap = new Map<string, Date[]>();
 
   data?.forEach((row) => {
     if (row.sunset_utc) {
-      const key = `${row.beach_id}_${row.date}`;
-      sunMap.set(key, new Date(row.sunset_utc));
+      const beachId = row.beach_id;
+      const sunset = new Date(row.sunset_utc);
+      
+      if (!sunMap.has(beachId)) {
+        sunMap.set(beachId, []);
+      }
+      sunMap.get(beachId)?.push(sunset);
     }
   });
 
@@ -257,9 +264,11 @@ export async function discoverSurfSpots(
       }
     }
 
+    // Fetch sunsets (now returns Map<beachId, Date[]>)
+    const uniqueDates = Array.from(allDates);
     const sunTimesCache = await getBatchSunTimes(
       Array.from(allBeachIds),
-      Array.from(allDates)
+      uniqueDates
     );
 
     // 3. Score each beach with detailed breakdown
@@ -274,7 +283,7 @@ export async function discoverSurfSpots(
     for (const { beach, forecasts } of beachForecasts) {
       const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache);
       if (!bestWindow) {
-        console.warn(`⚠️ No viable window found for ${beach.name}`);
+        // console.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
       }
 
@@ -314,8 +323,10 @@ export async function discoverSurfSpots(
         forecast: bestWindowForecast,
         score: detailedScore.total,
         matchQuality: detailedScore.matchQuality,
+        recommendationLabel: getRecommendationLabel(detailedScore.total),
         subscores: detailedScore.subscores,
         summary: generateDiscoverySummary(beach, bestWindow, detailedScore),
+        message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),
         reasons: detailedScore.reasons,
         warnings: detailedScore.warnings,
         distanceMiles,
@@ -431,7 +442,6 @@ async function buildCandidatePool(
     }
 
     // GPS Phase: Add nearby beaches via PostGIS RPC (explicit location only).
-    // NOTE: `get_nearby_beaches` signature uses `input_lat`, `input_lng`, and meters.
     if (options.userLocation) {
       type NearbyBeachRow = {
         id: string;
@@ -443,11 +453,8 @@ async function buildCandidatePool(
         ? (options.radiusMiles as number)
         : 25;
 
-      // Convert miles to meters; cap to RPC max (100 miles).
       const cappedMiles = Math.min(Math.max(radiusMiles, 0), 100);
       const max_distance_meters = Math.round(cappedMiles * 1609.34);
-
-      // Grab more than we’ll score (we later cap candidates to 20).
       const limit_count = 40;
 
       const { data: nearbyRaw, error: nearbyError } = await supabase.rpc(
@@ -471,7 +478,6 @@ async function buildCandidatePool(
           .filter((id) => !existingIds.has(id));
 
         if (orderedIds.length > 0) {
-          // Fetch full beach rows to ensure we have all fields needed for scoring and URL generation.
           const { data: beachRows, error: beachError } = await supabase
             .from('beaches')
             .select('*')
@@ -514,12 +520,6 @@ async function buildCandidatePool(
 
 /**
  * Batch fetch forecasts from cache with staleness tracking
- *
- * PERFORMANCE OPTIMIZATION: Uses getBatchFreshForecastsFromCache to fetch all forecasts
- * in just 2 database queries instead of 2N queries (N = number of beaches).
- * For 20 beaches, this reduces from 40 queries (~1000ms) to 2 queries (~150ms).
- *
- * Returns both successful and stale/missing beaches with detailed metadata.
  */
 async function batchFetchForecasts(
   beaches: Beach[],
@@ -621,7 +621,10 @@ async function batchFetchForecasts(
 /**
  * Score beach for discovery with detailed sub-score breakdown
  */
-async function scoreBeachForDiscovery(args: {
+/**
+ * Score beach for discovery with detailed sub-score breakdown
+ */
+export async function scoreBeachForDiscovery(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
@@ -660,9 +663,56 @@ async function scoreBeachForDiscovery(args: {
   const windDir = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
   const tideHeight = parseFloat(forecast.tide_height || '0');
   const tideStatus = forecast.tide_status?.toLowerCase() || '';
+  const confidence = forecast.confidence_score ?? 50; // Default to 50 if missing
+  
+  // Parse numeric swell direction (some sources might return 'SSW', others degrees)
+  // Assuming swell_1_direction might be string degrees "200" or cardinal "SSW".
+  // Note: getDirectionDegrees handles both number and string inputs for wind, we reuse it or similar logic.
+  // Ideally swell_1_direction is degrees in string format for CDIP.
+  const swellDir = forecast.swell_1_direction 
+    ? parseFloat(forecast.swell_1_direction) 
+    : null; // If NaN it will fail check below, which is fine (no penalty if unknown, or safe fallback?)
+
+  // 0. Swell Direction Check (Critical Filter)
+  if (
+    beach.swell_window_min_deg !== undefined &&
+    beach.swell_window_min_deg !== null &&
+    beach.swell_window_max_deg !== undefined &&
+    beach.swell_window_max_deg !== null &&
+    !isNaN(swellDir as number) &&
+    swellDir !== null
+  ) {
+    const min = beach.swell_window_min_deg;
+    const max = beach.swell_window_max_deg;
+    
+    // Handle wrap-around (e.g. min 300, max 40 covers NW to NE)
+    const isWrapAround = min > max;
+    const isIdeallyAligned = isWrapAround
+      ? swellDir >= min || swellDir <= max
+      : swellDir >= min && swellDir <= max;
+
+    if (!isIdeallyAligned) {
+      // Significant Penalty for wrong swell direction
+      // We don't want to zero it out completely (maybe it wraps slightly), but -50 ensures it won't be a "Best Bet"
+      // unless everything else is absolutely perfect, and even then it's low.
+      // Actually, if it's the wrong direction, waves might be 0ft effectively.
+      // Let's degrade the Wave Height score specifically or apply a massive penalty.
+      
+      // We'll apply a flat penalty to the conditions score effectively.
+      warnings.push(`Swell direction ${Math.round(swellDir)}° is non-optimal for this break (${min}°-${max}°)`);
+      
+      // We can modify subscores directly or add a specific penalty
+      // Let's add a "Swell Penalty" to the final calc or reduce waveHeightFit
+      // Reducing waveHeightFit to 0 is a good start.
+      subscores.waveHeightFit = 0; 
+      // And maybe an extra penalty on total
+      reasons.push(`Swell angle ${Math.round(swellDir)}° is blocked or poor`);
+    } else {
+        reasons.push(`Swell direction ${Math.round(swellDir)}° is optimal`);
+    }
+  }
 
   // 1. Wave Height Fit (0-25 points)
-  // Profile preferred wave size (explicit) overrides learned/default ranges.
   if (preferredWaveRange) {
     const { min, max, label } = preferredWaveRange;
     const closeMin = min * 0.8;
@@ -702,7 +752,6 @@ async function scoreBeachForDiscovery(args: {
       }
     }
   } else {
-    // No user prefs - use reasonable defaults
     if (waveHeight >= 2 && waveHeight <= 6) {
       subscores.waveHeightFit = 20;
       reasons.push(`Waves ${forecast.wave_height} are in a fun, surfable range`);
@@ -727,7 +776,6 @@ async function scoreBeachForDiscovery(args: {
       warnings.push(`Short period ${forecast.wave_period} may produce choppy conditions`);
     }
   } else {
-    // No user prefs - use quality thresholds
     if (wavePeriod >= 12) {
       subscores.periodEnergyScore = 20;
       reasons.push(`Excellent swell period: ${forecast.wave_period}`);
@@ -745,8 +793,6 @@ async function scoreBeachForDiscovery(args: {
     const tolerance = beach.wind_offshore_tol_deg || 30;
 
     if (windDir === null) {
-      // Missing wind direction even though the beach has metadata.
-      // Fall back to a general wind assessment based on speed only.
       if (windSpeed <= 10) {
         subscores.windAlignment = 15;
         reasons.push(`Light wind ${forecast.wind_speed} - favorable conditions`);
@@ -776,7 +822,6 @@ async function scoreBeachForDiscovery(args: {
     }
     }
   } else {
-    // No beach wind data - use general assessment
     if (windSpeed <= 10) {
       subscores.windAlignment = 15;
       reasons.push(`Light wind ${forecast.wind_speed} - favorable conditions`);
@@ -807,22 +852,18 @@ async function scoreBeachForDiscovery(args: {
       warnings.push(`Tide ${forecast.tide_height} may be outside optimal range`);
     }
   } else {
-    // No tide data - give partial credit
     subscores.tideFit = 8;
   }
 
   // 4b. Tide Direction Penalty
-  // If beach has a preferred tide direction, penalize when forecast doesn't match
   const beachTideDir = beach.preferred_tide_direction;
   if (beachTideDir && beachTideDir !== 'either' && tideStatus) {
-    // Normalize tide status to match our enum (rising/falling/slack)
     const forecastTideDir = tideStatus.includes('rising') ? 'rising'
       : tideStatus.includes('falling') ? 'falling'
       : tideStatus.includes('slack') || tideStatus.includes('high') || tideStatus.includes('low') ? 'slack'
       : null;
 
     if (forecastTideDir && beachTideDir !== forecastTideDir) {
-      // Full penalty for opposite direction, partial for slack mismatch
       const dirPenalty = forecastTideDir === 'slack' ? 6 : 12;
       subscores.tideFit = Math.max(0, subscores.tideFit - dirPenalty);
       warnings.push(`Tide is ${forecastTideDir}, beach works best on ${beachTideDir} tide`);
@@ -836,7 +877,7 @@ async function scoreBeachForDiscovery(args: {
     reasons.push(`You've surfed here ${sessionCount}+ times - familiar spot`);
   }
 
-  // 6. Distance Penalty (0 to -20 points) - Phase 2
+  // 6. Distance Penalty (0 to -20 points)
   if (distanceMiles !== undefined) {
     if (distanceMiles <= 5) {
       subscores.distancePenalty = 0;
@@ -851,19 +892,14 @@ async function scoreBeachForDiscovery(args: {
   }
 
   // Calculate total (normalized)
-  //
-  // Goal: Make 100 achievable even when some beach metadata is missing.
-  // We normalize the "conditions" subtotal to a 0-100 scale based on which scoring
-  // dimensions are available for this beach, then apply affinity (optional bonus)
-  // and distance (optional penalty).
   const windMax =
     beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
       ? 20
-      : 15; // speed-only fallback scoring max
+      : 15;
   const tideMax =
     beach.preferred_tide_ft_min !== null && beach.preferred_tide_ft_max !== null
       ? 15
-      : 8; // neutral credit when no beach tide metadata
+      : 8;
 
   const conditionsEarned =
     subscores.waveHeightFit +
@@ -875,17 +911,24 @@ async function scoreBeachForDiscovery(args: {
   const normalizedConditions =
     conditionsMax > 0 ? (conditionsEarned / conditionsMax) * 100 : 0;
 
+  // Composite Score Calculation:
+  // Weight conditions heavily (70%) but factor in confidence (30%)
+  // This effectively dampens the score for long-range, uncertain forecasts.
+  //
+  // Example:
+  // Perfect Conditions (100) + 50% Confidence -> 70 + 15 = 85 (8.5/10)
+  // Perfect Conditions (100) + 90% Confidence -> 70 + 27 = 97 (9.7/10)
+  const compositeScore = (normalizedConditions * 0.7) + (confidence * 0.3);
+
   let total = Math.max(
     0,
     Math.min(
       100,
-      normalizedConditions + subscores.affinityBonus + subscores.distancePenalty
+      compositeScore + subscores.affinityBonus + subscores.distancePenalty
     )
   );
 
   // If waves are outside the user's explicit preferred size, apply a graduated penalty.
-  // This is more nuanced than a hard cap - waves slightly outside range get mild penalties,
-  // while waves significantly outside range get larger penalties.
   if (preferredWaveRange) {
     const { min, max } = preferredWaveRange;
     const outsideRange = waveHeight < min
@@ -895,11 +938,8 @@ async function scoreBeachForDiscovery(args: {
         : 0;
 
     if (outsideRange > 0) {
-      // Graduated penalty: -12 points per 0.5ft outside range, max -36
-      // Waves outside preferred range can never be "Perfect Match"
       const penalty = Math.min(36, Math.floor(outsideRange / 0.5) * 12);
       total = Math.max(0, total - penalty);
-      // Cap score at 75 - waves outside preference should max at "Excellent", never "Perfect"
       total = Math.min(total, 75);
     }
   }
@@ -922,7 +962,7 @@ async function scoreBeachForDiscovery(args: {
     total,
     subscores,
     matchQuality,
-    reasons: reasons.slice(0, 5), // Top 5 reasons
+    reasons: reasons.slice(0, 5),
     warnings,
   };
 }
@@ -933,19 +973,6 @@ async function scoreBeachForDiscovery(args: {
 
 /**
  * Score a single forecast window for time-slot selection
- *
- * Evaluates conditions quality for a specific 3-hour forecast window
- * using the same scoring logic as `scoreBeachForDiscovery`, but focused
- * only on time-varying factors (waves, wind, tide).
- *
- * Excludes:
- * - Beach affinity (not time-specific)
- * - Distance penalty (not time-specific)
- *
- * @param forecast - Single forecast entity to score
- * @param beach - Beach metadata for context
- * @param userPrefs - User surf preferences (optional)
- * @returns Conditions score (0-80 points: wave height 25 + period 20 + wind 20 + tide 15)
  */
 function scoreForecastWindow(
   forecast: EnhancedForecastEntity,
@@ -954,7 +981,6 @@ function scoreForecastWindow(
 ): number {
   let score = 0;
 
-  // Parse forecast values
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
   const windSpeed = parseFloat(forecast.wind_speed || '0');
@@ -974,7 +1000,6 @@ function scoreForecastWindow(
       score += 5;
     }
   } else {
-    // No user prefs - use reasonable defaults
     if (waveHeight >= 2 && waveHeight <= 6) {
       score += 20;
     } else {
@@ -995,7 +1020,6 @@ function scoreForecastWindow(
       score += 5;
     }
   } else {
-    // No user prefs - use quality thresholds
     if (wavePeriod >= 12) {
       score += 20;
     } else if (wavePeriod >= 9) {
@@ -1011,13 +1035,11 @@ function scoreForecastWindow(
     const tolerance = beach.wind_offshore_tol_deg || 30;
 
     if (windDir === null) {
-      // Missing direction: fall back to speed-only assessment.
       if (windSpeed <= 10) {
         score += 15;
       } else if (windSpeed <= 15) {
         score += 8;
       }
-      // else 0
     } else {
       const angleDiff = Math.min(
         Math.abs(windDir - offshoreDir),
@@ -1029,16 +1051,13 @@ function scoreForecastWindow(
       } else if (angleDiff <= tolerance * 2) {
         score += 10;
       }
-      // else 0 points for onshore wind
     }
   } else {
-    // No beach wind data - use general assessment
     if (windSpeed <= 10) {
       score += 15;
     } else if (windSpeed <= 15) {
       score += 8;
     }
-    // else 0 points for strong wind
   }
 
   // 4. Tide Fit (0-15 points)
@@ -1057,7 +1076,6 @@ function scoreForecastWindow(
       score += 3;
     }
   } else {
-    // No tide data - give partial credit
     score += 8;
   }
 
@@ -1072,21 +1090,19 @@ function scoreForecastWindow(
  * 1. Score all forecasts upfront and filter past times
  * 2. For each valid forecast window start:
  *    - Skip if score below MIN_SCORE_THRESHOLD
+ *    - Check Local Hour to filter night sessions (9pm-5am)
+ *    - Find NEXT sunset > startTime
  *    - Skip if too close to sunset (< MIN_SESSION_HOURS)
  *    - Extend window end until conditions degrade or MAX_WINDOW_HOURS reached
- *    - Use linear interpolation to find precise degradation time
  *    - Cap window end at sunset
  * 3. Apply time-decay penalty for ranking
  * 4. Select highest adjusted score
- *
- * This prioritizes near-term forecasts while respecting conditions quality and sunset.
- * Time decay: 0.5 pts/hour (capped at 24 hours = 12 points max penalty).
  *
  * @param forecasts - Array of forecast entities for the beach
  * @param beach - Beach metadata for wind/tide preferences
  * @param userPrefs - User surf preferences (optional, for wave size/period matching)
  * @param horizonHours - Optional max hours ahead to consider
- * @param sunTimesCache - Optional Map of beach_id_date -> sunset Date for capping windows
+ * @param sunTimesCache - Optional Map of beach_id -> Date[] (sorted sunsets)
  * @returns Best window or null if none viable
  */
 export function selectBestWindow(
@@ -1094,7 +1110,7 @@ export function selectBestWindow(
   beach: Beach,
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
   horizonHours?: number,
-  sunTimesCache?: Map<string, Date>
+  sunTimesCache?: Map<string, Date[]>
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
@@ -1102,8 +1118,6 @@ export function selectBestWindow(
   const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
 
   // Score all forecasts upfront and filter past times
-  // Note: Night hour filtering removed - sunset-aware logic handles evening edge cases
-  // by capping windows at sunset from sunTimesCache
   const scoredForecasts = forecasts
     .map((forecast) => {
       const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
@@ -1123,20 +1137,49 @@ export function selectBestWindow(
   } | null = null;
   let bestAdjustedScore = -1;
 
+  // Get sorted sunsets for this beach
+  const sunsets = sunTimesCache?.get(beach.id) || [];
+
   for (let i = 0; i < scoredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore } = scoredForecasts[i];
 
     // Skip low-scoring start times
     if (startScore < MIN_SCORE_THRESHOLD) continue;
 
-    // Get sunset for this date
-    const dateKey = forecast.forecast_date;
-    const sunset = sunTimesCache?.get(`${beach.id}_${dateKey}`);
+    // 1. Night Filter (using Local Hour)
+    // Avoid recommending sessions starting in pitch dark (e.g. 9pm - 4am)
+    // This protects us when sunset data is missing or "next sunset" is 20 hours away.
+    try {
+        const localHour = parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: beachTz,
+          }).format(startTime),
+          10
+        );
+        // Skip if 9pm (21) or later, or before 5am
+        if (localHour >= 21 || localHour < 5) continue;
+    } catch (e) {
+        // If tz conversion fails, assume safe to proceed (fallback to sunset check)
+    }
 
-    // Skip if too close to sunset
+    // 2. Next Sunset Lookup
+    // Find the first sunset that occurs AFTER this start time
+    const nextSunset = sunsets.find(s => s.getTime() > startTime.getTime());
+    let sunset = nextSunset; 
+
+    // If we have a sunset, enforce strict daylight constraints
     if (sunset) {
-      const hoursUntilSunset = (sunset.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-      if (hoursUntilSunset < MIN_SESSION_HOURS) continue;
+        const hoursUntilSunset = (sunset.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntilSunset < MIN_SESSION_HOURS) continue;
+
+    } else {
+        // No future sunset found in cache.
+        // Rely on Night Filter (passed) to allow session.
+        // We assume broad daylight if no sunset is found (e.g. slight data gap or high latitude summer)
+        // or effectively rely on night filter to kill bad times.
     }
 
     // Check horizon constraint
@@ -1179,7 +1222,7 @@ export function selectBestWindow(
       }
     }
 
-    // Cap at sunset
+    // Cap at sunset (exact clipping)
     if (sunset && sunset < endTime) {
       endTime = sunset;
     }
@@ -1200,8 +1243,6 @@ export function selectBestWindow(
   }
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
-  // This ensures we still return recommendations with low scores (with warnings)
-  // rather than returning nothing when conditions are poor
   if (!bestWindow && scoredForecasts.length > 0) {
     const best = scoredForecasts.reduce((prev, curr) =>
       curr.score > prev.score ? curr : prev
@@ -1210,17 +1251,17 @@ export function selectBestWindow(
     // Check horizon constraint for fallback
     const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (!horizonHours || hoursAhead <= horizonHours) {
-      const dateKey = best.forecast.forecast_date;
-      const sunset = sunTimesCache?.get(`${beach.id}_${dateKey}`);
-
-      // Calculate end time (fallback uses default window, capped at sunset)
+      // Logic for fallback end time (next sunset or default)
+      const sunsets = sunTimesCache?.get(beach.id) || [];
+      const nextSunset = sunsets.find(s => s.getTime() > best.forecastTime.getTime());
+      
       let endTime = new Date(best.forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-      if (sunset && sunset < endTime) {
-        endTime = sunset;
+      if (nextSunset && nextSunset < endTime) {
+        endTime = nextSunset;
       }
-
-      // Only use if we have at least MIN_SESSION_HOURS
+      
       const durationHours = (endTime.getTime() - best.forecastTime.getTime()) / (1000 * 60 * 60);
+
       if (durationHours >= MIN_SESSION_HOURS) {
         bestWindow = {
           forecast: best.forecast,
@@ -1230,9 +1271,13 @@ export function selectBestWindow(
         };
       }
     }
+
   }
 
-  if (!bestWindow) return null;
+    if (!bestWindow) {
+        return null;
+    }
+
 
   // Build the PersonalizedForecastWindow
   return {
@@ -1254,12 +1299,6 @@ export function selectBestWindow(
 
 /**
  * Generate human-readable summary for discovery recommendation.
- *
- * NOTE: The summary no longer embeds a formatted "Best at {time}" string.
- * Time formatting is the responsibility of the UI layer using shared helpers
- * (`formatBeachTimeRange`, `formatBestAtLabel`) with `window.start/end` and
- * `window.timezone`. This ensures the displayed time is always consistent
- * regardless of server locale or serialization.
  */
 function generateDiscoverySummary(
   beach: Beach,
@@ -1283,8 +1322,45 @@ function generateDiscoverySummary(
 
   const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
 
-  // Return conditions summary without embedded time; UI will format time from window.start/end
   return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}.${warningSuffix}`;
+}
+
+/**
+ * Get recommendation label from score value
+ * Score-based: >=70 = Worth it, 40-69 = Maybe, <40 = Skip
+ */
+function getRecommendationLabel(score: number): RecommendationLabel {
+  if (score >= 70) return 'Worth it';
+  if (score >= 40) return 'Maybe';
+  return 'Skip';
+}
+
+/**
+ * Build natural language message from score, reasons, and warnings
+ * Format: "Worth it — Good wave size, Offshore wind. Watch: Tide is high"
+ */
+function buildDiscoveryMessage(
+  score: number,
+  reasons: string[],
+  warnings: string[]
+): string {
+  const label = getRecommendationLabel(score);
+
+  if (label === 'Skip') {
+    const skipReason = warnings[0] || 'Conditions not favorable';
+    return `Skip — ${skipReason}`;
+  }
+
+  // Pick top 2 reasons for concise message
+  const topReasons = reasons.slice(0, 2).join(', ');
+  let message = `${label} — ${topReasons || 'Conditions look surfable'}`;
+
+  // Add first warning if present
+  if (warnings.length > 0) {
+    message += `. Watch: ${warnings[0]}`;
+  }
+
+  return message;
 }
 
 // ============================================================================
@@ -1352,7 +1428,6 @@ function parseWaveDirection(dir: string): number {
 
 /**
  * Prefer degree-based wind direction when present; fall back to parsing cardinal strings.
- * Returns null when direction is missing/unparseable.
  */
 function getDirectionDegrees(
   windDirectionDeg: number | string | null | undefined,
@@ -1370,14 +1445,11 @@ function getDirectionDegrees(
   const trimmed = windDirectionText.trim();
   if (!trimmed) return null;
 
-  // If text is actually numeric degrees, parse it.
   const asNum = Number(trimmed);
   if (Number.isFinite(asNum)) {
     return ((asNum % 360) + 360) % 360;
   }
 
-  // Cardinal fallback (N/SW/etc). Note: parseWaveDirection returns 0 for both "N" and unknown,
-  // so handle unknown by checking membership first.
   const upper = trimmed.toUpperCase();
   const knownCardinals = new Set([
     'N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'
@@ -1388,7 +1460,6 @@ function getDirectionDegrees(
 
 /**
  * Calculate distance between two coordinates (Haversine formula)
- * Phase 2: GPS distance calculation
  */
 function calculateDistance(
   from: { lat: number; lon: number },

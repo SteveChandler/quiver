@@ -1,13 +1,21 @@
 /**
  * Session Window Scorer Module
- * 
+ *
  * Handles scoring and selection of optimal surf session windows.
  * Decomposed from findNextBestWindow (complexity 68) into focused functions.
- * 
+ *
  * Also includes:
  * - bestWindowHeuristic: Morning-specific window calculation
  * - confidenceHeuristic: Data completeness scoring
- * 
+ *
+ * @deprecated The `bestWindowHeuristic` function is deprecated in favor of
+ * `calculateOptimalWindow` from `@/lib/scoring` which uses linear interpolation
+ * for precise window boundaries instead of arbitrary hour ranges.
+ *
+ * Migration guide:
+ * - bestWindowHeuristic() → calculateOptimalWindow() from @/lib/scoring
+ * - findNextBestWindow() → calculateOptimalWindow() from @/lib/scoring
+ *
  * Extracted from lib/utils/morning-intel-utils.ts as part of P1 refactoring
  * to reduce cyclomatic complexity and improve maintainability.
  */
@@ -15,6 +23,10 @@
 import { calculateOnOffshore, windAt } from "@/lib/analyzers/wind-analyzer";
 import { tideAt } from "@/lib/analyzers/tide-analyzer";
 import type { ForecastSlice } from "@/types/morning-intel";
+
+// Re-export unified scoring window calculator for forward compatibility
+export { calculateOptimalWindow, formatTimeRange } from "@/lib/scoring";
+export type { OptimalWindow, WindowCalculatorOptions } from "@/lib/scoring";
 
 // Constants for window scoring
 const OFFSHORE_STRONG_SCORE = 40;

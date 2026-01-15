@@ -290,7 +290,7 @@ afterAll(async () => {
       const { data: assignedBeach } = await supabase
         .from("beaches")
         .select("id, name, lat, lon")
-        .eq("id", intelPost.beach_id)
+        .eq("id", intelPost.beach_id!)
         .single();
 
       expect(assignedBeach).not.toBeNull();

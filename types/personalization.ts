@@ -151,10 +151,14 @@ export interface SurfDiscoveryRecommendation {
   score: number;
   /** Match quality category */
   matchQuality: 'perfect' | 'excellent' | 'good' | 'fair';
+  /** Morning Intel style recommendation label */
+  recommendationLabel?: 'Worth it' | 'Maybe' | 'Skip';
   /** Detailed scoring breakdown */
   subscores: DetailedScore['subscores'];
   /** Human-readable summary of conditions */
   summary: string;
+  /** Natural language message (e.g., "Worth it — Good wave size, Offshore wind") */
+  message?: string;
   /** Specific reasons for this ranking (3-5 factors) */
   reasons: string[];
   /** Warnings or cautions about the spot */

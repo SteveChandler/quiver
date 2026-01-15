@@ -21,11 +21,15 @@ import {
   recommendTideWindow,
   primarySecondarySwell,
   windAt,
-  bestWindowHeuristic,
   confidenceHeuristic,
-  analyzeConditions,
-  getConservativeRecommendation,
 } from "@/lib/utils/morning-intel-utils";
+import {
+  scoreConditions,
+  calculateOptimalWindow,
+  formatTimeRange,
+  type ForecastForScoring,
+  type BeachWithThresholds,
+} from "@/lib/scoring";
 import {
   createIntelDedupeHash,
 } from "@/lib/utils/intel-dedupe";
@@ -151,16 +155,25 @@ async function getOceanBeachId(
 async function fetchBeachData(
   supabase: ReturnType<typeof getSupabaseClient>,
   beachId: string
-): Promise<BeachPreferences | null> {
+): Promise<(BeachPreferences & Partial<BeachWithThresholds>) | null> {
   console.log("🏖️  Fetching beach preferences...");
 
+  // Note: max_wind_onshore_mph and max_wind_any_mph are new columns added by migration
+  // 20260114180000_add_beach_wind_thresholds.sql. The types will be regenerated after deployment.
   const { data: beach, error } = await supabase
     .from("beaches")
     .select(
-      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg"
+      "id, name, lat, lon, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type, aspect_deg"
     )
     .eq("id", beachId)
     .single();
+
+  // Fetch wind thresholds separately to work around types not being regenerated yet
+  const { data: windThresholds } = await supabase
+    .from("beaches")
+    .select("max_wind_onshore_mph, max_wind_any_mph" as any)
+    .eq("id", beachId)
+    .single() as { data: { max_wind_onshore_mph: number | null; max_wind_any_mph: number | null } | null };
 
   if (error || !beach) {
     console.warn(`⚠️  Could not fetch beach data: ${error?.message || "Not found"}`);
@@ -199,6 +212,7 @@ async function fetchBeachData(
   }
 
   return {
+    // BeachPreferences fields
     name: beach.name,
     swellWindowMin: beach.swell_window_min_deg,
     swellWindowMax: beach.swell_window_max_deg,
@@ -212,6 +226,16 @@ async function fetchBeachData(
     // Extra fields (ignored by analyzers today, but useful for persisted/debug payload)
     aspectDeg,
     windOffshoreDegSource,
+    // BeachWithThresholds fields for unified scoring
+    id: beach.id,
+    lat: beach.lat,
+    lon: beach.lon,
+    wind_offshore_deg: windOffshoreDegUsed,
+    wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
+    preferred_tide_ft_min: beach.preferred_tide_ft_min,
+    preferred_tide_ft_max: beach.preferred_tide_ft_max,
+    max_wind_onshore_mph: windThresholds?.max_wind_onshore_mph ?? null,
+    max_wind_any_mph: windThresholds?.max_wind_any_mph ?? null,
   };
 }
 
@@ -312,13 +336,32 @@ async function fetchForecastData(
 }
 
 /**
+ * Convert ForecastSlice forecast to ForecastForScoring
+ */
+function convertToForecastForScoring(
+  f: ForecastSlice["forecasts"][0],
+  timezone: string
+): ForecastForScoring {
+  const forecastTime = new Date(`${f.forecast_date}T${f.forecast_time}Z`);
+  return {
+    forecastTime,
+    waveHeight: f.wave_height ?? f.swell_height ?? 0,
+    wavePeriod: f.wave_period ?? f.swell_period ?? 0,
+    windSpeed: f.wind_speed ?? 0,
+    windDirection: f.wind_direction ?? null,
+    tideHeight: f.tide_height ?? 0,
+    tideStatus: f.tide_status ?? null,
+  };
+}
+
+/**
  * Generate morning intel data from forecast
  */
 function generateIntelData(
   slice: ForecastSlice,
   spotName: string,
   timezone: string,
-  beachPrefs: BeachPreferences | null
+  beachPrefs: (BeachPreferences & Partial<BeachWithThresholds>) | null
 ): MorningIntelData {
   console.log("🔍 Analyzing forecast data...");
 
@@ -331,31 +374,95 @@ function generateIntelData(
   const tide = recommendTideWindow(slice.forecasts, beachPrefs);
   const swells = primarySecondarySwell(slice.forecasts);
   const wind = windAt(targetTime, slice.forecasts, timezone);
-  const bestWindow = bestWindowHeuristic(
-    slice.forecasts,
-    slice.tides,
-    timezone
-  );
   const confidence = confidenceHeuristic(slice.forecasts, slice.tides);
 
-  // Analyze conditions against beach preferences
+  // Convert forecasts for unified scoring
+  const forecastsForScoring = slice.forecasts.map((f) =>
+    convertToForecastForScoring(f, timezone)
+  );
+
+  // Calculate optimal window using unified scoring
+  let bestWindow = "Variable conditions; check throughout the morning";
   let conditions = undefined;
   let recommendation: MorningIntelRecommendationSummary = {
     decision: "maybe",
     label: "Maybe",
     reasons: ["check the detailed forecast"],
   };
-  if (beachPrefs) {
-    conditions = analyzeConditions(
-      {
-        swellDirection: swells.primary?.direction,
-        wind,
-        tide,
-      },
-      beachPrefs
-    );
-    console.log(`📊 Conditions Score: ${conditions.score}/10`);
-    recommendation = getConservativeRecommendation(conditions);
+
+  if (beachPrefs && forecastsForScoring.length > 0) {
+    // Use unified scoring for the representative forecast (6am)
+    const representativeForecast = forecastsForScoring.find((f) => {
+      const hour = f.forecastTime.getUTCHours();
+      return hour >= 12 && hour <= 15; // 4-7am local (UTC is +8 for Pacific)
+    }) || forecastsForScoring[0];
+
+    const beachForScoring: BeachWithThresholds = {
+      id: beachPrefs.id ?? "unknown",
+      name: beachPrefs.name,
+      lat: beachPrefs.lat ?? null,
+      lon: beachPrefs.lon ?? null,
+      is_private: false,
+      created_at: new Date().toISOString(),
+      wind_offshore_deg: beachPrefs.wind_offshore_deg ?? beachPrefs.windOffshoreDeg ?? null,
+      wind_offshore_tol_deg: beachPrefs.wind_offshore_tol_deg ?? beachPrefs.windOffshoreTol ?? null,
+      preferred_tide_ft_min: beachPrefs.preferred_tide_ft_min ?? beachPrefs.tideMinFt ?? null,
+      preferred_tide_ft_max: beachPrefs.preferred_tide_ft_max ?? beachPrefs.tideMaxFt ?? null,
+      max_wind_onshore_mph: beachPrefs.max_wind_onshore_mph ?? null,
+      max_wind_any_mph: beachPrefs.max_wind_any_mph ?? null,
+    };
+
+    const conditionScore = scoreConditions(representativeForecast, beachForScoring);
+    console.log(`📊 Unified Score: ${conditionScore.total}/100 (${conditionScore.matchQuality})`);
+
+    // Map unified score to legacy 0-10 scale for backward compatibility
+    const legacyScore = Math.round(conditionScore.total / 10);
+
+    // Build legacy ConditionsAnalysis for backward compatibility
+    conditions = {
+      score: legacyScore,
+      swell: {
+        status: conditionScore.subscores.waveHeightFit >= 15 ? "optimal" : conditionScore.subscores.waveHeightFit >= 8 ? "acceptable" : "poor",
+        emoji: conditionScore.subscores.waveHeightFit >= 15 ? "✅" : conditionScore.subscores.waveHeightFit >= 8 ? "⚠️" : "❌",
+        message: conditionScore.reasons.find((r) => r.toLowerCase().includes("wave") || r.toLowerCase().includes("swell")) || "Swell conditions",
+      } as const,
+      wind: {
+        status: conditionScore.subscores.windAlignment >= 12 ? "optimal" : conditionScore.subscores.windAlignment >= 6 ? "acceptable" : "poor",
+        emoji: conditionScore.subscores.windAlignment >= 12 ? "✅" : conditionScore.subscores.windAlignment >= 6 ? "⚠️" : "❌",
+        message: conditionScore.reasons.find((r) => r.toLowerCase().includes("wind") || r.toLowerCase().includes("offshore") || r.toLowerCase().includes("glassy")) || "Wind conditions",
+      } as const,
+      tide: {
+        status: conditionScore.subscores.tideFit >= 10 ? "optimal" : conditionScore.subscores.tideFit >= 5 ? "acceptable" : "poor",
+        emoji: conditionScore.subscores.tideFit >= 10 ? "✅" : conditionScore.subscores.tideFit >= 5 ? "⚠️" : "❌",
+        message: conditionScore.reasons.find((r) => r.toLowerCase().includes("tide")) || "Tide conditions",
+      } as const,
+    };
+
+    // Map recommendation label from unified scoring
+    const decisionMap: Record<string, MorningIntelRecommendationSummary["decision"]> = {
+      "Worth it": "worth_it",
+      "Maybe": "maybe",
+      "Skip": "skip",
+    };
+
+    recommendation = {
+      decision: decisionMap[conditionScore.recommendationLabel] || "maybe",
+      label: conditionScore.recommendationLabel,
+      reasons: conditionScore.warnings.length > 0 ? conditionScore.warnings : conditionScore.reasons.slice(0, 2),
+    };
+
+    // Calculate optimal window using interpolation
+    const optimalWindow = calculateOptimalWindow(forecastsForScoring, beachForScoring, {
+      horizonHours: 8, // Morning window (6am-2pm)
+      minSessionHours: 1,
+    });
+
+    if (optimalWindow) {
+      bestWindow = formatTimeRange(optimalWindow.start, optimalWindow.end, timezone);
+      if (optimalWindow.message) {
+        bestWindow += `; ${optimalWindow.message}`;
+      }
+    }
   }
 
   // Generate notes based on conditions

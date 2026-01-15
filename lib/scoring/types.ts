@@ -2,13 +2,29 @@
  * Shared types for unified surf scoring module
  */
 
-import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
 /**
  * Beach with wind threshold configuration
+ *
+ * Note: This is a minimal interface for scoring that doesn't require
+ * all fields from the full Beach type. This makes it easier to use
+ * from different contexts (Morning Intel, Discovery Service, etc.)
  */
-export interface BeachWithThresholds extends Beach {
+export interface BeachWithThresholds {
+  id: string;
+  name: string;
+  lat?: number | null;
+  lon?: number | null;
+  is_private?: boolean;
+  created_at?: string;
+  // Wind configuration
+  wind_offshore_deg?: number | null;
+  wind_offshore_tol_deg?: number | null;
+  // Tide preferences
+  preferred_tide_ft_min?: number | null;
+  preferred_tide_ft_max?: number | null;
+  // Wind thresholds for skip conditions
   max_wind_onshore_mph?: number | null;
   max_wind_any_mph?: number | null;
 }
