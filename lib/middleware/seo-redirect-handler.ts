@@ -10,7 +10,11 @@
  * - Mexico route structure changes
  */
 
-import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import {
+  isValidStateSlug,
+  stateToSlug,
+  cityToSlug,
+} from "@/lib/utils/beach-url-utils";
 
 // Reserved first-segment paths that should never be treated as state/country
 const RESERVED_PATHS = new Set([
@@ -45,7 +49,10 @@ const RESERVED_PATHS = new Set([
  *
  * Valid patterns:
  * - 3 segments: /{state}/{city}/{beach} where state is a valid US state slug
- * - 4 segments: /{country}/{region}/{city}/{beach} where country is "mexico"
+ *
+ * Note: 4-segment international URLs (e.g., /mexico/baja-california/rosarito/alfonsos)
+ * are NOT matched because they have a working page route at:
+ * /app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx
  *
  * @param pathname - URL pathname to check
  * @returns true if pathname matches an old beach URL pattern
@@ -58,8 +65,8 @@ export function isOldBeachUrlPattern(pathname: string): boolean {
 
   const segments = pathname.split("/").filter(Boolean);
 
-  // Must have 3 or 4 segments
-  if (segments.length < 3 || segments.length > 4) {
+  // Only match 3 segments (US beach URLs with potential city mismatch)
+  if (segments.length !== 3) {
     return false;
   }
 
@@ -71,16 +78,7 @@ export function isOldBeachUrlPattern(pathname: string): boolean {
   }
 
   // 3 segments: /{state}/{city}/{beach} - state must be valid 2-letter code
-  if (segments.length === 3) {
-    return isValidStateSlug(firstSegment);
-  }
-
-  // 4 segments: /{country}/{region}/{city}/{beach} - for mexico URLs
-  if (segments.length === 4) {
-    return firstSegment === "mexico";
-  }
-
-  return false;
+  return isValidStateSlug(firstSegment);
 }
 
 /**
@@ -183,4 +181,88 @@ export async function lookupBeachBySlug(
     );
     return null;
   }
+}
+
+/**
+ * Build canonical URL for a beach
+ *
+ * For US beaches with valid state and city, builds: /{state}/{city}/{slug}
+ * For international or incomplete data, falls back to: /spots/{slug}
+ *
+ * @param beach - Beach data from database lookup
+ * @returns Canonical URL path or null if slug is missing
+ */
+export function buildCanonicalBeachUrl(
+  beach: BeachLookupResult
+): string | null {
+  if (!beach.slug) {
+    return null;
+  }
+
+  const stateSlug = stateToSlug(beach.state);
+  const citySlug = cityToSlug(beach.city);
+
+  // For US states with valid state and city, build hierarchical URL
+  if (stateSlug && isValidStateSlug(stateSlug) && citySlug) {
+    return `/${stateSlug}/${citySlug}/${beach.slug}`;
+  }
+
+  // For international beaches or missing data, fall back to /spots/ route
+  return `/spots/${beach.slug}`;
+}
+
+/**
+ * Result of SEO redirect check
+ */
+export interface SeoRedirectResult {
+  redirect: boolean;
+  url?: string;
+}
+
+/**
+ * Main handler for SEO redirects
+ *
+ * Checks if a pathname matches an old beach URL pattern, looks up the beach
+ * by slug, and returns redirect info if the canonical URL differs.
+ *
+ * Design principles:
+ * - Fail open: If anything goes wrong, return no redirect (let request pass)
+ * - Only redirect when needed: Skip DB lookup for non-matching URLs
+ * - Preserve SEO: Use 301 redirects for permanent moves
+ *
+ * @param pathname - URL pathname to check
+ * @returns Redirect info if URL should redirect, otherwise { redirect: false }
+ */
+export async function handleSeoRedirect(
+  pathname: string
+): Promise<SeoRedirectResult> {
+  // Only process URLs matching old beach patterns
+  if (!isOldBeachUrlPattern(pathname)) {
+    return { redirect: false };
+  }
+
+  const slug = extractBeachSlugFromPath(pathname);
+  if (!slug) {
+    return { redirect: false };
+  }
+
+  // Lookup beach in database
+  const beach = await lookupBeachBySlug(slug);
+  if (!beach) {
+    return { redirect: false };
+  }
+
+  // Build canonical URL
+  const canonicalUrl = buildCanonicalBeachUrl(beach);
+  if (!canonicalUrl) {
+    return { redirect: false };
+  }
+
+  // Check if current URL matches canonical (case-insensitive)
+  if (pathname.toLowerCase() === canonicalUrl.toLowerCase()) {
+    return { redirect: false };
+  }
+
+  console.log(`[SEO Redirect] ${pathname} → ${canonicalUrl}`);
+  return { redirect: true, url: canonicalUrl };
 }

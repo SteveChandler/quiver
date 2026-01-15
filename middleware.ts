@@ -4,6 +4,7 @@ import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import { handleSeoRedirect } from "@/lib/middleware/seo-redirect-handler";
 import {
   parseUTMParams,
   parseAttributionFromRequestCookies,
@@ -262,6 +263,23 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(redirectUrl, { status: 301 });
       }
     }
+  }
+
+  /**
+   * SEO 404 Recovery
+   *
+   * Intercepts old beach URLs that return 404 due to:
+   * - City name changes (e.g., orange-county → dana-point)
+   * - URL typos (e.g., rincn → rincon)
+   * - Mexico route structure changes
+   *
+   * Looks up beach by slug and redirects to canonical URL.
+   */
+  const seoResult = await handleSeoRedirect(pathname);
+  if (seoResult.redirect && seoResult.url) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = seoResult.url;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
   // Classify the route to determine access requirements

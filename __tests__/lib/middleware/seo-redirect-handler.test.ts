@@ -12,6 +12,8 @@ import {
   isOldBeachUrlPattern,
   extractBeachSlugFromPath,
   lookupBeachBySlug,
+  buildCanonicalBeachUrl,
+  handleSeoRedirect,
 } from "@/lib/middleware/seo-redirect-handler";
 
 describe("SeoRedirectHandler", () => {
@@ -23,10 +25,11 @@ describe("SeoRedirectHandler", () => {
       expect(isOldBeachUrlPattern("/pr/rincn/indicators-rincon-pr")).toBe(true);
     });
 
-    it("matches 4-segment mexico URLs", () => {
+    it("does NOT match 4-segment mexico URLs (handled by existing route)", () => {
+      // Mexico URLs have a working page route, so SEO redirect handler should not match them
       expect(
         isOldBeachUrlPattern("/mexico/baja-california/rosarito/alfonsos")
-      ).toBe(true);
+      ).toBe(false);
     });
 
     it("rejects non-beach patterns", () => {
@@ -62,10 +65,11 @@ describe("SeoRedirectHandler", () => {
       );
     });
 
-    it("extracts slug from 4-segment URL", () => {
+    it("returns null for 4-segment URL (not matched)", () => {
+      // 4-segment URLs are not matched by isOldBeachUrlPattern
       expect(
         extractBeachSlugFromPath("/mexico/baja-california/rosarito/alfonsos")
-      ).toBe("alfonsos");
+      ).toBe(null);
     });
 
     it("returns null for invalid URLs", () => {
@@ -209,6 +213,174 @@ describe("SeoRedirectHandler", () => {
         expect.stringContaining("slug=eq.beach%20with%20spaces"),
         expect.anything()
       );
+    });
+  });
+
+  describe("buildCanonicalBeachUrl", () => {
+    it("builds URL for US beach with state and city", () => {
+      const result = buildCanonicalBeachUrl({
+        slug: "doheny-state-beach",
+        state: "CA",
+        city: "Dana Point",
+        name: "Doheny State Beach",
+      });
+
+      expect(result).toBe("/ca/dana-point/doheny-state-beach");
+    });
+
+    it("builds URL for beach with lowercase state", () => {
+      const result = buildCanonicalBeachUrl({
+        slug: "huntington-beach-pier-southside",
+        state: "ca",
+        city: "Huntington Beach",
+        name: "Huntington Beach Pier Southside",
+      });
+
+      expect(result).toBe("/ca/huntington-beach/huntington-beach-pier-southside");
+    });
+
+    it("returns /spots/ URL for Mexico beach (non-US state)", () => {
+      const result = buildCanonicalBeachUrl({
+        slug: "alfonsos",
+        state: "Baja California",
+        city: "Rosarito",
+        name: "Alfonsos",
+      });
+
+      expect(result).toBe("/spots/alfonsos");
+    });
+
+    it("returns /spots/ URL for beach with missing state", () => {
+      const result = buildCanonicalBeachUrl({
+        slug: "some-beach",
+        state: null,
+        city: "Some City",
+        name: "Some Beach",
+      });
+
+      expect(result).toBe("/spots/some-beach");
+    });
+
+    it("returns /spots/ URL for beach with missing city", () => {
+      const result = buildCanonicalBeachUrl({
+        slug: "some-beach",
+        state: "CA",
+        city: null,
+        name: "Some Beach",
+      });
+
+      expect(result).toBe("/spots/some-beach");
+    });
+
+    it("returns null for beach with missing slug", () => {
+      const result = buildCanonicalBeachUrl({
+        slug: "",
+        state: "CA",
+        city: "Dana Point",
+        name: "Some Beach",
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("handleSeoRedirect", () => {
+    let fetchSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    });
+
+    afterEach(() => {
+      if (fetchSpy) {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it("returns redirect URL for city mismatch", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              slug: "doheny-state-beach",
+              state: "CA",
+              city: "Dana Point",
+              name: "Doheny State Beach",
+            },
+          ]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/ca/orange-county/doheny-state-beach");
+
+      expect(result).toEqual({
+        redirect: true,
+        url: "/ca/dana-point/doheny-state-beach",
+      });
+    });
+
+    it("returns no redirect when URL is already canonical", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              slug: "doheny-state-beach",
+              state: "CA",
+              city: "Dana Point",
+              name: "Doheny State Beach",
+            },
+          ]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/ca/dana-point/doheny-state-beach");
+
+      expect(result).toEqual({ redirect: false });
+    });
+
+    it("returns no redirect for non-beach URLs", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/api/health");
+
+      expect(result).toEqual({ redirect: false });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns no redirect when beach not found", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/ca/orange-county/nonexistent-beach");
+
+      expect(result).toEqual({ redirect: false });
+    });
+
+    it("does NOT redirect Mexico URLs (handled by existing route)", async () => {
+      // Mexico URLs are served by /app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx
+      // so the SEO redirect handler should not process them
+      const result = await handleSeoRedirect(
+        "/mexico/baja-california/rosarito/alfonsos"
+      );
+
+      expect(result).toEqual({ redirect: false });
+      // Should not even make a DB lookup
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("returns no redirect on database error (fail open)", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockRejectedValue(new Error("Network error"));
+
+      const result = await handleSeoRedirect("/ca/orange-county/doheny-state-beach");
+
+      expect(result).toEqual({ redirect: false });
     });
   });
 });
