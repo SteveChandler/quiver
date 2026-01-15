@@ -711,15 +711,16 @@ export class EnhancedForecastService {
             noaa: now.toISOString(),
           },
           // Store tide schedule on first forecast of each day (to avoid duplication)
-          ...(isFirstOfDay && tideData?.tides && {
-            tide_schedule: tideData.tides.slice(0, 20).map((t: any) => ({
+          // Limit to 20 entries (~5 days of high/low tides at 4 per day)
+          ...(isFirstOfDay && tideData?.tides?.length > 0 && {
+            tide_schedule: tideData.tides.slice(0, 20).map((t: { time: number; height: number; type: string }) => ({
               time: t.time,
               height: t.height,
-              type: t.type,
+              type: t.type as "high" | "low",
             })),
             tide_station: {
-              id: tideData.station_id,
-              name: tideData.station_name,
+              id: tideData.station_id ?? "",
+              name: tideData.station_name ?? "",
             },
           }),
         },
