@@ -1376,11 +1376,12 @@ export function selectBestWindow(
       const nextLocalDate = getLocalDateStr(next.forecastTime);
       if (currentLocalDate !== nextLocalDate) break;
 
-      // Check if conditions drop below threshold
-      if (current.score >= MIN_SCORE_THRESHOLD && next.score < MIN_SCORE_THRESHOLD) {
+      // Use same threshold that qualified the window (morning threshold if applicable)
+      if (current.score >= effectiveThreshold && next.score < effectiveThreshold) {
         // Linear interpolation to find precise degradation time
         const dropAmount = current.score - next.score;
-        const thresholdDiff = current.score - MIN_SCORE_THRESHOLD;
+        if (dropAmount <= 0) break; // Guard against edge case
+        const thresholdDiff = current.score - effectiveThreshold;
         const fractionOfHour = dropAmount > 0 ? thresholdDiff / dropAmount : 0;
 
         const degradationTime = new Date(
