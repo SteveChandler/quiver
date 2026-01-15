@@ -11,6 +11,7 @@
 import {
   isOldBeachUrlPattern,
   extractBeachSlugFromPath,
+  lookupBeachBySlug,
 } from "@/lib/middleware/seo-redirect-handler";
 
 describe("SeoRedirectHandler", () => {
@@ -91,6 +92,123 @@ describe("SeoRedirectHandler", () => {
       expect(
         extractBeachSlugFromPath("/xyz/somewhere/somebeach")
       ).toBe(null);
+    });
+  });
+
+  describe("lookupBeachBySlug", () => {
+    let fetchSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      // Set up environment variables for each test
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    });
+
+    afterEach(() => {
+      if (fetchSpy) {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it("returns beach data when found", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              slug: "doheny-state-beach",
+              state: "CA",
+              city: "Dana Point",
+              name: "Doheny State Beach",
+            },
+          ]),
+      } as Response);
+
+      const result = await lookupBeachBySlug("doheny-state-beach");
+
+      expect(result).toEqual({
+        slug: "doheny-state-beach",
+        state: "CA",
+        city: "Dana Point",
+        name: "Doheny State Beach",
+      });
+    });
+
+    it("returns null when not found", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await lookupBeachBySlug("nonexistent-beach");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null on fetch error", async () => {
+      fetchSpy = jest
+        .spyOn(global, "fetch")
+        .mockRejectedValue(new Error("Network error"));
+
+      const result = await lookupBeachBySlug("any-beach");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when Supabase credentials are missing", async () => {
+      // Remove environment variables for this test
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      const result = await lookupBeachBySlug("any-beach");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when response is not ok", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: "Server error" }),
+      } as Response);
+
+      const result = await lookupBeachBySlug("any-beach");
+
+      expect(result).toBeNull();
+    });
+
+    it("calls Supabase REST API with correct parameters", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      await lookupBeachBySlug("test-beach");
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://test.supabase.co/rest/v1/beaches?slug=eq.test-beach&select=slug,state,city,name&limit=1",
+        expect.objectContaining({
+          headers: {
+            apikey: "test-anon-key",
+            Authorization: "Bearer test-anon-key",
+          },
+        })
+      );
+    });
+
+    it("properly encodes special characters in slug", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      await lookupBeachBySlug("beach with spaces");
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("slug=eq.beach%20with%20spaces"),
+        expect.anything()
+      );
     });
   });
 });

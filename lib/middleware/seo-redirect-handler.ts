@@ -107,3 +107,80 @@ export function extractBeachSlugFromPath(pathname: string): string | null {
 
   return null;
 }
+
+/**
+ * Beach lookup result from database
+ */
+export interface BeachLookupResult {
+  slug: string;
+  state: string | null;
+  city: string | null;
+  name: string;
+}
+
+/**
+ * Lookup beach by slug using direct Supabase REST API
+ *
+ * Uses fetch instead of Supabase client to avoid SSR overhead in middleware.
+ * This is designed for Edge runtime where the full Supabase client may not work.
+ *
+ * Design principles:
+ * - Fail open: If lookup fails, return null (let request pass to normal routing)
+ * - Short timeout: Don't block requests waiting for slow database
+ * - Minimal data: Only fetch fields needed for redirect construction
+ *
+ * @param slug - Beach slug to look up
+ * @returns Beach data if found, null otherwise
+ */
+export async function lookupBeachBySlug(
+  slug: string
+): Promise<BeachLookupResult | null> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn("[SEO Redirect] Missing Supabase credentials");
+      return null;
+    }
+
+    // Query beaches table for exact slug match
+    const url = `${supabaseUrl}/rest/v1/beaches?slug=eq.${encodeURIComponent(slug)}&select=slug,state,city,name&limit=1`;
+
+    // Create abort signal with timeout if available (Edge runtime supports this)
+    // Fall back to no signal in environments that don't support AbortSignal.timeout
+    const fetchOptions: RequestInit = {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
+    };
+
+    // Add timeout signal if available (500ms to avoid blocking requests)
+    if (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal) {
+      fetchOptions.signal = AbortSignal.timeout(500);
+    }
+
+    const response = await fetch(url, fetchOptions);
+
+    if (!response.ok) {
+      console.warn("[SEO Redirect] Supabase query failed:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0] as BeachLookupResult;
+    }
+
+    return null;
+  } catch (error) {
+    // Fail open - don't block requests on lookup errors
+    console.warn(
+      "[SEO Redirect] Lookup error:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    return null;
+  }
+}
