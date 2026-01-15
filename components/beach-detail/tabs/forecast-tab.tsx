@@ -228,14 +228,32 @@ export function ForecastTab({
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
   // Generate tide diagnostics from forecast data for enhanced tide components
+  // Uses dynamicTide to ensure next tide values are always fresh
   const tideDiagnostics = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
-    return generateTideDiagnosticsFromForecasts(forecasts, {
+    const baseDiagnostics = generateTideDiagnosticsFromForecasts(forecasts, {
       beachName: beach.name,
       stationName: beach.name,
       isPrimaryStation: true,
     });
-  }, [forecasts, beach.name]);
+
+    // Override with dynamic tide values to ensure freshness on tab return
+    if (!dynamicTide.usingFallback) {
+      return {
+        ...baseDiagnostics,
+        nextHigh: dynamicTide.nextHigh
+          ? { time: new Date(dynamicTide.nextHigh.time * 1000), height: dynamicTide.nextHigh.height }
+          : baseDiagnostics.nextHigh,
+        nextLow: dynamicTide.nextLow
+          ? { time: new Date(dynamicTide.nextLow.time * 1000), height: dynamicTide.nextLow.height }
+          : baseDiagnostics.nextLow,
+        minutesToNextHigh: dynamicTide.minutesToHigh ?? baseDiagnostics.minutesToNextHigh,
+        minutesToNextLow: dynamicTide.minutesToLow ?? baseDiagnostics.minutesToNextLow,
+      };
+    }
+
+    return baseDiagnostics;
+  }, [forecasts, beach.name, dynamicTide]);
 
   // Extract transparency metadata from current forecast
   const forecastMetadata = useMemo(() => {
