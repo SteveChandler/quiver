@@ -32,6 +32,7 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 
 const CamsSection = dynamic(
   () =>
@@ -136,6 +137,9 @@ export function ForecastTab({
     [forecasts, todayStr]
   );
 
+  // Dynamic tide computation (always fresh, relative to now)
+  const dynamicTide = useDynamicTide(forecasts, beachTimezone);
+
   const formatMetric = (
     value: string | number | null | undefined,
     decimals = 1,
@@ -191,8 +195,31 @@ export function ForecastTab({
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
   const heroPeriod = formatMetric(currentForecast?.wave_period);
-  const heroNextTideHeight = currentForecast?.next_tide_height ?? "";
-  const heroNextTideType = currentForecast?.next_tide_type ?? "—";
+
+  // Dynamic tide display with fallback to static forecast values
+  const heroNextTideType = dynamicTide.nextTide
+    ? dynamicTide.nextTide.type === "high"
+      ? "High Tide"
+      : "Low Tide"
+    : currentForecast?.next_tide_type ?? "—";
+
+  const heroNextTideHeight = dynamicTide.nextTide
+    ? `${dynamicTide.nextTide.height.toFixed(1)} ft`
+    : currentForecast?.next_tide_height ?? "";
+
+  // Helper for next tide time display
+  const getNextTideTimeDisplay = () => {
+    if (dynamicTide.nextTide) {
+      const date = new Date(dynamicTide.nextTide.time * 1000);
+      return date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+    return formatTimeString(currentForecast?.next_tide_time, currentForecast?.next_tide_at);
+  };
+
   const snapshotSwellPeriod = formatMetric(currentForecast?.wave_period);
   const snapshotDirection = currentForecast?.wave_direction ?? "—";
   const snapshotSwellDetails =
@@ -344,8 +371,7 @@ export function ForecastTab({
                         {heroNextTideType}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {heroNextTideHeight} ·{" "}
-                        {formatTimeString(currentForecast?.next_tide_time, currentForecast?.next_tide_at)}
+                        {heroNextTideHeight} · {getNextTideTimeDisplay()}
                       </div>
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
