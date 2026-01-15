@@ -28,15 +28,15 @@ BEGIN
 
   SELECT b.id INTO nearest_id
   FROM public.beaches b
-  WHERE b.center_lat IS NOT NULL
-    AND b.center_lng IS NOT NULL
+  WHERE b.lat IS NOT NULL
+    AND b.lon IS NOT NULL
     AND ST_DWithin(
-      ST_SetSRID(ST_MakePoint(b.center_lng, b.center_lat), 4326)::geography,
+      ST_SetSRID(ST_MakePoint(b.lon, b.lat), 4326)::geography,
       ST_SetSRID(ST_MakePoint(post_lon, post_lat), 4326)::geography,
       max_distance_meters
     )
   ORDER BY ST_Distance(
-    ST_SetSRID(ST_MakePoint(b.center_lng, b.center_lat), 4326)::geography,
+    ST_SetSRID(ST_MakePoint(b.lon, b.lat), 4326)::geography,
     ST_SetSRID(ST_MakePoint(post_lon, post_lat), 4326)::geography
   )
   LIMIT 1;

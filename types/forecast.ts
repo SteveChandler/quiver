@@ -172,6 +172,16 @@ export interface EnhancedForecastEntity {
       cdip?: string;
       noaa?: string;
     };
+    // Tide schedule for dynamic client-side computation
+    tide_schedule?: Array<{
+      time: number;      // Unix timestamp (seconds)
+      height: number;    // Height in feet
+      type: 'high' | 'low';
+    }>;
+    tide_station?: {
+      id: string;
+      name: string;
+    };
   } | null;
 }
 
