@@ -505,6 +505,33 @@ test.describe('Intel API Contract', () => {
           expect(json.data).toHaveProperty('user');
         }
       });
+
+      test('should auto-assign nearest beach_id when creating intel post', async ({ request }) => {
+        const response = await request.post(INTEL_ENDPOINT, {
+          data: {
+            latitude: TEST_LOCATION.lat, // San Diego coordinates should find a nearby beach
+            longitude: TEST_LOCATION.lon,
+            tag: 'conditions',
+            title: `Beach Assignment Test ${Date.now()}`,
+            description: 'Testing auto-assignment of nearest beach',
+          },
+        });
+
+        if (response.status() === 200) {
+          const json = await response.json();
+
+          expect(json.success).toBe(true);
+          expect(json.data).toHaveProperty('beach_id');
+
+          // San Diego coordinates should find a beach within 2 miles
+          // beach_id should not be null for this well-known location
+          expect(json.data.beach_id).not.toBeNull();
+
+          // Verify it's a valid UUID format
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          expect(json.data.beach_id).toMatch(uuidRegex);
+        }
+      });
     });
 
     test.describe('Security Headers', () => {

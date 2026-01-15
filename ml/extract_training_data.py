@@ -17,40 +17,64 @@ def extract_training_data(output_path: str = "data/training_data.csv") -> pd.Dat
     print("Connecting to Supabase...")
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    # Fetch forecasts from enhanced_forecasts
+    # Fetch forecasts from enhanced_forecasts (with pagination)
     print("Fetching NOAA forecasts...")
-    forecasts_result = supabase.from_('enhanced_forecasts').select(
-        'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
-    ).eq('data_source', 'NOAA_NWS').execute()
+    all_forecasts = []
+    page_size = 1000
+    offset = 0
+    while True:
+        forecasts_result = supabase.from_('enhanced_forecasts').select(
+            'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
+        ).eq('data_source', 'NOAA_NWS').range(offset, offset + page_size - 1).execute()
 
-    forecasts_df = pd.DataFrame(forecasts_result.data)
-    print(f"  Retrieved {len(forecasts_df)} forecasts")
+        if not forecasts_result.data:
+            break
+        all_forecasts.extend(forecasts_result.data)
+        print(f"  Fetched {len(all_forecasts)} forecasts...")
+        if len(forecasts_result.data) < page_size:
+            break
+        offset += page_size
+
+    forecasts_df = pd.DataFrame(all_forecasts)
+    print(f"  Retrieved {len(forecasts_df)} total forecasts")
 
     if len(forecasts_df) == 0:
         print("No forecasts found")
         return pd.DataFrame()
 
-    # Fetch observations from marine_forecasts
+    # Fetch observations from marine_forecasts (with pagination)
     print("Fetching observations...")
-    obs_result = supabase.from_('marine_forecasts').select(
-        'beach_id, ts, wave_height_m, wave_period_s, wave_direction_deg'
-    ).eq('is_observed', True).in_('source', ['cdip', 'ndbc']).not_.is_('wave_height_m', 'null').execute()
+    all_obs = []
+    offset = 0
+    while True:
+        obs_result = supabase.from_('marine_forecasts').select(
+            'beach_id, ts, wave_height_m, wave_period_s, wave_direction_deg'
+        ).eq('is_observed', True).in_('source', ['cdip', 'ndbc']).not_.is_('wave_height_m', 'null').range(offset, offset + page_size - 1).execute()
 
-    obs_df = pd.DataFrame(obs_result.data)
-    print(f"  Retrieved {len(obs_df)} observations")
+        if not obs_result.data:
+            break
+        all_obs.extend(obs_result.data)
+        print(f"  Fetched {len(all_obs)} observations...")
+        if len(obs_result.data) < page_size:
+            break
+        offset += page_size
+
+    obs_df = pd.DataFrame(all_obs)
+    print(f"  Retrieved {len(obs_df)} total observations")
 
     if len(obs_df) == 0:
         print("No observations found")
         return pd.DataFrame()
 
-    # Convert forecast date+time to datetime
+    # Convert forecast date+time to datetime (tz-naive, assumed UTC)
     forecasts_df['forecast_ts'] = pd.to_datetime(
         forecasts_df['forecast_date'] + ' ' + forecasts_df['forecast_time'].fillna('00:00:00'),
-        errors='coerce'
-    )
+        errors='coerce',
+        utc=True
+    ).dt.tz_localize(None)  # Convert to tz-naive for comparison
 
-    # Convert observation timestamp
-    obs_df['observed_ts'] = pd.to_datetime(obs_df['ts'], errors='coerce')
+    # Convert observation timestamp (tz-aware from Supabase -> tz-naive UTC)
+    obs_df['observed_ts'] = pd.to_datetime(obs_df['ts'], errors='coerce', utc=True).dt.tz_localize(None)
 
     # Join forecasts with observations on beach_id and time proximity
     print("Matching forecasts with observations...")

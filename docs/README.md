@@ -84,6 +84,7 @@ Research findings and competitive analysis:
 
 Database schema and data management:
 
+- **[SUPABASE_GUIDE.md](SUPABASE_GUIDE.md)** - Comprehensive Supabase database guide (tables, types, patterns, best practices)
 - **[data/database-coordinate-conventions.md](data/database-coordinate-conventions.md)** - Coordinate system conventions
 - **[data/coordinate-naming-audit.md](data/coordinate-naming-audit.md)** - Coordinate naming audit results
 - **[data/data-quality-audit-results.md](data/data-quality-audit-results.md)** - Data quality audit findings
@@ -163,10 +164,17 @@ The documentation is streamlined to support the **growth-first strategy** (0 -> 
 
 ## Recent Updates
 
-**January 2026 (Latest)**: NPC Intel Bots Enhancement
+**January 2026 (Latest)**: Supabase Documentation and NPC Intel Bots Enhancement
 
 **January 2026 Changes:**
 
+- **NEW:** Comprehensive Supabase database guide
+  - `SUPABASE_GUIDE.md` - Complete database schema documentation
+  - All core tables (profiles, beaches, sessions, boards, forecasts, etc.)
+  - Data access patterns and server action examples
+  - RLS policy patterns and TypeScript type usage
+  - Real-time subscriptions and common operations
+  - Best practices for database interactions
 - **NEW:** NPC Intel Bots system with realistic community content
   - `features/NPC_INTEL_BOTS.md` - Comprehensive NPC system documentation
   - 25 unique NPCs with natural names and distinct personalities
@@ -216,13 +224,14 @@ The documentation is streamlined to support the **growth-first strategy** (0 -> 
 
 - **Set up my dev environment** -> [quick-start/NEW_DEVELOPER.md](quick-start/NEW_DEVELOPER.md)
 - **Connect to Supabase** -> [setup/SUPABASE_SETUP.md](setup/SUPABASE_SETUP.md)
+- **Understand database schema** -> [SUPABASE_GUIDE.md](SUPABASE_GUIDE.md)
 - **Run tests** -> [quick-start/RUNNING_TESTS.md](quick-start/RUNNING_TESTS.md) or [guides/TESTING_GUIDE.md](guides/TESTING_GUIDE.md)
 - **Fix a problem** -> [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
 - **Add a feature** -> Check [features/](features/) for existing patterns
 - **Understand the architecture** -> [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Follow code standards** -> [architecture/STYLE_GUIDE.md](architecture/STYLE_GUIDE.md) and [architecture/DESIGN_PRINCIPLES.md](architecture/DESIGN_PRINCIPLES.md)
 - **Research a topic** -> [research/](research/)
-- **Check data schema** -> [data/](data/)
+- **Check data schema** -> [data/](data/) or [SUPABASE_GUIDE.md](SUPABASE_GUIDE.md)
 - **Set up analytics funnel** -> [analytics/ACTIVATION_FUNNEL.md](analytics/ACTIVATION_FUNNEL.md)
 - **Release iOS app** -> [guides/IOS_RELEASE_GUIDE.md](guides/IOS_RELEASE_GUIDE.md)
 - **Release Android app** -> [guides/ANDROID_RELEASE_GUIDE.md](guides/ANDROID_RELEASE_GUIDE.md)
@@ -241,6 +250,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 -> 
 - **Research**: 7 files
 - **Reference**: 6 files
 - **Quick Start**: 3 files
+- **Data/Schema**: 5 files (added SUPABASE_GUIDE.md)
 - **Archives**: 50+ files preserved
 
 ---
