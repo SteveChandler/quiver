@@ -142,9 +142,7 @@ describe("useDynamicTide - visibility recomputation", () => {
     const { act } = await import("@testing-library/react");
     const initialTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour away
     const forecasts = [
-      createMockForecast([
-        { time: initialTime, height: 5.2, type: "high" },
-      ]),
+      createMockForecast([{ time: initialTime, height: 5.2, type: "high" }]),
     ];
 
     const { result } = renderHook(() => useDynamicTide(forecasts));

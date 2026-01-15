@@ -37,15 +37,14 @@ BEGIN
 
   SELECT b.id INTO nearest_id
   FROM beaches b
-  WHERE b.center_lat IS NOT NULL
-    AND b.center_lng IS NOT NULL
+  WHERE b.geog IS NOT NULL
     AND ST_DWithin(
-      ST_SetSRID(ST_MakePoint(b.center_lng, b.center_lat), 4326)::geography,
+      b.geog,  -- Pre-computed geography column with GiST index
       ST_SetSRID(ST_MakePoint(post_lon, post_lat), 4326)::geography,
       max_distance_meters
     )
   ORDER BY ST_Distance(
-    ST_SetSRID(ST_MakePoint(b.center_lng, b.center_lat), 4326)::geography,
+    b.geog,
     ST_SetSRID(ST_MakePoint(post_lon, post_lat), 4326)::geography
   )
   LIMIT 1;
@@ -98,7 +97,7 @@ WHERE beach_id IS NULL
 |-----------|----------|
 | No beach within 2 miles | Returns NULL → displays "Unknown Beach" (correct) |
 | Multiple equidistant beaches | ORDER BY distance LIMIT 1 - deterministic |
-| Beach missing coordinates | Filtered out (WHERE center_lat/lng IS NOT NULL) |
+| Beach missing coordinates | Filtered out (WHERE geog IS NOT NULL) |
 | Invalid user coordinates | Validation returns NULL early |
 | GPS drift | 2-mile radius handles typical 50-200m error |
 | Offshore posts | Matches nearest coastal beach within radius |
