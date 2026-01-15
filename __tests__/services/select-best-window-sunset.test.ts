@@ -358,3 +358,96 @@ describe('selectBestWindow with lookback (current window)', () => {
     expect(result).not.toBeNull();
   });
 });
+
+describe('selectBestWindow time priority bonuses', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Set "now" to 10am PT = 18:00 UTC
+    jest.setSystemTime(new Date('2026-01-13T18:00:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('gives soon bonus to windows starting within 2 hours', () => {
+    // Window at 11am (1h away) should beat window at 6pm (8h away)
+    // even if 6pm has slightly better conditions
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '19:00:00', // 11am PT, 1h away - gets +8 soon bonus
+        wave_height: '4.0',
+        wind_speed: '8',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-14',
+        forecast_time: '02:00:00', // 6pm PT, 8h away - no soon bonus
+        wave_height: '4.5',        // Slightly better
+        wind_speed: '6',           // Slightly better
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const result = selectBestWindow(forecasts, beach, null, 24);
+
+    expect(result).not.toBeNull();
+    // 11am should win due to soon bonus overcoming small condition difference
+    expect(result!.start).toEqual(new Date('2026-01-13T19:00:00Z'));
+  });
+
+  it('gives underway bonus to windows already in progress', () => {
+    // Window that started 30 min ago should beat similar window 2h away
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '17:30:00', // 9:30am PT, 30 min ago - gets underway bonus
+        wave_height: '4.0',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '20:00:00', // 12pm PT, 2h away
+        wave_height: '4.0',        // Same conditions
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const result = selectBestWindow(forecasts, beach, null, 24);
+
+    expect(result).not.toBeNull();
+    // Underway window should win
+    expect(result!.start).toEqual(new Date('2026-01-13T17:30:00Z'));
+  });
+
+  it('stronger decay penalizes distant windows more', () => {
+    // With 1.0 pts/hr decay, a window 12h away loses 12 points
+    // This should make "tomorrow morning" lose to "decent today"
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '20:00:00', // 12pm PT today, 2h away
+        wave_height: '3.5',        // Decent
+        wind_speed: '10',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-14',
+        forecast_time: '06:00:00', // 10pm PT, 12h away (note: filtered by night check)
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-14',
+        forecast_time: '16:00:00', // 8am PT tomorrow, 22h away
+        wave_height: '4.5',        // Better
+        wind_speed: '7',           // Better
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const result = selectBestWindow(forecasts, beach, null, 48);
+
+    expect(result).not.toBeNull();
+    // Today 12pm should win despite worse conditions
+    // Today: ~58 base + 8 soon - 2 decay = ~64
+    // Tomorrow 8am: ~65 base + 0 bonus - 22 decay = ~43
+    expect(result!.start).toEqual(new Date('2026-01-13T20:00:00Z'));
+  });
+});
