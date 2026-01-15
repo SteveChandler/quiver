@@ -169,14 +169,23 @@ const WINDOW_HOURS = 3;
 const FORECAST_WINDOW_HOURS = 48;
 
 // Time-priority window selection constants
-const TIME_DECAY_PER_HOUR = 0.5; // Points deducted per hour in future
-const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (12 points max)
+const TIME_DECAY_PER_HOUR = 1.0; // Points deducted per hour in future (increased from 0.5)
+const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (24 points max)
+
+// Start-soon bonuses for "surf now" prioritization
+const SOON_BONUS_2HR = 8; // Bonus for windows starting within 2 hours
+const SOON_BONUS_4HR = 4; // Bonus for windows starting within 4 hours
+const UNDERWAY_BONUS = 4; // Bonus for windows already in progress
 
 // Sunset-aware window constants
 const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
 const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor"
+const MIN_SCORE_THRESHOLD_MORNING = 35; // Lower threshold for today when it's morning
 const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
-const CIVIL_TWILIGHT_MINUTES = 30; // Civil twilight is ~30 min before sunrise
+const MORNING_CUTOFF_HOUR = 12; // Before noon, prefer today's forecasts
+const TODAY_BONUS_POINTS = 15; // Bonus for today's forecasts during morning hours
+const MORNING_TIME_BONUS = 15; // Extra bonus for morning/afternoon times (before 5pm) during morning hours
+const EVENING_CUTOFF_HOUR = 17; // 5pm - times after this don't get morning time bonus
 
 // ============================================================================
 // Photo Enrichment
@@ -1196,15 +1205,68 @@ export function selectBestWindow(
   const now = new Date();
   const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
 
+  // Check if it's "morning" (before noon) in beach timezone - prefer today's forecasts
+  let isMorning = false;
+  let todayDateStr = '';
+  try {
+    const localHourNow = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: beachTz,
+      }).format(now),
+      10
+    );
+    isMorning = localHourNow < MORNING_CUTOFF_HOUR;
+
+    // Get today's date string in beach timezone for comparison
+    todayDateStr = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: beachTz,
+    }).format(now);
+  } catch {
+    // If timezone conversion fails, default to not morning priority
+  }
+
   // Score all forecasts upfront and filter past times
   const scoredForecasts = forecasts
     .map((forecast) => {
       const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
       const score = scoreForecastWindow(forecast, beach, userPrefs);
-      return { forecast, forecastTime, score };
+
+      // Check if forecast is for today (in beach timezone)
+      let isToday = false;
+      let localHourStr = '';
+      try {
+        const forecastDateStr = new Intl.DateTimeFormat("en-CA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          timeZone: beachTz,
+        }).format(forecastTime);
+        isToday = forecastDateStr === todayDateStr;
+        localHourStr = new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "numeric",
+          hour12: true,
+          timeZone: beachTz,
+        }).format(forecastTime);
+      } catch {
+        // Default to not today if timezone conversion fails
+      }
+
+      return { forecast, forecastTime, score, isToday, localHourStr };
     })
     .filter(({ forecastTime }) => forecastTime > now)
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
+
+  // DEBUG: Log morning priority state and first 10 forecasts
+  console.log(`🔍 [selectBestWindow] ${beach.name}: isMorning=${isMorning}, todayDateStr=${todayDateStr}`);
+  scoredForecasts.slice(0, 10).forEach(({ localHourStr, score, isToday }) => {
+    console.log(`   ${localHourStr}: score=${score}, isToday=${isToday}`);
+  });
 
   if (scoredForecasts.length === 0) return null;
 
@@ -1216,16 +1278,22 @@ export function selectBestWindow(
   } | null = null;
   let bestAdjustedScore = -1;
 
-  // Get sun times for this beach
+  // Get sun times for this beach (sunsets for window capping)
   const sunTimes = sunTimesCache?.get(beach.id);
   const sunsets = sunTimes?.sunsets || [];
-  const sunrises = sunTimes?.sunrises || [];
 
   for (let i = 0; i < scoredForecasts.length; i++) {
-    const { forecast, forecastTime: startTime, score: startScore } = scoredForecasts[i];
+    const { forecast, forecastTime: startTime, score: startScore, isToday } = scoredForecasts[i];
+
+    // Morning priority: use lower threshold for today's forecasts before noon
+    const effectiveThreshold = (isMorning && isToday)
+      ? MIN_SCORE_THRESHOLD_MORNING
+      : MIN_SCORE_THRESHOLD;
 
     // Skip low-scoring start times
-    if (startScore < MIN_SCORE_THRESHOLD) continue;
+    if (startScore < effectiveThreshold) {
+      continue;
+    }
 
     // 1. Night Filter (using Local Hour)
     // Avoid recommending sessions starting in pitch dark (e.g. 9pm - 4am)
@@ -1239,8 +1307,10 @@ export function selectBestWindow(
           }).format(startTime),
           10
         );
-        // Skip if 9pm (21) or later, or before 5am
-        if (localHour >= 21 || localHour < 5) continue;
+        // Skip if 9pm (21) or later, or before 6am (covers winter sunrise ~6:45am)
+        if (localHour >= 21 || localHour < 6) {
+          continue;
+        }
     } catch (e) {
         // If tz conversion fails, assume safe to proceed (fallback to sunset check)
     }
@@ -1254,7 +1324,9 @@ export function selectBestWindow(
     if (sunset) {
         const hoursUntilSunset = (sunset.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 
-        if (hoursUntilSunset < MIN_SESSION_HOURS) continue;
+        if (hoursUntilSunset < MIN_SESSION_HOURS) {
+          continue;
+        }
 
     } else {
         // No future sunset found in cache.
@@ -1267,28 +1339,10 @@ export function selectBestWindow(
     const hoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (horizonHours && hoursAhead > horizonHours) continue;
 
-    // Find next sunrise for civil twilight calculation
-    const nextSunrise = sunrises.find(s => s.getTime() > now.getTime());
-    let civilTwilight: Date | null = null;
-    if (nextSunrise) {
-      civilTwilight = new Date(nextSunrise.getTime() - CIVIL_TWILIGHT_MINUTES * 60 * 1000);
-    }
+    // Night filter (6am-9pm local hour check) handles pre-sunrise times
+    const effectiveStartTime = startTime;
 
-    // Clamp start time to civil twilight if it's before first light
-    let effectiveStartTime = startTime;
-    if (civilTwilight && startTime < civilTwilight) {
-      effectiveStartTime = civilTwilight;
-    }
-
-    // After clamping, check if window is still viable
-    const clampedDuration = sunset
-      ? (sunset.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60)
-      : MAX_WINDOW_HOURS;
-    if (clampedDuration < MIN_SESSION_HOURS) {
-      continue; // Skip this window, too short after clamping
-    }
-
-    // Default end time: MAX_WINDOW_HOURS from effective start
+    // Default end time: MAX_WINDOW_HOURS from start
     let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
 
     // Look ahead to find when conditions degrade
@@ -1336,7 +1390,33 @@ export function selectBestWindow(
     // Apply time decay for ranking
     const cappedHours = Math.min(hoursAhead, MAX_TIME_DECAY_HOURS);
     const timeDecay = cappedHours * TIME_DECAY_PER_HOUR;
-    const adjustedScore = startScore - timeDecay;
+
+    // Morning priority: add bonus to today's forecasts before noon
+    // Also add extra bonus for morning/afternoon times (before 5pm) during morning hours
+    const todayBonus = (isMorning && isToday) ? TODAY_BONUS_POINTS : 0;
+
+    // Get local hour of forecast start time to determine morning time bonus
+    let morningTimeBonus = 0;
+    if (isMorning && isToday) {
+      try {
+        const forecastLocalHour = parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: beachTz,
+          }).format(startTime),
+          10
+        );
+        // Give bonus to times before 5pm (prioritize morning/afternoon over evening)
+        if (forecastLocalHour < EVENING_CUTOFF_HOUR) {
+          morningTimeBonus = MORNING_TIME_BONUS;
+        }
+      } catch {
+        // If timezone conversion fails, no bonus
+      }
+    }
+
+    const adjustedScore = startScore - timeDecay + todayBonus + morningTimeBonus;
 
     if (adjustedScore > bestAdjustedScore) {
       bestAdjustedScore = adjustedScore;
@@ -1346,25 +1426,61 @@ export function selectBestWindow(
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && scoredForecasts.length > 0) {
-    const best = scoredForecasts.reduce((prev, curr) =>
-      curr.score > prev.score ? curr : prev
-    );
+    // Filter out night hours before selecting fallback (same logic as main loop)
+    const daylightForecasts = scoredForecasts.filter(({ forecastTime }) => {
+      try {
+        const localHour = parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: beachTz,
+          }).format(forecastTime),
+          10
+        );
+        return localHour >= 6 && localHour < 21;
+      } catch {
+        return true; // If tz conversion fails, allow it
+      }
+    });
+
+    if (daylightForecasts.length === 0) {
+      return null; // No daylight forecasts available
+    }
+
+    // Morning priority: prefer today's forecasts before noon, with extra bonus for morning times
+    const getAdjustedScore = (f: typeof daylightForecasts[0]) => {
+      let bonus = 0;
+      if (isMorning && f.isToday) {
+        bonus += TODAY_BONUS_POINTS;
+        // Extra bonus for morning/afternoon times (before 5pm)
+        try {
+          const localHour = parseInt(
+            new Intl.DateTimeFormat("en-US", {
+              hour: "numeric",
+              hour12: false,
+              timeZone: beachTz,
+            }).format(f.forecastTime),
+            10
+          );
+          if (localHour < EVENING_CUTOFF_HOUR) {
+            bonus += MORNING_TIME_BONUS;
+          }
+        } catch {
+          // If timezone conversion fails, no extra bonus
+        }
+      }
+      return f.score + bonus;
+    };
+
+    const best = daylightForecasts.reduce((prev, curr) => {
+      return getAdjustedScore(curr) > getAdjustedScore(prev) ? curr : prev;
+    });
 
     // Check horizon constraint for fallback
     const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (!horizonHours || hoursAhead <= horizonHours) {
-      // Find next sunrise for civil twilight calculation (fallback)
-      const nextSunrise = sunrises.find(s => s.getTime() > now.getTime());
-      let civilTwilight: Date | null = null;
-      if (nextSunrise) {
-        civilTwilight = new Date(nextSunrise.getTime() - CIVIL_TWILIGHT_MINUTES * 60 * 1000);
-      }
-
-      // Clamp start time to civil twilight (fallback)
-      let effectiveStartTime = best.forecastTime;
-      if (civilTwilight && best.forecastTime < civilTwilight) {
-        effectiveStartTime = civilTwilight;
-      }
+      // Night filter already applied above - no civil twilight clamping needed
+      const effectiveStartTime = best.forecastTime;
 
       // Logic for fallback end time (next sunset or default)
       const nextSunset = sunsets.find(s => s.getTime() > effectiveStartTime.getTime());
@@ -1389,9 +1505,12 @@ export function selectBestWindow(
   }
 
     if (!bestWindow) {
+        console.log(`🔍 [selectBestWindow] ${beach.name}: NO WINDOW FOUND`);
         return null;
     }
 
+  // DEBUG: Log final selection
+  console.log(`🔍 [selectBestWindow] ${beach.name}: SELECTED start=${bestWindow.start.toISOString()} end=${bestWindow.end.toISOString()}`);
 
   // Build the PersonalizedForecastWindow
   return {
