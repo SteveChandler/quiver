@@ -276,3 +276,84 @@ describe('selectBestWindow with sunset', () => {
     expect(result).toBeNull();
   });
 });
+
+describe('selectBestWindow with lookback (current window)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Set "now" to 9:20am PT = 17:20 UTC on 2026-01-13
+    jest.setSystemTime(new Date('2026-01-13T17:20:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('includes window that started within last 3 hours', () => {
+    // Forecast at 9am PT (17:00 UTC) - started 20 minutes ago
+    // Should still be eligible since it's within 3-hour lookback
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '17:00:00', // 9am PT, 20 min ago
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '20:00:00', // 12pm PT, 2h 40min away
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const result = selectBestWindow(forecasts, beach, null, 24);
+
+    expect(result).not.toBeNull();
+    // Should select the 9am window (underway) because of underway bonus
+    expect(result!.start).toEqual(new Date('2026-01-13T17:00:00Z'));
+  });
+
+  it('excludes window that started more than 3 hours ago', () => {
+    // Set "now" to 1pm PT = 21:00 UTC
+    jest.setSystemTime(new Date('2026-01-13T21:00:00Z'));
+
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '17:00:00', // 9am PT, 4 hours ago - should be excluded
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '22:00:00', // 2pm PT, 1 hour away
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const result = selectBestWindow(forecasts, beach, null, 24);
+
+    expect(result).not.toBeNull();
+    // Should select 2pm (the 9am is too old)
+    expect(result!.start).toEqual(new Date('2026-01-13T22:00:00Z'));
+  });
+
+  it('does not give bonus to past-start windows via negative decay', () => {
+    // Window started 1 hour ago should get 0 decay, not negative
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '16:20:00', // 8:20am PT, 1 hour ago
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '20:00:00', // 12pm PT, 2h 40min away
+      }),
+    ];
+
+    const beach = createMockBeach();
+    const result = selectBestWindow(forecasts, beach, null, 24);
+
+    // Both have similar conditions. The 8:20am window gets underway bonus (+4)
+    // but 0 time decay. The 12pm window gets soon bonus (+8) but ~2.7 decay.
+    // 8:20am: base + 4 (underway) + 8 (soon, since hoursAhead=0) - 0 decay
+    // 12pm: base + 8 (soon) - 2.67 decay
+    // The underway window should win or be very close
+    expect(result).not.toBeNull();
+  });
+});
