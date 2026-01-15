@@ -1480,11 +1480,23 @@ export function selectBestWindow(
     }
 
     // Morning priority: prefer today's forecasts before noon, with extra bonus for morning times
+    // Also apply soon/underway bonuses for consistency with main logic
     const getAdjustedScore = (f: typeof daylightForecasts[0]) => {
+      const rawHoursAhead = (f.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      const hoursAhead = Math.max(0, rawHoursAhead);
+
+      // Soon bonus
+      let soonBonus = 0;
+      if (hoursAhead <= 2) soonBonus = SOON_BONUS_2HR;
+      else if (hoursAhead <= 4) soonBonus = SOON_BONUS_4HR;
+
+      // Underway bonus
+      const underwayBonus = rawHoursAhead < 0 ? UNDERWAY_BONUS : 0;
+
+      // Today bonus (existing logic)
       let bonus = 0;
       if (isMorning && f.isToday) {
         bonus += TODAY_BONUS_POINTS;
-        // Extra bonus for morning/afternoon times (before 5pm)
         try {
           const localHour = parseInt(
             new Intl.DateTimeFormat("en-US", {
@@ -1501,7 +1513,8 @@ export function selectBestWindow(
           // If timezone conversion fails, no extra bonus
         }
       }
-      return f.score + bonus;
+
+      return f.score + bonus + soonBonus + underwayBonus;
     };
 
     const best = daylightForecasts.reduce((prev, curr) => {
