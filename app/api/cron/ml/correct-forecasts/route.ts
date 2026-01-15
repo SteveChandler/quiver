@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { parseWaveHeight, parseWindSpeed } from '@/lib/ml/parse-wave-height';
 
-// Allow up to 60 seconds for cold start + processing
-export const maxDuration = 60;
+// Allow up to 120 seconds for cold start + processing all beaches
+export const maxDuration = 120;
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL!;
 const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET!;
@@ -86,27 +86,49 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Get forecasts needing correction (next 24 hours)
+  // Get ALL forecasts needing correction using pagination
+  // This ensures every beach gets ML corrections, not just the first 500
   const today = new Date().toISOString().split('T')[0];
-  const { data: forecasts, error } = await supabase
-    .from('enhanced_forecasts')
-    .select(
-      'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
-    )
-    .eq('data_source', 'NOAA_NWS')
-    .gte('forecast_date', today)
-    .limit(500);
+  const BATCH_SIZE = 1000;
+  let allForecasts: any[] = [];
+  let offset = 0;
+  let hasMore = true;
 
-  if (error) {
-    console.error('Error fetching forecasts:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+  while (hasMore) {
+    const { data: batch, error } = await supabase
+      .from('enhanced_forecasts')
+      .select(
+        'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
+      )
+      .eq('data_source', 'NOAA_NWS')
+      .gte('forecast_date', today)
+      .order('beach_id')
+      .order('forecast_date')
+      .order('forecast_time')
+      .range(offset, offset + BATCH_SIZE - 1);
+
+    if (error) {
+      console.error('Error fetching forecasts:', error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    if (batch && batch.length > 0) {
+      allForecasts = allForecasts.concat(batch);
+      offset += BATCH_SIZE;
+      hasMore = batch.length === BATCH_SIZE;
+    } else {
+      hasMore = false;
+    }
   }
+
+  const forecasts = allForecasts;
 
   if (!forecasts?.length) {
     return Response.json({ message: 'No forecasts to correct', corrected: 0 });
   }
 
-  console.log(`Found ${forecasts.length} forecasts to correct`);
+  const uniqueBeaches = new Set(forecasts.map((f: any) => f.beach_id)).size;
+  console.log(`Found ${forecasts.length} forecasts across ${uniqueBeaches} beaches to correct`);
 
   // Parse and prepare for ML service
   const parsed = forecasts
@@ -130,36 +152,50 @@ export async function GET(request: Request) {
 
   console.log(`Sending ${parsed.length} forecasts to ML service`);
 
-  // Call ML service with auth header and retry logic
-  let response: Response;
-  try {
-    response = await fetchWithRetry(`${ML_SERVICE_URL}/correct/batch`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-Secret': ML_INTERNAL_SECRET,
-      },
-      body: JSON.stringify({ forecasts: parsed }),
-    });
-  } catch (err) {
-    console.error('ML service request failed:', err);
+  // Process in chunks to avoid overwhelming the ML service
+  const ML_BATCH_SIZE = 500;
+  const allCorrections: any[] = [];
+  let modelVersion = 'unknown';
+
+  for (let i = 0; i < parsed.length; i += ML_BATCH_SIZE) {
+    const chunk = parsed.slice(i, i + ML_BATCH_SIZE);
+    console.log(`Processing ML batch ${Math.floor(i / ML_BATCH_SIZE) + 1}/${Math.ceil(parsed.length / ML_BATCH_SIZE)} (${chunk.length} forecasts)`);
+
+    let response: Response;
+    try {
+      response = await fetchWithRetry(`${ML_SERVICE_URL}/correct/batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Secret': ML_INTERNAL_SECRET,
+        },
+        body: JSON.stringify({ forecasts: chunk }),
+      });
+    } catch (err) {
+      console.error(`ML service request failed for batch ${i}:`, err);
+      continue; // Skip this batch but continue with others
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`ML service error for batch ${i}:`, errorText);
+      continue; // Skip this batch but continue with others
+    }
+
+    const { corrections, model_version } = await response.json();
+    allCorrections.push(...corrections);
+    modelVersion = model_version;
+  }
+
+  if (allCorrections.length === 0) {
     return Response.json(
-      { error: `ML service error: ${(err as Error).message}` },
+      { error: 'ML service failed to process any forecasts' },
       { status: 502 }
     );
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('ML service error:', errorText);
-    return Response.json(
-      { error: `ML service error: ${errorText}` },
-      { status: 502 }
-    );
-  }
-
-  const { corrections, model_version } = await response.json();
-  console.log(`Received ${corrections.length} corrections`);
+  const corrections = allCorrections;
+  console.log(`Received ${corrections.length} total corrections`);
 
   // Upsert corrected forecasts
   const { error: upsertError } = await supabase.from('corrected_forecasts').upsert(
@@ -195,8 +231,10 @@ export async function GET(request: Request) {
     console.error('Error logging predictions:', logError);
   }
 
+  const correctedBeaches = new Set(corrections.map((c: any) => c.beach_id)).size;
   return Response.json({
     corrected: corrections.length,
-    model_version: model_version,
+    beaches: correctedBeaches,
+    model_version: modelVersion,
   });
 }
