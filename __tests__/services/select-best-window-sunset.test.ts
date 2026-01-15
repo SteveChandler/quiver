@@ -451,3 +451,85 @@ describe('selectBestWindow time priority bonuses', () => {
     expect(result!.start).toEqual(new Date('2026-01-13T20:00:00Z'));
   });
 });
+
+describe('selectBestWindow local date boundary', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Set "now" to 3pm PT = 23:00 UTC on 2026-01-13
+    // This is before UTC midnight but late afternoon in Pacific
+    jest.setSystemTime(new Date('2026-01-13T23:00:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('extends window across UTC midnight when same local date', () => {
+    // This test exposes the UTC date boundary bug:
+    // - 3pm PT = 23:00 UTC on Jan 13 (forecast_date: '2026-01-13')
+    // - 4pm PT = 00:00 UTC on Jan 14 (forecast_date: '2026-01-14')
+    // - 5pm PT = 01:00 UTC on Jan 14 (forecast_date: '2026-01-14')
+    //
+    // All three are on the SAME LOCAL DATE (Jan 13 in Pacific timezone)
+    // but the code compares UTC forecast_date, causing window to stop at 3pm PT.
+    //
+    // The bug is masked when conditions degrade (interpolation doesn't cross boundary)
+    // so we test with GOOD conditions at 4pm PT (after UTC boundary) and
+    // BAD conditions at 5pm PT. The window should extend to ~4:30pm (interpolated)
+    // but the UTC date boundary bug causes it to stop at 3pm PT.
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-13',
+        forecast_time: '23:00:00', // 3pm PT on Jan 13 local - GOOD
+        wave_height: '4.0',
+        wind_speed: '5',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-14', // UTC date flipped!
+        forecast_time: '00:00:00', // 4pm PT - still Jan 13 local - GOOD
+        wave_height: '4.0',
+        wind_speed: '5',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-14',
+        forecast_time: '01:00:00', // 5pm PT - still Jan 13 local - BAD (triggers interpolation)
+        wave_height: '4.0',
+        wind_speed: '25', // Strong wind = poor score below threshold
+      }),
+    ];
+
+    const beach = createMockBeach();
+    // Sunset at 6pm PT = 02:00 UTC on Jan 14 (late enough to not interfere with test)
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2026-01-13T14:30:00Z'), new Date('2026-01-14T14:30:00Z')],
+        sunsets: [new Date('2026-01-14T02:00:00Z'), new Date('2026-01-15T02:00:00Z')], // 6pm PT
+      }],
+    ]);
+
+    const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
+
+    expect(result).not.toBeNull();
+    // BUG: Current code compares UTC forecast_date ('2026-01-13' vs '2026-01-14')
+    // and stops the window extension loop at 3pm PT because dates differ.
+    // Without interpolation across the UTC boundary, the end time stays at
+    // the MAX_WINDOW_HOURS default (3pm + 4h = 7pm), then capped by sunset (6pm PT).
+    //
+    // EXPECTED: Window should continue into 4pm PT forecast (still good conditions),
+    // then interpolate between 4pm and 5pm when conditions degrade.
+    // With good conditions at 3pm (score ~63) and 4pm (score ~63), and bad at 5pm (score ~48),
+    // interpolation should set window end around 4:30pm PT (between 4pm and 5pm).
+    const fourPmPT = new Date('2026-01-14T00:00:00Z').getTime();
+    const fivePmPT = new Date('2026-01-14T01:00:00Z').getTime();
+    const sixPmPT = new Date('2026-01-14T02:00:00Z').getTime(); // sunset
+
+    // Current buggy behavior: window ends at sunset (6pm) because interpolation loop
+    // breaks at the UTC date boundary without finding the degradation point.
+    //
+    // Expected fixed behavior: window should end between 4pm and 5pm PT,
+    // where conditions degrade from good (score 63) to bad (score 48).
+    // The interpolation should find the point where score drops below threshold.
+    expect(result!.end.getTime()).toBeGreaterThan(fourPmPT);
+    expect(result!.end.getTime()).toBeLessThan(fivePmPT);
+  });
+});
