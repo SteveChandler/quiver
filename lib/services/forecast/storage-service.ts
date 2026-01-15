@@ -429,12 +429,16 @@ export class ForecastStorageService {
       // Default to 14 days if no end date provided
       const effectiveEndDate = endDate || this.addDays(startDate, 14);
 
+      // corrected_forecasts uses forecast_ts (timestamp) not separate date/time columns
+      const minTs = `${startDate}T00:00:00Z`;
+      const maxTs = `${effectiveEndDate}T23:59:59Z`;
+
       const { data, error } = await supabase
         .from("corrected_forecasts")
-        .select("forecast_date, forecast_time, corrected_height, model_version, created_at")
+        .select("forecast_ts, corrected_height_m, model_version, corrected_at")
         .eq("beach_id", beachId)
-        .gte("forecast_date", startDate)
-        .lte("forecast_date", effectiveEndDate);
+        .gte("forecast_ts", minTs)
+        .lte("forecast_ts", maxTs);
 
       if (error) {
         console.warn(`⚠️ Failed to fetch ML corrections for beach ${beachId}:`, error.message);
@@ -443,11 +447,15 @@ export class ForecastStorageService {
 
       if (data && data.length > 0) {
         data.forEach((row) => {
-          const key = `${row.forecast_date}|${row.forecast_time}`;
+          // Convert forecast_ts to date|time key format
+          const ts = new Date(row.forecast_ts);
+          const date = ts.toISOString().split("T")[0];
+          const hours = ts.getUTCHours().toString().padStart(2, "0");
+          const key = `${date}|${hours}:00`;
           corrections.set(key, {
-            corrected_height: row.corrected_height,
+            corrected_height: row.corrected_height_m,
             model_version: row.model_version,
-            created_at: row.created_at,
+            created_at: row.corrected_at,
           });
         });
 

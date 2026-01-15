@@ -31,18 +31,22 @@ async function mergeMLCorrections(
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
-    // Get date range from forecasts
+    // Get date range from forecasts (convert to timestamps for corrected_forecasts query)
     const dates = forecasts.map(f => f.forecast_date);
-    const minDate = dates.reduce((a, b) => a < b ? a : b);
-    const maxDate = dates.reduce((a, b) => a > b ? a : b);
+    const minDate = dates.reduce((a, b) => (a < b ? a : b));
+    const maxDate = dates.reduce((a, b) => (a > b ? a : b));
+
+    // corrected_forecasts uses forecast_ts (timestamp) not separate date/time columns
+    const minTs = `${minDate}T00:00:00Z`;
+    const maxTs = `${maxDate}T23:59:59Z`;
 
     // Fetch ML corrections for this beach and date range
     const { data: corrections, error } = await supabase
       .from("corrected_forecasts")
-      .select("forecast_date, forecast_time, corrected_height, model_version")
+      .select("forecast_ts, corrected_height_m, model_version")
       .eq("beach_id", beachId)
-      .gte("forecast_date", minDate)
-      .lte("forecast_date", maxDate);
+      .gte("forecast_ts", minTs)
+      .lte("forecast_ts", maxTs);
 
     if (error) {
       console.warn(`⚠️ Failed to fetch ML corrections for beach ${beachId}:`, error.message);
@@ -54,11 +58,15 @@ async function mergeMLCorrections(
     }
 
     // Build lookup map for O(1) access
-    const correctionMap = new Map<string, { corrected_height: number; model_version: string }>();
+    // Key format: "YYYY-MM-DD|HH:00" to match enhanced_forecasts format
+    const correctionMap = new Map<string, { corrected_height_m: number; model_version: string }>();
     corrections.forEach((c) => {
-      const key = `${c.forecast_date}|${c.forecast_time}`;
+      const ts = new Date(c.forecast_ts);
+      const date = ts.toISOString().split("T")[0];
+      const hours = ts.getUTCHours().toString().padStart(2, "0");
+      const key = `${date}|${hours}:00`;
       correctionMap.set(key, {
-        corrected_height: c.corrected_height,
+        corrected_height_m: c.corrected_height_m,
         model_version: c.model_version,
       });
     });
@@ -70,7 +78,7 @@ async function mergeMLCorrections(
 
       if (correction) {
         // Convert corrected_height from meters to feet and format
-        const correctedFeet = correction.corrected_height * METERS_TO_FEET;
+        const correctedFeet = correction.corrected_height_m * METERS_TO_FEET;
         return {
           ...forecast,
           ml_corrected_height: `${correctedFeet.toFixed(1)} ft`,

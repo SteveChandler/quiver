@@ -176,6 +176,7 @@ const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (12 points max)
 const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
 const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor"
 const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
+const CIVIL_TWILIGHT_MINUTES = 30; // Civil twilight is ~30 min before sunrise
 
 // ============================================================================
 // Photo Enrichment
@@ -1266,8 +1267,29 @@ export function selectBestWindow(
     const hoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (horizonHours && hoursAhead > horizonHours) continue;
 
-    // Default end time: MAX_WINDOW_HOURS from start
-    let endTime = new Date(startTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+    // Find next sunrise for civil twilight calculation
+    const nextSunrise = sunrises.find(s => s.getTime() > now.getTime());
+    let civilTwilight: Date | null = null;
+    if (nextSunrise) {
+      civilTwilight = new Date(nextSunrise.getTime() - CIVIL_TWILIGHT_MINUTES * 60 * 1000);
+    }
+
+    // Clamp start time to civil twilight if it's before first light
+    let effectiveStartTime = startTime;
+    if (civilTwilight && startTime < civilTwilight) {
+      effectiveStartTime = civilTwilight;
+    }
+
+    // After clamping, check if window is still viable
+    const clampedDuration = sunset
+      ? (sunset.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60)
+      : MAX_WINDOW_HOURS;
+    if (clampedDuration < MIN_SESSION_HOURS) {
+      continue; // Skip this window, too short after clamping
+    }
+
+    // Default end time: MAX_WINDOW_HOURS from effective start
+    let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
 
     // Look ahead to find when conditions degrade
     for (let j = i; j < scoredForecasts.length - 1; j++) {
@@ -1295,9 +1317,9 @@ export function selectBestWindow(
       }
 
       // Stop extending if we've gone past max window
-      const windowDuration = (next.forecastTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      const windowDuration = (next.forecastTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
       if (windowDuration >= MAX_WINDOW_HOURS) {
-        endTime = new Date(startTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+        endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
         break;
       }
     }
@@ -1307,8 +1329,8 @@ export function selectBestWindow(
       endTime = sunset;
     }
 
-    // Validate minimum session length
-    const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    // Validate minimum session length (using effective start time)
+    const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
     if (durationHours < MIN_SESSION_HOURS) continue;
 
     // Apply time decay for ranking
@@ -1318,7 +1340,7 @@ export function selectBestWindow(
 
     if (adjustedScore > bestAdjustedScore) {
       bestAdjustedScore = adjustedScore;
-      bestWindow = { forecast, start: startTime, end: endTime, score: startScore };
+      bestWindow = { forecast, start: effectiveStartTime, end: endTime, score: startScore };
     }
   }
 
@@ -1331,20 +1353,33 @@ export function selectBestWindow(
     // Check horizon constraint for fallback
     const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     if (!horizonHours || hoursAhead <= horizonHours) {
-      // Logic for fallback end time (next sunset or default)
-      const nextSunset = sunsets.find(s => s.getTime() > best.forecastTime.getTime());
+      // Find next sunrise for civil twilight calculation (fallback)
+      const nextSunrise = sunrises.find(s => s.getTime() > now.getTime());
+      let civilTwilight: Date | null = null;
+      if (nextSunrise) {
+        civilTwilight = new Date(nextSunrise.getTime() - CIVIL_TWILIGHT_MINUTES * 60 * 1000);
+      }
 
-      let endTime = new Date(best.forecastTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+      // Clamp start time to civil twilight (fallback)
+      let effectiveStartTime = best.forecastTime;
+      if (civilTwilight && best.forecastTime < civilTwilight) {
+        effectiveStartTime = civilTwilight;
+      }
+
+      // Logic for fallback end time (next sunset or default)
+      const nextSunset = sunsets.find(s => s.getTime() > effectiveStartTime.getTime());
+
+      let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
       if (nextSunset && nextSunset < endTime) {
         endTime = nextSunset;
       }
 
-      const durationHours = (endTime.getTime() - best.forecastTime.getTime()) / (1000 * 60 * 60);
+      const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
 
       if (durationHours >= MIN_SESSION_HOURS) {
         bestWindow = {
           forecast: best.forecast,
-          start: best.forecastTime,
+          start: effectiveStartTime,
           end: endTime,
           score: best.score,
         };
