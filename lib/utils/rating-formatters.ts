@@ -98,8 +98,12 @@ export function formatRatingSimple(
  * Format a surf discovery score from 0-100 scale to X.X display format.
  * Specifically for SurfDiscoveryRecommendation scores.
  *
+ * - Caps at 9.9 (perfect conditions are theoretical)
+ * - Whole numbers display without decimal (e.g., "8" not "8.0")
+ * - Non-whole numbers show one decimal (e.g., "8.5")
+ *
  * @param score - The score value (0-100)
- * @returns Formatted string like "8.5" (without the "/10" suffix)
+ * @returns Formatted string like "8.5" or "8" (without the "/10" suffix)
  *
  * @example
  * formatDiscoveryScore(85)
@@ -107,10 +111,23 @@ export function formatRatingSimple(
  *
  * @example
  * formatDiscoveryScore(100)
- * // Returns: "10.0"
+ * // Returns: "9.9"
+ *
+ * @example
+ * formatDiscoveryScore(80)
+ * // Returns: "8"
  */
 export function formatDiscoveryScore(score: number): string {
-  return (score / 10).toFixed(1);
+  // Cap at 99 (which becomes 9.9)
+  const cappedScore = Math.min(score, 99);
+  const displayValue = cappedScore / 10;
+
+  // Check if it's a whole number (no decimal needed)
+  if (displayValue % 1 === 0) {
+    return displayValue.toString();
+  }
+
+  return displayValue.toFixed(1);
 }
 
 /**
