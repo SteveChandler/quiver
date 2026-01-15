@@ -88,15 +88,41 @@ function findNextExtremes(
 ): { nextHigh: TideExtreme | null; nextLow: TideExtreme | null } {
   let nextHigh: TideExtreme | null = null;
   let nextLow: TideExtreme | null = null;
+  const nowSeconds = now.getTime() / 1000;
 
+  // NEW: Try tide_schedule first (most accurate)
   for (const forecast of forecasts) {
-    // Parse the forecast date/time
+    const schedule = forecast.raw_forecast?.tide_schedule;
+    if (Array.isArray(schedule) && schedule.length > 0) {
+      for (const tide of schedule) {
+        if (tide.time > nowSeconds) {
+          if (tide.type === "high" && !nextHigh) {
+            nextHigh = {
+              time: new Date(tide.time * 1000),
+              height: tide.height,
+            };
+          }
+          if (tide.type === "low" && !nextLow) {
+            nextLow = {
+              time: new Date(tide.time * 1000),
+              height: tide.height,
+            };
+          }
+          if (nextHigh && nextLow) return { nextHigh, nextLow };
+        }
+      }
+      // If we found the schedule, use what we got (even if partial)
+      if (nextHigh || nextLow) return { nextHigh, nextLow };
+    }
+  }
+
+  // EXISTING FALLBACK: Parse static next_tide_* fields
+  for (const forecast of forecasts) {
     const dateStr = forecast.forecast_date?.includes("T")
       ? forecast.forecast_date.split("T")[0]
       : forecast.forecast_date;
     const baseDate = dateStr ? new Date(dateStr) : now;
 
-    // Check next_tide_time and next_tide_type
     if (forecast.next_tide_time && forecast.next_tide_type) {
       const tideTime = parseTime(forecast.next_tide_time, baseDate);
       const tideHeight = parseHeight(forecast.next_tide_height);
@@ -112,26 +138,6 @@ function findNextExtremes(
       }
     }
 
-    // Also check tide_status for current/upcoming tides
-    if (!nextHigh || !nextLow) {
-      const currentHeight = parseHeight(forecast.tide_height);
-      const forecastTime = parseTime(forecast.forecast_time, baseDate);
-
-      if (forecastTime && forecastTime > now && currentHeight !== null) {
-        const status = (forecast.tide_status || "").toLowerCase();
-
-        // If we see "high slack" and don't have nextHigh yet
-        if (status.includes("high") && status.includes("slack") && !nextHigh) {
-          nextHigh = { time: forecastTime, height: currentHeight };
-        }
-        // If we see "low slack" and don't have nextLow yet
-        if (status.includes("low") && status.includes("slack") && !nextLow) {
-          nextLow = { time: forecastTime, height: currentHeight };
-        }
-      }
-    }
-
-    // Stop if we found both
     if (nextHigh && nextLow) break;
   }
 

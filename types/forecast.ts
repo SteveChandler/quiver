@@ -172,6 +172,10 @@ export interface EnhancedForecastEntity {
       cdip?: string;
       noaa?: string;
     };
+    /** Tide schedule for dynamic client-side computation (first forecast of day only) */
+    tide_schedule?: TideScheduleEntry[];
+    /** NOAA CO-OPS station used for tide predictions */
+    tide_station?: TideStationInfo;
   } | null;
 }
 
@@ -230,6 +234,24 @@ export interface TidePoint {
   readonly time: number;
   readonly height: number;
   readonly type: "H" | "L";
+}
+
+/** A tide extreme (high or low) from the tide schedule */
+export interface TideScheduleEntry {
+  /** Unix timestamp in seconds */
+  time: number;
+  /** Height in feet */
+  height: number;
+  /** Tide extreme type */
+  type: "high" | "low";
+}
+
+/** NOAA CO-OPS station information for tide predictions */
+export interface TideStationInfo {
+  /** NOAA station ID (e.g., "9410230") */
+  id: string;
+  /** Human-readable station name (e.g., "La Jolla, CA") */
+  name: string;
 }
 
 export interface WeatherData {
@@ -410,5 +432,9 @@ export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
       cdip?: string;
       noaa?: string;
     };
+    /** Tide schedule for dynamic client-side computation (first forecast of day only) */
+    tide_schedule?: TideScheduleEntry[];
+    /** NOAA CO-OPS station used for tide predictions */
+    tide_station?: TideStationInfo;
   };
 }

@@ -481,6 +481,9 @@ export class EnhancedForecastService {
     if (buoyData) dataSources.push("NOAA_BUOY");
     if (dataSources.length === 0) dataSources.push("FALLBACK");
 
+    // Track processed dates to store tide_schedule only once per day
+    const processedDates = new Set<string>();
+
     // Generate forecasts using constants
     for (let i = 0; i < TOTAL_FORECASTS; i++) {
       const forecastTime = new Date(
@@ -522,9 +525,16 @@ export class EnhancedForecastService {
         forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
       });
 
+      // Check if this is the first forecast of the day for tide_schedule storage
+      const dateString = this.getNormalizedDateString(forecastTime);
+      const isFirstOfDay = !processedDates.has(dateString);
+      if (isFirstOfDay) {
+        processedDates.add(dateString);
+      }
+
       const forecast = {
         id: `forecast-${beach.id}-${i}`, // Temporary ID for now
-        forecast_date: this.getNormalizedDateString(forecastTime),
+        forecast_date: dateString,
         forecast_time: this.getNormalizedTimeString(forecastTime),
 
         // Wave data prioritized for primary swell per spec: CDIP significant height > CDIP swell > model primary > combined/total
@@ -700,6 +710,19 @@ export class EnhancedForecastService {
             cdip: cdipData?.lastUpdated,
             noaa: now.toISOString(),
           },
+          // Store tide schedule on first forecast of each day (to avoid duplication)
+          // Limit to 20 entries (~5 days of high/low tides at 4 per day)
+          ...(isFirstOfDay && tideData?.tides?.length > 0 && {
+            tide_schedule: tideData.tides.slice(0, 20).map((t: { time: number; height: number; type: string }) => ({
+              time: t.time,
+              height: t.height,
+              type: t.type as "high" | "low",
+            })),
+            tide_station: {
+              id: tideData.station_id ?? "",
+              name: tideData.station_name ?? "",
+            },
+          }),
         },
       } as EnhancedForecastWithRawData;
 

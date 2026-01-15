@@ -46,6 +46,31 @@ function formatTimeWindowCompact(
   end: Date,
   timezone: string
 ): string {
+  // Check if tomorrow
+  const now = new Date();
+
+  // Create date objects in the beach timezone to compare "days" accurately
+  // (Using simple string comparison of YYYY-MM-DD in the target timezone)
+  const todayStr = formatBeachDateTime(now, timezone, "EEE, MMM d");
+  const startDayStr = formatBeachDateTime(start, timezone, "EEE, MMM d");
+
+  // Calculate day difference roughly to determine "Tomorrow"
+  // (Or just use the strings if todayStr != startDayStr)
+  // A more robust way using timestamps:
+  const isTomorrow = (() => {
+    // Get "Midnight tonight" in the beach timezone
+    // check if start is > midnight tonight and < midnight tomorrow+1
+    // Simplest proxy: if the day string is different, valid for "Tomorrow"
+    // (assuming we don't recommend 2 days out in this specific component context)
+    if (todayStr === startDayStr) return false;
+
+    // Verify it's not simply "later today" (covered by equality check) or "yesterday"
+    // Since recommendations are future-only, inequality + future = Tomorrow (or later)
+    return start > now;
+  })();
+
+  const prefix = isTomorrow ? "Tomorrow " : "";
+
   // Get hours to determine AM/PM
   const startHourStr = formatBeachDateTime(start, timezone, "H");
   const endHourStr = formatBeachDateTime(end, timezone, "H");
@@ -81,13 +106,12 @@ function formatTimeWindowCompact(
     // Format end with am/pm
     const endStr = formatTimeCompact(end);
 
-    return `${startStr}-${endStr}`;
+    return `${prefix}${startStr}-${endStr}`;
   }
 
   // Different periods, show both
-  return `${formatTimeCompact(start)}-${formatTimeCompact(end)}`;
+  return `${prefix}${formatTimeCompact(start)}-${formatTimeCompact(end)}`;
 }
-
 
 /**
  * Loading skeleton for HeroRecommendation
@@ -118,14 +142,13 @@ export function HeroRecommendationSkeleton() {
  */
 export function HeroRecommendationError({ error }: { error: Error }) {
   return (
-    <div
-      className="px-4 sm:px-1 py-4"
-      data-testid="hero-recommendation-error"
-    >
+    <div className="px-4 sm:px-1 py-4" data-testid="hero-recommendation-error">
       <div className="flex items-start gap-3 text-red-400">
         <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
         <div>
-          <p className="font-medium text-sm sm:text-base text-white">Unable to load recommendation</p>
+          <p className="font-medium text-sm sm:text-base text-white">
+            Unable to load recommendation
+          </p>
           <p className="text-xs sm:text-sm text-red-300 mt-1">
             {error.message || "Please try again later."}
           </p>
@@ -140,13 +163,14 @@ export function HeroRecommendationError({ error }: { error: Error }) {
  */
 export function HeroRecommendationEmpty() {
   return (
-    <div
-      className="px-4 sm:px-1 py-4"
-      data-testid="hero-recommendation-empty"
-    >
+    <div className="px-4 sm:px-1 py-4" data-testid="hero-recommendation-empty">
       <div className="text-center">
-        <p className="text-base sm:text-lg text-white/80">No surf recommendations available</p>
-        <p className="text-xs sm:text-sm mt-1 text-white/60">Check back later for updated conditions</p>
+        <p className="text-base sm:text-lg text-white/80">
+          No surf recommendations available
+        </p>
+        <p className="text-xs sm:text-sm mt-1 text-white/60">
+          Check back later for updated conditions
+        </p>
       </div>
     </div>
   );
@@ -199,7 +223,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     return <HeroRecommendationEmpty />;
   }
 
-  const { beach, score, window, matchQuality } = recommendation;
+  const { beach, score, window, matchQuality, recommendationLabel, message } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const timeWindow = formatTimeWindowCompact(
     window.start,
@@ -207,11 +231,15 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     window.timezone
   );
 
+  // Determine badge styling based on recommendation label
+  const labelBadgeClass = recommendationLabel === 'Worth it'
+    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
+    : recommendationLabel === 'Maybe'
+      ? 'bg-amber-500/20 text-amber-300 border-amber-400/30'
+      : 'bg-red-500/20 text-red-300 border-red-400/30';
+
   return (
-    <div
-      className="space-y-3 px-4 sm:px-1"
-      data-testid="hero-recommendation"
-    >
+    <div className="space-y-3 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}
       <h1 className="text-2xl xs:text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
         <button
@@ -225,7 +253,14 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
         <span className="text-accent-orange">{formattedScore}/10</span>.
       </h1>
 
-      {/* Time window and match quality badges */}
+      {/* Natural language message */}
+      {message && (
+        <p className="text-sm sm:text-base text-white/80" data-testid="hero-message">
+          {message}
+        </p>
+      )}
+
+      {/* Time window and recommendation label badges */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge
           variant="outline"
@@ -235,12 +270,22 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           {timeWindow}
         </Badge>
 
-        <Badge
-          variant="outline"
-          className="text-xs sm:text-sm font-medium capitalize py-1.5 px-2.5 bg-white/10 text-white border-white/20"
-        >
-          {matchQuality} match
-        </Badge>
+        {/* Recommendation label badge (if available) */}
+        {recommendationLabel ? (
+          <Badge
+            variant="outline"
+            className={`text-xs sm:text-sm font-medium py-1.5 px-2.5 ${labelBadgeClass}`}
+          >
+            {recommendationLabel}
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="text-xs sm:text-sm font-medium capitalize py-1.5 px-2.5 bg-white/10 text-white border-white/20"
+          >
+            {matchQuality} match
+          </Badge>
+        )}
       </div>
     </div>
   );

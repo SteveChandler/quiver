@@ -32,6 +32,10 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { useDynamicTide } from "@/hooks/use-dynamic-tide";
+import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
+import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
+import { getTideAlert } from "@/lib/surf/tide-direction";
 
 const CamsSection = dynamic(
   () =>
@@ -136,6 +140,22 @@ export function ForecastTab({
     [forecasts, todayStr]
   );
 
+  // Dynamic tide computation (always fresh, relative to now)
+  const dynamicTide = useDynamicTide(forecasts, beachTimezone);
+
+  // Tide alert based on direction match
+  const tideAlert = useMemo(() => {
+    return getTideAlert(
+      beach.preferred_tide_direction,
+      dynamicTide.currentDirection,
+      dynamicTide.minutesToDirectionChange
+    );
+  }, [
+    beach.preferred_tide_direction,
+    dynamicTide.currentDirection,
+    dynamicTide.minutesToDirectionChange,
+  ]);
+
   const formatMetric = (
     value: string | number | null | undefined,
     decimals = 1,
@@ -191,8 +211,31 @@ export function ForecastTab({
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
   const heroPeriod = formatMetric(currentForecast?.wave_period);
-  const heroNextTideHeight = currentForecast?.next_tide_height ?? "";
-  const heroNextTideType = currentForecast?.next_tide_type ?? "—";
+
+  // Dynamic tide display with fallback to static forecast values
+  const heroNextTideType = dynamicTide.nextTide
+    ? dynamicTide.nextTide.type === "high"
+      ? "High Tide"
+      : "Low Tide"
+    : currentForecast?.next_tide_type ?? "—";
+
+  const heroNextTideHeight = dynamicTide.nextTide
+    ? `${dynamicTide.nextTide.height.toFixed(1)} ft`
+    : currentForecast?.next_tide_height ?? "";
+
+  // Helper for next tide time display
+  const getNextTideTimeDisplay = () => {
+    if (dynamicTide.nextTide) {
+      const date = new Date(dynamicTide.nextTide.time * 1000);
+      return date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+    return formatTimeString(currentForecast?.next_tide_time, currentForecast?.next_tide_at);
+  };
+
   const snapshotSwellPeriod = formatMetric(currentForecast?.wave_period);
   const snapshotDirection = currentForecast?.wave_direction ?? "—";
   const snapshotSwellDetails =
@@ -201,6 +244,7 @@ export function ForecastTab({
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
   // Generate tide diagnostics from forecast data for enhanced tide components
+  // Depends on dynamicTide to recompute when user returns to tab (visibility change)
   const tideDiagnostics = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
     return generateTideDiagnosticsFromForecasts(forecasts, {
@@ -208,7 +252,8 @@ export function ForecastTab({
       stationName: beach.name,
       isPrimaryStation: true,
     });
-  }, [forecasts, beach.name]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forecasts, beach.name, dynamicTide.minutesUntil]);
 
   // Extract transparency metadata from current forecast
   const forecastMetadata = useMemo(() => {
@@ -334,6 +379,12 @@ export function ForecastTab({
                     Right now
                   </span>
                 </div>
+
+                {/* Tide Alert */}
+                {beach.preferred_tide_direction && (
+                  <TideAlertBadge alert={tideAlert} />
+                )}
+
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
                   <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
@@ -344,8 +395,7 @@ export function ForecastTab({
                         {heroNextTideType}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {heroNextTideHeight} ·{" "}
-                        {formatTimeString(currentForecast?.next_tide_time, currentForecast?.next_tide_at)}
+                        {heroNextTideHeight} · {getNextTideTimeDisplay()}
                       </div>
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
@@ -519,6 +569,12 @@ export function ForecastTab({
               showVerifiedBadge={!!tideDiagnostics}
             />
           </section>
+
+          {/* Tide Conditions Card */}
+          <TideConditionsCard
+            prose={beach.best_conditions_prose}
+            preferredDirection={beach.preferred_tide_direction}
+          />
         </TabsContent>
 
         {/* Conditions Tab */}

@@ -92,8 +92,10 @@ describe('selectBestWindow with sunset', () => {
     const beach = createMockBeach();
     // Sunset at 5:05pm PT = 01:05:00 UTC next day (for 2026-01-13)
     const sunTimesCache = new Map([
-      ['beach-1_2026-01-13', new Date('2026-01-14T01:05:00Z')],
-      ['beach-1_2026-01-14', new Date('2026-01-15T01:05:00Z')],
+      ['beach-1', [
+        new Date('2026-01-14T01:05:00Z'),
+        new Date('2026-01-15T01:05:00Z')
+      ]],
     ]);
 
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
@@ -117,7 +119,7 @@ describe('selectBestWindow with sunset', () => {
 
     const beach = createMockBeach();
     const sunTimesCache = new Map([
-      ['beach-1_2026-01-14', new Date('2026-01-14T01:05:00Z')], // 5:05pm PT
+      ['beach-1', [new Date('2026-01-14T01:05:00Z')]], // 5:05pm PT
     ]);
 
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
@@ -151,7 +153,7 @@ describe('selectBestWindow with sunset', () => {
 
     const beach = createMockBeach();
     const sunTimesCache = new Map([
-      ['beach-1_2026-01-13', new Date('2026-01-14T01:05:00Z')], // 5:05pm PT
+      ['beach-1', [new Date('2026-01-14T01:05:00Z')]], // 5:05pm PT
     ]);
 
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
@@ -219,8 +221,10 @@ describe('selectBestWindow with sunset', () => {
     const beach = createMockBeach();
     // No sunset constraint (very late sunset at 9pm PT)
     const sunTimesCache = new Map([
-      ['beach-1_2026-01-13', new Date('2026-01-14T05:00:00Z')], // 9pm PT
-      ['beach-1_2026-01-14', new Date('2026-01-15T05:00:00Z')],
+      ['beach-1', [
+          new Date('2026-01-14T05:00:00Z'), // 9pm PT
+          new Date('2026-01-15T05:00:00Z')
+      ]]
     ]);
 
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);

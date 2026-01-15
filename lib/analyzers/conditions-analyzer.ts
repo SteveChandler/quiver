@@ -1,9 +1,17 @@
 /**
  * Conditions Analyzer Module
- * 
+ *
  * Analyzes surf conditions by combining swell, wind, and tide evaluations
  * to provide overall condition scores and recommendations.
- * 
+ *
+ * @deprecated This module is being replaced by the unified scoring module.
+ * New code should use `@/lib/scoring` instead. This module remains for
+ * backward compatibility with existing Morning Intel code.
+ *
+ * Migration guide:
+ * - analyzeConditions() → scoreConditions() from @/lib/scoring
+ * - getConservativeRecommendation() → use scoreConditions().recommendationLabel
+ *
  * Extracted from lib/utils/morning-intel-utils.ts as part of P1 refactoring
  * to reduce complexity and improve maintainability.
  */
@@ -19,6 +27,14 @@ import type {
 
 import { analyzeSwellMatch } from "@/lib/analyzers/swell-analyzer";
 import { analyzeWindConditions } from "@/lib/analyzers/wind-analyzer";
+
+// Re-export unified scoring types for forward compatibility
+export type {
+  ConditionScore,
+  BeachWithThresholds,
+  MatchQuality,
+  RecommendationLabel,
+} from "@/lib/scoring";
 
 /**
  * Analyze tide conditions relative to beach preferences

@@ -10,6 +10,7 @@ import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { withServerAction } from "@/lib/server-action-utils";
 import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
+import { WaveTipsCard } from "@/components/beach-detail/wave-tips-card";
 
 interface BestPhoto {
   id: string;
@@ -153,6 +154,9 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Wave Tips */}
+      <WaveTipsCard tips={beach.wave_tips} />
 
       <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
         <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">

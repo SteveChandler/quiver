@@ -504,6 +504,7 @@ yarn typecheck              # Run TypeScript checks
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 - [Playwright Documentation](https://playwright.dev/docs/intro)
 - [Capacitor Documentation](https://capacitorjs.com/docs)
+- [Antigravity Global Governance Rules](./docs/GOVERNANCE.md)
 
 ---
 

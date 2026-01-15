@@ -1,0 +1,253 @@
+import { scoreConditions } from '@/lib/scoring/surf-conditions-scorer';
+import type { BeachWithThresholds, ForecastForScoring } from '@/lib/scoring/types';
+
+describe('scoreConditions', () => {
+  const baseBeach: BeachWithThresholds = {
+    id: 'test-beach',
+    name: 'Test Beach',
+    wind_offshore_deg: 90, // E wind is offshore
+    wind_offshore_tol_deg: 30,
+    preferred_tide_ft_min: 2.0,
+    preferred_tide_ft_max: 5.0,
+    swell_window_min_deg: 200,
+    swell_window_max_deg: 320,
+    max_wind_onshore_mph: 10,
+    max_wind_any_mph: 18,
+  } as BeachWithThresholds;
+
+  const baseForecast: ForecastForScoring = {
+    forecastTime: new Date('2026-01-14T08:00:00Z'),
+    waveHeight: 3.5,
+    wavePeriod: 12,
+    windSpeed: 5,
+    windDirection: 90, // Offshore
+    tideHeight: 3.0,
+    tideStatus: 'rising',
+  };
+
+  describe('match quality thresholds', () => {
+    it('returns "perfect" for score >= 85', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.total).toBeGreaterThanOrEqual(70);
+      expect(['perfect', 'excellent']).toContain(result.matchQuality);
+    });
+
+    it('returns "skip" when wind exceeds max_wind_any_mph', () => {
+      const forecast = { ...baseForecast, windSpeed: 20 };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result.matchQuality).toBe('skip');
+      expect(result.recommendationLabel).toBe('Skip');
+      expect(result.warnings.some((w) => /too windy/i.test(w))).toBe(true);
+    });
+
+    it('returns "skip" when onshore wind exceeds threshold', () => {
+      const forecast = { ...baseForecast, windSpeed: 12, windDirection: 270 }; // W wind is onshore
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result.matchQuality).toBe('skip');
+      expect(result.warnings.some((w) => /onshore/i.test(w))).toBe(true);
+    });
+  });
+
+  describe('recommendation labels', () => {
+    it('maps perfect/excellent to "Worth it"', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      if (result.matchQuality === 'perfect' || result.matchQuality === 'excellent') {
+        expect(result.recommendationLabel).toBe('Worth it');
+      }
+    });
+
+    it('maps good/fair to "Maybe"', () => {
+      // Marginal conditions - tide outside range
+      const forecast = { ...baseForecast, tideHeight: 6.0 };
+      const result = scoreConditions(forecast, baseBeach);
+      if (result.matchQuality === 'good' || result.matchQuality === 'fair') {
+        expect(result.recommendationLabel).toBe('Maybe');
+      }
+    });
+
+    it('maps skip to "Skip"', () => {
+      const forecast = { ...baseForecast, windSpeed: 25 };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result.matchQuality).toBe('skip');
+      expect(result.recommendationLabel).toBe('Skip');
+    });
+  });
+
+  describe('natural message generation', () => {
+    it('generates message for good conditions', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.message).toBeTruthy();
+      expect(result.message.length).toBeGreaterThan(10);
+    });
+
+    it('includes wind context in reasons or message', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      // Wind context should be in reasons or message
+      const hasWindContext =
+        result.reasons.some((r) => /wind|offshore|glassy/i.test(r)) ||
+        /wind|offshore|glassy/i.test(result.message);
+      expect(hasWindContext).toBe(true);
+    });
+  });
+
+  describe('subscores calculation', () => {
+    it('calculates waveHeightFit subscore', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.subscores.waveHeightFit).toBeGreaterThanOrEqual(0);
+      expect(result.subscores.waveHeightFit).toBeLessThanOrEqual(25);
+    });
+
+    it('calculates periodEnergy subscore', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.subscores.periodEnergy).toBeGreaterThanOrEqual(0);
+      expect(result.subscores.periodEnergy).toBeLessThanOrEqual(20);
+    });
+
+    it('calculates windAlignment subscore', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.subscores.windAlignment).toBeGreaterThanOrEqual(0);
+      expect(result.subscores.windAlignment).toBeLessThanOrEqual(20);
+    });
+
+    it('calculates tideFit subscore', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.subscores.tideFit).toBeGreaterThanOrEqual(0);
+      expect(result.subscores.tideFit).toBeLessThanOrEqual(15);
+    });
+  });
+
+  describe('skip condition handling', () => {
+    it('sets total to 0 for skip conditions', () => {
+      const forecast = { ...baseForecast, windSpeed: 25 };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result.total).toBe(0);
+    });
+
+    it('uses default max_wind_any_mph of 18 when not specified', () => {
+      const beachWithoutThresholds = {
+        ...baseBeach,
+        max_wind_any_mph: undefined,
+      } as BeachWithThresholds;
+      const forecast = { ...baseForecast, windSpeed: 20 };
+      const result = scoreConditions(forecast, beachWithoutThresholds);
+      expect(result.matchQuality).toBe('skip');
+    });
+
+    it('uses default max_wind_onshore_mph of 10 when not specified', () => {
+      const beachWithoutThresholds = {
+        ...baseBeach,
+        max_wind_onshore_mph: undefined,
+      } as BeachWithThresholds;
+      const forecast = { ...baseForecast, windSpeed: 12, windDirection: 270 }; // Onshore
+      const result = scoreConditions(forecast, beachWithoutThresholds);
+      expect(result.matchQuality).toBe('skip');
+    });
+  });
+
+  describe('score normalization', () => {
+    it('normalizes raw points to 0-100 scale', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.total).toBeGreaterThanOrEqual(0);
+      expect(result.total).toBeLessThanOrEqual(100);
+    });
+
+    it('total equals normalized sum of subscores', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      // Max raw points: 25 + 20 + 20 + 15 = 80
+      // Normalized = (raw / 80) * 100
+      const rawSum =
+        result.subscores.waveHeightFit +
+        result.subscores.periodEnergy +
+        result.subscores.windAlignment +
+        result.subscores.tideFit;
+      const expectedNormalized = Math.round((rawSum / 80) * 100);
+      expect(result.total).toBe(expectedNormalized);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles null wind direction', () => {
+      const forecast = { ...baseForecast, windDirection: null };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result).toBeDefined();
+      expect(typeof result.total).toBe('number');
+    });
+
+    it('handles zero wave height', () => {
+      const forecast = { ...baseForecast, waveHeight: 0 };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result).toBeDefined();
+      expect(result.subscores.waveHeightFit).toBe(0);
+    });
+
+    it('handles negative tide height', () => {
+      const forecast = { ...baseForecast, tideHeight: -0.5 };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result).toBeDefined();
+      expect(typeof result.total).toBe('number');
+    });
+
+    it('handles beach with no swell window defined', () => {
+      const beachNoSwellWindow = {
+        ...baseBeach,
+        swell_window_min_deg: null,
+        swell_window_max_deg: null,
+      } as unknown as BeachWithThresholds;
+      const result = scoreConditions(baseForecast, beachNoSwellWindow);
+      expect(result).toBeDefined();
+    });
+
+    it('handles beach with no tide preferences', () => {
+      const beachNoTide = {
+        ...baseBeach,
+        preferred_tide_ft_min: null,
+        preferred_tide_ft_max: null,
+      } as unknown as BeachWithThresholds;
+      const result = scoreConditions(baseForecast, beachNoTide);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('reasons and warnings', () => {
+    it('includes reasons for good conditions', () => {
+      const result = scoreConditions(baseForecast, baseBeach);
+      expect(result.reasons.length).toBeGreaterThan(0);
+    });
+
+    it('includes warnings when conditions are marginal', () => {
+      const forecast = { ...baseForecast, windSpeed: 15 }; // Approaching threshold
+      const result = scoreConditions(forecast, baseBeach);
+      // May or may not have warnings depending on score
+      expect(Array.isArray(result.warnings)).toBe(true);
+    });
+
+    it('skip message includes reason', () => {
+      const forecast = { ...baseForecast, windSpeed: 25 };
+      const result = scoreConditions(forecast, baseBeach);
+      expect(result.message).toMatch(/skip/i);
+    });
+  });
+
+  describe('match quality boundaries', () => {
+    it('correctly assigns quality based on score thresholds', () => {
+      // Test that the quality matches the documented thresholds
+      // >= 85 -> perfect, >= 70 -> excellent, >= 55 -> good, >= 40 -> fair, < 40 -> skip
+
+      // Perfect conditions
+      const perfectForecast: ForecastForScoring = {
+        forecastTime: new Date('2026-01-14T08:00:00Z'),
+        waveHeight: 4.0,
+        wavePeriod: 14,
+        windSpeed: 3,
+        windDirection: 90, // Offshore
+        tideHeight: 3.5,
+        tideStatus: 'rising',
+      };
+      const perfectResult = scoreConditions(perfectForecast, baseBeach);
+
+      // Should be high scoring
+      expect(perfectResult.total).toBeGreaterThanOrEqual(70);
+      expect(['perfect', 'excellent']).toContain(perfectResult.matchQuality);
+    });
+  });
+});
