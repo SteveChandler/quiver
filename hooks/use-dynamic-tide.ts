@@ -24,6 +24,10 @@ export interface DynamicTideResult {
   minutesToLow: number | null;
   /** True if using fallback (no tide_schedule found) */
   usingFallback: boolean;
+  /** Current tide direction based on next extreme */
+  currentDirection: "rising" | "falling" | "slack" | null;
+  /** Minutes until tide direction changes (same as minutesUntil) */
+  minutesToDirectionChange: number | null;
 }
 
 export function useDynamicTide(
@@ -56,6 +60,8 @@ export function useDynamicTide(
         minutesToHigh: null,
         minutesToLow: null,
         usingFallback: true,
+        currentDirection: null,
+        minutesToDirectionChange: null,
       };
     }
 
@@ -93,6 +99,19 @@ export function useDynamicTide(
       ? Math.round((nextLow.time - nowSeconds) / 60)
       : null;
 
+    // Compute current tide direction
+    let currentDirection: "rising" | "falling" | "slack" | null = null;
+    if (nextTide) {
+      // If within 30 minutes of extreme, consider it slack
+      if (minutesUntil !== null && minutesUntil <= 30) {
+        currentDirection = "slack";
+      } else if (nextTide.type === "high") {
+        currentDirection = "rising";
+      } else {
+        currentDirection = "falling";
+      }
+    }
+
     return {
       nextTide,
       minutesUntil,
@@ -101,6 +120,8 @@ export function useDynamicTide(
       minutesToHigh,
       minutesToLow,
       usingFallback: false,
+      currentDirection,
+      minutesToDirectionChange: minutesUntil,
     };
   }, [tideSchedule, computedAt]);
 
