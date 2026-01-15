@@ -140,6 +140,8 @@ export interface DetailedScore {
   reasons: string[];
   /** Warnings about conditions, skill level, or crowding */
   warnings: string[];
+  /** Top condition badges explaining why conditions are good */
+  conditionBadges?: ConditionBadge[];
 }
 
 /**

@@ -38,6 +38,63 @@ import type {
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel, MatchQuality } from '@/lib/scoring';
+import type { ConditionBadge } from '@/types/personalization';
+
+// ============================================================================
+// Badge Generation
+// ============================================================================
+
+/**
+ * Generate condition badges based on thresholds
+ * Returns top 2-3 badges sorted by contribution
+ */
+function generateConditionBadges(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+  subscores: { waveHeightFit: number; periodEnergyScore: number; windAlignment: number; tideFit: number }
+): ConditionBadge[] {
+  const badges: ConditionBadge[] = [];
+
+  const windSpeed = parseFloat(String(forecast.wind_speed ?? '0'));
+  const windDirection = forecast.wind_direction_deg ?? null;
+  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
+  const offshoreDir = beach.wind_offshore_deg ?? 90;
+
+  // Glass: wind < 5 mph
+  if (windSpeed < 5) {
+    badges.push({ label: 'Glass', contribution: subscores.windAlignment });
+  }
+  // Light Offshore: offshore direction AND < 10 mph
+  else if (windDirection !== null && windSpeed < 10) {
+    const angleDiff = Math.abs(windDirection - offshoreDir) % 360;
+    const isOffshore = angleDiff <= 45 || angleDiff >= 315;
+    if (isOffshore) {
+      badges.push({ label: 'Light Offshore', contribution: subscores.windAlignment });
+    }
+  }
+
+  // Clean Swell: period >= 12s
+  if (wavePeriod >= 12) {
+    badges.push({ label: 'Clean Swell', contribution: subscores.periodEnergyScore });
+  }
+
+  // Good Tide: if tide score is high (>= 12 out of 15)
+  if (subscores.tideFit >= 12) {
+    const tideStatus = forecast.tide_status?.toLowerCase() || '';
+    if (tideStatus.includes('rising') || tideStatus.includes('incoming')) {
+      badges.push({ label: 'Rising Tide', contribution: subscores.tideFit });
+    } else if (tideStatus.includes('falling') || tideStatus.includes('outgoing')) {
+      badges.push({ label: 'Falling Tide', contribution: subscores.tideFit });
+    } else {
+      badges.push({ label: 'Good Tide', contribution: subscores.tideFit });
+    }
+  }
+
+  // Sort by contribution descending, take top 3
+  return badges
+    .sort((a, b) => b.contribution - a.contribution)
+    .slice(0, 3);
+}
 
 // ============================================================================
 // Sunset Time Fetching
@@ -329,6 +386,7 @@ export async function discoverSurfSpots(
         message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),
         reasons: detailedScore.reasons,
         warnings: detailedScore.warnings,
+        conditionBadges: detailedScore.conditionBadges,
         distanceMiles,
         drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
         generated_at: new Date().toISOString(),
@@ -958,12 +1016,21 @@ export async function scoreBeachForDiscovery(args: {
     }
   }
 
+  // Generate condition badges
+  const conditionBadges = generateConditionBadges(forecast, beach, {
+    waveHeightFit: subscores.waveHeightFit,
+    periodEnergyScore: subscores.periodEnergyScore,
+    windAlignment: subscores.windAlignment,
+    tideFit: subscores.tideFit,
+  });
+
   return {
     total,
     subscores,
     matchQuality,
     reasons: reasons.slice(0, 5),
     warnings,
+    conditionBadges,
   };
 }
 
