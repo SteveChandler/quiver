@@ -5,6 +5,7 @@ import { calculateConfidenceScore } from "./forecast/confidence-scorer";
 import { ForecastStorageService } from "./forecast/storage-service";
 import { getForecastWeightingService } from "./forecast-weighting-service";
 import { calculateDistance } from "@/lib/utils/distance-utils";
+import { ForecastBuilder } from "./forecast/forecast-builder";
 import type { Beach } from "@/types/database";
 import {
   FORECAST_CONSTANTS,
@@ -368,6 +369,7 @@ export class EnhancedForecastService {
 
   /**
    * Helper function to get normalized date string (YYYY-MM-DD) in local timezone
+   * @deprecated - Use getNormalizedDateString from datetime-utils instead
    */
   private getNormalizedDateString(date: Date): string {
     const year = date.getFullYear();
@@ -379,6 +381,7 @@ export class EnhancedForecastService {
   /**
    * Helper function to get normalized time string rounded to 3-hour intervals
    * Valid times: 00:00:00, 03:00:00, 06:00:00, 09:00:00, 12:00:00, 15:00:00, 18:00:00, 21:00:00
+   * @deprecated - Use getNormalizedTimeString from datetime-utils instead
    */
   private getNormalizedTimeString(date: Date): string {
     // Round to nearest 3-hour interval
@@ -392,6 +395,59 @@ export class EnhancedForecastService {
    * Combine all data sources into comprehensive forecast
    */
   private async combineDataSources({
+    beach,
+    waveData,
+    tideData,
+    weatherData,
+    buoyData,
+    cdipData,
+  }: {
+    beach: Beach;
+    waveData: any;
+    tideData: any;
+    weatherData: any[];
+    buoyData: any;
+    cdipData: CDIPBuoyData | null;
+  }): Promise<EnhancedForecastWithRawData[]> {
+    // Use ForecastBuilder to build forecasts
+    const builder = new ForecastBuilder({
+      getWaveDirectionText: (deg) =>
+        this.dataSourceManager.getWaveWatchService().getWaveDirectionText(deg),
+      getTideStatusAtTime: (tides, time) =>
+        this.dataSourceManager.getCOOPSService().getTideStatusAtTime(tides, time),
+      getTideHeightAtTime: (tides, time) =>
+        this.dataSourceManager.getCOOPSService().getTideHeightAtTime(tides, time),
+      getNextTideFromTime: (tides, time) =>
+        this.dataSourceManager.getCOOPSService().getNextTideFromTime(tides, time),
+      getDataQualityScore: (cdipData) =>
+        this.dataSourceManager.getCDIPService().getDataQualityScore(cdipData),
+    }, this.isVerboseLoggingEnabled());
+
+    const forecasts = await builder.buildForecasts({
+      beach,
+      waveData,
+      tideData,
+      weatherData,
+      buoyData,
+      cdipData,
+    });
+
+    // Apply expert weighting and validation
+    const weightedForecasts: EnhancedForecastWithRawData[] = [];
+    for (const forecast of forecasts) {
+      const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+      const weighted = await this.applyExpertWeighting(forecast, beach.name, forecastTime);
+      weightedForecasts.push(weighted);
+    }
+
+    return weightedForecasts;
+  }
+
+  /**
+   * LEGACY: Old combineDataSources implementation - kept for reference during transition
+   * @deprecated Will be removed after verifying ForecastBuilder integration
+   */
+  private async _legacyCombineDataSources({
     beach,
     waveData,
     tideData,
@@ -816,6 +872,7 @@ export class EnhancedForecastService {
    * Get CDIP data for a specific time
    * CDIP provides real-time buoy measurements, not forecasts
    * Only use for current/recent conditions (within 6 hours)
+   * @deprecated - This is now handled by ForecastBuilder
    */
   private getCDIPDataForTime(cdipData: CDIPBuoyData | null, targetTime: Date) {
     if (!cdipData?.data || cdipData.data.length === 0) return null;
@@ -859,6 +916,7 @@ export class EnhancedForecastService {
 
   /**
    * Get wave data for a specific time
+   * @deprecated - This is now handled by ForecastBuilder
    */
   private getWaveDataForTime(waveData: any, targetTime: Date) {
     if (!waveData?.forecast) return null;
@@ -930,6 +988,7 @@ export class EnhancedForecastService {
 
   /**
    * Get weather data for a specific time
+   * @deprecated - This is now handled by ForecastBuilder
    */
   private getWeatherDataForTime(weatherData: any[], targetTime: Date) {
     if (!weatherData || weatherData.length === 0) return null;
@@ -956,6 +1015,7 @@ export class EnhancedForecastService {
 
   /**
    * Helper functions
+   * @deprecated - Now handled by ForecastBuilder
    */
   private metersToFeet(meters: number): string {
     const feet = meters * 3.28084;
@@ -968,12 +1028,18 @@ export class EnhancedForecastService {
     return `${rounded} ft`;
   }
 
+  /**
+   * @deprecated - Now handled by ForecastBuilder
+   */
   private extractWindSpeed(windSpeedStr: string): string {
     if (!windSpeedStr) return "10 mph";
     const match = windSpeedStr.match(/(\d+)/);
     return match ? `${match[1]} mph` : "10 mph";
   }
 
+  /**
+   * @deprecated - Now handled by ForecastBuilder
+   */
   private estimateWaterTemperature(lat: number, date: Date): string {
     // Simplified water temperature estimation based on location and season
     const month = date.getMonth();
@@ -986,6 +1052,9 @@ export class EnhancedForecastService {
     return `${estimatedTemp}°F`;
   }
 
+  /**
+   * @deprecated - Now handled by ForecastBuilder
+   */
   private estimateAirTemperature(lat: number, date: Date): string {
     // Simplified air temperature estimation
     const month = date.getMonth();
@@ -1000,6 +1069,7 @@ export class EnhancedForecastService {
 
   /**
    * Validate forecast values for San Diego area and flag unrealistic conditions
+   * @deprecated - Now handled by validateForecastValues from forecast-validator
    */
   private validateForecastValues(
     forecast: EnhancedForecastEntity,
