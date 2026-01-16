@@ -144,20 +144,23 @@ export const SCORER_WEIGHTS = {
   /** Swell alignment with beach window */
   swellAlignment: 0.15,
 
-  /** Swell interference (primary vs secondary) - NEW */
+  /** Swell interference (primary vs secondary) */
   swellInterference: 0.15,
 
   /** Wind quality (offshore/cross/onshore) */
   windQuality: 0.15,
 
-  /** Tide fit (height and direction) */
-  tideFit: 0.10,
+  /** Tide fit (height only - direction moved to tideDirection) */
+  tideFit: 0.05,
 
-  /** Window stability - NEW */
-  windowStability: 0.10,
+  /** Tide direction match with beach preference - NEW */
+  tideDirection: 0.15,
 
-  /** Trend preference (improving conditions) - NEW */
-  trendPreference: 0.10,
+  /** Window stability */
+  windowStability: 0.05,
+
+  /** Trend preference (improving conditions) */
+  trendPreference: 0.05,
 } as const;
 
 /**
