@@ -8,6 +8,7 @@ import {
   SURF_INTENTS,
   type SurfCitySlug,
   type SurfIntentSlug,
+  type SurfSpot,
   getCityBySlug,
   getSpotsForIntent,
 } from "@/lib/data/surf-spots";
@@ -17,6 +18,8 @@ import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
+import { getBeachesByIntentAndCity } from "@/actions/beach/beach-query-actions";
+import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 
 export const revalidate = 1800;
 
@@ -95,7 +98,7 @@ export async function generateMetadata({
   });
 }
 
-export default function IntentPage({ params }: IntentPageParams) {
+export default async function IntentPage({ params }: IntentPageParams) {
   const city = getCityBySlug(params.city);
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
 
@@ -112,7 +115,33 @@ export default function IntentPage({ params }: IntentPageParams) {
     return notFound();
   }
 
-  const spots = getSpotsForIntent(city.slug, params.intent as SurfIntentSlug);
+  // Try database first, then fall back to hardcoded data
+  const beachesResult = await getBeachesByIntentAndCity(
+    params.intent,
+    params.city,
+    "ca" // Default to CA for now - most curated cities are in California
+  );
+
+  let spots: SurfSpot[];
+
+  if (beachesResult.success && beachesResult.data && beachesResult.data.length > 0) {
+    // Use database results - add metrics fields for transformer compatibility
+    const beachesWithMetrics: BeachWithMetrics[] = beachesResult.data.map(beach => ({
+      ...beach,
+      compositeScore: 0,
+      recentIntelCount: 0,
+      avgConfirmations: 0,
+    }));
+    spots = transformBeachesToSurfSpots(beachesWithMetrics);
+  } else {
+    // Fall back to hardcoded data
+    const hardcodedSpots = getSpotsForIntent(city.slug, params.intent as SurfIntentSlug);
+    if (hardcodedSpots.length === 0) {
+      return notFound();
+    }
+    spots = hardcodedSpots;
+  }
+
   if (spots.length === 0) {
     return notFound();
   }
