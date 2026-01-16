@@ -289,6 +289,7 @@ export async function discoverSurfSpots(
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
+    timeSlot,
   } = options;
 
   try {
@@ -366,7 +367,7 @@ export async function discoverSurfSpots(
     ]);
 
     for (const { beach, forecasts } of beachForecasts) {
-      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache);
+      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow) {
         // console.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
