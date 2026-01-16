@@ -75,6 +75,10 @@
     {
       "path": "/api/cron/ml/backfill-observations",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-buoys?maxDistanceKm=250",
+      "schedule": "0 4 * * 0"
     }
   ]
 }

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import {
   ArrowUp,
   ArrowDown,
+  Minus,
   Waves,
   Wind,
   Sun,
@@ -33,6 +34,7 @@ import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
+import { useSunTimes } from "@/hooks/use-sun-times";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
@@ -143,6 +145,19 @@ export function ForecastTab({
   // Dynamic tide computation (always fresh, relative to now)
   const dynamicTide = useDynamicTide(forecasts, beachTimezone);
 
+  // Fetch sunrise/sunset times for today
+  const { sunrise, sunset } = useSunTimes(beach.id, todayStr);
+
+  // Format sun time for display
+  const formatSunTime = (date: Date | null) => {
+    if (!date) return "—";
+    return date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   // Tide alert based on direction match
   const tideAlert = useMemo(() => {
     return getTideAlert(
@@ -201,13 +216,31 @@ export function ForecastTab({
     return time;
   };
 
-  const tideTrend = (currentForecast?.tide_status || "").toLowerCase();
+  // Use dynamic tide direction for icon (matches real-time tide state)
   const TideIcon =
-    tideTrend === "rising"
+    dynamicTide.currentDirection === "rising"
       ? ArrowUp
-      : tideTrend === "falling"
+      : dynamicTide.currentDirection === "falling"
       ? ArrowDown
-      : Waves;
+      : Minus;
+
+  // Get current tide status display text
+  const getCurrentTideDisplay = () => {
+    switch (dynamicTide.currentDirection) {
+      case "rising":
+        return "Rising";
+      case "falling":
+        return "Falling";
+      case "slack":
+        return "Slack";
+      default:
+        // Fallback to forecast tide_status if dynamic not available
+        const status = (currentForecast?.tide_status || "").toLowerCase();
+        if (status.includes("rising")) return "Rising";
+        if (status.includes("falling")) return "Falling";
+        return "—";
+    }
+  };
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
   const heroPeriod = formatMetric(currentForecast?.wave_period);
@@ -389,13 +422,13 @@ export function ForecastTab({
                   <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                       <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
-                        Next Tide
+                        Current Tide
                       </div>
                       <div className="mt-2 text-2xl font-bold text-dark-grey">
-                        {heroNextTideType}
+                        {getCurrentTideDisplay()}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {heroNextTideHeight} · {getNextTideTimeDisplay()}
+                        Next: {heroNextTideType} @ {getNextTideTimeDisplay()}
                       </div>
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
@@ -432,6 +465,43 @@ export function ForecastTab({
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
                       <Waves className="h-8 w-8 text-ocean-blue" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secondary Conditions */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                  {/* Swell Direction */}
+                  <div className="rounded-xl bg-gray-50/80 p-3 border border-gray-100">
+                    <div className="text-xs text-muted-foreground mb-1">Swell Direction</div>
+                    <div className="text-sm font-semibold text-dark-grey">
+                      {currentForecast?.swell_1_direction ?? "—"}
+                    </div>
+                  </div>
+
+                  {/* Water Temp */}
+                  <div className="rounded-xl bg-gray-50/80 p-3 border border-gray-100">
+                    <div className="text-xs text-muted-foreground mb-1">Water Temp</div>
+                    <div className="text-sm font-semibold text-dark-grey">
+                      {currentForecast?.water_temp ? `${currentForecast.water_temp}°F` : "—"}
+                    </div>
+                  </div>
+
+                  {/* Next Tide */}
+                  <div className="rounded-xl bg-gray-50/80 p-3 border border-gray-100">
+                    <div className="text-xs text-muted-foreground mb-1">Next Tide</div>
+                    <div className="text-sm font-semibold text-dark-grey">
+                      {heroNextTideType} @ {getNextTideTimeDisplay()}
+                    </div>
+                  </div>
+
+                  {/* Sunrise/Sunset */}
+                  <div className="rounded-xl bg-gray-50/80 p-3 border border-gray-100">
+                    <div className="text-xs text-muted-foreground mb-1">Daylight</div>
+                    <div className="text-sm font-semibold text-dark-grey">
+                      {sunrise && sunset
+                        ? `${formatSunTime(sunrise)} - ${formatSunTime(sunset)}`
+                        : "—"}
                     </div>
                   </div>
                 </div>

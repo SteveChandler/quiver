@@ -32,8 +32,9 @@ export interface SupabaseCookieOptions {
 }
 
 export class AuthValidator {
-  private supabase: SupabaseClient;
+  private supabase: SupabaseClient | null = null;
   private verbose: boolean;
+  private initError: string | null = null;
 
   constructor(
     request: NextRequest,
@@ -42,10 +43,20 @@ export class AuthValidator {
   ) {
     this.verbose = verbose;
 
+    // Validate required environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn("[AuthValidator] Missing Supabase credentials - authentication will fail gracefully");
+      this.initError = "Missing Supabase configuration";
+      return;
+    }
+
     // Create Supabase client with cookie management
     this.supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           get(name) {
@@ -76,6 +87,11 @@ export class AuthValidator {
    * @returns AuthResult with user data or error
    */
   async validateAuth(): Promise<AuthResult> {
+    // Handle initialization failure (missing env vars)
+    if (this.initError || !this.supabase) {
+      return { authenticated: false, error: this.initError || "Supabase client not initialized" };
+    }
+
     try {
       // Optimization: quick check for session existence (do NOT trust session.user)
       const hasSession = await this.hasSession();
@@ -97,12 +113,13 @@ export class AuthValidator {
   /**
    * Fast path: check for presence of a session cookie.
    * We intentionally do NOT trust any user fields from the session object.
+   * Note: Only called after validateAuth() confirms supabase is initialized.
    */
   private async hasSession(): Promise<boolean> {
     const {
       data: { session },
       error: sessionError,
-    } = await this.supabase.auth.getSession();
+    } = await this.supabase!.auth.getSession();
 
     if (sessionError) {
       this.log("Session check error", sessionError?.message);
@@ -114,12 +131,13 @@ export class AuthValidator {
   /**
    * Slow path: Validate with remote auth server
    * Used as fallback for expired sessions, cookie manipulation, etc.
+   * Note: Only called after validateAuth() confirms supabase is initialized.
    */
   private async validateRemoteAuth(): Promise<AuthResult> {
     const {
       data: { user },
       error: userError,
-    } = await this.supabase.auth.getUser();
+    } = await this.supabase!.auth.getUser();
 
     if (user && !userError) {
       return {
