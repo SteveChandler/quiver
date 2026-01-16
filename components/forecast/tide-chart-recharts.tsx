@@ -221,6 +221,32 @@ const normalizeEvents = (
     .filter(Boolean) as InternalPoint[];
 };
 
+/**
+ * Extract tide extrema from raw_forecast.tide_schedule
+ * This is the authoritative source - same data used by "Next Tides" cards
+ */
+export const normalizeTideSchedule = (
+  forecasts?: EnhancedForecastEntity[]
+): InternalPoint[] => {
+  if (!Array.isArray(forecasts)) return [];
+
+  // Find first forecast with tide_schedule
+  for (const forecast of forecasts) {
+    const schedule = forecast.raw_forecast?.tide_schedule;
+    if (Array.isArray(schedule) && schedule.length > 0) {
+      return schedule.map((tide) => ({
+        t: new Date(tide.time * 1000),
+        h: tide.height,
+        isHigh: tide.type === "high",
+        isLow: tide.type === "low",
+        timestamp: tide.time * 1000,
+      }));
+    }
+  }
+
+  return [];
+};
+
 const normalizeForecasts = (
   forecasts?: EnhancedForecastEntity[]
 ): InternalPoint[] => {
