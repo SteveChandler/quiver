@@ -94,3 +94,42 @@ export function buildCitySlug(
 
   return baseSlug;
 }
+
+export interface ParsedCitySlug {
+  /** City name pattern for ILIKE search (spaces instead of hyphens) */
+  cityPattern: string;
+  /** State abbreviation if suffix detected, null otherwise */
+  stateFilter: string | null;
+}
+
+/**
+ * Parse a city slug to extract city pattern and optional state filter.
+ *
+ * Examples:
+ * - "santa-cruz" → { cityPattern: "santa cruz", stateFilter: null }
+ * - "newport-ca" → { cityPattern: "newport", stateFilter: "CA" }
+ * - "newport-beach-ca" → { cityPattern: "newport beach", stateFilter: "CA" }
+ *
+ * @param slug - URL slug like "santa-cruz" or "newport-ca"
+ * @returns Parsed components for database query
+ */
+export function resolveCityFromSlug(slug: string): ParsedCitySlug {
+  const parts = slug.toLowerCase().split("-");
+
+  // Check if last part is a valid state slug
+  const lastPart = parts[parts.length - 1];
+  if (VALID_STATE_SLUGS.has(lastPart) && parts.length > 1) {
+    const stateAbbrev = SLUG_TO_STATE[lastPart];
+    const cityParts = parts.slice(0, -1);
+    return {
+      cityPattern: cityParts.join(" "),
+      stateFilter: stateAbbrev,
+    };
+  }
+
+  // No state suffix - return full slug as city pattern
+  return {
+    cityPattern: parts.join(" "),
+    stateFilter: null,
+  };
+}

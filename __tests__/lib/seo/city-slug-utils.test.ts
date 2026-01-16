@@ -1,5 +1,9 @@
 // __tests__/lib/seo/city-slug-utils.test.ts
-import { buildCitySlug, detectCityCollisions } from "@/lib/seo/city-slug-utils";
+import {
+  buildCitySlug,
+  detectCityCollisions,
+  resolveCityFromSlug,
+} from "@/lib/seo/city-slug-utils";
 
 describe("detectCityCollisions", () => {
   it("returns empty map when no collisions", () => {
@@ -56,5 +60,60 @@ describe("buildCitySlug", () => {
     const collisions = new Map([["newport", 2]]);
     const slug = buildCitySlug("Newport", "OR", collisions);
     expect(slug).toBe("newport-or");
+  });
+});
+
+describe("resolveCityFromSlug", () => {
+  it("parses simple slug without state suffix", () => {
+    const result = resolveCityFromSlug("santa-cruz");
+    expect(result).toEqual({
+      cityPattern: "santa cruz",
+      stateFilter: null,
+    });
+  });
+
+  it("parses slug with state suffix", () => {
+    const result = resolveCityFromSlug("newport-ca");
+    expect(result).toEqual({
+      cityPattern: "newport",
+      stateFilter: "CA",
+    });
+  });
+
+  it("parses multi-word city with state suffix", () => {
+    const result = resolveCityFromSlug("newport-beach-ca");
+    expect(result).toEqual({
+      cityPattern: "newport beach",
+      stateFilter: "CA",
+    });
+  });
+
+  it("handles slug that ends with non-state suffix", () => {
+    // "la-jolla" - the last part "jolla" is not a state slug
+    // so the entire slug is treated as a city pattern
+    const result = resolveCityFromSlug("la-jolla");
+    expect(result).toEqual({
+      cityPattern: "la jolla",
+      stateFilter: null,
+    });
+  });
+
+  it("handles ambiguous city name starting with state-like prefix", () => {
+    // Edge case: "la" at the start looks like Louisiana abbreviation
+    // but since we only check the LAST part, this parses correctly
+    const result = resolveCityFromSlug("la");
+    // Single-part slug can't have state suffix (needs parts.length > 1)
+    expect(result).toEqual({
+      cityPattern: "la",
+      stateFilter: null,
+    });
+  });
+
+  it("handles oregon state suffix", () => {
+    const result = resolveCityFromSlug("newport-or");
+    expect(result).toEqual({
+      cityPattern: "newport",
+      stateFilter: "OR",
+    });
   });
 });
