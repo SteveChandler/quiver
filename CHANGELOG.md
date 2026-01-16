@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Database-Driven Intent Pages (Static Generation):** Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate static pages for all cities with 3+ beaches from the database (previously hardcoded to just San Diego and Orange County). Now generates ~350 intent pages (50+ cities × 7 intents) plus all 50 US states. Uses `getAllCitiesWithBeaches()` action, applies city slug collision detection (e.g. `newport-ca` vs `newport-or`), and maintains state-level intent pages (e.g. `/beginner/ca`). Removed hardcoded `SURF_CITY_SLUGS` and `SurfCitySlug` type references.
+
 - **Regional Hub Pages:** Created regional surf guide hub pages at `/guides/surfing-[region]` with interactive Mapbox GL maps. Features include:
   - **Hub Regions Data** (`lib/data/hub-regions.ts`): Configuration for 4 initial regions (Southern California, San Diego, Orange County, Hawaii) with center coordinates, zoom levels, and descriptions.
   - **HubMapView Component** (`components/hub/hub-map-view.tsx`): Client-side Mapbox GL component with color-coded markers by skill level (green=beginner, blue=intermediate, dark=advanced), clickable popups with beach links, and interactive legend.

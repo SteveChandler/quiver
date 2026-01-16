@@ -4,9 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import {
-  SURF_CITY_SLUGS,
   SURF_INTENTS,
-  type SurfCitySlug,
   type SurfIntentSlug,
   type SurfSpot,
   getCityBySlug,
@@ -25,6 +23,8 @@ import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-trans
 import { StateMapView } from "@/components/state/state-map-view";
 import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
+import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
+import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
 
 export const revalidate = 1800;
 
@@ -36,15 +36,40 @@ function formatPacificDateTime(date: Date) {
   }).format(date);
 }
 
+const INTENT_SLUGS: SurfIntentSlug[] = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+const US_STATES = Object.values(US_STATE_SLUGS);
+
 export async function generateStaticParams() {
-  const params: Array<{ intent: SurfIntentSlug; city: SurfCitySlug }> = [];
-  SURF_CITY_SLUGS.forEach((citySlug) => {
-    const city = getCityBySlug(citySlug);
-    if (!city) return;
-    city.featuredIntents.forEach((intent) => {
-      params.push({ intent, city: citySlug });
-    });
-  });
+  const params: Array<{ intent: string; city: string }> = [];
+
+  try {
+    // Get all cities with 3+ beaches
+    const citiesResult = await getAllCitiesWithBeaches(3);
+    if (citiesResult.success && citiesResult.data) {
+      // Detect collisions
+      const collisionMap = detectCityCollisions(citiesResult.data);
+
+      // Generate city × intent combinations
+      for (const cityRecord of citiesResult.data) {
+        const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
+        if (!citySlug) continue;
+
+        for (const intent of INTENT_SLUGS) {
+          params.push({ intent, city: citySlug });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("generateStaticParams: Failed to fetch cities", error);
+  }
+
+  // Add state-level intent params (e.g., /beginner/ca)
+  for (const state of US_STATES) {
+    for (const intent of INTENT_SLUGS) {
+      params.push({ intent, city: state });
+    }
+  }
+
   return params;
 }
 
