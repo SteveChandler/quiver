@@ -612,8 +612,8 @@ export function TideChart({
           >
             <defs>
               <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.03} />
+                <stop offset="0%" stopColor="#1e40af" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#1e40af" stopOpacity={0} />
               </linearGradient>
             </defs>
 
@@ -669,8 +669,8 @@ export function TideChart({
               xAxisId="time"
               type="monotone"
               dataKey="h"
-              stroke="#2563eb"
-              strokeWidth={2.5}
+              stroke="#1e40af"
+              strokeWidth={3}
               fill={`url(#fill-${gradId})`}
               isAnimationActive={animationEnabled}
               connectNulls={true}
