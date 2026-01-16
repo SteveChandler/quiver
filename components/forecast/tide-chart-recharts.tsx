@@ -620,7 +620,8 @@ export function TideChart({
             <CartesianGrid
               vertical={false}
               stroke="#e2e8f0"
-              strokeDasharray="3 3"
+              strokeDasharray="0"
+              strokeOpacity={0.5}
             />
 
             {/** Top axis: days */}
@@ -633,7 +634,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               interval={0}
-              tick={{ fontSize: 12, fill: "#64748b" }}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
               height={22}
               orientation="top"
             />
@@ -651,7 +652,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               interval={0}
-              tick={{ fontSize: 12, fill: "#64748b" }}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
               height={28}
               orientation="bottom"
             />
@@ -661,7 +662,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               width={36}
-              tick={{ fontSize: 12, fill: "#64748b" }}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
               tickFormatter={(v) => v.toFixed(0)}
             />
 
