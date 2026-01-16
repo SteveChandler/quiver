@@ -144,6 +144,10 @@ function createTidePreferences(beach: Beach): TidePreferences {
       beach.preferred_tide_ft_max ??
       SPOT_PROFILE_DEFAULTS.tidePreferences.maxHeightFt,
     preferredDirection: parseTideDirection(beach.preferred_tide_direction),
+    directionSensitivity: parseTideDirectionSensitivity(
+      (beach as Beach & { tide_direction_sensitivity?: string | null }).tide_direction_sensitivity ?? null,
+      beach.break_type
+    ),
   };
 }
 
@@ -190,6 +194,50 @@ function parseTideDirection(
   }
 
   return 'either';
+}
+
+/**
+ * Derives tide direction sensitivity from break type.
+ * Reef breaks are most sensitive, point breaks least.
+ */
+function deriveSensitivityFromBreakType(
+  breakType: string | null
+): TidePreferences['directionSensitivity'] {
+  if (!breakType) return 'medium';
+
+  const normalized = breakType.toLowerCase().trim();
+
+  // Reef breaks are highly sensitive to tide direction
+  if (normalized.includes('reef')) {
+    return 'high';
+  }
+
+  // Point breaks are generally more forgiving
+  if (normalized.includes('point')) {
+    return 'low';
+  }
+
+  // Beach breaks, river mouths, etc. - medium sensitivity
+  return 'medium';
+}
+
+/**
+ * Parses tide direction sensitivity from database or derives from break type.
+ */
+function parseTideDirectionSensitivity(
+  explicit: string | null,
+  breakType: string | null
+): TidePreferences['directionSensitivity'] {
+  // If explicitly set, use that value
+  if (explicit) {
+    const normalized = explicit.toLowerCase().trim();
+    if (normalized === 'low' || normalized === 'medium' || normalized === 'high') {
+      return normalized;
+    }
+  }
+
+  // Otherwise derive from break type
+  return deriveSensitivityFromBreakType(breakType);
 }
 
 /**
