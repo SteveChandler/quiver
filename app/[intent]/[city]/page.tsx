@@ -221,31 +221,9 @@ export default async function IntentPage({ params }: IntentPageParams) {
 
   const now = new Date();
   const updatedAt = formatPacificDateTime(now);
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
-
-  // Transform spots to minimal BeachWithMetrics for the map
-  const beachesForMap: BeachWithMetrics[] = spots.map(
-    (spot) =>
-      ({
-        id: spot.id || spot.slug,
-        slug: spot.slug,
-        name: spot.name,
-        lat: spot.coordinates.lat,
-        lon: spot.coordinates.lng,
-        // Minimal dummy data for BeachWithMetrics compliance
-        city: cityMetadata.cityName,
-        state: cityMetadata.state,
-        region: spot.region,
-        description: spot.overview,
-        compositeScore: 0,
-        recentIntelCount: 0,
-        avgConfirmations: 0,
-        created_at: "",
-        updated_at: "",
-      } as unknown as BeachWithMetrics)
-  );
 
   return (
     <div className="bg-white">
