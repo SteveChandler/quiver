@@ -39,6 +39,11 @@ import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel, MatchQuality } from '@/lib/scoring';
 import type { ConditionBadge } from '@/types/personalization';
+import {
+  createDiscoveryScoringEngine,
+  scoreBeachWithEngine,
+  type DiscoveryScoringOptions,
+} from '@/lib/domains/scoring';
 
 // ============================================================================
 // Badge Generation
@@ -698,11 +703,19 @@ async function batchFetchForecasts(
 // ============================================================================
 
 /**
- * Score beach for discovery with detailed sub-score breakdown
+ * Score beach for discovery with detailed sub-score breakdown.
+ * Uses the domain-driven pluggable scoring engine.
  */
-/**
- * Score beach for discovery with detailed sub-score breakdown
- */
+// Singleton scoring engine instance for performance
+let _discoveryScoringEngine: ReturnType<typeof createDiscoveryScoringEngine> | null = null;
+
+function getDiscoveryScoringEngine() {
+  if (!_discoveryScoringEngine) {
+    _discoveryScoringEngine = createDiscoveryScoringEngine();
+  }
+  return _discoveryScoringEngine;
+}
+
 export async function scoreBeachForDiscovery(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
@@ -714,344 +727,69 @@ export async function scoreBeachForDiscovery(args: {
   const { beach, forecast, userPrefs, preferredWaveSize, affinity, distanceMiles } =
     args;
 
-  const preferredWaveRange = (() => {
-    const pref = (preferredWaveSize || "").toLowerCase();
-    if (!pref || pref === "any") return null;
-    if (pref === "small") return { min: 1, max: 3, label: "1-3 ft" };
-    if (pref === "medium") return { min: 3, max: 6, label: "3-6 ft" };
-    if (pref === "large") return { min: 6, max: Number.POSITIVE_INFINITY, label: "6+ ft" };
-    return null;
-  })();
+  // Use the new domain-driven scoring engine
+  const engine = getDiscoveryScoringEngine();
 
-  const subscores = {
-    waveHeightFit: 0,
-    periodEnergyScore: 0,
-    windAlignment: 0,
-    tideFit: 0,
-    affinityBonus: 0,
-    distancePenalty: 0,
-  };
-
-  const reasons: string[] = [];
-  const warnings: string[] = [];
-
-  // Parse forecast values
-  const waveHeight = parseFloat(forecast.wave_height || '0');
-  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
-  const windSpeed = parseFloat(forecast.wind_speed || '0');
-  const windDir = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
-  const tideHeight = parseFloat(forecast.tide_height || '0');
-  const tideStatus = forecast.tide_status?.toLowerCase() || '';
-  const confidence = forecast.confidence_score ?? 50; // Default to 50 if missing
-  
-  // Parse numeric swell direction (some sources might return 'SSW', others degrees)
-  // Assuming swell_1_direction might be string degrees "200" or cardinal "SSW".
-  // Note: getDirectionDegrees handles both number and string inputs for wind, we reuse it or similar logic.
-  // Ideally swell_1_direction is degrees in string format for CDIP.
-  const swellDir = forecast.swell_1_direction 
-    ? parseFloat(forecast.swell_1_direction) 
-    : null; // If NaN it will fail check below, which is fine (no penalty if unknown, or safe fallback?)
-
-  // 0. Swell Direction Check (Critical Filter)
-  if (
-    beach.swell_window_min_deg !== undefined &&
-    beach.swell_window_min_deg !== null &&
-    beach.swell_window_max_deg !== undefined &&
-    beach.swell_window_max_deg !== null &&
-    !isNaN(swellDir as number) &&
-    swellDir !== null
-  ) {
-    const min = beach.swell_window_min_deg;
-    const max = beach.swell_window_max_deg;
-    
-    // Handle wrap-around (e.g. min 300, max 40 covers NW to NE)
-    const isWrapAround = min > max;
-    const isIdeallyAligned = isWrapAround
-      ? swellDir >= min || swellDir <= max
-      : swellDir >= min && swellDir <= max;
-
-    if (!isIdeallyAligned) {
-      // Significant Penalty for wrong swell direction
-      // We don't want to zero it out completely (maybe it wraps slightly), but -50 ensures it won't be a "Best Bet"
-      // unless everything else is absolutely perfect, and even then it's low.
-      // Actually, if it's the wrong direction, waves might be 0ft effectively.
-      // Let's degrade the Wave Height score specifically or apply a massive penalty.
-      
-      // We'll apply a flat penalty to the conditions score effectively.
-      warnings.push(`Swell direction ${Math.round(swellDir)}° is non-optimal for this break (${min}°-${max}°)`);
-      
-      // We can modify subscores directly or add a specific penalty
-      // Let's add a "Swell Penalty" to the final calc or reduce waveHeightFit
-      // Reducing waveHeightFit to 0 is a good start.
-      subscores.waveHeightFit = 0; 
-      // And maybe an extra penalty on total
-      reasons.push(`Swell angle ${Math.round(swellDir)}° is blocked or poor`);
-    } else {
-        reasons.push(`Swell direction ${Math.round(swellDir)}° is optimal`);
-    }
-  }
-
-  // 1. Wave Height Fit (0-25 points)
-  if (preferredWaveRange) {
-    const { min, max, label } = preferredWaveRange;
-    const closeMin = min * 0.8;
-    const closeMax = Number.isFinite(max) ? max * 1.2 : Number.POSITIVE_INFINITY;
-
-    if (waveHeight >= min && waveHeight <= max) {
-      subscores.waveHeightFit = 25;
-      reasons.push(`Waves ${forecast.wave_height} match your preferred size (${label})`);
-    } else if (waveHeight >= closeMin && waveHeight <= closeMax) {
-      subscores.waveHeightFit = 15;
-      reasons.push(`Waves ${forecast.wave_height} are close to your preferred size (${label})`);
-      if (waveHeight < min) warnings.push(`Below your preferred size (${label})`);
-      else warnings.push(`Above your preferred size (${label})`);
-    } else {
-      subscores.waveHeightFit = 5;
-      if (waveHeight < min) warnings.push(`Below your preferred size (${label})`);
-      else warnings.push(`Above your preferred size (${label})`);
-    }
-  } else if (userPrefs) {
-    const userMin = userPrefs.wave_min_ft || 2;
-    const userMax = userPrefs.wave_max_ft || 8;
-
-    if (waveHeight >= userMin && waveHeight <= userMax) {
-      subscores.waveHeightFit = 25;
-      reasons.push(
-        `Waves ${forecast.wave_height} match your comfort range (${userMin}-${userMax} ft)`
-      );
-    } else if (waveHeight >= userMin * 0.8 && waveHeight <= userMax * 1.2) {
-      subscores.waveHeightFit = 15;
-      reasons.push(`Waves ${forecast.wave_height} are close to your preferred range`);
-    } else {
-      subscores.waveHeightFit = 5;
-      if (waveHeight < userMin) {
-        warnings.push(`Waves ${forecast.wave_height} may be smaller than you prefer`);
-      } else {
-        warnings.push(`Waves ${forecast.wave_height} may be larger than your comfort zone`);
-      }
-    }
-  } else {
-    if (waveHeight >= 2 && waveHeight <= 6) {
-      subscores.waveHeightFit = 20;
-      reasons.push(`Waves ${forecast.wave_height} are in a fun, surfable range`);
-    } else {
-      subscores.waveHeightFit = 10;
-    }
-  }
-
-  // 2. Period/Energy Score (0-20 points)
-  if (userPrefs) {
-    const userMinPeriod = userPrefs.wave_period_min_s || 8;
-    const userMaxPeriod = userPrefs.wave_period_max_s || 18;
-
-    if (wavePeriod >= userMinPeriod && wavePeriod <= userMaxPeriod) {
-      subscores.periodEnergyScore = 20;
-      reasons.push(`${forecast.wave_period} period matches your preferred swell energy`);
-    } else if (wavePeriod >= 10) {
-      subscores.periodEnergyScore = 15;
-      reasons.push(`Good swell period: ${forecast.wave_period}`);
-    } else {
-      subscores.periodEnergyScore = 5;
-      warnings.push(`Short period ${forecast.wave_period} may produce choppy conditions`);
-    }
-  } else {
-    if (wavePeriod >= 12) {
-      subscores.periodEnergyScore = 20;
-      reasons.push(`Excellent swell period: ${forecast.wave_period}`);
-    } else if (wavePeriod >= 9) {
-      subscores.periodEnergyScore = 15;
-      reasons.push(`Good swell period: ${forecast.wave_period}`);
-    } else {
-      subscores.periodEnergyScore = 5;
-    }
-  }
-
-  // 3. Wind Alignment (0-20 points)
-  if (beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null) {
-    const offshoreDir = beach.wind_offshore_deg;
-    const tolerance = beach.wind_offshore_tol_deg || 30;
-
-    if (windDir === null) {
-      if (windSpeed <= 10) {
-        subscores.windAlignment = 15;
-        reasons.push(`Light wind ${forecast.wind_speed} - favorable conditions`);
-      } else if (windSpeed <= 15) {
-        subscores.windAlignment = 8;
-      } else {
-        subscores.windAlignment = 0;
-        warnings.push(`Strong wind ${forecast.wind_speed} may affect conditions`);
-      }
-    } else {
-    const angleDiff = Math.min(
-      Math.abs(windDir - offshoreDir),
-      360 - Math.abs(windDir - offshoreDir)
-    );
-
-    if (angleDiff <= tolerance && windSpeed <= 15) {
-      subscores.windAlignment = 20;
-      reasons.push(
-        `Offshore ${forecast.wind_speed} ${forecast.wind_direction} wind - clean conditions`
-      );
-    } else if (angleDiff <= tolerance * 2) {
-      subscores.windAlignment = 10;
-      reasons.push(`Cross-shore wind - acceptable conditions`);
-    } else {
-      subscores.windAlignment = 0;
-      warnings.push(`Onshore wind may create choppy conditions`);
-    }
-    }
-  } else {
-    if (windSpeed <= 10) {
-      subscores.windAlignment = 15;
-      reasons.push(`Light wind ${forecast.wind_speed} - favorable conditions`);
-    } else if (windSpeed <= 15) {
-      subscores.windAlignment = 8;
-    } else {
-      subscores.windAlignment = 0;
-      warnings.push(`Strong wind ${forecast.wind_speed} may affect conditions`);
-    }
-  }
-
-  // 4. Tide Fit (0-15 points)
-  if (beach.preferred_tide_ft_min !== null && beach.preferred_tide_ft_max !== null) {
-    const idealMin = beach.preferred_tide_ft_min;
-    const idealMax = beach.preferred_tide_ft_max;
-
-    if (tideHeight >= idealMin && tideHeight <= idealMax) {
-      subscores.tideFit = 15;
-      reasons.push(`Tide ${forecast.tide_height} is ideal for this beach`);
-    } else if (
-      tideHeight >= idealMin * 0.8 &&
-      tideHeight <= idealMax * 1.2
-    ) {
-      subscores.tideFit = 8;
-      reasons.push(`Tide ${forecast.tide_height} is workable`);
-    } else {
-      subscores.tideFit = 3;
-      warnings.push(`Tide ${forecast.tide_height} may be outside optimal range`);
-    }
-  } else {
-    subscores.tideFit = 8;
-  }
-
-  // 4b. Tide Direction Penalty
-  const beachTideDir = beach.preferred_tide_direction;
-  if (beachTideDir && beachTideDir !== 'either' && tideStatus) {
-    const forecastTideDir = tideStatus.includes('rising') ? 'rising'
-      : tideStatus.includes('falling') ? 'falling'
-      : tideStatus.includes('slack') || tideStatus.includes('high') || tideStatus.includes('low') ? 'slack'
-      : null;
-
-    if (forecastTideDir && beachTideDir !== forecastTideDir) {
-      const dirPenalty = forecastTideDir === 'slack' ? 6 : 12;
-      subscores.tideFit = Math.max(0, subscores.tideFit - dirPenalty);
-      warnings.push(`Tide is ${forecastTideDir}, beach works best on ${beachTideDir} tide`);
-    }
-  }
-
-  // 5. Affinity Bonus (0-15 points)
+  // Calculate affinity bonus (0-15 points)
+  let affinityBonus = 0;
   if (affinity && affinity.affinity_score > 10) {
-    subscores.affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
-    const sessionCount = Math.round(affinity.affinity_score / 10);
-    reasons.push(`You've surfed here ${sessionCount}+ times - familiar spot`);
+    affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
   }
 
-  // 6. Distance Penalty (0 to -20 points)
+  // Calculate distance penalty (0 to -20 points)
+  let distancePenalty = 0;
   if (distanceMiles !== undefined) {
     if (distanceMiles <= 5) {
-      subscores.distancePenalty = 0;
+      distancePenalty = 0;
     } else if (distanceMiles <= 15) {
-      subscores.distancePenalty = -5;
+      distancePenalty = -5;
     } else if (distanceMiles <= 30) {
-      subscores.distancePenalty = -10;
+      distancePenalty = -10;
     } else {
-      subscores.distancePenalty = -20;
-      warnings.push(`${Math.round(distanceMiles)} miles away - long drive`);
+      distancePenalty = -20;
     }
   }
 
-  // Calculate total (normalized)
-  const windMax =
-    beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
-      ? 20
-      : 15;
-  const tideMax =
-    beach.preferred_tide_ft_min !== null && beach.preferred_tide_ft_max !== null
-      ? 15
-      : 8;
+  // Map preferredWaveSize to engine option
+  const normalizedWaveSize = (preferredWaveSize || '').toLowerCase();
+  const preferredWaveSizeOption: DiscoveryScoringOptions['preferredWaveSize'] =
+    normalizedWaveSize === 'small' ? 'small' :
+    normalizedWaveSize === 'medium' ? 'medium' :
+    normalizedWaveSize === 'large' ? 'large' :
+    'any';
 
-  const conditionsEarned =
-    subscores.waveHeightFit +
-    subscores.periodEnergyScore +
-    subscores.windAlignment +
-    subscores.tideFit;
-  const conditionsMax = 25 + 20 + windMax + tideMax;
+  // Score using new engine
+  const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
+    affinityBonus,
+    distancePenalty,
+    preferredWaveSize: preferredWaveSizeOption,
+  });
 
-  const normalizedConditions =
-    conditionsMax > 0 ? (conditionsEarned / conditionsMax) * 100 : 0;
-
-  // Composite Score Calculation:
-  // Weight conditions heavily (70%) but factor in confidence (30%)
-  // This effectively dampens the score for long-range, uncertain forecasts.
-  //
-  // Example:
-  // Perfect Conditions (100) + 50% Confidence -> 70 + 15 = 85 (8.5/10)
-  // Perfect Conditions (100) + 90% Confidence -> 70 + 27 = 97 (9.7/10)
-  const compositeScore = (normalizedConditions * 0.7) + (confidence * 0.3);
-
-  let total = Math.max(
-    0,
-    Math.min(
-      100,
-      compositeScore + subscores.affinityBonus + subscores.distancePenalty
-    )
-  );
-
-  // If waves are outside the user's explicit preferred size, apply a graduated penalty.
-  if (preferredWaveRange) {
-    const { min, max } = preferredWaveRange;
-    const outsideRange = waveHeight < min
-      ? min - waveHeight
-      : waveHeight > max
-        ? waveHeight - max
-        : 0;
-
-    if (outsideRange > 0) {
-      const penalty = Math.min(36, Math.floor(outsideRange / 0.5) * 12);
-      total = Math.max(0, total - penalty);
-      total = Math.min(total, 75);
-    }
+  // Add affinity reason if applicable
+  if (affinity && affinity.affinity_score > 10) {
+    const sessionCount = Math.round(affinity.affinity_score / 10);
+    detailedScore.reasons.push(`You've surfed here ${sessionCount}+ times - familiar spot`);
   }
 
-  // Determine match quality
-  let matchQuality: 'perfect' | 'excellent' | 'good' | 'fair';
-  if (total >= 85) matchQuality = 'perfect';
-  else if (total >= 70) matchQuality = 'excellent';
-  else if (total >= 55) matchQuality = 'good';
-  else matchQuality = 'fair';
+  // Add distance warning if far
+  if (distanceMiles !== undefined && distanceMiles > 30) {
+    detailedScore.warnings.push(`${Math.round(distanceMiles)} miles away - long drive`);
+  }
 
   // Add skill level warning if needed
   if (beach.skill_level === 'advanced' || beach.skill_level === 'expert') {
-    if (!warnings.some((w) => w.includes('Advanced'))) {
-      warnings.push('Advanced spot - check conditions carefully');
+    if (!detailedScore.warnings.some((w) => w.includes('Advanced'))) {
+      detailedScore.warnings.push('Advanced spot - check conditions carefully');
     }
   }
 
-  // Generate condition badges
-  const conditionBadges = generateConditionBadges(forecast, beach, {
-    waveHeightFit: subscores.waveHeightFit,
-    periodEnergyScore: subscores.periodEnergyScore,
-    windAlignment: subscores.windAlignment,
-    tideFit: subscores.tideFit,
-  });
+  // Generate condition badges (keep existing badge generation)
+  const conditionBadges = generateConditionBadges(forecast, beach, detailedScore.subscores);
 
   return {
-    total,
-    subscores,
-    matchQuality,
-    reasons: reasons.slice(0, 5),
-    warnings,
+    ...detailedScore,
     conditionBadges,
+    reasons: detailedScore.reasons.slice(0, 5),
   };
 }
 
@@ -1301,6 +1039,13 @@ export function selectBestWindow(
   const sunTimes = sunTimesCache?.get(beach.id);
   const sunsets = sunTimes?.sunsets || [];
 
+  // Find today's sunset for post-sunset rejection
+  // Windows starting after sunset should be rejected (it's dark)
+  const todaySunset = sunsets.find(s => {
+    const sunsetLocalDate = getLocalDateStr(s);
+    return sunsetLocalDate === todayDateStr;
+  });
+
   for (let i = 0; i < scoredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore, isToday } = scoredForecasts[i];
 
@@ -1332,6 +1077,13 @@ export function selectBestWindow(
         }
     } catch (e) {
         // If tz conversion fails, assume safe to proceed (fallback to sunset check)
+    }
+
+    // 1.5. Post-Sunset Rejection
+    // If we know today's sunset and this window starts after it, skip entirely
+    // This prevents the bug where post-sunset windows validate against tomorrow's sunset
+    if (todaySunset && startTime.getTime() > todaySunset.getTime()) {
+      continue;
     }
 
     // 2. Next Sunset Lookup
@@ -1458,8 +1210,12 @@ export function selectBestWindow(
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && scoredForecasts.length > 0) {
-    // Filter out night hours before selecting fallback (same logic as main loop)
+    // Filter out night hours and post-sunset times before selecting fallback
     const daylightForecasts = scoredForecasts.filter(({ forecastTime }) => {
+      // Post-sunset rejection (same as main loop)
+      if (todaySunset && forecastTime.getTime() > todaySunset.getTime()) {
+        return false;
+      }
       try {
         const localHour = parseInt(
           new Intl.DateTimeFormat("en-US", {
