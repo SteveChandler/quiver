@@ -73,7 +73,7 @@ export async function getCityMetadata(
 
     const { data: beaches, error } = await supabase
       .from("beaches")
-      .select("id, name, slug, skill_level, center_lat, center_lng")
+      .select("id, name, slug, skill_level, lat, lon")
       .ilike("city", cityName)
       .eq("state", normalizedState)
       .or("is_private.is.null,is_private.eq.false")
@@ -102,15 +102,15 @@ export async function getCityMetadata(
 
     // Calculate center coordinates (average of all beaches with valid coordinates)
     const validCoords = beaches.filter(
-      (b) => b.center_lat != null && b.center_lng != null
+      (b) => b.lat != null && b.lon != null
     );
     const centerLat =
       validCoords.length > 0
-        ? validCoords.reduce((sum, b) => sum + b.center_lat, 0) / validCoords.length
+        ? validCoords.reduce((sum, b) => sum + (b.lat ?? 0), 0) / validCoords.length
         : 0;
     const centerLon =
       validCoords.length > 0
-        ? validCoords.reduce((sum, b) => sum + b.center_lng, 0) / validCoords.length
+        ? validCoords.reduce((sum, b) => sum + (b.lon ?? 0), 0) / validCoords.length
         : 0;
 
     return {
