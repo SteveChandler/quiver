@@ -4,6 +4,7 @@ import {
   SURF_CITY_SLUGS,
   getCityBySlug,
 } from "@/lib/data/surf-spots";
+import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
@@ -96,6 +97,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.75,
     }))
   );
+
+  // Hub region routes (e.g., /guides/surfing-southern-california)
+  const hubRoutes: MetadataRoute.Sitemap = HUB_REGION_SLUGS.map((region) => ({
+    url: `${baseUrl}/guides/surfing-${region}`,
+    lastModified: lastmod,
+    changeFrequency: "weekly" as const,
+    priority: 0.9,
+  }));
 
   // Location pages (AllTrails-style beach listings by city)
   let locationRoutes: MetadataRoute.Sitemap = [];
@@ -212,6 +221,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...intentRoutes,
     ...deduplicatedDynamicIntentRoutes,
     ...stateIntentRoutes,
+    ...hubRoutes,
     ...usaStateRoutes,
     ...locationRoutes,
     ...beachEntries,
