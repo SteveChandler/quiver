@@ -34,7 +34,9 @@ import type {
   SurfDiscoveryOptions,
   DetailedScore,
   PersonalizedForecastWindow,
+  TimeSlot,
 } from '@/types/personalization';
+import { TIME_SLOT_RANGES } from '@/types/personalization';
 import { withApprovedPhotos } from '@/lib/supabase/query-builders';
 import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
 import type { RecommendationLabel, MatchQuality } from '@/lib/scoring';
@@ -936,7 +938,8 @@ export function selectBestWindow(
   beach: Beach,
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
   horizonHours?: number,
-  sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>
+  sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  timeSlot?: TimeSlot
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
@@ -1027,6 +1030,31 @@ export function selectBestWindow(
 
   if (scoredForecasts.length === 0) return null;
 
+  // Apply time slot filter
+  let filteredForecasts = scoredForecasts;
+
+  if (timeSlot && timeSlot !== 'any') {
+    const { startHour, endHour } = TIME_SLOT_RANGES[timeSlot];
+
+    filteredForecasts = scoredForecasts.filter(({ forecastTime }) => {
+      try {
+        const localHour = parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: beachTz,
+          }).format(forecastTime),
+          10
+        );
+        return localHour >= startHour && localHour < endHour;
+      } catch {
+        return true; // If timezone conversion fails, include it
+      }
+    });
+  }
+
+  if (filteredForecasts.length === 0) return null;
+
   let bestWindow: {
     forecast: EnhancedForecastEntity;
     start: Date;
@@ -1046,8 +1074,8 @@ export function selectBestWindow(
     return sunsetLocalDate === todayDateStr;
   });
 
-  for (let i = 0; i < scoredForecasts.length; i++) {
-    const { forecast, forecastTime: startTime, score: startScore, isToday } = scoredForecasts[i];
+  for (let i = 0; i < filteredForecasts.length; i++) {
+    const { forecast, forecastTime: startTime, score: startScore, isToday } = filteredForecasts[i];
 
     // Morning priority: use lower threshold for today's forecasts before noon
     const effectiveThreshold = (isMorning && isToday)
@@ -1119,9 +1147,9 @@ export function selectBestWindow(
     let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
 
     // Look ahead to find when conditions degrade
-    for (let j = i; j < scoredForecasts.length - 1; j++) {
-      const current = scoredForecasts[j];
-      const next = scoredForecasts[j + 1];
+    for (let j = i; j < filteredForecasts.length - 1; j++) {
+      const current = filteredForecasts[j];
+      const next = filteredForecasts[j + 1];
 
       // Stop if next forecast is on a different date (use local dates instead of UTC date strings)
       const currentLocalDate = getLocalDateStr(current.forecastTime);
@@ -1209,9 +1237,9 @@ export function selectBestWindow(
   }
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
-  if (!bestWindow && scoredForecasts.length > 0) {
+  if (!bestWindow && filteredForecasts.length > 0) {
     // Filter out night hours and post-sunset times before selecting fallback
-    const daylightForecasts = scoredForecasts.filter(({ forecastTime }) => {
+    const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
       // Post-sunset rejection (same as main loop)
       if (todaySunset && forecastTime.getTime() > todaySunset.getTime()) {
         return false;

@@ -46,59 +46,82 @@ describe('selectBestWindow with timeSlot filter', () => {
 
   it('returns morning window when timeSlot=morning', () => {
     const forecasts = [
-      createForecast(tomorrowStr, 7),   // 7am - morning
-      createForecast(tomorrowStr, 10),  // 10am - morning
-      createForecast(tomorrowStr, 14),  // 2pm - afternoon
-      createForecast(tomorrowStr, 17),  // 5pm - afternoon
+      createForecast(tomorrowStr, 15),  // 7am PST (15:00 UTC)
+      createForecast(tomorrowStr, 18),  // 10am PST (18:00 UTC)
+      createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC)
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'morning');
 
     expect(result).not.toBeNull();
-    const startHour = result!.start.getUTCHours();
-    // Morning filter: 6am-12pm, so start should be 7 or 10
-    expect(startHour).toBeGreaterThanOrEqual(6);
-    expect(startHour).toBeLessThan(12);
+    // Check local hour in America/Los_Angeles timezone
+    const localHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: "America/Los_Angeles",
+      }).format(result!.start),
+      10
+    );
+    // Morning filter: 6am-12pm local time
+    expect(localHour).toBeGreaterThanOrEqual(6);
+    expect(localHour).toBeLessThan(12);
   });
 
   it('returns afternoon window when timeSlot=afternoon', () => {
     const forecasts = [
-      createForecast(tomorrowStr, 7),   // 7am - morning
-      createForecast(tomorrowStr, 10),  // 10am - morning
-      createForecast(tomorrowStr, 14),  // 2pm - afternoon
-      createForecast(tomorrowStr, 17),  // 5pm - afternoon
+      createForecast(tomorrowStr, 15),  // 7am PST (15:00 UTC)
+      createForecast(tomorrowStr, 18),  // 10am PST (18:00 UTC)
+      createForecast(tomorrowStr, 20),  // 12pm PST (20:00 UTC)
+      createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC)
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'afternoon');
 
     expect(result).not.toBeNull();
-    const startHour = result!.start.getUTCHours();
-    // Afternoon filter: 12pm-6pm, so start should be 14 or 17
-    expect(startHour).toBeGreaterThanOrEqual(12);
-    expect(startHour).toBeLessThan(18);
+    // Check local hour in America/Los_Angeles timezone
+    const localHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: "America/Los_Angeles",
+      }).format(result!.start),
+      10
+    );
+    // Afternoon filter: 12pm-6pm local time
+    expect(localHour).toBeGreaterThanOrEqual(12);
+    expect(localHour).toBeLessThan(18);
   });
 
   it('returns dawn-patrol window when timeSlot=dawn-patrol', () => {
     const forecasts = [
-      createForecast(tomorrowStr, 6),   // 6am - dawn patrol
-      createForecast(tomorrowStr, 8),   // 8am - dawn patrol
-      createForecast(tomorrowStr, 10),  // 10am - morning only
-      createForecast(tomorrowStr, 14),  // 2pm - afternoon
+      createForecast(tomorrowStr, 14),  // 6am PST (14:00 UTC)
+      createForecast(tomorrowStr, 16),  // 8am PST (16:00 UTC)
+      createForecast(tomorrowStr, 18),  // 10am PST (18:00 UTC)
+      createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC)
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'dawn-patrol');
 
     expect(result).not.toBeNull();
-    const startHour = result!.start.getUTCHours();
-    // Dawn patrol: 6am-9am
-    expect(startHour).toBeGreaterThanOrEqual(6);
-    expect(startHour).toBeLessThan(9);
+    // Check local hour in America/Los_Angeles timezone
+    const localHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: "America/Los_Angeles",
+      }).format(result!.start),
+      10
+    );
+    // Dawn patrol: 6am-9am local time
+    expect(localHour).toBeGreaterThanOrEqual(6);
+    expect(localHour).toBeLessThan(9);
   });
 
   it('returns null when no windows match time slot', () => {
     const forecasts = [
-      createForecast(tomorrowStr, 14),  // 2pm - afternoon only
-      createForecast(tomorrowStr, 17),  // 5pm - afternoon only
+      createForecast(tomorrowStr, 20),  // 12pm PST (20:00 UTC) - afternoon only
+      createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC) - afternoon only
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'morning');
@@ -108,8 +131,8 @@ describe('selectBestWindow with timeSlot filter', () => {
 
   it('returns any window when timeSlot=any', () => {
     const forecasts = [
-      createForecast(tomorrowStr, 7),
-      createForecast(tomorrowStr, 14),
+      createForecast(tomorrowStr, 15),  // 7am PST (15:00 UTC)
+      createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC)
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'any');
@@ -119,8 +142,8 @@ describe('selectBestWindow with timeSlot filter', () => {
 
   it('returns any window when timeSlot is undefined (default behavior)', () => {
     const forecasts = [
-      createForecast(tomorrowStr, 7),
-      createForecast(tomorrowStr, 14),
+      createForecast(tomorrowStr, 15),  // 7am PST (15:00 UTC)
+      createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC)
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, undefined);
