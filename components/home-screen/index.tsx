@@ -234,6 +234,18 @@ export function HomeScreen() {
                   onPlanWeekend={handlePlanWeekend}
                   disabled={discoveryLoading}
                 />
+              ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
+                <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">
+                  <p className="text-white/80 mb-3">
+                    No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows tomorrow.
+                  </p>
+                  <button
+                    onClick={() => setTimeSlot('any')}
+                    className="text-white hover:text-white/90 underline text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
+                  >
+                    Show all times
+                  </button>
+                </div>
               ) : !discoveryLoading ? (
                 <div className="flex flex-col gap-3 px-4 sm:px-1" data-testid="fallback-actions">
                   <button
