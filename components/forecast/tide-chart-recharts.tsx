@@ -683,18 +683,18 @@ export function TideChart({
               <ReferenceLine
                 xAxisId="time"
                 x={windowBounds.nowTs}
-                stroke="#ef4444"
-                strokeDasharray="3 3"
-                strokeWidth={1.5}
+                stroke="#dc2626"
+                strokeDasharray="0"
+                strokeWidth={2}
                 label={{
                   value:
                     nowHeight !== null
-                      ? `Now • ${nowHeight.toFixed(1)} ${unit}`
+                      ? `Now · ${nowHeight.toFixed(1)} ${unit}`
                       : "Now",
                   position: "top",
-                  fill: "#ef4444",
-                  fontSize: 11,
-                  fontWeight: 500,
+                  fill: "#dc2626",
+                  fontSize: 12,
+                  fontWeight: 600,
                 }}
               />
             )}
