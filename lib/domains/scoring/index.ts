@@ -27,6 +27,7 @@ export {
   swellInterferenceScorer,
   windQualityScorer,
   tideFitScorer,
+  tideDirectionScorer,
   windowStabilityScorer,
   trendPreferenceScorer,
 } from './scorers';
