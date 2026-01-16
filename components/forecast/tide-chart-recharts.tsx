@@ -221,6 +221,32 @@ const normalizeEvents = (
     .filter(Boolean) as InternalPoint[];
 };
 
+/**
+ * Extract tide extrema from raw_forecast.tide_schedule
+ * This is the authoritative source - same data used by "Next Tides" cards
+ */
+export const normalizeTideSchedule = (
+  forecasts?: EnhancedForecastEntity[]
+): InternalPoint[] => {
+  if (!Array.isArray(forecasts)) return [];
+
+  // Find first forecast with tide_schedule
+  for (const forecast of forecasts) {
+    const schedule = forecast.raw_forecast?.tide_schedule;
+    if (Array.isArray(schedule) && schedule.length > 0) {
+      return schedule.map((tide) => ({
+        t: new Date(tide.time * 1000),
+        h: tide.height,
+        isHigh: tide.type === "high",
+        isLow: tide.type === "low",
+        timestamp: tide.time * 1000,
+      }));
+    }
+  }
+
+  return [];
+};
+
 const normalizeForecasts = (
   forecasts?: EnhancedForecastEntity[]
 ): InternalPoint[] => {
@@ -421,14 +447,20 @@ export function TideChart({
     () => normalizeForecasts(forecasts),
     [forecasts]
   );
+  const tideScheduleData = React.useMemo(
+    () => normalizeTideSchedule(forecasts),
+    [forecasts]
+  );
 
   const rawLine = React.useMemo(() => {
+    // Priority: direct data > tide_schedule > hourly > events > forecasts
     if (directData.length) return directData;
+    if (tideScheduleData.length) return synthesizeFromExtrema(tideScheduleData);
     if (hourlyData.length) return hourlyData;
     if (eventData.length) return synthesizeFromExtrema(eventData);
     if (forecastData.length) return forecastData;
     return [] as InternalPoint[];
-  }, [directData, hourlyData, eventData, forecastData]);
+  }, [directData, tideScheduleData, hourlyData, eventData, forecastData]);
 
   const emphasizedLine = React.useMemo(() => {
     if (!rawLine.length) return rawLine;
@@ -580,15 +612,16 @@ export function TideChart({
           >
             <defs>
               <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.03} />
+                <stop offset="0%" stopColor="#1e40af" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#1e40af" stopOpacity={0} />
               </linearGradient>
             </defs>
 
             <CartesianGrid
               vertical={false}
               stroke="#e2e8f0"
-              strokeDasharray="3 3"
+              strokeDasharray="0"
+              strokeOpacity={0.5}
             />
 
             {/** Top axis: days */}
@@ -601,7 +634,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               interval={0}
-              tick={{ fontSize: 12, fill: "#64748b" }}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
               height={22}
               orientation="top"
             />
@@ -619,7 +652,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               interval={0}
-              tick={{ fontSize: 12, fill: "#64748b" }}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
               height={28}
               orientation="bottom"
             />
@@ -629,7 +662,7 @@ export function TideChart({
               axisLine={false}
               tickLine={false}
               width={36}
-              tick={{ fontSize: 12, fill: "#64748b" }}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 500 }}
               tickFormatter={(v) => v.toFixed(0)}
             />
 
@@ -637,8 +670,8 @@ export function TideChart({
               xAxisId="time"
               type="monotone"
               dataKey="h"
-              stroke="#2563eb"
-              strokeWidth={2.5}
+              stroke="#1e40af"
+              strokeWidth={3}
               fill={`url(#fill-${gradId})`}
               isAnimationActive={animationEnabled}
               connectNulls={true}
@@ -650,18 +683,18 @@ export function TideChart({
               <ReferenceLine
                 xAxisId="time"
                 x={windowBounds.nowTs}
-                stroke="#ef4444"
-                strokeDasharray="3 3"
-                strokeWidth={1.5}
+                stroke="#dc2626"
+                strokeDasharray="0"
+                strokeWidth={2}
                 label={{
                   value:
                     nowHeight !== null
-                      ? `Now • ${nowHeight.toFixed(1)} ${unit}`
+                      ? `Now · ${nowHeight.toFixed(1)} ${unit}`
                       : "Now",
                   position: "top",
-                  fill: "#ef4444",
-                  fontSize: 11,
-                  fontWeight: 500,
+                  fill: "#dc2626",
+                  fontSize: 12,
+                  fontWeight: 600,
                 }}
               />
             )}
@@ -675,20 +708,20 @@ export function TideChart({
       </div>
 
       {!compact && (
-        <div className="mt-3 flex gap-3 text-xs text-slate-600">
-          <div className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
-            Tide height
+        <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded-full bg-blue-800" />
+            <span>Tide</span>
           </div>
           {showNowLine && (
-            <div className="inline-flex items-center gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
-              Current time
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-0.5 rounded-full bg-red-600" />
+              <span>Now</span>
             </div>
           )}
-          <div className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
-            Sea level (0)
+          <div className="flex items-center gap-1.5">
+            <span className="h-px w-4 bg-slate-400" />
+            <span>Sea level</span>
           </div>
         </div>
       )}
