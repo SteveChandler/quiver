@@ -164,3 +164,52 @@ export async function getBeachesByIntentAndCity(
     return { data: (data ?? []) as Beach[], error: null };
   });
 }
+
+/**
+ * Fetch beaches matching an intent for an entire state.
+ * Used for state-level SEO pages like /beginner/ca.
+ *
+ * @param intent - The surf intent
+ * @param stateSlug - State slug (e.g., "ca")
+ */
+export async function getBeachesByIntentAndState(
+  intent: string,
+  stateSlug: string
+) {
+  return withDatabaseOperation<Beach[]>(async (supabase) => {
+    let query = supabase
+      .from("beaches")
+      .select(BEACH_DETAIL_FIELDS)
+      .or("is_private.is.null,is_private.eq.false");
+
+    // Match state
+    const stateUpper = stateSlug.toUpperCase();
+    query = query.or(`state.eq.${stateUpper},state.ilike.%${stateSlug}%`);
+
+    // Apply intent-specific filters (same as city version)
+    const skillFilters = INTENT_SKILL_FILTERS[intent];
+    if (skillFilters) {
+      const skillConditions = skillFilters
+        .map((s) => `skill_level.ilike.%${s}%`)
+        .join(",");
+      query = query.or(skillConditions);
+    }
+
+    const crowdFilters = INTENT_CROWD_FILTERS[intent];
+    if (crowdFilters) {
+      const crowdConditions = crowdFilters
+        .map((c) => `crowd_level.ilike.%${c}%`)
+        .join(",");
+      query = query.or(crowdConditions);
+    }
+
+    const { data, error } = await query
+      .order("city")
+      .order("name")
+      .limit(100); // Limit for performance
+
+    if (error) throw error;
+
+    return { data: (data ?? []) as Beach[], error: null };
+  });
+}
