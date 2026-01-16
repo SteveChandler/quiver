@@ -14,6 +14,8 @@ import {
 } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { FAQSchema } from "@/components/seo/faq-schema";
+import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
 import { isValidStateSlug, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
@@ -147,6 +149,13 @@ export default async function IntentPage({ params }: IntentPageParams) {
             { name: intentDefinition.label, url: `${baseUrl}/${params.intent}/${params.city}` },
           ]}
         />
+        <FAQSchema
+          items={generateIntentFAQ(
+            params.intent as SurfIntentSlug,
+            stateName,
+            beaches.slice(0, 3).map((b) => b.name)
+          )}
+        />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
@@ -251,6 +260,13 @@ export default async function IntentPage({ params }: IntentPageParams) {
             url: `${baseUrl.replace(/\/$/, "")}/${params.intent}/${city.slug}`,
           },
         ]}
+      />
+      <FAQSchema
+        items={generateIntentFAQ(
+          params.intent as SurfIntentSlug,
+          city.name,
+          spots.slice(0, 3).map((s) => s.name)
+        )}
       />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
