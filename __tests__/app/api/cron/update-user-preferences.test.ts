@@ -42,11 +42,12 @@ jest.mock('@/lib/api-utils', () => ({
 interface MockChain {
   select: jest.Mock<MockChain>;
   not: jest.Mock<MockChain>;
+  eq: jest.Mock<MockChain | Promise<{ data: { id: string }[] | null; error: null }>>;
   gte: jest.Mock<Promise<{ data: { user_id: string }[] | null; error: { message: string } | null }>>;
 }
 
-// Helper to create a mock chain with default data
-function createMockChain(
+// Helper to create a mock chain for session_forecast_snapshots
+function createSessionsChain(
   data: { user_id: string }[] | null = [
     { user_id: "user-1" },
     { user_id: "user-2" },
@@ -58,6 +59,7 @@ function createMockChain(
   const chain: MockChain = {
     select: jest.fn(),
     not: jest.fn(),
+    eq: jest.fn(),
     gte: jest.fn(() => Promise.resolve({ data, error })),
   };
   chain.select.mockReturnValue(chain);
@@ -65,9 +67,27 @@ function createMockChain(
   return chain;
 }
 
+// Helper to create a mock chain for profiles (NPC users)
+function createProfilesChain(
+  npcIds: string[] = [] // NPC user IDs to exclude
+) {
+  return {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn(() => Promise.resolve({
+      data: npcIds.map(id => ({ id })),
+      error: null
+    })),
+  };
+}
+
 // Mock Supabase
 const mockSupabaseClient = {
-  from: jest.fn(() => createMockChain()),
+  from: jest.fn((table: string) => {
+    if (table === 'profiles') {
+      return createProfilesChain();
+    }
+    return createSessionsChain();
+  }),
 };
 
 jest.mock('@/lib/supabase/server', () => ({
@@ -90,8 +110,13 @@ describe('User Preference Update Cron Job API', () => {
     // Reset environment to production for most tests
     process.env.VERCEL_ENV = "production";
 
-    // Reset mockSupabaseClient to default behavior (3 users)
-    mockSupabaseClient.from = jest.fn(() => createMockChain());
+    // Reset mockSupabaseClient to default behavior (3 users, no NPCs)
+    mockSupabaseClient.from = jest.fn((table: string) => {
+      if (table === 'profiles') {
+        return createProfilesChain([]);
+      }
+      return createSessionsChain();
+    });
 
     // Default: computeUserPreferences succeeds
     (computeUserPreferences as jest.Mock).mockResolvedValue({
@@ -193,7 +218,12 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should handle empty result set gracefully', async () => {
-        mockSupabaseClient.from = jest.fn(() => createMockChain([]));
+        mockSupabaseClient.from = jest.fn((table: string) => {
+          if (table === 'profiles') {
+            return createProfilesChain([]);
+          }
+          return createSessionsChain([]);
+        });
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
@@ -215,7 +245,12 @@ describe('User Preference Update Cron Job API', () => {
           user_id: `user-${i}`,
         }));
 
-        mockSupabaseClient.from = jest.fn(() => createMockChain(users));
+        mockSupabaseClient.from = jest.fn((table: string) => {
+          if (table === 'profiles') {
+            return createProfilesChain([]);
+          }
+          return createSessionsChain(users);
+        });
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
@@ -331,9 +366,12 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should handle Supabase query errors', async () => {
-        mockSupabaseClient.from = jest.fn(() =>
-          createMockChain(null, { message: "Connection timeout" })
-        );
+        mockSupabaseClient.from = jest.fn((table: string) => {
+          if (table === 'profiles') {
+            return createProfilesChain([]);
+          }
+          return createSessionsChain(null, { message: "Connection timeout" });
+        });
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
@@ -385,7 +423,12 @@ describe('User Preference Update Cron Job API', () => {
           user_id: `user-${i}`,
         }));
 
-        mockSupabaseClient.from = jest.fn(() => createMockChain(users));
+        mockSupabaseClient.from = jest.fn((table: string) => {
+          if (table === 'profiles') {
+            return createProfilesChain([]);
+          }
+          return createSessionsChain(users);
+        });
 
         const startTime = Date.now();
         const request = mockRequest({
@@ -402,8 +445,8 @@ describe('User Preference Update Cron Job API', () => {
   });
 
   describe('GET /api/cron/update-user-preferences', () => {
-    describe('Health Check', () => {
-      it('should return healthy status when services are operational', async () => {
+    describe('Main Update Handler (Vercel Cron uses GET)', () => {
+      it('should process users the same as POST', async () => {
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
         });
@@ -412,45 +455,10 @@ describe('User Preference Update Cron Job API', () => {
         const data = await response.json();
 
         expect(data.success).toBe(true);
-        expect(data.data.status).toBe('healthy');
-        expect(data.data).toMatchObject({
-          timestamp: expect.any(String),
-          services: {
-            database: true,
-            preferencesTable: true,
-          },
-          stats: {
-            totalPreferences: expect.any(Number),
-          },
-        });
+        expect(data.data.successful).toBe(3);
       });
 
-      it('should return degraded status when database is unavailable', async () => {
-        // Use different mock chain for this specific test (health check uses different pattern)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        mockSupabaseClient.from = jest.fn(() => ({
-          select: jest.fn(() =>
-            Promise.resolve({
-              data: null,
-              error: { message: 'Connection refused' },
-              count: null,
-            })
-          ),
-        })) as any;
-
-        const request = mockRequest({
-          authorization: 'Bearer valid-cron-secret',
-        });
-
-        const response = await GET(request);
-        const data = await response.json();
-
-        expect(data.success).toBe(true);
-        expect(data.data.status).toBe('degraded');
-        expect(data.data.services.database).toBe(false);
-      });
-
-      it('should reject health checks in non-production environments', async () => {
+      it('should reject in non-production environments', async () => {
         process.env.VERCEL_ENV = 'development';
 
         const request = mockRequest({
@@ -464,7 +472,7 @@ describe('User Preference Update Cron Job API', () => {
         expect(data.error).toContain('Forbidden');
       });
 
-      it('should reject health checks without authentication', async () => {
+      it('should reject without authentication', async () => {
         const { validateCronRequest } = require('@/lib/api-utils');
         validateCronRequest.mockReturnValueOnce(false);
 
@@ -476,6 +484,83 @@ describe('User Preference Update Cron Job API', () => {
         expect(data.success).toBe(false);
         expect(data.error).toBe('Unauthorized');
       });
+    });
+  });
+
+  describe('NPC/Bot User Filtering', () => {
+    it('should exclude NPC users (is_mock = true) from preference learning', async () => {
+      // Set up: user-2 is an NPC
+      mockSupabaseClient.from = jest.fn((table: string) => {
+        if (table === 'profiles') {
+          return createProfilesChain(['user-2']); // user-2 is NPC
+        }
+        return createSessionsChain([
+          { user_id: 'user-1' },
+          { user_id: 'user-2' }, // NPC - should be excluded
+          { user_id: 'user-3' },
+        ]);
+      });
+
+      const request = mockRequest({
+        authorization: 'Bearer valid-cron-secret',
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      // Only user-1 and user-3 should be processed (user-2 excluded)
+      expect(data.data.totalUsers).toBe(2);
+      expect(computeUserPreferences).toHaveBeenCalledTimes(2);
+      expect(computeUserPreferences).toHaveBeenCalledWith('user-1');
+      expect(computeUserPreferences).toHaveBeenCalledWith('user-3');
+      expect(computeUserPreferences).not.toHaveBeenCalledWith('user-2');
+    });
+
+    it('should handle case where all users are NPCs', async () => {
+      mockSupabaseClient.from = jest.fn((table: string) => {
+        if (table === 'profiles') {
+          return createProfilesChain(['user-1', 'user-2', 'user-3']); // All NPCs
+        }
+        return createSessionsChain([
+          { user_id: 'user-1' },
+          { user_id: 'user-2' },
+          { user_id: 'user-3' },
+        ]);
+      });
+
+      const request = mockRequest({
+        authorization: 'Bearer valid-cron-secret',
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.data.totalUsers).toBe(0);
+      expect(data.data.message).toContain('No eligible users');
+      expect(computeUserPreferences).not.toHaveBeenCalled();
+    });
+
+    it('should process all users when there are no NPCs', async () => {
+      mockSupabaseClient.from = jest.fn((table: string) => {
+        if (table === 'profiles') {
+          return createProfilesChain([]); // No NPCs
+        }
+        return createSessionsChain([
+          { user_id: 'user-1' },
+          { user_id: 'user-2' },
+          { user_id: 'user-3' },
+        ]);
+      });
+
+      const request = mockRequest({
+        authorization: 'Bearer valid-cron-secret',
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(data.data.totalUsers).toBe(3);
+      expect(computeUserPreferences).toHaveBeenCalledTimes(3);
     });
   });
 });
