@@ -69,3 +69,28 @@ export function detectCityCollisions(
 
   return collisions;
 }
+
+/**
+ * Build a URL slug for a city.
+ * Appends state suffix only if city name collides across states.
+ *
+ * @param city - City name (e.g., "Santa Cruz")
+ * @param state - State abbreviation (e.g., "CA")
+ * @param collisions - Map from detectCityCollisions()
+ * @returns Slug like "santa-cruz" or "newport-ca"
+ */
+export function buildCitySlug(
+  city: string,
+  state: string,
+  collisions: Map<string, number>
+): string {
+  const baseSlug = slugifyAscii(city);
+  if (!baseSlug) return "";
+
+  if (collisions.has(baseSlug)) {
+    const stateSlug = state.toLowerCase();
+    return `${baseSlug}-${stateSlug}`;
+  }
+
+  return baseSlug;
+}
