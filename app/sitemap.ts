@@ -4,8 +4,10 @@ import {
   SURF_CITY_SLUGS,
   getCityBySlug,
 } from "@/lib/data/surf-spots";
+import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
+import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
 import {
   buildBeachUrl,
   cityToSlug,
@@ -61,6 +63,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }));
     }
   );
+
+  // Generate intent routes for ALL cities with 3+ beaches
+  let dynamicIntentRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const citiesResult = await getAllCitiesWithBeaches(3);
+    if (citiesResult.success && citiesResult.data) {
+      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+
+      dynamicIntentRoutes = citiesResult.data.flatMap((city) => {
+        const citySlug = slugifyAscii(city.city);
+        if (!citySlug) return [];
+
+        return intents.map((intent) => ({
+          url: `${baseUrl}/${intent}/${citySlug}`,
+          lastModified: lastmod,
+          changeFrequency: "daily" as const,
+          priority: intent === "beginner" ? 0.85 : 0.8,
+        }));
+      });
+    }
+  } catch (error) {
+    console.error("Sitemap: Failed to generate dynamic intent routes", error);
+  }
+
+  // State-level intent routes for major surf states
+  const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
+  const stateIntentRoutes: MetadataRoute.Sitemap = usStates.flatMap((state) =>
+    ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"].map((intent) => ({
+      url: `${baseUrl}/${intent}/${state}`,
+      lastModified: lastmod,
+      changeFrequency: "daily" as const,
+      priority: 0.75,
+    }))
+  );
+
+  // Hub region routes (e.g., /guides/surfing-southern-california)
+  const hubRoutes: MetadataRoute.Sitemap = HUB_REGION_SLUGS.map((region) => ({
+    url: `${baseUrl}/guides/surfing-${region}`,
+    lastModified: lastmod,
+    changeFrequency: "weekly" as const,
+    priority: 0.9,
+  }));
 
   // Location pages (AllTrails-style beach listings by city)
   let locationRoutes: MetadataRoute.Sitemap = [];
@@ -165,10 +209,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }));
   }
 
+  // Deduplicate URLs: intentRoutes (curated cities) take precedence over dynamicIntentRoutes
+  const intentUrls = new Set(intentRoutes.map((route) => route.url));
+  const deduplicatedDynamicIntentRoutes = dynamicIntentRoutes.filter(
+    (route) => !intentUrls.has(route.url)
+  );
+
   return [
     ...staticRoutes,
     ...cityRoutes,
     ...intentRoutes,
+    ...deduplicatedDynamicIntentRoutes,
+    ...stateIntentRoutes,
+    ...hubRoutes,
     ...usaStateRoutes,
     ...locationRoutes,
     ...beachEntries,

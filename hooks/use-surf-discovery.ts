@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { CACHE_TTL } from "@/lib/constants/ui";
-import type { SurfDiscoveryResponse } from "@/types/personalization";
+import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 
 /**
  * Cached discovery data structure for localStorage
@@ -22,7 +22,9 @@ const CACHE_KEY_PREFIX = "quiver_discovery_";
  * Generate a hash string from options to use as part of cache key
  */
 function hashOptions(options: UseSurfDiscoveryOptions): string {
+  // Put timeSlot first to ensure it's included in the hash (slice truncates to 16 chars)
   const normalized = {
+    ts: options.timeSlot, // timeSlot first - critical for cache differentiation
     lat: options.userLocation?.lat?.toFixed(2),
     lon: options.userLocation?.lon?.toFixed(2),
     radius: options.radiusMiles,
@@ -47,6 +49,8 @@ interface UseSurfDiscoveryOptions {
   maxResults?: number;
   /** Include home beach in results (default: true) */
   includeHome?: boolean;
+  /** Filter windows to specific time of day (default: 'any') */
+  timeSlot?: TimeSlot;
   /** Whether the hook is enabled (default: true) */
   enabled?: boolean;
   /** Whether to fetch immediately on mount (default: true) */
@@ -128,6 +132,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     includeHome,
+    timeSlot,
     enabled = true,
     immediate = true,
     onSuccess,
@@ -153,6 +158,7 @@ export function useSurfDiscovery(
       horizonHours,
       maxResults,
       includeHome,
+      timeSlot,
     });
   }, [
     userLat,
@@ -161,6 +167,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     includeHome,
+    timeSlot,
   ]);
 
   // Generate cache key for this user + options combination
@@ -172,11 +179,17 @@ export function useSurfDiscovery(
   // If the cache key changes (e.g. location/options change), ensure we don't keep using
   // cached data from a previous key. This also allows `useDataFetcher` to re-run when
   // `immediate` toggles back to true (because `cachedData` becomes null).
+  // Also track if this is a change (not initial mount) to trigger refetch.
+  const isInitialMountRef = useRef(true);
   useEffect(() => {
     if (prevCacheKeyRef.current !== cacheKey) {
       setCachedData(null);
       setIsCached(false);
       prevCacheKeyRef.current = cacheKey;
+    }
+    // After initial mount, mark as no longer initial
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
     }
   }, [cacheKey]);
 
@@ -252,6 +265,10 @@ export function useSurfDiscovery(
       params.set("includeHome", includeHome.toString());
     }
 
+    if (timeSlot) {
+      params.set("timeSlot", timeSlot);
+    }
+
     const queryString = params.toString();
     const url = `/api/surf/discover${queryString ? `?${queryString}` : ""}`;
 
@@ -310,6 +327,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     includeHome,
+    timeSlot,
     cacheKey,
     optionsHash,
   ]);
@@ -325,6 +343,19 @@ export function useSurfDiscovery(
       onError,
     }
   );
+
+  // Refetch when options change (e.g., timeSlot) - but not on initial mount
+  const prevOptionsHashRef = useRef(optionsHash);
+  useEffect(() => {
+    // Skip if this is initial mount or options haven't changed
+    if (isInitialMountRef.current || prevOptionsHashRef.current === optionsHash) {
+      prevOptionsHashRef.current = optionsHash;
+      return;
+    }
+    prevOptionsHashRef.current = optionsHash;
+    // Options changed, trigger refetch
+    refetch();
+  }, [optionsHash, refetch]);
 
   // Use cached data if available, otherwise use fresh data
   const discovery = cachedData?.discovery || freshData;

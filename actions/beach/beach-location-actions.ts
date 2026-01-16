@@ -101,3 +101,67 @@ export async function getNearbyBeaches(
 // Do not re-export non-async utility values from a "use server" module; this
 // causes Next.js to error in production builds. Import from
 // "@/lib/utils/distance-utils" directly where needed.
+
+export interface CityWithBeachCount {
+  city: string;
+  state: string;
+  country: string | null;
+  beachCount: number;
+}
+
+/**
+ * Get all cities that have at least N beaches.
+ * Used for generating intent pages for cities with sufficient content.
+ *
+ * @param minBeaches - Minimum number of beaches required (default: 1)
+ */
+export async function getAllCitiesWithBeaches(minBeaches: number = 1) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase
+      .from("beaches")
+      .select("city, state, country")
+      .or("is_private.is.null,is_private.eq.false")
+      .not("city", "is", null)
+      .not("state", "is", null)
+      .is("deleted_at", null);
+
+    if (error) throw error;
+
+    // Aggregate by city/state/country
+    const cityMap = new Map<string, CityWithBeachCount>();
+
+    for (const beach of data || []) {
+      const key = `${beach.city}|${beach.state}|${beach.country || "USA"}`;
+      const existing = cityMap.get(key);
+
+      if (existing) {
+        existing.beachCount++;
+      } else {
+        cityMap.set(key, {
+          city: beach.city,
+          state: beach.state,
+          country: beach.country || "USA",
+          beachCount: 1,
+        });
+      }
+    }
+
+    // Filter by minimum beach count and sort
+    const cities = [...cityMap.values()]
+      .filter((c) => c.beachCount >= minBeaches)
+      .sort((a, b) => a.city.localeCompare(b.city));
+
+    return {
+      success: true,
+      data: cities,
+    };
+  } catch (error) {
+    console.error("Error getting cities with beaches:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
