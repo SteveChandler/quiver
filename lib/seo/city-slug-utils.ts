@@ -4,8 +4,7 @@
  * Handles slug generation, collision detection, and resolution.
  */
 
-// Note: slugifyAscii from "@/lib/utils/text-utils" will be imported
-// in Tasks 2-4 when slug generation functions are added.
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 /**
  * US state abbreviations mapped to slugs.
@@ -35,3 +34,38 @@ export const SLUG_TO_STATE: Record<string, string> = Object.fromEntries(
  * All valid state slugs as a Set for O(1) lookup.
  */
 export const VALID_STATE_SLUGS = new Set(Object.values(US_STATE_SLUGS));
+
+export interface CityStateRecord {
+  city: string;
+  state: string;
+}
+
+/**
+ * Detect city names that appear in multiple states.
+ * Returns a Map of slugified city name -> count of states.
+ * Only includes entries where count > 1 (actual collisions).
+ */
+export function detectCityCollisions(
+  cities: CityStateRecord[]
+): Map<string, number> {
+  const cityStateCounts = new Map<string, Set<string>>();
+
+  for (const { city, state } of cities) {
+    const slug = slugifyAscii(city);
+    if (!slug) continue;
+
+    const states = cityStateCounts.get(slug) || new Set();
+    states.add(state.toUpperCase());
+    cityStateCounts.set(slug, states);
+  }
+
+  // Filter to only collisions (appears in 2+ states)
+  const collisions = new Map<string, number>();
+  for (const [slug, states] of cityStateCounts) {
+    if (states.size > 1) {
+      collisions.set(slug, states.size);
+    }
+  }
+
+  return collisions;
+}
