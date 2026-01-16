@@ -14,17 +14,25 @@ export default function robots(): MetadataRoute.Robots {
           disallow: "/",
           crawlDelay: 10,
         }
-      : {
-          userAgent: "*",
-          allow: "/",
-          disallow: [
-            "/_next/*", // Don't crawl Next.js build assets (crawl budget / noise in GSC)
-            "/api/*", // Don't crawl API routes
-            "/inbox", // Private: notifications
-            "/profile", // Private: user's own profile
-            "/auth/*", // Auth pages
-          ],
-        },
+      : [
+          {
+            userAgent: "*",
+            allow: "/",
+            disallow: [
+              "/_next/", // Don't crawl Next.js build assets
+              "/api/", // Don't crawl API routes (except /api/og/)
+              "/admin/", // Private: admin pages
+              "/profile/", // Private: user's own profile
+              "/inbox/", // Private: notifications
+              "/sessions/", // Private: user sessions
+              "/auth/*", // Auth pages
+            ],
+          },
+          {
+            userAgent: "*",
+            allow: "/api/og/", // Allow Open Graph image generation
+          },
+        ],
     sitemap: `${base.replace(/\/$/, "")}/sitemap.xml`,
     host: base.replace(/\/$/, ""),
   };
