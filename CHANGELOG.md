@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Regional Hub Pages:** Created regional surf guide hub pages at `/guides/surfing-[region]` with interactive Mapbox GL maps. Features include:
+  - **Hub Regions Data** (`lib/data/hub-regions.ts`): Configuration for 4 initial regions (Southern California, San Diego, Orange County, Hawaii) with center coordinates, zoom levels, and descriptions.
+  - **HubMapView Component** (`components/hub/hub-map-view.tsx`): Client-side Mapbox GL component with color-coded markers by skill level (green=beginner, blue=intermediate, dark=advanced), clickable popups with beach links, and interactive legend.
+  - **Hub Page Route** (`app/guides/surfing-[region]/page.tsx`): Static pages with comprehensive SEO (metadata, breadcrumbs, FAQ schema), stats cards showing spot counts by skill level, interactive map, and quick links to intent pages. Automatically fetches beaches from database for each region's states.
+  - **Sitemap Integration**: Added hub routes to sitemap with weekly refresh frequency and 0.9 priority.
+
 - **ML Bias Correction Pipeline:** Deployed XGBoost-based wave height forecast correction system. Components include:
   - **Python ML Service** (`ml/`): FastAPI service on Fly.io (`https://quiver-ml.fly.dev`) with XGBoost regressor that predicts forecast residuals (Observed - Model) to correct NOAA wave height forecasts. Features cyclical direction encoding (sin/cos), temporal features (hour/month), and physical constraints (minimum 0.01m). Authenticated via `X-Internal-Secret` header with batch processing up to 1000 forecasts.
   - **TypeScript Parsers** (`lib/ml/parse-wave-height.ts`): NOAA text parsing utilities that convert "3-4ft" to 1.07m (midpoint in meters) and wind speeds to m/s. Handles range formats, "Flat" conditions, and multiple unit types (mph, knots).

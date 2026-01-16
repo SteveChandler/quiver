@@ -18,7 +18,10 @@ export type SurfIntentSlug =
   | "beginner"
   | "least-crowded"
   | "tide"
-  | "water-temp";
+  | "water-temp"
+  | "longboard"
+  | "dawn-patrol"
+  | "sunset";
 
 export interface SurfIntentDefinition {
   slug: SurfIntentSlug;
@@ -115,6 +118,60 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "Gear recommendations for dawn patrol versus midday",
       "Upwelling signals that drop temps overnight",
       "Health and recovery tips for long cold sessions",
+    ],
+  },
+  longboard: {
+    slug: "longboard",
+    label: "Longboard Friendly",
+    titleTemplate: ({ cityName }) =>
+      `${cityName} Longboard Surf Spots & Mellow Waves`,
+    heading: ({ cityName }) =>
+      `Best longboard waves in ${cityName}`,
+    metaDescription: ({ cityName, topSpots }) =>
+      `Find the best longboard-friendly waves in ${cityName}. Mellow point breaks and rolling beach breaks at ${topSpots.slice(0, 3).join(", ")}.`,
+    intro: ({ cityName }) =>
+      `${cityName} offers plenty of mellow, longboard-friendly waves. These spots feature gentle shoulders, long rides, and a classic surfing vibe.`,
+    focusPoints: [
+      "Long, peeling waves perfect for noseriding",
+      "Mellow takeoff zones with forgiving shoulders",
+      "Classic surf spots with old-school vibes",
+      "Best tide windows for logging sessions",
+    ],
+  },
+  "dawn-patrol": {
+    slug: "dawn-patrol",
+    label: "Dawn Patrol",
+    titleTemplate: ({ cityName }) =>
+      `${cityName} Dawn Patrol Surf Spots | Best Sunrise Sessions`,
+    heading: ({ cityName }) =>
+      `Best dawn patrol spots in ${cityName}`,
+    metaDescription: ({ cityName, topSpots }) =>
+      `Catch the best sunrise surf sessions in ${cityName}. Early morning waves with less crowds at ${topSpots.slice(0, 3).join(", ")}.`,
+    intro: ({ cityName }) =>
+      `Early risers in ${cityName} are rewarded with glassy conditions and empty lineups. These spots offer the best dawn patrol sessions before the wind picks up.`,
+    focusPoints: [
+      "Glassy morning conditions before onshore winds",
+      "Less crowded lineups at sunrise",
+      "East-facing beaches for sunrise views",
+      "Spots with easy parking for early arrivals",
+    ],
+  },
+  sunset: {
+    slug: "sunset",
+    label: "Sunset Sessions",
+    titleTemplate: ({ cityName }) =>
+      `${cityName} Sunset Surf Spots | Best Evening Sessions`,
+    heading: ({ cityName }) =>
+      `Best sunset surf spots in ${cityName}`,
+    metaDescription: ({ cityName, topSpots }) =>
+      `End your day with epic sunset surf sessions in ${cityName}. West-facing beaches with golden hour waves at ${topSpots.slice(0, 3).join(", ")}.`,
+    intro: ({ cityName }) =>
+      `There's nothing like surfing into the sunset. These ${cityName} spots offer stunning golden hour sessions with west-facing views and often improving afternoon conditions.`,
+    focusPoints: [
+      "West-facing beaches for stunning sunset views",
+      "Often cleaner afternoon conditions",
+      "Golden hour photography opportunities",
+      "After-work session favorites",
     ],
   },
 };
