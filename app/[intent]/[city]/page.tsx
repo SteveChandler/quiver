@@ -16,10 +16,11 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
-import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
-import { getBeachesByIntentAndCity } from "@/actions/beach/beach-query-actions";
+import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
+import { StateMapView } from "@/components/state/state-map-view";
 
 export const revalidate = 1800;
 
@@ -52,6 +53,17 @@ interface IntentPageParams {
 export async function generateMetadata({
   params,
 }: IntentPageParams): Promise<Metadata> {
+  // Check if this is a state-level intent page like /beginner/ca
+  if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
+    const stateName = getUsStateDisplayNameFromSlug(params.city);
+    const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
+    return buildPageMetadata({
+      title: `${definition.label} Spots in ${stateName}`,
+      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. AI-powered recommendations for every skill level.`,
+      path: `/${params.intent}/${params.city}`,
+    });
+  }
+
   // If this is a legacy state/city URL, we redirect in the page render.
   // Metadata can't redirect, so just avoid surf-intent metadata generation.
   if (isValidStateSlug(params.intent)) {
@@ -109,6 +121,57 @@ export default async function IntentPage({ params }: IntentPageParams) {
     const redirectTo = `/map?search=${encodeURIComponent(cityName)}`;
 
     redirect(redirectTo);
+  }
+
+  // Check if this is a state-level intent page like /beginner/ca
+  if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
+    const stateName = getUsStateDisplayNameFromSlug(params.city);
+    const intentDefinition = SURF_INTENTS[params.intent as SurfIntentSlug];
+
+    const beachesResult = await getBeachesByIntentAndState(params.intent, params.city);
+
+    if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
+      return notFound();
+    }
+
+    const beaches = beachesResult.data;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+    // Render state-level intent page
+    return (
+      <div className="bg-white">
+        <BreadcrumbStructuredData
+          items={[
+            { name: "Quiver", url: baseUrl },
+            { name: `${stateName} Surf`, url: `${baseUrl}/beaches/usa/${params.city}` },
+            { name: intentDefinition.label, url: `${baseUrl}/${params.intent}/${params.city}` },
+          ]}
+        />
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <header className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+              {intentDefinition.heading({ cityName: stateName })}
+            </h1>
+            <p className="text-lg text-gray-600 mt-2">
+              {beaches.length} spots across {stateName}
+            </p>
+            <p className="text-base text-slate-700 mt-4">
+              {intentDefinition.intro({ cityName: stateName })}
+            </p>
+          </header>
+
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+              {intentDefinition.label} spots in {stateName}
+            </h2>
+            <StateMapView
+              beaches={beaches}
+              ariaLabel={`${intentDefinition.label} spots in ${stateName}`}
+            />
+          </section>
+        </div>
+      </div>
+    );
   }
 
   if (!city || !definition) {
