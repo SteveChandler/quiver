@@ -22,14 +22,15 @@ const CACHE_KEY_PREFIX = "quiver_discovery_";
  * Generate a hash string from options to use as part of cache key
  */
 function hashOptions(options: UseSurfDiscoveryOptions): string {
+  // Put timeSlot first to ensure it's included in the hash (slice truncates to 16 chars)
   const normalized = {
+    ts: options.timeSlot, // timeSlot first - critical for cache differentiation
     lat: options.userLocation?.lat?.toFixed(2),
     lon: options.userLocation?.lon?.toFixed(2),
     radius: options.radiusMiles,
     horizon: options.horizonHours,
     max: options.maxResults,
     home: options.includeHome,
-    timeSlot: options.timeSlot,
   };
   return btoa(JSON.stringify(normalized)).slice(0, 16);
 }
@@ -178,11 +179,17 @@ export function useSurfDiscovery(
   // If the cache key changes (e.g. location/options change), ensure we don't keep using
   // cached data from a previous key. This also allows `useDataFetcher` to re-run when
   // `immediate` toggles back to true (because `cachedData` becomes null).
+  // Also track if this is a change (not initial mount) to trigger refetch.
+  const isInitialMountRef = useRef(true);
   useEffect(() => {
     if (prevCacheKeyRef.current !== cacheKey) {
       setCachedData(null);
       setIsCached(false);
       prevCacheKeyRef.current = cacheKey;
+    }
+    // After initial mount, mark as no longer initial
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
     }
   }, [cacheKey]);
 
@@ -336,6 +343,19 @@ export function useSurfDiscovery(
       onError,
     }
   );
+
+  // Refetch when options change (e.g., timeSlot) - but not on initial mount
+  const prevOptionsHashRef = useRef(optionsHash);
+  useEffect(() => {
+    // Skip if this is initial mount or options haven't changed
+    if (isInitialMountRef.current || prevOptionsHashRef.current === optionsHash) {
+      prevOptionsHashRef.current = optionsHash;
+      return;
+    }
+    prevOptionsHashRef.current = optionsHash;
+    // Options changed, trigger refetch
+    refetch();
+  }, [optionsHash, refetch]);
 
   // Use cached data if available, otherwise use fresh data
   const discovery = cachedData?.discovery || freshData;
