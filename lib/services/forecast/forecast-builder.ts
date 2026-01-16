@@ -17,6 +17,7 @@ import {
   FORECAST_CONSTANTS,
   TOTAL_FORECASTS,
   type EnhancedForecastEntity,
+  type EnhancedForecastWithRawData,
   type CDIPBuoyData,
 } from "@/types/forecast";
 
@@ -58,9 +59,9 @@ export class ForecastBuilder {
   /**
    * Build forecasts from raw data sources
    */
-  async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastEntity[]> {
+  async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastWithRawData[]> {
     const { beach, waveData, tideData, weatherData, buoyData, cdipData } = inputs;
-    const forecasts: EnhancedForecastEntity[] = [];
+    const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
     // Determine data sources used for metadata
@@ -156,7 +157,7 @@ export class ForecastBuilder {
     isFirstOfDay: boolean;
     cdipData: CDIPBuoyData | null;
     now: Date;
-  }): EnhancedForecastEntity {
+  }): EnhancedForecastWithRawData {
     const {
       beach,
       forecastTime,
@@ -237,7 +238,7 @@ export class ForecastBuilder {
         tideData,
         now,
       }),
-    } as EnhancedForecastEntity;
+    } as EnhancedForecastWithRawData;
   }
 
   /**
