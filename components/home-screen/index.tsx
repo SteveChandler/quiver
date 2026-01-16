@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
@@ -10,6 +10,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useReminderHandler } from "@/hooks/use-reminder-handler";
 import { track } from "@/lib/analytics";
 import { getUserBoards, getProfileStrength } from "@/actions/dashboard-actions";
+import type { TimeSlot } from "@/types/personalization";
 
 // New components for single vertical feed
 import { GreetingSection } from "./greeting-section";
@@ -17,6 +18,7 @@ import { useTimeOfDay } from "./use-time-of-day";
 import { HeroRecommendation } from "./hero-recommendation";
 import { PrimaryActions } from "./primary-actions";
 import { TopSpotsCarousel } from "./top-spots-carousel";
+import { TimeSlotSelector } from "./time-slot-selector";
 import { CoastPulse } from "../dashboard/coast-pulse";
 import { ProfileStrength } from "../dashboard/profile-strength";
 import { BottomNav } from "./bottom-nav";
@@ -29,6 +31,9 @@ export function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { timeOfDay } = useTimeOfDay();
+
+  // Time slot filter state
+  const [timeSlot, setTimeSlot] = useState<TimeSlot>('any');
 
   // Profile and home beach
   const { profile, homeBeach, refreshProfile } = useCachedProfile();
@@ -103,6 +108,7 @@ export function HomeScreen() {
   } = useSurfDiscovery({
     maxResults: 6,
     horizonHours: 24, // Home screen: only consider windows in next 24 hours
+    timeSlot, // Pass the selected time slot
     enabled: !!profile,
     immediate: true,
     userLocation: seedDiscoveryLocation,
@@ -191,7 +197,18 @@ export function HomeScreen() {
             />
           </section>
 
-          {/* 2. Hero Recommendation */}
+          {/* 2. Time Slot Filter */}
+          {profile && (
+            <section className="centered-container">
+              <TimeSlotSelector
+                value={timeSlot}
+                onChange={setTimeSlot}
+                className="mb-2"
+              />
+            </section>
+          )}
+
+          {/* 3. Hero Recommendation */}
           {profile && (
             <section className="centered-container">
               <HeroRecommendation
@@ -207,7 +224,7 @@ export function HomeScreen() {
             </section>
           )}
 
-          {/* 3. Primary Actions */}
+          {/* 4. Primary Actions */}
           {profile && (
             <section className="centered-container">
               {topRecommendation ? (
@@ -233,7 +250,7 @@ export function HomeScreen() {
 
         {/* Content below gradient */}
         <div className="pt-6 space-y-6 xs:space-y-8">
-          {/* 4. Top Spots Carousel - full width for edge-to-edge scroll */}
+          {/* 5. Top Spots Carousel - full width for edge-to-edge scroll */}
           {profile && (
             <section className="w-full">
               <TopSpotsCarousel
@@ -248,7 +265,7 @@ export function HomeScreen() {
             </section>
           )}
 
-          {/* 5. Coast Pulse Timeline - detailed vertical list */}
+          {/* 6. Coast Pulse Timeline - detailed vertical list */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
               <CoastPulse lat={coastPulseCoords.lat} lon={coastPulseCoords.lon} />

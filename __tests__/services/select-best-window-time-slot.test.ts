@@ -36,7 +36,7 @@ const mockBeach: Beach = {
   wind_offshore_tol_deg: 45,
   preferred_tide_ft_min: 2,
   preferred_tide_ft_max: 5,
-} as Beach;
+} as unknown as Beach;
 
 describe('selectBestWindow with timeSlot filter', () => {
   // Tomorrow's date for testing

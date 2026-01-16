@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { CACHE_TTL } from "@/lib/constants/ui";
-import type { SurfDiscoveryResponse } from "@/types/personalization";
+import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 
 /**
  * Cached discovery data structure for localStorage
@@ -29,6 +29,7 @@ function hashOptions(options: UseSurfDiscoveryOptions): string {
     horizon: options.horizonHours,
     max: options.maxResults,
     home: options.includeHome,
+    timeSlot: options.timeSlot,
   };
   return btoa(JSON.stringify(normalized)).slice(0, 16);
 }
@@ -47,6 +48,8 @@ interface UseSurfDiscoveryOptions {
   maxResults?: number;
   /** Include home beach in results (default: true) */
   includeHome?: boolean;
+  /** Filter windows to specific time of day (default: 'any') */
+  timeSlot?: TimeSlot;
   /** Whether the hook is enabled (default: true) */
   enabled?: boolean;
   /** Whether to fetch immediately on mount (default: true) */
@@ -128,6 +131,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     includeHome,
+    timeSlot,
     enabled = true,
     immediate = true,
     onSuccess,
@@ -153,6 +157,7 @@ export function useSurfDiscovery(
       horizonHours,
       maxResults,
       includeHome,
+      timeSlot,
     });
   }, [
     userLat,
@@ -161,6 +166,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     includeHome,
+    timeSlot,
   ]);
 
   // Generate cache key for this user + options combination
@@ -252,6 +258,10 @@ export function useSurfDiscovery(
       params.set("includeHome", includeHome.toString());
     }
 
+    if (timeSlot) {
+      params.set("timeSlot", timeSlot);
+    }
+
     const queryString = params.toString();
     const url = `/api/surf/discover${queryString ? `?${queryString}` : ""}`;
 
@@ -310,6 +320,7 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     includeHome,
+    timeSlot,
     cacheKey,
     optionsHash,
   ]);
