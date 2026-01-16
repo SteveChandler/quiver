@@ -708,20 +708,20 @@ export function TideChart({
       </div>
 
       {!compact && (
-        <div className="mt-3 flex gap-3 text-xs text-slate-600">
-          <div className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
-            Tide height
+        <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded-full bg-blue-800" />
+            <span>Tide</span>
           </div>
           {showNowLine && (
-            <div className="inline-flex items-center gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
-              Current time
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-0.5 rounded-full bg-red-600" />
+              <span>Now</span>
             </div>
           )}
-          <div className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
-            Sea level (0)
+          <div className="flex items-center gap-1.5">
+            <span className="h-px w-4 bg-slate-400" />
+            <span>Sea level</span>
           </div>
         </div>
       )}
