@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withServerAction, ServerActionResponse } from "@/lib/server-action-utils";
+import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 
 export interface CityMetadata {
   cityName: string;
@@ -128,5 +129,79 @@ export async function getCityMetadata(
       centerLat,
       centerLon,
     };
+  });
+}
+
+/**
+ * Find a city by its URL slug and return full metadata.
+ * Handles both simple slugs ("santa-cruz") and state-suffixed slugs ("newport-ca").
+ * Returns null if city not found, ambiguous, or has fewer than 3 beaches.
+ *
+ * @param slug - URL slug like "santa-cruz" or "newport-ca"
+ */
+export async function findCityBySlug(
+  slug: string
+): Promise<ServerActionResponse<CityMetadata | null>> {
+  return withServerAction(async () => {
+    const supabase = await createSupabaseServerClient();
+    const { cityPattern, stateFilter } = resolveCityFromSlug(slug);
+
+    // Build query to find matching cities
+    let query = supabase
+      .from("beaches")
+      .select("city, state")
+      .ilike("city", `%${cityPattern}%`)
+      .or("is_private.is.null,is_private.eq.false");
+
+    if (stateFilter) {
+      query = query.eq("state", stateFilter);
+    }
+
+    const { data: matches, error } = await query;
+
+    if (error) {
+      throw new Error(error.message || "Failed to find city by slug");
+    }
+
+    if (!matches || matches.length === 0) {
+      return null;
+    }
+
+    // Group by city/state to find unique combinations
+    const cityStates = new Map<
+      string,
+      { city: string; state: string; count: number }
+    >();
+    for (const match of matches) {
+      const key = `${match.city}|${match.state}`;
+      const existing = cityStates.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        cityStates.set(key, { city: match.city, state: match.state, count: 1 });
+      }
+    }
+
+    // Filter to cities with 3+ beaches
+    const validCities = [...cityStates.values()].filter((c) => c.count >= 3);
+
+    if (validCities.length === 0) {
+      return null;
+    }
+
+    // If multiple valid cities and no state filter, ambiguous
+    if (validCities.length > 1 && !stateFilter) {
+      return null;
+    }
+
+    // Use first valid city (or only match with state filter)
+    const { city, state } = validCities[0];
+
+    // Get full metadata using existing function
+    const metadataResult = await getCityMetadata(city, state);
+    if (!metadataResult.success || !metadataResult.data) {
+      return null;
+    }
+    return metadataResult.data;
   });
 }

@@ -5,7 +5,10 @@
  * Used for intent page data (beach counts, skill level distribution, center coordinates).
  */
 
-import { getCityMetadata } from "@/actions/city/city-metadata-actions";
+import {
+  getCityMetadata,
+  findCityBySlug,
+} from "@/actions/city/city-metadata-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Mock the Supabase server client
@@ -336,6 +339,222 @@ describe("City Metadata Actions", () => {
       await getCityMetadata("Santa Cruz", "CA");
 
       expect(createSupabaseServerClient).toHaveBeenCalled();
+    });
+  });
+
+  describe("findCityBySlug", () => {
+    it("finds Santa Cruz by simple slug", async () => {
+      // First call: find matching cities (no order, returns from or())
+      // Second call: getCityMetadata query (has order)
+      const findChain = makeChain();
+      const metadataChain = makeChain();
+
+      // findCityBySlug query returns matching beaches grouped by city
+      findChain.or.mockResolvedValue({
+        data: [
+          { city: "Santa Cruz", state: "CA" },
+          { city: "Santa Cruz", state: "CA" },
+          { city: "Santa Cruz", state: "CA" },
+        ],
+        error: null,
+      });
+
+      // getCityMetadata query returns full beach data
+      metadataChain.order.mockResolvedValue({
+        data: mockSantaCruzBeaches,
+        error: null,
+      });
+
+      let callCount = 0;
+      mockSupabaseClient.from.mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? findChain : metadataChain;
+      });
+
+      const result = await findCityBySlug("santa-cruz");
+
+      expect(result.success).toBe(true);
+      expect(result.data?.cityName).toBe("Santa Cruz");
+      expect(result.data?.state).toBe("CA");
+    });
+
+    it("finds city by slug with state suffix", async () => {
+      const findChain = makeChain();
+      const metadataChain = makeChain();
+
+      // When state filter is applied, .eq() is called after .or()
+      // So we need .eq() to return the resolved value (not .or())
+      findChain.eq.mockResolvedValue({
+        data: [
+          { city: "San Diego", state: "CA" },
+          { city: "San Diego", state: "CA" },
+          { city: "San Diego", state: "CA" },
+          { city: "San Diego", state: "CA" },
+          { city: "San Diego", state: "CA" },
+        ],
+        error: null,
+      });
+
+      metadataChain.order.mockResolvedValue({
+        data: mockSanDiegoBeaches,
+        error: null,
+      });
+
+      let callCount = 0;
+      mockSupabaseClient.from.mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? findChain : metadataChain;
+      });
+
+      const result = await findCityBySlug("san-diego-ca");
+
+      expect(result.success).toBe(true);
+      expect(result.data?.cityName).toBe("San Diego");
+      expect(result.data?.state).toBe("CA");
+      // Verify state filter was applied
+      expect(findChain.eq).toHaveBeenCalledWith("state", "CA");
+    });
+
+    it("returns null for nonexistent city", async () => {
+      tableChain.or.mockResolvedValue({
+        data: [],
+        error: null,
+      });
+
+      const result = await findCityBySlug("nonexistent-city-xyz");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeNull();
+    });
+
+    it("returns null for city with fewer than 3 beaches", async () => {
+      // City exists but only has 2 beaches (below threshold)
+      tableChain.or.mockResolvedValue({
+        data: [
+          { city: "Tiny Town", state: "CA" },
+          { city: "Tiny Town", state: "CA" },
+        ],
+        error: null,
+      });
+
+      const result = await findCityBySlug("tiny-town");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeNull();
+    });
+
+    it("returns null for ambiguous slug without state suffix", async () => {
+      // Newport exists in both CA and OR - should return null without state suffix
+      tableChain.or.mockResolvedValue({
+        data: [
+          { city: "Newport", state: "CA" },
+          { city: "Newport", state: "CA" },
+          { city: "Newport", state: "CA" },
+          { city: "Newport", state: "OR" },
+          { city: "Newport", state: "OR" },
+          { city: "Newport", state: "OR" },
+        ],
+        error: null,
+      });
+
+      const result = await findCityBySlug("newport");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeNull();
+    });
+
+    it("resolves ambiguous city when state suffix provided", async () => {
+      const findChain = makeChain();
+      const metadataChain = makeChain();
+
+      // With state filter, .eq() is called after .or()
+      // So .eq() returns the resolved value
+      findChain.eq.mockResolvedValue({
+        data: [
+          { city: "Newport", state: "OR" },
+          { city: "Newport", state: "OR" },
+          { city: "Newport", state: "OR" },
+        ],
+        error: null,
+      });
+
+      metadataChain.order.mockResolvedValue({
+        data: [
+          {
+            id: "beach-np-1",
+            name: "Newport Beach 1",
+            slug: "newport-beach-1",
+            skill_level: "Intermediate",
+            center_lat: 44.6368,
+            center_lng: -124.0534,
+          },
+          {
+            id: "beach-np-2",
+            name: "Newport Beach 2",
+            slug: "newport-beach-2",
+            skill_level: "Beginner-friendly",
+            center_lat: 44.6370,
+            center_lng: -124.0540,
+          },
+          {
+            id: "beach-np-3",
+            name: "Newport Beach 3",
+            slug: "newport-beach-3",
+            skill_level: "Advanced",
+            center_lat: 44.6372,
+            center_lng: -124.0545,
+          },
+        ],
+        error: null,
+      });
+
+      let callCount = 0;
+      mockSupabaseClient.from.mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? findChain : metadataChain;
+      });
+
+      const result = await findCityBySlug("newport-or");
+
+      expect(result.success).toBe(true);
+      expect(result.data?.cityName).toBe("Newport");
+      expect(result.data?.state).toBe("OR");
+    });
+
+    it("handles database error gracefully", async () => {
+      tableChain.or.mockResolvedValue({
+        data: null,
+        error: { message: "Database connection failed" },
+      });
+
+      const result = await findCityBySlug("santa-cruz");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    it("uses ILIKE for case-insensitive city pattern matching", async () => {
+      tableChain.or.mockResolvedValue({
+        data: [],
+        error: null,
+      });
+
+      await findCityBySlug("santa-cruz");
+
+      expect(tableChain.ilike).toHaveBeenCalledWith("city", "%santa cruz%");
+    });
+
+    it("excludes private beaches from results", async () => {
+      tableChain.or.mockResolvedValue({
+        data: [],
+        error: null,
+      });
+
+      await findCityBySlug("santa-cruz");
+
+      expect(tableChain.or).toHaveBeenCalledWith(
+        "is_private.is.null,is_private.eq.false"
+      );
     });
   });
 });
