@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **TypeScript Types (ForecastBuilder):** Fixed type mismatch where `ForecastBuilder.buildForecasts()` was returning `EnhancedForecastEntity[]` but should return `EnhancedForecastWithRawData[]` since it populates the `raw_forecast` field with CDIP data, quality scores, and tide schedules.
 - **Code Quality (Time Slot Filtering):** Addressed code review feedback for time slot filtering feature:
   - Extracted duplicated time slot end capping logic into reusable `capEndTimeToSlot()` helper function, eliminating 30+ lines of duplication
   - Added comprehensive documentation explaining why beach affinity is intentionally disabled (prioritizing current surf conditions over session history)
