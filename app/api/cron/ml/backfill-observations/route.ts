@@ -16,12 +16,38 @@ export async function GET(request: Request) {
 
   // Find predictions without ground truth (older than 2 hours)
   const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  // Only look at predictions within observation data range (last 7 days)
+  const observationWindowStart = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  // First, get beaches that actually have observation data
+  const { data: beachesWithObs } = await supabase
+    .from('marine_forecasts')
+    .select('beach_id')
+    .eq('is_observed', true)
+    .not('wave_height_m', 'is', null);
+
+  if (!beachesWithObs?.length) {
+    return Response.json({
+      updated: 0,
+      message: 'No beaches with observation data',
+    });
+  }
+
+  // Get unique beach IDs
+  const beachIdsWithObs = Array.from(
+    new Set(beachesWithObs.map((b) => b.beach_id))
+  );
 
   const { data: pending, error: fetchError } = await supabase
     .from('ml_predictions_log')
     .select('id, beach_id, predicted_at, raw_forecast_m, corrected_forecast_m')
     .is('observed_m', null)
     .lt('predicted_at', cutoff)
+    .gt('predicted_at', observationWindowStart)
+    .in('beach_id', beachIdsWithObs)
+    .order('predicted_at', { ascending: true })
     .limit(200);
 
   if (fetchError) {
@@ -75,7 +101,14 @@ export async function GET(request: Request) {
     }
   }
 
-  console.log(`Updated ${updated} predictions with ground truth`);
+  console.log(
+    `Updated ${updated}/${pending.length} predictions with ground truth`
+  );
 
-  return Response.json({ updated, total_pending: pending.length });
+  return Response.json({
+    updated,
+    processed: pending.length,
+    match_rate: pending.length > 0 ? (updated / pending.length) * 100 : 0,
+    beaches_with_observations: beachIdsWithObs.length,
+  });
 }
