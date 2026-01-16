@@ -447,14 +447,20 @@ export function TideChart({
     () => normalizeForecasts(forecasts),
     [forecasts]
   );
+  const tideScheduleData = React.useMemo(
+    () => normalizeTideSchedule(forecasts),
+    [forecasts]
+  );
 
   const rawLine = React.useMemo(() => {
+    // Priority: direct data > tide_schedule > hourly > events > forecasts
     if (directData.length) return directData;
+    if (tideScheduleData.length) return synthesizeFromExtrema(tideScheduleData);
     if (hourlyData.length) return hourlyData;
     if (eventData.length) return synthesizeFromExtrema(eventData);
     if (forecastData.length) return forecastData;
     return [] as InternalPoint[];
-  }, [directData, hourlyData, eventData, forecastData]);
+  }, [directData, tideScheduleData, hourlyData, eventData, forecastData]);
 
   const emphasizedLine = React.useMemo(() => {
     if (!rawLine.length) return rawLine;

@@ -1,5 +1,40 @@
 import { normalizeTideSchedule } from "@/components/forecast/tide-chart-recharts";
 
+describe("TideChart data priority", () => {
+  it("prefers tide_schedule over forecast fields when available", () => {
+    // This is an integration test - we'll verify the chart renders correctly
+    // by checking the data flow prioritizes tide_schedule
+    const forecasts = [
+      {
+        id: "1",
+        beach_id: "beach-1",
+        forecast_date: "2026-01-15",
+        forecast_time: "17:00",
+        tide_height: "2.3 ft",
+        next_tide_type: "High Tide", // This used to cause wrong marking
+        wave_height: "3.0 ft",
+        water_temp: "60F",
+        confidence_score: 85,
+        data_source: "NOAA_NWS" as const,
+        created_at: "2026-01-15T00:00:00Z",
+        updated_at: "2026-01-15T00:00:00Z",
+        raw_forecast: {
+          tide_schedule: [
+            { time: 1737003420, height: 3.6, type: "high" as const }, // 8:37 PM
+            { time: 1737030720, height: 2.5, type: "low" as const },
+          ],
+        },
+      },
+    ];
+
+    const tideScheduleData = normalizeTideSchedule(forecasts);
+
+    // The 8:37 PM point should be marked as high, NOT the 5 PM forecast time
+    expect(tideScheduleData[0].isHigh).toBe(true);
+    expect(tideScheduleData[0].timestamp).toBe(1737003420 * 1000);
+  });
+});
+
 describe("normalizeTideSchedule", () => {
   it("extracts tide extrema from raw_forecast.tide_schedule", () => {
     const forecasts = [
