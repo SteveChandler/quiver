@@ -196,8 +196,8 @@ jobs:
                   echo "- Discover: http://localhost:3000/discover" >> $GITHUB_STEP_SUMMARY
                   echo "- Map: http://localhost:3000/map" >> $GITHUB_STEP_SUMMARY
                   echo "- Profile: http://localhost:3000/profile" >> $GITHUB_STEP_SUMMARY
-                  echo "- Beach (OB Pier): http://localhost:3000/ca/san-diego/ocean-beach-pier" >> $GITHUB_STEP_SUMMARY
-                  echo "- Beach (Blacks): http://localhost:3000/ca/la-jolla/blacks" >> $GITHUB_STEP_SUMMARY
+                  echo "- Spot (Blacks): http://localhost:3000/spots/blacks-beach" >> $GITHUB_STEP_SUMMARY
+                  echo "- Spot (Swamis): http://localhost:3000/spots/swamis" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Configuration" >> $GITHUB_STEP_SUMMARY
