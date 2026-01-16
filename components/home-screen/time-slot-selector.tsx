@@ -18,11 +18,12 @@ const TIME_SLOT_OPTIONS: { value: TimeSlot; label: string }[] = [
 
 export function TimeSlotSelector({ value, onChange, className }: TimeSlotSelectorProps) {
   return (
-    <div className={cn('flex gap-2 overflow-x-auto pb-1', className)}>
+    <div role="radiogroup" aria-label="Time slot filter" className={cn('flex gap-2 overflow-x-auto pb-1', className)}>
       {TIME_SLOT_OPTIONS.map((option) => (
         <button
           key={option.value}
           onClick={() => onChange(option.value)}
+          aria-pressed={value === option.value}
           className={cn(
             'px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors',
             'min-h-[44px] flex items-center justify-center',

@@ -237,7 +237,7 @@ export function HomeScreen() {
               ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
                 <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">
                   <p className="text-white/80 mb-3">
-                    No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows tomorrow.
+                    No great {timeSlot === 'dawn-patrol' ? 'dawn patrol' : timeSlot} windows in the next 24 hours.
                   </p>
                   <button
                     onClick={() => setTimeSlot('any')}

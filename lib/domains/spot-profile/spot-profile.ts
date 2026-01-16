@@ -1,0 +1,244 @@
+/**
+ * Spot Profile Factory
+ *
+ * Creates SpotProfile value objects from Beach database rows.
+ * Centralizes all beach-to-profile mapping logic.
+ */
+
+import type { Beach } from '@/types/database';
+import type {
+  SpotProfile,
+  SwellWindow,
+  WindThresholds,
+  TidePreferences,
+  SkillLevel,
+} from './types';
+import { SPOT_PROFILE_DEFAULTS } from './types';
+import {
+  normalizeAngle,
+  angleDifference as sharedAngleDifference,
+} from '../shared';
+
+/**
+ * Creates a SpotProfile from a Beach database row.
+ * Handles null values with sensible defaults.
+ */
+export function createSpotProfile(beach: Beach): SpotProfile {
+  return {
+    id: beach.id,
+    name: beach.name,
+    timezone: getTimezone(beach),
+    coordinates: {
+      lat: beach.lat ?? 0,
+      lon: beach.lon ?? 0,
+    },
+    swellWindow: createSwellWindow(beach),
+    windThresholds: createWindThresholds(beach),
+    tidePreferences: createTidePreferences(beach),
+    skillLevel: parseSkillLevel(beach.skill_level),
+    breakType: beach.break_type ?? null,
+  };
+}
+
+/**
+ * Gets timezone from beach or estimates from coordinates.
+ */
+function getTimezone(beach: Beach): string {
+  // Beach may have timezone column (added in recent migration)
+  // For now, use Pacific Time as default for US beaches
+  // TODO: Use actual timezone column when available in types
+  const lat = beach.lat ?? 0;
+  const lon = beach.lon ?? 0;
+
+  // Check Hawaii first (before generic longitude checks)
+  if (lat > 19 && lat < 23 && lon > -161 && lon < -154) {
+    return 'Pacific/Honolulu'; // Hawaii
+  }
+
+  // Simple heuristic based on longitude for US beaches
+  if (lon < -115) {
+    return 'America/Los_Angeles'; // West Coast
+  } else if (lon < -100) {
+    return 'America/Denver'; // Mountain
+  } else if (lon < -85) {
+    return 'America/Chicago'; // Central
+  } else if (lon < -70) {
+    return 'America/New_York'; // East Coast
+  }
+
+  return 'America/Los_Angeles'; // Default
+}
+
+/**
+ * Creates SwellWindow from beach swell direction data.
+ */
+function createSwellWindow(beach: Beach): SwellWindow {
+  const minDeg = beach.swell_window_min_deg;
+  const maxDeg = beach.swell_window_max_deg;
+
+  // If no swell window defined, use defaults (all directions)
+  if (minDeg == null || maxDeg == null) {
+    return SPOT_PROFILE_DEFAULTS.swellWindow;
+  }
+
+  // Calculate center and half-width, handling wrap-around
+  // e.g., min=300, max=60 covers NW to ENE (300° through 0° to 60°)
+  // Special case: if min=0 and max=360, span is full circle (360°)
+  let span = normalizeAngle(maxDeg - minDeg);
+  if (span === 0 && maxDeg !== minDeg) {
+    span = 360; // Full circle
+  }
+  const centerDeg = normalizeAngle(minDeg + span / 2);
+  const halfWidthDeg = span / 2;
+
+  return {
+    minDeg,
+    maxDeg,
+    centerDeg,
+    halfWidthDeg,
+  };
+}
+
+/**
+ * Creates WindThresholds from beach wind configuration.
+ */
+function createWindThresholds(beach: Beach): WindThresholds {
+  // Use explicit beach thresholds or fall back to defaults
+  // Note: Database has wind_onshore_bad_kt (knots) but we need mph
+  // Also has max_wind_onshore_mph and max_wind_any_mph (added in migration)
+  const maxOnshoreMph =
+    (beach as Beach & { max_wind_onshore_mph?: number | null })
+      .max_wind_onshore_mph ??
+    (beach.wind_onshore_bad_kt != null
+      ? knotsToMph(beach.wind_onshore_bad_kt)
+      : SPOT_PROFILE_DEFAULTS.windThresholds.maxOnshoreMph);
+
+  const maxAnyMph =
+    (beach as Beach & { max_wind_any_mph?: number | null }).max_wind_any_mph ??
+    SPOT_PROFILE_DEFAULTS.windThresholds.maxAnyMph;
+
+  return {
+    offshoreDeg:
+      beach.wind_offshore_deg ??
+      SPOT_PROFILE_DEFAULTS.windThresholds.offshoreDeg,
+    offshoreToleranceDeg:
+      beach.wind_offshore_tol_deg ??
+      SPOT_PROFILE_DEFAULTS.windThresholds.offshoreToleranceDeg,
+    maxOnshoreMph,
+    maxAnyMph,
+    crossShoreOkKts:
+      beach.wind_cross_shore_ok_kt ??
+      SPOT_PROFILE_DEFAULTS.windThresholds.crossShoreOkKts,
+  };
+}
+
+/**
+ * Creates TidePreferences from beach tide configuration.
+ */
+function createTidePreferences(beach: Beach): TidePreferences {
+  return {
+    minHeightFt:
+      beach.preferred_tide_ft_min ??
+      SPOT_PROFILE_DEFAULTS.tidePreferences.minHeightFt,
+    maxHeightFt:
+      beach.preferred_tide_ft_max ??
+      SPOT_PROFILE_DEFAULTS.tidePreferences.maxHeightFt,
+    preferredDirection: parseTideDirection(beach.preferred_tide_direction),
+  };
+}
+
+/**
+ * Parses skill level string to typed enum.
+ */
+function parseSkillLevel(level: string | null): SkillLevel | null {
+  if (!level) return null;
+
+  const normalized = level.toLowerCase().trim();
+  if (
+    normalized === 'beginner' ||
+    normalized === 'intermediate' ||
+    normalized === 'advanced' ||
+    normalized === 'expert'
+  ) {
+    return normalized;
+  }
+
+  return null;
+}
+
+/**
+ * Parses tide direction string to typed enum.
+ */
+function parseTideDirection(
+  direction: string | null
+): TidePreferences['preferredDirection'] {
+  if (!direction) return 'either';
+
+  const normalized = direction.toLowerCase().trim();
+  if (
+    normalized === 'rising' ||
+    normalized === 'falling' ||
+    normalized === 'either' ||
+    normalized === 'slack'
+  ) {
+    return normalized;
+  }
+
+  // Handle 'any' as 'either'
+  if (normalized === 'any') {
+    return 'either';
+  }
+
+  return 'either';
+}
+
+/**
+ * Converts knots to mph.
+ */
+function knotsToMph(knots: number): number {
+  return knots * 1.15078;
+}
+
+/**
+ * Calculates angular difference between two directions.
+ * Returns value between 0 and 180.
+ *
+ * @deprecated Use angleDifference from '@/lib/domains/shared' directly.
+ * Kept for backwards compatibility.
+ */
+export function angularDifference(deg1: number, deg2: number): number {
+  return sharedAngleDifference(deg1, deg2);
+}
+
+/**
+ * Checks if a direction is within a swell window.
+ */
+export function isDirectionInWindow(
+  directionDeg: number,
+  window: SwellWindow
+): boolean {
+  const diff = angularDifference(directionDeg, window.centerDeg);
+  return diff <= window.halfWidthDeg;
+}
+
+/**
+ * Calculates how well a direction aligns with a swell window.
+ * Returns 0-100 score where 100 is perfect alignment.
+ */
+export function calculateWindowAlignment(
+  directionDeg: number,
+  window: SwellWindow
+): number {
+  const diff = angularDifference(directionDeg, window.centerDeg);
+
+  if (diff <= window.halfWidthDeg) {
+    // Within window: score based on how centered
+    const centeredness = 1 - diff / window.halfWidthDeg;
+    return 70 + centeredness * 30; // 70-100 range
+  }
+
+  // Outside window: steep falloff
+  const outsideBy = diff - window.halfWidthDeg;
+  const falloff = Math.max(0, 70 - outsideBy * 2); // 2 points per degree
+  return falloff;
+}

@@ -1023,12 +1023,6 @@ export function selectBestWindow(
     })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 
-  // DEBUG: Log morning priority state and first 10 forecasts
-  console.log(`🔍 [selectBestWindow] ${beach.name}: isMorning=${isMorning}, todayDateStr=${todayDateStr}`);
-  scoredForecasts.slice(0, 10).forEach(({ localHourStr, score, isToday }) => {
-    console.log(`   ${localHourStr}: score=${score}, isToday=${isToday}`);
-  });
-
   if (scoredForecasts.length === 0) return null;
 
   // Apply time slot filter
@@ -1335,12 +1329,8 @@ export function selectBestWindow(
   }
 
     if (!bestWindow) {
-        console.log(`🔍 [selectBestWindow] ${beach.name}: NO WINDOW FOUND`);
         return null;
     }
-
-  // DEBUG: Log final selection
-  console.log(`🔍 [selectBestWindow] ${beach.name}: SELECTED start=${bestWindow.start.toISOString()} end=${bestWindow.end.toISOString()}`);
 
   // Build the PersonalizedForecastWindow
   return {
