@@ -11,6 +11,34 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 
+// ============================================================================
+// Time Slot Filter Types
+// ============================================================================
+
+/**
+ * Time slot filter for constraining discovery recommendations
+ *
+ * Users can filter surf windows to specific times of day:
+ * - 'any': Full daylight hours (6am-9pm)
+ * - 'dawn-patrol': Early morning (6am-9am)
+ * - 'morning': Morning session (6am-12pm)
+ * - 'afternoon': Afternoon session (12pm-6pm)
+ */
+export type TimeSlot = 'any' | 'morning' | 'afternoon' | 'dawn-patrol';
+
+/**
+ * Hour ranges for each time slot
+ *
+ * startHour and endHour are in 24-hour format (0-23).
+ * Used to filter forecast windows to the specified time range.
+ */
+export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: number }> = {
+  'any': { startHour: 6, endHour: 21 },
+  'dawn-patrol': { startHour: 6, endHour: 9 },
+  'morning': { startHour: 6, endHour: 12 },
+  'afternoon': { startHour: 12, endHour: 18 },
+};
+
 /**
  * Optimal surf window within a forecast period
  * 
@@ -226,9 +254,11 @@ export interface SurfDiscoveryOptions {
   /**
    * Hard cap for how far in the future a "best window" may start (in hours).
    * If provided, discovery will ignore forecast slots beyond this horizon when
-   * selecting each beach’s best window. Intended for "next 24 hours" UX.
+   * selecting each beach's best window. Intended for "next 24 hours" UX.
    */
   horizonHours?: number;
+  /** Filter windows to specific time of day (default: 'any') */
+  timeSlot?: TimeSlot;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
   /** Include home beach in results (default: true) */

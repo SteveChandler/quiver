@@ -10,6 +10,7 @@ import {
 import { withRateLimit } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
 import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
+import type { TimeSlot } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,7 @@ const QuerySchema = z.object({
  * - radius (optional, Phase 2): Search radius in miles (default: 25, max: 100)
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - includeHome (optional): Include home beach (default: true)
+ * - timeSlot (optional): Time slot preference ('any', 'morning', 'afternoon', 'dawn-patrol', default: 'any')
  *
  * Authentication: Required (user session)
  * Rate Limit: 10 requests/minute
@@ -57,6 +59,7 @@ const QuerySchema = z.object({
  * @example
  * GET /api/surf/discover
  * GET /api/surf/discover?maxResults=10
+ * GET /api/surf/discover?timeSlot=morning
  * GET /api/surf/discover?lat=32.7157&lon=-117.1611&radius=25 (Phase 2)
  */
 async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse> {
@@ -91,6 +94,13 @@ async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse>
     const { lat, lon, radius, horizonHours, maxResults, includeHome } =
       validationResult.data;
 
+    // Parse timeSlot query parameter
+    const timeSlotParam = searchParams.get('timeSlot');
+    const validTimeSlots: TimeSlot[] = ['any', 'morning', 'afternoon', 'dawn-patrol'];
+    const timeSlot: TimeSlot = validTimeSlots.includes(timeSlotParam as TimeSlot)
+      ? (timeSlotParam as TimeSlot)
+      : 'any';
+
     // 3. Validate GPS parameters (Phase 2)
     let userLocation: { lat: number; lon: number } | undefined;
     if (lat !== undefined && lon !== undefined) {
@@ -112,6 +122,7 @@ async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse>
       horizonHours,
       maxResults,
       includeHome,
+      timeSlot,
     });
 
     // 5. Generate ETag for conditional request support
