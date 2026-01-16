@@ -69,7 +69,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const citiesResult = await getAllCitiesWithBeaches(3);
     if (citiesResult.success && citiesResult.data) {
-      const intents = ["beginner", "least-crowded", "tide", "water-temp"];
+      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
       dynamicIntentRoutes = citiesResult.data.flatMap((city) => {
         const citySlug = slugifyAscii(city.city);
@@ -90,7 +90,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // State-level intent routes for major surf states
   const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
   const stateIntentRoutes: MetadataRoute.Sitemap = usStates.flatMap((state) =>
-    ["beginner", "least-crowded", "tide", "water-temp"].map((intent) => ({
+    ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"].map((intent) => ({
       url: `${baseUrl}/${intent}/${state}`,
       lastModified: lastmod,
       changeFrequency: "daily" as const,

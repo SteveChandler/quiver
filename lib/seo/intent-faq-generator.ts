@@ -86,6 +86,40 @@ export function generateIntentFAQ(
         answer: `During peak summer months, water temperatures in ${locationName} can reach 68-72°F, making it possible to surf in board shorts or a spring suit. However, most surfers prefer at least a spring suit for longer sessions and early morning surfs.`,
       },
     ],
+    longboard: [
+      {
+        question: `Where are the best longboard spots in ${locationName}?`,
+        answer: hasSpots
+          ? `Great longboard spots in ${locationName} include ${spotList}. Look for peeling point breaks and gentle beach breaks with long shoulders.`
+          : `${locationName} offers several longboard-friendly spots with peeling point breaks and gentle beach breaks that provide long shoulders for trimming and noseriding.`,
+      },
+      {
+        question: `What makes a good longboard wave?`,
+        answer: `Ideal longboard waves have gentle shoulders, a mellow takeoff, and long walls to trim. The best spots feature point breaks or sandbars that create peeling waves.`,
+      },
+    ],
+    "dawn-patrol": [
+      {
+        question: `What time should I surf for dawn patrol in ${locationName}?`,
+        answer: `Dawn patrol in ${locationName} typically starts at first light, around 30 minutes before sunrise. This gives you the glassiest conditions before onshore winds develop.`,
+      },
+      {
+        question: `Why is dawn patrol the best time to surf?`,
+        answer: `Early morning offers glassy conditions, fewer crowds, and calmer winds. Water temperature is also warmer relative to air temperature at sunrise.`,
+      },
+    ],
+    sunset: [
+      {
+        question: `What are the best sunset surf spots in ${locationName}?`,
+        answer: hasSpots
+          ? `The best sunset sessions in ${locationName} are at ${spotList}. These spots offer stunning golden hour views while you ride.`
+          : `${locationName} has several west-facing beaches that offer stunning golden hour sessions during sunset.`,
+      },
+      {
+        question: `Is sunset a good time to surf?`,
+        answer: `Yes! Afternoon often brings cleaner conditions as morning onshore winds die down. Plus, the golden hour light and fewer crowds make for magical sessions.`,
+      },
+    ],
   };
 
   return faqs[intent] || [];
