@@ -27,6 +27,7 @@ import {
   swellInterferenceScorer,
   windQualityScorer,
   tideFitScorer,
+  tideDirectionScorer,
   windowStabilityScorer,
   trendPreferenceScorer,
 } from './index';
@@ -42,6 +43,7 @@ export function createDiscoveryScoringEngine(): ScoringEngine {
     swellInterferenceScorer,
     windQualityScorer,
     tideFitScorer,
+    tideDirectionScorer,
     windowStabilityScorer,
     trendPreferenceScorer,
   ]);

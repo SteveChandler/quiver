@@ -236,9 +236,10 @@ describe('Discovery Adapter', () => {
       expect(scorerNames).toContain('swellInterference');
       expect(scorerNames).toContain('windQuality');
       expect(scorerNames).toContain('tideFit');
+      expect(scorerNames).toContain('tideDirection');
       expect(scorerNames).toContain('windowStability');
       expect(scorerNames).toContain('trendPreference');
-      expect(scorerNames).toHaveLength(7);
+      expect(scorerNames).toHaveLength(8);
     });
   });
 
