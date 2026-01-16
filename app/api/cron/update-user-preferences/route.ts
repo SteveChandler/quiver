@@ -20,10 +20,11 @@ interface UserPreferenceUpdateResult {
 }
 
 /**
- * POST /api/cron/update-user-preferences
+ * GET /api/cron/update-user-preferences
  *
  * Nightly cron job that updates user surf preferences by analyzing session history.
  * Processes eligible users (those with 5+ rated sessions) in batches.
+ * Excludes NPC/bot users (is_mock = true) from preference learning.
  *
  * Authentication:
  * - Vercel Cron header (x-vercel-cron: 1)
@@ -44,7 +45,7 @@ interface UserPreferenceUpdateResult {
  *   }
  * }
  */
-export async function POST(request: NextRequest): Promise<Response> {
+export async function GET(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
 
   try {
@@ -71,8 +72,16 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     console.log('🏄 Starting nightly user preference updates...');
 
-    // 3. Get eligible users (those with rated sessions)
+    // 3. Get eligible users (those with rated sessions, excluding NPC/bot users)
     const supabase = createSupabaseServiceRoleClient();
+
+    // First, get NPC/bot user IDs to exclude from preference learning
+    const { data: npcUsers } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('is_mock', true);
+
+    const npcUserIds = new Set(npcUsers?.map((u) => u.id) || []);
 
     // Query users who have at least 5 rated sessions (rating >= 3)
     // We query session_forecast_snapshots which contains actual_conditions JSONB
@@ -87,10 +96,13 @@ export async function POST(request: NextRequest): Promise<Response> {
       throw new Error(`Failed to query eligible users: ${queryError.message}`);
     }
 
-    // Get unique user IDs
+    // Get unique user IDs, excluding NPC/bot users
     const uniqueUserIds = [
       ...new Set(usersWithSessions?.map((s) => s.user_id) || []),
-    ];
+    ].filter((userId) => !npcUserIds.has(userId));
+
+    const excludedNpcCount = npcUserIds.size;
+    console.log(`🤖 Excluding ${excludedNpcCount} NPC/bot users from preference learning`);
 
     if (uniqueUserIds.length === 0) {
       console.log('ℹ️ No eligible users found for preference updates');
@@ -225,93 +237,11 @@ export async function POST(request: NextRequest): Promise<Response> {
 }
 
 /**
- * GET /api/cron/update-user-preferences
+ * POST /api/cron/update-user-preferences
  *
- * Health check endpoint for monitoring the preference update cron service.
- *
- * Authentication: Same as POST (Vercel Cron header or Bearer token)
- *
- * Response:
- * {
- *   success: true,
- *   data: {
- *     status: 'healthy' | 'degraded',
- *     timestamp: string,
- *     services: {
- *       database: boolean,
- *       preferencesTable: boolean
- *     },
- *     stats: {
- *       totalPreferences: number
- *     }
- *   }
- * }
+ * Alias for GET handler - allows manual triggering via POST request.
+ * The main cron logic is in the GET handler (Vercel crons use GET).
  */
-export async function GET(request: NextRequest): Promise<Response> {
-  try {
-    // Environment check
-    const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
-    if (env !== 'production') {
-      return createErrorResponse(
-        'Forbidden',
-        `Health check disabled for environment: ${env}. Only available in production.`,
-        403
-      );
-    }
-
-    // Validate authentication
-    if (!validateCronRequest(request)) {
-      return createErrorResponse(
-        'Unauthorized',
-        'Invalid cron authentication. Requires Vercel Cron header or valid Bearer token.',
-        401
-      );
-    }
-
-    const supabase = createSupabaseServiceRoleClient();
-
-    // Check database connectivity and preferences table
-    const { error: dbError, count } = await supabase
-      .from('user_surf_preferences')
-      .select('*', { count: 'exact', head: true });
-
-    const isHealthy = !dbError;
-
-    const healthStatus = {
-      status: isHealthy ? 'healthy' : 'degraded',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: isHealthy,
-        preferencesTable: isHealthy,
-      },
-      stats: {
-        totalPreferences: count || 0,
-      },
-    };
-
-    if (!isHealthy) {
-      console.error('⚠️ Preference update cron health check degraded:', dbError);
-    }
-
-    return createSuccessResponse({
-      ...healthStatus,
-      message: isHealthy
-        ? "Preference update cron service is healthy"
-        : "Preference update cron service is degraded",
-    });
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
-
-    console.error('❌ Health check failed:', errorMessage);
-
-    return createErrorResponse(
-      'Health check failed',
-      {
-        error: errorMessage,
-        timestamp: new Date().toISOString(),
-      },
-      500
-    );
-  }
+export async function POST(request: NextRequest): Promise<Response> {
+  return GET(request);
 }
