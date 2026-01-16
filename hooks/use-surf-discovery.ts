@@ -19,20 +19,25 @@ interface CachedDiscoveryData {
 const CACHE_KEY_PREFIX = "quiver_discovery_";
 
 /**
- * Generate a hash string from options to use as part of cache key
+ * Generate a hash string from options to use as part of cache key.
+ * Uses explicit string concatenation to ensure critical fields (especially timeSlot)
+ * are always captured regardless of JSON property ordering or truncation.
  */
 function hashOptions(options: UseSurfDiscoveryOptions): string {
-  // Put timeSlot first to ensure it's included in the hash (slice truncates to 16 chars)
-  const normalized = {
-    ts: options.timeSlot, // timeSlot first - critical for cache differentiation
-    lat: options.userLocation?.lat?.toFixed(2),
-    lon: options.userLocation?.lon?.toFixed(2),
-    radius: options.radiusMiles,
-    horizon: options.horizonHours,
-    max: options.maxResults,
-    home: options.includeHome,
-  };
-  return btoa(JSON.stringify(normalized)).slice(0, 16);
+  // Explicit concatenation ensures timeSlot is always included and order is deterministic
+  const parts = [
+    `ts:${options.timeSlot || 'any'}`, // Critical for cache differentiation
+    `lat:${options.userLocation?.lat?.toFixed(2) || 'none'}`,
+    `lon:${options.userLocation?.lon?.toFixed(2) || 'none'}`,
+    `r:${options.radiusMiles || 'def'}`,
+    `h:${options.horizonHours || 'def'}`,
+    `m:${options.maxResults || 'def'}`,
+    `home:${options.includeHome || 'false'}`,
+  ];
+  const key = parts.join('|');
+
+  // Use base64 encoding for compactness, but take longer slice to reduce collision risk
+  return btoa(key).slice(0, 24);
 }
 
 /**
@@ -344,7 +349,7 @@ export function useSurfDiscovery(
     }
   );
 
-  // Refetch when options change (e.g., timeSlot) - but not on initial mount
+  // Refetch when options change (e.g., timeSlot) - debounced to prevent rapid clicks
   const prevOptionsHashRef = useRef(optionsHash);
   useEffect(() => {
     // Skip if this is initial mount or options haven't changed
@@ -353,8 +358,13 @@ export function useSurfDiscovery(
       return;
     }
     prevOptionsHashRef.current = optionsHash;
-    // Options changed, trigger refetch
-    refetch();
+
+    // Debounce to prevent rapid time slot switching from hitting rate limits
+    const timeoutId = setTimeout(() => {
+      refetch();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [optionsHash, refetch]);
 
   // Use cached data if available, otherwise use fresh data

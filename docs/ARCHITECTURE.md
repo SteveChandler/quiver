@@ -133,7 +133,7 @@ NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
 
 ### Feature Status Highlights
 
-- **Personalization**: "Single User Experience" engine with affinity/history learning.
+- **Personalization**: "Single User Experience" engine with affinity/history learning, time slot filtering (Jan 2026).
 - **Social Platform**: Follows, feeds, likes, comments, real-time updates.
 - **Forecasting**: 10-day NOAA integration with confidence scoring.
 - **ML Bias Correction**: XGBoost-corrected wave height forecasts.
@@ -141,6 +141,23 @@ NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
 - **Session Management**: Logging, planning, rich metadata.
 - **Attribution**: UTM tracking and referral system for growth analytics.
 - **Coverage**: California, Oregon, Washington, Hawaii, Baja California.
+
+---
+
+### Personalization System
+
+The personalization system provides tailored surf recommendations based on user preferences and conditions.
+
+**Key Components:**
+- **Surf Discovery Service** (`lib/services/surf-discovery-service.ts`): Main recommendation engine
+- **Personalized Scoring Service** (`lib/services/personalized-scoring-service.ts`): Preference-based scoring
+- **Preference Learning Service** (`lib/services/preference-learning-service.ts`): Session history analysis
+
+**Recent Additions (January 2026):**
+- **Time Slot Filtering**: Users can filter recommendations by time of day (dawn-patrol, morning, afternoon)
+- **Time Slot Capping Algorithm**: Ensures recommended windows respect time slot boundaries
+
+For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 
 ---
 
