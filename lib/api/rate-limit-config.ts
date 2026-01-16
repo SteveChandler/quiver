@@ -171,9 +171,9 @@ export const RATE_LIMITS = {
    * Moderate limits for personalized recommendations
    */
   "surf-discovery": {
-    requestsPerMinute: 10,
-    requestsPerHour: 100,
-    burstLimit: 3,
+    requestsPerMinute: 15,
+    requestsPerHour: 150,
+    burstLimit: 6, // Allow clicking through all 4 time slots quickly
   } as RateLimiterConfig,
 
   /**

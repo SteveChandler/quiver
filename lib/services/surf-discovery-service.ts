@@ -361,6 +361,8 @@ export async function discoverSurfSpots(
     const scored: SurfDiscoveryRecommendation[] = [];
 
     // Pre-load user preferences and affinity (1 query each)
+    // NOTE: affinityMap is loaded but currently unused (affinityBonus = 0 at line 740).
+    // Kept for future reactivation when we want to factor in user familiarity with beaches.
     const [userPrefs, affinityMap] = await Promise.all([
       getUserSurfPreferences(userId),
       loadBeachAffinity(userId, finalCandidates.map((b) => b.id)),
@@ -733,11 +735,11 @@ export async function scoreBeachForDiscovery(args: {
   // Use the new domain-driven scoring engine
   const engine = getDiscoveryScoringEngine();
 
-  // Calculate affinity bonus (0-15 points)
-  let affinityBonus = 0;
-  if (affinity && affinity.affinity_score > 10) {
-    affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
-  }
+  // Affinity bonus disabled - let conditions drive rankings instead of session history.
+  // When enabled, affinity would boost beaches based on user familiarity, but we want
+  // discovery recommendations to prioritize current surf conditions over past behavior.
+  // The affinityMap is still loaded (line 364-367) but intentionally unused here.
+  const affinityBonus = 0;
 
   // Calculate distance penalty (0 to -20 points)
   let distancePenalty = 0;
@@ -767,12 +769,6 @@ export async function scoreBeachForDiscovery(args: {
     distancePenalty,
     preferredWaveSize: preferredWaveSizeOption,
   });
-
-  // Add affinity reason if applicable
-  if (affinity && affinity.affinity_score > 10) {
-    const sessionCount = Math.round(affinity.affinity_score / 10);
-    detailedScore.reasons.push(`You've surfed here ${sessionCount}+ times - familiar spot`);
-  }
 
   // Add distance warning if far
   if (distanceMiles !== undefined && distanceMiles > 30) {
@@ -960,6 +956,15 @@ export function selectBestWindow(
       return time.toISOString().slice(0, 10); // Fallback to UTC
     }
   };
+
+  // Helper: cap end time to time slot boundary (e.g., dawn-patrol ends at 9am)
+  // Note: Implementation is exported as capEndTimeToTimeSlot for testing
+  const capEndTimeToSlot = (
+    effectiveStartTime: Date,
+    endTime: Date,
+    timeSlot: TimeSlot | undefined,
+    beachTz: string
+  ): Date => capEndTimeToTimeSlot(effectiveStartTime, endTime, timeSlot, beachTz);
 
   // Check if it's "morning" (before noon) in beach timezone - prefer today's forecasts
   let isMorning = false;
@@ -1182,6 +1187,9 @@ export function selectBestWindow(
       endTime = sunset;
     }
 
+    // Cap at time slot end (e.g., dawn-patrol ends at 9am)
+    endTime = capEndTimeToSlot(effectiveStartTime, endTime, timeSlot, beachTz);
+
     // Validate minimum session length (using effective start time)
     const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
     if (durationHours < MIN_SESSION_HOURS) continue;
@@ -1314,6 +1322,9 @@ export function selectBestWindow(
         endTime = nextSunset;
       }
 
+      // Cap at time slot end for fallback window too
+      endTime = capEndTimeToSlot(effectiveStartTime, endTime, timeSlot, beachTz);
+
       const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
 
       if (durationHours >= MIN_SESSION_HOURS) {
@@ -1344,6 +1355,61 @@ export function selectBestWindow(
     confidence: bestWindow.forecast.confidence_score || 50,
     timezone: beachTz,
   };
+}
+
+// ============================================================================
+// Exported Test Helpers
+// ============================================================================
+
+/**
+ * Test helper: Cap end time to time slot boundary
+ * Exported for unit testing the time slot capping logic
+ *
+ * @param effectiveStartTime - The window start time
+ * @param endTime - The uncapped window end time
+ * @param timeSlot - The time slot to cap to (dawn-patrol, morning, afternoon, any)
+ * @param beachTz - IANA timezone string for the beach location
+ * @returns The capped end time, or original end time if no capping needed
+ */
+export function capEndTimeToTimeSlot(
+  effectiveStartTime: Date,
+  endTime: Date,
+  timeSlot: TimeSlot | undefined,
+  beachTz: string
+): Date {
+  if (!timeSlot || timeSlot === 'any') {
+    return endTime;
+  }
+
+  const { endHour } = TIME_SLOT_RANGES[timeSlot];
+  try {
+    // Get the local hour of the start time in beach timezone
+    const startLocalHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: beachTz,
+      }).format(effectiveStartTime),
+      10
+    );
+
+    // Calculate hours until time slot ends
+    const hoursUntilSlotEnd = endHour - startLocalHour;
+
+    if (hoursUntilSlotEnd > 0) {
+      const timeSlotEnd = new Date(
+        effectiveStartTime.getTime() + hoursUntilSlotEnd * 60 * 60 * 1000
+      );
+
+      if (timeSlotEnd < endTime) {
+        return timeSlotEnd;
+      }
+    }
+  } catch {
+    // If timezone conversion fails, don't cap
+  }
+
+  return endTime;
 }
 
 // ============================================================================

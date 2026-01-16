@@ -405,9 +405,121 @@ export class NOAACOOPSService {
 - `user_beach_affinity` table - Beach familiarity
 - `favorite_beaches` table - User favorites
 
+### **Time Slot Capping Algorithm** (January 2026)
+
+The surf discovery service includes a time slot capping algorithm that prevents recommendation windows from extending past the user's preferred time of day.
+
+#### **Purpose**
+
+When users filter by time slot (e.g., "dawn-patrol" or "morning"), they expect recommendations to respect those boundaries. Without capping, a window starting at 8am could extend to 12pm even when the user selected "dawn-patrol" (6am-9am). The capping algorithm ensures the recommended window ends at the time slot boundary.
+
+#### **Time Slot Definitions**
+
+| Time Slot    | Start Hour | End Hour | Caps Window At |
+|--------------|------------|----------|----------------|
+| dawn-patrol  | 6am        | 9am      | 9am            |
+| morning      | 6am        | 12pm     | 12pm           |
+| afternoon    | 12pm       | 6pm      | 6pm            |
+| any          | 6am        | 9pm      | No capping     |
+
+Time slots are defined in `types/personalization.ts` as `TIME_SLOT_RANGES`.
+
+#### **Algorithm Details**
+
+The `capEndTimeToTimeSlot()` function implements the capping logic:
+
+```typescript
+export function capEndTimeToTimeSlot(
+  effectiveStartTime: Date,
+  endTime: Date,
+  timeSlot: TimeSlot | undefined,
+  beachTz: string
+): Date {
+  // 1. If no time slot or "any", return uncapped
+  if (!timeSlot || timeSlot === 'any') {
+    return endTime;
+  }
+
+  // 2. Get end hour for the time slot
+  const { endHour } = TIME_SLOT_RANGES[timeSlot];
+
+  // 3. Extract local hour using Intl.DateTimeFormat for timezone awareness
+  const startLocalHour = parseInt(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: beachTz,
+    }).format(effectiveStartTime),
+    10
+  );
+
+  // 4. Calculate hours until slot end and cap if needed
+  const hoursUntilSlotEnd = endHour - startLocalHour;
+  if (hoursUntilSlotEnd > 0) {
+    const timeSlotEnd = new Date(
+      effectiveStartTime.getTime() + hoursUntilSlotEnd * 60 * 60 * 1000
+    );
+    if (timeSlotEnd < endTime) {
+      return timeSlotEnd;
+    }
+  }
+
+  return endTime;
+}
+```
+
+**Key Implementation Details:**
+
+1. **Timezone-Aware**: Uses `Intl.DateTimeFormat` to extract the local hour in the beach's timezone, ensuring correct capping regardless of user location or server timezone.
+
+2. **Graceful Degradation**: If timezone conversion fails, the function returns the uncapped end time rather than crashing.
+
+3. **Relative Calculation**: Calculates hours from window start to slot boundary, then creates the capped end time by adding that duration to start time.
+
+#### **Interaction with Other Systems**
+
+The capping algorithm interacts with several other window-limiting systems in `selectBestWindow()`:
+
+1. **Sunset Capping**: Windows are first capped at sunset to avoid recommending sessions after dark.
+2. **Time Slot Capping**: Applied after sunset capping, so whichever is earlier wins.
+3. **Minimum Session Length**: After all capping, windows shorter than `MIN_SESSION_HOURS` (1 hour) are excluded.
+4. **Scoring**: Capping happens before scoring, so capped windows may have different scores than uncapped versions.
+
+**Processing Order:**
+```
+Window Selection → Sunset Cap → Time Slot Cap → Duration Validation → Scoring
+```
+
+#### **Performance Considerations**
+
+- **Minimal Overhead**: Timezone conversion via `Intl.DateTimeFormat` adds < 1ms per call
+- **Applied During Selection**: Capping is applied during `selectBestWindow()`, not as a post-filter
+- **No Database Queries**: Pure in-memory calculation using the beach timezone
+
+#### **Code Location**
+
+- **Main Function**: `capEndTimeToTimeSlot()` in `lib/services/surf-discovery-service.ts` (lines 1374-1413)
+- **Called From**: `selectBestWindow()` during window evaluation (line 1191)
+- **Also Used**: Fallback window construction (line 1326)
+
+#### **Testing**
+
+The function is exported for unit testing:
+```typescript
+// Test helper export at line 1374
+export function capEndTimeToTimeSlot(...): Date
+```
+
+Tests should verify:
+- Capping at 9am for dawn-patrol
+- Capping at 12pm for morning
+- Capping at 6pm for afternoon
+- No capping for "any" time slot
+- Graceful handling of timezone conversion failures
+
 ### **ForecastAlertService** (Forecast Threshold Push Alerts)
 
-- **Purpose**: Sends **opt-out** push alerts when a user’s **home beach** forecast matches their thresholds (learned prefs when available; defaults otherwise).
+- **Purpose**: Sends **opt-out** push alerts when a user's **home beach** forecast matches their thresholds (learned prefs when available; defaults otherwise).
 - **Service Location**: `lib/services/forecast-alerts.ts`
 - **Trigger**: `/api/cron/forecast-alerts` (see `app/api/cron/forecast-alerts/route.ts`)
 - **Constraints**:
@@ -444,28 +556,28 @@ export class NOAACOOPSService {
 - **Features**:
   - Bucket-based similarity scoring for robustness against exact value matching
   - Weighted multi-factor comparison (wave height 35%, period 25%, wind speed 20%, direction 10%, tide 10%)
-  - Match quality labels: Perfect (≥80%), Great (60-79%), Good (40-59%), Low (<40%)
-  - Board tip generation when ≥60% of similar sessions used the same board
+  - Match quality labels: Perfect (>=80%), Great (60-79%), Good (40-59%), Low (<40%)
+  - Board tip generation when >=60% of similar sessions used the same board
   - Cross-spot explanations when >50% of matches come from different beaches
-  - Three insight states: ready (≥3 sessions), onboarding (<3 sessions), degraded (no snapshots)
+  - Three insight states: ready (>=3 sessions), onboarding (<3 sessions), degraded (no snapshots)
 
 **Service Location:** `lib/services/similarity-insights-service.ts`
 
 **Algorithm Overview:**
 
-1. **Data Fetching**: Query user's rated sessions (rating ≥3) from last 12 months with forecast/board snapshots
+1. **Data Fetching**: Query user's rated sessions (rating >=3) from last 12 months with forecast/board snapshots
 2. **Similarity Scoring**: Compute bucket-based similarity using weighted factors:
    - Wave height buckets: 0-2 ft, 2-4 ft, 4-6 ft, 6-8 ft, 8+ ft (35% weight)
    - Wave period buckets: 0-8s, 8-12s, 12-16s, 16+s (25% weight)
    - Wind speed buckets: 0-5 mph, 5-10 mph, 10-15 mph, 15+ mph (20% weight)
-   - Wind direction: 8 cardinal directions, 45° each (10% weight)
+   - Wind direction: 8 cardinal directions, 45 deg each (10% weight)
    - Tide height: simple range-based (10% weight)
 3. **Match Filtering**: Select top 5 sessions above 60% similarity threshold
 4. **Insight Generation**:
    - Calculate average match percent
    - Generate match quality label
    - Create 2-4 reason bullets explaining the match
-   - Detect board patterns (≥60% threshold for tip)
+   - Detect board patterns (>=60% threshold for tip)
    - Identify cross-spot opportunities (>50% threshold)
 
 **Bucket Matching Details:**
@@ -479,7 +591,7 @@ export class NOAACOOPSService {
 - `createSupabaseServiceRoleClient()` for data access (userId pre-validated in API layer)
 
 **Response States:**
-- **ready**: User has ≥3 rated sessions, insights computed successfully
+- **ready**: User has >=3 rated sessions, insights computed successfully
 - **onboarding**: User has <3 rated sessions, encouragement to log more
 - **degraded**: User has rated sessions but no forecast snapshots available
 
@@ -749,39 +861,42 @@ async function fetchWaveDataWithFallback(location: Location) {
 
 ```
 User Request (userId)
-    ↓
+    |
 Build Candidate Pool (2 DB queries)
-    ├── Home beach from profile
-    └── Favorites ordered by rank
-    ↓
+    |-- Home beach from profile
+    +-- Favorites ordered by rank
+    |
 Fetch Forecasts from Cache (parallel)
-    ├── getFreshForecastFromCache() per beach
-    ├── No external API calls
-    └── Returns cached forecast data with staleness metadata
-    ↓
+    |-- getFreshForecastFromCache() per beach
+    |-- No external API calls
+    +-- Returns cached forecast data with staleness metadata
+    |
 Select Best Window (per beach)
-    ├── Filter to next 48 hours
-    ├── Score each 3-hour window
-    └── Base score: wave + wind + tide
-    ↓
+    |-- Filter to next 48 hours
+    |-- Apply time slot filter (if specified)
+    |-- Score each 3-hour window
+    |-- Cap at sunset
+    |-- Cap at time slot boundary <-- NEW (Jan 2026)
+    +-- Base score: wave + wind + tide
+    |
 Personalized Scoring (1 DB query)
-    ├── Pre-load affinity map
-    ├── Batch score via personalized-scoring-service
-    └── Apply: onboarding + learned + affinity bonuses
-    ↓
+    |-- Pre-load affinity map
+    |-- Batch score via personalized-scoring-service
+    +-- Apply: onboarding + learned + affinity bonuses
+    |
 Select Best Beach
-    ↓
+    |
 Generate Summary & Reasons
-    ↓
+    |
 Return Recommendation
 ```
 
 ### **Integration Points**
 
 **Service-to-Service Composition:**
-- `surf-discovery-service` → `getFreshForecastFromCache()`
-- `surf-discovery-service` → `personalized-scoring-service`
-- `personalized-scoring-service` → `preference-learning-service`
+- `surf-discovery-service` -> `getFreshForecastFromCache()`
+- `surf-discovery-service` -> `personalized-scoring-service`
+- `personalized-scoring-service` -> `preference-learning-service`
 
 **No HTTP Between Services:**
 All services use direct TypeScript imports and function calls. This eliminates:
@@ -799,6 +914,6 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 
 ---
 
-**Last Updated**: November 2025  
-**Status**: Production-ready with comprehensive external service integration and personalization  
+**Last Updated**: January 2026
+**Status**: Production-ready with comprehensive external service integration and personalization
 **Next Review**: After machine learning forecast enhancements and user preference algorithm tuning

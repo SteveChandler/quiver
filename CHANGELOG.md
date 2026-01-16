@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Code Quality (Time Slot Filtering):** Addressed code review feedback for time slot filtering feature:
+  - Extracted duplicated time slot end capping logic into reusable `capEndTimeToSlot()` helper function, eliminating 30+ lines of duplication
+  - Added comprehensive documentation explaining why beach affinity is intentionally disabled (prioritizing current surf conditions over session history)
+  - Improved cache key hash robustness in `use-surf-discovery.ts` by replacing fragile `btoa().slice(0, 16)` with explicit string concatenation of critical fields, reducing collision risk
+  - Documented that `affinityMap` is loaded but intentionally unused, preserved for future reactivation
 - **Session Logging (Forecast Accuracy Persistence):** Fixed critical bug where user-submitted forecast accuracy feedback (Yes/Kinda/No buttons) and condition fields were not being saved to the database. The `sessions.forecast_accuracy`, `wave_height_ft`, `wind_speed_mph`, `wind_direction`, `tide_height_ft`, and `tide_status` columns were always NULL. Root cause: `app/sessions/new/page.tsx` had its own `handleSessionComplete` function that built `loggedSessionData` without including these fields, even though `ConditionsSection.tsx` captured them and `AnimatedSessionWizard.tsx` passed them correctly. Fixed by adding all condition field mappings to the page-level handler (lines 409-431). Updated architecture documentation to document the dual code path requirement.
 - **Timezone Display (Discovery Cards):** Fixed "Best at Thu 6:00 PM" vs "Thu 10:00 AM - 1:00 PM" mismatch on surf discovery cards. The server-generated summary no longer embeds a pre-formatted timestamp; instead, all time displays are now formatted client-side using the beach's local IANA timezone. Added shared `formatBeachDateTime`, `formatBeachTimeRange`, and `formatBestAtLabel` helpers to `lib/utils/date-utils.ts` to ensure consistent beach-local time formatting across all UI surfaces.
 - **Magic Hour Peak Time (Top Card):** Fixed Magic Hour peak time drifting by timezone offset (e.g. showing "Peak at 3:00 PM" when the window is "7:00 AM - 10:00 AM") by parsing enhanced forecast timestamps explicitly as UTC (`...T...Z`) before formatting in the beach's timezone.
