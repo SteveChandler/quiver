@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       .lte('ts', windowEnd)
       .order('ts', { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (obs?.wave_height_m) {
       const rawError = Math.abs(pred.raw_forecast_m - obs.wave_height_m);
