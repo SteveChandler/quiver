@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { formatIntelMessage, formatIntelSourceName } from "@/app/api/coast-pulse/route";
+import { formatIntelMessage, formatIntelSourceName, findNearestBeachName } from "@/app/api/coast-pulse/route";
 
 describe("formatIntelMessage", () => {
   it("formats full structured data with emoji", () => {
@@ -117,5 +117,43 @@ describe("formatIntelSourceName", () => {
     const result = formatIntelSourceName("Steve", "Beach", 10);
     // Should handle gracefully without crashing
     expect(result.length).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("findNearestBeachName", () => {
+  const beaches = [
+    { name: "La Jolla Shores", lat: 32.8567, lon: -117.2575 },
+    { name: "Pacific Beach", lat: 32.7946, lon: -117.2557 },
+    { name: "Ocean Beach", lat: 32.7497, lon: -117.2507 },
+  ];
+
+  it("finds nearest beach within distance", () => {
+    // Point very close to La Jolla Shores
+    const result = findNearestBeachName(32.857, -117.258, beaches);
+    expect(result).toBe("La Jolla Shores");
+  });
+
+  it("returns null when no beaches within max distance", () => {
+    // Point far from all beaches (Los Angeles)
+    const result = findNearestBeachName(34.0522, -118.2437, beaches);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for empty beaches array", () => {
+    const result = findNearestBeachName(32.857, -117.258, []);
+    expect(result).toBeNull();
+  });
+
+  it("respects custom max distance", () => {
+    // Point ~7km from La Jolla Shores, use 5km max
+    const result = findNearestBeachName(32.79, -117.26, beaches, 5);
+    // Should find Pacific Beach (closer) but not La Jolla
+    expect(result).toBe("Pacific Beach");
+  });
+
+  it("returns closest beach when multiple within range", () => {
+    // Point between Pacific Beach and Ocean Beach
+    const result = findNearestBeachName(32.77, -117.253, beaches);
+    expect(result).toBe("Ocean Beach"); // Closest
   });
 });

@@ -1152,8 +1152,31 @@ function formatIntelSourceName(
   return truncateText(username, maxLength);
 }
 
+/**
+ * Find nearest beach name from coordinates using cached beach list
+ */
+function findNearestBeachName(
+  lat: number,
+  lon: number,
+  beaches: Array<{ name: string; lat: number; lon: number }>,
+  maxDistanceKm: number = 5
+): string | null {
+  if (!beaches?.length) return null;
+
+  let nearest: { name: string; distance: number } | null = null;
+
+  for (const beach of beaches) {
+    const dist = haversineDistance(lat, lon, beach.lat, beach.lon);
+    if (dist <= maxDistanceKm && (!nearest || dist < nearest.distance)) {
+      nearest = { name: beach.name, distance: dist };
+    }
+  }
+
+  return nearest?.name || null;
+}
+
 // Export helpers for testing
-export { formatIntelMessage, formatIntelSourceName };
+export { formatIntelMessage, formatIntelSourceName, findNearestBeachName };
 
 // Apply rate limiting protection
 export const GET = withRateLimit(coastPulseHandler, "public-default");
