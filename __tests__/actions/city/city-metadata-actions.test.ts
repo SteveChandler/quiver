@@ -35,24 +35,24 @@ const mockSantaCruzBeaches = [
     name: "Steamer Lane",
     slug: "steamer-lane",
     skill_level: "Advanced",
-    center_lat: 36.9516,
-    center_lng: -122.0235,
+    lat: 36.9516,
+    lon: -122.0235,
   },
   {
     id: "beach-2",
     name: "Cowell Beach",
     slug: "cowell-beach",
     skill_level: "Beginner-friendly",
-    center_lat: 36.9628,
-    center_lng: -122.0234,
+    lat: 36.9628,
+    lon: -122.0234,
   },
   {
     id: "beach-3",
     name: "Pleasure Point",
     slug: "pleasure-point",
     skill_level: "Intermediate",
-    center_lat: 36.9631,
-    center_lng: -121.9763,
+    lat: 36.9631,
+    lon: -121.9763,
   },
 ];
 
@@ -63,40 +63,40 @@ const mockSanDiegoBeaches = [
     name: "La Jolla Shores",
     slug: "la-jolla-shores",
     skill_level: "Beginner-friendly",
-    center_lat: 32.8569,
-    center_lng: -117.2571,
+    lat: 32.8569,
+    lon: -117.2571,
   },
   {
     id: "beach-sd-2",
     name: "Black's Beach",
     slug: "blacks-beach",
     skill_level: "Advanced",
-    center_lat: 32.8885,
-    center_lng: -117.2525,
+    lat: 32.8885,
+    lon: -117.2525,
   },
   {
     id: "beach-sd-3",
     name: "Pacific Beach",
     slug: "pacific-beach",
     skill_level: "Intermediate",
-    center_lat: 32.7972,
-    center_lng: -117.2561,
+    lat: 32.7972,
+    lon: -117.2561,
   },
   {
     id: "beach-sd-4",
     name: "Ocean Beach",
     slug: "ocean-beach",
     skill_level: null,
-    center_lat: 32.7470,
-    center_lng: -117.2513,
+    lat: 32.7470,
+    lon: -117.2513,
   },
   {
     id: "beach-sd-5",
     name: "Tourmaline",
     slug: "tourmaline",
     skill_level: "Longboard-friendly",
-    center_lat: 32.8059,
-    center_lng: -117.2683,
+    lat: 32.8059,
+    lon: -117.2683,
   },
 ];
 
@@ -265,7 +265,7 @@ describe("City Metadata Actions", () => {
 
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("beaches");
       expect(tableChain.select).toHaveBeenCalledWith(
-        "id, name, slug, skill_level, center_lat, center_lng"
+        "id, name, slug, skill_level, lat, lon"
       );
       expect(tableChain.ilike).toHaveBeenCalledWith("city", "Santa Cruz");
       expect(tableChain.eq).toHaveBeenCalledWith("state", "CA");
@@ -290,8 +290,8 @@ describe("City Metadata Actions", () => {
 
       it("handles null coordinates gracefully", async () => {
         const beachesWithNullCoords = [
-          { ...mockSantaCruzBeaches[0], center_lat: null, center_lng: null },
-          { ...mockSantaCruzBeaches[1], center_lat: null, center_lng: null },
+          { ...mockSantaCruzBeaches[0], lat: null, lon: null },
+          { ...mockSantaCruzBeaches[1], lat: null, lon: null },
           mockSantaCruzBeaches[2],
         ];
 
@@ -311,8 +311,8 @@ describe("City Metadata Actions", () => {
       it("returns zero coordinates when all beaches have null coordinates", async () => {
         const beachesAllNullCoords = mockSantaCruzBeaches.map((b) => ({
           ...b,
-          center_lat: null,
-          center_lng: null,
+          lat: null,
+          lon: null,
         }));
 
         tableChain.order.mockResolvedValue({
@@ -485,24 +485,24 @@ describe("City Metadata Actions", () => {
             name: "Newport Beach 1",
             slug: "newport-beach-1",
             skill_level: "Intermediate",
-            center_lat: 44.6368,
-            center_lng: -124.0534,
+            lat: 44.6368,
+            lon: -124.0534,
           },
           {
             id: "beach-np-2",
             name: "Newport Beach 2",
             slug: "newport-beach-2",
             skill_level: "Beginner-friendly",
-            center_lat: 44.6370,
-            center_lng: -124.0540,
+            lat: 44.6370,
+            lon: -124.0540,
           },
           {
             id: "beach-np-3",
             name: "Newport Beach 3",
             slug: "newport-beach-3",
             skill_level: "Advanced",
-            center_lat: 44.6372,
-            center_lng: -124.0545,
+            lat: 44.6372,
+            lon: -124.0545,
           },
         ],
         error: null,
