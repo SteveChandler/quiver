@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   // Verify cron secret
@@ -66,41 +66,56 @@ export async function GET(request: Request) {
 
   // Process prediction matching and update
   async function processPrediction(pred: NonNullable<typeof pending>[number]): Promise<boolean> {
-    // Find nearest observation within 1 hour window
-    const predTime = new Date(pred.predicted_at);
-    const windowStart = new Date(predTime.getTime() - 3600000).toISOString();
-    const windowEnd = new Date(predTime.getTime() + 3600000).toISOString();
+    try {
+      // Find nearest observation within 1 hour window
+      const predTime = new Date(pred.predicted_at);
+      const windowStart = new Date(predTime.getTime() - 3600000).toISOString();
+      const windowEnd = new Date(predTime.getTime() + 3600000).toISOString();
 
-    const { data: obs } = await supabase
-      .from('marine_forecasts')
-      .select('wave_height_m, ts')
-      .eq('beach_id', pred.beach_id)
-      .eq('is_observed', true)
-      .not('wave_height_m', 'is', null)
-      .gte('ts', windowStart)
-      .lte('ts', windowEnd)
-      .order('ts', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      const { data: obs, error: obsError } = await supabase
+        .from('marine_forecasts')
+        .select('wave_height_m, ts')
+        .eq('beach_id', pred.beach_id)
+        .eq('is_observed', true)
+        .not('wave_height_m', 'is', null)
+        .gte('ts', windowStart)
+        .lte('ts', windowEnd)
+        .order('ts', { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-    if (obs?.wave_height_m) {
-      const rawError = Math.abs(pred.raw_forecast_m - obs.wave_height_m);
-      const correctedError = Math.abs(
-        pred.corrected_forecast_m - obs.wave_height_m
-      );
+      if (obsError) {
+        console.error(`Error fetching observation for prediction ${pred.id}:`, obsError);
+        return false;
+      }
 
-      const { error: updateError } = await supabase
-        .from('ml_predictions_log')
-        .update({
-          observed_m: obs.wave_height_m,
-          raw_error_m: rawError,
-          corrected_error_m: correctedError,
-        })
-        .eq('id', pred.id);
+      if (obs?.wave_height_m) {
+        const rawError = Math.abs(pred.raw_forecast_m - obs.wave_height_m);
+        const correctedError = Math.abs(
+          pred.corrected_forecast_m - obs.wave_height_m
+        );
 
-      return !updateError;
+        const { error: updateError } = await supabase
+          .from('ml_predictions_log')
+          .update({
+            observed_m: obs.wave_height_m,
+            raw_error_m: rawError,
+            corrected_error_m: correctedError,
+          })
+          .eq('id', pred.id);
+
+        if (updateError) {
+          console.error(`Error updating prediction ${pred.id}:`, updateError);
+          return false;
+        }
+
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`Unexpected error processing prediction ${pred.id}:`, error);
+      return false;
     }
-    return false;
   }
 
   // Process in parallel batches of PARALLEL_BATCH
