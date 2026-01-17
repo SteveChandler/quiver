@@ -127,11 +127,44 @@ export async function GET(request: Request) {
     return Response.json({ message: 'No forecasts to correct', corrected: 0 });
   }
 
-  const uniqueBeaches = new Set(forecasts.map((f: any) => f.beach_id)).size;
-  console.log(`Found ${forecasts.length} forecasts across ${uniqueBeaches} beaches to correct`);
+  // Filter to only beaches that have observation sources (can be validated with ground truth)
+  const { data: observableBeaches, error: observableError } = await supabase
+    .from('observable_beaches')
+    .select('beach_id');
+
+  if (observableError) {
+    console.error('Error fetching observable beaches:', observableError);
+    // Continue without filtering if the view doesn't exist yet
+  }
+
+  const observableBeachIds = new Set(
+    (observableBeaches || []).map((b) => b.beach_id)
+  );
+
+  // Filter forecasts to only process those with observations
+  const forecastsToProcess = observableBeachIds.size > 0
+    ? forecasts.filter((f: any) => observableBeachIds.has(f.beach_id))
+    : forecasts;
+
+  const totalBeaches = new Set(forecasts.map((f: any) => f.beach_id)).size;
+  const filteredBeaches = new Set(forecastsToProcess.map((f: any) => f.beach_id)).size;
+
+  console.log(
+    `Filtered to ${filteredBeaches}/${totalBeaches} observable beaches ` +
+    `(${forecastsToProcess.length}/${forecasts.length} forecasts)`
+  );
+
+  if (!forecastsToProcess.length) {
+    return Response.json({
+      message: 'No forecasts for observable beaches',
+      corrected: 0,
+      total_forecasts: forecasts.length,
+      observable_beaches: observableBeachIds.size,
+    });
+  }
 
   // Parse and prepare for ML service
-  const parsed = forecasts
+  const parsed = forecastsToProcess
     .map((f) => ({
       beach_id: f.beach_id,
       forecast_ts: `${f.forecast_date}T${f.forecast_time}`,
