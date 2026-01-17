@@ -7,6 +7,20 @@
  * - Configurable batch sizes and delays
  */
 
+/**
+ * Simple deterministic hash function for sharding.
+ * Uses djb2 algorithm to produce a stable hash from a string.
+ * Exported for use by other modules needing consistent sharding.
+ */
+export function hashString(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+  }
+  // Convert to unsigned 32-bit integer
+  return hash >>> 0;
+}
+
 export interface BatchResult<T> {
   item: T;
   success: boolean;
@@ -27,16 +41,10 @@ export class BatchUpdateCoordinator {
   }
 
   /**
-   * Simple deterministic hash function for sharding.
-   * Uses djb2 algorithm to produce a stable hash from a string.
+   * Instance method wrapper for hashString (for backward compatibility)
    */
   hashString(str: string): number {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
-    }
-    // Convert to unsigned 32-bit integer
-    return hash >>> 0;
+    return hashString(str);
   }
 
   /**
