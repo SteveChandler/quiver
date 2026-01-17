@@ -7,8 +7,9 @@ import {
   handleApiError,
   CacheDuration,
   checkNotModified,
+  DEFAULT_SECURITY_HEADERS,
 } from "@/lib/api-utils";
-import { isAdmin } from "@/lib/auth/admin";
+import { isAdmin, type AdminUser } from "@/lib/auth/admin";
 import {
   withBotBlockingAndRateLimit,
   withAuth,
@@ -100,10 +101,10 @@ async function beachesPostHandler(
   { user, supabase }: AuthenticatedContext
 ): Promise<NextResponse> {
   // Admin check - withAuth already verified user exists
-  if (!isAdmin(user as any)) {
+  if (!isAdmin(user as AdminUser)) {
     return NextResponse.json(
-      { error: "Unauthorized - Admin access required" },
-      { status: 403 }
+      { success: false, error: "Admin access required" },
+      { status: 403, headers: DEFAULT_SECURITY_HEADERS }
     );
   }
 
