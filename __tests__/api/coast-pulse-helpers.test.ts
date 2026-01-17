@@ -3,24 +3,7 @@
  * @jest-environment node
  */
 
-// Import will fail until formatIntelMessage is exported
-// Using a placeholder for now - will be replaced once implementation is done
-let formatIntelMessage: (post: {
-  emoji_rating?: string | null;
-  surf_conditions?: {
-    wave_height?: number;
-    wind_speed?: number;
-    wind_direction?: string;
-    crowd_level?: number;
-  } | null;
-  description?: string;
-}) => string;
-
-beforeAll(async () => {
-  // Will be imported from route.ts after implementation
-  const mod = await import("@/app/api/coast-pulse/route");
-  formatIntelMessage = (mod as any).formatIntelMessage;
-});
+import { formatIntelMessage } from "@/app/api/coast-pulse/route";
 
 describe("formatIntelMessage", () => {
   it("formats full structured data with emoji", () => {
