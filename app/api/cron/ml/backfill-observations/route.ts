@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     .gt('predicted_at', observationWindowStart)
     .in('beach_id', beachIdsWithObs)
     .order('predicted_at', { ascending: true })
-    .limit(200);
+    .limit(1000);
 
   if (fetchError) {
     console.error('Error fetching pending predictions:', fetchError);
@@ -62,8 +62,10 @@ export async function GET(request: Request) {
   console.log(`Found ${pending.length} predictions to backfill`);
 
   let updated = 0;
+  const PARALLEL_BATCH = 50;
 
-  for (const pred of pending) {
+  // Process prediction matching and update
+  async function processPrediction(pred: NonNullable<typeof pending>[number]): Promise<boolean> {
     // Find nearest observation within 1 hour window
     const predTime = new Date(pred.predicted_at);
     const windowStart = new Date(predTime.getTime() - 3600000).toISOString();
@@ -74,6 +76,7 @@ export async function GET(request: Request) {
       .select('wave_height_m, ts')
       .eq('beach_id', pred.beach_id)
       .eq('is_observed', true)
+      .not('wave_height_m', 'is', null)
       .gte('ts', windowStart)
       .lte('ts', windowEnd)
       .order('ts', { ascending: true })
@@ -95,10 +98,16 @@ export async function GET(request: Request) {
         })
         .eq('id', pred.id);
 
-      if (!updateError) {
-        updated++;
-      }
+      return !updateError;
     }
+    return false;
+  }
+
+  // Process in parallel batches of PARALLEL_BATCH
+  for (let i = 0; i < pending.length; i += PARALLEL_BATCH) {
+    const batch = pending.slice(i, i + PARALLEL_BATCH);
+    const results = await Promise.all(batch.map(processPrediction));
+    updated += results.filter(Boolean).length;
   }
 
   console.log(
