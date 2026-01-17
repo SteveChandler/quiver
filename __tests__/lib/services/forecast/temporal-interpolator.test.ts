@@ -12,6 +12,7 @@ describe("getCDIPDataForTime", () => {
     stationId: "100",
     stationName: "Test Station",
     lastUpdated: recentTimestamp.toISOString(),
+    dataSource: "CDIP" as const,
     data: [
       {
         timestamp: recentTimestamp.toISOString(),

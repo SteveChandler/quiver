@@ -9,6 +9,7 @@ import {
   isValidStateSlug,
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
+import { US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import {
   generateLocationSlug,
@@ -16,11 +17,23 @@ import {
 } from "@/lib/utils/location-slug";
 import { StateMapView } from "@/components/state/state-map-view";
 
+export const revalidate = 3600; // Revalidate every hour
+
 type BeachLocationRow = {
   city: string;
   state: string;
   country?: string | null;
 };
+
+/**
+ * Generate static params for all US states at build time.
+ * This pre-renders state pages for faster initial loads.
+ */
+export async function generateStaticParams() {
+  // Use the known list of US state slugs
+  const stateSlugs = Object.values(US_STATE_SLUGS);
+  return stateSlugs.map((state) => ({ state }));
+}
 
 export async function generateMetadata({
   params,
@@ -49,6 +62,17 @@ type CityEntry = {
   cityName: string;
 };
 
+/**
+ * Get common state value variations for DB queries.
+ * Handles different formats: "CA", "California", "ca"
+ */
+function getStateValuesFromSlug(stateSlug: string): string[] {
+  const displayName = getUsStateDisplayNameFromSlug(stateSlug);
+  const upper = stateSlug.toUpperCase();
+  // Include common variations for robust matching
+  return [upper, displayName, stateSlug];
+}
+
 export default async function UsaStatePage({
   params,
 }: {
@@ -59,7 +83,17 @@ export default async function UsaStatePage({
 
   const stateName = getUsStateDisplayNameFromSlug(stateSlug);
 
-  const locationsResponse = await getAllBeachLocations();
+  // Parallelize both data fetches for better performance
+  const stateValuesForMap = getStateValuesFromSlug(stateSlug);
+
+  const [locationsResponse, beachesResponse] = await Promise.all([
+    getAllBeachLocations(),
+    getStateMapBeaches({
+      stateValues: stateValuesForMap,
+      limit: 300,
+    }),
+  ]);
+
   if (!locationsResponse.success || !locationsResponse.data) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-7xl">
@@ -75,9 +109,8 @@ export default async function UsaStatePage({
 
   const locations = locationsResponse.data as BeachLocationRow[];
 
-  // Gather city list and the DB state values we should query against (e.g., ["CA", "California"]).
+  // Build city list from locations data
   const cityBySlug = new Map<string, string>();
-  const stateValues = new Set<string>();
 
   for (const loc of locations) {
     const country = normalizeCountry(loc.country);
@@ -92,11 +125,9 @@ export default async function UsaStatePage({
     const citySlug = generateLocationSlug(cityName);
     if (!citySlug) continue;
 
-    // Prefer the “most descriptive” name we see (handles casing/diacritics).
+    // Prefer the "most descriptive" name we see (handles casing/diacritics).
     const prev = cityBySlug.get(citySlug);
     if (!prev || prev.length < cityName.length) cityBySlug.set(citySlug, cityName);
-
-    if (loc.state) stateValues.add(loc.state);
   }
 
   const cities: CityEntry[] = [...cityBySlug.entries()]
@@ -105,10 +136,6 @@ export default async function UsaStatePage({
 
   if (cities.length === 0) notFound();
 
-  const beachesResponse = await getStateMapBeaches({
-    stateValues: [...stateValues].filter(Boolean),
-    limit: 300,
-  });
   const beaches = beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
 
   return (
@@ -170,5 +197,3 @@ export default async function UsaStatePage({
     </div>
   );
 }
-
-

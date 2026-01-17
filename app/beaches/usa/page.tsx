@@ -10,6 +10,8 @@ import {
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { normalizeCountry } from "@/lib/utils/location-slug";
 
+export const revalidate = 3600; // Revalidate every hour
+
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches by State",
   description:
