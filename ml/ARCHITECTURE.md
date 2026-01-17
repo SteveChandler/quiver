@@ -205,6 +205,147 @@ Correct multiple forecasts (auth required).
 | 500 | Internal server error |
 | 503 | Model not loaded |
 
+## Ground Truth Matching
+
+Ground truth matching is the process of pairing ML predictions with actual buoy observations to measure model accuracy. This is critical for monitoring model performance and generating training data for future model versions.
+
+### How It Works
+
+1. **Prediction Generation** (`/api/cron/ml/correct-forecasts`)
+   - Runs on schedule to generate ML-corrected forecasts
+   - Filters to only process beaches with observation sources (96 beaches)
+   - Logs predictions to `ml_predictions_log` table with `observed_m = NULL`
+
+2. **Observation Backfill** (`/api/cron/ml/backfill-observations`)
+   - Runs periodically to match predictions with observations
+   - Processes up to 1000 predictions per run with parallel queries (50 concurrent)
+   - For each prediction, searches `marine_forecasts` for observations within +/- 1 hour
+   - Updates `ml_predictions_log` with `observed_m`, `raw_error_m`, and `corrected_error_m`
+
+3. **Matching Window**
+   - Predictions are eligible for matching after 2 hours (observation delay)
+   - Predictions older than 7 days are excluded (observation data retention)
+   - Observations must have non-null `wave_height_m` to match
+
+### Observable Beaches View
+
+The `observable_beaches` materialized view tracks beaches that have valid observation sources:
+
+```sql
+-- Definition
+CREATE MATERIALIZED VIEW observable_beaches AS
+SELECT DISTINCT mf.beach_id
+FROM marine_forecasts mf
+WHERE mf.is_observed = true
+  AND mf.wave_height_m IS NOT NULL
+  AND mf.source IN ('cdip', 'ndbc')
+WITH DATA;
+```
+
+**Current Coverage:**
+- 96 beaches with CDIP or NDBC observations (of 261 total)
+- Only these beaches receive ML predictions
+- Reduces wasteful predictions by ~63%
+
+**Refresh Schedule:**
+- Daily at 6am UTC via pg_cron
+- Manual refresh: `/api/cron/ml/refresh-observable-beaches`
+- Function: `SELECT refresh_observable_beaches();`
+
+### Health Monitoring
+
+Use `check_ml_ground_truth_health()` to monitor pipeline health:
+
+```sql
+SELECT * FROM check_ml_ground_truth_health();
+```
+
+Returns:
+
+| Metric | Description | Thresholds |
+|--------|-------------|------------|
+| `ground_truth_rate_24h` | % of predictions matched in last 24h | ok: >50%, warning: 20-50%, critical: <20% |
+| `backlog_size` | Predictions waiting for matching | ok: <20k, warning: 20-50k, critical: >50k |
+| `improvement_rate_7d` | % of forecasts improved by ML | ok: >50%, warning: 40-50%, critical: <40% |
+| `observable_beaches` | Count of beaches with observations | informational |
+
+Example output:
+```
+metric                  | value  | status  | message
+------------------------|--------|---------|------------------------------------------
+ground_truth_rate_24h   | 72.3   | ok      | Matched 1847 of 2556 predictions (72.3%)
+backlog_size            | 15234  | ok      | 15234 predictions waiting for ground truth
+improvement_rate_7d     | 58.2   | ok      | ML corrections improved 58.2% of forecasts
+observable_beaches      | 96     | ok      | 96 beaches have observation sources
+```
+
+### Troubleshooting
+
+**Low Ground Truth Rate (<50%)**
+
+1. Check observation data freshness:
+   ```sql
+   SELECT source, MAX(ts) as latest, COUNT(*) as count_24h
+   FROM marine_forecasts
+   WHERE is_observed = true AND ts > NOW() - INTERVAL '24 hours'
+   GROUP BY source;
+   ```
+
+2. Verify NDBC stations are returning wave data:
+   ```sql
+   SELECT source,
+          COUNT(*) as total,
+          COUNT(wave_height_m) as with_wave_height
+   FROM marine_forecasts
+   WHERE is_observed = true AND ts > NOW() - INTERVAL '24 hours'
+   GROUP BY source;
+   ```
+
+3. Check if backfill cron is running:
+   - Look for recent runs in Vercel cron logs
+   - Manually trigger: `curl -H "Authorization: Bearer $CRON_SECRET" /api/cron/ml/backfill-observations`
+
+**Growing Backlog (>50k)**
+
+1. Check cron execution frequency and duration
+2. Consider temporarily increasing batch size in `backfill-observations/route.ts`
+3. Verify database performance (index on `ml_predictions_log.predicted_at`)
+
+**NDBC Observations Missing Wave Heights**
+
+The NDBC service filters for:
+- Stations with `data: "y"` (realtime data available)
+- Observations with valid `WVHT` field (searches up to 20 rows backward)
+
+If NDBC data is missing:
+1. Check station is a buoy type (not weather-only)
+2. Verify station has wave sensors: `https://www.ndbc.noaa.gov/station_page.php?station=XXXXX`
+3. Review recent data: `https://www.ndbc.noaa.gov/data/realtime2/XXXXX.txt`
+
+**Observable Beaches Count Dropping**
+
+Refresh the materialized view:
+```sql
+SELECT refresh_observable_beaches();
+-- or
+REFRESH MATERIALIZED VIEW CONCURRENTLY observable_beaches;
+```
+
+Then verify:
+```sql
+SELECT COUNT(*) FROM observable_beaches;
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/api/cron/ml/correct-forecasts/route.ts` | Generate ML predictions (filters to observable beaches) |
+| `app/api/cron/ml/backfill-observations/route.ts` | Match predictions with observations |
+| `app/api/cron/ml/refresh-observable-beaches/route.ts` | Refresh observable_beaches view |
+| `lib/services/ndbc-service.ts` | NDBC station data fetching |
+| `app/api/cron/forecasts/refresh/route.ts` | Ingest NDBC/CDIP observations |
+
 ## Training Pipeline
 
 ### Prerequisites
