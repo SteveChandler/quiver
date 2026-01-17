@@ -16,6 +16,8 @@ import {
   type BatchProcessResult,
 } from "./forecast/batch-beach-processor";
 import type { Beach } from "@/types/database";
+import { createContextLogger } from "@/lib/logger";
+import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 import {
   FORECAST_CONSTANTS,
   TOTAL_FORECASTS,
@@ -57,12 +59,10 @@ import {
 
 // Data source implementations moved to lib/services/forecast/data-source-manager.ts
 
+const log = createContextLogger('EnhancedForecastService');
+
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
-  private isVerboseLoggingEnabled(): boolean {
-    const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
-    return process.env.FORECAST_VERBOSE_LOGS === "true" || env !== "production";
-  }
 
   // cardinalToDegrees method moved to lib/services/forecast/forecast-transformer.ts
 
@@ -224,11 +224,7 @@ export class EnhancedForecastService {
    * Fetch CDIP data with retry logic
    */
   private async fetchCDIPDataWithRetry(beach: Beach) {
-    if (this.isVerboseLoggingEnabled()) {
-      console.log(
-        `🏖️ fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.lat}, ${beach.lon})`
-      );
-    }
+    log.debug(`fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.lat}, ${beach.lon})`);
     return withRetry(async () => {
       try {
         // Prefer explicit override when present
@@ -236,15 +232,9 @@ export class EnhancedForecastService {
         const beachAny = beach as any;
         if (beachAny.cdip_station) {
           selectedStation = beachAny.cdip_station;
-          if (this.isVerboseLoggingEnabled()) {
-            console.log(
-              `✅ Using CDIP override station ${selectedStation} for ${beach.name}`
-            );
-          }
+          log.debug(`Using CDIP override station ${selectedStation} for ${beach.name}`);
         } else {
-          if (this.isVerboseLoggingEnabled()) {
-            console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
-          }
+          log.debug(`Looking for nearest CDIP station for ${beach.name}`);
           selectedStation = await this.dataSourceManager.getCDIPService().getNearestStation(
             beach.lat ?? 0,
             beach.lon ?? 0,
@@ -253,41 +243,25 @@ export class EnhancedForecastService {
         }
 
         if (!selectedStation) {
-          console.warn(
-            `❌ No nearby CDIP station found for ${beach.name} within 150km`
-          );
+          log.warn(`No nearby CDIP station found for ${beach.name} within 150km`);
           return null;
         }
 
-        if (this.isVerboseLoggingEnabled()) {
-          console.log(
-            `✅ Selected CDIP station ${selectedStation} for ${beach.name}`
-          );
-        }
+        log.debug(`Selected CDIP station ${selectedStation} for ${beach.name}`);
 
         // Fetch CDIP data for the nearest station
-        if (this.isVerboseLoggingEnabled()) {
-          console.log(
-            `🌊 Fetching CDIP data from station ${selectedStation} for ${beach.name}`
-          );
-        }
+        log.debug(`Fetching CDIP data from station ${selectedStation} for ${beach.name}`);
         const cdipData = await this.dataSourceManager.getCDIPService().fetchBuoyData(selectedStation);
 
         if (cdipData) {
-          if (this.isVerboseLoggingEnabled()) {
-            console.log(
-              `✅ Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`
-            );
-          }
+          log.debug(`Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`);
         } else {
-          console.warn(
-            `❌ CDIP data fetch returned null for ${beach.name} from station ${selectedStation}`
-          );
+          log.warn(`CDIP data fetch returned null for ${beach.name} from station ${selectedStation}`);
         }
 
         return cdipData;
       } catch (error) {
-        console.error(`💥 Error fetching CDIP data for ${beach.name}:`, error);
+        log.error(`Error fetching CDIP data for ${beach.name}:`, error);
         throw new DataSourceError("CDIP", error as Error, {
           beachId: beach.id,
           location: { lat: beach.lat ?? 0, lng: beach.lon ?? 0 },
@@ -333,7 +307,7 @@ export class EnhancedForecastService {
       // Without coordinates, pick the first active with wave data as a coarse fallback
       return buoys[0] || null;
     } catch (error) {
-      console.error("Error fetching buoy data:", error);
+      log.error("Error fetching buoy data:", error);
       return null;
     }
   }
@@ -368,7 +342,7 @@ export class EnhancedForecastService {
         this.dataSourceManager.getCOOPSService().getNextTideFromTime(tides, time),
       getDataQualityScore: (cdipData) =>
         this.dataSourceManager.getCDIPService().getDataQualityScore(cdipData),
-    }, this.isVerboseLoggingEnabled());
+    }, isForecastVerboseLoggingEnabled());
 
     const forecasts = await builder.buildForecasts({
       beach,
@@ -462,7 +436,7 @@ export class EnhancedForecastService {
       return updatedForecast;
     } catch (error) {
       // If weighting fails, return original forecast
-      console.warn('Expert weighting failed, using original forecast:', error);
+      log.warn('Expert weighting failed, using original forecast:', error);
       return forecast;
     }
   }
@@ -492,7 +466,7 @@ export class EnhancedForecastService {
     const { shard, shardCount } = options;
     const isSharded = typeof shard === "number" && typeof shardCount === "number" && shardCount > 0;
     const shardInfo = isSharded ? ` [shard ${shard}/${shardCount}]` : "";
-    console.log(`📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v3 with stale-only updates)${shardInfo}`);
+    log.info(`updateAllEnhancedForecasts() starting (v3 with stale-only updates)${shardInfo}`);
 
     const config = loadBatchConfig();
     const deadlineTracker = new DeadlineTracker(options.deadlineMs);
@@ -503,8 +477,8 @@ export class EnhancedForecastService {
         return { success: true, results: [] };
       }
 
-      console.log(
-        `🌊 Starting batch forecast update for ${beaches.selected.length}/${beaches.eligible.length} beaches${shardInfo} ` +
+      log.info(
+        `Starting batch forecast update for ${beaches.selected.length}/${beaches.eligible.length} beaches${shardInfo} ` +
         `(missing: ${beaches.stats.missing}, stale>${config.freshnessWindowHours}h: ${beaches.stats.stale}, ` +
         `selectedMissing: ${beaches.stats.selectedMissing}, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
       );
@@ -521,15 +495,15 @@ export class EnhancedForecastService {
         logPrefix: "📦 ",
       });
 
-      console.log(
-        `🏁 Forecast update complete in ${result.summary?.duration}: ${result.summary?.successful}/${beaches.selected.length} successful${
+      log.info(
+        `Forecast update complete in ${result.summary?.duration}: ${result.summary?.successful}/${beaches.selected.length} successful${
           result.summary?.stoppedEarly ? " (stopped early)" : ""
         }`
       );
 
       return result;
     } catch (error) {
-      console.error("Error updating all enhanced forecasts:", error);
+      log.error("Error updating all enhanced forecasts:", error);
       return {
         success: false,
         results: [],
@@ -558,7 +532,7 @@ export class EnhancedForecastService {
 
     if (beachError) throw beachError;
     if (!allBeaches || allBeaches.length === 0) {
-      console.log("📭 No beaches found to update");
+      log.info("No beaches found to update");
       return null;
     }
 
@@ -566,7 +540,7 @@ export class EnhancedForecastService {
     let eligibleBeaches = allBeaches;
     if (isSharded) {
       eligibleBeaches = allBeaches.filter((b) => hashString(b.id) % (shardCount as number) === shard);
-      console.log(`📊 Shard ${shard}/${shardCount}: ${eligibleBeaches.length}/${allBeaches.length} beaches in this shard`);
+      log.info(`Shard ${shard}/${shardCount}: ${eligibleBeaches.length}/${allBeaches.length} beaches in this shard`);
     }
 
     // Build latest updated_at map
@@ -596,7 +570,7 @@ export class EnhancedForecastService {
 
     // If everything is fresh, rotate oldest 5
     if (beachesToUpdate.length === 0) {
-      console.log(`✅ All beaches have fresh forecasts${shardInfo}, updating oldest 5 for rotation`);
+      log.info(`All beaches have fresh forecasts${shardInfo}, updating oldest 5 for rotation`);
       beachesToUpdate = eligibleBeaches
         .filter((b) => latestUpdatedAtByBeachMs.has(b.id))
         .sort((a, b) => (latestUpdatedAtByBeachMs.get(a.id) ?? 0) - (latestUpdatedAtByBeachMs.get(b.id) ?? 0))
@@ -625,7 +599,7 @@ export class EnhancedForecastService {
    * broader freshness window (default 12h) to fit within cron time budgets.
    */
   async updateCdipEnhancedForecasts(options: { deadlineMs?: number } = {}): Promise<BatchProcessResult> {
-    console.log("📊 EnhancedForecastService.updateCdipEnhancedForecasts() starting (CDIP-only refresh)");
+    log.info("updateCdipEnhancedForecasts() starting (CDIP-only refresh)");
 
     const config = loadCdipBatchConfig();
     const deadlineTracker = new DeadlineTracker(options.deadlineMs);
@@ -636,8 +610,8 @@ export class EnhancedForecastService {
         return { success: true, results: [] };
       }
 
-      console.log(
-        `🌊 Starting CDIP-only update for ${beaches.selected.length}/${beaches.totalStale} CDIP-stale beaches ` +
+      log.info(
+        `Starting CDIP-only update for ${beaches.selected.length}/${beaches.totalStale} CDIP-stale beaches ` +
         `(stale>${config.freshnessWindowHours}h, max ${config.maxBeachesPerRun} per run, batch size: ${config.batchSize})`
       );
 
@@ -650,18 +624,18 @@ export class EnhancedForecastService {
           (beach, forecasts) => this.storeEnhancedForecasts(beach, forecasts)
         ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
-        logPrefix: "📦 CDIP ",
+        logPrefix: "CDIP ",
       });
 
-      console.log(
-        `🏁 CDIP-only update complete in ${result.summary?.duration}: ${result.summary?.successful}/${beaches.selected.length} successful${
+      log.info(
+        `CDIP-only update complete in ${result.summary?.duration}: ${result.summary?.successful}/${beaches.selected.length} successful${
           result.summary?.stoppedEarly ? " (stopped early)" : ""
         }`
       );
 
       return result;
     } catch (error) {
-      console.error("Error updating CDIP enhanced forecasts:", error);
+      log.error("Error updating CDIP enhanced forecasts:", error);
       return {
         success: false,
         results: [],
@@ -684,7 +658,7 @@ export class EnhancedForecastService {
 
     if (beachError) throw beachError;
     if (!allBeaches || allBeaches.length === 0) {
-      console.log("📭 No beaches found to update");
+      log.info("No beaches found to update");
       return null;
     }
 
@@ -739,8 +713,8 @@ export class EnhancedForecastService {
     }
 
     const uniqueStations = Array.from(stationIds);
-    console.log(
-      `📡 Pre-fetching tide data for ${uniqueStations.length} unique stations (covering ${beaches.length} beaches)`
+    log.debug(
+      `Pre-fetching tide data for ${uniqueStations.length} unique stations (covering ${beaches.length} beaches)`
     );
 
     // Fetch in small batches to avoid overwhelming the API
@@ -758,6 +732,6 @@ export class EnhancedForecastService {
       }
     }
 
-    console.log(`✅ Tide station pre-fetch complete`);
+    log.debug("Tide station pre-fetch complete");
   }
 }

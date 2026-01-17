@@ -26,6 +26,9 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger('SurfDiscovery');
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -132,7 +135,7 @@ export async function getBatchSunTimes(
     .order('sunrise_utc', { ascending: true });
 
   if (error) {
-    console.error('Error fetching sun times:', error);
+    log.error('Error fetching sun times:', error);
     return new Map();
   }
 
@@ -270,8 +273,8 @@ async function enrichWithPhotos(
  * @example
  * const discovery = await discoverSurfSpots('user-123', { maxResults: 5 });
  * for (const rec of discovery.recommendations) {
- *   console.log(`${rec.beach.name}: ${rec.score} (${rec.matchQuality})`);
- *   console.log(rec.reasons.join(', '));
+ *   log.debug(`${rec.beach.name}: ${rec.score} (${rec.matchQuality})`);
+ *   log.debug(rec.reasons.join(', '));
  * }
  */
 export async function discoverSurfSpots(
@@ -293,7 +296,7 @@ export async function discoverSurfSpots(
   } = options;
 
   try {
-    console.log(`🔍 Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
+    log.debug(`🔍 Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
     // 1. Build candidate pool
     const { candidates, preferredWaveSize } = await buildCandidatePool(userId, {
@@ -303,11 +306,11 @@ export async function discoverSurfSpots(
     });
 
     if (candidates.length === 0) {
-      console.warn(`⚠️ No candidate beaches found for user ${userId}`);
+      log.warn(`⚠️ No candidate beaches found for user ${userId}`);
       return emptyResponse(maxResults);
     }
 
-    console.log(`✅ Found ${candidates.length} candidate beaches`);
+    log.debug(`✅ Found ${candidates.length} candidate beaches`);
 
     // Limit candidates to prevent excessive API calls
     const maxCandidates = Math.min(candidates.length, 20);
@@ -323,19 +326,19 @@ export async function discoverSurfSpots(
     const successRate = beachForecasts.length / finalCandidates.length;
     const successPercent = Math.round(successRate * 100);
 
-    console.log(
+    log.debug(
       `📊 Retrieved forecasts: ${beachForecasts.length}/${finalCandidates.length} beaches (${successPercent}%)`
     );
 
     // Log failures and staleness context
     if (failedForecasts.length > 0 || staleCount > 0) {
-      console.warn(
+      log.warn(
         `⚠️ [discoverSurfSpots] Forecast issues: ${failedForecasts.length} failed, ${staleCount} stale (stale data excluded)`
       );
     }
 
     if (beachForecasts.length === 0) {
-      console.error(`❌ No forecasts retrieved for user ${userId}`);
+      log.error(`❌ No forecasts retrieved for user ${userId}`);
       return emptyResponse(maxResults);
     }
 
@@ -371,7 +374,7 @@ export async function discoverSurfSpots(
     for (const { beach, forecasts } of beachForecasts) {
       const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow) {
-        // console.warn(`⚠️ No viable window found for ${beach.name}`);
+        // log.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
       }
 
@@ -431,7 +434,7 @@ export async function discoverSurfSpots(
     const enrichedRanked = await enrichWithPhotos(ranked);
 
     const duration = Date.now() - startTime;
-    console.log(
+    log.debug(
       `✅ Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
     );
 
@@ -453,7 +456,7 @@ export async function discoverSurfSpots(
     };
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`❌ Error after ${duration}ms for user ${userId}:`, error);
+    log.error(`❌ Error after ${duration}ms for user ${userId}:`, error);
     return emptyResponse(maxResults);
   }
 }
@@ -498,7 +501,7 @@ async function buildCandidatePool(
 
       if (profile?.home_beach) {
         candidates.push(profile.home_beach as unknown as Beach);
-        console.log(`✅ Added home beach: ${(profile.home_beach as any).name}`);
+        log.debug(`✅ Added home beach: ${(profile.home_beach as any).name}`);
       }
 
       preferredWaveSize =
@@ -526,7 +529,7 @@ async function buildCandidatePool(
             candidates.push(beach);
           }
         }
-        console.log(`✅ Added ${favorites.length} favorite beaches`);
+        log.debug(`✅ Added ${favorites.length} favorite beaches`);
       }
     }
 
@@ -557,7 +560,7 @@ async function buildCandidatePool(
       );
 
       if (nearbyError) {
-        console.warn('⚠️ [buildCandidatePool] Nearby RPC failed:', nearbyError);
+        log.warn('⚠️ [buildCandidatePool] Nearby RPC failed:', nearbyError);
       } else {
         const nearby = (nearbyRaw || []) as NearbyBeachRow[];
         const existingIds = new Set(candidates.map((b) => b.id));
@@ -575,7 +578,7 @@ async function buildCandidatePool(
             .limit(limit_count);
 
           if (beachError) {
-            console.warn('⚠️ [buildCandidatePool] Nearby beach fetch failed:', beachError);
+            log.warn('⚠️ [buildCandidatePool] Nearby beach fetch failed:', beachError);
           } else if (beachRows && beachRows.length > 0) {
             const byId = new Map<string, Beach>(
               (beachRows as unknown as Beach[]).map((b) => [b.id, b])
@@ -590,7 +593,7 @@ async function buildCandidatePool(
                 existingIds.add(beach.id);
               }
             }
-            console.log(`✅ Added ${orderedBeaches.length} nearby beaches (GPS)`);
+            log.debug(`✅ Added ${orderedBeaches.length} nearby beaches (GPS)`);
           }
         }
       }
@@ -598,7 +601,7 @@ async function buildCandidatePool(
 
     return { candidates, preferredWaveSize };
   } catch (error) {
-    console.error('❌ Error building candidate pool:', error);
+    log.error('❌ Error building candidate pool:', error);
     return { candidates: [], preferredWaveSize: null };
   }
 }
@@ -624,7 +627,7 @@ async function batchFetchForecasts(
 }> {
   const startTime = Date.now();
 
-  console.log(`🌊 [batchFetchForecasts] Fetching forecasts for ${beaches.length} beaches from cache (batched)`);
+  log.debug(`🌊 [batchFetchForecasts] Fetching forecasts for ${beaches.length} beaches from cache (batched)`);
 
   const { getBatchFreshForecastsFromCache } = await import('@/lib/utils/forecast-service-utils');
 
@@ -691,7 +694,7 @@ async function batchFetchForecasts(
   }
 
   const duration = Date.now() - startTime;
-  console.log(`📊 [batchFetchForecasts] Complete in ${duration}ms:`, {
+  log.debug(`📊 [batchFetchForecasts] Complete in ${duration}ms:`, {
     total: beaches.length,
     successful: successful.length,
     failed: failed.length,
@@ -1512,7 +1515,7 @@ async function loadBeachAffinity(
       }
     }
   } catch (error) {
-    console.error('Error loading beach affinity:', error);
+    log.error('Error loading beach affinity:', error);
   }
 
   return map;

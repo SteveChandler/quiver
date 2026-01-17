@@ -1,5 +1,8 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CoordinateParser } from "@/lib/utils/coordinate-parser";
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger('NOAASync');
 
 // NOAA Master Station List URL (matches Ruby NoaaBuoyFindAll)
 const NOAA_STATION_LIST_URL =
@@ -37,7 +40,7 @@ export class NOAABuoySync {
     error?: string;
   }> {
     try {
-      console.log("Starting NOAA buoy sync for existing beaches...");
+      log.debug("Starting NOAA buoy sync for existing beaches...");
 
       // 1. Get all existing beaches
       const beaches = await this.getExistingBeaches();
@@ -50,8 +53,8 @@ export class NOAABuoySync {
         };
       }
 
-      console.log(`Found ${beaches.length} beaches to sync buoys for`);
-      console.log(
+      log.debug(`Found ${beaches.length} beaches to sync buoys for`);
+      log.debug(
         `Sample beaches:`,
         beaches
           .slice(0, 3)
@@ -60,12 +63,12 @@ export class NOAABuoySync {
 
       // 2. Fetch NOAA station master list
       const stations = await this.fetchNOAAStationList();
-      console.log(
+      log.debug(
         `Fetched ${stations.length} valid NOAA stations (after filtering invalid coordinates)`
       );
 
       if (stations.length > 0) {
-        console.log(
+        log.debug(
           `Sample stations:`,
           stations
             .slice(0, 3)
@@ -82,12 +85,12 @@ export class NOAABuoySync {
         beaches,
         maxDistanceKm
       );
-      console.log(
+      log.debug(
         `Found ${relevantStations.length} stations within ${maxDistanceKm}km of beaches`
       );
 
       if (relevantStations.length > 0) {
-        console.log(
+        log.debug(
           `Relevant stations:`,
           relevantStations
             .slice(0, 3)
@@ -98,7 +101,7 @@ export class NOAABuoySync {
       // 4. Upsert relevant buoys and stations
       const results = await this.upsertStations(relevantStations);
 
-      console.log(
+      log.debug(
         `Sync complete: ${results.buoysAdded} buoys, ${results.stationsAdded} stations added`
       );
       return {
@@ -107,7 +110,7 @@ export class NOAABuoySync {
         stationsAdded: results.stationsAdded,
       };
     } catch (error) {
-      console.error("NOAA sync failed:", error);
+      log.error("NOAA sync failed:", error);
       return {
         success: false,
         buoysAdded: 0,
@@ -184,14 +187,14 @@ export class NOAABuoySync {
 
     // Skip destroyed/decommissioned stations (matches Ruby logic)
     if (this.shouldSkipStation(status)) {
-      console.log(`Skipping station ${stationId}: ${status}`);
+      log.debug(`Skipping station ${stationId}: ${status}`);
       return null;
     }
 
     // Parse coordinates using the utility class
     const coordinates = CoordinateParser.parseAndValidate(coordString);
     if (!coordinates) {
-      console.warn(
+      log.warn(
         `Invalid coordinates for station ${stationId}: ${coordString}`
       );
       return null;
@@ -228,7 +231,7 @@ export class NOAABuoySync {
     let totalDistanceChecks = 0;
     let nearbyCount = 0;
 
-    console.log(
+    log.debug(
       `Checking distances for ${stations.length} stations against ${beaches.length} beaches...`
     );
 
@@ -255,7 +258,7 @@ export class NOAABuoySync {
 
       // Log first few stations and any that are close
       if (index < 5 || minDistance <= maxDistanceKm * 1.2) {
-        console.log(
+        log.debug(
           `Station ${station.stationId} (${
             station.stationName
           }): ${minDistance.toFixed(1)}km from ${closestBeach}`
@@ -268,7 +271,7 @@ export class NOAABuoySync {
       }
     });
 
-    console.log(
+    log.debug(
       `Distance check complete: ${totalDistanceChecks} calculations, ${nearbyCount} stations within ${maxDistanceKm}km`
     );
     return relevantStations;
@@ -313,7 +316,7 @@ export class NOAABuoySync {
         const [lat, lng] = station.coordinates;
 
         // Create buoy record
-        console.log(
+        log.debug(
           `Upserting buoy ${station.stationId}: ${station.stationName} at [${lat}, ${lng}]`
         );
 
@@ -331,16 +334,16 @@ export class NOAABuoySync {
         );
 
         if (buoyResult.error) {
-          console.error(
+          log.error(
             `❌ Failed to upsert buoy ${station.stationId}:`,
             JSON.stringify(buoyResult.error, null, 2)
           );
           continue;
         }
-        console.log(`✅ Successfully upserted buoy ${station.stationId}`);
+        log.debug(`✅ Successfully upserted buoy ${station.stationId}`);
         buoysAdded++;
       } catch (error) {
-        console.error(`Error processing station ${station.stationId}:`, error);
+        log.error(`Error processing station ${station.stationId}:`, error);
       }
     }
 
@@ -367,7 +370,7 @@ export class NOAABuoySync {
       return null;
     }
 
-    console.log(`Creating station: ${stationId} from ${station.stationName}`);
+    log.debug(`Creating station: ${stationId} from ${station.stationName}`);
 
     return {
       id: stationId,

@@ -14,6 +14,9 @@
 import { CDIPRateLimiter } from "@/lib/utils/rate-limiter";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger('CDIPService');
 import {
   CDIP_STATIONS,
   SOCAL_PRIMARY_STATIONS,
@@ -85,28 +88,28 @@ export class CDIPService {
    */
   async fetchBuoyData(stationId: string): Promise<CDIPBuoyData | null> {
     if (this.isVerbose()) {
-      console.log(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
+      log.debug(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
     }
     try {
       if (this.blacklist.has(String(stationId))) {
-        console.warn(`🚫 CDIP station ${stationId} is blacklisted. Skipping fetch.`);
+        log.warn(`🚫 CDIP station ${stationId} is blacklisted. Skipping fetch.`);
         return null;
       }
       // Check if station exists
       const stationConfig = getStationConfig(stationId);
       if (!stationConfig) {
-        console.warn(`❌ Unknown CDIP station: ${stationId}`);
+        log.warn(`❌ Unknown CDIP station: ${stationId}`);
         return null;
       }
       if (this.isVerbose()) {
-        console.log(`✅ CDIP station config found: ${stationConfig.name}`);
+        log.debug(`✅ CDIP station config found: ${stationConfig.name}`);
       }
 
       // Check cache first (cache hits should never be blocked by rate limiting)
       const cached = this.getCachedData(stationId);
       if (cached) {
         if (this.isVerbose()) {
-          console.log(`📦 CDIP returning cached data for station ${stationId}`);
+          log.debug(`📦 CDIP returning cached data for station ${stationId}`);
         }
         return cached;
       }
@@ -115,7 +118,7 @@ export class CDIPService {
       const inFlight = this.inFlightFetches.get(stationId);
       if (inFlight) {
         if (this.isVerbose()) {
-          console.log(`🧵 CDIP joining in-flight fetch for station ${stationId}`);
+          log.debug(`🧵 CDIP joining in-flight fetch for station ${stationId}`);
         }
         return await inFlight;
       }
@@ -125,28 +128,28 @@ export class CDIPService {
           // Check rate limiting (only applies when we actually need to hit the network)
           if (!CDIPRateLimiter.canMakeRequest()) {
             const waitTime = CDIPRateLimiter.getTimeUntilReset();
-            console.warn(
+            log.warn(
               `⏰ CDIP rate limit exceeded, next request available in ${waitTime}ms`
             );
             return null;
           }
           if (this.isVerbose()) {
-            console.log(`✅ CDIP rate limit check passed`);
+            log.debug(`✅ CDIP rate limit check passed`);
           }
 
           // Fetch data from CDIP API
           if (this.isVerbose()) {
-            console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
+            log.debug(`🔄 CDIP fetching raw data for station ${stationId}`);
           }
           const rawData = await this.fetchCDIPRawData(stationId);
           if (!rawData) {
-            console.warn(
+            log.warn(
               `❌ CDIP fetchCDIPRawData returned null for station ${stationId}`
             );
             return null;
           }
           if (this.isVerbose()) {
-            console.log(
+            log.debug(
               `✅ CDIP raw data fetched successfully for station ${stationId}`
             );
           }
@@ -173,7 +176,7 @@ export class CDIPService {
       this.inFlightFetches.set(stationId, fetchPromise);
       return await fetchPromise;
     } catch (error) {
-      console.error(
+      log.error(
         `💥 Error fetching CDIP data for station ${stationId}:`,
         error
       );
@@ -244,7 +247,7 @@ export class CDIPService {
 
       if (nearestStation) {
         if (this.isVerbose()) {
-          console.log(
+          log.debug(
             `📍 Nearest CDIP station to ${latitude}, ${longitude}: ${nearestStation} (${minDistance.toFixed(
               1
             )}km)`
@@ -254,7 +257,7 @@ export class CDIPService {
 
       return nearestStation;
     } catch (error) {
-      console.error("Error finding nearest CDIP station:", error);
+      log.error("Error finding nearest CDIP station:", error);
       return null;
     }
   }
@@ -267,7 +270,7 @@ export class CDIPService {
   ): Promise<CDIPMetaResponse | null> {
     try {
       if (!CDIPRateLimiter.canMakeRequest()) {
-        console.warn(`⏰ CDIP rate limit exceeded for metadata request`);
+        log.warn(`⏰ CDIP rate limit exceeded for metadata request`);
         return null;
       }
 
@@ -288,7 +291,7 @@ export class CDIPService {
       });
 
       if (!response.ok) {
-        console.error(
+        log.error(
           `CDIP metadata API error: ${response.status} - ${response.statusText}`
         );
         return null;
@@ -299,7 +302,7 @@ export class CDIPService {
 
       return data as CDIPMetaResponse;
     } catch (error) {
-      console.error(
+      log.error(
         `Error fetching CDIP metadata for station ${stationId}:`,
         error
       );
@@ -317,7 +320,7 @@ export class CDIPService {
   ): CDIPBuoyData | null {
     try {
       if (!rawData.data || rawData.data.length === 0) {
-        console.warn(
+        log.warn(
           `No data points in CDIP response for station ${stationId}`
         );
         return null;
@@ -363,13 +366,13 @@ export class CDIPService {
 
           dataPoints.push(cdipPoint);
         } catch (pointError) {
-          console.warn(`Skipping invalid CDIP data point:`, pointError);
+          log.warn(`Skipping invalid CDIP data point:`, pointError);
           continue;
         }
       }
 
       if (dataPoints.length === 0) {
-        console.warn(`No valid data points for CDIP station ${stationId}`);
+        log.warn(`No valid data points for CDIP station ${stationId}`);
         return null;
       }
 
@@ -381,7 +384,7 @@ export class CDIPService {
         lastUpdated: new Date().toISOString(),
       };
     } catch (error) {
-      console.error(
+      log.error(
         `Error transforming CDIP data for station ${stationId}:`,
         error
       );
@@ -438,7 +441,7 @@ export class CDIPService {
 
       return Math.max(0, Math.min(100, Math.round(score)));
     } catch (error) {
-      console.error("Error calculating CDIP data quality score:", error);
+      log.error("Error calculating CDIP data quality score:", error);
       return 50; // Default score
     }
   }
@@ -462,7 +465,7 @@ export class CDIPService {
       const url = `${CDIP_API_CONFIG.baseUrl}${endpoint}`;
 
       if (this.isVerbose()) {
-        console.log(`🌊 Fetching CDIP data from: ${url}`);
+        log.debug(`🌊 Fetching CDIP data from: ${url}`);
       }
 
       const response = await apiClient.fetchCDIPData(url, {
@@ -473,7 +476,7 @@ export class CDIPService {
       });
 
       if (!response.ok) {
-        console.error(
+        log.error(
           `❌ CDIP API error: ${response.status} - ${response.statusText} for station ${stationId}`
         );
         return null;
@@ -488,7 +491,7 @@ export class CDIPService {
         !data.table.rows ||
         data.table.rows.length === 0
       ) {
-        console.warn(`⚠️ CDIP returned empty data for station ${stationId}`);
+        log.warn(`⚠️ CDIP returned empty data for station ${stationId}`);
         return null;
       }
 
@@ -499,7 +502,7 @@ export class CDIPService {
       );
 
       if (this.isVerbose()) {
-        console.log(
+        log.debug(
           `✅ Successfully fetched CDIP data for station ${stationId}: ${transformedData.data.length} data points`
         );
       }
@@ -507,9 +510,9 @@ export class CDIPService {
       return transformedData;
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        console.error(`⏰ CDIP API request timeout for station ${stationId}`);
+        log.error(`⏰ CDIP API request timeout for station ${stationId}`);
       } else {
-        console.error(
+        log.error(
           `💥 CDIP API request failed for station ${stationId}:`,
           error
         );
@@ -625,7 +628,7 @@ export class CDIPService {
 
       return true;
     } catch (error) {
-      console.warn(`Error validating data point:`, error);
+      log.warn(`Error validating data point:`, error);
       return false;
     }
   }

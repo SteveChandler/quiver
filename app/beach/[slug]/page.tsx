@@ -1,6 +1,6 @@
-import { BeachDetail } from "@/components/beach-detail";
 import {
   getBeachById,
+  getBeachesBySlug,
 } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
@@ -11,49 +11,64 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { cache } from "react";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+/**
+ * Selects the best beach candidate from a list using deterministic sorting.
+ * Prefers: coordinates > review_count > created_at > id
+ */
+function selectBestCandidate(candidates: Beach[]): Beach | null {
+  if (candidates.length === 0) return null;
+  return [...candidates].sort((a, b) => {
+    const aHasCoords = Number(Boolean(a.lat && a.lon));
+    const bHasCoords = Number(Boolean(b.lat && b.lon));
+    if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
+
+    const aReviews = a.review_count ?? 0;
+    const bReviews = b.review_count ?? 0;
+    if (aReviews !== bReviews) return bReviews - aReviews;
+
+    const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
+    const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
+    if (aCreated !== bCreated) return bCreated - aCreated;
+
+    return String(a.id).localeCompare(String(b.id));
+  })[0] ?? null;
+}
+
+/**
+ * Cached beach lookup by slug with fallback to ID.
+ * React's cache() deduplicates this call between generateMetadata and page component.
+ */
+const getBeachBySlugOrId = cache(async (slug: string): Promise<Beach | null> => {
+  // Try slug lookup first
+  const bySlugResult = await getBeachesBySlug(slug);
+  const candidates = bySlugResult.success ? bySlugResult.data ?? [] : [];
+
+  if (candidates.length > 0) {
+    return selectBestCandidate(candidates);
+  }
+
+  // Fallback: treat slug as an ID for back-compat
+  const byIdResult = await getBeachById(slug);
+  if (byIdResult.success && byIdResult.data) {
+    return byIdResult.data;
+  }
+
+  return null;
+});
 
 export default async function BeachDetailBySlugPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  // Fetch beach data server-side
+  // Fetch beach data server-side using cached function
   try {
-    let beach: Beach | null = null;
-
-    // Try slug lookup first
-    const { getBeachesBySlug } = await import(
-      "@/actions/beach/beach-query-actions"
-    );
-    const bySlugCandidates = await getBeachesBySlug(params.slug);
-    const candidates = bySlugCandidates.success ? bySlugCandidates.data ?? [] : [];
-    if (candidates.length > 0) {
-      // Deterministic choice when duplicates exist: prefer coordinates, then review_count, then created_at.
-      beach = [...candidates].sort((a, b) => {
-        const aHasCoords = Number(Boolean(a.lat && a.lon));
-        const bHasCoords = Number(Boolean(b.lat && b.lon));
-        if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
-
-        const aReviews = a.review_count ?? 0;
-        const bReviews = b.review_count ?? 0;
-        if (aReviews !== bReviews) return bReviews - aReviews;
-
-        const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
-        const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
-        if (aCreated !== bCreated) return bCreated - aCreated;
-
-        return String(a.id).localeCompare(String(b.id));
-      })[0] ?? null;
-    } else {
-      // Back-compat: if slug lookup fails, try treating slug as an ID
-      const byId = await getBeachById(params.slug);
-      if (byId.success && byId.data) {
-        beach = byId.data;
-      }
-    }
+    const beach = await getBeachBySlugOrId(params.slug);
 
     if (!beach) {
       notFound();
@@ -143,38 +158,8 @@ export async function generateMetadata({
   params: { slug: string };
 }): Promise<Metadata> {
   // Keep metadata generation side-effect free; don't depend on auth/session
-  const slug = params.slug;
-  let beach: Beach | null = null;
-
-  // Try to resolve beach by slug first, then fall back to ID
-  const { getBeachesBySlug } = await import(
-    "@/actions/beach/beach-query-actions"
-  );
-  const slugCandidatesResult = await getBeachesBySlug(slug);
-  const candidates = slugCandidatesResult.success ? slugCandidatesResult.data ?? [] : [];
-  if (candidates.length > 0) {
-    beach = [...candidates].sort((a, b) => {
-      const aHasCoords = Number(Boolean(a.lat && a.lon));
-      const bHasCoords = Number(Boolean(b.lat && b.lon));
-      if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
-
-      const aReviews = a.review_count ?? 0;
-      const bReviews = b.review_count ?? 0;
-      if (aReviews !== bReviews) return bReviews - aReviews;
-
-      const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
-      const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
-      if (aCreated !== bCreated) return bCreated - aCreated;
-
-      return String(a.id).localeCompare(String(b.id));
-    })[0] ?? null;
-  } else {
-    // Slug lookup failed (column may not exist yet), try ID lookup
-    const idResult = await getBeachById(slug);
-    if (idResult.success && idResult.data) {
-      beach = idResult.data;
-    }
-  }
+  // Uses cached function - deduped with page component in same render pass
+  const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
     // Format review count for title
@@ -185,13 +170,13 @@ export async function generateMetadata({
     return buildPageMetadata({
       title: `${beach.name}, ${reviewText}, Map`,
       description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}.`,
-      path: `/beach/${slug}`,
+      path: `/beach/${params.slug}`,
     });
   }
 
   return buildPageMetadata({
     title: `Beach`,
     description: `Conditions, intel, photos, and community tips for this beach.`,
-    path: `/beach/${slug}`,
+    path: `/beach/${params.slug}`,
   });
 }
