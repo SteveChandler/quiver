@@ -70,6 +70,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard Components (Forecast Tab):** Integrated ProfileStrength and CoastPulse dashboard components into the forecast tab home screen. ProfileStrength auto-hides when user profile is 100% complete and displays completion progress with missing fields. CoastPulse shows live buoy data in a horizontal scrollable carousel format. Both components render conditionally based on user authentication and data availability. Data fetched via `useDataFetcher` with proper skip conditions.
 - **Share Intel (Conditions Autofill):** Share Intel form now auto-prefills wave height, wind speed, wind direction, and water temp from the current forecast when the `conditions` tag is selected and a beach is known. Fields are only prefilled when empty; user edits are preserved and never overwritten. Uses the same forward-looking forecast selection logic as session logging. Test coverage added for prefill behavior (`__tests__/components/intel/intel-post-form-prefill.test.tsx`).
 
+### Added
+
+- **Coast Pulse Intel Display Improvements:** Enhanced how user intel posts are displayed in Live Coast Pulse. Intel items now show richer, more actionable data:
+  - **Beach name in source:** Intel posts display as "{username} @ {beach_name}" instead of just the username
+  - **Emoji ratings prominently displayed:** Condition emojis (🔥 🤙 😐 👎) appear at the start of the message
+  - **Structured conditions:** When available, shows formatted wave height, wind, and crowd level (e.g., "🔥 · 4ft · 8kt NW · light")
+  - **Graceful fallbacks:** Falls back to description text when no structured data is available
+  - **Performance optimization:** Beaches queries reduced from 3 to 1 per request via shared cache
+  - **Helper functions:** Added `formatIntelMessage()`, `formatIntelSourceName()`, and `findNearestBeachName()` with 19 unit tests
+
 ### Fixed
 
 - **TypeScript Types (ForecastBuilder):** Fixed type mismatch where `ForecastBuilder.buildForecasts()` was returning `EnhancedForecastEntity[]` but should return `EnhancedForecastWithRawData[]` since it populates the `raw_forecast` field with CDIP data, quality scores, and tide schedules.
