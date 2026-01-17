@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { formatIntelMessage } from "@/app/api/coast-pulse/route";
+import { formatIntelMessage, formatIntelSourceName } from "@/app/api/coast-pulse/route";
 
 describe("formatIntelMessage", () => {
   it("formats full structured data with emoji", () => {
@@ -87,5 +87,35 @@ describe("formatIntelMessage", () => {
       description: longDesc,
     });
     expect(result.length).toBeLessThanOrEqual(80);
+  });
+});
+
+describe("formatIntelSourceName", () => {
+  it("formats username with beach name", () => {
+    const result = formatIntelSourceName("Steve", "La Jolla Shores");
+    expect(result).toBe("Steve @ La Jolla Shores");
+  });
+
+  it("returns just username when no beach", () => {
+    const result = formatIntelSourceName("Local Surfer", null);
+    expect(result).toBe("Local Surfer");
+  });
+
+  it("truncates long beach names", () => {
+    const result = formatIntelSourceName("Steve", "San Diego - Mission Beach Pier North");
+    expect(result.length).toBeLessThanOrEqual(35);
+    expect(result).toContain("Steve @");
+    expect(result).toContain("...");
+  });
+
+  it("truncates username when no beach and too long", () => {
+    const result = formatIntelSourceName("VeryLongUsernameHere123456", null, 20);
+    expect(result.length).toBeLessThanOrEqual(20);
+  });
+
+  it("handles edge case of very short max length", () => {
+    const result = formatIntelSourceName("Steve", "Beach", 10);
+    // Should handle gracefully without crashing
+    expect(result.length).toBeLessThanOrEqual(10);
   });
 });

@@ -1124,8 +1124,36 @@ function formatIntelMessage(post: {
   return parts.join(" · ");
 }
 
+/**
+ * Format intel source name with username and beach
+ */
+function formatIntelSourceName(
+  username: string,
+  beachName: string | null,
+  maxLength: number = 35
+): string {
+  if (!beachName) {
+    return truncateText(username, maxLength);
+  }
+
+  const full = `${username} @ ${beachName}`;
+  if (full.length <= maxLength) {
+    return full;
+  }
+
+  // Truncate beach name to fit
+  const prefix = `${username} @ `;
+  const availableForBeach = maxLength - prefix.length - 3; // 3 for "..."
+  if (availableForBeach > 5) {
+    return `${prefix}${beachName.slice(0, availableForBeach)}...`;
+  }
+
+  // Beach name too short to be useful, just show username
+  return truncateText(username, maxLength);
+}
+
 // Export helpers for testing
-export { formatIntelMessage };
+export { formatIntelMessage, formatIntelSourceName };
 
 // Apply rate limiting protection
 export const GET = withRateLimit(coastPulseHandler, "public-default");
