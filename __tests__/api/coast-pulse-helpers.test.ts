@@ -157,3 +157,39 @@ describe("findNearestBeachName", () => {
     expect(result).toBe("Ocean Beach"); // Closest
   });
 });
+
+describe("Coast Pulse Intel Integration", () => {
+  it("formats a complete intel item correctly", () => {
+    // Simulate full flow
+    const mockPost = {
+      emoji_rating: "fire",
+      surf_conditions: {
+        wave_height: 4,
+        wind_speed: 8,
+        wind_direction: "NW",
+        crowd_level: 2,
+      },
+      description: "Epic morning session",
+    };
+
+    const message = formatIntelMessage(mockPost);
+    expect(message).toBe("🔥 · 4ft · 8kt NW · light");
+
+    const sourceName = formatIntelSourceName("Steve", "La Jolla Shores");
+    expect(sourceName).toBe("Steve @ La Jolla Shores");
+  });
+
+  it("handles minimal intel post gracefully", () => {
+    const mockPost = {
+      emoji_rating: null,
+      surf_conditions: null,
+      description: "Just checked it out",
+    };
+
+    const message = formatIntelMessage(mockPost);
+    expect(message).toBe("Just checked it out");
+
+    const sourceName = formatIntelSourceName("Anonymous", null);
+    expect(sourceName).toBe("Anonymous");
+  });
+});
