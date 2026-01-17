@@ -102,8 +102,8 @@ async function fetchCoastPulseData(
   const [localBuoysResult, forecastResult, dailyIntelResult, intelResult, ndbcResult, cdipResult, tideResult] =
     await Promise.allSettled([
       fetchLocalBuoys(supabase, lat, lon),
-      fetchEnhancedForecast(supabase, lat, lon),
-      fetchDailyIntel(supabase, lat, lon),  // NEW: Pre-computed daily intel
+      fetchEnhancedForecast(supabase, lat, lon, beachesCache),
+      fetchDailyIntel(supabase, lat, lon, beachesCache),
       fetchRecentIntel(supabase, lat, lon, beachesCache),
       fetchLiveNDBCData(lat, lon),
       fetchLiveCDIPData(lat, lon),
@@ -360,17 +360,14 @@ async function fetchLocalBuoys(
 async function fetchEnhancedForecast(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem[]> {
   try {
-    // Find nearest beach first
-    const { data: beaches } = await supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .limit(100);
+    // Use provided cache or empty array
+    const beaches = beachesCache.length > 0 ? beachesCache : [];
 
-    if (!beaches?.length) return [];
+    if (!beaches.length) return [];
 
     // Find closest beach
     let closestBeach = beaches[0];
@@ -453,17 +450,14 @@ async function fetchEnhancedForecast(
 async function fetchDailyIntel(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem | null> {
   try {
-    // Find nearest beach first
-    const { data: beaches } = await supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .limit(100);
+    // Use provided cache or empty array
+    const beaches = beachesCache.length > 0 ? beachesCache : [];
 
-    if (!beaches?.length) return null;
+    if (!beaches.length) return null;
 
     // Find closest beach
     let closestBeach = beaches[0];
