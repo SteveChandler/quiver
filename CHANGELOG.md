@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Database-Driven Intent Pages Infrastructure (Full Stack):** Complete rewrite of intent page system to support unlimited city scaling via database-driven content. Previously limited to ~10 hardcoded cities (Santa Cruz, San Diego, etc.), now supports any city with 3+ beaches (~50+ cities).
+
+  **Database Schema (3 new tables):**
+  - `city_metadata`: Core city data (city, state, slug, region, coordinates) with unique slug constraint and indexed lookups
+  - `city_editorial_content`: AI-generated editorial content (surf_vibe, local_knowledge, best_for, season_overview) for rich SEO
+  - `city_beach_mapping`: Many-to-many relationships allowing beaches to belong to multiple cities (e.g., Malibu → LA County + Ventura County)
+
+  **Server Actions (3 new action files):**
+  - `actions/city/city-metadata-actions.ts`: `findCityBySlug()`, `getCityMetadata()`, `getCitySummary()` for city discovery and geographic calculations
+  - `actions/city/city-editorial-actions.ts`: `getCityEditorialContent()`, `upsertCityEditorialContent()` for editorial management
+  - `actions/beach/beach-query-actions.ts`: `getBeachesByIntentAndCity()`, `getBeachesByIntentAndState()` with intent-specific sorting (beginner_score, popularity_score, tide_window_score, etc.)
+  - `actions/beach/beach-location-actions.ts`: `getAllCitiesWithBeaches(minBeaches)` for static generation discovery
+
+  **SEO & Content Generation:**
+  - `lib/seo/city-slug-utils.ts`: Collision detection and slug generation (e.g., `newport-ca` vs `newport-or` when multiple cities share a name)
+  - `lib/seo/intent-content-templates.ts`: Dynamic content templates for all 7 intent types (beginner, least-crowded, tide, water-temp, longboard, dawn-patrol, sunset)
+
+  **Transformation & Compatibility:**
+  - `lib/utils/beach-to-surfspot-transformer.ts`: Converts database `Beach` records to legacy `SurfSpot` format for UI compatibility
+
+  **Static Generation:**
+  - Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate ~350 intent pages (50+ cities × 7 intents) plus all 50 US states
+  - Intelligent fallback to hardcoded data for legacy cities when database is empty
+  - State-level intent pages (e.g., `/beginner/ca`) with aggregated beach results
+
+  **Backward Compatibility:**
+  - Maintains hardcoded city data as fallback
+  - Legacy state/city URLs (e.g., `/ca/encinitas`) redirect to map search
+  - All existing UI components continue to work via transformer
+
+  **Performance:**
+  - 6 new database indexes for fast slug, state, and relationship lookups
+  - RLS policies for secure public read access
+  - Build-time static generation reduces runtime queries
+  - 30-minute ISR revalidation (`revalidate: 1800`)
+
+  **Note:** Database tables exist but need population. System currently operates in fallback mode using hardcoded data until city data is imported.
+
 - **Regional Hub Pages:** Created regional surf guide hub pages at `/guides/surfing-[region]` with interactive Mapbox GL maps. Features include:
   - **Hub Regions Data** (`lib/data/hub-regions.ts`): Configuration for 4 initial regions (Southern California, San Diego, Orange County, Hawaii) with center coordinates, zoom levels, and descriptions.
   - **HubMapView Component** (`components/hub/hub-map-view.tsx`): Client-side Mapbox GL component with color-coded markers by skill level (green=beginner, blue=intermediate, dark=advanced), clickable popups with beach links, and interactive legend.
