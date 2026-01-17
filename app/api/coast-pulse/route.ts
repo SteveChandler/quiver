@@ -1060,5 +1060,72 @@ function truncateText(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 3) + "...";
 }
 
+/**
+ * Format intel post into a readable message with emoji and conditions
+ */
+function formatIntelMessage(post: {
+  emoji_rating?: string | null;
+  surf_conditions?: {
+    wave_height?: number;
+    wind_speed?: number;
+    wind_direction?: string;
+    crowd_level?: number;
+  } | null;
+  description?: string;
+}): string {
+  const parts: string[] = [];
+
+  // 1. Emoji first (if present)
+  const emojiMap: Record<string, string> = {
+    fire: "🔥",
+    shaka: "🤙",
+    meh: "😐",
+    thumbsdown: "👎",
+  };
+  const emoji = post.emoji_rating ? emojiMap[post.emoji_rating] : null;
+  if (emoji) {
+    parts.push(emoji);
+  }
+
+  const conditions = post.surf_conditions;
+
+  // Track if we have any structured condition data
+  let hasStructuredData = false;
+
+  // 2. Wave height from surf_conditions
+  if (conditions?.wave_height != null) {
+    parts.push(`${conditions.wave_height}ft`);
+    hasStructuredData = true;
+  }
+
+  // 3. Wind conditions
+  if (conditions?.wind_speed != null) {
+    const dir = conditions.wind_direction || "";
+    parts.push(`${conditions.wind_speed}kt ${dir}`.trim());
+    hasStructuredData = true;
+  }
+
+  // 4. Crowd level (1-5 scale -> text)
+  if (conditions?.crowd_level != null) {
+    const crowdText = ["empty", "light", "moderate", "busy", "packed"];
+    const crowdLabel = crowdText[conditions.crowd_level - 1];
+    if (crowdLabel) {
+      parts.push(crowdLabel);
+      hasStructuredData = true;
+    }
+  }
+
+  // 5. Fall back to description if no structured data
+  if (!hasStructuredData && post.description) {
+    const desc = truncateText(post.description, 80);
+    return emoji ? `${emoji} ${desc}` : desc;
+  }
+
+  return parts.join(" · ");
+}
+
+// Export helpers for testing
+export { formatIntelMessage };
+
 // Apply rate limiting protection
 export const GET = withRateLimit(coastPulseHandler, "public-default");
