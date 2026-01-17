@@ -83,6 +83,20 @@ async function fetchCoastPulseData(
   const supabase = await createSupabaseServerClient();
   const items: CoastPulseItem[] = [];
 
+  // Pre-fetch beaches for cache (used by forecast and intel)
+  const { data: beaches } = await supabase
+    .from("beaches")
+    .select("id, name, lat, lon")
+    .not("lat", "is", null)
+    .limit(100);
+
+  const beachesCache = (beaches || []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    lat: b.lat,
+    lon: b.lon,
+  }));
+
   // Fetch from all sources in parallel (including live external sources)
   // Hybrid approach: Use beach_daily_intel (pre-computed) alongside live data
   const [localBuoysResult, forecastResult, dailyIntelResult, intelResult, ndbcResult, cdipResult, tideResult] =
@@ -90,7 +104,7 @@ async function fetchCoastPulseData(
       fetchLocalBuoys(supabase, lat, lon),
       fetchEnhancedForecast(supabase, lat, lon),
       fetchDailyIntel(supabase, lat, lon),  // NEW: Pre-computed daily intel
-      fetchRecentIntel(supabase, lat, lon),
+      fetchRecentIntel(supabase, lat, lon, beachesCache),
       fetchLiveNDBCData(lat, lon),
       fetchLiveCDIPData(lat, lon),
       fetchTideData(lat, lon),
@@ -527,7 +541,8 @@ async function fetchDailyIntel(
 async function fetchRecentIntel(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem[]> {
   try {
     // Fetch intel from last 24 hours (was 2 hours - extended for more content)
@@ -546,8 +561,12 @@ async function fetchRecentIntel(
         latitude,
         longitude,
         confirmations_count,
+        surf_conditions,
         profiles:user_id (
           full_name
+        ),
+        beaches:beach_id (
+          name
         )
       `
       )
@@ -566,17 +585,25 @@ async function fetchRecentIntel(
     });
 
     return nearbyPosts.slice(0, 5).map((post: any) => {
-      // Get surfer name from joined profile, fallback to "Local Surfer"
       const surferName = post.profiles?.full_name || "Local Surfer";
+
+      // Get beach name from join or nearest lookup
+      const beachName =
+        post.beaches?.name ||
+        findNearestBeachName(post.latitude, post.longitude, beachesCache);
 
       return {
         id: `intel-${post.id}`,
         source: {
-          name: surferName,
+          name: formatIntelSourceName(surferName, beachName),
           type: "intel" as const,
-          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2, // Boost credibility with confirmations
+          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2,
         },
-        message: truncateText(post.description || post.title, 100),
+        message: formatIntelMessage({
+          emoji_rating: post.emoji_rating,
+          surf_conditions: post.surf_conditions as any,
+          description: post.description || post.title,
+        }),
         timestamp: new Date(post.created_at),
         location: {
           lat: post.latitude,
