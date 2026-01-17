@@ -302,7 +302,8 @@ export async function GET(request: Request) {
                 const ndbc = await getNearestNDBCStation(b.lat, b.lon);
                 if (ndbc) {
                   const obs = await fetchLatestNDBCObservation(ndbc.id);
-                  if (obs) {
+                  // Only use observations with valid wave height data
+                  if (obs && obs.wave_height_m !== null) {
                     marineRows.push({
                       beach_id: b.id,
                       ts: obs.ts,
