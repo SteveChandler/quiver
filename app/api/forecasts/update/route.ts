@@ -1,13 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  withAuth,
   createSuccessResponse,
-  createErrorResponse,
-} from "@/lib/api-utils";
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
+import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import {
   updateBeachForecast,
   updateAllBeachForecasts,
 } from "@/lib/utils/forecast-server-utils";
-import { authenticateAdmin } from "@/lib/auth/admin";
+import { isAdmin, type AdminUser } from "@/lib/auth/admin";
+import type { User } from "@supabase/supabase-js";
+
+/**
+ * Admin guard - returns 403 response if user is not admin, null otherwise
+ */
+function adminGuard(user: User): NextResponse | null {
+  if (!isAdmin(user as AdminUser)) {
+    return NextResponse.json(
+      { success: false, error: "Admin access required" },
+      { status: 403, headers: DEFAULT_SECURITY_HEADERS }
+    );
+  }
+  return null;
+}
 
 /**
  * Forecast Update API Endpoint
@@ -21,70 +37,55 @@ import { authenticateAdmin } from "@/lib/auth/admin";
  * - POST /api/forecasts/update?beachId=xyz (updates specific beach)
  */
 
-export async function POST(request: NextRequest) {
-  try {
-    // Admin authentication check - only admins can trigger forecast updates
-    const authResult = await authenticateAdmin();
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
-    }
-    console.log(`🔐 Forecast update initiated by admin: ${authResult.user.email}`);
+async function forecastUpdatePostHandler(
+  request: NextRequest,
+  { user }: AuthenticatedContext
+): Promise<NextResponse> {
+  const forbidden = adminGuard(user);
+  if (forbidden) return forbidden;
 
-    const { searchParams } = new URL(request.url);
-    const beachId = searchParams.get("beachId");
+  console.log(`🔐 Forecast update initiated by admin: ${user.email}`);
 
-    console.log("🚀 Starting forecast update request");
+  const { searchParams } = new URL(request.url);
+  const beachId = searchParams.get("beachId");
 
-    if (beachId) {
-      // Update specific beach
-      console.log(`📍 Updating forecasts for beach: ${beachId}`);
+  console.log("🚀 Starting forecast update request");
 
-      const data = await updateBeachForecast(beachId);
+  if (beachId) {
+    // Update specific beach
+    console.log(`📍 Updating forecasts for beach: ${beachId}`);
 
-      return createSuccessResponse({
-        ...data,
-        message: "Enhanced forecasts updated for beach",
-      });
-    } else {
-      // Update all beaches
-      console.log("🌊 Updating forecasts for all beaches");
+    const data = await updateBeachForecast(beachId);
 
-      const result = await updateAllBeachForecasts();
+    return createSuccessResponse({
+      ...data,
+      message: "Enhanced forecasts updated for beach",
+    });
+  } else {
+    // Update all beaches
+    console.log("🌊 Updating forecasts for all beaches");
 
-      const successful = result.results?.filter((r) => r.success).length || 0;
-      const failed = (result.results?.length || 0) - successful;
+    const result = await updateAllBeachForecasts();
 
-      return createSuccessResponse({
-        total: result.results?.length || 0,
-        successful,
-        failed,
-        results: result.results || [],
-        message: "Enhanced forecasts updated for all beaches",
-      });
-    }
-  } catch (error) {
-    console.error("❌ Error updating forecasts:", error);
+    const successful = result.results?.filter((r) => r.success).length || 0;
+    const failed = (result.results?.length || 0) - successful;
 
-    return createErrorResponse(
-      "Failed to update forecasts",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return createSuccessResponse({
+      total: result.results?.length || 0,
+      successful,
+      failed,
+      results: result.results || [],
+      message: "Enhanced forecasts updated for all beaches",
+    });
   }
 }
 
-// Support GET for endpoint information (admin only)
-export async function GET() {
-  // Admin authentication check
-  const authResult = await authenticateAdmin();
-  if (!authResult.success) {
-    return NextResponse.json(
-      { error: authResult.error },
-      { status: authResult.status }
-    );
-  }
+async function forecastUpdateGetHandler(
+  _request: NextRequest,
+  { user }: AuthenticatedContext
+): Promise<NextResponse> {
+  const forbidden = adminGuard(user);
+  if (forbidden) return forbidden;
 
   return NextResponse.json({
     message: "Enhanced Forecast Update API",
@@ -97,6 +98,14 @@ export async function GET() {
     timestamp: new Date().toISOString(),
   });
 }
+
+export const POST = withAuth(forecastUpdatePostHandler, {
+  errorMessage: "Failed to update forecasts",
+});
+
+export const GET = withAuth(forecastUpdateGetHandler, {
+  errorMessage: "Failed to get forecast update info",
+});
 
 // Force-dynamic route to ensure we get fresh data
 export const dynamic = "force-dynamic";
