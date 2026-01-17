@@ -23,8 +23,6 @@ import { CoastPulse } from "../dashboard/coast-pulse";
 import { ProfileStrength } from "../dashboard/profile-strength";
 import { BottomNav } from "./bottom-nav";
 
-// Existing components
-import { PersonalizedForecastCard } from "./personalized-forecast-card";
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
 export function HomeScreen() {
