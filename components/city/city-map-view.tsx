@@ -125,6 +125,8 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
     swell_window_halfwidth_deg: null,
     swell_window_max_deg: null,
     swell_window_min_deg: null,
+    tide_direction_sensitivity: null,
+    timezone: null,
     warnings: null,
     wave_tips: spot.swellAdvice,
     wind_cross_shore_ok_kt: null,

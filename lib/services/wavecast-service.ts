@@ -10,6 +10,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { parseWaveCastHTML, extractHazards } from '@/lib/parsers/wavecast-parser';
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger('WaveCast');
 import {
   WaveCastReport,
   WaveCastScrapeResult,
@@ -47,7 +50,7 @@ export class WaveCastService {
    * Main scrape function - fetches and stores WaveCast forecast
    */
   async scrapeAndStore(): Promise<WaveCastScrapeResult> {
-    console.log('🌊 WaveCast scrape started');
+    log.debug('🌊 WaveCast scrape started');
 
     try {
       // Fetch HTML
@@ -60,7 +63,7 @@ export class WaveCastService {
         };
       }
 
-      console.log(`✅ Fetched ${html.length} characters of HTML`);
+      log.debug(`✅ Fetched ${html.length} characters of HTML`);
 
       // Parse HTML
       const parseResult = parseWaveCastHTML(html);
@@ -73,7 +76,7 @@ export class WaveCastService {
         };
       }
 
-      console.log(`✅ Parsed WaveCast data with ${parseResult.confidence} confidence`);
+      log.debug(`✅ Parsed WaveCast data with ${parseResult.confidence} confidence`);
 
       // Extract additional data
       const hazards = extractHazards(html);
@@ -93,7 +96,7 @@ export class WaveCastService {
         };
       }
 
-      console.log(`✅ Stored WaveCast report with ID: ${report.id}`);
+      log.debug(`✅ Stored WaveCast report with ID: ${report.id}`);
 
       return {
         success: true,
@@ -102,7 +105,7 @@ export class WaveCastService {
         parsing_errors: parseResult.errors.length > 0 ? parseResult.errors : undefined,
       };
     } catch (error) {
-      console.error('❌ WaveCast scrape error:', error);
+      log.error('❌ WaveCast scrape error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -119,7 +122,7 @@ export class WaveCastService {
 
     for (let attempt = 1; attempt <= this.config.retry_attempts; attempt++) {
       try {
-        console.log(`🔄 Fetch attempt ${attempt}/${this.config.retry_attempts}`);
+        log.debug(`🔄 Fetch attempt ${attempt}/${this.config.retry_attempts}`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.config.timeout_ms);
@@ -149,16 +152,16 @@ export class WaveCastService {
         return html;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(`⚠️ Fetch attempt ${attempt} failed:`, lastError.message);
+        log.warn(`⚠️ Fetch attempt ${attempt} failed:`, lastError.message);
 
         if (attempt < this.config.retry_attempts) {
-          console.log(`⏱️ Waiting ${this.config.retry_delay_ms}ms before retry...`);
+          log.debug(`⏱️ Waiting ${this.config.retry_delay_ms}ms before retry...`);
           await this.sleep(this.config.retry_delay_ms);
         }
       }
     }
 
-    console.error('❌ All fetch attempts failed:', lastError?.message);
+    log.error('❌ All fetch attempts failed:', lastError?.message);
     return null;
   }
 
@@ -206,13 +209,13 @@ export class WaveCastService {
         .single();
 
       if (error) {
-        console.error('❌ Database error:', error);
+        log.error('❌ Database error:', error);
         throw error;
       }
 
       return report as WaveCastReport;
     } catch (error) {
-      console.error('❌ Failed to store report:', error);
+      log.error('❌ Failed to store report:', error);
       return null;
     }
   }
@@ -230,13 +233,13 @@ export class WaveCastService {
         .maybeSingle();
 
       if (error) {
-        console.error('❌ Failed to fetch latest report:', error);
+        log.error('❌ Failed to fetch latest report:', error);
         return null;
       }
 
       return data as WaveCastReport | null;
     } catch (error) {
-      console.error('❌ Error fetching latest report:', error);
+      log.error('❌ Error fetching latest report:', error);
       return null;
     }
   }
@@ -253,13 +256,13 @@ export class WaveCastService {
         .maybeSingle();
 
       if (error) {
-        console.error(`❌ Failed to fetch report for ${date}:`, error);
+        log.error(`❌ Failed to fetch report for ${date}:`, error);
         return null;
       }
 
       return data as WaveCastReport | null;
     } catch (error) {
-      console.error(`❌ Error fetching report for ${date}:`, error);
+      log.error(`❌ Error fetching report for ${date}:`, error);
       return null;
     }
   }
@@ -279,13 +282,13 @@ export class WaveCastService {
         .order('report_date', { ascending: false });
 
       if (error) {
-        console.error('❌ Failed to fetch recent reports:', error);
+        log.error('❌ Failed to fetch recent reports:', error);
         return [];
       }
 
       return (data || []) as WaveCastReport[];
     } catch (error) {
-      console.error('❌ Error fetching recent reports:', error);
+      log.error('❌ Error fetching recent reports:', error);
       return [];
     }
   }

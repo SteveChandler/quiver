@@ -7,6 +7,7 @@ type NDBCStation = {
   lat: number;
   lon: number;
   type?: string;
+  data?: string; // "y" = realtime data available, "n" = no data
 };
 
 type NDBCObservation = {
@@ -55,8 +56,12 @@ async function getActiveNDBCStations(): Promise<NDBCStation[]> {
       lat: Number(s.lat),
       lon: Number(s.lon ?? s.lng),
       type: s.type,
+      data: s.data, // "y" = realtime data available
     }))
-    .filter((s: NDBCStation) => isFinite(s.lat) && isFinite(s.lon) && s.id);
+    .filter(
+      (s: NDBCStation) =>
+        isFinite(s.lat) && isFinite(s.lon) && s.id && s.data === "y"
+    );
   stationCache.stations = stations;
   stationCache.at = now;
   return stations;
@@ -87,6 +92,7 @@ export async function getNearestNDBCStation(
 /**
  * Fetch latest realtime2 observation file and parse header/row
  * Uses in-memory cache with 10-minute TTL to reduce external API calls
+ * Searches through up to 20 recent rows to find one with valid wave height data
  */
 export async function fetchLatestNDBCObservation(
   stationId: string
@@ -108,53 +114,76 @@ export async function fetchLatestNDBCObservation(
   const lines = text.split(/\r?\n/).filter(Boolean);
   // Find header line starting with '#YY'
   const headerIdx = lines.findIndex((l) => l.startsWith("#YY"));
-  if (headerIdx === -1 || headerIdx + 1 >= lines.length) return null;
+  if (headerIdx === -1 || headerIdx + 1 >= lines.length) {
+    observationCache.set(stationId, { at: Date.now(), obs: null });
+    return null;
+  }
   const header = lines[headerIdx].replace(/^#/, "").trim().split(/\s+/);
-  const dataLine = lines[headerIdx + 1].trim().split(/\s+/);
   const asNum = (val?: string) => (val && val !== "MM" ? Number(val) : NaN);
 
-  const get = (name: string) => {
+  const getFromDataLine = (dataLine: string[], name: string) => {
     const idx = header.indexOf(name);
     return idx >= 0 ? dataLine[idx] : undefined;
   };
 
-  const yy = asNum(get("YY"));
-  const mo = asNum(get("MM"));
-  const dd = asNum(get("DD"));
-  const hh = asNum(get("hh"));
-  const mi = asNum(get("mm"));
-  let ts: string;
-  if ([yy, mo, dd, hh].every((n) => isFinite(n))) {
-    // Construct UTC date safely
-    const year = 2000 + Number(yy);
-    const monthIdx = Math.max(0, Math.min(11, Number(mo) - 1));
-    const day = Math.max(1, Math.min(31, Number(dd)));
-    const hour = Math.max(0, Math.min(23, Number(hh)));
-    const minute = isFinite(mi) ? Math.max(0, Math.min(59, Number(mi))) : 0;
-    ts = new Date(Date.UTC(year, monthIdx, day, hour, minute, 0)).toISOString();
-  } else {
-    ts = new Date().toISOString();
+  // Search through up to 20 recent data rows to find one with valid wave height
+  const MAX_ROWS_TO_SEARCH = 20;
+  for (
+    let i = headerIdx + 1;
+    i < Math.min(headerIdx + 1 + MAX_ROWS_TO_SEARCH, lines.length);
+    i++
+  ) {
+    const dataLine = lines[i].trim().split(/\s+/);
+
+    const yy = asNum(getFromDataLine(dataLine, "YY"));
+    const mo = asNum(getFromDataLine(dataLine, "MM"));
+    const dd = asNum(getFromDataLine(dataLine, "DD"));
+    const hh = asNum(getFromDataLine(dataLine, "hh"));
+    const mi = asNum(getFromDataLine(dataLine, "mm"));
+
+    let ts: string;
+    if ([yy, mo, dd, hh].every((n) => isFinite(n))) {
+      // Construct UTC date safely
+      const year = 2000 + Number(yy);
+      const monthIdx = Math.max(0, Math.min(11, Number(mo) - 1));
+      const day = Math.max(1, Math.min(31, Number(dd)));
+      const hour = Math.max(0, Math.min(23, Number(hh)));
+      const minute = isFinite(mi) ? Math.max(0, Math.min(59, Number(mi))) : 0;
+      ts = new Date(
+        Date.UTC(year, monthIdx, day, hour, minute, 0)
+      ).toISOString();
+    } else {
+      // Invalid timestamp, skip this row
+      continue;
+    }
+
+    const WVHT = asNum(getFromDataLine(dataLine, "WVHT")); // meters
+    const DPD = asNum(getFromDataLine(dataLine, "DPD"));
+    const MWD = asNum(getFromDataLine(dataLine, "MWD"));
+    const WSPD = asNum(getFromDataLine(dataLine, "WSPD"));
+    const WDIR = asNum(getFromDataLine(dataLine, "WDIR"));
+    const WTMP = asNum(getFromDataLine(dataLine, "WTMP")); // water temperature in Celsius
+
+    // Only return this observation if it has valid wave height data
+    if (isFinite(WVHT)) {
+      const obs: NDBCObservation = {
+        ts,
+        wave_height_m: WVHT,
+        wave_period_s: isFinite(DPD) ? DPD : null,
+        wave_direction_deg: isFinite(MWD) ? MWD : null,
+        wind_speed_ms: isFinite(WSPD) ? WSPD : null,
+        wind_direction_deg: isFinite(WDIR) ? WDIR : null,
+        water_temp_c: isFinite(WTMP) ? WTMP : null,
+      };
+
+      // Cache the observation
+      observationCache.set(stationId, { at: Date.now(), obs });
+
+      return obs;
+    }
   }
 
-  const WVHT = asNum(get("WVHT")); // meters
-  const DPD = asNum(get("DPD"));
-  const MWD = asNum(get("MWD"));
-  const WSPD = asNum(get("WSPD"));
-  const WDIR = asNum(get("WDIR"));
-  const WTMP = asNum(get("WTMP")); // water temperature in Celsius
-
-  const obs: NDBCObservation = {
-    ts,
-    wave_height_m: isFinite(WVHT) ? WVHT : null,
-    wave_period_s: isFinite(DPD) ? DPD : null,
-    wave_direction_deg: isFinite(MWD) ? MWD : null,
-    wind_speed_ms: isFinite(WSPD) ? WSPD : null,
-    wind_direction_deg: isFinite(WDIR) ? WDIR : null,
-    water_temp_c: isFinite(WTMP) ? WTMP : null,
-  };
-
-  // Cache the observation
-  observationCache.set(stationId, { at: Date.now(), obs });
-
-  return obs;
+  // No valid wave data found in recent rows
+  observationCache.set(stationId, { at: Date.now(), obs: null });
+  return null;
 }

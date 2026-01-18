@@ -83,14 +83,29 @@ async function fetchCoastPulseData(
   const supabase = await createSupabaseServerClient();
   const items: CoastPulseItem[] = [];
 
+  // Pre-fetch beaches for cache (used by forecast and intel)
+  const { data: beaches } = await supabase
+    .from("beaches")
+    .select("id, name, lat, lon, wind_offshore_deg")
+    .not("lat", "is", null)
+    .limit(100);
+
+  const beachesCache = (beaches || []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    lat: b.lat,
+    lon: b.lon,
+    windOffshoreDeg: b.wind_offshore_deg,
+  }));
+
   // Fetch from all sources in parallel (including live external sources)
   // Hybrid approach: Use beach_daily_intel (pre-computed) alongside live data
   const [localBuoysResult, forecastResult, dailyIntelResult, intelResult, ndbcResult, cdipResult, tideResult] =
     await Promise.allSettled([
       fetchLocalBuoys(supabase, lat, lon),
-      fetchEnhancedForecast(supabase, lat, lon),
-      fetchDailyIntel(supabase, lat, lon),  // NEW: Pre-computed daily intel
-      fetchRecentIntel(supabase, lat, lon),
+      fetchEnhancedForecast(supabase, lat, lon, beachesCache),
+      fetchDailyIntel(supabase, lat, lon, beachesCache),
+      fetchRecentIntel(supabase, lat, lon, beachesCache),
       fetchLiveNDBCData(lat, lon),
       fetchLiveCDIPData(lat, lon),
       fetchTideData(lat, lon),
@@ -346,17 +361,14 @@ async function fetchLocalBuoys(
 async function fetchEnhancedForecast(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number; windOffshoreDeg?: number | null }> = []
 ): Promise<CoastPulseItem[]> {
   try {
-    // Find nearest beach first
-    const { data: beaches } = await supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .limit(100);
+    // Use provided cache or empty array
+    const beaches = beachesCache.length > 0 ? beachesCache : [];
 
-    if (!beaches?.length) return [];
+    if (!beaches.length) return [];
 
     // Find closest beach
     let closestBeach = beaches[0];
@@ -415,7 +427,7 @@ async function fetchEnhancedForecast(
           type: "forecast" as const,
           credibility: 70,
         },
-        message: formatForecastConditions(forecast),
+        message: formatForecastConditions(forecast, (closestBeach as any).windOffshoreDeg),
         timestamp: new Date(forecast.updated_at || now),
         location: {
           lat: closestBeach.lat,
@@ -439,17 +451,14 @@ async function fetchEnhancedForecast(
 async function fetchDailyIntel(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem | null> {
   try {
-    // Find nearest beach first
-    const { data: beaches } = await supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .limit(100);
+    // Use provided cache or empty array
+    const beaches = beachesCache.length > 0 ? beachesCache : [];
 
-    if (!beaches?.length) return null;
+    if (!beaches.length) return null;
 
     // Find closest beach
     let closestBeach = beaches[0];
@@ -527,7 +536,8 @@ async function fetchDailyIntel(
 async function fetchRecentIntel(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem[]> {
   try {
     // Fetch intel from last 24 hours (was 2 hours - extended for more content)
@@ -546,8 +556,12 @@ async function fetchRecentIntel(
         latitude,
         longitude,
         confirmations_count,
+        surf_conditions,
         profiles:user_id (
           full_name
+        ),
+        beaches:beach_id (
+          name
         )
       `
       )
@@ -566,17 +580,25 @@ async function fetchRecentIntel(
     });
 
     return nearbyPosts.slice(0, 5).map((post: any) => {
-      // Get surfer name from joined profile, fallback to "Local Surfer"
       const surferName = post.profiles?.full_name || "Local Surfer";
+
+      // Get beach name from join or nearest lookup
+      const beachName =
+        post.beaches?.name ||
+        findNearestBeachName(post.latitude, post.longitude, beachesCache);
 
       return {
         id: `intel-${post.id}`,
         source: {
-          name: surferName,
+          name: formatIntelSourceName(surferName, beachName),
           type: "intel" as const,
-          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2, // Boost credibility with confirmations
+          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2,
         },
-        message: truncateText(post.description || post.title, 100),
+        message: formatIntelMessage({
+          emoji_rating: post.emoji_rating,
+          surf_conditions: post.surf_conditions as any,
+          description: post.description || post.title,
+        }),
         timestamp: new Date(post.created_at),
         location: {
           lat: post.latitude,
@@ -833,48 +855,135 @@ function formatBuoyConditions(buoy: any): string {
 }
 
 /**
- * Format forecast conditions into a human-readable message
+ * Format forecast conditions into a surf-focused message
+ * Example: "3-4ft @ 12s SW, light offshore, Rising"
  */
-function formatForecastConditions(forecast: any): string {
+function formatForecastConditions(forecast: any, windOffshoreDeg?: number | null): string {
   const parts: string[] = [];
 
-  // Helper to safely convert to number
-  const toNum = (val: unknown): number | null => {
+  // Helper to parse height strings like "3.2 ft" or "3-4 ft"
+  const parseHeight = (val: unknown): string | null => {
     if (val == null) return null;
-    const num = Number(val);
-    return isNaN(num) ? null : num;
+    const str = String(val);
+    // Match patterns like "3.2 ft", "3-4 ft", "3.2"
+    const rangeMatch = str.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+    if (rangeMatch) {
+      return `${Math.round(parseFloat(rangeMatch[1]))}-${Math.round(parseFloat(rangeMatch[2]))}ft`;
+    }
+    const singleMatch = str.match(/(\d+\.?\d*)/);
+    if (singleMatch) {
+      return `${Math.round(parseFloat(singleMatch[1]))}ft`;
+    }
+    return null;
   };
 
-  const minHeight = toNum(forecast.min_wave_height);
-  const maxHeight = toNum(forecast.max_wave_height);
-  const waveHeight = toNum(forecast.wave_height);
-  const wavePeriod = toNum(forecast.wave_period);
-  const windSpeed = toNum(forecast.wind_speed);
-  const windDirection = toNum(forecast.wind_direction);
-  const surfRating = toNum(forecast.surf_rating);
+  // Helper to parse period strings like "12s" or "12"
+  const parsePeriod = (val: unknown): string | null => {
+    if (val == null) return null;
+    const str = String(val);
+    const match = str.match(/(\d+\.?\d*)/);
+    if (match) {
+      return `@ ${Math.round(parseFloat(match[1]))}s`;
+    }
+    return null;
+  };
 
-  if (minHeight != null && maxHeight != null) {
-    parts.push(`${minHeight}-${maxHeight}ft`);
-  } else if (waveHeight != null) {
-    parts.push(`${waveHeight.toFixed(1)}ft`);
+  // Helper to parse wind speed from strings like "8 mph" or "8"
+  const parseWindSpeed = (val: unknown): number | null => {
+    if (val == null) return null;
+    const str = String(val);
+    const match = str.match(/(\d+\.?\d*)/);
+    return match ? parseFloat(match[1]) : null;
+  };
+
+  // Helper to parse wind direction (cardinal or degrees)
+  const parseWindDir = (val: unknown): number | null => {
+    if (val == null) return null;
+    const str = String(val).trim().toUpperCase();
+    // Check if it's already a number
+    const num = parseFloat(str);
+    if (!isNaN(num)) return num;
+    // Convert cardinal to degrees
+    const cardinalMap: Record<string, number> = {
+      N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+      E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+      S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+      W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+    };
+    return cardinalMap[str] ?? null;
+  };
+
+  // Wave height
+  const heightStr = parseHeight(forecast.wave_height);
+  if (heightStr) {
+    parts.push(heightStr);
   }
 
-  if (wavePeriod != null) {
-    parts.push(`@ ${wavePeriod.toFixed(0)}s`);
+  // Wave period
+  const periodStr = parsePeriod(forecast.wave_period);
+  if (periodStr) {
+    parts.push(periodStr);
   }
+
+  // Swell direction (prefer swell_1_direction, fall back to wave_direction)
+  const swellDir = forecast.swell_1_direction || forecast.wave_direction;
+  if (swellDir && parts.length > 0) {
+    // Extract just the cardinal direction
+    const dirStr = String(swellDir).trim().toUpperCase();
+    const cardinalMatch = dirStr.match(/^[NSEW]{1,3}/);
+    if (cardinalMatch) {
+      parts.push(cardinalMatch[0]);
+    }
+  }
+
+  // Wind quality (offshore/onshore calculation)
+  const windSpeed = parseWindSpeed(forecast.wind_speed);
+  const windDirDeg = parseWindDir(forecast.wind_direction);
 
   if (windSpeed != null) {
-    const windDir = windDirection != null
-      ? ` ${degreesToCardinal(windDirection)}`
-      : "";
-    parts.push(`${windSpeed.toFixed(0)}kt${windDir}`);
+    let windDesc: string;
+
+    if (windSpeed < 5) {
+      windDesc = "calm";
+    } else if (windOffshoreDeg != null && windDirDeg != null) {
+      // Calculate if wind is offshore
+      const angleDiff = Math.abs(((windDirDeg - windOffshoreDeg) % 360 + 360) % 360);
+      const normalizedDiff = angleDiff > 180 ? 360 - angleDiff : angleDiff;
+      const isOffshore = normalizedDiff <= 45;
+      const isOnshore = normalizedDiff >= 135;
+
+      if (isOffshore) {
+        windDesc = windSpeed < 10 ? "light offshore" : "offshore";
+      } else if (isOnshore) {
+        windDesc = windSpeed < 10 ? "light onshore" : `${Math.round(windSpeed)}mph onshore`;
+      } else {
+        windDesc = windSpeed < 10 ? "light cross" : `${Math.round(windSpeed)}mph cross`;
+      }
+    } else {
+      // No beach orientation available, just show wind speed and direction
+      const windCardinal = windDirDeg != null ? ` ${degreesToCardinal(windDirDeg)}` : "";
+      windDesc = `${Math.round(windSpeed)}mph${windCardinal}`;
+    }
+
+    parts.push(windDesc);
   }
 
-  if (surfRating != null) {
-    parts.push(`Rating: ${surfRating}/10`);
+  // Tide status
+  const tideStatus = forecast.tide_status;
+  if (tideStatus && typeof tideStatus === "string") {
+    // Capitalize first letter
+    const tidePart = tideStatus.charAt(0).toUpperCase() + tideStatus.slice(1).toLowerCase();
+    if (["Rising", "Falling", "High", "Low"].includes(tidePart)) {
+      parts.push(tidePart);
+    }
   }
 
-  return parts.length > 0 ? parts.join(", ") : "Forecast available";
+  // Only return if we have at least wave data
+  if (!heightStr) {
+    return "Forecast available";
+  }
+
+  return parts.join(", ");
 }
 
 /**
@@ -1059,6 +1168,124 @@ function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 3) + "...";
 }
+
+/**
+ * Format intel post into a readable message with emoji and conditions
+ */
+function formatIntelMessage(post: {
+  emoji_rating?: string | null;
+  surf_conditions?: {
+    wave_height?: number;
+    wind_speed?: number;
+    wind_direction?: string;
+    crowd_level?: number;
+  } | null;
+  description?: string;
+}): string {
+  const parts: string[] = [];
+
+  // 1. Emoji first (if present)
+  const emojiMap: Record<string, string> = {
+    fire: "🔥",
+    shaka: "🤙",
+    meh: "😐",
+    thumbsdown: "👎",
+  };
+  const emoji = post.emoji_rating ? emojiMap[post.emoji_rating] : null;
+  if (emoji) {
+    parts.push(emoji);
+  }
+
+  const conditions = post.surf_conditions;
+
+  // Track if we have any structured condition data
+  let hasStructuredData = false;
+
+  // 2. Wave height from surf_conditions
+  if (conditions?.wave_height != null) {
+    parts.push(`${conditions.wave_height}ft`);
+    hasStructuredData = true;
+  }
+
+  // 3. Wind conditions
+  if (conditions?.wind_speed != null) {
+    const dir = conditions.wind_direction || "";
+    parts.push(`${conditions.wind_speed}kt ${dir}`.trim());
+    hasStructuredData = true;
+  }
+
+  // 4. Crowd level (1-5 scale -> text)
+  if (conditions?.crowd_level != null) {
+    const crowdText = ["empty", "light", "moderate", "busy", "packed"];
+    const crowdLabel = crowdText[conditions.crowd_level - 1];
+    if (crowdLabel) {
+      parts.push(crowdLabel);
+      hasStructuredData = true;
+    }
+  }
+
+  // 5. Fall back to description if no structured data
+  if (!hasStructuredData && post.description) {
+    const desc = truncateText(post.description, 80);
+    return emoji ? `${emoji} ${desc}` : desc;
+  }
+
+  return parts.join(" · ");
+}
+
+/**
+ * Format intel source name with username and beach
+ */
+function formatIntelSourceName(
+  username: string,
+  beachName: string | null,
+  maxLength: number = 35
+): string {
+  if (!beachName) {
+    return truncateText(username, maxLength);
+  }
+
+  const full = `${username} @ ${beachName}`;
+  if (full.length <= maxLength) {
+    return full;
+  }
+
+  // Truncate beach name to fit
+  const prefix = `${username} @ `;
+  const availableForBeach = maxLength - prefix.length - 3; // 3 for "..."
+  if (availableForBeach > 5) {
+    return `${prefix}${beachName.slice(0, availableForBeach)}...`;
+  }
+
+  // Beach name too short to be useful, just show username
+  return truncateText(username, maxLength);
+}
+
+/**
+ * Find nearest beach name from coordinates using cached beach list
+ */
+function findNearestBeachName(
+  lat: number,
+  lon: number,
+  beaches: Array<{ name: string; lat: number; lon: number }>,
+  maxDistanceKm: number = 5
+): string | null {
+  if (!beaches?.length) return null;
+
+  let nearest: { name: string; distance: number } | null = null;
+
+  for (const beach of beaches) {
+    const dist = haversineDistance(lat, lon, beach.lat, beach.lon);
+    if (dist <= maxDistanceKm && (!nearest || dist < nearest.distance)) {
+      nearest = { name: beach.name, distance: dist };
+    }
+  }
+
+  return nearest?.name || null;
+}
+
+// Export helpers for testing
+export { formatIntelMessage, formatIntelSourceName, findNearestBeachName, formatForecastConditions };
 
 // Apply rate limiting protection
 export const GET = withRateLimit(coastPulseHandler, "public-default");

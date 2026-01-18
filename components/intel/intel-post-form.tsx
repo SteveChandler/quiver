@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -12,118 +11,34 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin,
   Loader2,
-  Camera,
-  X,
   AlertCircle,
   CheckCircle,
-  Waves,
-  Wind,
-  Thermometer,
-  Users,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
-import { INTEL_CONFIG, INTEL_UI_TEXT, INTEL_TAGS } from "@/lib/constants/intel";
+import { INTEL_CONFIG, INTEL_UI_TEXT } from "@/lib/constants/intel";
 import { createIntelPost } from "@/actions/intel-actions";
-import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
-import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
-import { uploadImage } from "@/lib/image-upload";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import { toast } from "sonner";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
-import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
-import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
-
-// Field state tracking for auto-prefill (conditions tag only)
-type FieldPrefillState = "empty" | "prefilled" | "user-edited";
-type ConditionFieldStates = {
-  wave_height: FieldPrefillState;
-  wind_speed: FieldPrefillState;
-  wind_direction: FieldPrefillState;
-  water_temp: FieldPrefillState;
-};
-
-// Parse numeric values from forecast strings (e.g., "3.5 ft" -> 3.5)
-function parseNumericValue(value: unknown): number | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
-  if (typeof value !== "string") return undefined;
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-// Form validation schema
-const intelPostSchema = z.object({
-  tag: z.enum([
-    "parking",
-    "hazard",
-    "crowd",
-    "conditions",
-    "access",
-    "other",
-  ] as const),
-  title: z
-    .string()
-    .min(1, INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED)
-    .max(
-      INTEL_CONFIG.MAX_TITLE_LENGTH,
-      INTEL_UI_TEXT.VALIDATION.TITLE_TOO_LONG
-    ),
-  description: z
-    .string()
-    .min(1, INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED)
-    .max(
-      INTEL_CONFIG.MAX_DESCRIPTION_LENGTH,
-      INTEL_UI_TEXT.VALIDATION.DESCRIPTION_TOO_LONG
-    ),
-  // Surf condition fields
-  wave_height: z.number().min(0).max(50).nullable().optional(),
-  wind_speed: z.number().min(0).max(150).nullable().optional(),
-  wind_direction: z
-    .enum([
-      "N",
-      "NE",
-      "E",
-      "SE",
-      "S",
-      "SW",
-      "W",
-      "NW",
-      "OFFSHORE",
-      "ONSHORE",
-      "CROSS",
-    ])
-    .nullable()
-    .optional(),
-  water_temp: z.number().min(32).max(100).nullable().optional(),
-  crowd_level: z.number().min(1).max(5).nullable().optional(),
-  wave_types: z.array(z.string()).optional(),
-  forecast_accuracy: z
-    .enum(["accurate", "somewhat", "inaccurate"])
-    .nullable()
-    .optional(),
-});
-
-type IntelPostFormData = z.infer<typeof intelPostSchema>;
+import {
+  IntelTagSelector,
+  IntelTitleDescription,
+  IntelConditionsFields,
+  IntelPhotoSection,
+  IntelFormActions,
+  type WindDirection,
+  type ForecastAccuracy,
+} from "./form";
+import {
+  useIntelFormValidation,
+  intelPostSchema,
+  type IntelPostFormData,
+} from "@/hooks/use-intel-form-validation";
+import { useIntelForecastPrefill } from "@/hooks/use-intel-forecast-prefill";
+import { useIntelPhotoUpload } from "@/hooks/use-intel-photo-upload";
 
 interface IntelPostFormProps {
   isOpen: boolean;
@@ -144,47 +59,6 @@ export type IntelPostFormBeforeSubmitContext = {
   beachId?: string;
 };
 
-const windDirections = [
-  { value: "N", label: "North" },
-  { value: "NE", label: "Northeast" },
-  { value: "E", label: "East" },
-  { value: "SE", label: "Southeast" },
-  { value: "S", label: "South" },
-  { value: "SW", label: "Southwest" },
-  { value: "W", label: "West" },
-  { value: "NW", label: "Northwest" },
-  { value: "OFFSHORE", label: "Offshore" },
-  { value: "ONSHORE", label: "Onshore" },
-  { value: "CROSS", label: "Cross-shore" },
-];
-
-const accuracyOptions = [
-  {
-    value: "accurate",
-    label: "Yes",
-    icon: CheckCircle2,
-    color: "text-green-600",
-    bgColor: "bg-green-50 hover:bg-green-100",
-    description: "Forecast was spot on",
-  },
-  {
-    value: "somewhat",
-    label: "Kinda",
-    icon: AlertCircle,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-50 hover:bg-yellow-100",
-    description: "Close but not perfect",
-  },
-  {
-    value: "inaccurate",
-    label: "No",
-    icon: XCircle,
-    color: "text-red-600",
-    bgColor: "bg-red-50 hover:bg-red-100",
-    description: "Way off the mark",
-  },
-];
-
 export function IntelPostForm({
   isOpen,
   onClose,
@@ -203,19 +77,18 @@ export function IntelPostForm({
   } | null>(initialLocation || null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Forecast prefill state (conditions tag only)
-  const [forecastLoading, setForecastLoading] = useState(false);
-  const fieldStatesRef = useRef<ConditionFieldStates>({
-    wave_height: "empty",
-    wind_speed: "empty",
-    wind_direction: "empty",
-    water_temp: "empty",
-  });
-  const lastPrefillKeyRef = useRef<string | null>(null);
+  // Use photo upload hook
+  const {
+    selectedPhoto,
+    photoPreview,
+    isUploading: photoUploading,
+    handlePhotoSelect,
+    handlePhotoRemove,
+    uploadPhoto,
+    reset: resetPhoto,
+  } = useIntelPhotoUpload();
 
   const lockedTag = variant === "check-in" ? "conditions" : undefined;
   const form = useForm<IntelPostFormData>({
@@ -234,6 +107,9 @@ export function IntelPostForm({
     },
   });
 
+  // Use validation hook
+  const { generateConditionsSummary, validateBeforeSubmit } = useIntelFormValidation({ variant });
+
   useEffect(() => {
     if (lockedTag) {
       form.setValue("tag", lockedTag);
@@ -243,116 +119,13 @@ export function IntelPostForm({
   // Watch tag for prefill logic
   const watchedTag = form.watch("tag");
 
-  // Fetch forecast and auto-prefill conditions fields when:
-  // 1. Modal is open
-  // 2. Tag is "conditions"
-  // 3. We have a beachId
-  useEffect(() => {
-    const shouldFetch = isOpen && watchedTag === "conditions" && beachId;
-
-    if (!shouldFetch) {
-      return;
-    }
-
-    // Create a key for this beach to avoid duplicate fetches
-    const prefillKey = `${beachId}-${isOpen}`;
-    if (prefillKey === lastPrefillKeyRef.current) {
-      return;
-    }
-    lastPrefillKeyRef.current = prefillKey;
-
-    // Reset field states when modal opens fresh
-    fieldStatesRef.current = {
-      wave_height: "empty",
-      wind_speed: "empty",
-      wind_direction: "empty",
-      water_temp: "empty",
-    };
-
-    const fetchAndPrefill = async () => {
-      setForecastLoading(true);
-      try {
-        const result = await getEnhancedBeachForecasts(beachId, 2);
-
-        if (!result.success || !result.data || result.data.length === 0) {
-          return;
-        }
-
-        // Select the best forecast using forward-looking time logic
-        const bestForecast = getCurrentForecast(result.data);
-        if (!bestForecast) {
-          return;
-        }
-
-        // Prefill fields only if they are still empty (not user-edited)
-        const parsedWaveHeight = parseNumericValue(bestForecast.wave_height);
-        const parsedWindSpeed = parseNumericValue(bestForecast.wind_speed);
-        const parsedWaterTemp = parseNumericValue(bestForecast.water_temp);
-        const windDirection = bestForecast.wind_direction || undefined;
-
-        // Wave Height
-        if (
-          fieldStatesRef.current.wave_height === "empty" &&
-          parsedWaveHeight !== undefined
-        ) {
-          form.setValue("wave_height", parsedWaveHeight);
-          fieldStatesRef.current.wave_height = "prefilled";
-        }
-
-        // Wind Speed
-        if (
-          fieldStatesRef.current.wind_speed === "empty" &&
-          parsedWindSpeed !== undefined
-        ) {
-          form.setValue("wind_speed", parsedWindSpeed);
-          fieldStatesRef.current.wind_speed = "prefilled";
-        }
-
-        // Wind Direction
-        if (
-          fieldStatesRef.current.wind_direction === "empty" &&
-          windDirection
-        ) {
-          // Map forecast wind direction to our enum values
-          const directionMap: Record<string, string> = {
-            N: "N", NE: "NE", E: "E", SE: "SE",
-            S: "S", SW: "SW", W: "W", NW: "NW",
-            North: "N", Northeast: "NE", East: "E", Southeast: "SE",
-            South: "S", Southwest: "SW", West: "W", Northwest: "NW",
-            Offshore: "OFFSHORE", Onshore: "ONSHORE", Cross: "CROSS",
-            "Cross-shore": "CROSS",
-          };
-          const mapped = directionMap[windDirection] || windDirection.toUpperCase();
-          if (["N", "NE", "E", "SE", "S", "SW", "W", "NW", "OFFSHORE", "ONSHORE", "CROSS"].includes(mapped)) {
-            form.setValue("wind_direction", mapped as any);
-            fieldStatesRef.current.wind_direction = "prefilled";
-          }
-        }
-
-        // Water Temp
-        if (
-          fieldStatesRef.current.water_temp === "empty" &&
-          parsedWaterTemp !== undefined
-        ) {
-          form.setValue("water_temp", parsedWaterTemp);
-          fieldStatesRef.current.water_temp = "prefilled";
-        }
-
-        console.debug("[IntelPostForm] Prefilled conditions from forecast", {
-          wave_height: parsedWaveHeight,
-          wind_speed: parsedWindSpeed,
-          wind_direction: windDirection,
-          water_temp: parsedWaterTemp,
-        });
-      } catch (error) {
-        console.error("[IntelPostForm] Failed to fetch forecast for prefill:", error);
-      } finally {
-        setForecastLoading(false);
-      }
-    };
-
-    fetchAndPrefill();
-  }, [isOpen, beachId, watchedTag, form]);
+  // Use forecast prefill hook
+  const { handleFieldEdited } = useIntelForecastPrefill({
+    isOpen,
+    beachId,
+    tag: watchedTag,
+    setValue: form.setValue,
+  });
 
   // Get user's current location
   const getCurrentLocation = useCallback(() => {
@@ -417,41 +190,6 @@ export function IntelPostForm({
     getCurrentLocation,
   ]);
 
-  // Handle photo selection
-  const handlePhotoSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Validate file type
-      if (!INTEL_CONFIG.ALLOWED_PHOTO_TYPES.includes(file.type)) {
-        toast.error(INTEL_UI_TEXT.VALIDATION.PHOTO_INVALID_TYPE);
-        return;
-      }
-
-      // Validate file size
-      if (file.size > INTEL_CONFIG.MAX_PHOTO_SIZE) {
-        toast.error(INTEL_UI_TEXT.VALIDATION.PHOTO_TOO_LARGE);
-        return;
-      }
-
-      setSelectedPhoto(file);
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPhotoPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    },
-    []
-  );
-
-  // Remove photo
-  const handlePhotoRemove = useCallback(() => {
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
-  }, []);
 
   // Handle form submission (business logic)
   const submitIntel = async (data: IntelPostFormData) => {
@@ -494,8 +232,7 @@ export function IntelPostForm({
           forecast_accuracy: variant === "check-in" ? "accurate" : null,
         });
         setLocation(initialLocation || null);
-        setSelectedPhoto(null);
-        setPhotoPreview(null);
+        resetPhoto();
 
         // Call success callback to refresh feeds
         onSuccess?.(null);
@@ -508,20 +245,18 @@ export function IntelPostForm({
 
       // Upload photo if selected
       if (selectedPhoto) {
-        const uploadResult = await uploadImage(
-          selectedPhoto,
-          INTEL_CONFIG.PHOTO_UPLOAD_BUCKET,
-          "intel-posts"
-        );
-
-        if (uploadResult.success) {
-          photoUrl = uploadResult.url;
-          // Extract storage path from URL for deletion purposes
-          photoStoragePath = uploadResult.url?.split("/").pop();
-        } else {
-          toast.error(
-            uploadResult.error || INTEL_UI_TEXT.ERROR.PHOTO_UPLOAD_FAILED
-          );
+        try {
+          const uploadResult = await uploadPhoto();
+          if (uploadResult) {
+            photoUrl = uploadResult.url;
+            photoStoragePath = uploadResult.storagePath;
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : INTEL_UI_TEXT.ERROR.PHOTO_UPLOAD_FAILED;
+          toast.error(errorMessage);
           return;
         }
       }
@@ -568,8 +303,7 @@ export function IntelPostForm({
           forecast_accuracy: variant === "check-in" ? "accurate" : null,
         });
         setLocation(initialLocation || null);
-        setSelectedPhoto(null);
-        setPhotoPreview(null);
+        resetPhoto();
         onSuccess?.(newPost ?? null);
         onClose();
       } else {
@@ -599,59 +333,52 @@ export function IntelPostForm({
         const needsDesc = !values.description || !values.description.trim();
 
         if (needsTitle || needsDesc) {
-          const waveTypes = (values.wave_types || []).join(", ");
-          const parts: string[] = [];
-          if (waveTypes) parts.push(`Waves: ${waveTypes}`);
-          if (values.crowd_level) parts.push(`Crowd: ${values.crowd_level}/5`);
-          if (values.wind_direction || values.wind_speed !== null)
-            parts.push(
-              `Wind: ${values.wind_direction || ""}$${""}`.replace("$", "")
-            );
-          if (values.wind_speed !== null && values.wind_speed !== undefined)
-            parts.push(`Wind Speed: ${values.wind_speed} mph`);
-          if (values.water_temp !== null && values.water_temp !== undefined)
-            parts.push(`Water: ${values.water_temp}°F`);
-
-          const summary = parts.join(" • ") || "Real-time conditions update";
+          const summary = generateConditionsSummary({
+            wave_types: values.wave_types,
+            crowd_level: values.crowd_level,
+            wind_direction: values.wind_direction,
+            wind_speed: values.wind_speed,
+            water_temp: values.water_temp,
+          });
           if (needsTitle) form.setValue("title", "Conditions update");
           if (needsDesc) form.setValue("description", summary);
           values = form.getValues();
         }
       }
 
-      // Validate required fields; provide helpful feedback and focus
-      const missing: string[] = [];
-      let blocked = false;
-      if (!values.title || !values.title.trim()) {
-        form.setError("title", {
-          type: "manual",
-          message: INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED,
+      // Validate required fields using hook
+      const validation = validateBeforeSubmit(values);
+      if (!validation.isValid) {
+        // Set errors for missing fields
+        validation.missingFields.forEach((field) => {
+          if (field === "title") {
+            form.setError("title", {
+              type: "manual",
+              message: INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED,
+            });
+          } else if (field === "description") {
+            form.setError("description", {
+              type: "manual",
+              message: INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED,
+            });
+          } else if (field === "forecast_accuracy") {
+            toast.error("Please rate the forecast accuracy before sharing.");
+            return;
+          }
         });
-        blocked = true;
-        missing.push("title");
-      }
-      if (!values.description || !values.description.trim()) {
-        form.setError("description", {
-          type: "manual",
-          message: INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED,
-        });
-        blocked = true;
-        missing.push("description");
-      }
-      if (blocked) {
-        // Focus the first missing field and show a toast
-        if (missing.includes("title")) form.setFocus("title");
-        else if (missing.includes("description")) form.setFocus("description");
-        toast.error(
-          `Please complete the required ${missing.join(" and ")} field$${
-            missing.length > 1 ? "s" : ""
-          } before sharing.`.replace("$", "")
-        );
-        return;
-      }
 
-      if (variant === "check-in" && !values.forecast_accuracy) {
-        toast.error("Please rate the forecast accuracy before sharing.");
+        // Focus the first missing field and show a toast
+        if (validation.missingFields.includes("title")) {
+          form.setFocus("title");
+        } else if (validation.missingFields.includes("description")) {
+          form.setFocus("description");
+        }
+
+        toast.error(
+          `Please complete the required ${validation.missingFields.join(" and ")} field${
+            validation.missingFields.length > 1 ? "s" : ""
+          } before sharing.`
+        );
         return;
       }
 
@@ -680,18 +407,9 @@ export function IntelPostForm({
       });
       setLocation(initialLocation || null);
       setLocationError(null);
-      setSelectedPhoto(null);
-      setPhotoPreview(null);
-      // Reset prefill tracking
-      fieldStatesRef.current = {
-        wave_height: "empty",
-        wind_speed: "empty",
-        wind_direction: "empty",
-        water_temp: "empty",
-      };
-      lastPrefillKeyRef.current = null;
+      resetPhoto();
     }
-  }, [isOpen, form, initialLocation]);
+  }, [isOpen, form, initialLocation, resetPhoto]);
 
   const isLocationReady = !!location;
   const canSubmit = isLocationReady && !uploading && !gettingLocation;
@@ -768,333 +486,48 @@ export function IntelPostForm({
           </Card>
 
           {/* Intel Type */}
-          <div className="space-y-2">
-            <Label htmlFor="tag">{INTEL_UI_TEXT.FORM.TAG_LABEL}</Label>
-            <Select
-              value={form.watch("tag")}
-              onValueChange={(value: IntelPostTag) =>
-                form.setValue("tag", value)
-              }
-              disabled={!!lockedTag}
-            >
-              <SelectTrigger disabled={!!lockedTag}>
-                <SelectValue placeholder={INTEL_UI_TEXT.FORM.TAG_PLACEHOLDER} />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(INTEL_TAGS).map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
-                    <div className="flex items-center gap-2">
-                      <span>{config.emoji}</span>
-                      <span>{config.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {form.formState.errors.tag && (
-              <p className="text-sm text-red-500">
-                {form.formState.errors.tag.message}
-              </p>
-            )}
-          </div>
+          <IntelTagSelector
+            value={form.watch("tag")}
+            onChange={(value: IntelPostTag) => form.setValue("tag", value)}
+            disabled={!!lockedTag}
+            error={form.formState.errors.tag?.message}
+          />
 
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">{INTEL_UI_TEXT.FORM.TITLE_LABEL}</Label>
-            <Input
-              id="title"
-              placeholder={INTEL_UI_TEXT.FORM.TITLE_PLACEHOLDER}
-              {...form.register("title")}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>
-                {form.formState.errors.title && (
-                  <span className="text-red-500">
-                    {form.formState.errors.title.message}
-                  </span>
-                )}
-              </span>
-              <span>
-                {form.watch("title")?.length || 0}/
-                {INTEL_CONFIG.MAX_TITLE_LENGTH}
-              </span>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">
-              {INTEL_UI_TEXT.FORM.DESCRIPTION_LABEL}
-            </Label>
-            <Textarea
-              id="description"
-              placeholder={INTEL_UI_TEXT.FORM.DESCRIPTION_PLACEHOLDER}
-              rows={3}
-              {...form.register("description")}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>
-                {form.formState.errors.description && (
-                  <span className="text-red-500">
-                    {form.formState.errors.description.message}
-                  </span>
-                )}
-              </span>
-              <span>
-                {form.watch("description")?.length || 0}/
-                {INTEL_CONFIG.MAX_DESCRIPTION_LENGTH}
-              </span>
-            </div>
-          </div>
+          {/* Title and Description */}
+          <IntelTitleDescription
+            register={form.register}
+            errors={form.formState.errors}
+            titleValue={form.watch("title") || ""}
+            descriptionValue={form.watch("description") || ""}
+          />
 
           {/* Surf Conditions Section - Only show for conditions tag */}
           {form.watch("tag") === "conditions" && (
-            <div className="space-y-6 border-t pt-6">
-              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                Current Surf Conditions
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Wave Height */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Waves className="h-4 w-4" />
-                    Wave Height (ft)
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="50"
-                    placeholder="3.5"
-                    value={form.watch("wave_height") ?? ""}
-                    onChange={(e) => {
-                      fieldStatesRef.current.wave_height = "user-edited";
-                      form.setValue(
-                        "wave_height",
-                        e.target.value ? parseFloat(e.target.value) : null
-                      );
-                    }}
-                  />
-                </div>
-
-                {/* Water Temperature */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Thermometer className="h-4 w-4" />
-                    Water Temp (°F)
-                  </Label>
-                  <Input
-                    type="number"
-                    min="32"
-                    max="100"
-                    placeholder="68"
-                    value={form.watch("water_temp") ?? ""}
-                    onChange={(e) => {
-                      fieldStatesRef.current.water_temp = "user-edited";
-                      form.setValue(
-                        "water_temp",
-                        e.target.value ? parseFloat(e.target.value) : null
-                      );
-                    }}
-                  />
-                </div>
-
-                {/* Wind Speed */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Wind className="h-4 w-4" />
-                    Wind Speed (mph)
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="150"
-                    placeholder="10"
-                    value={form.watch("wind_speed") ?? ""}
-                    onChange={(e) => {
-                      fieldStatesRef.current.wind_speed = "user-edited";
-                      form.setValue(
-                        "wind_speed",
-                        e.target.value ? parseFloat(e.target.value) : null
-                      );
-                    }}
-                  />
-                </div>
-
-                {/* Wind Direction */}
-                <div className="space-y-2">
-                  <Label>Wind Direction</Label>
-                  <Select
-                    value={form.watch("wind_direction") || ""}
-                    onValueChange={(value) => {
-                      fieldStatesRef.current.wind_direction = "user-edited";
-                      form.setValue("wind_direction", value as any);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select direction" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {windDirections.map((direction) => (
-                        <SelectItem
-                          key={direction.value}
-                          value={direction.value}
-                        >
-                          {direction.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Crowd Level */}
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Crowd Level
-                </Label>
-                <div className="space-y-3">
-                  <Slider
-                    min={1}
-                    max={5}
-                    step={1}
-                    value={[form.watch("crowd_level") || 3]}
-                    onValueChange={(value) =>
-                      form.setValue("crowd_level", value[0])
-                    }
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Empty</span>
-                    <Badge variant="outline" className="text-xs">
-                      {(() => {
-                        const level = form.watch("crowd_level") || 3;
-                        const labels = [
-                          "",
-                          "Empty",
-                          "Light",
-                          "Moderate",
-                          "Busy",
-                          "Packed",
-                        ];
-                        return labels[level] || "Moderate";
-                      })()}
-                    </Badge>
-                    <span>Packed</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Wave Types */}
-              <div className="space-y-3">
-                <WaveTypeSelector
-                  selectedTypes={form.watch("wave_types") || []}
-                  onChange={(types) => form.setValue("wave_types", types)}
-                />
-              </div>
-
-              {/* Forecast Accuracy */}
-              <div className="space-y-3">
-                <Label>Was today&apos;s forecast accurate?</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {accuracyOptions.map((option) => {
-                    const IconComponent = option.icon;
-                    const isSelected =
-                      form.watch("forecast_accuracy") === option.value;
-
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() =>
-                          form.setValue(
-                            "forecast_accuracy",
-                            option.value as any
-                          )
-                        }
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50"
-                            : `border-gray-200 ${option.bgColor}`
-                        }`}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <IconComponent
-                            className={`h-6 w-6 ${
-                              isSelected ? "text-blue-600" : option.color
-                            }`}
-                          />
-                          <span
-                            className={`font-medium ${
-                              isSelected ? "text-blue-700" : "text-gray-700"
-                            }`}
-                          >
-                            {option.label}
-                          </span>
-                          <span className="text-xs text-gray-500 text-center">
-                            {option.description}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            <IntelConditionsFields
+              waveHeight={form.watch("wave_height") ?? null}
+              onWaveHeightChange={(value) => form.setValue("wave_height", value)}
+              waterTemp={form.watch("water_temp") ?? null}
+              onWaterTempChange={(value) => form.setValue("water_temp", value)}
+              windSpeed={form.watch("wind_speed") ?? null}
+              onWindSpeedChange={(value) => form.setValue("wind_speed", value)}
+              windDirection={form.watch("wind_direction") as WindDirection | null}
+              onWindDirectionChange={(value) => form.setValue("wind_direction", value)}
+              crowdLevel={form.watch("crowd_level") ?? null}
+              onCrowdLevelChange={(value) => form.setValue("crowd_level", value)}
+              waveTypes={form.watch("wave_types") || []}
+              onWaveTypesChange={(types) => form.setValue("wave_types", types)}
+              forecastAccuracy={form.watch("forecast_accuracy") as ForecastAccuracy | null}
+              onForecastAccuracyChange={(value) => form.setValue("forecast_accuracy", value)}
+              onFieldEdited={handleFieldEdited}
+            />
           )}
 
           {/* Photo Upload */}
-          <div className="space-y-2">
-            <Label>{INTEL_UI_TEXT.FORM.PHOTO_LABEL}</Label>
-
-            {photoPreview ? (
-              <div className="relative h-32">
-                <Image
-                  src={photoPreview}
-                  alt="Preview"
-                  fill
-                  sizes="100vw"
-                  className="object-cover rounded-lg"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={handlePhotoRemove}
-                  className="absolute top-2 right-2 h-6 w-6 p-0"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="file"
-                  accept={INTEL_CONFIG.ALLOWED_PHOTO_TYPES.join(",")}
-                  onChange={handlePhotoSelect}
-                  className="hidden"
-                  id="photo-upload"
-                />
-                <Label
-                  htmlFor="photo-upload"
-                  className={cn(
-                    "flex items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
-                    "border-muted-foreground/25"
-                  )}
-                >
-                  <div className="text-center">
-                    <Camera className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">
-                      {INTEL_UI_TEXT.FORM.PHOTO_PLACEHOLDER}
-                    </p>
-                  </div>
-                </Label>
-              </div>
-            )}
-          </div>
+          <IntelPhotoSection
+            photoPreview={photoPreview}
+            onPhotoSelect={handlePhotoSelect}
+            onPhotoRemove={handlePhotoRemove}
+          />
 
           {/* Location requirement alert */}
           {!isLocationReady && (
@@ -1108,27 +541,12 @@ export function IntelPostForm({
           )}
 
           {/* Form Actions */}
-          <div className="flex gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={uploading}
-              className="flex-1"
-            >
-              {INTEL_UI_TEXT.FORM.CANCEL_BUTTON}
-            </Button>
-            <Button type="submit" disabled={!canSubmit} className="flex-1">
-              {uploading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Sharing...</span>
-                </div>
-              ) : (
-                submitButtonLabel || INTEL_UI_TEXT.FORM.SUBMIT_BUTTON
-              )}
-            </Button>
-          </div>
+          <IntelFormActions
+            onCancel={onClose}
+            canSubmit={canSubmit}
+            isUploading={uploading}
+            submitButtonLabel={submitButtonLabel}
+          />
         </form>
       </DialogContent>
     </Dialog>

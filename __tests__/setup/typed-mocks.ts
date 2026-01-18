@@ -218,6 +218,8 @@ export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
     wind_onshore_bad_kt: null,
     cdip_station: null,
     preferred_tide_direction: null,
+    tide_direction_sensitivity: null,
+    timezone: null,
     ...overrides,
   };
 }
@@ -249,17 +251,24 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     avatar_url: null,
     bio: null,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    updated_at: null,
     email: "test@example.com",
     display_name: null,
     experience_level: "intermediate",
     home_beach_id: null,
+    home_beach_ids: null,
+    home_region: null,
     is_admin: false,
     is_mock: false,
+    is_system_account: null,
     location: null,
+    activity_level: null,
     crowd_preference: null,
+    personality_type: null,
+    posting_window: null,
     preferred_break_type: null,
     preferred_wave_size: null,
+    secondary_beaches: null,
     surf_styles: null,
     favorite_spot: null,
     favorite_spot_id: null,
@@ -399,10 +408,8 @@ export function createMockIntelPost(
     photo_url: null,
     photo_storage_path: null,
     surf_conditions: null,
-    // Note: emoji_rating and report_count added by migration 20260113145000
-    // Uncomment when migration is applied and types regenerated
-    // emoji_rating: null,
-    // report_count: 0,
+    emoji_rating: null,
+    report_count: 0,
     ...overrides,
   };
 }

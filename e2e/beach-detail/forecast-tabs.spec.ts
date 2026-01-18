@@ -42,7 +42,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
     test('should display "Today" tab content immediately', async ({ page }) => {
       // Verify Today tab content is visible
-      const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
+      const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
       await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.short });
     });
 
@@ -94,7 +94,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await page.waitForTimeout(500);
 
       // Verify Today content is hidden
-      const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
+      const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
       await expect(currentConditionsHeading).not.toBeVisible();
     });
 
@@ -130,15 +130,19 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       // Switch to Tides
       await tidesTab.click();
+      await page.waitForTimeout(500); // Allow tab transition
       await expect(tidesTab).toHaveAttribute('data-state', 'active');
 
       // Switch back to Today
       await todayTab.click();
+      await page.waitForTimeout(500); // Allow tab transition
       await expect(todayTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
-      // Verify Today content is visible again
-      const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
-      await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.short });
+      // Verify Today content is visible again - use exact match and level to target the h2, not h4
+      const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
+      // Scroll into view first - element may be below viewport
+      await currentConditionsHeading.scrollIntoViewIfNeeded();
+      await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
     test('should switch between all tabs in sequence', async ({ page }) => {
@@ -166,7 +170,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
   test.describe('Today Tab Content Verification', () => {
     test('should display Current Conditions section', async ({ page }) => {
-      const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
+      const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
       await expect(currentConditionsHeading).toBeVisible();
     });
 
@@ -404,12 +408,12 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(todayTab).toBeVisible();
 
       // Verify content is accessible
-      const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
+      const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
       await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.short });
 
-      // Verify metric cards stack vertically (by checking they're visible)
-      const tideCard = page.locator('[class*="rounded-2xl"]').filter({ hasText: /next tide/i }).first();
-      await expect(tideCard).toBeVisible();
+      // Verify metric cards are visible - use text content instead of class-based selector
+      const tideLabel = page.getByText('Next Tide', { exact: true });
+      await expect(tideLabel).toBeVisible({ timeout: TIMEOUTS.short });
     });
 
     test('should display correctly on tablet viewport (768x1024)', async ({ page }) => {
@@ -457,7 +461,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
         await page.setViewportSize(viewport);
 
         // Check that headings are still readable
-        const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
+        const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
         await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.short });
 
         // Brief pause before next viewport
@@ -629,7 +633,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       const startTime = Date.now();
 
       // Today tab should already be loaded, but verify content appears quickly
-      const currentConditionsHeading = page.getByRole('heading', { name: /current conditions/i });
+      const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
       await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.short });
 
       const loadTime = Date.now() - startTime;

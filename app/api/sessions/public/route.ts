@@ -1,13 +1,15 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  handleApiError,
   createPaginatedResponse,
   CacheDuration,
   parsePaginationParams,
   createPaginationMeta,
 } from "@/lib/api-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
+import {
+  withBotBlockingAndRateLimit,
+  withErrorHandler,
+} from "@/lib/middleware/api-wrappers";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
@@ -27,24 +29,23 @@ export const dynamic = "force-dynamic";
  * - Paginated list of public sessions with beach info, ratings, and author details
  */
 async function publicSessionsHandler(request: NextRequest): Promise<NextResponse> {
-  try {
-    const supabase = createSupabaseServerClient();
-    const { searchParams } = new URL(request.url);
-    const { page, limit } = parsePaginationParams(searchParams, 10, 50);
-    const offset = (page - 1) * limit;
+  const supabase = createSupabaseServerClient();
+  const { searchParams } = new URL(request.url);
+  const { page, limit } = parsePaginationParams(searchParams, 10, 50);
+  const offset = (page - 1) * limit;
 
-    // Get total count of public completed sessions
-    const { count } = await supabase
-      .from("sessions")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "completed")
-      .eq("is_public", true);
+  // Get total count of public completed sessions
+  const { count } = await supabase
+    .from("sessions")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "completed")
+    .eq("is_public", true);
 
-    // Fetch public sessions with profile data
-    const { data: sessions, error } = await supabase
-      .from("sessions")
-      .select(
-        `
+  // Fetch public sessions with profile data
+  const { data: sessions, error } = await supabase
+    .from("sessions")
+    .select(
+      `
         id,
         beach_name,
         beach_id,
@@ -71,55 +72,57 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
           deleted_at
         )
       `
-      )
-      .eq("status", "completed")
-      .eq("is_public", true)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+    )
+    .eq("status", "completed")
+    .eq("is_public", true)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
-    if (error) {
-      console.error("Error fetching public sessions:", error);
-      throw error;
-    }
-
-    // Transform the data for frontend consumption
-    const publicSessions =
-      sessions?.map((session: any) => ({
-        id: session.id,
-        beachName: session.beach_name,
-        beachId: session.beach_id,
-        arrivalTime: session.arrival_time,
-        waveQuality: session.wave_quality,
-        waveHeight: session.wave_height_ft,
-        notes: session.notes,
-        description: session.description,
-        imageUrl: session.image_url,
-        likesCount: session.likes_count || 0,
-        createdAt: session.created_at,
-        durationMinutes: session.duration_minutes,
-        crowdLevel: session.crowd_level,
-        waterTemp: session.water_temp,
-        author: {
-          id: session.profiles?.id || null,
-        },
-        media: (session.session_media || [])
-          .filter((m: any) => !m.deleted_at)
-          .map((m: any) => ({
-            id: m.id,
-            url: m.public_url,
-            type: m.media_type,
-            caption: m.caption,
-          })),
-      })) || [];
-
-    const meta = createPaginationMeta(page, limit, count || 0);
-
-    // Cache for 2 minutes (public content, updated frequently)
-    return await createPaginatedResponse(publicSessions, meta, CacheDuration.SHORT);
-  } catch (error) {
-    return handleApiError(error, "Failed to fetch public sessions");
+  if (error) {
+    console.error("Error fetching public sessions:", error);
+    throw error;
   }
+
+  // Transform the data for frontend consumption
+  const publicSessions =
+    sessions?.map((session: any) => ({
+      id: session.id,
+      beachName: session.beach_name,
+      beachId: session.beach_id,
+      arrivalTime: session.arrival_time,
+      waveQuality: session.wave_quality,
+      waveHeight: session.wave_height_ft,
+      notes: session.notes,
+      description: session.description,
+      imageUrl: session.image_url,
+      likesCount: session.likes_count || 0,
+      createdAt: session.created_at,
+      durationMinutes: session.duration_minutes,
+      crowdLevel: session.crowd_level,
+      waterTemp: session.water_temp,
+      author: {
+        id: session.profiles?.id || null,
+      },
+      media: (session.session_media || [])
+        .filter((m: any) => !m.deleted_at)
+        .map((m: any) => ({
+          id: m.id,
+          url: m.public_url,
+          type: m.media_type,
+          caption: m.caption,
+        })),
+    })) || [];
+
+  const meta = createPaginationMeta(page, limit, count || 0);
+
+  // Cache for 2 minutes (public content, updated frequently)
+  return await createPaginatedResponse(publicSessions, meta, CacheDuration.SHORT);
 }
 
-// Apply bot blocking and rate limiting to prevent abuse
-export const GET = withBotBlockingAndRateLimit(publicSessionsHandler, "public-default");
+// Apply bot blocking, rate limiting, and error handling
+export const GET = withBotBlockingAndRateLimit(
+  withErrorHandler(publicSessionsHandler, {
+    errorMessage: "Failed to fetch public sessions",
+  }),
+  "public-default"
+);

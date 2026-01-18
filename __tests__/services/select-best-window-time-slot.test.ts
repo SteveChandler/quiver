@@ -1,4 +1,4 @@
-import { selectBestWindow } from '@/lib/services/surf-discovery-service';
+import { selectBestWindow } from '@/lib/services/discovery';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
 

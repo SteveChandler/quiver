@@ -14,6 +14,10 @@ import {
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
+import {
+  detectCityCollisions,
+  buildCitySlug,
+} from "@/lib/seo/city-slug-utils";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -64,15 +68,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   );
 
-  // Generate intent routes for ALL cities with 3+ beaches
+  // Generate intent routes for ALL cities with 3+ beaches (database-driven)
   let dynamicIntentRoutes: MetadataRoute.Sitemap = [];
   try {
     const citiesResult = await getAllCitiesWithBeaches(3);
     if (citiesResult.success && citiesResult.data) {
+      const collisionMap = detectCityCollisions(citiesResult.data);
       const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
-      dynamicIntentRoutes = citiesResult.data.flatMap((city) => {
-        const citySlug = slugifyAscii(city.city);
+      dynamicIntentRoutes = citiesResult.data.flatMap((cityRecord) => {
+        const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) return [];
 
         return intents.map((intent) => ({

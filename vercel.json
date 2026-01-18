@@ -46,15 +46,7 @@
     },
     {
       "path": "/api/cron/daily-intel?generationTime=06:00&maxBeaches=60",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/daily-intel?generationTime=06:00&maxBeaches=60",
-      "schedule": "0 18 * * *"
-    },
-    {
-      "path": "/api/cron/daily-intel?generationTime=06:00&maxBeaches=60",
-      "schedule": "0 22 * * *"
+      "schedule": "0 14,18,22 * * *"
     },
     {
       "path": "/api/monitoring/forecast-health",
@@ -79,6 +71,14 @@
     {
       "path": "/api/cron/sync-buoys?maxDistanceKm=250",
       "schedule": "0 4 * * 0"
+    },
+    {
+      "path": "/api/cron/morning-forecast-bot",
+      "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/cron/npc-activity",
+      "schedule": "0 0-4,13-23 * * *"
     }
   ]
 }

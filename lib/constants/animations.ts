@@ -389,3 +389,100 @@ export const MAP_MOTION = {
     }
   }
 };
+
+// Home Header Polish - Energetic/Playful Interactions (Duolingo/AllTrails inspired)
+export const HOME_HEADER_MOTION = {
+  // Spring config for bouncy Duolingo-like feel
+  spring: {
+    stiffness: 400,
+    damping: 17,
+  },
+  springGentle: {
+    stiffness: 300,
+    damping: 25,
+  },
+
+  // Time Slot Selector
+  timeSlot: {
+    spring: { stiffness: 400, damping: 17 },
+    tap: { scale: 0.97 },
+    selected: {
+      scale: 1.03,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 17,
+      },
+    },
+    glow: {
+      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.3)",
+    },
+  },
+
+  // Primary Action Buttons
+  button: {
+    tap: { scale: 0.96, y: 1 },
+    hover: { scale: 1.02 },
+    spring: { type: "spring", stiffness: 400, damping: 17 },
+    iconHover: {
+      plus: { rotate: 90, transition: { duration: 0.2 } },
+      calendar: { y: -2, transition: { duration: 0.15 } },
+    },
+  },
+
+  // Hero Recommendation
+  hero: {
+    scoreGlow: {
+      textShadow: [
+        "0 0 8px rgba(251, 146, 60, 0.4)",
+        "0 0 16px rgba(251, 146, 60, 0.6)",
+        "0 0 8px rgba(251, 146, 60, 0.4)",
+      ],
+      transition: {
+        duration: 2,
+        repeat: 3, // Limited cycles to conserve battery on mobile
+        ease: "easeInOut",
+      },
+    },
+    beachName: {
+      hover: { scale: 1.01 },
+      tap: { scale: 0.99 },
+      underline: {
+        initial: { scaleX: 0, originX: 0 },
+        hover: { scaleX: 1 },
+        transition: { duration: 0.2 },
+      },
+    },
+    badge: {
+      initial: { opacity: 0, y: 8 },
+      animate: { opacity: 1, y: 0 },
+      transition: { duration: 0.15 },
+    },
+    badgeStagger: {
+      staggerChildren: 0.08,
+      delayChildren: 0.1,
+    },
+  },
+
+  // Entry animations
+  entry: {
+    staggerChildren: 0.08,
+    delayChildren: 0,
+  },
+  entryItem: {
+    initial: { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.25, ease: "easeOut" },
+  },
+
+  // Skeleton shimmer
+  shimmer: {
+    backgroundSize: "200% 100%",
+    backgroundPosition: ["-200% 0", "200% 0"],
+    transition: {
+      duration: 1.5,
+      repeat: Infinity,
+      ease: "linear",
+    },
+  },
+} as const;

@@ -7,7 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactored
+
+- **Coordinate Documentation (ARCHITECTURE.md):** Fixed outdated coordinate naming examples in component architecture documentation. Updated examples to use actual database column names (`beach.lat`/`beach.lon`) instead of non-existent `center_lat`/`center_lng` references. Clarified that components should use `lon` not `lng` for consistency with codebase conventions.
+
+- **Intel Photo Upload (useIntelPhotoUpload Hook):** Extracted photo selection, preview, and upload logic from `intel-post-form.tsx` into reusable `useIntelPhotoUpload` hook. Hook provides:
+  - File selection with automatic preview generation via FileReader
+  - `isUploading` state for loading indicators during upload
+  - Error handling that throws on upload failure for consistent error propagation
+  - `reset()` function for form clearing
+  - Exports `PhotoUploadResult` type (url, storagePath) for consumers
+  - Full test coverage: 9 unit tests covering initialization, selection, removal, upload, and reset
+  - Reduces intel-post-form.tsx complexity by removing inline photo handling logic
+
+- **Intel Forecast Prefill (useIntelForecastPrefill Hook):** Extracted forecast prefill logic from `intel-post-form.tsx` into reusable `useIntelForecastPrefill` hook. Hook provides:
+  - Auto-fetches forecast when modal opens with conditions tag and beachId
+  - Prefills wave_height, wind_speed, wind_direction, water_temp from current forecast
+  - Tracks field state to prevent overwriting user edits
+  - Preserves user-edited state across modal close/reopen
+  - Exports `parseNumericValue()` and `mapWindDirection()` utilities
+  - Exports `FieldPrefillState`, `ConditionFieldStates`, and `ConditionFieldKey` types
+  - Full test coverage: 13 unit tests covering initialization, prefilling, field editing, and reset
+  - Reduces intel-post-form.tsx complexity by ~120 lines
+
+- **Intel Form Validation (useIntelFormValidation Hook):** Extracted validation logic from `intel-post-form.tsx` into reusable `useIntelFormValidation` hook. Hook provides:
+  - `intelPostSchema`: Zod schema for form validation (previously inline)
+  - `generateConditionsSummary()`: Auto-generates description from conditions fields (wave types, crowd level, wind, water temp)
+  - `validateBeforeSubmit()`: Manual field validation with missing field tracking
+  - Supports both `intel` and `check-in` variants (forecast_accuracy required for check-in)
+  - Full test coverage: 30 unit tests covering schema validation, summary generation, and manual validation
+  - Reduces intel-post-form.tsx complexity by ~60 lines
+
 ### Added
+
+- **Database-Driven Intent Pages Infrastructure (Full Stack):** Complete rewrite of intent page system to support unlimited city scaling via database-driven content. Previously limited to ~10 hardcoded cities (Santa Cruz, San Diego, etc.), now supports any city with 3+ beaches (~50+ cities).
+
+  **Database Schema (3 new tables):**
+  - `city_metadata`: Core city data (city, state, slug, region, coordinates) with unique slug constraint and indexed lookups
+  - `city_editorial_content`: AI-generated editorial content (surf_vibe, local_knowledge, best_for, season_overview) for rich SEO
+  - `city_beach_mapping`: Many-to-many relationships allowing beaches to belong to multiple cities (e.g., Malibu → LA County + Ventura County)
+
+  **Server Actions (3 new action files):**
+  - `actions/city/city-metadata-actions.ts`: `findCityBySlug()`, `getCityMetadata()`, `getCitySummary()` for city discovery and geographic calculations
+  - `actions/city/city-editorial-actions.ts`: `getCityEditorialContent()`, `upsertCityEditorialContent()` for editorial management
+  - `actions/beach/beach-query-actions.ts`: `getBeachesByIntentAndCity()`, `getBeachesByIntentAndState()` with intent-specific sorting (beginner_score, popularity_score, tide_window_score, etc.)
+  - `actions/beach/beach-location-actions.ts`: `getAllCitiesWithBeaches(minBeaches)` for static generation discovery
+
+  **SEO & Content Generation:**
+  - `lib/seo/city-slug-utils.ts`: Collision detection and slug generation (e.g., `newport-ca` vs `newport-or` when multiple cities share a name)
+  - `lib/seo/intent-content-templates.ts`: Dynamic content templates for all 7 intent types (beginner, least-crowded, tide, water-temp, longboard, dawn-patrol, sunset)
+
+  **Transformation & Compatibility:**
+  - `lib/utils/beach-to-surfspot-transformer.ts`: Converts database `Beach` records to legacy `SurfSpot` format for UI compatibility
+
+  **Static Generation:**
+  - Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate ~350 intent pages (50+ cities × 7 intents) plus all 50 US states
+  - Intelligent fallback to hardcoded data for legacy cities when database is empty
+  - State-level intent pages (e.g., `/beginner/ca`) with aggregated beach results
+
+  **Backward Compatibility:**
+  - Maintains hardcoded city data as fallback
+  - Legacy state/city URLs (e.g., `/ca/encinitas`) redirect to map search
+  - All existing UI components continue to work via transformer
+
+  **Performance:**
+  - 6 new database indexes for fast slug, state, and relationship lookups
+  - RLS policies for secure public read access
+  - Build-time static generation reduces runtime queries
+  - 30-minute ISR revalidation (`revalidate: 1800`)
+
+  **Note:** Database tables exist but need population. System currently operates in fallback mode using hardcoded data until city data is imported.
 
 - **Regional Hub Pages:** Created regional surf guide hub pages at `/guides/surfing-[region]` with interactive Mapbox GL maps. Features include:
   - **Hub Regions Data** (`lib/data/hub-regions.ts`): Configuration for 4 initial regions (Southern California, San Diego, Orange County, Hawaii) with center coordinates, zoom levels, and descriptions.
@@ -32,8 +101,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard Components (Forecast Tab):** Integrated ProfileStrength and CoastPulse dashboard components into the forecast tab home screen. ProfileStrength auto-hides when user profile is 100% complete and displays completion progress with missing fields. CoastPulse shows live buoy data in a horizontal scrollable carousel format. Both components render conditionally based on user authentication and data availability. Data fetched via `useDataFetcher` with proper skip conditions.
 - **Share Intel (Conditions Autofill):** Share Intel form now auto-prefills wave height, wind speed, wind direction, and water temp from the current forecast when the `conditions` tag is selected and a beach is known. Fields are only prefilled when empty; user edits are preserved and never overwritten. Uses the same forward-looking forecast selection logic as session logging. Test coverage added for prefill behavior (`__tests__/components/intel/intel-post-form-prefill.test.tsx`).
 
+### Added
+
+- **Coast Pulse Intel Display Improvements:** Enhanced how user intel posts are displayed in Live Coast Pulse. Intel items now show richer, more actionable data:
+  - **Beach name in source:** Intel posts display as "{username} @ {beach_name}" instead of just the username
+  - **Emoji ratings prominently displayed:** Condition emojis (🔥 🤙 😐 👎) appear at the start of the message
+  - **Structured conditions:** When available, shows formatted wave height, wind, and crowd level (e.g., "🔥 · 4ft · 8kt NW · light")
+  - **Graceful fallbacks:** Falls back to description text when no structured data is available
+  - **Performance optimization:** Beaches queries reduced from 3 to 1 per request via shared cache
+  - **Helper functions:** Added `formatIntelMessage()`, `formatIntelSourceName()`, and `findNearestBeachName()` with 19 unit tests
+
 ### Fixed
 
+- **TypeScript Types (ForecastBuilder):** Fixed type mismatch where `ForecastBuilder.buildForecasts()` was returning `EnhancedForecastEntity[]` but should return `EnhancedForecastWithRawData[]` since it populates the `raw_forecast` field with CDIP data, quality scores, and tide schedules.
 - **Code Quality (Time Slot Filtering):** Addressed code review feedback for time slot filtering feature:
   - Extracted duplicated time slot end capping logic into reusable `capEndTimeToSlot()` helper function, eliminating 30+ lines of duplication
   - Added comprehensive documentation explaining why beach affinity is intentionally disabled (prioritizing current surf conditions over session history)

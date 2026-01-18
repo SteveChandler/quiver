@@ -12,7 +12,7 @@
  * and don't extend beyond the selected time slot boundaries.
  */
 
-import { capEndTimeToTimeSlot } from '@/lib/services/surf-discovery-service';
+import { capEndTimeToTimeSlot } from '@/lib/services/discovery';
 import type { TimeSlot } from '@/types/personalization';
 
 // Test timezone - consistent with existing test patterns

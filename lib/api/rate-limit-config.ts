@@ -147,21 +147,6 @@ export const RATE_LIMITS = {
   } as RateLimiterConfig,
 
   /**
-   * Personalized Forecast - MEDIUM
-   *
-   * Endpoint: /api/home/personalized-forecast
-   * Risk: Complex user-specific forecast generation
-   * Cost: Multiple database queries, forecast service calls
-   *
-   * Moderate limits for personalized recommendations
-   */
-  "personalized-forecast": {
-    requestsPerMinute: 10,
-    requestsPerHour: 100,
-    burstLimit: 3,
-  } as RateLimiterConfig,
-
-  /**
    * Surf Discovery - MEDIUM
    *
    * Endpoint: /api/surf/discover
@@ -214,8 +199,6 @@ const RATE_LIMIT_MESSAGES = {
     "API rate limit exceeded. Please wait before making more requests.",
   "authenticated-default":
     "API rate limit exceeded. Please reduce request frequency.",
-  "personalized-forecast":
-    "Personalized forecast rate limit exceeded. Please wait before requesting another recommendation.",
   "surf-discovery":
     "Surf discovery rate limit exceeded. Please wait before requesting more recommendations.",
   "surf-insights":
