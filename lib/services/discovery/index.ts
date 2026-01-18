@@ -18,3 +18,10 @@ export {
   type ForecastBatchOptions,
   type ForecastBatchResult,
 } from './forecast-batch-fetcher';
+
+export {
+  selectBestWindow,
+  capEndTimeToTimeSlot,
+  scoreForecastWindow,
+  type WindowSelectorOptions,
+} from './window-selector';
