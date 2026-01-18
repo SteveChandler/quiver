@@ -103,18 +103,35 @@ export interface ParsedCitySlug {
 }
 
 /**
+ * Normalize a slug by removing diacritics (accents).
+ * Handles edge cases where users paste accented URLs like "rincón".
+ *
+ * @param slug - Input slug, possibly with accents
+ * @returns Normalized slug without accents
+ */
+function normalizeSlug(slug: string): string {
+  return slug
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // Strip combining diacritical marks
+}
+
+/**
  * Parse a city slug to extract city pattern and optional state filter.
  *
  * Examples:
  * - "santa-cruz" → { cityPattern: "santa cruz", stateFilter: null }
  * - "newport-ca" → { cityPattern: "newport", stateFilter: "CA" }
  * - "newport-beach-ca" → { cityPattern: "newport beach", stateFilter: "CA" }
+ * - "rincón" → { cityPattern: "rincon", stateFilter: null } (accent normalized)
  *
  * @param slug - URL slug like "santa-cruz" or "newport-ca"
  * @returns Parsed components for database query
  */
 export function resolveCityFromSlug(slug: string): ParsedCitySlug {
-  const parts = slug.toLowerCase().split("-");
+  // Normalize accents before parsing (handles "rincón" → "rincon")
+  const normalizedSlug = normalizeSlug(slug);
+  const parts = normalizedSlug.split("-");
 
   // Check if last part is a valid state slug
   const lastPart = parts[parts.length - 1];

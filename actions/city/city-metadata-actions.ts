@@ -146,18 +146,14 @@ export async function findCityBySlug(
     const supabase = await createSupabaseServerClient();
     const { cityPattern, stateFilter } = resolveCityFromSlug(slug);
 
-    // Build query to find matching cities
-    let query = supabase
-      .from("beaches")
-      .select("city, state")
-      .ilike("city", `%${cityPattern}%`)
-      .or("is_private.is.null,is_private.eq.false");
-
-    if (stateFilter) {
-      query = query.eq("state", stateFilter);
-    }
-
-    const { data: matches, error } = await query;
+    // Use RPC function for accent-insensitive and hyphen-normalized matching
+    // This handles cases like:
+    //   - "rincon" matching "Rincón" (accent normalization)
+    //   - "cardiff by the sea" matching "Cardiff-by-the-Sea" (hyphen normalization)
+    const { data: matches, error } = await supabase.rpc("find_cities_by_pattern", {
+      search_pattern: cityPattern,
+      state_filter: stateFilter,
+    });
 
     if (error) {
       throw new Error(error.message || "Failed to find city by slug");
@@ -167,23 +163,10 @@ export async function findCityBySlug(
       return null;
     }
 
-    // Group by city/state to find unique combinations
-    const cityStates = new Map<
-      string,
-      { city: string; state: string; count: number }
-    >();
-    for (const match of matches) {
-      const key = `${match.city}|${match.state}`;
-      const existing = cityStates.get(key);
-      if (existing) {
-        existing.count++;
-      } else {
-        cityStates.set(key, { city: match.city, state: match.state, count: 1 });
-      }
-    }
-
-    // Filter to cities with 3+ beaches
-    const validCities = [...cityStates.values()].filter((c) => c.count >= 3);
+    // Filter to cities with 3+ beaches (RPC returns beach_count)
+    const validCities = matches.filter(
+      (c: { city: string; state: string; beach_count: number }) => c.beach_count >= 3
+    );
 
     if (validCities.length === 0) {
       return null;
