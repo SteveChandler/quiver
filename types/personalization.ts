@@ -183,6 +183,8 @@ export interface DetailedScore {
 export interface SurfDiscoveryRecommendation {
   /** Beach with location coordinates and optional photo */
   beach: Beach & { photo_url?: string | null };
+  /** True if this beach is in user's favorites */
+  isFavorite?: boolean;
   /** Optimal time window for surfing */
   window: PersonalizedForecastWindow;
   /** Full forecast data for the window */

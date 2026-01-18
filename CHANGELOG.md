@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Favorite Beach Indicator (`SurfDiscoveryRecommendation.isFavorite`):** Added optional `isFavorite` boolean field to surf discovery recommendations to enable displaying heart badges on favorite beaches in the Top Spots carousel.
+
+- **Beach Personalization Hook (`useBeachPersonalization`):** New hook for fetching personalized beach scores based on user preferences. Hook provides:
+  - Fetches personalized scores from `/api/beach/personalized-score` POST endpoint
+  - Takes `beachId` (string | null) and `baseScore` (number) as parameters
+  - Returns `PersonalizedScore` type with score, breakdown, and personalized flag
+  - Returns null when beachId is null or user is not authenticated (graceful degradation)
+  - Loading state tracking and error handling with refetch capability
+  - Follows established hook patterns from `hooks/ARCHITECTURE.md` using `useDataFetcher`
+  - Full test coverage: 4 unit tests covering null beachId, authentication checks, successful fetch, and error handling
+  - Integrates with `useAuth` context for authentication state
+  - Implements cancellation pattern to prevent stale updates
+
 - **User Preferences API Endpoint (`/api/user/preferences`):** New GET endpoint for retrieving user's learned surf preferences from the database. Endpoint provides:
   - Authenticated access to `user_surf_preferences` table
   - Returns wave_min_ft, wave_max_ft, confidence, sample_size
