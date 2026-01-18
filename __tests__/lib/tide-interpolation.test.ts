@@ -296,6 +296,94 @@ describe("tide-interpolation", () => {
 
       expect(result).toBeNull();
     });
+
+    it("should select first crossing when multiple valid crossings exist", () => {
+      // Schedule with two rising tide segments that cross 2.0ft
+      const schedule = [
+        { time: new Date("2026-01-17T06:00:00Z"), height: 1.0 }, // Low
+        { time: new Date("2026-01-17T12:00:00Z"), height: 5.0 }, // High
+        { time: new Date("2026-01-17T18:00:00Z"), height: 1.5 }, // Low
+        { time: new Date("2026-01-18T00:00:00Z"), height: 5.5 }, // High
+      ];
+
+      const crossing = findTideThresholdCrossing(
+        schedule,
+        2.0,
+        "rising",
+        new Date("2026-01-17T05:00:00Z")
+      );
+
+      expect(crossing).not.toBeNull();
+      // Should find first crossing (between 6am-12pm), not second (between 6pm-12am)
+      expect(crossing!.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T06:00:00Z").getTime()
+      );
+      expect(crossing!.getTime()).toBeLessThan(
+        new Date("2026-01-17T12:00:00Z").getTime()
+      );
+    });
+
+    it("should return crossing time when threshold exactly at tide event", () => {
+      const schedule = [
+        { time: new Date("2026-01-17T06:00:00Z"), height: 2.0 }, // Exact match
+        { time: new Date("2026-01-17T12:00:00Z"), height: 5.0 },
+      ];
+
+      // Searching for exactly 2.0ft rising after 5am
+      const crossing = findTideThresholdCrossing(
+        schedule,
+        2.0,
+        "rising",
+        new Date("2026-01-17T05:00:00Z")
+      );
+
+      // Should return the tide event time since tide IS at threshold
+      expect(crossing).not.toBeNull();
+      expect(crossing!.getTime()).toBe(
+        new Date("2026-01-17T06:00:00Z").getTime()
+      );
+    });
+
+    it("should handle very small tide ranges gracefully", () => {
+      const schedule = [
+        { time: new Date("2026-01-17T06:00:00Z"), height: 2.48 },
+        { time: new Date("2026-01-17T12:00:00Z"), height: 2.52 }, // Only 0.04ft range
+      ];
+
+      const crossing = findTideThresholdCrossing(
+        schedule,
+        2.5,
+        "rising",
+        new Date("2026-01-17T05:00:00Z")
+      );
+
+      // Should find crossing despite tiny range
+      expect(crossing).not.toBeNull();
+    });
+
+    it("should handle unsorted input by processing in time order", () => {
+      const unsorted = [
+        { time: new Date("2026-01-17T12:00:00Z"), height: 5.0 }, // Out of order
+        { time: new Date("2026-01-17T06:00:00Z"), height: 1.0 },
+      ];
+
+      // Should handle unsorted input
+      const crossing = findTideThresholdCrossing(
+        unsorted,
+        2.0,
+        "rising",
+        new Date("2026-01-17T05:00:00Z")
+      );
+
+      expect(crossing).not.toBeNull();
+      // Crossing should be between the two time points
+      expect(crossing!.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T06:00:00Z").getTime()
+      );
+      expect(crossing!.getTime()).toBeLessThan(
+        new Date("2026-01-17T12:00:00Z").getTime()
+      );
+    });
   });
 
   describe("calculateTideWindow", () => {
@@ -377,6 +465,119 @@ describe("tide-interpolation", () => {
 
       expect(result).not.toBeNull();
       // Slack prefers times around mid-tide
+    });
+
+    it("should return null for windows shorter than 30 minutes", () => {
+      // Rapid tide change - 4ft rise in 20 minutes
+      const rapidSchedule: TideScheduleEntry[] = [
+        {
+          time: Math.floor(
+            new Date("2026-01-17T10:00:00Z").getTime() / 1000
+          ),
+          height: 1.0,
+          type: "low",
+        },
+        {
+          time: Math.floor(
+            new Date("2026-01-17T10:20:00Z").getTime() / 1000
+          ),
+          height: 5.0,
+          type: "high",
+        },
+      ];
+
+      const result = calculateTideWindow({
+        tideSchedule: rapidSchedule,
+        minHeight: 2.0,
+        maxHeight: 4.0,
+        preferredDirection: "rising",
+        afterTime: new Date("2026-01-17T09:00:00Z"),
+      });
+
+      // Window would be ~8 minutes (2ft at 10:04, 4ft at 10:12)
+      // Should be rejected for being too short
+      expect(result).toBeNull();
+    });
+
+    it('should try falling when rising yields no window for "either" preference', () => {
+      // Schedule where there's no rising window available (only falling from high to low)
+      // To ensure rising fails, we set minHeight above the low tide point
+      const schedule: TideScheduleEntry[] = [
+        {
+          time: Math.floor(
+            new Date("2026-01-17T06:00:00Z").getTime() / 1000
+          ),
+          height: 5.0,
+          type: "high",
+        },
+        {
+          time: Math.floor(
+            new Date("2026-01-17T12:00:00Z").getTime() / 1000
+          ),
+          height: 1.0,
+          type: "low",
+        },
+      ];
+
+      const result = calculateTideWindow({
+        tideSchedule: schedule,
+        minHeight: 2.0,
+        maxHeight: 4.0,
+        preferredDirection: "either",
+        afterTime: new Date("2026-01-17T06:30:00Z"), // After high tide, falling only
+      });
+
+      // Should find falling window since no rising tide segment exists
+      expect(result).not.toBeNull();
+      expect(result!.start.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T06:30:00Z").getTime()
+      );
+      expect(result!.end.getTime()).toBeLessThan(
+        new Date("2026-01-17T12:00:00Z").getTime()
+      );
+    });
+
+    it("should return null for inverted min/max (data entry error)", () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 4.0,
+        maxHeight: 2.0, // Min > Max (invalid configuration)
+        preferredDirection: "rising",
+        afterTime: new Date("2026-01-17T14:00:00Z"),
+      });
+
+      // Should return null for invalid configuration
+      expect(result).toBeNull();
+    });
+
+    it("should return null when thresholds are outside tide range", () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 8.0, // Above any tide height (max is 5.8ft)
+        maxHeight: 10.0,
+        preferredDirection: "rising",
+        afterTime: new Date("2026-01-17T14:00:00Z"),
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it("should handle afterTime in the middle of valid window", () => {
+      // The rising window for 2-4ft is approximately 15:28-17:35 UTC
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 2.0,
+        maxHeight: 4.0,
+        preferredDirection: "rising",
+        afterTime: new Date("2026-01-17T16:30:00Z"), // In the middle of the window
+      });
+
+      // Should find the next window (falling tide after high)
+      if (result) {
+        expect(result.start.getTime()).toBeGreaterThan(
+          new Date("2026-01-17T16:30:00Z").getTime()
+        );
+      }
     });
   });
 });

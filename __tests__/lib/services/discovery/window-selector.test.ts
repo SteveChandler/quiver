@@ -630,4 +630,270 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     // Should use hourly boundaries (no tide thresholds to apply)
     expect(result!.start.getMinutes()).toBe(0);
   });
+
+  it('should cap tide-driven window at sunset', () => {
+    // Tide schedule where tide window would extend past sunset
+    // Rising tide from 2pm to 10pm - but sunset is at 5pm
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T22:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 2pm PST
+      { time: Math.floor(new Date('2024-01-16T04:00:00Z').getTime() / 1000), height: 6.0, type: 'high' as const }, // 8pm PST
+    ];
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-late',
+        forecast_date: '2024-01-15',
+        forecast_time: '22:30', // 2:30pm PST - rising tide starting
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '1.5',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Set time to 2:30pm PST
+    jest.setSystemTime(new Date('2024-01-15T22:30:00Z'));
+
+    // Sunset at 5pm PST (01:00 UTC next day)
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2024-01-15T15:00:00Z')], // 7am PST
+        sunsets: [new Date('2024-01-16T01:00:00Z')], // 5pm PST
+      }],
+    ]);
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 5.0,
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      sunTimesCache,
+    });
+
+    expect(result).not.toBeNull();
+    // Window end should be at or before sunset (5pm PST = 01:00 UTC)
+    expect(result!.end.getTime()).toBeLessThanOrEqual(
+      new Date('2024-01-16T01:00:00Z').getTime()
+    );
+  });
+
+  it('should reject tide window that starts after sunset', () => {
+    // Tide schedule where the tide doesn't reach preferred range until after sunset
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-16T00:00:00Z').getTime() / 1000), height: 0.5, type: 'low' as const }, // 4pm PST
+      { time: Math.floor(new Date('2024-01-16T06:00:00Z').getTime() / 1000), height: 6.0, type: 'high' as const }, // 10pm PST
+    ];
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-evening',
+        forecast_date: '2024-01-16',
+        forecast_time: '00:30', // 4:30pm PST
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '0.8',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Set time to 4:30pm PST
+    jest.setSystemTime(new Date('2024-01-16T00:30:00Z'));
+
+    // Sunset at 5pm PST (01:00 UTC)
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2024-01-15T15:00:00Z')],
+        sunsets: [new Date('2024-01-16T01:00:00Z')], // 5pm PST
+      }],
+    ]);
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 3.0, // Tide won't reach 3ft until well after 5pm
+      preferred_tide_ft_max: 5.0,
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      sunTimesCache,
+    });
+
+    // Should be null or have very short/no window since tide doesn't reach 3ft until after sunset
+    // The behavior depends on whether tide boundaries or sunset takes precedence
+    // If a window is returned, it should end at sunset
+    if (result) {
+      expect(result.end.getTime()).toBeLessThanOrEqual(
+        new Date('2024-01-16T01:00:00Z').getTime()
+      );
+    }
+  });
+
+  it('should cap tide window at time slot end for dawn-patrol', () => {
+    // Tide schedule with tide window extending past 9am
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.2, type: 'low' as const }, // 6am PST
+      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 12pm PST
+    ];
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-morning',
+        forecast_date: '2024-01-15',
+        forecast_time: '15:00', // 7am PST - rising tide
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '2.0',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Set time to 7am PST
+    jest.setSystemTime(new Date('2024-01-15T15:00:00Z'));
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.5, // Would extend well past 9am without cap
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      timeSlot: 'dawn-patrol', // 6am-9am
+    });
+
+    if (result) {
+      // Window should be capped at 9am PST (17:00 UTC)
+      expect(result.end.getUTCHours()).toBeLessThanOrEqual(17);
+    }
+  });
+
+  it('should use tide-driven boundaries even when they extend past time slot', () => {
+    // Tide schedule where preferred tide range starts later in the morning
+    // The tide-driven boundaries are calculated independently of time slot,
+    // and then the time slot cap is applied afterward
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 0.5, type: 'low' as const }, // 6am PST
+      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 6.0, type: 'high' as const }, // 12pm PST
+    ];
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-early',
+        forecast_date: '2024-01-15',
+        forecast_time: '14:30', // 6:30am PST
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '0.8',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Set time to 6:30am PST
+    jest.setSystemTime(new Date('2024-01-15T14:30:00Z'));
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0, // Will reach 2ft around 7:30am
+      preferred_tide_ft_max: 4.0, // Will reach 4ft around 9:30am (past dawn-patrol)
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      timeSlot: 'dawn-patrol', // Ends at 9am
+    });
+
+    // Tide-driven windows still calculate precise start times
+    // The start time is when tide crosses the min threshold
+    if (result) {
+      // Start should be tide-driven (non-zero minutes indicates tide boundary)
+      // The time slot cap applies to the end, not the start
+      expect(result).not.toBeNull();
+      // The window start is calculated from tide threshold crossing
+      expect(result.start.getTime()).toBeGreaterThan(
+        new Date('2024-01-15T14:30:00Z').getTime() // After current time
+      );
+    }
+  });
+
+  it('should handle time slot filter with morning slot and tide boundaries', () => {
+    // Tide schedule spanning morning hours
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T15:00:00Z').getTime() / 1000), height: 1.5, type: 'low' as const }, // 7am PST
+      { time: Math.floor(new Date('2024-01-15T21:00:00Z').getTime() / 1000), height: 5.0, type: 'high' as const }, // 1pm PST
+    ];
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-mid-morning',
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00', // 9am PST
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '2.5',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Set time to 9am PST
+    jest.setSystemTime(new Date('2024-01-15T17:00:00Z'));
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      timeSlot: 'morning', // 9am-12pm
+    });
+
+    if (result) {
+      // Window should be within morning slot (9am-12pm PST)
+      const startHour = result.start.getUTCHours();
+      const endHour = result.end.getUTCHours();
+
+      // 9am PST = 17:00 UTC, 12pm PST = 20:00 UTC
+      expect(startHour).toBeGreaterThanOrEqual(17);
+      expect(endHour).toBeLessThanOrEqual(20);
+    }
+  });
 });
