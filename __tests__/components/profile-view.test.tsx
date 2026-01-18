@@ -10,6 +10,13 @@ import type { UserSurfPreferences } from "@/lib/services/preference-learning-ser
 // Mock dependencies
 jest.mock("@/context/auth-context");
 jest.mock("@/hooks/use-user-preferences");
+jest.mock("@/lib/analytics", () => ({
+  track: jest.fn(),
+  getAttributionForAnalytics: jest.fn(() => ({})),
+}));
+
+import { track } from "@/lib/analytics";
+
 jest.mock("@/lib/data/client", () => ({
   data: {
     users: {
@@ -105,6 +112,7 @@ describe("ProfileView - Surf Style Card", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (track as jest.Mock).mockClear();
 
     (useAuth as jest.Mock).mockReturnValue({
       user: mockUser,
@@ -283,6 +291,67 @@ describe("ProfileView - Surf Style Card", () => {
       });
 
       expect(screen.getByText("Learning your preferences...")).toBeInTheDocument();
+    });
+  });
+
+  describe("Analytics Tracking", () => {
+    it("tracks surf_profile_viewed when high confidence preferences shown", async () => {
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: mockHighConfidencePreferences,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(track).toHaveBeenCalledWith("surf_profile_viewed", {
+          confidence: 0.8,
+          sample_size: 12,
+        });
+      });
+    });
+
+    it("tracks surf_profile_progress_shown when low confidence preferences shown", async () => {
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: mockLowConfidencePreferences,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(track).toHaveBeenCalledWith("surf_profile_progress_shown", {
+          sessions_needed: 3,
+        });
+      });
+    });
+
+    it("does not track when preferences is null", async () => {
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test User's Profile")).toBeInTheDocument();
+      });
+
+      expect(track).not.toHaveBeenCalledWith(
+        "surf_profile_viewed",
+        expect.anything()
+      );
+      expect(track).not.toHaveBeenCalledWith(
+        "surf_profile_progress_shown",
+        expect.anything()
+      );
     });
   });
 });

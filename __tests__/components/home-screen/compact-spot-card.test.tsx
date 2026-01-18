@@ -1,9 +1,17 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { CompactSpotCard } from "@/components/home-screen/compact-spot-card";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+
+// Mock analytics
+jest.mock("@/lib/analytics", () => ({
+  track: jest.fn(),
+  getAttributionForAnalytics: jest.fn(() => ({})),
+}));
+
+import { track } from "@/lib/analytics";
 
 /**
  * Mock recommendation factory with TypeScript-safe defaults
@@ -101,6 +109,7 @@ describe("CompactSpotCard - Favorite Heart Badge", () => {
 
   beforeEach(() => {
     mockOnTap.mockClear();
+    (track as jest.Mock).mockClear();
   });
 
   it("shows heart icon when isFavorite is true", () => {
@@ -154,5 +163,46 @@ describe("CompactSpotCard - Favorite Heart Badge", () => {
     await user.click(card);
 
     expect(mockOnTap).toHaveBeenCalledWith("test-beach-1");
+  });
+});
+
+describe("CompactSpotCard - Analytics", () => {
+  const mockOnTap = jest.fn();
+
+  beforeEach(() => {
+    mockOnTap.mockClear();
+    (track as jest.Mock).mockClear();
+  });
+
+  it("tracks favorite_shown_in_carousel when isFavorite is true", async () => {
+    const recommendation = createMockRecommendation({
+      isFavorite: true,
+      score: 85,
+    });
+    render(
+      <CompactSpotCard recommendation={recommendation} onTap={mockOnTap} />
+    );
+
+    await waitFor(() => {
+      expect(track).toHaveBeenCalledWith("favorite_shown_in_carousel", {
+        beach_id: "test-beach-1",
+        score: 85,
+      });
+    });
+  });
+
+  it("does not track when isFavorite is false", async () => {
+    const recommendation = createMockRecommendation({ isFavorite: false });
+    render(
+      <CompactSpotCard recommendation={recommendation} onTap={mockOnTap} />
+    );
+
+    // Wait a tick to ensure useEffect has run
+    await waitFor(() => {
+      expect(track).not.toHaveBeenCalledWith(
+        "favorite_shown_in_carousel",
+        expect.anything()
+      );
+    });
   });
 });

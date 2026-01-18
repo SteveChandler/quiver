@@ -563,6 +563,12 @@ export async function discoverSurfSpots(
     const nonFavoriteRecs: SurfDiscoveryRecommendation[] = [];
 
     for (const rec of scored) {
+      // Null safety: skip malformed recommendations
+      if (!rec?.beach?.id || typeof rec.score !== 'number') {
+        log.warn('Skipping malformed recommendation in favorites loop', { rec });
+        continue;
+      }
+
       if (favoriteBeachIds.has(rec.beach.id)) {
         // Only include favorites with score >= 50
         if (rec.score >= 50) {
