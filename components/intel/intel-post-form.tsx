@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { INTEL_CONFIG, INTEL_UI_TEXT } from "@/lib/constants/intel";
 import { createIntelPost } from "@/actions/intel-actions";
-import { uploadImage } from "@/lib/image-upload";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import { toast } from "sonner";
 import {
@@ -39,6 +38,7 @@ import {
   type IntelPostFormData,
 } from "@/hooks/use-intel-form-validation";
 import { useIntelForecastPrefill } from "@/hooks/use-intel-forecast-prefill";
+import { useIntelPhotoUpload } from "@/hooks/use-intel-photo-upload";
 
 interface IntelPostFormProps {
   isOpen: boolean;
@@ -77,9 +77,18 @@ export function IntelPostForm({
   } | null>(initialLocation || null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Use photo upload hook
+  const {
+    selectedPhoto,
+    photoPreview,
+    isUploading: photoUploading,
+    handlePhotoSelect,
+    handlePhotoRemove,
+    uploadPhoto,
+    reset: resetPhoto,
+  } = useIntelPhotoUpload();
 
   const lockedTag = variant === "check-in" ? "conditions" : undefined;
   const form = useForm<IntelPostFormData>({
@@ -181,23 +190,6 @@ export function IntelPostForm({
     getCurrentLocation,
   ]);
 
-  // Handle photo selection
-  const handlePhotoSelect = useCallback((file: File) => {
-    setSelectedPhoto(file);
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPhotoPreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  // Remove photo
-  const handlePhotoRemove = useCallback(() => {
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
-  }, []);
 
   // Handle form submission (business logic)
   const submitIntel = async (data: IntelPostFormData) => {
@@ -240,8 +232,7 @@ export function IntelPostForm({
           forecast_accuracy: variant === "check-in" ? "accurate" : null,
         });
         setLocation(initialLocation || null);
-        setSelectedPhoto(null);
-        setPhotoPreview(null);
+        resetPhoto();
 
         // Call success callback to refresh feeds
         onSuccess?.(null);
@@ -254,20 +245,18 @@ export function IntelPostForm({
 
       // Upload photo if selected
       if (selectedPhoto) {
-        const uploadResult = await uploadImage(
-          selectedPhoto,
-          INTEL_CONFIG.PHOTO_UPLOAD_BUCKET,
-          "intel-posts"
-        );
-
-        if (uploadResult.success) {
-          photoUrl = uploadResult.url;
-          // Extract storage path from URL for deletion purposes
-          photoStoragePath = uploadResult.url?.split("/").pop();
-        } else {
-          toast.error(
-            uploadResult.error || INTEL_UI_TEXT.ERROR.PHOTO_UPLOAD_FAILED
-          );
+        try {
+          const uploadResult = await uploadPhoto();
+          if (uploadResult) {
+            photoUrl = uploadResult.url;
+            photoStoragePath = uploadResult.storagePath;
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : INTEL_UI_TEXT.ERROR.PHOTO_UPLOAD_FAILED;
+          toast.error(errorMessage);
           return;
         }
       }
@@ -314,8 +303,7 @@ export function IntelPostForm({
           forecast_accuracy: variant === "check-in" ? "accurate" : null,
         });
         setLocation(initialLocation || null);
-        setSelectedPhoto(null);
-        setPhotoPreview(null);
+        resetPhoto();
         onSuccess?.(newPost ?? null);
         onClose();
       } else {
@@ -419,10 +407,9 @@ export function IntelPostForm({
       });
       setLocation(initialLocation || null);
       setLocationError(null);
-      setSelectedPhoto(null);
-      setPhotoPreview(null);
+      resetPhoto();
     }
-  }, [isOpen, form, initialLocation]);
+  }, [isOpen, form, initialLocation, resetPhoto]);
 
   const isLocationReady = !!location;
   const canSubmit = isLocationReady && !uploading && !gettingLocation;

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
+- **Intel Photo Upload (useIntelPhotoUpload Hook):** Extracted photo selection, preview, and upload logic from `intel-post-form.tsx` into reusable `useIntelPhotoUpload` hook. Hook provides:
+  - File selection with automatic preview generation via FileReader
+  - `isUploading` state for loading indicators during upload
+  - Error handling that throws on upload failure for consistent error propagation
+  - `reset()` function for form clearing
+  - Exports `PhotoUploadResult` type (url, storagePath) for consumers
+  - Full test coverage: 9 unit tests covering initialization, selection, removal, upload, and reset
+  - Reduces intel-post-form.tsx complexity by removing inline photo handling logic
+
 - **Intel Forecast Prefill (useIntelForecastPrefill Hook):** Extracted forecast prefill logic from `intel-post-form.tsx` into reusable `useIntelForecastPrefill` hook. Hook provides:
   - Auto-fetches forecast when modal opens with conditions tag and beachId
   - Prefills wave_height, wind_speed, wind_direction, water_temp from current forecast
