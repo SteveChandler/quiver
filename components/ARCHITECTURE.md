@@ -83,10 +83,10 @@ interface BeachIntelSectionProps {
   longitude: number;  // Full name for clarity (NOT lng)
 }
 
-// CORRECT mapping pattern
+// CORRECT mapping pattern - Beach has lat/lon columns
 <BeachIntelSection
-  latitude={beach.center_lat}   // Explicit mapping required
-  longitude={beach.center_lng}  // Explicit mapping required
+  latitude={beach.lat}   // Beach.lat from database
+  longitude={beach.lon}  // Beach.lon from database (NOT lng!)
   beachId={beach.id}
 />
 ```
@@ -95,8 +95,8 @@ interface BeachIntelSectionProps {
 ```typescript
 // API call parameters
 const params = {
-  lat: beach.center_lat,   // Short form
-  lon: beach.center_lng,   // Short form (NOT lng!)
+  lat: beach.lat,   // Short form - direct from Beach
+  lon: beach.lon,   // Short form (NOT lng!)
   radius: 5,
 };
 ```
@@ -115,7 +115,7 @@ useEffect(() => {
 
 **Common Pitfalls**:
 1. Using `lng` instead of `lon`
-2. Assuming `beach.latitude` exists (it's `beach.center_lat`)
+2. Assuming `beach.latitude` exists (use `beach.lat` instead)
 3. Swapping latitude and longitude values
 4. Not validating coordinates before API calls
 

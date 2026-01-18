@@ -482,8 +482,8 @@ export function transformBeachesToSurfSpots(beaches: BeachWithMetrics[]): SurfSp
     name: beach.name,
     slug: beach.slug,
     coordinates: {
-      lat: beach.center_lat,
-      lng: beach.center_lng,  // Note: Maps to 'lng' in SurfSpot format
+      lat: beach.lat,
+      lon: beach.lon,  // Use 'lon' not 'lng' for consistency
     },
     region: `${beach.city}, ${beach.state}`,
     skillLevel: beach.skill_level || "Intermediate",
