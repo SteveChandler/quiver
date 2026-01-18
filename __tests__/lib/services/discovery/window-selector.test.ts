@@ -1099,3 +1099,113 @@ describe('getDawnPatrolRange', () => {
     expect(range.endHour).toBe(9);
   });
 });
+
+describe('selectBestWindow time slot with tide boundaries', () => {
+  const fixedNow = new Date('2024-01-15T14:00:00Z'); // 6am PST
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should show tide-driven boundaries for morning slot (not hourly)', () => {
+    // Tide: low at 6am PST (1.0ft), high at 12pm PST (5.5ft)
+    // Preferred range 2.0-4.0ft - crossings will be AFTER 6am forecast
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const },
+      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const },
+    ];
+
+    // Forecast at 6am PST - BEFORE tide crosses 2.0ft threshold
+    const forecasts = [
+      createForecast({
+        id: 'forecast-morning',
+        forecast_date: '2024-01-15',
+        forecast_time: '14:00', // 6am PST
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '1.0',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      timeSlot: 'morning',
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+    // Key assertion: should NOT be exactly on the hour (tide-driven)
+    // The tide-driven start time will be when tide crosses 2.0ft (~7:20am)
+    const startMinutes = result!.start.getMinutes();
+    const endMinutes = result!.end.getMinutes();
+    expect(startMinutes !== 0 || endMinutes !== 0).toBe(true);
+  });
+
+  it('should show tide-driven boundaries for afternoon slot', () => {
+    // Tide: low at 12pm PST (1.0ft), high at 6pm PST (5.5ft)
+    // Preferred range 2.0-4.0ft - crossings will be AFTER 12pm forecast
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const },
+      { time: Math.floor(new Date('2024-01-16T02:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const },
+    ];
+
+    // Forecast at 12pm PST - BEFORE tide crosses 2.0ft threshold
+    const forecasts = [
+      createForecast({
+        id: 'forecast-afternoon',
+        forecast_date: '2024-01-15',
+        forecast_time: '20:00', // 12pm PST (noon)
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '1.0',
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    jest.setSystemTime(new Date('2024-01-15T20:00:00Z')); // 12pm PST
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: beachWithTidePrefs,
+      timeSlot: 'afternoon',
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+    // Key assertion: tide-driven boundaries should have non-zero minutes
+    const startMinutes = result!.start.getMinutes();
+    const endMinutes = result!.end.getMinutes();
+    expect(startMinutes !== 0 || endMinutes !== 0).toBe(true);
+  });
+});

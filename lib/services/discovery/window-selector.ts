@@ -604,28 +604,8 @@ export function selectBestWindow(
 
   if (scoredForecasts.length === 0) return null;
 
-  // Apply time slot filter
-  let filteredForecasts = scoredForecasts;
-
-  if (actualTimeSlot && actualTimeSlot !== 'any') {
-    const { startHour, endHour } = TIME_SLOT_RANGES[actualTimeSlot];
-
-    filteredForecasts = scoredForecasts.filter(({ forecastTime }) => {
-      try {
-        const localHour = parseInt(
-          new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            hour12: false,
-            timeZone: beachTz,
-          }).format(forecastTime),
-          10
-        );
-        return localHour >= startHour && localHour < endHour;
-      } catch {
-        return true; // If timezone conversion fails, include it
-      }
-    });
-  }
+  // No early time slot filtering - we filter AFTER calculating tide boundaries
+  const filteredForecasts = scoredForecasts;
 
   if (filteredForecasts.length === 0) return null;
 
@@ -746,6 +726,7 @@ export function selectBestWindow(
 
     // Validate tide-driven boundaries before using them
     let useTideBoundaries = !!tideBoundaries;
+    let skipThisForecast = false;
 
     if (tideBoundaries) {
       // 1. Check if tide window start is within the time slot (if specified)
@@ -759,9 +740,14 @@ export function selectBestWindow(
             }).format(tideBoundaries.start),
             10
           );
-          const { startHour, endHour } = TIME_SLOT_RANGES[actualTimeSlot];
-          if (tideStartHour < startHour || tideStartHour >= endHour) {
-            useTideBoundaries = false;
+          // Get dynamic range (dawn-patrol uses sunrise-based start)
+          const sunrises = sunTimes?.sunrises || [];
+          const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
+
+          if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
+            // Tide window doesn't start within slot - skip this forecast entirely
+            // to find a tide window that does qualify
+            skipThisForecast = true;
           }
         } catch {
           useTideBoundaries = false;
@@ -769,13 +755,18 @@ export function selectBestWindow(
       }
 
       // 2. Check if window spans overnight (different local dates)
-      if (useTideBoundaries) {
+      if (useTideBoundaries && !skipThisForecast) {
         const tideStartDate = getLocalDateStrForBeach(tideBoundaries.start);
         const tideEndDate = getLocalDateStrForBeach(tideBoundaries.end);
         if (tideStartDate !== tideEndDate) {
           useTideBoundaries = false;
         }
       }
+    }
+
+    // Skip this forecast if tide window doesn't qualify for time slot
+    if (skipThisForecast) {
+      continue;
     }
 
     let endTime: Date;
