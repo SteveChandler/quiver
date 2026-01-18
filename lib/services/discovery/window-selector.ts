@@ -745,9 +745,24 @@ export function selectBestWindow(
           const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
 
           if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
-            // Tide window doesn't start within slot - skip this forecast entirely
-            // to find a tide window that does qualify
-            skipThisForecast = true;
+            // Tide window doesn't start within slot
+            // Check if the FORECAST start time is within the slot
+            const forecastStartHour = parseInt(
+              new Intl.DateTimeFormat("en-US", {
+                hour: "numeric",
+                hour12: false,
+                timeZone: beachTz,
+              }).format(startTime),
+              10
+            );
+
+            if (forecastStartHour >= slotRange.startHour && forecastStartHour < slotRange.endHour) {
+              // Forecast is within slot but tide window isn't - fall back to hourly
+              useTideBoundaries = false;
+            } else {
+              // Forecast is outside slot - skip this forecast entirely
+              skipThisForecast = true;
+            }
           }
         } catch {
           useTideBoundaries = false;
