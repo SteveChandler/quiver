@@ -133,6 +133,27 @@ function getDirectionDegrees(
 }
 
 /**
+ * Get local date string for a timestamp in a given timezone.
+ * Returns format: YYYY-MM-DD
+ *
+ * @param time - The timestamp to convert
+ * @param beachTz - IANA timezone string for the beach location
+ * @returns Local date string in YYYY-MM-DD format
+ */
+function getLocalDateStr(time: Date, beachTz: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: beachTz,
+    }).format(time);
+  } catch {
+    return time.toISOString().slice(0, 10); // Fallback to UTC
+  }
+}
+
+/**
  * Extract tide schedule from forecasts.
  * The tide schedule is stored in raw_forecast of the first forecast of each day.
  */
@@ -195,6 +216,48 @@ function calculateTideDrivenBoundaries(
 // ============================================================================
 // Exported Functions
 // ============================================================================
+
+/**
+ * Get dawn patrol time range based on sunrise.
+ * Start is civil twilight (~30 min before sunrise), end is 9am.
+ *
+ * @param sunrises - Array of sunrise times for the area
+ * @param forecastDate - The forecast date to find sunrise for
+ * @param beachTz - IANA timezone string for the beach
+ * @returns Time range with startHour and endHour in local time
+ */
+export function getDawnPatrolRange(
+  sunrises: Date[],
+  forecastDate: Date,
+  beachTz: string
+): { startHour: number; endHour: number } {
+  // Find sunrise for the same local date
+  const forecastDateStr = getLocalDateStr(forecastDate, beachTz);
+  const sameDaySunrise = sunrises.find(s => getLocalDateStr(s, beachTz) === forecastDateStr);
+
+  if (!sameDaySunrise) {
+    // Fallback to conservative 6am if no sunrise data
+    return { startHour: 6, endHour: 9 };
+  }
+
+  // Civil twilight ~30 minutes before sunrise
+  const civilTwilight = new Date(sameDaySunrise.getTime() - 30 * 60 * 1000);
+
+  // Get local hour of civil twilight
+  try {
+    const twilightHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: beachTz,
+      }).format(civilTwilight),
+      10
+    );
+    return { startHour: twilightHour, endHour: 9 };
+  } catch {
+    return { startHour: 6, endHour: 9 };
+  }
+}
 
 /**
  * Score a single forecast window based on conditions and user preferences.
@@ -444,19 +507,8 @@ export function selectBestWindow(
   const now = new Date();
   const beachTz = getTimezoneFromCoords(actualBeach.lat || 0, actualBeach.lon || 0);
 
-  // Helper: get local date string for a timestamp in beach timezone
-  const getLocalDateStr = (time: Date): string => {
-    try {
-      return new Intl.DateTimeFormat("en-CA", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        timeZone: beachTz,
-      }).format(time);
-    } catch {
-      return time.toISOString().slice(0, 10); // Fallback to UTC
-    }
-  };
+  // Helper: get local date string for a timestamp in beach timezone (uses module-level function)
+  const getLocalDateStrForBeach = (time: Date): string => getLocalDateStr(time, beachTz);
 
   // Helper: cap end time to time slot boundary (e.g., dawn-patrol ends at 9am)
   const capEndTimeToSlot = (
@@ -609,8 +661,8 @@ export function selectBestWindow(
     // 1.5. Post-Sunset Rejection
     // Find the sunset for the SAME DAY as this forecast and reject if start is after it
     // This prevents overnight windows like "7pm-5am" in winter when sunset is at 5pm
-    const forecastDateStr = getLocalDateStr(startTime);
-    const sameDaySunset = sunsets.find(s => getLocalDateStr(s) === forecastDateStr);
+    const forecastDateStr = getLocalDateStrForBeach(startTime);
+    const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
 
     if (sameDaySunset && startTime.getTime() > sameDaySunset.getTime()) {
       continue;
@@ -696,8 +748,8 @@ export function selectBestWindow(
 
       // 2. Check if window spans overnight (different local dates)
       if (useTideBoundaries) {
-        const tideStartDate = getLocalDateStr(tideBoundaries.start);
-        const tideEndDate = getLocalDateStr(tideBoundaries.end);
+        const tideStartDate = getLocalDateStrForBeach(tideBoundaries.start);
+        const tideEndDate = getLocalDateStrForBeach(tideBoundaries.end);
         if (tideStartDate !== tideEndDate) {
           useTideBoundaries = false;
         }
@@ -720,8 +772,8 @@ export function selectBestWindow(
         const next = filteredForecasts[j + 1];
 
         // Stop if next forecast is on a different date (use local dates instead of UTC date strings)
-        const currentLocalDate = getLocalDateStr(current.forecastTime);
-        const nextLocalDate = getLocalDateStr(next.forecastTime);
+        const currentLocalDate = getLocalDateStrForBeach(current.forecastTime);
+        const nextLocalDate = getLocalDateStrForBeach(next.forecastTime);
         if (currentLocalDate !== nextLocalDate) break;
 
         // Use same threshold that qualified the window (morning threshold if applicable)
@@ -855,8 +907,8 @@ export function selectBestWindow(
     // Filter out night hours and post-sunset times before selecting fallback
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
       // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
-      const forecastDateStr = getLocalDateStr(forecastTime);
-      const sameDaySunset = sunsets.find(s => getLocalDateStr(s) === forecastDateStr);
+      const forecastDateStr = getLocalDateStrForBeach(forecastTime);
+      const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
       if (sameDaySunset && forecastTime.getTime() > sameDaySunset.getTime()) {
         return false;
       }
@@ -937,8 +989,8 @@ export function selectBestWindow(
       const effectiveStartTime = best.forecastTime;
 
       // Logic for fallback end time (same-day sunset or default)
-      const fallbackDateStr = getLocalDateStr(effectiveStartTime);
-      const fallbackSunset = sunsets.find(s => getLocalDateStr(s) === fallbackDateStr);
+      const fallbackDateStr = getLocalDateStrForBeach(effectiveStartTime);
+      const fallbackSunset = sunsets.find(s => getLocalDateStrForBeach(s) === fallbackDateStr);
 
       let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
       if (fallbackSunset && fallbackSunset < endTime) {

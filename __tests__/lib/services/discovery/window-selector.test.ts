@@ -1009,3 +1009,50 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     }
   });
 });
+
+describe('getDawnPatrolRange', () => {
+  it('should return civil twilight start based on sunrise', () => {
+    // Import the helper (will add export after test fails)
+    const { getDawnPatrolRange } = require('@/lib/services/discovery/window-selector');
+
+    const beachTz = 'America/Los_Angeles';
+    // Sunrise at 6:47am PST (14:47 UTC)
+    const sunrises = [new Date('2024-01-15T14:47:00Z')];
+    const forecastDate = new Date('2024-01-15T17:00:00Z'); // 9am PST
+
+    const range = getDawnPatrolRange(sunrises, forecastDate, beachTz);
+
+    // Civil twilight is ~30 min before sunrise
+    // 6:47am - 30min = 6:17am, so startHour should be 6
+    expect(range.startHour).toBe(6);
+    expect(range.endHour).toBe(9);
+  });
+
+  it('should return earlier start for summer sunrise', () => {
+    const { getDawnPatrolRange } = require('@/lib/services/discovery/window-selector');
+
+    const beachTz = 'America/Los_Angeles';
+    // Summer sunrise at 5:42am PST (12:42 UTC)
+    const sunrises = [new Date('2024-06-15T12:42:00Z')];
+    const forecastDate = new Date('2024-06-15T14:00:00Z');
+
+    const range = getDawnPatrolRange(sunrises, forecastDate, beachTz);
+
+    // 5:42am - 30min = 5:12am, so startHour should be 5
+    expect(range.startHour).toBe(5);
+    expect(range.endHour).toBe(9);
+  });
+
+  it('should fall back to 6am when no sunrise data', () => {
+    const { getDawnPatrolRange } = require('@/lib/services/discovery/window-selector');
+
+    const beachTz = 'America/Los_Angeles';
+    const sunrises: Date[] = [];
+    const forecastDate = new Date('2024-01-15T17:00:00Z');
+
+    const range = getDawnPatrolRange(sunrises, forecastDate, beachTz);
+
+    expect(range.startHour).toBe(6);
+    expect(range.endHour).toBe(9);
+  });
+});
