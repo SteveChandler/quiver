@@ -86,7 +86,7 @@ async function fetchCoastPulseData(
   // Pre-fetch beaches for cache (used by forecast and intel)
   const { data: beaches } = await supabase
     .from("beaches")
-    .select("id, name, lat, lon")
+    .select("id, name, lat, lon, wind_offshore_deg")
     .not("lat", "is", null)
     .limit(100);
 
@@ -95,6 +95,7 @@ async function fetchCoastPulseData(
     name: b.name,
     lat: b.lat,
     lon: b.lon,
+    windOffshoreDeg: b.wind_offshore_deg,
   }));
 
   // Fetch from all sources in parallel (including live external sources)
@@ -361,7 +362,7 @@ async function fetchEnhancedForecast(
   supabase: SupabaseClient,
   lat: number,
   lon: number,
-  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number; windOffshoreDeg?: number | null }> = []
 ): Promise<CoastPulseItem[]> {
   try {
     // Use provided cache or empty array
@@ -426,7 +427,7 @@ async function fetchEnhancedForecast(
           type: "forecast" as const,
           credibility: 70,
         },
-        message: formatForecastConditions(forecast),
+        message: formatForecastConditions(forecast, (closestBeach as any).windOffshoreDeg),
         timestamp: new Date(forecast.updated_at || now),
         location: {
           lat: closestBeach.lat,
@@ -854,48 +855,135 @@ function formatBuoyConditions(buoy: any): string {
 }
 
 /**
- * Format forecast conditions into a human-readable message
+ * Format forecast conditions into a surf-focused message
+ * Example: "3-4ft @ 12s SW, light offshore, Rising"
  */
-function formatForecastConditions(forecast: any): string {
+function formatForecastConditions(forecast: any, windOffshoreDeg?: number | null): string {
   const parts: string[] = [];
 
-  // Helper to safely convert to number
-  const toNum = (val: unknown): number | null => {
+  // Helper to parse height strings like "3.2 ft" or "3-4 ft"
+  const parseHeight = (val: unknown): string | null => {
     if (val == null) return null;
-    const num = Number(val);
-    return isNaN(num) ? null : num;
+    const str = String(val);
+    // Match patterns like "3.2 ft", "3-4 ft", "3.2"
+    const rangeMatch = str.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+    if (rangeMatch) {
+      return `${Math.round(parseFloat(rangeMatch[1]))}-${Math.round(parseFloat(rangeMatch[2]))}ft`;
+    }
+    const singleMatch = str.match(/(\d+\.?\d*)/);
+    if (singleMatch) {
+      return `${Math.round(parseFloat(singleMatch[1]))}ft`;
+    }
+    return null;
   };
 
-  const minHeight = toNum(forecast.min_wave_height);
-  const maxHeight = toNum(forecast.max_wave_height);
-  const waveHeight = toNum(forecast.wave_height);
-  const wavePeriod = toNum(forecast.wave_period);
-  const windSpeed = toNum(forecast.wind_speed);
-  const windDirection = toNum(forecast.wind_direction);
-  const surfRating = toNum(forecast.surf_rating);
+  // Helper to parse period strings like "12s" or "12"
+  const parsePeriod = (val: unknown): string | null => {
+    if (val == null) return null;
+    const str = String(val);
+    const match = str.match(/(\d+\.?\d*)/);
+    if (match) {
+      return `@ ${Math.round(parseFloat(match[1]))}s`;
+    }
+    return null;
+  };
 
-  if (minHeight != null && maxHeight != null) {
-    parts.push(`${minHeight}-${maxHeight}ft`);
-  } else if (waveHeight != null) {
-    parts.push(`${waveHeight.toFixed(1)}ft`);
+  // Helper to parse wind speed from strings like "8 mph" or "8"
+  const parseWindSpeed = (val: unknown): number | null => {
+    if (val == null) return null;
+    const str = String(val);
+    const match = str.match(/(\d+\.?\d*)/);
+    return match ? parseFloat(match[1]) : null;
+  };
+
+  // Helper to parse wind direction (cardinal or degrees)
+  const parseWindDir = (val: unknown): number | null => {
+    if (val == null) return null;
+    const str = String(val).trim().toUpperCase();
+    // Check if it's already a number
+    const num = parseFloat(str);
+    if (!isNaN(num)) return num;
+    // Convert cardinal to degrees
+    const cardinalMap: Record<string, number> = {
+      N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+      E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+      S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+      W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+    };
+    return cardinalMap[str] ?? null;
+  };
+
+  // Wave height
+  const heightStr = parseHeight(forecast.wave_height);
+  if (heightStr) {
+    parts.push(heightStr);
   }
 
-  if (wavePeriod != null) {
-    parts.push(`@ ${wavePeriod.toFixed(0)}s`);
+  // Wave period
+  const periodStr = parsePeriod(forecast.wave_period);
+  if (periodStr) {
+    parts.push(periodStr);
   }
+
+  // Swell direction (prefer swell_1_direction, fall back to wave_direction)
+  const swellDir = forecast.swell_1_direction || forecast.wave_direction;
+  if (swellDir && parts.length > 0) {
+    // Extract just the cardinal direction
+    const dirStr = String(swellDir).trim().toUpperCase();
+    const cardinalMatch = dirStr.match(/^[NSEW]{1,3}/);
+    if (cardinalMatch) {
+      parts.push(cardinalMatch[0]);
+    }
+  }
+
+  // Wind quality (offshore/onshore calculation)
+  const windSpeed = parseWindSpeed(forecast.wind_speed);
+  const windDirDeg = parseWindDir(forecast.wind_direction);
 
   if (windSpeed != null) {
-    const windDir = windDirection != null
-      ? ` ${degreesToCardinal(windDirection)}`
-      : "";
-    parts.push(`${windSpeed.toFixed(0)}kt${windDir}`);
+    let windDesc: string;
+
+    if (windSpeed < 5) {
+      windDesc = "calm";
+    } else if (windOffshoreDeg != null && windDirDeg != null) {
+      // Calculate if wind is offshore
+      const angleDiff = Math.abs(((windDirDeg - windOffshoreDeg) % 360 + 360) % 360);
+      const normalizedDiff = angleDiff > 180 ? 360 - angleDiff : angleDiff;
+      const isOffshore = normalizedDiff <= 45;
+      const isOnshore = normalizedDiff >= 135;
+
+      if (isOffshore) {
+        windDesc = windSpeed < 10 ? "light offshore" : "offshore";
+      } else if (isOnshore) {
+        windDesc = windSpeed < 10 ? "light onshore" : `${Math.round(windSpeed)}mph onshore`;
+      } else {
+        windDesc = windSpeed < 10 ? "light cross" : `${Math.round(windSpeed)}mph cross`;
+      }
+    } else {
+      // No beach orientation available, just show wind speed and direction
+      const windCardinal = windDirDeg != null ? ` ${degreesToCardinal(windDirDeg)}` : "";
+      windDesc = `${Math.round(windSpeed)}mph${windCardinal}`;
+    }
+
+    parts.push(windDesc);
   }
 
-  if (surfRating != null) {
-    parts.push(`Rating: ${surfRating}/10`);
+  // Tide status
+  const tideStatus = forecast.tide_status;
+  if (tideStatus && typeof tideStatus === "string") {
+    // Capitalize first letter
+    const tidePart = tideStatus.charAt(0).toUpperCase() + tideStatus.slice(1).toLowerCase();
+    if (["Rising", "Falling", "High", "Low"].includes(tidePart)) {
+      parts.push(tidePart);
+    }
   }
 
-  return parts.length > 0 ? parts.join(", ") : "Forecast available";
+  // Only return if we have at least wave data
+  if (!heightStr) {
+    return "Forecast available";
+  }
+
+  return parts.join(", ");
 }
 
 /**
@@ -1197,7 +1285,7 @@ function findNearestBeachName(
 }
 
 // Export helpers for testing
-export { formatIntelMessage, formatIntelSourceName, findNearestBeachName };
+export { formatIntelMessage, formatIntelSourceName, findNearestBeachName, formatForecastConditions };
 
 // Apply rate limiting protection
 export const GET = withRateLimit(coastPulseHandler, "public-default");

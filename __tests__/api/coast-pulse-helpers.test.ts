@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { formatIntelMessage, formatIntelSourceName, findNearestBeachName } from "@/app/api/coast-pulse/route";
+import { formatIntelMessage, formatIntelSourceName, findNearestBeachName, formatForecastConditions } from "@/app/api/coast-pulse/route";
 
 describe("formatIntelMessage", () => {
   it("formats full structured data with emoji", () => {
@@ -191,5 +191,103 @@ describe("Coast Pulse Intel Integration", () => {
 
     const sourceName = formatIntelSourceName("Anonymous", null);
     expect(sourceName).toBe("Anonymous");
+  });
+});
+
+describe("formatForecastConditions", () => {
+  it("formats complete forecast with all data", () => {
+    const forecast = {
+      wave_height: "3.2 ft",
+      wave_period: "12s",
+      swell_1_direction: "SW",
+      wind_speed: "8 mph",
+      wind_direction: "NE", // 45° - offshore for SW-facing beach
+      tide_status: "Rising",
+    };
+    // SW-facing beach: offshore wind comes from NE (45°)
+    const result = formatForecastConditions(forecast, 45);
+    expect(result).toBe("3ft, @ 12s, SW, light offshore, Rising");
+  });
+
+  it("shows onshore when wind is from ocean", () => {
+    const forecast = {
+      wave_height: "4 ft",
+      wave_period: "10s",
+      wave_direction: "W",
+      wind_speed: "12 mph",
+      wind_direction: "W", // 270° - coming from ocean (onshore for W-facing beach)
+      tide_status: "Falling",
+    };
+    // W-facing beach: offshore wind comes from E (90°), W wind (270°) is onshore
+    const result = formatForecastConditions(forecast, 90);
+    expect(result).toBe("4ft, @ 10s, W, 12mph onshore, Falling");
+  });
+
+  it("shows calm when wind is light", () => {
+    const forecast = {
+      wave_height: "2.5 ft",
+      wave_period: "8s",
+      swell_1_direction: "NW",
+      wind_speed: "3 mph",
+      wind_direction: "S",
+      tide_status: "High",
+    };
+    const result = formatForecastConditions(forecast, 270);
+    expect(result).toBe("3ft, @ 8s, NW, calm, High");
+  });
+
+  it("handles string values with different formats", () => {
+    const forecast = {
+      wave_height: "3-4 ft",
+      wave_period: "12",
+      swell_1_direction: "SSW",
+    };
+    const result = formatForecastConditions(forecast);
+    expect(result).toBe("3-4ft, @ 12s, SSW");
+  });
+
+  it("returns fallback when no wave height", () => {
+    const forecast = {
+      wind_speed: "10 mph",
+      tide_status: "Rising",
+    };
+    const result = formatForecastConditions(forecast);
+    expect(result).toBe("Forecast available");
+  });
+
+  it("shows wind speed and direction when no beach orientation", () => {
+    const forecast = {
+      wave_height: "4 ft",
+      wave_period: "11s",
+      wind_speed: "8 mph",
+      wind_direction: "NW",
+    };
+    // No windOffshoreDeg provided
+    const result = formatForecastConditions(forecast);
+    expect(result).toBe("4ft, @ 11s, 8mph NW");
+  });
+
+  it("handles cardinal wind directions", () => {
+    const forecast = {
+      wave_height: "3 ft",
+      wind_speed: "6 mph",
+      wind_direction: "NE", // 45°
+    };
+    // Beach offshore direction is 45° (NE is offshore)
+    const result = formatForecastConditions(forecast, 45);
+    expect(result).toBe("3ft, light offshore");
+  });
+
+  it("handles cross-shore winds", () => {
+    const forecast = {
+      wave_height: "3 ft",
+      wave_period: "10s",
+      wind_speed: "12 mph",
+      wind_direction: "S", // 180°
+      tide_status: "Low",
+    };
+    // Beach offshore direction is 90° (E), so S wind is cross-shore
+    const result = formatForecastConditions(forecast, 90);
+    expect(result).toBe("3ft, @ 10s, 12mph cross, Low");
   });
 });
