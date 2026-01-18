@@ -21,6 +21,16 @@ export type ConditionFieldStates = {
 export type ConditionFieldKey = keyof ConditionFieldStates;
 
 /**
+ * Initial field states constant - used for initialization and reset
+ */
+const INITIAL_FIELD_STATES: ConditionFieldStates = {
+  wave_height: 'empty',
+  wind_speed: 'empty',
+  wind_direction: 'empty',
+  water_temp: 'empty',
+};
+
+/**
  * Parse numeric values from various formats (e.g., "3.5 ft" -> 3.5)
  */
 export function parseNumericValue(value: unknown): number | undefined {
@@ -62,6 +72,16 @@ export function mapWindDirection(direction: string | undefined | null): WindDire
   return VALID_WIND_DIRECTIONS.has(mapped) ? (mapped as WindDirection) : undefined;
 }
 
+/**
+ * Fields that can be prefilled from forecast data
+ */
+export type PrefillableField = 'wave_height' | 'wind_speed' | 'wind_direction' | 'water_temp';
+
+/**
+ * Type for prefillable field values
+ */
+export type PrefillValue = number | WindDirection | null;
+
 export interface UseIntelForecastPrefillOptions {
   /** Whether the form modal is open */
   isOpen: boolean;
@@ -69,8 +89,8 @@ export interface UseIntelForecastPrefillOptions {
   beachId: string | undefined;
   /** Current tag value - prefill only happens for 'conditions' tag */
   tag: string;
-  /** react-hook-form setValue function */
-  setValue: (field: any, value: any, options?: any) => void;
+  /** Form setValue function for prefilling fields */
+  setValue: (field: PrefillableField, value: PrefillValue) => void;
 }
 
 export interface UseIntelForecastPrefillResult {
@@ -100,12 +120,7 @@ export function useIntelForecastPrefill({
   const [isLoading, setIsLoading] = useState(false);
 
   // Track field states to know which have been user-edited
-  const fieldStatesRef = useRef<ConditionFieldStates>({
-    wave_height: 'empty',
-    wind_speed: 'empty',
-    wind_direction: 'empty',
-    water_temp: 'empty',
-  });
+  const fieldStatesRef = useRef<ConditionFieldStates>({ ...INITIAL_FIELD_STATES });
 
   // Dedupe key to avoid refetching for same modal open
   const lastPrefillKeyRef = useRef<string | null>(null);
@@ -121,12 +136,7 @@ export function useIntelForecastPrefill({
    * Reset all field states to 'empty'
    */
   const resetFieldStates = useCallback(() => {
-    fieldStatesRef.current = {
-      wave_height: 'empty',
-      wind_speed: 'empty',
-      wind_direction: 'empty',
-      water_temp: 'empty',
-    };
+    fieldStatesRef.current = { ...INITIAL_FIELD_STATES };
     lastPrefillKeyRef.current = null;
   }, []);
 
@@ -161,10 +171,16 @@ export function useIntelForecastPrefill({
       water_temp: currentStates.water_temp === 'user-edited' ? 'user-edited' : 'empty',
     };
 
+    // Track if effect is cancelled (unmount or deps change)
+    let cancelled = false;
+
     const fetchAndPrefill = async () => {
       setIsLoading(true);
       try {
         const result = await getEnhancedBeachForecasts(beachId, 2);
+
+        // Check if cancelled before processing results
+        if (cancelled) return;
 
         if (!result.success || !result.data || result.data.length === 0) {
           return;
@@ -218,20 +234,29 @@ export function useIntelForecastPrefill({
           fieldStatesRef.current.water_temp = 'prefilled';
         }
 
-        console.debug('[useIntelForecastPrefill] Prefilled conditions from forecast', {
-          wave_height: parsedWaveHeight,
-          wind_speed: parsedWindSpeed,
-          wind_direction: mappedWindDirection,
-          water_temp: parsedWaterTemp,
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[useIntelForecastPrefill] Prefilled conditions from forecast', {
+            wave_height: parsedWaveHeight,
+            wind_speed: parsedWindSpeed,
+            wind_direction: mappedWindDirection,
+            water_temp: parsedWaterTemp,
+          });
+        }
       } catch (error) {
         console.error('[useIntelForecastPrefill] Failed to fetch forecast for prefill:', error);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchAndPrefill();
+
+    // Cleanup: mark as cancelled to prevent state updates after unmount
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, beachId, tag, setValue]);
 
   return {

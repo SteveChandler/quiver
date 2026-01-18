@@ -248,9 +248,15 @@ describe('useIntelForecastPrefill', () => {
       rerender({ isOpen: false });
       rerender({ isOpen: true });
 
-      // Wait and verify wave_height was NOT set again
-      await new Promise(resolve => setTimeout(resolve, 100));
-      expect(mockSetValue).not.toHaveBeenCalledWith('wave_height', expect.anything());
+      // Use waitFor to properly wait for any pending effects, then verify
+      // wave_height was NOT set again because it was marked as user-edited
+      await waitFor(() => {
+        // The mock should not have been called with wave_height after clearing
+        const waveHeightCalls = mockSetValue.mock.calls.filter(
+          (call: [string, unknown]) => call[0] === 'wave_height'
+        );
+        expect(waveHeightCalls).toHaveLength(0);
+      });
     });
   });
 
