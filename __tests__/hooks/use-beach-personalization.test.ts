@@ -12,17 +12,23 @@ global.fetch = jest.fn();
 import { useAuth } from "@/context/auth-context";
 
 describe("useBeachPersonalization", () => {
+  // Cast as any since we only need partial data for API call mock
   const mockForecast = {
     id: "forecast-123",
     beach_id: "beach-456",
-    forecast_date: "2024-01-15",
+    forecast_date: "2026-01-18",
     forecast_time: "12:00:00",
     wave_height: "4.5",
     wave_period: "12",
     wind_speed: "10",
     wind_direction: "270",
     tide_status: "rising",
-  };
+    water_temp: "62",
+    confidence_score: 0.85,
+    data_source: "noaa",
+    created_at: "2026-01-18T00:00:00Z",
+    updated_at: "2026-01-18T00:00:00Z",
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
