@@ -754,6 +754,48 @@ export function selectBestWindow(
     // Cap at sunset (exact clipping) - applies to both tide-driven and fallback
     if (sunset && sunset < endTime) {
       endTime = sunset;
+    } else if (!sunset && sunsets.length > 0) {
+      // Defensive fallback: sunset data is stale (exists for other dates but not this one)
+      // Cap at conservative 6pm (18:00) in beach's local timezone
+      // This mirrors the defensive start-time fallback at lines 619-640
+      try {
+        // Get the local date components for the forecast start
+        const localDateParts = new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          timeZone: beachTz,
+        }).formatToParts(effectiveStartTime);
+
+        const year = localDateParts.find(p => p.type === "year")?.value;
+        const month = localDateParts.find(p => p.type === "month")?.value;
+        const day = localDateParts.find(p => p.type === "day")?.value;
+
+        if (year && month && day) {
+          // Create 6pm in the beach's timezone by parsing as local time
+          const conservative6pmStr = `${year}-${month}-${day}T18:00:00`;
+          // Get the UTC offset for this timezone at this date
+          const tempDate = new Date(effectiveStartTime);
+          const utcTime = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
+          const localTime = tempDate.toLocaleString("en-US", { timeZone: beachTz });
+          const utcDate = new Date(utcTime);
+          const localDate = new Date(localTime);
+          const offsetMs = localDate.getTime() - utcDate.getTime();
+
+          // Parse 6pm as if it were UTC, then adjust for timezone
+          const conservative6pm = new Date(new Date(conservative6pmStr + "Z").getTime() - offsetMs);
+
+          if (conservative6pm < endTime) {
+            endTime = conservative6pm;
+          }
+        }
+      } catch {
+        // If timezone conversion fails, cap at 4 hours from start as safety fallback
+        const maxEnd = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+        if (maxEnd < endTime) {
+          endTime = maxEnd;
+        }
+      }
     }
 
     // Cap at time slot end (e.g., dawn-patrol ends at 9am) - applies to both
@@ -901,6 +943,38 @@ export function selectBestWindow(
       let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
       if (fallbackSunset && fallbackSunset < endTime) {
         endTime = fallbackSunset;
+      } else if (!fallbackSunset && sunsets.length > 0) {
+        // Defensive fallback: sunset data is stale (exists for other dates but not this one)
+        // Cap at conservative 6pm (18:00) in beach's local timezone
+        try {
+          const localDateParts = new Intl.DateTimeFormat("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            timeZone: beachTz,
+          }).formatToParts(effectiveStartTime);
+
+          const year = localDateParts.find(p => p.type === "year")?.value;
+          const month = localDateParts.find(p => p.type === "month")?.value;
+          const day = localDateParts.find(p => p.type === "day")?.value;
+
+          if (year && month && day) {
+            const conservative6pmStr = `${year}-${month}-${day}T18:00:00`;
+            const tempDate = new Date(effectiveStartTime);
+            const utcTime = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
+            const localTime = tempDate.toLocaleString("en-US", { timeZone: beachTz });
+            const utcDate = new Date(utcTime);
+            const localDate = new Date(localTime);
+            const offsetMs = localDate.getTime() - utcDate.getTime();
+            const conservative6pm = new Date(new Date(conservative6pmStr + "Z").getTime() - offsetMs);
+
+            if (conservative6pm < endTime) {
+              endTime = conservative6pm;
+            }
+          }
+        } catch {
+          // If timezone conversion fails, keep the MAX_WINDOW_HOURS cap
+        }
       }
 
       // Cap at time slot end for fallback window too

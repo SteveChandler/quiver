@@ -801,4 +801,56 @@ describe('selectBestWindow with stale sunset data', () => {
     expect(result).not.toBeNull();
     expect(result!.start).toEqual(new Date('2026-01-18T23:00:00Z'));
   });
+
+  it('caps window END time at 6pm when sunset data is stale', () => {
+    // This tests the defensive fallback for end-time capping.
+    // Scenario:
+    // - Sunset cache has data for Jan 12-14 (stale)
+    // - Today is Jan 18, forecast at 3pm PT
+    // - Window would normally extend to 7pm PT (3pm + 4hr MAX_WINDOW)
+    // - But with stale sunset data, should cap at 6pm PT
+    //
+    // This prevents windows like "3pm-8pm" when sunset is actually at 5pm
+
+    const forecasts = [
+      createMockForecast({
+        forecast_date: '2026-01-18', // 3pm PT = 23:00 UTC Jan 18
+        forecast_time: '23:00:00',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-19', // 4pm PT = 00:00 UTC Jan 19
+        forecast_time: '00:00:00',
+      }),
+      createMockForecast({
+        forecast_date: '2026-01-19', // 5pm PT = 01:00 UTC Jan 19
+        forecast_time: '01:00:00',
+      }),
+    ];
+
+    const beach = createMockBeach();
+
+    // Stale sunset cache - has data for Jan 12-14 but NOT Jan 18
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [
+          new Date('2026-01-12T14:30:00Z'),
+          new Date('2026-01-13T14:30:00Z'),
+        ],
+        sunsets: [
+          new Date('2026-01-13T01:05:00Z'), // Jan 12 5:05pm PT
+          new Date('2026-01-14T01:05:00Z'), // Jan 13 5:05pm PT
+        ]
+      }],
+    ]);
+
+    const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
+
+    expect(result).not.toBeNull();
+    expect(result!.start).toEqual(new Date('2026-01-18T23:00:00Z')); // 3pm PT
+
+    // Window end should be capped at 6pm PT (02:00 UTC Jan 19)
+    // NOT 7pm PT (03:00 UTC Jan 19) which would be 3pm + 4hr MAX_WINDOW
+    const sixPmPT = new Date('2026-01-19T02:00:00Z').getTime();
+    expect(result!.end.getTime()).toBeLessThanOrEqual(sixPmPT);
+  });
 });
