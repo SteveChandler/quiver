@@ -1,5 +1,10 @@
-import { NextResponse } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/server";
+import {
+  createSuccessResponse,
+  createAuthError,
+  createErrorResponse,
+  handleApiError,
+} from "@/lib/api-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +30,7 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return createAuthError("Unauthorized");
   }
 
   try {
@@ -39,23 +44,17 @@ export async function GET() {
     // PGRST116 = no rows returned, which is fine (user has no preferences yet)
     if (prefsError) {
       if (prefsError.code === "PGRST116") {
-        return NextResponse.json({ data: null });
+        return createSuccessResponse(null);
       }
 
       console.error("Error fetching preferences:", prefsError);
-      return NextResponse.json(
-        { error: "Failed to fetch preferences" },
-        { status: 500 }
-      );
+      return createErrorResponse("Failed to fetch preferences", undefined, 500);
     }
 
     // Return preferences
-    return NextResponse.json({ data: preferences });
+    return createSuccessResponse(preferences);
   } catch (error) {
     console.error("Unexpected error in /api/user/preferences:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Internal server error");
   }
 }

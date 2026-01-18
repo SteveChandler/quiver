@@ -40,7 +40,9 @@ describe("GET /api/user/preferences", () => {
     const json = await response.json();
 
     expect(response.status).toBe(401);
+    expect(json.success).toBe(false);
     expect(json.error).toBe("Unauthorized");
+    expect(json.timestamp).toBeDefined();
   });
 
   it("returns user preferences when authenticated", async () => {
@@ -59,7 +61,9 @@ describe("GET /api/user/preferences", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
     expect(json.data).toEqual(mockPrefs);
+    expect(json.timestamp).toBeDefined();
   });
 
   it("returns null data when no preferences exist", async () => {
@@ -72,7 +76,9 @@ describe("GET /api/user/preferences", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
     expect(json.data).toBeNull();
+    expect(json.timestamp).toBeDefined();
   });
 
   it("returns 500 when database error occurs", async () => {
@@ -85,6 +91,8 @@ describe("GET /api/user/preferences", () => {
     const json = await response.json();
 
     expect(response.status).toBe(500);
+    expect(json.success).toBe(false);
     expect(json.error).toBe("Failed to fetch preferences");
+    expect(json.timestamp).toBeDefined();
   });
 });

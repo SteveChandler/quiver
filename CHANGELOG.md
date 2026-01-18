@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
+- **User Preferences API (`/api/user/preferences`):** Refactored to use centralized API response utilities from `lib/api-utils.ts` for consistent error handling and response structure:
+  - Replaced raw `NextResponse.json()` with `createSuccessResponse()` for success responses
+  - Replaced manual 401 errors with `createAuthError()` for authentication failures
+  - Replaced manual 500 errors with `createErrorResponse()` and `handleApiError()` for error cases
+  - Updated all 4 unit tests to validate standardized response envelope (`success`, `data`, `timestamp` fields)
+  - Improves code quality by following established API patterns from `app/api/ARCHITECTURE.md`
+
 - **Coordinate Documentation (ARCHITECTURE.md):** Fixed outdated coordinate naming examples in component architecture documentation. Updated examples to use actual database column names (`beach.lat`/`beach.lon`) instead of non-existent `center_lat`/`center_lng` references. Clarified that components should use `lon` not `lng` for consistency with codebase conventions.
 
 - **Intel Photo Upload (useIntelPhotoUpload Hook):** Extracted photo selection, preview, and upload logic from `intel-post-form.tsx` into reusable `useIntelPhotoUpload` hook. Hook provides:
