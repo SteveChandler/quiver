@@ -25,6 +25,7 @@ describe("HeroRecommendation", () => {
     matchQuality: "good",
     recommendationLabel: "Great conditions",
     message: "Clean waves with light offshore winds",
+    waveHeightBadge: "2-3ft",
     conditionBadges: [
       { label: "Clean" },
       { label: "Offshore" },
@@ -74,5 +75,34 @@ describe("HeroRecommendation", () => {
     render(<HeroRecommendation {...defaultProps} />);
 
     expect(screen.getByTestId("hero-badges")).toBeInTheDocument();
+  });
+
+  it("renders wave height badge when provided", () => {
+    render(
+      <HeroRecommendation
+        recommendation={mockRecommendation}
+        onPlanSession={jest.fn()}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText("2-3ft")).toBeInTheDocument();
+  });
+
+  it("does not render wave height badge when not provided", () => {
+    const recWithoutWaveHeight = {
+      ...mockRecommendation,
+      waveHeightBadge: undefined,
+    };
+
+    render(
+      <HeroRecommendation
+        recommendation={recWithoutWaveHeight}
+        onPlanSession={jest.fn()}
+        onViewBeach={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/^\d+-\d+ft$/)).not.toBeInTheDocument();
   });
 });
