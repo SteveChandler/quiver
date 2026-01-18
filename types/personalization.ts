@@ -203,6 +203,8 @@ export interface SurfDiscoveryRecommendation {
   warnings: string[];
   /** Top condition badges explaining why conditions are good */
   conditionBadges?: ConditionBadge[];
+  /** Wave height display badge (e.g., "2-3ft") */
+  waveHeightBadge?: string;
   /** Distance in miles (GPS phase) */
   distanceMiles?: number;
   /** Estimated driving time in minutes (GPS phase) */
