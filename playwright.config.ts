@@ -88,8 +88,20 @@ export default defineConfig({
     // Authenticated: uses storageState produced by globalSetup
     {
       name: 'auth',
-      testIgnore: ['e2e/guest-*.spec.ts'],
+      testIgnore: ['e2e/guest-*.spec.ts', 'e2e/personas/**', 'e2e/persona-features/**'],
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
+    },
+    // Persona-based tests: each test uses its own persona's auth state via test.use()
+    // Run persona-setup.ts first to create auth states: yarn test:e2e:persona-setup
+    // Individual tests override storageState with their persona's file (e.g., 'e2e/.auth/local-state.json')
+    {
+      name: 'personas',
+      testMatch: ['e2e/personas/**/*.spec.ts', 'e2e/persona-features/**/*.spec.ts'],
+      use: {
+        ...devices['Desktop Chrome'],
+        // Fallback storageState - individual tests override via test.use({storageState: ...})
+        storageState: 'e2e/.auth/rookie-state.json',
+      },
     },
   ],
   webServer: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
