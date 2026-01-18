@@ -162,18 +162,14 @@ function calculateTideDrivenBoundaries(
     beach.preferred_tide_ft_max === null ||
     beach.preferred_tide_ft_max === undefined
   ) {
-    console.log(`[TIDE-DEBUG] Beach ${beach.name}: No tide thresholds (min=${beach.preferred_tide_ft_min}, max=${beach.preferred_tide_ft_max})`);
     return null;
   }
 
   // Extract tide schedule from forecasts
   const tideSchedule = extractTideSchedule(forecasts);
   if (!tideSchedule) {
-    console.log(`[TIDE-DEBUG] Beach ${beach.name}: No tide schedule in forecasts`);
     return null;
   }
-
-  console.log(`[TIDE-DEBUG] Beach ${beach.name}: Found tide schedule with ${tideSchedule.length} entries, thresholds ${beach.preferred_tide_ft_min}-${beach.preferred_tide_ft_max}ft`);
 
   // Map direction preference
   const directionMap: Record<string, 'rising' | 'falling' | 'slack' | 'either'> = {
@@ -192,12 +188,6 @@ function calculateTideDrivenBoundaries(
     preferredDirection,
     afterTime: startTime,
   });
-
-  if (tideWindow) {
-    console.log(`[TIDE-DEBUG] Beach ${beach.name}: Calculated tide window ${tideWindow.start.toISOString()} - ${tideWindow.end.toISOString()}`);
-  } else {
-    console.log(`[TIDE-DEBUG] Beach ${beach.name}: calculateTideWindow returned null`);
-  }
 
   return tideWindow;
 }
@@ -591,8 +581,9 @@ export function selectBestWindow(
     }
 
     // 1. Night Filter (using Local Hour)
-    // Avoid recommending sessions starting in pitch dark (e.g. 9pm - 4am)
-    // This protects us when sunset data is missing or "next sunset" is 20 hours away.
+    // Avoid recommending sessions starting in pitch dark
+    // When sunset data is missing, use conservative 6pm cutoff (winter sunset ~5pm)
+    // When sunset data is available, allow up to 9pm (sunset check will handle it)
     try {
       const localHour = parseInt(
         new Intl.DateTimeFormat("en-US", {
@@ -602,8 +593,13 @@ export function selectBestWindow(
         }).format(startTime),
         10
       );
-      // Skip if 9pm (21) or later, or before 6am (covers winter sunrise ~6:45am)
-      if (localHour >= 21 || localHour < 6) {
+
+      // Conservative cutoff when no sunset data (6pm covers winter sunset ~5pm + buffer)
+      // More permissive when sunset data exists (sunset check will handle it)
+      const nightCutoff = sunsets.length > 0 ? 21 : 18; // 9pm vs 6pm
+
+      // Skip if past cutoff or before 6am (covers winter sunrise ~6:45am)
+      if (localHour >= nightCutoff || localHour < 6) {
         continue;
       }
     } catch {
@@ -650,9 +646,43 @@ export function selectBestWindow(
     // Try to use tide-driven boundaries
     const tideBoundaries = calculateTideDrivenBoundaries(forecasts, actualBeach, startTime);
 
-    let endTime: Date;
+    // Validate tide-driven boundaries before using them
+    let useTideBoundaries = !!tideBoundaries;
 
     if (tideBoundaries) {
+      // 1. Check if tide window start is within the time slot (if specified)
+      if (actualTimeSlot && actualTimeSlot !== 'any') {
+        try {
+          const tideStartHour = parseInt(
+            new Intl.DateTimeFormat("en-US", {
+              hour: "numeric",
+              hour12: false,
+              timeZone: beachTz,
+            }).format(tideBoundaries.start),
+            10
+          );
+          const { startHour, endHour } = TIME_SLOT_RANGES[actualTimeSlot];
+          if (tideStartHour < startHour || tideStartHour >= endHour) {
+            useTideBoundaries = false;
+          }
+        } catch {
+          useTideBoundaries = false;
+        }
+      }
+
+      // 2. Check if window spans overnight (different local dates)
+      if (useTideBoundaries) {
+        const tideStartDate = getLocalDateStr(tideBoundaries.start);
+        const tideEndDate = getLocalDateStr(tideBoundaries.end);
+        if (tideStartDate !== tideEndDate) {
+          useTideBoundaries = false;
+        }
+      }
+    }
+
+    let endTime: Date;
+
+    if (tideBoundaries && useTideBoundaries) {
       // Use tide-driven boundaries for window start and end
       effectiveStartTime = tideBoundaries.start;
       endTime = tideBoundaries.end;
@@ -756,6 +786,9 @@ export function selectBestWindow(
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && filteredForecasts.length > 0) {
+    // Conservative cutoff when no sunset data (6pm covers winter sunset ~5pm + buffer)
+    const fallbackNightCutoff = sunsets.length > 0 ? 21 : 18; // 9pm vs 6pm
+
     // Filter out night hours and post-sunset times before selecting fallback
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
       // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
@@ -773,7 +806,7 @@ export function selectBestWindow(
           }).format(forecastTime),
           10
         );
-        return localHour >= 6 && localHour < 21;
+        return localHour >= 6 && localHour < fallbackNightCutoff;
       } catch {
         return true; // If tz conversion fails, allow it
       }
