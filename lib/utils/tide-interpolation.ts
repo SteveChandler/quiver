@@ -1,9 +1,11 @@
 /**
  * Tide Height Interpolation Utility
- * 
+ *
  * Provides linear interpolation for tide heights at arbitrary timestamps.
  * Used by tide chart components to calculate exact tide height at "now".
  */
+
+import type { TideScheduleEntry } from "@/types/forecast";
 
 export interface TideDataPoint {
   time: Date | string | number;
@@ -271,6 +273,86 @@ export function findBracketingPoints(
         after: data[i + 1],
       };
     }
+  }
+
+  return null;
+}
+
+export interface TideWindowOptions {
+  tideSchedule: TideScheduleEntry[];
+  minHeight: number;
+  maxHeight: number;
+  preferredDirection: "rising" | "falling" | "slack" | "either";
+  afterTime: Date | string | number;
+}
+
+export interface TideWindow {
+  start: Date;
+  end: Date;
+}
+
+/**
+ * Calculates the optimal tide window based on height thresholds and direction preference.
+ *
+ * For rising tide beaches: window starts when tide reaches minHeight, ends when it reaches maxHeight.
+ * For falling tide beaches: window starts when tide drops to maxHeight, ends when it drops to minHeight.
+ *
+ * @param options - Configuration for tide window calculation
+ * @returns Tide window with start/end times, or null if no valid window
+ */
+export function calculateTideWindow(
+  options: TideWindowOptions
+): TideWindow | null {
+  const {
+    tideSchedule,
+    minHeight,
+    maxHeight,
+    preferredDirection,
+    afterTime,
+  } = options;
+
+  if (!tideSchedule || tideSchedule.length < 2) return null;
+
+  // Convert TideScheduleEntry to TideDataPoint format (time in ms)
+  const tidePoints: TideDataPoint[] = tideSchedule.map((t) => ({
+    time: t.time * 1000, // Convert seconds to milliseconds
+    height: t.height,
+  }));
+
+  const afterTs = normalizeTimestamp(afterTime);
+
+  // For 'either' or 'slack', try both directions and pick first valid
+  const directionsToTry: ("rising" | "falling")[] =
+    preferredDirection === "either" || preferredDirection === "slack"
+      ? ["rising", "falling"]
+      : [preferredDirection];
+
+  for (const direction of directionsToTry) {
+    // For rising tide: start when tide rises to minHeight, end when it reaches maxHeight
+    // For falling tide: start when tide falls to maxHeight, end when it falls to minHeight
+    const startHeight = direction === "rising" ? minHeight : maxHeight;
+    const endHeight = direction === "rising" ? maxHeight : minHeight;
+
+    const startTime = findTideThresholdCrossing(
+      tidePoints,
+      startHeight,
+      direction,
+      afterTs
+    );
+    if (!startTime) continue;
+
+    const endTime = findTideThresholdCrossing(
+      tidePoints,
+      endHeight,
+      direction,
+      startTime
+    );
+    if (!endTime) continue;
+
+    // Validate window is reasonable (at least 30 minutes)
+    if (endTime.getTime() - startTime.getTime() < 30 * 60 * 1000) continue;
+
+    return { start: startTime, end: endTime };
   }
 
   return null;

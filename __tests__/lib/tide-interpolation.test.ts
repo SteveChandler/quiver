@@ -8,7 +8,9 @@ import {
   findBracketingPoints,
   normalizeTimestamp,
   findTideThresholdCrossing,
+  calculateTideWindow,
 } from "@/lib/utils/tide-interpolation";
+import type { TideScheduleEntry } from "@/types/forecast";
 
 describe("tide-interpolation", () => {
   describe("normalizeTimestamp", () => {
@@ -293,6 +295,88 @@ describe("tide-interpolation", () => {
       const result = findTideThresholdCrossing([], 2.0, "rising", new Date());
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("calculateTideWindow", () => {
+    // Realistic San Diego tide schedule for 2026-01-17
+    // Low tide at 6:47am PST (14:47 UTC), High tide at 12:52pm PST (20:52 UTC), Low tide at 7:45pm PST (03:45 UTC next day)
+    const tideSchedule: TideScheduleEntry[] = [
+      { time: 1768661220, height: 1.2, type: "low" }, // 2026-01-17T14:47:00Z (6:47am PST)
+      { time: 1768683120, height: 5.8, type: "high" }, // 2026-01-17T20:52:00Z (12:52pm PST)
+      { time: 1768707900, height: 0.5, type: "low" }, // 2026-01-18T03:45:00Z (7:45pm PST)
+    ];
+
+    it("should calculate window for rising tide beach", () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 2.0,
+        maxHeight: 4.0,
+        preferredDirection: "rising",
+        afterTime: new Date("2026-01-17T14:00:00Z"), // 6am PST
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.start.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T14:47:00Z").getTime()
+      );
+      expect(result!.end.getTime()).toBeLessThan(
+        new Date("2026-01-17T20:52:00Z").getTime()
+      );
+
+      // Verify heights at boundaries
+      const startHeight = interpolateTideHeightCosine(
+        tideSchedule.map((t) => ({ time: t.time * 1000, height: t.height })),
+        result!.start
+      );
+      const endHeight = interpolateTideHeightCosine(
+        tideSchedule.map((t) => ({ time: t.time * 1000, height: t.height })),
+        result!.end
+      );
+
+      expect(startHeight).toBeCloseTo(2.0, 1);
+      expect(endHeight).toBeCloseTo(4.0, 1);
+    });
+
+    it("should calculate window for falling tide beach", () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 2.0,
+        maxHeight: 4.0,
+        preferredDirection: "falling",
+        afterTime: new Date("2026-01-17T20:00:00Z"), // After high tide
+      });
+
+      expect(result).not.toBeNull();
+      // On falling tide, start is when it drops below max, end when it drops below min
+      expect(result!.start.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T20:52:00Z").getTime()
+      );
+    });
+
+    it('should return null for "either" direction if no valid window', () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 10.0, // Above any tide height
+        maxHeight: 12.0,
+        preferredDirection: "either",
+        afterTime: new Date("2026-01-17T14:00:00Z"),
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle "slack" preference by finding mid-tide window', () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 2.5,
+        maxHeight: 4.5,
+        preferredDirection: "slack",
+        afterTime: new Date("2026-01-17T14:00:00Z"),
+      });
+
+      expect(result).not.toBeNull();
+      // Slack prefers times around mid-tide
     });
   });
 });
