@@ -4,6 +4,7 @@
 
 import {
   interpolateTideHeight,
+  interpolateTideHeightCosine,
   findBracketingPoints,
   normalizeTimestamp,
 } from "@/lib/utils/tide-interpolation";
@@ -187,6 +188,38 @@ describe("tide-interpolation", () => {
       const result = findBracketingPoints(data, beforeTime);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("interpolateTideHeightCosine", () => {
+    it("should use cosine interpolation between tide events", () => {
+      // Low tide at 6:47am (1.2ft), High tide at 12:52pm (5.8ft)
+      const lowTide = { time: new Date("2026-01-17T14:47:00Z"), height: 1.2 }; // 6:47am PST
+      const highTide = { time: new Date("2026-01-17T20:52:00Z"), height: 5.8 }; // 12:52pm PST
+
+      // Midpoint should NOT be linear average (3.5), but cosine-based
+      // Actually at midpoint, cosine gives same as linear. Test at 25% point instead.
+      const quarterPoint = new Date("2026-01-17T16:18:15Z"); // 25% of the way
+      const quarterResult = interpolateTideHeightCosine(
+        [lowTide, highTide],
+        quarterPoint
+      );
+
+      // Linear would give: 1.2 + 4.6 * 0.25 = 2.35
+      // Cosine gives: 1.2 + 4.6 * (1 - cos(0.25 * π)) / 2 = 1.2 + 4.6 * 0.146 = 1.87
+      expect(quarterResult).toBeCloseTo(1.87, 1);
+    });
+
+    it("should handle falling tide correctly", () => {
+      // High tide at 6am (5.5ft), Low tide at 12pm (0.8ft)
+      const highTide = { time: new Date("2026-01-17T14:00:00Z"), height: 5.5 };
+      const lowTide = { time: new Date("2026-01-17T20:00:00Z"), height: 0.8 };
+
+      const quarterPoint = new Date("2026-01-17T15:30:00Z"); // 25% of the way
+      const result = interpolateTideHeightCosine([highTide, lowTide], quarterPoint);
+
+      // Cosine gives slower initial drop: 5.5 - 4.7 * 0.146 = 4.81
+      expect(result).toBeCloseTo(4.81, 1);
     });
   });
 });

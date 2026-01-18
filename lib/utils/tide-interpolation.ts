@@ -27,6 +27,14 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 /**
+ * Cosine interpolation factor - more accurate for tidal motion
+ * Returns value between 0 and 1 representing progress through tide cycle
+ */
+function cosineInterpolationFactor(t: number): number {
+  return (1 - Math.cos(t * Math.PI)) / 2;
+}
+
+/**
  * Interpolates tide height at a specific timestamp using linear interpolation
  * between the nearest surrounding data points.
  * 
@@ -92,6 +100,63 @@ export function interpolateTideHeight(
   }
 
   // Fallback (shouldn't reach here due to early returns)
+  return null;
+}
+
+/**
+ * Interpolates tide height using cosine interpolation (more accurate for tides).
+ * Tides follow a sinusoidal pattern, so cosine interpolation is more accurate
+ * than linear interpolation between high/low tide events.
+ *
+ * @param data - Array of tide data points (high/low events)
+ * @param targetTime - Target timestamp to interpolate
+ * @returns Interpolated tide height in feet, or null if insufficient data
+ */
+export function interpolateTideHeightCosine(
+  data: TideDataPoint[],
+  targetTime: Date | string | number
+): number | null {
+  if (!data || data.length === 0) return null;
+
+  const targetTs = normalizeTimestamp(targetTime);
+
+  // Normalize all points to have numeric timestamps
+  const points = data
+    .map(point => ({
+      ts: normalizeTimestamp(point.time),
+      height: point.height,
+    }))
+    .filter(p => !isNaN(p.ts) && isFinite(p.height))
+    .sort((a, b) => a.ts - b.ts);
+
+  if (points.length === 0) return null;
+  if (points.length === 1) return points[0].height;
+
+  // If target is before first point, return first height
+  if (targetTs <= points[0].ts) return points[0].height;
+
+  // If target is after last point, return last height
+  if (targetTs >= points[points.length - 1].ts) {
+    return points[points.length - 1].height;
+  }
+
+  // Find the two points that bracket the target time
+  for (let i = 0; i < points.length - 1; i++) {
+    const before = points[i];
+    const after = points[i + 1];
+
+    if (targetTs >= before.ts && targetTs <= after.ts) {
+      const timeDiff = after.ts - before.ts;
+      if (timeDiff === 0) return before.height;
+
+      const t = (targetTs - before.ts) / timeDiff;
+      const cosineT = cosineInterpolationFactor(t);
+
+      // Cosine interpolation
+      return before.height + (after.height - before.height) * cosineT;
+    }
+  }
+
   return null;
 }
 
