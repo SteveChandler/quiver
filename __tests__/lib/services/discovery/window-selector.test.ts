@@ -678,6 +678,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       forecasts,
       beach: beachWithTidePrefs,
       sunTimesCache,
+      userPrefs: null,
     });
 
     expect(result).not.toBeNull();
@@ -733,6 +734,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       forecasts,
       beach: beachWithTidePrefs,
       sunTimesCache,
+      userPrefs: null,
     });
 
     // Should be null or have very short/no window since tide doesn't reach 3ft until after sunset
@@ -783,6 +785,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       forecasts,
       beach: beachWithTidePrefs,
       timeSlot: 'dawn-patrol', // 6am-9am
+      userPrefs: null,
     });
 
     if (result) {
@@ -831,6 +834,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       forecasts,
       beach: beachWithTidePrefs,
       timeSlot: 'dawn-patrol', // Ends at 9am
+      userPrefs: null,
     });
 
     // Tide-driven windows still calculate precise start times
@@ -884,6 +888,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       forecasts,
       beach: beachWithTidePrefs,
       timeSlot: 'morning', // 9am-12pm
+      userPrefs: null,
     });
 
     if (result) {
