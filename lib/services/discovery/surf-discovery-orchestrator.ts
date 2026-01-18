@@ -470,6 +470,21 @@ export async function discoverSurfSpots(
       }
     }
 
+    // CRITICAL: Always include today and next 2 days in UTC format
+    // This fixes a bug where forecast_date values might not include today's date
+    // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
+    // The sun_times table stores dates in UTC, so we need to ensure we query for:
+    // - Yesterday (in case of timezone edge cases)
+    // - Today
+    // - Tomorrow
+    // - Day after tomorrow
+    const now = new Date();
+    for (let dayOffset = -1; dayOffset <= 2; dayOffset++) {
+      const d = new Date(now);
+      d.setUTCDate(now.getUTCDate() + dayOffset);
+      allDates.add(d.toISOString().split('T')[0]);
+    }
+
     // Fetch sunsets (now returns Map<beachId, Date[]>)
     const uniqueDates = Array.from(allDates);
     const sunTimesCache = await getBatchSunTimes(

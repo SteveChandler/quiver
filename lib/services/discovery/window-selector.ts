@@ -616,6 +616,29 @@ export function selectBestWindow(
       continue;
     }
 
+    // 1.6. Defensive fallback when sunset data is stale
+    // If we have sunset data for OTHER dates but not THIS date, the data is likely stale.
+    // Fall back to conservative 6pm cutoff to prevent post-sunset recommendations.
+    if (!sameDaySunset && sunsets.length > 0) {
+      try {
+        const localHour = parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: beachTz,
+          }).format(startTime),
+          10
+        );
+        // Use conservative 6pm cutoff when sunset data is stale
+        if (localHour >= 18) {
+          continue;
+        }
+      } catch {
+        // If tz conversion fails, skip to be safe
+        continue;
+      }
+    }
+
     // 2. Next Sunset Lookup
     // Find the sunset for the SAME DAY as the forecast (not just next chronological sunset)
     // This ensures we cap the window at today's sunset, not tomorrow's
@@ -628,11 +651,12 @@ export function selectBestWindow(
       if (hoursUntilSunset < MIN_SESSION_HOURS) {
         continue;
       }
-    } else {
-      // No future sunset found in cache.
-      // Rely on Night Filter (passed) to allow session.
-      // We assume broad daylight if no sunset is found (e.g. slight data gap or high latitude summer)
+    } else if (sunsets.length === 0) {
+      // No sunset data at all in cache.
+      // Rely on Night Filter (passed above) to allow session.
+      // We assume broad daylight if no sunset is found (e.g. high latitude summer)
     }
+    // Note: If sunsets.length > 0 but sameDaySunset is null, the defensive fallback above handles it
 
     // Check horizon constraint
     // Clamp to zero so past-start windows don't get bonus from negative decay
@@ -786,9 +810,6 @@ export function selectBestWindow(
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && filteredForecasts.length > 0) {
-    // Conservative cutoff when no sunset data (6pm covers winter sunset ~5pm + buffer)
-    const fallbackNightCutoff = sunsets.length > 0 ? 21 : 18; // 9pm vs 6pm
-
     // Filter out night hours and post-sunset times before selecting fallback
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
       // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
@@ -797,6 +818,7 @@ export function selectBestWindow(
       if (sameDaySunset && forecastTime.getTime() > sameDaySunset.getTime()) {
         return false;
       }
+
       try {
         const localHour = parseInt(
           new Intl.DateTimeFormat("en-US", {
@@ -806,9 +828,17 @@ export function selectBestWindow(
           }).format(forecastTime),
           10
         );
-        return localHour >= 6 && localHour < fallbackNightCutoff;
+
+        // Determine cutoff based on sunset data availability for THIS date
+        // If sunset exists for this date, use 9pm cutoff (sunset cap handles it)
+        // If no sunset for this date (stale data), use conservative 6pm cutoff
+        // If no sunset data at all, use conservative 6pm cutoff
+        const hasValidSunsetForDate = !!sameDaySunset;
+        const nightCutoff = hasValidSunsetForDate ? 21 : 18;
+
+        return localHour >= 6 && localHour < nightCutoff;
       } catch {
-        return true; // If tz conversion fails, allow it
+        return false; // If tz conversion fails, exclude to be safe
       }
     });
 

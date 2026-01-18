@@ -174,7 +174,10 @@ export async function GET(request: Request) {
     const nowMs = Date.now();
     const MARINE_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_MARINE_FRESHNESS_WINDOW_HOURS ?? 3);
     const TIDE_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_TIDE_FRESHNESS_WINDOW_HOURS ?? 24);
-    const SUN_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_SUN_FRESHNESS_WINDOW_HOURS ?? 168);
+    // Sun times freshness: 48 hours ensures cron refreshes every 2 days
+    // Since the cron populates 5 days at a time, this provides 3+ days of buffer
+    // Previously 168 hours (7 days) caused stale sunset data bugs
+    const SUN_FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_SUN_FRESHNESS_WINDOW_HOURS ?? 48);
 
     const selectStaleBeaches = async (args: {
       view: "v_marine_forecast_latest" | "v_tide_forecast_latest" | "v_sun_times_latest";
@@ -437,10 +440,10 @@ export async function GET(request: Request) {
             }
 
             if (runSun) {
-              // Sun times computed locally
+              // Sun times computed locally - populate 7 days for buffer
               try {
                 const today = new Date();
-                for (let i = 0; i < 5; i++) {
+                for (let i = 0; i < 7; i++) {
                   const d = new Date(today);
                   d.setDate(today.getDate() + i);
                   const times = SunCalc.getTimes(d, b.lat, b.lon);
