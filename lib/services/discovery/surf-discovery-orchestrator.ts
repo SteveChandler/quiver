@@ -18,6 +18,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
+import { getFavoriteBeaches } from '@/actions/beach/beach-favorite-actions';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -543,11 +544,50 @@ export async function discoverSurfSpots(
       });
     }
 
-    // 4. Sort and slice to maxResults
-    const ranked = scored.sort((a, b) => b.score - a.score).slice(0, maxResults);
+    // 4. Fetch and merge favorites
+    let favoriteBeachIds = new Set<string>();
+    try {
+      const favoriteBeachesResponse = await getFavoriteBeaches(userId);
+      if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
+        favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
+        log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
+      } else {
+        log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
+    }
+
+    // Separate favorites from scored recommendations
+    const favoriteRecs: SurfDiscoveryRecommendation[] = [];
+    const nonFavoriteRecs: SurfDiscoveryRecommendation[] = [];
+
+    for (const rec of scored) {
+      if (favoriteBeachIds.has(rec.beach.id)) {
+        // Only include favorites with score >= 50
+        if (rec.score >= 50) {
+          favoriteRecs.push({ ...rec, isFavorite: true });
+        }
+      } else {
+        nonFavoriteRecs.push(rec);
+      }
+    }
+
+    // Sort favorites by score descending
+    favoriteRecs.sort((a, b) => b.score - a.score);
+
+    // Sort non-favorites by score descending
+    nonFavoriteRecs.sort((a, b) => b.score - a.score);
+
+    // Merge: favorites first, then non-favorites, then slice to maxResults
+    const merged = [...favoriteRecs, ...nonFavoriteRecs].slice(0, maxResults);
+
+    log.debug(
+      `Merged recommendations: ${favoriteRecs.length} favorites (score >= 50), ${nonFavoriteRecs.length} non-favorites, ${merged.length} total`
+    );
 
     // 5. Enrich with photos
-    const enrichedRanked = await enrichWithPhotos(ranked);
+    const enrichedRanked = await enrichWithPhotos(merged);
 
     const duration = Date.now() - startTime;
     log.debug(
