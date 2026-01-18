@@ -279,7 +279,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
 
       // Card should not cause horizontal scroll
       const viewport = page.viewportSize();
-      const profileContent = page.locator("main");
+      const profileContent = page.locator("main").first();
       const boundingBox = await profileContent.boundingBox();
 
       if (viewport && boundingBox) {
