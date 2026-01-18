@@ -60,17 +60,28 @@ jest.mock("@/components/landing-page/cta-section", () => ({
 
 describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   const replace = jest.fn();
+  const originalLocation = window.location;
 
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue({ replace });
+    // Reset mock location before each test
+    delete (window as any).location;
+    (window as any).location = { ...originalLocation, href: "http://localhost/" };
+  });
+
+  afterEach(() => {
+    // Restore original location
+    (window as any).location = originalLocation;
   });
 
   it("bypasses auth loading screen, shows toast, and cleans URL when signup=confirm-email", async () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: true });
-    (useSearchParams as jest.Mock).mockReturnValue(
-      new URLSearchParams("?signup=confirm-email")
-    );
+    // The component reads from window.location.href, not useSearchParams
+    (window as any).location = {
+      ...originalLocation,
+      href: "http://localhost/?signup=confirm-email",
+    };
 
     render(<AuthAwareLandingWrapper />);
 
