@@ -353,9 +353,14 @@ export async function scoreBeachForDiscovery(args: {
   // Generate condition badges (keep existing badge generation)
   const conditionBadges = generateConditionBadges(forecast, beach, detailedScore.subscores);
 
+  // Generate wave height badge from forecast
+  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
+  const waveHeightBadge = formatWaveHeightRange(waveHeight);
+
   return {
     ...detailedScore,
     conditionBadges,
+    waveHeightBadge: waveHeightBadge ?? undefined,
     reasons: detailedScore.reasons.slice(0, 5),
   };
 }
@@ -531,6 +536,7 @@ export async function discoverSurfSpots(
         reasons: detailedScore.reasons,
         warnings: detailedScore.warnings,
         conditionBadges: detailedScore.conditionBadges,
+        waveHeightBadge: detailedScore.waveHeightBadge,
         distanceMiles,
         drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
         generated_at: new Date().toISOString(),
