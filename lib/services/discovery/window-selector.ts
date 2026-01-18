@@ -162,14 +162,18 @@ function calculateTideDrivenBoundaries(
     beach.preferred_tide_ft_max === null ||
     beach.preferred_tide_ft_max === undefined
   ) {
+    console.log(`[TIDE-DEBUG] Beach ${beach.name}: No tide thresholds (min=${beach.preferred_tide_ft_min}, max=${beach.preferred_tide_ft_max})`);
     return null;
   }
 
   // Extract tide schedule from forecasts
   const tideSchedule = extractTideSchedule(forecasts);
   if (!tideSchedule) {
+    console.log(`[TIDE-DEBUG] Beach ${beach.name}: No tide schedule in forecasts`);
     return null;
   }
+
+  console.log(`[TIDE-DEBUG] Beach ${beach.name}: Found tide schedule with ${tideSchedule.length} entries, thresholds ${beach.preferred_tide_ft_min}-${beach.preferred_tide_ft_max}ft`);
 
   // Map direction preference
   const directionMap: Record<string, 'rising' | 'falling' | 'slack' | 'either'> = {
@@ -188,6 +192,12 @@ function calculateTideDrivenBoundaries(
     preferredDirection,
     afterTime: startTime,
   });
+
+  if (tideWindow) {
+    console.log(`[TIDE-DEBUG] Beach ${beach.name}: Calculated tide window ${tideWindow.start.toISOString()} - ${tideWindow.end.toISOString()}`);
+  } else {
+    console.log(`[TIDE-DEBUG] Beach ${beach.name}: calculateTideWindow returned null`);
+  }
 
   return tideWindow;
 }
@@ -567,13 +577,6 @@ export function selectBestWindow(
   const sunTimes = actualSunTimesCache?.get(actualBeach.id);
   const sunsets = sunTimes?.sunsets || [];
 
-  // Find today's sunset for post-sunset rejection
-  // Windows starting after sunset should be rejected (it's dark)
-  const todaySunset = sunsets.find(s => {
-    const sunsetLocalDate = getLocalDateStr(s);
-    return sunsetLocalDate === todayDateStr;
-  });
-
   for (let i = 0; i < filteredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore, isToday } = filteredForecasts[i];
 
@@ -608,16 +611,19 @@ export function selectBestWindow(
     }
 
     // 1.5. Post-Sunset Rejection
-    // If we know today's sunset and this window starts after it, skip entirely
-    // This prevents the bug where post-sunset windows validate against tomorrow's sunset
-    if (todaySunset && startTime.getTime() > todaySunset.getTime()) {
+    // Find the sunset for the SAME DAY as this forecast and reject if start is after it
+    // This prevents overnight windows like "7pm-5am" in winter when sunset is at 5pm
+    const forecastDateStr = getLocalDateStr(startTime);
+    const sameDaySunset = sunsets.find(s => getLocalDateStr(s) === forecastDateStr);
+
+    if (sameDaySunset && startTime.getTime() > sameDaySunset.getTime()) {
       continue;
     }
 
     // 2. Next Sunset Lookup
-    // Find the first sunset that occurs AFTER this start time
-    const nextSunset = sunsets.find(s => s.getTime() > startTime.getTime());
-    const sunset = nextSunset;
+    // Find the sunset for the SAME DAY as the forecast (not just next chronological sunset)
+    // This ensures we cap the window at today's sunset, not tomorrow's
+    const sunset = sameDaySunset;
 
     // If we have a sunset, enforce strict daylight constraints
     if (sunset) {
@@ -752,8 +758,10 @@ export function selectBestWindow(
   if (!bestWindow && filteredForecasts.length > 0) {
     // Filter out night hours and post-sunset times before selecting fallback
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
-      // Post-sunset rejection (same as main loop)
-      if (todaySunset && forecastTime.getTime() > todaySunset.getTime()) {
+      // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
+      const forecastDateStr = getLocalDateStr(forecastTime);
+      const sameDaySunset = sunsets.find(s => getLocalDateStr(s) === forecastDateStr);
+      if (sameDaySunset && forecastTime.getTime() > sameDaySunset.getTime()) {
         return false;
       }
       try {
@@ -823,12 +831,13 @@ export function selectBestWindow(
       // Night filter already applied above - no civil twilight clamping needed
       const effectiveStartTime = best.forecastTime;
 
-      // Logic for fallback end time (next sunset or default)
-      const nextSunset = sunsets.find(s => s.getTime() > effectiveStartTime.getTime());
+      // Logic for fallback end time (same-day sunset or default)
+      const fallbackDateStr = getLocalDateStr(effectiveStartTime);
+      const fallbackSunset = sunsets.find(s => getLocalDateStr(s) === fallbackDateStr);
 
       let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-      if (nextSunset && nextSunset < endTime) {
-        endTime = nextSunset;
+      if (fallbackSunset && fallbackSunset < endTime) {
+        endTime = fallbackSunset;
       }
 
       // Cap at time slot end for fallback window too
