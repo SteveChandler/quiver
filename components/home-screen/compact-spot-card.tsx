@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { Waves, Ruler, Wind } from "lucide-react";
+import { Waves, Ruler, Wind, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
@@ -78,6 +78,16 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       aria-label={`${beach.name}, score ${formattedScore} out of 10`}
       data-testid="compact-spot-card"
     >
+      {/* Favorite Heart Badge */}
+      {recommendation.isFavorite && (
+        <div
+          data-testid="favorite-heart"
+          className="absolute top-2 left-2 z-10 bg-white/90 rounded-full p-1 shadow-sm"
+        >
+          <Heart className="h-3 w-3 text-red-500 fill-red-500" />
+        </div>
+      )}
+
       {/* Background: Photo or Gradient */}
       {photoUrl ? (
         <Image
