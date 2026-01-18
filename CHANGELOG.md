@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **User Preferences Hook (`useUserPreferences`):** New hook for fetching learned surf preferences from the API. Hook provides:
+  - Automatic fetching when user is authenticated
+  - Returns null when user is not authenticated
+  - Loading state tracking during fetch operations
+  - Error handling with error state exposure
+  - `refetch()` function for manual preference refresh
+  - Follows established hook patterns from `hooks/ARCHITECTURE.md`
+  - Full test coverage: 3 unit tests covering authentication checks, successful fetch, and error handling
+  - Integrates with `useAuth` context for authentication state
+  - Returns `UserSurfPreferences` type from preference-learning-service
+
 ### Refactored
 
 - **Coordinate Documentation (ARCHITECTURE.md):** Fixed outdated coordinate naming examples in component architecture documentation. Updated examples to use actual database column names (`beach.lat`/`beach.lon`) instead of non-existent `center_lat`/`center_lng` references. Clarified that components should use `lon` not `lng` for consistency with codebase conventions.
