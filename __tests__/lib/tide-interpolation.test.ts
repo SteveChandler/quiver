@@ -9,6 +9,7 @@ import {
   normalizeTimestamp,
   findTideThresholdCrossing,
   calculateTideWindow,
+  findNearestTideExtremum,
 } from "@/lib/utils/tide-interpolation";
 import type { TideScheduleEntry } from "@/types/forecast";
 
@@ -442,7 +443,7 @@ describe("tide-interpolation", () => {
       );
     });
 
-    it('should return null for "either" direction if no valid window', () => {
+    it('should use direction-based fallback when thresholds are impossible', () => {
       const result = calculateTideWindow({
         tideSchedule,
         minHeight: 10.0, // Above any tide height
@@ -451,7 +452,10 @@ describe("tide-interpolation", () => {
         afterTime: new Date("2026-01-17T14:00:00Z"),
       });
 
-      expect(result).toBeNull();
+      // With fallback, returns direction-based window centered on nearest extremum
+      expect(result).not.toBeNull();
+      expect(result!.start).toBeInstanceOf(Date);
+      expect(result!.end).toBeInstanceOf(Date);
     });
 
     it('should handle "slack" preference by finding mid-tide window', () => {
@@ -537,7 +541,7 @@ describe("tide-interpolation", () => {
       );
     });
 
-    it("should return null for inverted min/max (data entry error)", () => {
+    it("should use direction-based fallback for inverted min/max", () => {
       const result = calculateTideWindow({
         tideSchedule,
         minHeight: 4.0,
@@ -546,11 +550,13 @@ describe("tide-interpolation", () => {
         afterTime: new Date("2026-01-17T14:00:00Z"),
       });
 
-      // Should return null for invalid configuration
-      expect(result).toBeNull();
+      // With fallback, returns direction-based window (low to high for rising)
+      expect(result).not.toBeNull();
+      expect(result!.start).toBeInstanceOf(Date);
+      expect(result!.end).toBeInstanceOf(Date);
     });
 
-    it("should return null when thresholds are outside tide range", () => {
+    it("should use direction-based fallback when thresholds are outside tide range", () => {
       const result = calculateTideWindow({
         tideSchedule,
         minHeight: 8.0, // Above any tide height (max is 5.8ft)
@@ -559,7 +565,10 @@ describe("tide-interpolation", () => {
         afterTime: new Date("2026-01-17T14:00:00Z"),
       });
 
-      expect(result).toBeNull();
+      // With fallback, returns direction-based window (low to high for rising)
+      expect(result).not.toBeNull();
+      expect(result!.start).toBeInstanceOf(Date);
+      expect(result!.end).toBeInstanceOf(Date);
     });
 
     it("should handle afterTime in the middle of valid window", () => {
@@ -578,6 +587,121 @@ describe("tide-interpolation", () => {
           new Date("2026-01-17T16:30:00Z").getTime()
         );
       }
+    });
+
+    it("should use rising direction fallback (low to high)", () => {
+      // Test with thresholds that won't have crossings but rising direction preferred
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 10.0, // Impossible thresholds
+        maxHeight: 12.0,
+        preferredDirection: "rising",
+        afterTime: new Date("2026-01-17T14:00:00Z"),
+      });
+
+      expect(result).not.toBeNull();
+      // For rising: window should start at low tide and end at next high
+      // The low after 14:00 UTC is at ~14:47 UTC (1.73ft), high at ~20:52 UTC (5.8ft)
+      expect(result!.start.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T14:00:00Z").getTime()
+      );
+      expect(result!.end.getTime()).toBeGreaterThan(result!.start.getTime());
+    });
+
+    it("should use falling direction fallback (high to low)", () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 10.0, // Impossible thresholds
+        maxHeight: 12.0,
+        preferredDirection: "falling",
+        afterTime: new Date("2026-01-17T06:00:00Z"),
+      });
+
+      expect(result).not.toBeNull();
+      // For falling: window should start at high tide and end at next low
+      // The high after 06:00 UTC is at ~08:52 UTC (4.56ft), low at ~14:47 UTC (1.73ft)
+      expect(result!.start.getTime()).toBeGreaterThan(
+        new Date("2026-01-17T06:00:00Z").getTime()
+      );
+      expect(result!.end.getTime()).toBeGreaterThan(result!.start.getTime());
+    });
+
+    it("should use slack fallback centered on nearest extremum", () => {
+      const result = calculateTideWindow({
+        tideSchedule,
+        minHeight: 10.0, // Impossible thresholds
+        maxHeight: 12.0,
+        preferredDirection: "slack",
+        afterTime: new Date("2026-01-17T14:00:00Z"),
+      });
+
+      expect(result).not.toBeNull();
+      // For slack: window should be ±1.5 hours around nearest extremum
+      const duration = result!.end.getTime() - result!.start.getTime();
+      expect(duration).toBe(3 * 60 * 60 * 1000); // 3 hours (1.5 + 1.5)
+    });
+  });
+
+  describe("findNearestTideExtremum", () => {
+    const tideSchedule: TideScheduleEntry[] = [
+      { time: 1768640400, height: 4.56, type: "high" }, // 2026-01-17T09:00:00Z
+      { time: 1768662000, height: 1.73, type: "low" },  // 2026-01-17T15:00:00Z
+      { time: 1768683600, height: 5.8, type: "high" },  // 2026-01-17T21:00:00Z
+      { time: 1768705200, height: 0.5, type: "low" },   // 2026-01-18T03:00:00Z
+    ];
+
+    it("should find the nearest extremum after given time", () => {
+      const result = findNearestTideExtremum(
+        tideSchedule,
+        new Date("2026-01-17T10:00:00Z")
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("low"); // Nearest after 10:00 is the low at 15:00
+      expect(result!.height).toBe(1.73);
+    });
+
+    it("should find preferred type if specified", () => {
+      const result = findNearestTideExtremum(
+        tideSchedule,
+        new Date("2026-01-17T10:00:00Z"),
+        "high" // Prefer high tide
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.type).toBe("high"); // Should skip the low and find high at 21:00
+      expect(result!.height).toBe(5.8);
+    });
+
+    it("should return null if no extremum after time", () => {
+      const result = findNearestTideExtremum(
+        tideSchedule,
+        new Date("2026-01-18T10:00:00Z") // After all entries
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null for empty schedule", () => {
+      const result = findNearestTideExtremum(
+        [],
+        new Date("2026-01-17T10:00:00Z")
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should fall back to nearest if preferred type not found", () => {
+      // Only have highs left after a certain time
+      const result = findNearestTideExtremum(
+        tideSchedule,
+        new Date("2026-01-17T16:00:00Z"),
+        "low" // Prefer low, but next low is at 03:00 next day
+      );
+
+      expect(result).not.toBeNull();
+      // Should find the low at 03:00
+      expect(result!.type).toBe("low");
     });
   });
 });
