@@ -161,9 +161,93 @@ export function interpolateTideHeightCosine(
 }
 
 /**
+ * Inverse cosine interpolation - finds t value (0-1) for a given height
+ * @param startHeight - Height at start of interval
+ * @param endHeight - Height at end of interval
+ * @param targetHeight - Height to find
+ * @returns t value (0-1) or null if target outside range
+ */
+function inverseCosineInterpolation(
+  startHeight: number,
+  endHeight: number,
+  targetHeight: number
+): number | null {
+  const range = endHeight - startHeight;
+  if (range === 0) return null;
+
+  const normalized = (targetHeight - startHeight) / range;
+  if (normalized < 0 || normalized > 1) return null;
+
+  // Inverse of cosine interpolation: t = acos(1 - 2*normalized) / π
+  return Math.acos(1 - 2 * normalized) / Math.PI;
+}
+
+/**
+ * Finds when tide crosses a specific height threshold.
+ *
+ * @param tideSchedule - Array of tide events (high/low points)
+ * @param targetHeight - Height threshold to find crossing for
+ * @param direction - 'rising' or 'falling' - which crossing to find
+ * @param afterTime - Only find crossings after this time
+ * @returns Date when tide crosses threshold, or null if not found
+ */
+export function findTideThresholdCrossing(
+  tideSchedule: TideDataPoint[],
+  targetHeight: number,
+  direction: "rising" | "falling",
+  afterTime: Date | string | number
+): Date | null {
+  if (!tideSchedule || tideSchedule.length < 2) return null;
+
+  const afterTs = normalizeTimestamp(afterTime);
+
+  // Normalize and sort tide events
+  const events = tideSchedule
+    .map((point) => ({
+      ts: normalizeTimestamp(point.time),
+      height: point.height,
+    }))
+    .filter((p) => !isNaN(p.ts) && isFinite(p.height))
+    .sort((a, b) => a.ts - b.ts);
+
+  if (events.length < 2) return null;
+
+  // Find consecutive event pairs that could contain the crossing
+  for (let i = 0; i < events.length - 1; i++) {
+    const start = events[i];
+    const end = events[i + 1];
+
+    // Skip if this interval ends before our search start
+    if (end.ts <= afterTs) continue;
+
+    // Determine if this interval is rising or falling
+    const isRising = end.height > start.height;
+    if ((direction === "rising") !== isRising) continue;
+
+    // Check if target height is within this interval's range
+    const minHeight = Math.min(start.height, end.height);
+    const maxHeight = Math.max(start.height, end.height);
+    if (targetHeight < minHeight || targetHeight > maxHeight) continue;
+
+    // Calculate when tide crosses threshold using inverse cosine interpolation
+    const t = inverseCosineInterpolation(start.height, end.height, targetHeight);
+    if (t === null) continue;
+
+    const crossingTs = start.ts + t * (end.ts - start.ts);
+
+    // Skip if crossing is before our search start
+    if (crossingTs <= afterTs) continue;
+
+    return new Date(crossingTs);
+  }
+
+  return null;
+}
+
+/**
  * Finds the two data points that bracket a target timestamp.
  * Useful for debugging or custom interpolation logic.
- * 
+ *
  * @param data - Array of tide data points
  * @param targetTime - Target timestamp
  * @returns Object with before/after points, or null if not found

@@ -7,6 +7,7 @@ import {
   interpolateTideHeightCosine,
   findBracketingPoints,
   normalizeTimestamp,
+  findTideThresholdCrossing,
 } from "@/lib/utils/tide-interpolation";
 
 describe("tide-interpolation", () => {
@@ -220,6 +221,78 @@ describe("tide-interpolation", () => {
 
       // Cosine gives slower initial drop: 5.5 - 4.7 * 0.146 = 4.81
       expect(result).toBeCloseTo(4.81, 1);
+    });
+  });
+
+  describe("findTideThresholdCrossing", () => {
+    // Low tide at 6:47am (1.2ft), High tide at 12:52pm (5.8ft)
+    const lowTide = { time: new Date("2026-01-17T14:47:00Z"), height: 1.2 };
+    const highTide = { time: new Date("2026-01-17T20:52:00Z"), height: 5.8 };
+    const tideSchedule = [lowTide, highTide];
+
+    it("should find when rising tide crosses threshold", () => {
+      const result = findTideThresholdCrossing(
+        tideSchedule,
+        2.0, // Target height
+        "rising",
+        new Date("2026-01-17T14:00:00Z") // After this time
+      );
+
+      expect(result).not.toBeNull();
+      // Should be sometime between low and high tide
+      expect(result!.getTime()).toBeGreaterThan(lowTide.time.getTime());
+      expect(result!.getTime()).toBeLessThan(highTide.time.getTime());
+
+      // Verify the height at crossing time is approximately 2.0ft
+      const heightAtCrossing = interpolateTideHeightCosine(tideSchedule, result!);
+      expect(heightAtCrossing).toBeCloseTo(2.0, 1);
+    });
+
+    it("should find when falling tide crosses threshold", () => {
+      // High tide first, then low tide
+      const fallingSchedule = [
+        { time: new Date("2026-01-17T08:00:00Z"), height: 5.5 },
+        { time: new Date("2026-01-17T14:00:00Z"), height: 0.8 },
+      ];
+
+      const result = findTideThresholdCrossing(
+        fallingSchedule,
+        3.0, // Target height
+        "falling",
+        new Date("2026-01-17T07:00:00Z")
+      );
+
+      expect(result).not.toBeNull();
+      const heightAtCrossing = interpolateTideHeightCosine(fallingSchedule, result!);
+      expect(heightAtCrossing).toBeCloseTo(3.0, 1);
+    });
+
+    it("should return null if threshold is never crossed", () => {
+      const result = findTideThresholdCrossing(
+        tideSchedule,
+        10.0, // Higher than high tide
+        "rising",
+        new Date("2026-01-17T14:00:00Z")
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null if threshold already passed", () => {
+      const result = findTideThresholdCrossing(
+        tideSchedule,
+        1.5, // Below current tide at search start
+        "rising",
+        new Date("2026-01-17T18:00:00Z") // After tide already passed 1.5ft
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("should handle empty tide schedule", () => {
+      const result = findTideThresholdCrossing([], 2.0, "rising", new Date());
+
+      expect(result).toBeNull();
     });
   });
 });
