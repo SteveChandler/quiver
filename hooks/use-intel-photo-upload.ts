@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { uploadImage } from '@/lib/image-upload';
 import { INTEL_CONFIG, INTEL_UI_TEXT } from '@/lib/constants/intel';
 
@@ -40,17 +40,39 @@ export function useIntelPhotoUpload(): UseIntelPhotoUploadResult {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Track active FileReader to abort on re-selection
+  const readerRef = useRef<FileReader | null>(null);
+
   /**
    * Select a photo file and create a preview
    */
   const handlePhotoSelect = useCallback((file: File) => {
+    // Abort previous read if still in progress
+    if (readerRef.current) {
+      readerRef.current.abort();
+      readerRef.current = null;
+    }
+
     setSelectedPhoto(file);
 
     // Create preview using FileReader
     const reader = new FileReader();
+    readerRef.current = reader;
+
     reader.onload = (e) => {
-      setPhotoPreview(e.target?.result as string);
+      const result = e.target?.result;
+      if (typeof result === 'string') {
+        setPhotoPreview(result);
+      }
+      readerRef.current = null;
     };
+
+    reader.onerror = () => {
+      console.error('[useIntelPhotoUpload] Failed to read file for preview');
+      setPhotoPreview(null);
+      readerRef.current = null;
+    };
+
     reader.readAsDataURL(file);
   }, []);
 
@@ -85,6 +107,7 @@ export function useIntelPhotoUpload(): UseIntelPhotoUploadResult {
       }
 
       // Extract storage path from URL for deletion purposes
+      // TODO: Consider having uploadImage return storagePath directly for robustness
       const storagePath = uploadResult.url.split('/').pop() || '';
 
       return {
@@ -100,6 +123,11 @@ export function useIntelPhotoUpload(): UseIntelPhotoUploadResult {
    * Reset all photo state
    */
   const reset = useCallback(() => {
+    // Abort any in-progress FileReader
+    if (readerRef.current) {
+      readerRef.current.abort();
+      readerRef.current = null;
+    }
     setSelectedPhoto(null);
     setPhotoPreview(null);
     setIsUploading(false);
