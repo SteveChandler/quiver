@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +35,11 @@ import {
   type WindDirection,
   type ForecastAccuracy,
 } from "./form";
+import {
+  useIntelFormValidation,
+  intelPostSchema,
+  type IntelPostFormData,
+} from "@/hooks/use-intel-form-validation";
 
 // Field state tracking for auto-prefill (conditions tag only)
 type FieldPrefillState = "empty" | "prefilled" | "user-edited";
@@ -56,60 +60,6 @@ function parseNumericValue(value: unknown): number | undefined {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
-
-// Form validation schema
-const intelPostSchema = z.object({
-  tag: z.enum([
-    "parking",
-    "hazard",
-    "crowd",
-    "conditions",
-    "access",
-    "other",
-  ] as const),
-  title: z
-    .string()
-    .min(1, INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED)
-    .max(
-      INTEL_CONFIG.MAX_TITLE_LENGTH,
-      INTEL_UI_TEXT.VALIDATION.TITLE_TOO_LONG
-    ),
-  description: z
-    .string()
-    .min(1, INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED)
-    .max(
-      INTEL_CONFIG.MAX_DESCRIPTION_LENGTH,
-      INTEL_UI_TEXT.VALIDATION.DESCRIPTION_TOO_LONG
-    ),
-  // Surf condition fields
-  wave_height: z.number().min(0).max(50).nullable().optional(),
-  wind_speed: z.number().min(0).max(150).nullable().optional(),
-  wind_direction: z
-    .enum([
-      "N",
-      "NE",
-      "E",
-      "SE",
-      "S",
-      "SW",
-      "W",
-      "NW",
-      "OFFSHORE",
-      "ONSHORE",
-      "CROSS",
-    ])
-    .nullable()
-    .optional(),
-  water_temp: z.number().min(32).max(100).nullable().optional(),
-  crowd_level: z.number().min(1).max(5).nullable().optional(),
-  wave_types: z.array(z.string()).optional(),
-  forecast_accuracy: z
-    .enum(["accurate", "somewhat", "inaccurate"])
-    .nullable()
-    .optional(),
-});
-
-type IntelPostFormData = z.infer<typeof intelPostSchema>;
 
 interface IntelPostFormProps {
   isOpen: boolean;
@@ -178,6 +128,9 @@ export function IntelPostForm({
       forecast_accuracy: variant === "check-in" ? "accurate" : null,
     },
   });
+
+  // Use validation hook
+  const { generateConditionsSummary, validateBeforeSubmit } = useIntelFormValidation({ variant });
 
   useEffect(() => {
     if (lockedTag) {
@@ -531,59 +484,52 @@ export function IntelPostForm({
         const needsDesc = !values.description || !values.description.trim();
 
         if (needsTitle || needsDesc) {
-          const waveTypes = (values.wave_types || []).join(", ");
-          const parts: string[] = [];
-          if (waveTypes) parts.push(`Waves: ${waveTypes}`);
-          if (values.crowd_level) parts.push(`Crowd: ${values.crowd_level}/5`);
-          if (values.wind_direction || values.wind_speed !== null)
-            parts.push(
-              `Wind: ${values.wind_direction || ""}$${""}`.replace("$", "")
-            );
-          if (values.wind_speed !== null && values.wind_speed !== undefined)
-            parts.push(`Wind Speed: ${values.wind_speed} mph`);
-          if (values.water_temp !== null && values.water_temp !== undefined)
-            parts.push(`Water: ${values.water_temp}F`);
-
-          const summary = parts.join(" - ") || "Real-time conditions update";
+          const summary = generateConditionsSummary({
+            wave_types: values.wave_types,
+            crowd_level: values.crowd_level,
+            wind_direction: values.wind_direction,
+            wind_speed: values.wind_speed,
+            water_temp: values.water_temp,
+          });
           if (needsTitle) form.setValue("title", "Conditions update");
           if (needsDesc) form.setValue("description", summary);
           values = form.getValues();
         }
       }
 
-      // Validate required fields; provide helpful feedback and focus
-      const missing: string[] = [];
-      let blocked = false;
-      if (!values.title || !values.title.trim()) {
-        form.setError("title", {
-          type: "manual",
-          message: INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED,
+      // Validate required fields using hook
+      const validation = validateBeforeSubmit(values);
+      if (!validation.isValid) {
+        // Set errors for missing fields
+        validation.missingFields.forEach((field) => {
+          if (field === "title") {
+            form.setError("title", {
+              type: "manual",
+              message: INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED,
+            });
+          } else if (field === "description") {
+            form.setError("description", {
+              type: "manual",
+              message: INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED,
+            });
+          } else if (field === "forecast_accuracy") {
+            toast.error("Please rate the forecast accuracy before sharing.");
+            return;
+          }
         });
-        blocked = true;
-        missing.push("title");
-      }
-      if (!values.description || !values.description.trim()) {
-        form.setError("description", {
-          type: "manual",
-          message: INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED,
-        });
-        blocked = true;
-        missing.push("description");
-      }
-      if (blocked) {
-        // Focus the first missing field and show a toast
-        if (missing.includes("title")) form.setFocus("title");
-        else if (missing.includes("description")) form.setFocus("description");
-        toast.error(
-          `Please complete the required ${missing.join(" and ")} field$${
-            missing.length > 1 ? "s" : ""
-          } before sharing.`.replace("$", "")
-        );
-        return;
-      }
 
-      if (variant === "check-in" && !values.forecast_accuracy) {
-        toast.error("Please rate the forecast accuracy before sharing.");
+        // Focus the first missing field and show a toast
+        if (validation.missingFields.includes("title")) {
+          form.setFocus("title");
+        } else if (validation.missingFields.includes("description")) {
+          form.setFocus("description");
+        }
+
+        toast.error(
+          `Please complete the required ${validation.missingFields.join(" and ")} field${
+            validation.missingFields.length > 1 ? "s" : ""
+          } before sharing.`
+        );
         return;
       }
 

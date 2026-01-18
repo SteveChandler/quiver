@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Refactored
+
+- **Intel Form Validation (useIntelFormValidation Hook):** Extracted validation logic from `intel-post-form.tsx` into reusable `useIntelFormValidation` hook. Hook provides:
+  - `intelPostSchema`: Zod schema for form validation (previously inline)
+  - `generateConditionsSummary()`: Auto-generates description from conditions fields (wave types, crowd level, wind, water temp)
+  - `validateBeforeSubmit()`: Manual field validation with missing field tracking
+  - Supports both `intel` and `check-in` variants (forecast_accuracy required for check-in)
+  - Full test coverage: 30 unit tests covering schema validation, summary generation, and manual validation
+  - Reduces intel-post-form.tsx complexity by ~60 lines
+
 ### Added
 
 - **Database-Driven Intent Pages Infrastructure (Full Stack):** Complete rewrite of intent page system to support unlimited city scaling via database-driven content. Previously limited to ~10 hardcoded cities (Santa Cruz, San Diego, etc.), now supports any city with 3+ beaches (~50+ cities).
