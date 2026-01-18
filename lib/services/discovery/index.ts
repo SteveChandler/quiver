@@ -6,12 +6,21 @@
  * @module lib/services/discovery
  */
 
+// Orchestrator (main entry point)
+export {
+  discoverSurfSpots,
+  scoreBeachForDiscovery,
+  getBatchSunTimes,
+} from './surf-discovery-orchestrator';
+
+// Candidate Pool Builder
 export {
   buildCandidatePool,
   type CandidatePoolOptions,
   type CandidatePoolResult,
 } from './candidate-pool-builder';
 
+// Forecast Batch Fetcher
 export {
   batchFetchForecasts,
   DEFAULT_FORECAST_WINDOW_HOURS,
@@ -19,6 +28,7 @@ export {
   type ForecastBatchResult,
 } from './forecast-batch-fetcher';
 
+// Window Selector
 export {
   selectBestWindow,
   capEndTimeToTimeSlot,
@@ -26,6 +36,7 @@ export {
   type WindowSelectorOptions,
 } from './window-selector';
 
+// Response Formatter
 export {
   enrichWithPhotos,
   generateDiscoverySummary,
