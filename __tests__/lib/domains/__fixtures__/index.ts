@@ -31,7 +31,7 @@ export const DEFAULT_PROFILE: SpotProfile = {
     maxAnyMph: 18,
     crossShoreOkKts: 15,
   },
-  tidePreferences: { minHeightFt: 0, maxHeightFt: 5, preferredDirection: 'either' },
+  tidePreferences: { minHeightFt: 0, maxHeightFt: 5, preferredDirection: 'either', directionSensitivity: 'medium' },
   skillLevel: 'intermediate',
   breakType: 'beach',
 };

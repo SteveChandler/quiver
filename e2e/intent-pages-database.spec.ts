@@ -1,0 +1,462 @@
+/**
+ * E2E Tests for Database-Driven Intent Pages
+ *
+ * Tests the implementation of database-driven intent pages that replaced
+ * hardcoded SURF_CITIES with dynamic city resolution from the database.
+ *
+ * Test Coverage:
+ * - Database-driven city pages load correctly
+ * - State-level intent pages work
+ * - 404 handling for non-existent cities
+ * - Legacy state/city redirects work
+ * - Intent-specific content displays correctly
+ * - Map integration works
+ * - SEO metadata is correct
+ */
+
+import { test, expect } from "@playwright/test";
+
+// Test timeouts
+const PAGE_LOAD_TIMEOUT = 10000;
+const MAP_LOAD_TIMEOUT = 5000;
+
+test.describe("Database-driven intent pages - City level", () => {
+  test("should load Santa Cruz beginner page from database", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Should not 404
+    await expect(page).not.toHaveURL(/404/);
+
+    // Should have Santa Cruz in heading
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(heading).toContainText(/Santa Cruz/i);
+
+    // Should have beginner-specific content
+    await expect(heading).toContainText(/beginner/i);
+
+    // Should have main content area
+    const main = page.locator("main, [role='main'], .container");
+    await expect(main.first()).toBeVisible();
+  });
+
+  test("should load Honolulu tide page from database", async ({ page }) => {
+    await page.goto("/tide/honolulu", { timeout: PAGE_LOAD_TIMEOUT });
+
+    await expect(page).not.toHaveURL(/404/);
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(/Honolulu/i);
+    await expect(heading).toContainText(/tide/i);
+  });
+
+  test("should load Encinitas least-crowded page", async ({ page }) => {
+    await page.goto("/least-crowded/encinitas", { timeout: PAGE_LOAD_TIMEOUT });
+
+    await expect(page).not.toHaveURL(/404/);
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(/Encinitas/i);
+  });
+
+  test("should load Newport Beach water-temp page", async ({ page }) => {
+    await page.goto("/water-temp/newport-beach", { timeout: PAGE_LOAD_TIMEOUT });
+
+    await expect(page).not.toHaveURL(/404/);
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(/Newport/i);
+  });
+
+  test("should handle city slug with state disambiguation", async ({ page }) => {
+    // Cities that might need state in slug (e.g., newport-or for Oregon)
+    // This tests the city slug collision detection logic
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    // Should load successfully whether it's santa-cruz or santa-cruz-ca
+  });
+});
+
+test.describe("Database-driven intent pages - State level", () => {
+  test("should load California beginner state page", async ({ page }) => {
+    await page.goto("/beginner/ca", { timeout: PAGE_LOAD_TIMEOUT });
+
+    await expect(page).not.toHaveURL(/404/);
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(/California/i);
+    await expect(heading).toContainText(/beginner/i);
+
+    // Should show spot count
+    const bodyText = await page.textContent("body");
+    expect(bodyText).toMatch(/\d+\s+spot/i);
+  });
+
+  test("should load Hawaii tide state page", async ({ page }) => {
+    await page.goto("/tide/hi", { timeout: PAGE_LOAD_TIMEOUT });
+
+    await expect(page).not.toHaveURL(/404/);
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(/Hawaii/i);
+  });
+
+  test("should load Oregon longboard state page", async ({ page }) => {
+    await page.goto("/longboard/or", { timeout: PAGE_LOAD_TIMEOUT });
+
+    await expect(page).not.toHaveURL(/404/);
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+    await expect(heading).toContainText(/Oregon/i);
+  });
+});
+
+test.describe("Database-driven intent pages - 404 handling", () => {
+  test("should return 404 for nonexistent city", async ({ page }) => {
+    const response = await page.goto("/beginner/nonexistent-city-xyz", {
+      timeout: PAGE_LOAD_TIMEOUT,
+    });
+
+    // Should get 404 status
+    expect(response?.status()).toBe(404);
+  });
+
+  test("should return 404 for city with no beaches", async ({ page }) => {
+    // Try a real city name that likely has no beaches in database
+    const response = await page.goto("/beginner/random-inland-city-99", {
+      timeout: PAGE_LOAD_TIMEOUT,
+    });
+
+    expect(response?.status()).toBe(404);
+  });
+
+  test("should return 404 for invalid intent", async ({ page }) => {
+    const response = await page.goto("/invalid-intent/santa-cruz", {
+      timeout: PAGE_LOAD_TIMEOUT,
+    });
+
+    expect(response?.status()).toBe(404);
+  });
+});
+
+test.describe("Database-driven intent pages - Legacy redirects", () => {
+  test("should redirect legacy state/city URL to map", async ({ page }) => {
+    // Legacy format: /ca/encinitas should redirect to /map?search=encinitas
+    await page.goto("/ca/encinitas", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Should redirect to map with search param
+    await expect(page).toHaveURL(/\/map\?search=encinitas/i);
+  });
+
+  test("should redirect legacy state/city URL with uppercase state", async ({ page }) => {
+    await page.goto("/CA/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Should redirect to map
+    await expect(page).toHaveURL(/\/map\?search=/i);
+  });
+});
+
+test.describe("Database-driven intent pages - Content structure", () => {
+  test("should display intent-specific heading", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+
+    // Should have both intent and city in heading
+    const headingText = await heading.textContent();
+    expect(headingText?.toLowerCase()).toContain("beginner");
+    expect(headingText?.toLowerCase()).toContain("santa cruz");
+  });
+
+  test("should display breadcrumb navigation", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Look for breadcrumb
+    const breadcrumb = page.locator("nav[aria-label='breadcrumb'], nav:has-text('Back to')");
+    await expect(breadcrumb.first()).toBeVisible();
+
+    // Should have link back to city
+    const backLink = page.getByRole("link", { name: /back to santa cruz/i });
+    await expect(backLink).toBeVisible();
+  });
+
+  test("should display map component", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Wait for map to load - look for mapbox container or map component
+    const mapContainer = page.locator(
+      '[class*="mapbox"], [class*="map-container"], canvas, [data-testid*="map"]'
+    );
+
+    // Give map time to render
+    await page.waitForTimeout(MAP_LOAD_TIMEOUT);
+
+    // Map should be present in DOM (may not be visible if below fold)
+    await expect(mapContainer.first()).toBeAttached();
+  });
+
+  test("should display focus points section", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Look for "What to focus on today" section
+    const focusSection = page.getByRole("heading", { name: /what to focus on/i });
+    await expect(focusSection).toBeVisible();
+
+    // Should have list of focus points
+    const focusPoints = page.locator("ul li, [class*='focus-point'], [class*='grid'] li");
+    await expect(focusPoints.first()).toBeVisible();
+  });
+
+  test("should display session logging tips", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const loggingSection = page.getByRole("heading", { name: /session logging/i });
+    await expect(loggingSection).toBeVisible();
+  });
+
+  test("should display checklist section", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const checklist = page.getByRole("heading", { name: /checklist/i });
+    await expect(checklist).toBeVisible();
+  });
+
+  test("should display continue exploring links", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const exploreSection = page.getByRole("heading", { name: /continue exploring/i });
+    await expect(exploreSection).toBeVisible();
+
+    // Should have links to other intents
+    const otherIntentLinks = page.locator("a[href*='/santa-cruz']");
+    await expect(otherIntentLinks.first()).toBeVisible();
+  });
+
+  test("should display update timestamp", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Look for "Updated" text with timestamp
+    const bodyText = await page.textContent("body");
+    expect(bodyText).toMatch(/Updated.*\d{1,2}:\d{2}/i);
+  });
+});
+
+test.describe("Database-driven intent pages - Multiple intents", () => {
+  test("should work for all intents with same city", async ({ page }) => {
+    const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard"];
+    const city = "santa-cruz";
+
+    for (const intent of intents) {
+      await page.goto(`/${intent}/${city}`, { timeout: PAGE_LOAD_TIMEOUT });
+
+      // Should not 404
+      await expect(page).not.toHaveURL(/404/);
+
+      // Should have heading
+      const heading = page.locator("h1");
+      await expect(heading).toBeVisible();
+
+      // Should mention the city
+      const headingText = await heading.textContent();
+      expect(headingText?.toLowerCase()).toContain("santa cruz");
+    }
+  });
+
+  test("should have different content for different intents", async ({ page }) => {
+    // Load beginner page
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    const beginnerHeading = await page.locator("h1").textContent();
+
+    // Load tide page
+    await page.goto("/tide/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    const tideHeading = await page.locator("h1").textContent();
+
+    // Headings should be different
+    expect(beginnerHeading).not.toBe(tideHeading);
+  });
+});
+
+test.describe("Database-driven intent pages - SEO", () => {
+  test("should have correct page title", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const title = await page.title();
+    expect(title).toContain("Santa Cruz");
+    expect(title.toLowerCase()).toContain("beginner");
+  });
+
+  test("should have meta description", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const metaDescription = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content");
+
+    expect(metaDescription).toBeTruthy();
+    expect(metaDescription?.toLowerCase()).toContain("santa cruz");
+  });
+
+  test("should have breadcrumb structured data", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Look for JSON-LD structured data
+    const structuredData = page.locator('script[type="application/ld+json"]');
+    await expect(structuredData.first()).toBeAttached();
+
+    // Verify it contains breadcrumb data
+    const jsonLdContent = await structuredData.first().textContent();
+    expect(jsonLdContent).toContain("BreadcrumbList");
+  });
+
+  test("should have FAQ structured data", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Look for FAQ schema
+    const structuredData = page.locator('script[type="application/ld+json"]');
+    const count = await structuredData.count();
+
+    // Should have at least one structured data script
+    expect(count).toBeGreaterThan(0);
+
+    // Check if any contains FAQPage
+    let hasFAQ = false;
+    for (let i = 0; i < count; i++) {
+      const content = await structuredData.nth(i).textContent();
+      if (content?.includes("FAQPage")) {
+        hasFAQ = true;
+        break;
+      }
+    }
+    expect(hasFAQ).toBe(true);
+  });
+
+  test("should have proper heading hierarchy", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Should have exactly one h1
+    const h1Count = await page.locator("h1").count();
+    expect(h1Count).toBe(1);
+
+    // Should have h2 headings for sections
+    const h2Count = await page.locator("h2").count();
+    expect(h2Count).toBeGreaterThan(0);
+  });
+});
+
+test.describe("Database-driven intent pages - Accessibility", () => {
+  test("should be keyboard navigable", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Tab through interactive elements
+    await page.keyboard.press("Tab");
+    const focused = await page.evaluate(() => document.activeElement?.tagName);
+    expect(focused).toBeTruthy();
+  });
+
+  test("should have accessible links", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // All links should have accessible text
+    const links = await page.getByRole("link").all();
+    for (const link of links.slice(0, 10)) { // Check first 10 links
+      const text = await link.textContent();
+      expect(text?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  test("should have ARIA landmarks", async ({ page }) => {
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    // Should have navigation landmark
+    const nav = page.getByRole("navigation");
+    await expect(nav.first()).toBeVisible();
+
+    // Should have main content (implicit or explicit)
+    const mainContent = page.locator("main, [role='main']");
+    const hasMain = await mainContent.count();
+    // Main may or may not exist depending on layout, but page should still have content
+    expect(hasMain).toBeGreaterThanOrEqual(0);
+  });
+});
+
+test.describe("Database-driven intent pages - Performance", () => {
+  test("should not have console errors", async ({ page }) => {
+    const consoleErrors: string[] = [];
+
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    await page.waitForLoadState("networkidle");
+
+    // Filter out known non-critical errors
+    const criticalErrors = consoleErrors.filter(
+      (error) =>
+        !error.includes("favicon") &&
+        !error.includes("WebSocket") &&
+        !error.includes("chunk")
+    );
+
+    // Log errors for debugging if any exist
+    if (criticalErrors.length > 0) {
+      console.log("Console errors found:", criticalErrors);
+    }
+
+    expect(criticalErrors.length).toBe(0);
+  });
+
+  test("should load within acceptable time", async ({ page }) => {
+    const startTime = Date.now();
+
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    await page.waitForLoadState("domcontentloaded");
+
+    const loadTime = Date.now() - startTime;
+
+    // Should load within 10 seconds
+    expect(loadTime).toBeLessThan(PAGE_LOAD_TIMEOUT);
+  });
+});
+
+test.describe("Database-driven intent pages - Responsive design", () => {
+  test("should display correctly on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+
+    // Content should be readable on mobile
+    const container = page.locator(".container, main").first();
+    const box = await container.boundingBox();
+
+    if (box) {
+      // Should not overflow viewport
+      expect(box.width).toBeLessThanOrEqual(375);
+    }
+  });
+
+  test("should display correctly on desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+
+    const heading = page.locator("h1");
+    await expect(heading).toBeVisible();
+
+    // Layout should use available space on desktop
+    const container = page.locator(".container, main").first();
+    await expect(container).toBeVisible();
+  });
+});

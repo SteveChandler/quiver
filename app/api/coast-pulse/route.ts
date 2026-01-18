@@ -83,14 +83,28 @@ async function fetchCoastPulseData(
   const supabase = await createSupabaseServerClient();
   const items: CoastPulseItem[] = [];
 
+  // Pre-fetch beaches for cache (used by forecast and intel)
+  const { data: beaches } = await supabase
+    .from("beaches")
+    .select("id, name, lat, lon")
+    .not("lat", "is", null)
+    .limit(100);
+
+  const beachesCache = (beaches || []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    lat: b.lat,
+    lon: b.lon,
+  }));
+
   // Fetch from all sources in parallel (including live external sources)
   // Hybrid approach: Use beach_daily_intel (pre-computed) alongside live data
   const [localBuoysResult, forecastResult, dailyIntelResult, intelResult, ndbcResult, cdipResult, tideResult] =
     await Promise.allSettled([
       fetchLocalBuoys(supabase, lat, lon),
-      fetchEnhancedForecast(supabase, lat, lon),
-      fetchDailyIntel(supabase, lat, lon),  // NEW: Pre-computed daily intel
-      fetchRecentIntel(supabase, lat, lon),
+      fetchEnhancedForecast(supabase, lat, lon, beachesCache),
+      fetchDailyIntel(supabase, lat, lon, beachesCache),
+      fetchRecentIntel(supabase, lat, lon, beachesCache),
       fetchLiveNDBCData(lat, lon),
       fetchLiveCDIPData(lat, lon),
       fetchTideData(lat, lon),
@@ -346,17 +360,14 @@ async function fetchLocalBuoys(
 async function fetchEnhancedForecast(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem[]> {
   try {
-    // Find nearest beach first
-    const { data: beaches } = await supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .limit(100);
+    // Use provided cache or empty array
+    const beaches = beachesCache.length > 0 ? beachesCache : [];
 
-    if (!beaches?.length) return [];
+    if (!beaches.length) return [];
 
     // Find closest beach
     let closestBeach = beaches[0];
@@ -439,17 +450,14 @@ async function fetchEnhancedForecast(
 async function fetchDailyIntel(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem | null> {
   try {
-    // Find nearest beach first
-    const { data: beaches } = await supabase
-      .from("beaches")
-      .select("id, name, lat, lon")
-      .not("lat", "is", null)
-      .limit(100);
+    // Use provided cache or empty array
+    const beaches = beachesCache.length > 0 ? beachesCache : [];
 
-    if (!beaches?.length) return null;
+    if (!beaches.length) return null;
 
     // Find closest beach
     let closestBeach = beaches[0];
@@ -527,7 +535,8 @@ async function fetchDailyIntel(
 async function fetchRecentIntel(
   supabase: SupabaseClient,
   lat: number,
-  lon: number
+  lon: number,
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
 ): Promise<CoastPulseItem[]> {
   try {
     // Fetch intel from last 24 hours (was 2 hours - extended for more content)
@@ -546,8 +555,12 @@ async function fetchRecentIntel(
         latitude,
         longitude,
         confirmations_count,
+        surf_conditions,
         profiles:user_id (
           full_name
+        ),
+        beaches:beach_id (
+          name
         )
       `
       )
@@ -566,17 +579,25 @@ async function fetchRecentIntel(
     });
 
     return nearbyPosts.slice(0, 5).map((post: any) => {
-      // Get surfer name from joined profile, fallback to "Local Surfer"
       const surferName = post.profiles?.full_name || "Local Surfer";
+
+      // Get beach name from join or nearest lookup
+      const beachName =
+        post.beaches?.name ||
+        findNearestBeachName(post.latitude, post.longitude, beachesCache);
 
       return {
         id: `intel-${post.id}`,
         source: {
-          name: surferName,
+          name: formatIntelSourceName(surferName, beachName),
           type: "intel" as const,
-          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2, // Boost credibility with confirmations
+          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2,
         },
-        message: truncateText(post.description || post.title, 100),
+        message: formatIntelMessage({
+          emoji_rating: post.emoji_rating,
+          surf_conditions: post.surf_conditions as any,
+          description: post.description || post.title,
+        }),
         timestamp: new Date(post.created_at),
         location: {
           lat: post.latitude,
@@ -1059,6 +1080,124 @@ function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 3) + "...";
 }
+
+/**
+ * Format intel post into a readable message with emoji and conditions
+ */
+function formatIntelMessage(post: {
+  emoji_rating?: string | null;
+  surf_conditions?: {
+    wave_height?: number;
+    wind_speed?: number;
+    wind_direction?: string;
+    crowd_level?: number;
+  } | null;
+  description?: string;
+}): string {
+  const parts: string[] = [];
+
+  // 1. Emoji first (if present)
+  const emojiMap: Record<string, string> = {
+    fire: "🔥",
+    shaka: "🤙",
+    meh: "😐",
+    thumbsdown: "👎",
+  };
+  const emoji = post.emoji_rating ? emojiMap[post.emoji_rating] : null;
+  if (emoji) {
+    parts.push(emoji);
+  }
+
+  const conditions = post.surf_conditions;
+
+  // Track if we have any structured condition data
+  let hasStructuredData = false;
+
+  // 2. Wave height from surf_conditions
+  if (conditions?.wave_height != null) {
+    parts.push(`${conditions.wave_height}ft`);
+    hasStructuredData = true;
+  }
+
+  // 3. Wind conditions
+  if (conditions?.wind_speed != null) {
+    const dir = conditions.wind_direction || "";
+    parts.push(`${conditions.wind_speed}kt ${dir}`.trim());
+    hasStructuredData = true;
+  }
+
+  // 4. Crowd level (1-5 scale -> text)
+  if (conditions?.crowd_level != null) {
+    const crowdText = ["empty", "light", "moderate", "busy", "packed"];
+    const crowdLabel = crowdText[conditions.crowd_level - 1];
+    if (crowdLabel) {
+      parts.push(crowdLabel);
+      hasStructuredData = true;
+    }
+  }
+
+  // 5. Fall back to description if no structured data
+  if (!hasStructuredData && post.description) {
+    const desc = truncateText(post.description, 80);
+    return emoji ? `${emoji} ${desc}` : desc;
+  }
+
+  return parts.join(" · ");
+}
+
+/**
+ * Format intel source name with username and beach
+ */
+function formatIntelSourceName(
+  username: string,
+  beachName: string | null,
+  maxLength: number = 35
+): string {
+  if (!beachName) {
+    return truncateText(username, maxLength);
+  }
+
+  const full = `${username} @ ${beachName}`;
+  if (full.length <= maxLength) {
+    return full;
+  }
+
+  // Truncate beach name to fit
+  const prefix = `${username} @ `;
+  const availableForBeach = maxLength - prefix.length - 3; // 3 for "..."
+  if (availableForBeach > 5) {
+    return `${prefix}${beachName.slice(0, availableForBeach)}...`;
+  }
+
+  // Beach name too short to be useful, just show username
+  return truncateText(username, maxLength);
+}
+
+/**
+ * Find nearest beach name from coordinates using cached beach list
+ */
+function findNearestBeachName(
+  lat: number,
+  lon: number,
+  beaches: Array<{ name: string; lat: number; lon: number }>,
+  maxDistanceKm: number = 5
+): string | null {
+  if (!beaches?.length) return null;
+
+  let nearest: { name: string; distance: number } | null = null;
+
+  for (const beach of beaches) {
+    const dist = haversineDistance(lat, lon, beach.lat, beach.lon);
+    if (dist <= maxDistanceKm && (!nearest || dist < nearest.distance)) {
+      nearest = { name: beach.name, distance: dist };
+    }
+  }
+
+  return nearest?.name || null;
+}
+
+// Export helpers for testing
+export { formatIntelMessage, formatIntelSourceName, findNearestBeachName };
 
 // Apply rate limiting protection
 export const GET = withRateLimit(coastPulseHandler, "public-default");

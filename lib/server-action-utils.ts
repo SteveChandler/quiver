@@ -4,6 +4,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
+import { z } from "zod";
 
 // Standard server action response type
 export interface ServerActionResponse<T = any> {
@@ -122,6 +123,94 @@ export function makeAuthenticatedAction<
   };
 
   return serverAction;
+}
+
+/**
+ * Validation wrapper for server actions
+ *
+ * Validates input against a Zod schema before calling the action.
+ */
+export function withValidation<TInput, TOutput>(
+  schema: z.ZodType<TInput>,
+  action: (input: TInput) => Promise<TOutput>
+): (input: unknown) => Promise<ServerActionResponse<TOutput>> {
+  return async (input: unknown) => {
+    const parsed = schema.safeParse(input);
+
+    if (!parsed.success) {
+      const errors = parsed.error.issues.map((e) => e.message).join(", ");
+      return {
+        success: false,
+        error: `Validation failed: ${errors}`,
+      };
+    }
+
+    return withServerAction(() => action(parsed.data));
+  };
+}
+
+/**
+ * Options for createServerAction
+ */
+export interface CreateServerActionOptions<TInput, TOutput> {
+  /** Zod schema for input validation */
+  schema?: z.ZodType<TInput>;
+  /** Require authentication */
+  auth?: boolean;
+  /** Action handler */
+  handler: (context: {
+    input: TInput;
+    user: User | null;
+    supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  }) => Promise<TOutput>;
+}
+
+/**
+ * Create a server action with configurable auth and validation
+ *
+ * Combines validation, authentication, and error handling in one wrapper.
+ */
+export function createServerAction<TInput, TOutput>(
+  options: CreateServerActionOptions<TInput, TOutput>
+): (input: TInput) => Promise<ServerActionResponse<TOutput>> {
+  const { schema, auth = false, handler } = options;
+
+  return async (input: TInput) => {
+    // Validate input if schema provided
+    let validatedInput = input;
+    if (schema) {
+      const parsed = schema.safeParse(input);
+      if (!parsed.success) {
+        const errors = parsed.error.issues.map((e) => e.message).join(", ");
+        return {
+          success: false,
+          error: `Validation failed: ${errors}`,
+        };
+      }
+      validatedInput = parsed.data;
+    }
+
+    return withServerAction(async () => {
+      const supabase = await createSupabaseServerClient();
+
+      let user: User | null = null;
+
+      if (auth) {
+        const {
+          data: { user: authUser },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !authUser) {
+          throw new Error("Authentication required");
+        }
+
+        user = authUser;
+      }
+
+      return handler({ input: validatedInput, user, supabase });
+    });
+  };
 }
 
 // Database operation with consistent error handling

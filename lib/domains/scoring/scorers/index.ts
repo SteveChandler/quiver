@@ -11,3 +11,4 @@ export { windQualityScorer } from './wind-quality-scorer';
 export { tideFitScorer } from './tide-fit-scorer';
 export { windowStabilityScorer } from './window-stability-scorer';
 export { trendPreferenceScorer } from './trend-preference-scorer';
+export { tideDirectionScorer } from './tide-direction-scorer';

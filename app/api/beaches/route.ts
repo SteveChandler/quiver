@@ -7,9 +7,14 @@ import {
   handleApiError,
   CacheDuration,
   checkNotModified,
+  DEFAULT_SECURITY_HEADERS,
 } from "@/lib/api-utils";
-import { isAdmin } from "@/lib/auth/admin";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
+import { isAdmin, type AdminUser } from "@/lib/auth/admin";
+import {
+  withBotBlockingAndRateLimit,
+  withAuth,
+  type AuthenticatedContext,
+} from "@/lib/middleware/api-wrappers";
 
 // GET method to retrieve all beaches with optimized caching
 async function beachesHandler(request: NextRequest) {
@@ -91,74 +96,68 @@ export const GET = withBotBlockingAndRateLimit(beachesHandler, "public-default")
 
 // Matches Ruby LocationsController#create functionality
 // POST is admin-protected, so no bot blocking needed
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = createSupabaseServerClient();
-
-    // Admin authentication check - only admins can create/update beaches
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user || !isAdmin(user as any)) {
-      return NextResponse.json({ 
-        error: "Unauthorized - Admin access required" 
-      }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { id, name, lat, lon } = body;
-
-    if (!name || !lat || !lon) {
-      return createValidationError(
-        "Name, lat, and lon are required"
-      );
-    }
-
-    let result;
-
-    if (id) {
-      // Update existing location
-      result = await supabase
-        .from("beaches")
-        .update({
-          name,
-          lat,
-          lon,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
-    } else {
-      // Create new location
-      result = await supabase
-        .from("beaches")
-        .insert({
-          name,
-          lat,
-          lon,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-    }
-
-    if (result.error) {
-      console.error("Database error:", result.error);
-      return handleApiError(result.error, "Failed to save location");
-    }
-
-    return createSuccessResponse({
-      id: result.data.id,
-      name: result.data.name,
-      lat: result.data.lat,
-      lon: result.data.lon,
-    });
-  } catch (error) {
-    console.error("Error saving location:", error);
-    return handleApiError(error, "Failed to save location");
+async function beachesPostHandler(
+  request: NextRequest,
+  { user, supabase }: AuthenticatedContext
+): Promise<NextResponse> {
+  // Admin check - withAuth already verified user exists
+  if (!isAdmin(user as AdminUser)) {
+    return NextResponse.json(
+      { success: false, error: "Admin access required" },
+      { status: 403, headers: DEFAULT_SECURITY_HEADERS }
+    );
   }
+
+  const body = await request.json();
+  const { id, name, lat, lon } = body;
+
+  if (!name || !lat || !lon) {
+    return createValidationError("Name, lat, and lon are required");
+  }
+
+  let result;
+
+  if (id) {
+    // Update existing location
+    result = await supabase
+      .from("beaches")
+      .update({
+        name,
+        lat,
+        lon,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+  } else {
+    // Create new location
+    result = await supabase
+      .from("beaches")
+      .insert({
+        name,
+        lat,
+        lon,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+  }
+
+  if (result.error) {
+    console.error("Database error:", result.error);
+    return handleApiError(result.error, "Failed to save location");
+  }
+
+  return createSuccessResponse({
+    id: result.data.id,
+    name: result.data.name,
+    lat: result.data.lat,
+    lon: result.data.lon,
+  });
 }
+
+export const POST = withAuth(beachesPostHandler, {
+  errorMessage: "Failed to save location",
+});

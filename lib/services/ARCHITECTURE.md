@@ -914,6 +914,107 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 
 ---
 
+## 📐 **SERVICE IMPLEMENTATION PATTERNS**
+
+### When to Use Classes vs Functions
+
+**Use Classes for:**
+- External API clients with connection pooling (e.g., `CDIPService`, `NOAACOOPSService`)
+- Services requiring shared state or configuration across method calls
+- Services with lifecycle methods (initialize, cleanup, dispose)
+- Services that benefit from dependency injection patterns
+- Services with caching that needs to persist across calls
+
+**Use Functions for:**
+- Stateless business logic and orchestration
+- Pure data transformations
+- Services that don't need shared resources
+- Simple operations without complex state
+- Single-purpose utilities
+
+### Pattern Examples
+
+**Class-based Service (External API Client):**
+```typescript
+// lib/services/cdip-service.ts pattern
+export class CDIPService {
+  private readonly httpClient: HttpClient;
+  private readonly cache: Cache;
+
+  constructor(config: CDIPConfig) {
+    this.httpClient = new HttpClient(config.baseUrl);
+    this.cache = new Cache(config.cacheTTL);
+  }
+
+  async getBuoyData(stationId: string): Promise<BuoyData> {
+    const cacheKey = `buoy:${stationId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const data = await this.httpClient.get(`/buoy/${stationId}`);
+    this.cache.set(cacheKey, data);
+    return data;
+  }
+}
+```
+
+**Function-based Service (Business Logic):**
+```typescript
+// lib/services/preference-learning-service.ts pattern
+export function calculateUserPreferences(
+  sessions: Session[],
+  conditions: Conditions[]
+): UserPreferences {
+  const avgWaveHeight = calculateAverageWaveHeight(sessions);
+  const preferredTide = determineTidePreference(sessions, conditions);
+  const skillLevel = inferSkillLevel(sessions);
+
+  return {
+    waveHeightRange: { min: avgWaveHeight * 0.8, max: avgWaveHeight * 1.5 },
+    tidePreference: preferredTide,
+    skillLevel,
+  };
+}
+```
+
+### Current Service Classification
+
+| Service | Pattern | Reason |
+|---------|---------|--------|
+| `CDIPService` | Class | HTTP client, caching, connection state |
+| `NOAACOOPSService` | Class | HTTP client, rate limiting |
+| `EnhancedForecastService` | Class | Multi-source aggregation, caching |
+| `surf-discovery-service` | Functions | Orchestration, stateless |
+| `preference-learning-service` | Functions | Pure calculations |
+| `personalized-scoring-service` | Functions | Scoring algorithms |
+
+### Recommended Directory Organization
+
+```
+lib/services/
+├── external/              # Third-party API clients (class-based)
+│   ├── cdip-service.ts
+│   ├── noaa-coops-service.ts
+│   └── noaa-wavewatch-service.ts
+├── domain/                # Business logic (function-based)
+│   ├── scoring/
+│   │   └── personalized-scoring-service.ts
+│   ├── discovery/
+│   │   └── surf-discovery-orchestrator.ts
+│   └── preferences/
+│       └── preference-learning-service.ts
+├── orchestration/         # Coordinate multiple services
+│   └── enhanced-forecast-service.ts
+├── maintenance/           # Background jobs, cleanup
+│   ├── noaa-sync.ts
+│   └── inactive-buoy-cleanup.ts
+└── ARCHITECTURE.md
+```
+
+> **Note:** This is the recommended future organization. Current services are in the root `lib/services/` directory. Migration to this structure should be done incrementally during major refactoring efforts.
+
+---
+
 **Last Updated**: January 2026
 **Status**: Production-ready with comprehensive external service integration and personalization
 **Next Review**: After machine learning forecast enhancements and user preference algorithm tuning

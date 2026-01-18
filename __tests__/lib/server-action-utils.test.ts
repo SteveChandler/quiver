@@ -1,8 +1,11 @@
+import { z } from "zod";
 import {
   withServerAction,
   withAuthenticatedAction,
   withDatabaseOperation,
   makeAuthenticatedAction,
+  withValidation,
+  createServerAction,
   getUserById,
   getUserByEmail,
   uploadFile,
@@ -405,6 +408,196 @@ describe("server-action-utils", () => {
       });
       expect(result.success).toBe(false);
       expect(result.error).toBe("Unknown error occurred");
+    });
+  });
+
+  describe("withValidation", () => {
+    const schema = z.object({
+      name: z.string().min(1),
+      age: z.number().positive(),
+    });
+
+    test("validates input and calls action with parsed data", async () => {
+      const action = jest.fn().mockResolvedValue({ id: 1 });
+      const validated = withValidation(schema, action);
+
+      const result = await validated({ name: "John", age: 25 });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ id: 1 });
+      expect(action).toHaveBeenCalledWith({ name: "John", age: 25 });
+    });
+
+    test("returns validation error for invalid input", async () => {
+      const action = jest.fn();
+      const validated = withValidation(schema, action);
+
+      const result = await validated({ name: "", age: -5 });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Validation failed");
+      expect(action).not.toHaveBeenCalled();
+    });
+
+    test("handles missing required fields", async () => {
+      const action = jest.fn();
+      const validated = withValidation(schema, action);
+
+      const result = await validated({ name: "John" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Validation failed");
+      expect(action).not.toHaveBeenCalled();
+    });
+
+    test("handles action errors after validation", async () => {
+      const action = jest.fn().mockRejectedValue(new Error("Action failed"));
+      const validated = withValidation(schema, action);
+
+      const result = await validated({ name: "John", age: 25 });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Action failed");
+    });
+
+    test("transforms input according to schema", async () => {
+      const transformSchema = z.object({
+        count: z.string().transform((val) => parseInt(val, 10)),
+      });
+      const action = jest.fn().mockResolvedValue("ok");
+      const validated = withValidation(transformSchema, action);
+
+      const result = await validated({ count: "42" });
+
+      expect(result.success).toBe(true);
+      expect(action).toHaveBeenCalledWith({ count: 42 });
+    });
+  });
+
+  describe("createServerAction", () => {
+    test("creates action with validation only", async () => {
+      const schema = z.object({ message: z.string() });
+      const handler = jest.fn().mockResolvedValue({ sent: true });
+
+      const action = createServerAction({
+        schema,
+        handler: async ({ input }) => handler(input),
+      });
+
+      const result = await action({ message: "Hello" });
+
+      expect(result.success).toBe(true);
+      expect(handler).toHaveBeenCalledWith({ message: "Hello" });
+    });
+
+    test("creates action with auth required", async () => {
+      const schema = z.object({ message: z.string() });
+      const handler = jest.fn().mockResolvedValue({ sent: true });
+
+      const action = createServerAction({
+        schema,
+        auth: true,
+        handler: async ({ input, user }) => {
+          expect(user).toBeDefined();
+          expect(user?.id).toBe("u1");
+          return handler(input);
+        },
+      });
+
+      const result = await action({ message: "Hello" });
+      expect(result.success).toBe(true);
+    });
+
+    test("rejects invalid input before calling handler", async () => {
+      const schema = z.object({ message: z.string().min(5) });
+      const handler = jest.fn();
+
+      const action = createServerAction({
+        schema,
+        handler: async ({ input }) => handler(input),
+      });
+
+      const result = await action({ message: "Hi" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Validation failed");
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    test("creates action without schema (no validation)", async () => {
+      const handler = jest.fn().mockResolvedValue({ done: true });
+
+      const action = createServerAction({
+        handler: async ({ input }) => handler(input),
+      });
+
+      const result = await action({ anything: "goes" });
+
+      expect(result.success).toBe(true);
+      expect(handler).toHaveBeenCalledWith({ anything: "goes" });
+    });
+
+    test("handles auth errors when auth is required", async () => {
+      jest.doMock("@/lib/supabase/server", () => ({
+        createSupabaseServerClient: async () => ({
+          auth: {
+            getUser: async () => ({ data: { user: null }, error: null }),
+          },
+        }),
+      }));
+
+      const { createServerAction: createServerActionAgain } = await import(
+        "@/lib/server-action-utils"
+      );
+
+      const schema = z.object({ message: z.string() });
+      const handler = jest.fn();
+
+      const action = createServerActionAgain({
+        schema,
+        auth: true,
+        handler: async ({ input }) => handler(input),
+      });
+
+      const result = await action({ message: "Hello" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Authentication required");
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    test("handles handler errors", async () => {
+      const schema = z.object({ message: z.string() });
+
+      const action = createServerAction({
+        schema,
+        handler: async () => {
+          throw new Error("Handler failed");
+        },
+      });
+
+      const result = await action({ message: "Hello" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Handler failed");
+    });
+
+    test("provides supabase client to handler", async () => {
+      const schema = z.object({ message: z.string() });
+      let receivedSupabase: any = null;
+
+      const action = createServerAction({
+        schema,
+        handler: async ({ input, supabase }) => {
+          receivedSupabase = supabase;
+          return { received: true };
+        },
+      });
+
+      await action({ message: "Hello" });
+
+      expect(receivedSupabase).toBeTruthy();
+      expect(typeof receivedSupabase.from).toBe("function");
     });
   });
 });

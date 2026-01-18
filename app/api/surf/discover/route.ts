@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
+  withAuth,
+  withRateLimit,
   createSuccessResponse,
-  createAuthError,
-  handleApiError,
   validateOrError,
-} from '@/lib/api-utils';
-import { withRateLimit } from '@/lib/middleware/api-wrappers';
+  type AuthenticatedContext,
+} from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
 import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
 import type { TimeSlot } from '@/types/personalization';
@@ -62,98 +61,88 @@ const QuerySchema = z.object({
  * GET /api/surf/discover?timeSlot=morning
  * GET /api/surf/discover?lat=32.7157&lon=-117.1611&radius=25 (Phase 2)
  */
-async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse> {
-  try {
-    // 1. Authenticate user
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+async function surfDiscoveryHandler(
+  request: NextRequest,
+  { user }: AuthenticatedContext
+): Promise<NextResponse> {
+  // 1. Parse and validate query parameters
+  const { searchParams } = new URL(request.url);
+  const queryData = {
+    lat: searchParams.get('lat') || undefined,
+    lon: searchParams.get('lon') || undefined,
+    radius: searchParams.get('radius') || undefined,
+    horizonHours: searchParams.get('horizonHours') || undefined,
+    maxResults: searchParams.get('maxResults') || undefined,
+    includeHome: searchParams.get('includeHome') || undefined,
+  };
 
-    if (authError || !user) {
-      return createAuthError('Authentication required');
-    }
-
-    // 2. Parse and validate query parameters
-    const { searchParams } = new URL(request.url);
-    const queryData = {
-      lat: searchParams.get('lat') || undefined,
-      lon: searchParams.get('lon') || undefined,
-      radius: searchParams.get('radius') || undefined,
-      horizonHours: searchParams.get('horizonHours') || undefined,
-      maxResults: searchParams.get('maxResults') || undefined,
-      includeHome: searchParams.get('includeHome') || undefined,
-    };
-
-    const validationResult = validateOrError(QuerySchema, queryData);
-    if ('error' in validationResult) {
-      return validationResult.error;
-    }
-
-    const { lat, lon, radius, horizonHours, maxResults, includeHome } =
-      validationResult.data;
-
-    // Parse timeSlot query parameter
-    const timeSlotParam = searchParams.get('timeSlot');
-    const validTimeSlots: TimeSlot[] = ['any', 'morning', 'afternoon', 'dawn-patrol'];
-    const timeSlot: TimeSlot = validTimeSlots.includes(timeSlotParam as TimeSlot)
-      ? (timeSlotParam as TimeSlot)
-      : 'any';
-
-    // 3. Validate GPS parameters (Phase 2)
-    let userLocation: { lat: number; lon: number } | undefined;
-    if (lat !== undefined && lon !== undefined) {
-      userLocation = { lat, lon };
-    } else if (lat !== undefined || lon !== undefined) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Both lat and lon must be provided for GPS discovery',
-        },
-        { status: 400 }
-      );
-    }
-
-    // 4. Call service to get ranked recommendations
-    const discovery = await discoverSurfSpots(user.id, {
-      userLocation,
-      radiusMiles: radius,
-      horizonHours,
-      maxResults,
-      includeHome,
-      timeSlot,
-    });
-
-    // 5. Generate ETag for conditional request support
-    const responseData = { success: true, data: discovery };
-    const etag = await generateETag(responseData);
-
-    // 6. Check If-None-Match header - return 304 if data unchanged
-    const ifNoneMatch = request.headers.get('If-None-Match');
-    if (ifNoneMatch && await isETagMatch(ifNoneMatch, responseData)) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          'ETag': `"${etag}"`,
-          'Cache-Control': 'private, max-age=300, stale-while-revalidate=900',
-        },
-      });
-    }
-
-    // 7. Return success response with ETag and improved caching
-    const response = createSuccessResponse(discovery);
-
-    // Private cache: 5 min max-age + 15 min stale-while-revalidate
-    response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');
-    response.headers.set('ETag', `"${etag}"`);
-
-    return response;
-  } catch (error) {
-    console.error('Error discovering surf spots:', error);
-    return handleApiError(error, 'Error discovering surf spots');
+  const validationResult = validateOrError(QuerySchema, queryData);
+  if ('error' in validationResult) {
+    return validationResult.error;
   }
+
+  const { lat, lon, radius, horizonHours, maxResults, includeHome } =
+    validationResult.data;
+
+  // Parse timeSlot query parameter
+  const timeSlotParam = searchParams.get('timeSlot');
+  const validTimeSlots: TimeSlot[] = ['any', 'morning', 'afternoon', 'dawn-patrol'];
+  const timeSlot: TimeSlot = validTimeSlots.includes(timeSlotParam as TimeSlot)
+    ? (timeSlotParam as TimeSlot)
+    : 'any';
+
+  // 2. Validate GPS parameters (Phase 2)
+  let userLocation: { lat: number; lon: number } | undefined;
+  if (lat !== undefined && lon !== undefined) {
+    userLocation = { lat, lon };
+  } else if (lat !== undefined || lon !== undefined) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Both lat and lon must be provided for GPS discovery',
+      },
+      { status: 400 }
+    );
+  }
+
+  // 3. Call service to get ranked recommendations
+  const discovery = await discoverSurfSpots(user.id, {
+    userLocation,
+    radiusMiles: radius,
+    horizonHours,
+    maxResults,
+    includeHome,
+    timeSlot,
+  });
+
+  // 4. Generate ETag for conditional request support
+  const responseData = { success: true, data: discovery };
+  const etag = await generateETag(responseData);
+
+  // 5. Check If-None-Match header - return 304 if data unchanged
+  const ifNoneMatch = request.headers.get('If-None-Match');
+  if (ifNoneMatch && await isETagMatch(ifNoneMatch, responseData)) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: {
+        'ETag': `"${etag}"`,
+        'Cache-Control': 'private, max-age=300, stale-while-revalidate=900',
+      },
+    });
+  }
+
+  // 6. Return success response with ETag and improved caching
+  const response = createSuccessResponse(discovery);
+
+  // Private cache: 5 min max-age + 15 min stale-while-revalidate
+  response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');
+  response.headers.set('ETag', `"${etag}"`);
+
+  return response;
 }
 
-// Apply rate limiting (10 req/min, same as personalized forecast)
-export const GET = withRateLimit(surfDiscoveryHandler, 'surf-discovery');
+// Compose: auth first (inner), then rate limit (outer)
+export const GET = withRateLimit(
+  withAuth(surfDiscoveryHandler, { errorMessage: 'Error discovering surf spots' }),
+  'surf-discovery'
+);

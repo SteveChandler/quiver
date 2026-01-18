@@ -1,5 +1,8 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
+import { createContextLogger } from "@/lib/logger";
+
+const log = createContextLogger('NOAAWaveWatch');
 
 // NOAA Wave Forecast API endpoints
 const NWS_POINT_FORECAST_BASE = "https://api.weather.gov/gridpoints";
@@ -106,26 +109,18 @@ export class NOAAWaveWatchService {
     days: number = 10
   ): Promise<WaveWatchForecast | null> {
     try {
-      if (this.isVerbose()) {
-        console.log(`Fetching NOAA wave forecast for ${latitude}, ${longitude}`);
-      }
+      log.debug(`Fetching NOAA wave forecast for ${latitude}, ${longitude}`);
 
       // First, try to get real NOAA data
       const noaaData = await this.fetchRealNOAAData(latitude, longitude, days);
 
       if (noaaData && noaaData.forecast.length > 0) {
-        if (this.isVerbose()) {
-          console.log(
-            `Successfully fetched real NOAA data with ${noaaData.forecast.length} forecasts`
-          );
-        }
+        log.debug(`Successfully fetched real NOAA data with ${noaaData.forecast.length} forecasts`);
         return noaaData;
       }
 
       // If NOAA data fails, fall back to simulated data with clear indication
-      if (this.isVerbose()) {
-        console.log("NOAA data unavailable, falling back to simulated data");
-      }
+      log.debug("NOAA data unavailable, falling back to simulated data");
       const fallbackData = await this.generateFallbackData(
         latitude,
         longitude,
@@ -139,7 +134,7 @@ export class NOAAWaveWatchService {
         data_source: "FALLBACK",
       };
     } catch (error) {
-      console.error("Error fetching wave forecast:", error);
+      log.error("Error fetching wave forecast:", error);
 
       // Generate fallback data on error
       const fallbackData = await this.generateFallbackData(
@@ -166,51 +161,31 @@ export class NOAAWaveWatchService {
     days: number
   ): Promise<WaveWatchForecast | null> {
     try {
-      if (this.isVerbose()) {
-        console.log(
-          `🌊 Attempting to fetch real NOAA data for ${latitude}, ${longitude}`
-        );
-      }
+      log.debug(`Attempting to fetch real NOAA data for ${latitude}, ${longitude}`);
 
       // First try NOAA NWS API
       const noaaData = await this.fetchNOAANWSData(latitude, longitude, days);
       if (noaaData && noaaData.forecast.length > 0) {
-        if (this.isVerbose()) {
-          console.log(
-            `✅ Successfully fetched NOAA NWS data with ${noaaData.forecast.length} forecasts`
-          );
-        }
+        log.debug(`Successfully fetched NOAA NWS data with ${noaaData.forecast.length} forecasts`);
         return noaaData;
       }
 
       // If NOAA NWS fails or has no wave data, try Open-Meteo as a better fallback
-      if (this.isVerbose()) {
-        console.log(
-          `🌊 NOAA NWS unavailable, trying Open-Meteo API for ${latitude}, ${longitude}`
-        );
-      }
+      log.debug(`NOAA NWS unavailable, trying Open-Meteo API for ${latitude}, ${longitude}`);
       const openMeteoData = await this.fetchOpenMeteoData(
         latitude,
         longitude,
         days
       );
       if (openMeteoData && openMeteoData.forecast.length > 0) {
-        if (this.isVerbose()) {
-          console.log(
-            `✅ Successfully fetched Open-Meteo data with ${openMeteoData.forecast.length} forecasts`
-          );
-        }
+        log.debug(`Successfully fetched Open-Meteo data with ${openMeteoData.forecast.length} forecasts`);
         return openMeteoData;
       }
 
-      if (this.isVerbose()) {
-        console.log(
-          `❌ Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
-        );
-      }
+      log.debug(`Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`);
       return null;
     } catch (error) {
-      console.error("💥 Error fetching real wave data:", error);
+      log.error("Error fetching real wave data:", error);
       return null;
     }
   }
@@ -226,9 +201,7 @@ export class NOAAWaveWatchService {
     try {
       // Step 1: Get the grid point for the location
       const pointsUrl = `${NWS_POINTS_BASE}/${latitude},${longitude}`;
-      if (this.isVerbose()) {
-        console.log(`📍 Fetching NOAA NWS grid point data from: ${pointsUrl}`);
-      }
+      log.debug(`Fetching NOAA NWS grid point data from: ${pointsUrl}`);
 
       const pointResponse = await fetch(pointsUrl, {
         headers: {
@@ -238,32 +211,22 @@ export class NOAAWaveWatchService {
       });
 
       if (!pointResponse.ok) {
-        if (this.isVerbose()) {
-          console.log(
-            `❌ NOAA Point API failed with ${pointResponse.status}: ${pointResponse.statusText}`
-          );
-        }
+        log.debug(`NOAA Point API failed with ${pointResponse.status}: ${pointResponse.statusText}`);
         return null;
       }
 
       const pointData: NOAAWavePoint = await pointResponse.json();
       if (!pointData?.properties) {
-        if (this.isVerbose()) {
-          console.log(
-            `❌ NOAA Point API returned missing properties for ${latitude}, ${longitude}`
-          );
-        }
+        log.debug(`NOAA Point API returned missing properties for ${latitude}, ${longitude}`);
         return null;
       }
 
-      if (this.isVerbose()) {
-        console.log(`✅ Got NOAA NWS grid point data:`, {
-          gridId: pointData.properties.gridId,
-          gridX: pointData.properties.gridX,
-          gridY: pointData.properties.gridY,
-          forecastGridData: pointData.properties.forecastGridData,
-        });
-      }
+      log.debug(`Got NOAA NWS grid point data:`, {
+        gridId: pointData.properties.gridId,
+        gridX: pointData.properties.gridX,
+        gridY: pointData.properties.gridY,
+        forecastGridData: pointData.properties.forecastGridData,
+      });
 
       // Step 2: Get the grid data which includes wave information
       /**
@@ -280,22 +243,15 @@ export class NOAAWaveWatchService {
           : null);
 
       if (!gridUrl || typeof gridUrl !== "string") {
-        if (this.isVerbose()) {
-          console.log(
-            `❌ NOAA Point API did not provide a usable grid URL for ${latitude}, ${longitude}`,
-            {
-              forecastGridData: pointData.properties.forecastGridData,
-              gridId: pointData.properties.gridId,
-              gridX: pointData.properties.gridX,
-              gridY: pointData.properties.gridY,
-            }
-          );
-        }
+        log.debug(`NOAA Point API did not provide a usable grid URL for ${latitude}, ${longitude}`, {
+          forecastGridData: pointData.properties.forecastGridData,
+          gridId: pointData.properties.gridId,
+          gridX: pointData.properties.gridX,
+          gridY: pointData.properties.gridY,
+        });
         return null;
       }
-      if (this.isVerbose()) {
-        console.log(`📊 Fetching NOAA NWS grid data from: ${gridUrl}`);
-      }
+      log.debug(`Fetching NOAA NWS grid data from: ${gridUrl}`);
 
       const gridResponse = await fetch(gridUrl, {
         headers: {
@@ -305,36 +261,25 @@ export class NOAAWaveWatchService {
       });
 
       if (!gridResponse.ok) {
-        if (this.isVerbose()) {
-          console.log(
-            `❌ NOAA Grid API failed with ${gridResponse.status}: ${gridResponse.statusText}`
-          );
-        }
+        log.debug(`NOAA Grid API failed with ${gridResponse.status}: ${gridResponse.statusText}`);
         return null;
       }
 
       const gridData: NOAAGridData = await gridResponse.json();
-      if (this.isVerbose()) {
-        console.log(
-          `✅ Got NOAA NWS grid data with properties:`,
-          Object.keys(gridData.properties)
-        );
-      }
+      log.debug(`Got NOAA NWS grid data with properties:`, Object.keys(gridData.properties));
 
       // Check for wave data availability
       const hasWaveHeight = !!gridData.properties.waveHeight;
       const haswavePeriod = !!gridData.properties.wavePeriod;
       const hasWaveDirection = !!gridData.properties.waveDirection;
 
-      if (this.isVerbose()) {
-        console.log(`🌊 NOAA NWS Wave data availability:`, {
-          waveHeight: hasWaveHeight,
-          wavePeriod: haswavePeriod,
-          waveDirection: hasWaveDirection,
-          waveHeightCount: gridData.properties.waveHeight?.values?.length || 0,
-          wavePeriodCount: gridData.properties.wavePeriod?.values?.length || 0,
-        });
-      }
+      log.debug(`NOAA NWS Wave data availability:`, {
+        waveHeight: hasWaveHeight,
+        wavePeriod: haswavePeriod,
+        waveDirection: hasWaveDirection,
+        waveHeightCount: gridData.properties.waveHeight?.values?.length || 0,
+        wavePeriodCount: gridData.properties.wavePeriod?.values?.length || 0,
+      });
 
       // Step 3: Check if we have actual meaningful wave height data (not zeros or nulls)
       const waveHeightValues = gridData.properties.waveHeight?.values || [];
@@ -346,28 +291,22 @@ export class NOAAWaveWatchService {
         waveHeightValues.length === 0 ||
         !hasValidWaveData
       ) {
-        if (this.isVerbose()) {
-          console.log(
-            `❌ NOAA NWS has no usable wave height data (${waveHeightValues.length} total, ${validValues.length} valid, first: ${
-              waveHeightValues[0]?.value ?? "none"
-            }m), falling back to Open-Meteo`
-          );
-        }
+        log.debug(
+          `NOAA NWS has no usable wave height data (${waveHeightValues.length} total, ${validValues.length} valid, first: ${
+            waveHeightValues[0]?.value ?? "none"
+          }m), falling back to Open-Meteo`
+        );
         return null;
       }
 
       // Log warning if we have limited data (low confidence)
       if (validValues.length === 1) {
-        console.warn(
-          `⚠️ NOAA NWS has limited wave data (only 1 valid value: ${validValues[0].value}m from ${waveHeightValues.length} total), proceeding but confidence may be lower`
+        log.warn(
+          `NOAA NWS has limited wave data (only 1 valid value: ${validValues[0].value}m from ${waveHeightValues.length} total), proceeding but confidence may be lower`
         );
       }
 
-      if (this.isVerbose()) {
-        console.log(
-          `✅ NOAA NWS wave data validated: ${validValues.length} valid forecasts from ${waveHeightValues.length} total`
-        );
-      }
+      log.debug(`NOAA NWS wave data validated: ${validValues.length} valid forecasts from ${waveHeightValues.length} total`);
 
       // Step 4: Process the grid data to extract wave information
       const waveData = this.processNOAAGridData(
@@ -378,17 +317,11 @@ export class NOAAWaveWatchService {
       );
 
       if (waveData.length === 0) {
-        if (this.isVerbose()) {
-          console.log(`❌ No wave data could be processed from NOAA NWS grid data`);
-        }
+        log.debug("No wave data could be processed from NOAA NWS grid data");
         return null;
       }
 
-      if (this.isVerbose()) {
-        console.log(
-          `✅ Successfully processed ${waveData.length} NOAA NWS wave forecasts`
-        );
-      }
+      log.debug(`Successfully processed ${waveData.length} NOAA NWS wave forecasts`);
       return {
         lat: latitude,
         lng: longitude,
@@ -396,7 +329,7 @@ export class NOAAWaveWatchService {
         data_source: "NOAA_NWS",
       };
     } catch (error) {
-      console.error("💥 Error fetching NOAA NWS data:", error);
+      log.error("Error fetching NOAA NWS data:", error);
       return null;
     }
   }
@@ -410,11 +343,7 @@ export class NOAAWaveWatchService {
     days: number
   ): Promise<WaveWatchForecast | null> {
     try {
-      if (this.isVerbose()) {
-        console.log(
-          `🌊 Fetching Open-Meteo marine data for ${latitude}, ${longitude}`
-        );
-      }
+      log.debug(`Fetching Open-Meteo marine data for ${latitude}, ${longitude}`);
 
       // Open-Meteo Marine API for wave forecasts
       const openMeteoUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latitude}&longitude=${longitude}&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height,wind_wave_direction,wind_wave_period&timezone=America%2FLos_Angeles&forecast_days=${Math.min(
@@ -422,9 +351,7 @@ export class NOAAWaveWatchService {
         7
       )}`;
 
-      if (this.isVerbose()) {
-        console.log(`📊 Fetching Open-Meteo data from: ${openMeteoUrl}`);
-      }
+      log.debug(`Fetching Open-Meteo data from: ${openMeteoUrl}`);
 
       const response = await fetch(openMeteoUrl, {
         headers: {
@@ -433,38 +360,22 @@ export class NOAAWaveWatchService {
       });
 
       if (!response.ok) {
-        if (this.isVerbose()) {
-          console.log(
-            `❌ Open-Meteo API failed with ${response.status}: ${response.statusText}`
-          );
-        }
+        log.debug(`Open-Meteo API failed with ${response.status}: ${response.statusText}`);
         return null;
       }
 
       const data = await response.json();
-      if (this.isVerbose()) {
-        console.log(
-          `✅ Got Open-Meteo data with ${
-            data.hourly?.time?.length || 0
-          } hourly forecasts`
-        );
-      }
+      log.debug(`Got Open-Meteo data with ${data.hourly?.time?.length || 0} hourly forecasts`);
 
       // Process Open-Meteo data
       const waveData = this.processOpenMeteoData(data, days);
 
       if (waveData.length === 0) {
-        if (this.isVerbose()) {
-          console.log(`❌ No wave data could be processed from Open-Meteo`);
-        }
+        log.debug("No wave data could be processed from Open-Meteo");
         return null;
       }
 
-      if (this.isVerbose()) {
-        console.log(
-          `✅ Successfully processed ${waveData.length} Open-Meteo wave forecasts`
-        );
-      }
+      log.debug(`Successfully processed ${waveData.length} Open-Meteo wave forecasts`);
       return {
         lat: latitude,
         lng: longitude,
@@ -472,7 +383,7 @@ export class NOAAWaveWatchService {
         data_source: "NOAA_NWS", // Keep as NOAA_NWS for consistency
       };
     } catch (error) {
-      console.error("💥 Error fetching Open-Meteo data:", error);
+      log.error("Error fetching Open-Meteo data:", error);
       return null;
     }
   }
@@ -484,9 +395,7 @@ export class NOAAWaveWatchService {
     const forecasts: WaveWatchData[] = [];
 
     if (!data.hourly || !data.hourly.time) {
-      if (this.isVerbose()) {
-        console.log(`❌ Open-Meteo data missing hourly forecasts`);
-      }
+      log.debug("Open-Meteo data missing hourly forecasts");
       return forecasts;
     }
 
@@ -495,9 +404,7 @@ export class NOAAWaveWatchService {
       data.hourly.time.length
     );
 
-    if (this.isVerbose()) {
-      console.log(`🔄 Processing ${maxForecasts} Open-Meteo forecasts`);
-    }
+    log.debug(`Processing ${maxForecasts} Open-Meteo forecasts`);
 
     for (let i = 0; i < maxForecasts; i++) {
       const timestamp = new Date(data.hourly.time[i]);
@@ -542,9 +449,7 @@ export class NOAAWaveWatchService {
       forecasts.push(forecast);
     }
 
-    if (this.isVerbose()) {
-      console.log(`✅ Processed ${forecasts.length} Open-Meteo wave forecasts`);
-    }
+    log.debug(`Processed ${forecasts.length} Open-Meteo wave forecasts`);
     return forecasts;
   }
 

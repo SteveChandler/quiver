@@ -4,9 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import {
-  SURF_CITY_SLUGS,
   SURF_INTENTS,
-  type SurfCitySlug,
   type SurfIntentSlug,
   type SurfSpot,
   getCityBySlug,
@@ -23,6 +21,10 @@ import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { StateMapView } from "@/components/state/state-map-view";
+import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-actions";
+import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
+import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
+import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
 
 export const revalidate = 1800;
 
@@ -34,15 +36,40 @@ function formatPacificDateTime(date: Date) {
   }).format(date);
 }
 
+const INTENT_SLUGS: SurfIntentSlug[] = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+const US_STATES = Object.values(US_STATE_SLUGS);
+
 export async function generateStaticParams() {
-  const params: Array<{ intent: SurfIntentSlug; city: SurfCitySlug }> = [];
-  SURF_CITY_SLUGS.forEach((citySlug) => {
-    const city = getCityBySlug(citySlug);
-    if (!city) return;
-    city.featuredIntents.forEach((intent) => {
-      params.push({ intent, city: citySlug });
-    });
-  });
+  const params: Array<{ intent: string; city: string }> = [];
+
+  try {
+    // Get all cities with 3+ beaches
+    const citiesResult = await getAllCitiesWithBeaches(3);
+    if (citiesResult.success && citiesResult.data) {
+      // Detect collisions
+      const collisionMap = detectCityCollisions(citiesResult.data);
+
+      // Generate city × intent combinations
+      for (const cityRecord of citiesResult.data) {
+        const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
+        if (!citySlug) continue;
+
+        for (const intent of INTENT_SLUGS) {
+          params.push({ intent, city: citySlug });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("generateStaticParams: Failed to fetch cities", error);
+  }
+
+  // Add state-level intent params (e.g., /beginner/ca)
+  for (const state of US_STATES) {
+    for (const intent of INTENT_SLUGS) {
+      params.push({ intent, city: state });
+    }
+  }
+
   return params;
 }
 
@@ -77,43 +104,29 @@ export async function generateMetadata({
     });
   }
 
-  const city = getCityBySlug(params.city);
+  // Database-driven city metadata
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
-  if (!city || !definition) return {};
+  if (!definition) return {};
 
-  const now = new Date();
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    dateStyle: "long",
-  }).format(now);
+  const cityResult = await findCityBySlug(params.city);
+  if (!cityResult.success || !cityResult.data) return {};
 
-  const title = definition.titleTemplate({ cityName: city.name });
-  const topSpotNames = getSpotsForIntent(
-    city.slug,
-    params.intent as SurfIntentSlug
-  )
-    .slice(0, 3)
-    .map((spot) => spot.name);
-  const description = definition.metaDescription({
-    cityName: city.name,
-    topSpots: topSpotNames,
-  });
+  const cityMetadata = cityResult.data;
+  const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
   return buildPageMetadata({
-    title,
-    description: `Updated ${formattedDate}. ${description}`,
-    path: `/${params.intent}/${city.slug}`,
+    title: pageContent.title,
+    description: pageContent.metaDescription,
+    path: `/${params.intent}/${params.city}`,
     keywords: [
-      `${city.name} ${definition.label}`,
-      `${city.name} ${params.intent} surf guide`,
-      `${city.name} surf ${definition.label.toLowerCase()}`,
-      "Quiver session planning",
+      `${cityMetadata.cityName} ${definition.label}`,
+      `${cityMetadata.cityName} surf`,
+      `${cityMetadata.stateName} surfing`,
     ],
   });
 }
 
 export default async function IntentPage({ params }: IntentPageParams) {
-  const city = getCityBySlug(params.city);
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
 
   // Legacy 2-segment state/city route: redirect to map filtered by city
@@ -183,15 +196,22 @@ export default async function IntentPage({ params }: IntentPageParams) {
     );
   }
 
-  if (!city || !definition) {
+  // Database-driven city resolution (replaces hardcoded SURF_CITIES)
+  const cityResult = await findCityBySlug(params.city);
+  const cityMetadata = cityResult.success ? cityResult.data : null;
+
+  if (!cityMetadata || !definition) {
     return notFound();
   }
 
-  // Try database first, then fall back to hardcoded data
+  // Generate content from templates
+  const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
+
+  // Try database first, then fall back to hardcoded data if needed
   const beachesResult = await getBeachesByIntentAndCity(
     params.intent,
     params.city,
-    "ca" // Default to CA for now - most curated cities are in California
+    cityMetadata.state.toLowerCase()
   );
 
   let spots: SurfSpot[];
@@ -206,12 +226,18 @@ export default async function IntentPage({ params }: IntentPageParams) {
     }));
     spots = transformBeachesToSurfSpots(beachesWithMetrics);
   } else {
-    // Fall back to hardcoded data
-    const hardcodedSpots = getSpotsForIntent(city.slug, params.intent as SurfIntentSlug);
-    if (hardcodedSpots.length === 0) {
+    // Fall back to hardcoded data if available (for legacy cities)
+    const city = getCityBySlug(params.city);
+    if (city) {
+      const hardcodedSpots = getSpotsForIntent(city.slug, params.intent as SurfIntentSlug);
+      if (hardcodedSpots.length > 0) {
+        spots = hardcodedSpots;
+      } else {
+        return notFound();
+      }
+    } else {
       return notFound();
     }
-    spots = hardcodedSpots;
   }
 
   if (spots.length === 0) {
@@ -220,31 +246,9 @@ export default async function IntentPage({ params }: IntentPageParams) {
 
   const now = new Date();
   const updatedAt = formatPacificDateTime(now);
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-  const regionLabel = city.regionLabel || `${city.name}, California`;
-
-  // Transform spots to minimal BeachWithMetrics for the map
-  const beachesForMap: BeachWithMetrics[] = spots.map(
-    (spot) =>
-      ({
-        id: spot.id || spot.slug,
-        slug: spot.slug,
-        name: spot.name,
-        lat: spot.coordinates.lat,
-        lon: spot.coordinates.lng,
-        // Minimal dummy data for BeachWithMetrics compliance
-        city: city.name,
-        state: "CA",
-        region: spot.region,
-        description: spot.overview,
-        compositeScore: 0,
-        recentIntelCount: 0,
-        avgConfirmations: 0,
-        created_at: "",
-        updated_at: "",
-      } as unknown as BeachWithMetrics)
-  );
+  const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
 
   return (
     <div className="bg-white">
@@ -252,19 +256,19 @@ export default async function IntentPage({ params }: IntentPageParams) {
         items={[
           { name: "Quiver", url: `${baseUrl.replace(/\/$/, "")}/` },
           {
-            name: `${city.name} Surf`,
-            url: `${baseUrl.replace(/\/$/, "")}/beaches/usa/ca/${city.slug}`,
+            name: `${cityMetadata.cityName} Surf`,
+            url: `${baseUrl.replace(/\/$/, "")}/beaches/usa/${cityMetadata.state.toLowerCase()}/${params.city}`,
           },
           {
             name: definition.label,
-            url: `${baseUrl.replace(/\/$/, "")}/${params.intent}/${city.slug}`,
+            url: `${baseUrl.replace(/\/$/, "")}/${params.intent}/${params.city}`,
           },
         ]}
       />
       <FAQSchema
         items={generateIntentFAQ(
           params.intent as SurfIntentSlug,
-          city.name,
+          cityMetadata.cityName,
           spots.slice(0, 3).map((s) => s.name)
         )}
       />
@@ -275,11 +279,11 @@ export default async function IntentPage({ params }: IntentPageParams) {
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href={`/beaches/usa/ca/${city.slug}`}
+            href={`/beaches/usa/${cityMetadata.state.toLowerCase()}/${params.city}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back to {city.name}
+            Back to {cityMetadata.cityName}
           </Link>
           <span className="text-gray-400 mx-2">›</span>
           <span className="text-gray-900 font-medium">{definition.label}</span>
@@ -288,7 +292,7 @@ export default async function IntentPage({ params }: IntentPageParams) {
         {/* Header */}
         <header className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            {definition.heading({ cityName: city.name })}
+            {pageContent.heading}
           </h1>
           <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
 
@@ -298,9 +302,7 @@ export default async function IntentPage({ params }: IntentPageParams) {
               minutes based on tide, wind, and crowd telemetry from Quiver.
             </p>
             <p className="text-base text-slate-700">
-              {definition.intro({ cityName: city.name })} We pair it with live
-              data so you can decide whether to stay put, scoot north up the
-              freeway, or log a sunset session after work.
+              {pageContent.intro}
             </p>
           </div>
         </header>
@@ -318,9 +320,9 @@ export default async function IntentPage({ params }: IntentPageParams) {
 
             <CityMapView
               spots={spots}
-              cityName={city.name}
-              citySlug={city.slug}
-              stateSlug="ca"
+              cityName={cityMetadata.cityName}
+              citySlug={params.city}
+              stateSlug={cityMetadata.state.toLowerCase()}
               countrySlug="usa"
             />
           </section>
@@ -351,7 +353,7 @@ export default async function IntentPage({ params }: IntentPageParams) {
               <p className="text-slate-700 leading-relaxed">
                 Once you wrap the surf, drop a note in your Quiver journal with
                 tide, board, and crowd observations. Over time you&apos;ll see
-                crystal-clear patterns about when {city.name} rewards this type
+                crystal-clear patterns about when {cityMetadata.cityName} rewards this type
                 of session objective.
               </p>
             </section>
@@ -382,15 +384,15 @@ export default async function IntentPage({ params }: IntentPageParams) {
                 <ul className="mt-3 space-y-2 text-sm text-sky-700">
                   <li>
                     <a
-                      href={`/beaches/usa/ca/${city.slug}`}
+                      href={`/beaches/usa/${cityMetadata.state.toLowerCase()}/${params.city}`}
                       className="underline-offset-2 hover:underline"
                     >
-                      Back to the {city.name} surf hub
+                      Back to the {cityMetadata.cityName} surf hub
                     </a>
                   </li>
                   <li>
                     <a
-                      href={`/least-crowded/${city.slug}`}
+                      href={`/least-crowded/${params.city}`}
                       className="underline-offset-2 hover:underline"
                     >
                       Less-crowded backups
@@ -398,7 +400,7 @@ export default async function IntentPage({ params }: IntentPageParams) {
                   </li>
                   <li>
                     <a
-                      href={`/water-temp/${city.slug}`}
+                      href={`/water-temp/${params.city}`}
                       className="underline-offset-2 hover:underline"
                     >
                       Water temperature trends

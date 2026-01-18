@@ -6,7 +6,7 @@
  * Run with: yarn jest __tests__/lib/services/surf-discovery-performance.test.ts
  */
 
-import { capEndTimeToTimeSlot } from '@/lib/services/surf-discovery-service';
+import { capEndTimeToTimeSlot } from '@/lib/services/discovery';
 import type { TimeSlot } from '@/types/personalization';
 
 describe('Surf Discovery Performance Benchmarks', () => {

@@ -47,6 +47,8 @@ export interface TidePreferences {
   readonly maxHeightFt: number;
   /** Preferred tide movement direction */
   readonly preferredDirection: 'rising' | 'falling' | 'either' | 'slack';
+  /** How sensitive this spot is to wrong tide direction */
+  readonly directionSensitivity: 'low' | 'medium' | 'high';
 }
 
 /**
@@ -107,5 +109,6 @@ export const SPOT_PROFILE_DEFAULTS = {
     minHeightFt: -2,
     maxHeightFt: 8,
     preferredDirection: 'either' as const,
+    directionSensitivity: 'medium' as const,
   },
 } as const;

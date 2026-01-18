@@ -85,7 +85,7 @@ ScorerPlugin interface:
     └── score(input) → ScorerResult
 ```
 
-**Built-in Scorers (7 total):**
+**Built-in Scorers (8 total):**
 
 | Scorer | Weight | Description |
 |--------|--------|-------------|
@@ -93,9 +93,10 @@ ScorerPlugin interface:
 | `swellAlignmentScorer` | 0.15 | Primary swell direction vs beach window |
 | `swellInterferenceScorer` | 0.15 | Primary vs secondary swell crossing |
 | `windQualityScorer` | 0.15 | Offshore/cross/onshore wind evaluation |
-| `tideFitScorer` | 0.10 | Tide height and direction preferences |
-| `windowStabilityScorer` | 0.10 | Conditions consistency over time |
-| `trendPreferenceScorer` | 0.10 | Improving vs degrading trend bonus |
+| `tideFitScorer` | 0.05 | Tide height preferences |
+| `tideDirectionScorer` | 0.15 | Tide direction (rising/falling) vs beach preferences |
+| `windowStabilityScorer` | 0.05 | Conditions consistency over time |
+| `trendPreferenceScorer` | 0.05 | Improving vs degrading trend bonus |
 
 **Usage:**
 ```typescript
@@ -169,7 +170,7 @@ Common utilities shared across domains.
                                                           ▼
                                               ┌───────────────────┐
                                               │   ScoringEngine   │
-                                              │   (7 scorers)     │
+                                              │   (8 scorers)     │
                                               └─────────┬─────────┘
                                                         │
                                                         ▼
@@ -250,6 +251,7 @@ lib/domains/
 │       ├── swell-interference-scorer.ts
 │       ├── wind-quality-scorer.ts
 │       ├── tide-fit-scorer.ts
+│       ├── tide-direction-scorer.ts
 │       ├── window-stability-scorer.ts
 │       └── trend-preference-scorer.ts
 ├── user-preferences/
