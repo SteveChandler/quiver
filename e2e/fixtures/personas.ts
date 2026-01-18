@@ -242,10 +242,23 @@ export function getPersonaRating(type: PersonaType): number {
 
 /**
  * Get default password for persona authentication
- * Uses environment variable or falls back to default
+ * Requires PERSONA_PASSWORD environment variable for non-localhost environments
+ * @throws Error if password not set and not running locally
  */
-export function getPersonaPassword(): string {
-  return process.env.PERSONA_PASSWORD || 'testpassword123';
+export function getPersonaPassword(baseURL?: string): string {
+  const password = process.env.PERSONA_PASSWORD;
+
+  // Allow fallback only for localhost development
+  const isLocalhost = !baseURL || baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
+
+  if (!password && !isLocalhost) {
+    throw new Error(
+      'PERSONA_PASSWORD environment variable is required for non-localhost environments. ' +
+      'Set it in .env.playwright or your CI environment.'
+    );
+  }
+
+  return password || 'testpassword123';
 }
 
 /**

@@ -11,6 +11,7 @@ This document describes the architecture, patterns, and best practices for end-t
 - [Helper Utilities](#helper-utilities)
 - [Testing Patterns](#testing-patterns)
 - [Authentication and User Profiles](#authentication-and-user-profiles)
+- [Persona-Based Testing](#persona-based-testing)
 - [Location and GPS Testing](#location-and-gps-testing)
 - [Best Practices](#best-practices)
 
@@ -27,13 +28,15 @@ The Quiver E2E test suite uses Playwright to provide comprehensive browser autom
 - **Profile settings**
 - **Session tracking**
 - **Social features**
+- **Multi-user interactions** (via persona testing)
 
 ### Test Projects
 
-Tests are organized into two Playwright projects:
+Tests are organized into three Playwright projects:
 
 1. **`guest`** - Unauthenticated tests (login, signup, public pages)
 2. **`auth`** - Authenticated tests (uses stored auth state from global setup)
+3. **`personas`** - Multi-user persona tests (6 NPC personalities for social/community features)
 
 ### Directory Structure
 
@@ -42,17 +45,42 @@ e2e/
 ├── fixtures/               # Test data and fixtures
 │   ├── test-data.ts       # General test data (timeouts, viewports, beach IDs)
 │   ├── location-data.ts   # Location and beach test data
-│   └── user-profiles.ts   # User profile fixtures with different states
+│   ├── user-profiles.ts   # User profile fixtures with different states
+│   └── personas.ts        # Persona type definitions (6 NPC personalities)
 │
 ├── utils/                  # Helper utilities
 │   ├── auth-helpers.ts    # Authentication verification helpers
 │   ├── profile-helpers.ts # Profile management utilities
 │   ├── test-helpers.ts    # General test utilities
-│   └── location-helpers.ts # Location testing utilities
+│   ├── location-helpers.ts # Location testing utilities
+│   ├── persona-auth.ts    # Multi-user authentication for personas
+│   ├── persona-content-generators.ts  # Persona-style content generation
+│   └── persona-helpers.ts # High-level persona test helpers
+│
+├── personas/               # Per-persona test specs
+│   ├── rookie.spec.ts
+│   ├── local.spec.ts
+│   ├── traveler.spec.ts
+│   ├── photographer.spec.ts
+│   ├── tactical.spec.ts
+│   └── competitor.spec.ts
+│
+├── persona-features/       # Cross-persona feature tests
+│   ├── intel-posts.spec.ts
+│   ├── session-logging.spec.ts
+│   ├── session-planning.spec.ts
+│   ├── discovery-follow.spec.ts
+│   └── profiles.spec.ts
+│
+├── api/                    # API contract tests
+│   └── *.spec.ts
 │
 ├── *.spec.ts               # Test specification files
 ├── global-setup.ts         # Authenticates test user before all tests
 ├── global-teardown.ts      # Cleanup after all tests
+├── persona-setup.ts        # Authenticates all 6 personas
+├── ARCHITECTURE.md         # This file
+├── PERSONAS.md             # Comprehensive persona testing documentation
 └── README.md               # Running tests and setup guide
 ```
 
@@ -105,6 +133,10 @@ npm run test:e2e:ui               # With Playwright UI
 # Run against dev environment
 npm run test:e2e:dev
 npm run test:e2e:dev:ui
+
+# Run persona tests
+npm run test:e2e:personas
+npm run test:e2e:personas:dev    # Against dev environment
 ```
 
 #### Option 2: Set Environment Variables
@@ -135,24 +167,25 @@ The Playwright configuration automatically adjusts based on the target environme
 
 **When testing localhost:**
 
-- ✅ Dev server starts automatically if needed
-- ✅ No bypass headers required
-- ✅ Full control over application code
-- ✅ Faster feedback loop for development
+- Dev server starts automatically if needed
+- No bypass headers required
+- Full control over application code
+- Faster feedback loop for development
 
 **When testing remote (dev/staging/prod):**
 
-- ✅ Skips dev server startup
-- ✅ Adds Vercel bypass headers if configured
-- ✅ Tests against deployed application
-- ✅ Validates production-like behavior
+- Skips dev server startup
+- Adds Vercel bypass headers if configured
+- Tests against deployed application
+- Validates production-like behavior
 
 ### Authentication State
 
 **Important**: Authentication state is environment-specific!
 
 - Auth cookies from `localhost:3000` won't work on `dev.quiversurf.app`
-- Auth state is saved to `e2e/.auth/state.json`
+- Auth state is saved to `e2e/.auth/state.json` (main test user)
+- Persona auth states are saved to `e2e/.auth/{persona}-state.json`
 - When switching environments, regenerate auth state:
 
 ```bash
@@ -161,6 +194,9 @@ npm run test:e2e:auth:reset
 
 # Regenerate for current environment
 npm run test:e2e:setup
+
+# Regenerate persona auth states
+npm run test:e2e:persona-setup
 ```
 
 ### Troubleshooting
@@ -194,6 +230,8 @@ Test files follow these conventions:
 - `{feature}-{area}.spec.ts` - Feature-specific tests (e.g., `home-beach-edge-cases.spec.ts`)
 - `guest-{feature}.spec.ts` - Unauthenticated tests
 - `{feature}.spec.ts` - General feature tests
+- `personas/{persona}.spec.ts` - Per-persona tests
+- `persona-features/{feature}.spec.ts` - Cross-persona feature tests
 
 ### Test Organization
 
@@ -298,6 +336,25 @@ await expect(element).toBeVisible({ timeout: TIMEOUTS.long });
 await page.setViewportSize(VIEWPORTS.mobile);
 ```
 
+### Persona Fixtures
+
+**Location:** `e2e/fixtures/personas.ts`
+
+Provides persona definitions for multi-user testing:
+
+```typescript
+import { PERSONAS, PersonaType, getPersona } from "./fixtures/personas";
+
+// Access persona by type
+const rookie = PERSONAS.rookie;
+// { type: 'rookie', displayName: 'Riley R. (Rookie)', email: '...', ... }
+
+// Get random phrase for content generation
+import { getRandomPhrase } from "./fixtures/personas";
+const phrase = getRandomPhrase('local');
+// "Pro tip" or "Heads up" or "Been coming here for years"
+```
+
 ---
 
 ## Helper Utilities
@@ -373,6 +430,31 @@ import { waitForPageLoad } from "./utils/test-helpers";
 await waitForPageLoad(page);
 ```
 
+### Persona Helpers
+
+**Location:** `e2e/utils/persona-helpers.ts`
+
+High-level helpers for persona-based testing:
+
+```typescript
+import {
+  createIntelPostAsPersona,
+  logSessionAsPersona,
+  verifyLoggedInAsPersona,
+  exploreDiscoveryAsPersona,
+} from "./utils/persona-helpers";
+
+// Create intel post as a specific persona
+const result = await createIntelPostAsPersona(page, 'local', {
+  beach: { name: 'Trestles', city: 'San Clemente', state: 'California' },
+  tag: 'conditions',
+});
+
+// Verify correct persona is logged in
+const verification = await verifyLoggedInAsPersona(page, 'rookie');
+expect(verification.isCorrectPersona).toBe(true);
+```
+
 ---
 
 ## Testing Patterns
@@ -427,7 +509,7 @@ Spatial function failed, falling back to client-side filtering
 This ensures that:
 
 - The spatial RPC path is exercised in real flows (GPS-based nearby beaches).
-- Any DB-level regression (e.g., function referencing a dropped column) becomes an immediate, visible test failure even if the UI still looks “okay” due to client-side distance fallback.
+- Any DB-level regression (e.g., function referencing a dropped column) becomes an immediate, visible test failure even if the UI still looks "okay" due to client-side distance fallback.
 
 ### Pattern 2: Permission State Transitions
 
@@ -672,6 +754,114 @@ test.describe("Home Beach Tests", () => {
 
 ---
 
+## Persona-Based Testing
+
+Quiver includes a comprehensive persona-based testing framework for validating multi-user features, social interactions, and user-generated content. The system uses 6 NPC (Non-Player Character) personalities with distinct writing styles and behaviors.
+
+**For complete documentation, see [PERSONAS.md](./PERSONAS.md).**
+
+### Quick Start
+
+```bash
+# 1. Seed mock users (one-time setup)
+yarn seed:prod-mock-users
+
+# 2. Authenticate all personas
+yarn test:e2e:persona-setup
+
+# 3. Run persona tests
+yarn test:e2e:personas
+```
+
+### The 6 Personas
+
+| Persona | Email | Experience | Style |
+|---------|-------|------------|-------|
+| **Rookie** | riley.r@example.invalid | Beginner | Enthusiastic |
+| **Local** | local.larry@example.invalid | Expert | Knowledgeable |
+| **Traveler** | tina.c@example.invalid | Intermediate | Comparative |
+| **Photographer** | p.martinez@example.invalid | Intermediate | Aesthetic |
+| **Tactical** | solid.snake@example.invalid | Advanced | Military precision |
+| **Competitor** | kai.n@example.invalid | Expert | Performance-focused |
+
+### Writing Persona Tests
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { PERSONAS } from '../fixtures/personas';
+import { getPersonaAuthStatePath } from '../utils/persona-auth';
+import { generateIntelContent, verifyPersonaContent } from '../utils/persona-content-generators';
+
+const PERSONA_TYPE = 'local' as const;
+const persona = PERSONAS[PERSONA_TYPE];
+
+// Use this persona's auth state
+test.use({
+  storageState: getPersonaAuthStatePath(PERSONA_TYPE),
+});
+
+test.describe(`${persona.displayName} Tests`, () => {
+  test('generates knowledgeable content', () => {
+    const content = generateIntelContent(PERSONA_TYPE,
+      { name: 'Test Beach', city: 'San Diego', state: 'CA' },
+      'conditions'
+    );
+
+    const verification = verifyPersonaContent(PERSONA_TYPE, content.description);
+    expect(verification.isValid).toBe(true);
+  });
+});
+```
+
+### Content Generation
+
+The framework includes content generators that produce persona-appropriate text:
+
+```typescript
+import { generateIntelContent, generateSessionContent } from '../utils/persona-content-generators';
+
+// Generate intel post
+const intel = generateIntelContent('tactical', beach, 'hazards');
+// Returns: { title: 'Test Beach threat assessment', description: 'Tactical assessment: ...', tag: 'hazards' }
+
+// Generate session notes
+const session = generateSessionContent('rookie');
+// Returns: { notes: 'OMG! Best session ever!...', rating: 5, waveHeight: '2-3 ft', crowdLevel: 2 }
+```
+
+### Cross-Persona Tests
+
+For testing features that involve multiple users:
+
+```typescript
+import { ALL_PERSONA_TYPES, PERSONAS } from '../fixtures/personas';
+import { createPersonaPage, personaAuthStateExists } from '../utils/persona-auth';
+
+test.describe('Cross-Persona Feature', () => {
+  for (const personaType of ALL_PERSONA_TYPES) {
+    const persona = PERSONAS[personaType];
+
+    test(`${persona.displayName} can use feature`, async ({ browser }) => {
+      if (!personaAuthStateExists(personaType)) {
+        test.skip();
+        return;
+      }
+
+      const { page, context } = await createPersonaPage(browser, personaType);
+
+      try {
+        await page.goto('/feature');
+        // Test feature...
+      } finally {
+        await context.close();
+      }
+    });
+  }
+});
+```
+
+---
+
 ## Location and GPS Testing
 
 ### GPS Coordinates
@@ -851,19 +1041,19 @@ test("should handle orphaned home beach reference", async ({ page }) => {
 
 ### Current Coverage
 
-✅ Home Beach Fallback Mode
+Home Beach Fallback Mode
 
-- GPS denied + home beach set → Show home beach results
+- GPS denied + home beach set -> Show home beach results
 - Home beach heading with beach name
 - Fallback when GPS unavailable
 
-✅ No Location Available
+No Location Available
 
-- GPS denied + no home beach → Error state or hidden section
+- GPS denied + no home beach -> Error state or hidden section
 - Clear error messaging
 - Actionable user guidance
 
-✅ GPS Permission State Transitions
+GPS Permission State Transitions
 
 - Permission prompt state
 - Mid-session permission revocation
@@ -871,36 +1061,36 @@ test("should handle orphaned home beach reference", async ({ page }) => {
 - Browser geolocation blocked
 - Geolocation API unavailable (legacy browsers)
 
-✅ Permission State Persistence
+Permission State Persistence
 
 - Permission state across page reloads
 - Permission state in new tabs/windows
 
-✅ Geolocation Timeout Handling
+Geolocation Timeout Handling
 
 - Timeout state after 10+ seconds
 - Retry capability after timeout
 
-✅ Edge Cases
+Edge Cases
 
 - Invalid/orphaned home beach reference
 - Home beach with null coordinates
 - Mid-session home beach changes
 - Stale data handling
 
-✅ Loading States
+Loading States
 
 - Skeleton display during load
 - Transition from loading to content
 - Transition from loading to error
 
-✅ Error States
+Error States
 
 - Clear, actionable error messages
 - Proper ARIA attributes for accessibility
 - Error styling validation
 
-✅ Accessibility
+Accessibility
 
 - Heading hierarchy
 - Keyboard navigation
@@ -908,21 +1098,29 @@ test("should handle orphaned home beach reference", async ({ page }) => {
 - Color contrast for badges
 - Screen reader announcements
 
+Multi-User / Persona Testing
+
+- 6 distinct persona personalities
+- Content generation matching writing styles
+- Cross-persona social interactions
+- Intel posts with persona-appropriate content
+- Session logging with experience-appropriate data
+
 ### Future Coverage (Planned)
 
-🔄 Integration Scenarios
+Integration Scenarios
 
-- Complete user flows (GPS → Home Beach → Set in Profile)
+- Complete user flows (GPS -> Home Beach -> Set in Profile)
 - Session timezone changes
 - Offline fallback behavior
 
-🔄 Mobile-Specific Scenarios
+Mobile-Specific Scenarios
 
 - App backgrounding/resumption
 - Battery saver mode effects
 - App reinstall (localStorage loss)
 
-🔄 Performance Regression Tests
+Performance Regression Tests
 
 - Slow network (3G/LTE) simulation
 - Large beach database (1000+ beaches)
@@ -963,6 +1161,14 @@ Quiver E2E tests now **server-validate** auth state (not just cookie presence). 
 3. Verify test credentials and `BASE_URL` in `.env.playwright`
 4. If you manually sign in/out in the browser using the same test user, regenerate auth state again (refresh token rotation can invalidate `e2e/.auth/state.json`).
 
+### Persona Auth State Missing
+
+If persona tests fail with auth state errors:
+
+1. Run persona setup: `yarn test:e2e:persona-setup`
+2. Verify mock users exist: `yarn seed:prod-mock-users`
+3. Check `PERSONA_PASSWORD` environment variable
+
 ### Geolocation Not Working
 
 Ensure you're granting permissions AND setting coordinates:
@@ -1002,7 +1208,7 @@ When adding new tests:
 - [ ] Tests pass locally
 - [ ] New fixtures added to `e2e/fixtures/`
 - [ ] Helper utilities created for reusable logic
-- [ ] Documentation updated (this file and/or README.md)
+- [ ] Documentation updated (this file, PERSONAS.md, and/or README.md)
 - [ ] Accessibility tests included
 - [ ] Edge cases covered
 - [ ] Mobile viewports tested
@@ -1013,6 +1219,7 @@ When adding new tests:
 
 - [Playwright Documentation](https://playwright.dev/docs/intro)
 - [Quiver E2E README](./README.md) - Running tests and setup
+- [Persona Testing Guide](./PERSONAS.md) - Multi-user persona testing
 - [Test Data Fixtures](./fixtures/) - Reusable test data
 - [Helper Utilities](./utils/) - Test helper functions
 - [Quiver CLAUDE.md](../CLAUDE.md) - Project overview and guidelines
@@ -1033,16 +1240,16 @@ When adding new tests:
    - Tests graceful UI for new users building session history
 
 2. **Insights Display with Sufficient Data**
-   - Validates users with ≥3 rated sessions see personalized insights
+   - Validates users with >=3 rated sessions see personalized insights
    - Checks "For You" KPI tile displays match label or percentage
    - Verifies reason bullets displayed in summary section
 
 3. **Match Quality Indicators**
    - Tests match labels (Perfect/Great/Good/Low) align with percentages
-   - Validates percentage thresholds: Perfect ≥80%, Great 60-79%, Good 40-59%, Low <40%
+   - Validates percentage thresholds: Perfect >=80%, Great 60-79%, Good 40-59%, Low <40%
 
 4. **Board Recommendation Display**
-   - Tests board tip appears when pattern detected (≥60% same board)
+   - Tests board tip appears when pattern detected (>=60% same board)
    - Validates amber UI element with ruler icon
    - Checks board name and type displayed correctly
 
@@ -1068,7 +1275,7 @@ When adding new tests:
 
 9. **Mobile Responsiveness**
    - Tests insights display correctly on mobile viewport (375x667)
-   - Validates touch-friendly button sizes (≥40px height)
+   - Validates touch-friendly button sizes (>=40px height)
    - Checks text wrapping and no horizontal scroll
 
 10. **Data Consistency Validation**
@@ -1113,8 +1320,8 @@ const boardTip = card.locator('.bg-amber-50.border-amber-200');
 await expect(boardTip).toBeVisible();
 
 // Open similar sessions drawer
-const viewSimilarButton = card.getByRole('button', { 
-  name: /view.*similar session/i 
+const viewSimilarButton = card.getByRole('button', {
+  name: /view.*similar session/i
 });
 await viewSimilarButton.click();
 
@@ -1338,4 +1545,4 @@ test("POST /api/boards returns 400 for invalid payload", async () => {
 
 ---
 
-**Last Updated**: January 4, 2026
+**Last Updated**: January 18, 2026

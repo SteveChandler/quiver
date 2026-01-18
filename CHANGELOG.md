@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Map Marker Clustering:** Beaches are now clustered on the map when zoomed out to reduce visual clutter and improve performance. Clusters display aggregated wave height ranges (e.g., "2-4ft") and beach counts, expanding on click to reveal individual beaches. Uses Supercluster library with `useBeachClustering` hook (`hooks/use-beach-clustering.ts`) and `ClusterMarker` component (`components/map/cluster-marker.tsx`). Clusters highlight when containing favorite beaches.
+
+- **Tide-Driven Session Windows:** Discovery window selector now calculates session windows based on tide boundaries when beaches have tide thresholds configured (`preferred_tide_ft_min/max`). Shows the full recommended window aligned to optimal tide conditions without truncation. Includes direction-based fallback (rising/falling/slack preference) when no optimal tide window exists within the selected time slot. Falls back to hourly windows when tide data is unavailable.
+
+- **Dynamic Dawn Patrol Range:** Added `getDawnPatrolRange()` and `getTimeSlotRange()` helpers (`lib/services/discovery/window-selector.ts`) that calculate dawn patrol start time based on actual sunrise (civil twilight ~30 min before) rather than fixed hours. Supports dynamic time slot boundaries for morning, afternoon, and any time filters.
+
+- **Persona-Based E2E Testing:** Comprehensive testing framework using 6 NPC personality types (Rookie, Local, Traveler, Photographer, Tactical, Competitor) for multi-user authenticated E2E test scenarios. Includes:
+  - `e2e/fixtures/personas.ts` - Persona definitions with writing styles, typical content, and expected rating ranges
+  - `e2e/utils/persona-auth.ts` - Multi-user authentication helpers
+  - `e2e/utils/persona-content-generators.ts` - Persona-specific content generation
+  - `e2e/utils/persona-helpers.ts` - Cross-persona feature test utilities
+  - Enables realistic testing of social features, reviews, and intel posts with diverse user behaviors
+
 - **Analytics Events for Personalization Features:** Added tracking events to measure personalization feature engagement:
   - `personalized_score_shown`: Fired when a personalized score is displayed in beach discovery cards (tracks beach_id and score)
   - `favorite_shown_in_carousel`: Fired when a favorite beach appears in the Top Spots carousel (tracks beach_id and score)
@@ -121,7 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Database Schema (3 new tables):**
   - `city_metadata`: Core city data (city, state, slug, region, coordinates) with unique slug constraint and indexed lookups
   - `city_editorial_content`: AI-generated editorial content (surf_vibe, local_knowledge, best_for, season_overview) for rich SEO
-  - `city_beach_mapping`: Many-to-many relationships allowing beaches to belong to multiple cities (e.g., Malibu → LA County + Ventura County)
+  - `city_beach_mapping`: Many-to-many relationships allowing beaches to belong to multiple cities (e.g., Malibu -> LA County + Ventura County)
 
   **Server Actions (3 new action files):**
   - `actions/city/city-metadata-actions.ts`: `findCityBySlug()`, `getCityMetadata()`, `getCitySummary()` for city discovery and geographic calculations
@@ -137,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `lib/utils/beach-to-surfspot-transformer.ts`: Converts database `Beach` records to legacy `SurfSpot` format for UI compatibility
 
   **Static Generation:**
-  - Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate ~350 intent pages (50+ cities × 7 intents) plus all 50 US states
+  - Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate ~350 intent pages (50+ cities x 7 intents) plus all 50 US states
   - Intelligent fallback to hardcoded data for legacy cities when database is empty
   - State-level intent pages (e.g., `/beginner/ca`) with aggregated beach results
 
@@ -181,8 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Coast Pulse Intel Display Improvements:** Enhanced how user intel posts are displayed in Live Coast Pulse. Intel items now show richer, more actionable data:
   - **Beach name in source:** Intel posts display as "{username} @ {beach_name}" instead of just the username
-  - **Emoji ratings prominently displayed:** Condition emojis (🔥 🤙 😐 👎) appear at the start of the message
-  - **Structured conditions:** When available, shows formatted wave height, wind, and crowd level (e.g., "🔥 · 4ft · 8kt NW · light")
+  - **Emoji ratings prominently displayed:** Condition emojis (fire, hang loose, neutral, thumbs down) appear at the start of the message
+  - **Structured conditions:** When available, shows formatted wave height, wind, and crowd level (e.g., "fire . 4ft . 8kt NW . light")
   - **Graceful fallbacks:** Falls back to description text when no structured data is available
   - **Performance optimization:** Beaches queries reduced from 3 to 1 per request via shared cache
   - **Helper functions:** Added `formatIntelMessage()`, `formatIntelSourceName()`, and `findNearestBeachName()` with 19 unit tests

@@ -1,24 +1,153 @@
 # Map Components Architecture
 
-## 🎯 **PURPOSE**
+## **PURPOSE**
 
-The map components provide an interactive beach discovery system with dual map/list views, real-time wave data, search functionality, location-based services, and **Phase 2 enhanced motion interactions** for delightful user experiences.
+The map components provide an interactive beach discovery system with dual map/list views, real-time wave data, search functionality, location-based services, **beach marker clustering for dense areas**, and **Phase 2 enhanced motion interactions** for delightful user experiences.
 
-## 📁 **COMPONENT STRUCTURE**
+## **COMPONENT STRUCTURE**
 
 ```
 components/map/
 ├── map-content.tsx           # Main map container with dynamic loading
-├── interactive-map.tsx       # Mapbox interactive map with wave markers
+├── interactive-map.tsx       # Mapbox interactive map with wave markers + clustering
 ├── map-display.tsx           # Static map with wave height overlays
 ├── beach-list.tsx           # Searchable beach list with reviews
 ├── map-header.tsx           # Navigation header (legacy)
 ├── map-search-header.tsx    # Search header with view toggles
 ├── nearby-beach-scroll.tsx  # Horizontal beach scroller
-└── selected-beach-card.tsx  # Selected beach detail card
+├── selected-beach-card.tsx  # Selected beach detail card
+└── cluster-marker.tsx       # Cluster marker element for grouped beaches
 ```
 
-## 🎨 **PHASE 2 MOTION ENHANCEMENTS**
+## **BEACH MARKER CLUSTERING**
+
+### **Overview**
+
+When zoomed out, beaches in dense areas are automatically grouped into clusters to reduce visual clutter and improve performance. Clusters display aggregated wave height ranges and expand on click.
+
+### **Architecture**
+
+```
+InteractiveMap
+├── useBeachClustering hook (Supercluster integration)
+│   ├── Builds Supercluster index from beaches
+│   ├── Returns clusters for current viewport
+│   └── Provides getExpansionZoom() for click-to-expand
+├── ClusterMarker (DOM element for cluster badges)
+│   ├── Shows wave height range (e.g., "2-4ft")
+│   ├── Shows beach count badge
+│   └── Highlights if contains favorite beaches
+└── Individual BeachMarker (for non-clustered points)
+```
+
+### **useBeachClustering Hook**
+
+Location: `hooks/use-beach-clustering.ts`
+
+The hook integrates with [Supercluster](https://github.com/mapbox/supercluster) for efficient geo-clustering:
+
+```typescript
+const { clusters, getExpansionZoom } = useBeachClustering({
+  beaches,           // Beach[] - all beaches to cluster
+  waveHeights,       // Map<string, number> - beach ID to wave height
+  bounds,            // Viewport bounds { west, south, east, north }
+  zoom,              // Current map zoom level
+  favoriteBeachIds,  // Set<string> - for styling favorites
+});
+
+// clusters: ClusterPoint[] - mix of clusters and individual beaches
+// getExpansionZoom(clusterId): number - zoom level to expand cluster
+```
+
+**Supercluster Configuration:**
+- `radius: 60` - Cluster radius in pixels
+- `maxZoom: 14` - Max zoom to cluster (individual markers beyond this)
+- Custom `reduce` function aggregates wave heights and beach IDs
+
+### **ClusterMarker Component**
+
+Location: `components/map/cluster-marker.tsx`
+
+Creates DOM elements for cluster markers used with Mapbox GL:
+
+```typescript
+const { element, cleanup } = createClusterMarkerElement({
+  waveHeights,    // Aggregated wave heights from clustered beaches
+  pointCount,     // Number of beaches in cluster
+  hasFavorite,    // Whether cluster contains a favorite beach
+  onHover,        // Hover callback for interactions
+  onLeave,        // Mouse leave callback
+});
+```
+
+**Visual Features:**
+- Displays wave height range (e.g., "2-6ft") formatted via `formatClusterWaveRange()`
+- Beach count badge showing number of grouped beaches
+- Color-coded background based on favorite status (`getClusterColor()`)
+- Hover effects with scale transform and shadow enhancement
+- Click-to-expand behavior via `getExpansionZoom()`
+
+### **Integration in InteractiveMap**
+
+```typescript
+function InteractiveMap({ beaches, waveHeights, favoriteBeachIds }) {
+  const [bounds, setBounds] = useState(initialBounds);
+  const [zoom, setZoom] = useState(initialZoom);
+
+  const { clusters, getExpansionZoom } = useBeachClustering({
+    beaches,
+    waveHeights,
+    bounds,
+    zoom,
+    favoriteBeachIds,
+  });
+
+  // Render clusters and individual beaches
+  clusters.forEach((point) => {
+    if (point.isCluster) {
+      const marker = createClusterMarkerElement({
+        waveHeights: point.waveHeights,
+        pointCount: point.pointCount,
+        hasFavorite: point.beachIds?.some(id => favoriteBeachIds.has(id)),
+        onHover: () => setHoveredCluster(point.clusterId),
+        onLeave: () => setHoveredCluster(null),
+      });
+
+      // Add click handler to expand cluster
+      marker.element.addEventListener('click', () => {
+        const expansionZoom = getExpansionZoom(point.clusterId);
+        map.easeTo({
+          center: [point.longitude, point.latitude],
+          zoom: expansionZoom,
+        });
+      });
+
+      new mapboxgl.Marker(marker.element)
+        .setLngLat([point.longitude, point.latitude])
+        .addTo(map);
+    } else {
+      // Render individual beach marker
+      renderBeachMarker(point.beach, point.waveHeight);
+    }
+  });
+}
+```
+
+### **Utility Functions**
+
+Location: `lib/utils/cluster-formatter.ts`
+
+```typescript
+// Format wave height range for cluster display
+formatClusterWaveRange(waveHeights: (number | undefined)[]): string
+// Returns: "2-4ft" or "3ft" (single value) or "N/A"
+
+// Get background color based on favorite status
+getClusterColor(hasFavorite: boolean): string
+// Returns: gradient string for CSS background
+```
+
+## **PHASE 2 MOTION ENHANCEMENTS**
 
 ### **Enhanced Beach Marker Interactions**
 
@@ -27,7 +156,7 @@ components/map/
 const createWaveHeightBadge = (location: Beach, waveHeight?: number) => {
   const wrapper = document.createElement("div");
   wrapper.setAttribute("data-testid", "beach-marker");
-  
+
   // Enhanced styling with motion states
   badge.style.cssText = `
     transform: scale(${
@@ -42,7 +171,7 @@ const createWaveHeightBadge = (location: Beach, waveHeight?: number) => {
         : "0 4px 12px rgba(0, 0, 0, 0.3)"
     };
   `;
-  
+
   // Selection ring animation
   if (isSelected) {
     const selectionRing = document.createElement("div");
@@ -62,7 +191,7 @@ const createWaveHeightBadge = (location: Beach, waveHeight?: number) => {
 ```typescript
 const ForecastPopup = ({ beach, position }) => {
   const popupMotion = PHASE2_ANIMATIONS.mapDiscovery.forecastPopup;
-  
+
   return (
     <motion.div
       data-testid="forecast-popup"
@@ -115,7 +244,7 @@ const LocationSelector = () => {
 };
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## **ARCHITECTURE PATTERNS**
 
 ### **Dual View System**
 
@@ -159,7 +288,7 @@ const populateLocations = async (lat: number, lng: number) => {
 };
 ```
 
-## 📊 **COMPONENT RESPONSIBILITIES**
+## **COMPONENT RESPONSIBILITIES**
 
 ### **MapContent** (Primary Container)
 
@@ -184,10 +313,12 @@ const mapCenter = useMemo(() => {
 
 ### **InteractiveMap** (Mapbox Integration)
 
-- **Purpose**: Real-time interactive map with wave data
+- **Purpose**: Real-time interactive map with wave data and clustering
 - **Features**:
   - Mapbox GL JS integration
   - Custom wave height markers
+  - **Beach marker clustering via useBeachClustering hook**
+  - **Click-to-expand cluster behavior**
   - Debounced viewport change detection
   - Cached API requests for performance
   - Favorite beach highlighting
@@ -292,7 +423,7 @@ const handleMoveEnd = useCallback(
           animate={{ scale: 1 }}
           transition={{ type: "spring", bounce: 0.3 }}
         >
-          ✓
+          check
         </motion.div>
       )}
     </motion.div>
@@ -342,7 +473,7 @@ const handleMoveEnd = useCallback(
   - Distance and rating display
   - Action buttons for navigation
 
-## 🗺️ **MAPBOX INTEGRATION**
+## **MAPBOX INTEGRATION**
 
 ### **Setup and Configuration**
 
@@ -379,7 +510,7 @@ const [offsetLng, offsetLat] = getOffshorePosition(
 );
 ```
 
-## 🃏 **ENHANCED BEACH CARDS WITH MOTION**
+## **ENHANCED BEACH CARDS WITH MOTION**
 
 ### **Interactive Beach Card System**
 
@@ -387,12 +518,12 @@ const [offsetLng, offsetLat] = getOffshorePosition(
 const BeachCard = ({ beach }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
     <motion.div
       data-testid="beach-card"
-      whileHover={{ 
-        scale: 1.02, 
+      whileHover={{
+        scale: 1.02,
         y: -4,
         boxShadow: "0 8px 25px rgba(0,0,0,0.15)"
       }}
@@ -401,18 +532,18 @@ const BeachCard = ({ beach }) => {
     >
       <Card>
         {/* Enhanced image with motion */}
-        <motion.div 
+        <motion.div
           className="relative h-48 cursor-pointer"
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 0.3 }}
         >
           <MapImage src={imageUrl} alt={name} />
         </motion.div>
-        
+
         {/* Expandable content with smooth reveal */}
         <AnimatePresence>
           {(showForecastPreview || isExpanded) && (
-            <motion.div 
+            <motion.div
               data-testid="expanded-content"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -459,7 +590,7 @@ const BeachCard = ({ beach }) => {
 </motion.div>
 ```
 
-## 🎨 **DESIGN PATTERNS**
+## **DESIGN PATTERNS**
 
 ### **Responsive Layout System**
 
@@ -509,7 +640,7 @@ const favoriteColors = {
 }
 ```
 
-## 🚀 **PERFORMANCE OPTIMIZATIONS**
+## **PERFORMANCE OPTIMIZATIONS**
 
 ### **Caching Strategy**
 
@@ -552,7 +683,7 @@ const beachForecastPromises = locations.map(async (beach) => {
 const beachForecasts = await Promise.all(beachForecastPromises);
 ```
 
-## 🔍 **SEARCH AND FILTERING**
+## **SEARCH AND FILTERING**
 
 ### **Search Integration**
 
@@ -591,7 +722,7 @@ const isLikelyOutOfAreaSearch = (query: string) => {
 };
 ```
 
-## 📱 **MOBILE OPTIMIZATION**
+## **MOBILE OPTIMIZATION**
 
 ### **Touch-Friendly Markers**
 
@@ -619,12 +750,13 @@ style={{ width: "100%", height: "100%", minHeight: "400px" }}
 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-xs z-10">
 ```
 
-## 🧪 **TESTING CONSIDERATIONS**
+## **TESTING CONSIDERATIONS**
 
 ### **Component Testing**
 
 - Map initialization and cleanup
 - Marker placement and interaction
+- **Cluster formation and expansion**
 - Search functionality
 - View mode switching
 
@@ -635,7 +767,7 @@ style={{ width: "100%", height: "100%", minHeight: "400px" }}
 - Location services
 - Error state handling
 
-## 📊 **MOTION PERFORMANCE OPTIMIZATION**
+## **MOTION PERFORMANCE OPTIMIZATION**
 
 ### **Reduced Motion Support**
 
@@ -662,7 +794,7 @@ const respectReducedMotion = () => {
 const monitorPerformance = () => {
   let frameCount = 0;
   let lastTime = performance.now();
-  
+
   const countFrames = () => {
     frameCount++;
     const currentTime = performance.now();
@@ -680,12 +812,11 @@ const monitorPerformance = () => {
 };
 ```
 
-## 🔮 **FUTURE ENHANCEMENTS**
+## **FUTURE ENHANCEMENTS**
 
 ### **Planned Features**
 
 - Real-time weather layer overlays
-- Cluster markers for dense areas  
 - Satellite view toggle
 - User location tracking
 - Offline map support
@@ -696,20 +827,21 @@ const monitorPerformance = () => {
 ### **Performance Improvements**
 
 - WebGL marker optimization
-- Progressive image loading 
+- Progressive image loading
 - Service worker caching
 - Vector tile optimization
 - **GPU-accelerated motion rendering**
 - **Virtualized list rendering for large datasets**
 - **Predictive animation preloading**
 
-## 🧪 **MOTION TESTING STRATEGY**
+## **MOTION TESTING STRATEGY**
 
 ### **Component Test IDs**
 
 ```typescript
 // Essential test identifiers for motion validation
 data-testid="beach-marker"        // Beach markers with hover/selection
+data-testid="cluster-marker"      // Cluster markers for grouped beaches
 data-testid="selection-ring"      // Selection animation rings
 data-testid="forecast-popup"      // Forecast popups with motion
 data-testid="beach-list"          // Staggered list container
@@ -743,7 +875,8 @@ const announceSelection = (beachName: string) => {
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with **Phase 2 motion enhancements**, real-time wave data, and comprehensive search  
-**Motion Features**: Beach marker interactions, forecast popups, staggered animations, location selection excitement  
+**Last Updated**: January 18, 2026
+**Status**: Production-ready with **beach marker clustering**, **Phase 2 motion enhancements**, real-time wave data, and comprehensive search
+**Motion Features**: Beach marker interactions, forecast popups, staggered animations, location selection excitement
+**Clustering**: Supercluster integration with useBeachClustering hook and ClusterMarker component
 **Next Review**: After implementing Phase 3 form validation motion

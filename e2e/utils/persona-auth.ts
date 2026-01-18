@@ -104,7 +104,7 @@ export async function authenticatePersona(
 
   const persona = PERSONAS[type];
   const storageStatePath = getPersonaAuthStatePath(type);
-  const password = getPersonaPassword();
+  const password = getPersonaPassword(baseURL);
 
   // Ensure auth directory exists
   const authDir = dirname(storageStatePath);
@@ -199,7 +199,7 @@ export async function authenticatePersona(
 
         await emailInput.fill(persona.email);
         await passwordInput.fill(password);
-        log(`Filled credentials for ${persona.email}`);
+        log(`Filled credentials for persona: ${type}`);
 
         // Submit login
         const submitButton = page.getByRole('button', { name: /log in|sign in/i }).last();

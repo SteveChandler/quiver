@@ -257,12 +257,21 @@ async function createMockUser(userData: typeof mockUsers[0]) {
       authUserId = existingAuthUser.id;
     } else {
       // Create auth user with Supabase Admin API
-      // Password enables E2E persona testing - uses PERSONA_PASSWORD env or default
-      const mockPassword = process.env.PERSONA_PASSWORD || 'testpassword123';
+      // Password is required - must be set via PERSONA_PASSWORD environment variable
+      const mockPassword = process.env.PERSONA_PASSWORD;
+      if (!mockPassword) {
+        console.error(`❌ PERSONA_PASSWORD environment variable is required to create mock users.`);
+        console.error(`   Set it in your .env file or export it before running this script.`);
+        return false;
+      }
+
+      // Only confirm email if explicitly allowed (for E2E testing in dev/test environments)
+      const allowEmailConfirm = process.env.ALLOW_MOCK_EMAIL_CONFIRM === 'true';
+
       const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
         email: userData.email,
         password: mockPassword,
-        email_confirm: true, // Confirm email so users can log in immediately
+        email_confirm: allowEmailConfirm, // Only confirm if explicitly allowed
         user_metadata: {
           full_name: userData.name,
           is_mock_user: true,
@@ -494,7 +503,7 @@ async function main() {
     console.log('');
     console.log('💡 Next steps:');
     console.log('   - Mock users are marked with is_mock=true in profiles');
-    console.log('   - Auth users have email_confirmed=true for E2E testing login');
+    console.log(`   - Email confirmed: ${process.env.ALLOW_MOCK_EMAIL_CONFIRM === 'true' ? 'YES (E2E login ready)' : 'NO (set ALLOW_MOCK_EMAIL_CONFIRM=true for E2E)'}`);
     console.log('   - All emails use @example.invalid domain (non-deliverable)');
     console.log('   - You can query mock users with: SELECT * FROM profiles WHERE is_mock = true');
   } else {

@@ -74,9 +74,10 @@ export interface LogSessionResult {
  */
 export async function navigateToBeach(page: Page, beach: BeachInfo): Promise<void> {
   // Build hierarchical URL: /{state}/{city-slug}/{beach-slug}
-  const stateSlug = (beach.state || 'california').toLowerCase().replace(/\s+/g, '-');
-  const citySlug = (beach.city || 'san-diego').toLowerCase().replace(/\s+/g, '-');
-  const beachSlug = beach.slug || beach.name.toLowerCase().replace(/\s+/g, '-');
+  // Use encodeURIComponent to prevent URL injection from special characters
+  const stateSlug = encodeURIComponent((beach.state || 'california').toLowerCase().replace(/\s+/g, '-'));
+  const citySlug = encodeURIComponent((beach.city || 'san-diego').toLowerCase().replace(/\s+/g, '-'));
+  const beachSlug = encodeURIComponent(beach.slug || beach.name.toLowerCase().replace(/\s+/g, '-'));
 
   const url = `/${stateSlug}/${citySlug}/${beachSlug}`;
   await page.goto(url);
@@ -279,7 +280,9 @@ export async function followUserAsPersona(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Navigate to user's profile
-    await page.goto(`/surfer/${targetUserName.toLowerCase().replace(/\s+/g, '-')}`);
+    // Use encodeURIComponent to prevent URL injection from special characters
+    const userSlug = encodeURIComponent(targetUserName.toLowerCase().replace(/\s+/g, '-'));
+    await page.goto(`/surfer/${userSlug}`);
     await page.waitForLoadState('domcontentloaded');
 
     // Find and click follow button

@@ -99,8 +99,9 @@ export default defineConfig({
       testMatch: ['e2e/personas/**/*.spec.ts', 'e2e/persona-features/**/*.spec.ts'],
       use: {
         ...devices['Desktop Chrome'],
-        // Fallback storageState - individual tests override via test.use({storageState: ...})
-        storageState: 'e2e/.auth/rookie-state.json',
+        // Empty auth state as fallback - tests will fail clearly if persona setup wasn't run
+        // This prevents accidentally running as wrong persona if specific state file is missing
+        storageState: { cookies: [], origins: [] },
       },
     },
   ],
