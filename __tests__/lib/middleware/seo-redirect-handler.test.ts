@@ -14,9 +14,44 @@ import {
   lookupBeachBySlug,
   buildCanonicalBeachUrl,
   handleSeoRedirect,
+  classifyUrlPattern,
 } from "@/lib/middleware/seo-redirect-handler";
 
 describe("SeoRedirectHandler", () => {
+  describe("classifyUrlPattern", () => {
+    it("classifies state-only URLs", () => {
+      expect(classifyUrlPattern("/ca")).toBe("state-only");
+      expect(classifyUrlPattern("/nj")).toBe("state-only");
+      expect(classifyUrlPattern("/pr")).toBe("state-only");
+    });
+
+    it("classifies US beach URLs", () => {
+      expect(classifyUrlPattern("/ca/san-diego/blacks")).toBe("us-beach");
+      expect(classifyUrlPattern("/ca/orange-county/doheny-state-beach")).toBe("us-beach");
+    });
+
+    it("classifies Mexico beach URLs", () => {
+      expect(classifyUrlPattern("/mexico/baja-california/rosarito/alfonsos")).toBe("mexico-beach");
+    });
+
+    it("returns none for reserved paths", () => {
+      expect(classifyUrlPattern("/api/test")).toBe("none");
+      expect(classifyUrlPattern("/auth/sign-in")).toBe("none");
+      expect(classifyUrlPattern("/admin/users/settings")).toBe("none");
+    });
+
+    it("returns none for intent pages", () => {
+      expect(classifyUrlPattern("/beginner/malibu")).toBe("none");
+      expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("none");
+    });
+
+    it("returns none for invalid patterns", () => {
+      expect(classifyUrlPattern("/")).toBe("none");
+      expect(classifyUrlPattern("")).toBe("none");
+      expect(classifyUrlPattern("/invalid/city/beach")).toBe("none");
+    });
+  });
+
   describe("isOldBeachUrlPattern", () => {
     it("matches 3-segment state/city/beach URLs", () => {
       expect(isOldBeachUrlPattern("/ca/orange-county/huntington-pier")).toBe(
@@ -363,16 +398,50 @@ describe("SeoRedirectHandler", () => {
       expect(result).toEqual({ redirect: false });
     });
 
-    it("does NOT redirect Mexico URLs (handled by existing route)", async () => {
-      // Mexico URLs are served by /app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx
-      // so the SEO redirect handler should not process them
+    it("redirects Mexico URLs to /spots/{slug}", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              slug: "alfonsos",
+              state: "Baja California",
+              city: "Rosarito",
+              name: "Alfonsos",
+            },
+          ]),
+      } as Response);
+
       const result = await handleSeoRedirect(
         "/mexico/baja-california/rosarito/alfonsos"
       );
 
-      expect(result).toEqual({ redirect: false });
-      // Should not even make a DB lookup
+      expect(result).toEqual({
+        redirect: true,
+        url: "/spots/alfonsos",
+      });
+    });
+
+    it("redirects state-only URLs to /beaches/usa/{state}", async () => {
+      const result = await handleSeoRedirect("/ca");
+
+      expect(result).toEqual({
+        redirect: true,
+        url: "/beaches/usa/ca",
+      });
+      // Should not make a DB lookup for state-only URLs
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("redirects state-only URLs with different states", async () => {
+      expect(await handleSeoRedirect("/nj")).toEqual({
+        redirect: true,
+        url: "/beaches/usa/nj",
+      });
+      expect(await handleSeoRedirect("/pr")).toEqual({
+        redirect: true,
+        url: "/beaches/usa/pr",
+      });
     });
 
     it("returns no redirect on database error (fail open)", async () => {
