@@ -2,14 +2,17 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useReminderHandler } from "@/hooks/use-reminder-handler";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { track } from "@/lib/analytics";
 import { getUserBoards, getProfileStrength } from "@/actions/dashboard-actions";
+import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import type { TimeSlot } from "@/types/personalization";
 
 // New components for single vertical feed
@@ -29,6 +32,7 @@ export function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { timeOfDay } = useTimeOfDay();
+  const reducedMotion = useReducedMotion();
 
   // Time slot filter state
   const [timeSlot, setTimeSlot] = useState<TimeSlot>('any');
@@ -188,29 +192,48 @@ export function HomeScreen() {
     <div className="flex flex-col min-h-screen">
       <main className="flex-1 home-container pb-20 md:pb-0 overflow-auto">
         {/* Dark gradient header section */}
-        <div className="bg-gradient-to-b from-header-start to-header-end pt-6 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8">
+        <motion.div
+          className="bg-gradient-to-b from-header-start to-header-end pt-6 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8"
+          initial="hidden"
+          animate="visible"
+          variants={reducedMotion ? undefined : {
+            hidden: {},
+            visible: {
+              transition: HOME_HEADER_MOTION.entry,
+            },
+          }}
+        >
           {/* 1. Greeting Section */}
-          <section className="centered-container">
+          <motion.section
+            className="centered-container"
+            variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+          >
             <GreetingSection
               userName={profile?.full_name || null}
               timeOfDay={timeOfDay}
             />
-          </section>
+          </motion.section>
 
           {/* 2. Time Slot Filter */}
           {profile && (
-            <section className="centered-container">
+            <motion.section
+              className="centered-container"
+              variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+            >
               <TimeSlotSelector
                 value={timeSlot}
                 onChange={setTimeSlot}
                 className="mb-2"
               />
-            </section>
+            </motion.section>
           )}
 
           {/* 3. Hero Recommendation */}
           {profile && (
-            <section className="centered-container">
+            <motion.section
+              className="centered-container"
+              variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+            >
               <HeroRecommendation
                 recommendation={topRecommendation}
                 loading={discoveryLoading}
@@ -221,12 +244,15 @@ export function HomeScreen() {
                 forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
                 homeBeachId={homeBeach?.id ?? null}
               />
-            </section>
+            </motion.section>
           )}
 
           {/* 4. Primary Actions */}
           {profile && (
-            <section className="centered-container">
+            <motion.section
+              className="centered-container"
+              variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+            >
               {topRecommendation ? (
                 <PrimaryActions
                   topRecommendation={topRecommendation}
@@ -256,9 +282,9 @@ export function HomeScreen() {
                   </button>
                 </div>
               ) : null}
-            </section>
+            </motion.section>
           )}
-        </div>
+        </motion.div>
 
         {/* Content below gradient */}
         <div className="pt-6 space-y-6 xs:space-y-8">
