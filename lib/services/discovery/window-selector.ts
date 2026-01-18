@@ -20,7 +20,7 @@
  */
 
 import type { Beach } from '@/types/database';
-import type { EnhancedForecastEntity } from '@/types/forecast';
+import type { EnhancedForecastEntity, TideScheduleEntry } from '@/types/forecast';
 import type {
   PersonalizedForecastWindow,
   TimeSlot,
@@ -28,6 +28,7 @@ import type {
 import { TIME_SLOT_RANGES } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { calculateTideWindow } from '@/lib/utils/tide-interpolation';
 
 // ============================================================================
 // Types
@@ -129,6 +130,66 @@ function getDirectionDegrees(
   ]);
   if (!knownCardinals.has(upper)) return null;
   return parseWaveDirection(upper);
+}
+
+/**
+ * Extract tide schedule from forecasts.
+ * The tide schedule is stored in raw_forecast of the first forecast of each day.
+ */
+function extractTideSchedule(forecasts: EnhancedForecastEntity[]): TideScheduleEntry[] | null {
+  for (const forecast of forecasts) {
+    const rawForecast = forecast.raw_forecast as { tide_schedule?: TideScheduleEntry[] } | null;
+    if (rawForecast?.tide_schedule && rawForecast.tide_schedule.length >= 2) {
+      return rawForecast.tide_schedule;
+    }
+  }
+  return null;
+}
+
+/**
+ * Calculate tide-driven window boundaries if beach has tide thresholds.
+ * Returns null to indicate fallback to hourly boundaries should be used.
+ */
+function calculateTideDrivenBoundaries(
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  startTime: Date
+): { start: Date; end: Date } | null {
+  // Check if beach has tide thresholds
+  if (
+    beach.preferred_tide_ft_min === null ||
+    beach.preferred_tide_ft_min === undefined ||
+    beach.preferred_tide_ft_max === null ||
+    beach.preferred_tide_ft_max === undefined
+  ) {
+    return null;
+  }
+
+  // Extract tide schedule from forecasts
+  const tideSchedule = extractTideSchedule(forecasts);
+  if (!tideSchedule) {
+    return null;
+  }
+
+  // Map direction preference
+  const directionMap: Record<string, 'rising' | 'falling' | 'slack' | 'either'> = {
+    rising: 'rising',
+    falling: 'falling',
+    slack: 'slack',
+    either: 'either',
+  };
+  const preferredDirection = directionMap[beach.preferred_tide_direction || 'either'] || 'either';
+
+  // Calculate tide window
+  const tideWindow = calculateTideWindow({
+    tideSchedule,
+    minHeight: beach.preferred_tide_ft_min,
+    maxHeight: beach.preferred_tide_ft_max,
+    preferredDirection,
+    afterTime: startTime,
+  });
+
+  return tideWindow;
 }
 
 // ============================================================================
@@ -578,53 +639,64 @@ export function selectBestWindow(
     if (actualHorizonHours && hoursAhead > actualHorizonHours) continue;
 
     // Night filter (6am-9pm local hour check) handles pre-sunrise times
-    const effectiveStartTime = startTime;
+    let effectiveStartTime = startTime;
 
-    // Default end time: MAX_WINDOW_HOURS from start
-    let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+    // Try to use tide-driven boundaries
+    const tideBoundaries = calculateTideDrivenBoundaries(forecasts, actualBeach, startTime);
 
-    // Look ahead to find when conditions degrade
-    for (let j = i; j < filteredForecasts.length - 1; j++) {
-      const current = filteredForecasts[j];
-      const next = filteredForecasts[j + 1];
+    let endTime: Date;
 
-      // Stop if next forecast is on a different date (use local dates instead of UTC date strings)
-      const currentLocalDate = getLocalDateStr(current.forecastTime);
-      const nextLocalDate = getLocalDateStr(next.forecastTime);
-      if (currentLocalDate !== nextLocalDate) break;
+    if (tideBoundaries) {
+      // Use tide-driven boundaries for window start and end
+      effectiveStartTime = tideBoundaries.start;
+      endTime = tideBoundaries.end;
+    } else {
+      // Fallback: default end time MAX_WINDOW_HOURS from start
+      endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
 
-      // Use same threshold that qualified the window (morning threshold if applicable)
-      if (current.score >= effectiveThreshold && next.score < effectiveThreshold) {
-        // Linear interpolation to find precise degradation time
-        const dropAmount = current.score - next.score;
-        if (dropAmount <= 0) break; // Guard against edge case
-        const thresholdDiff = current.score - effectiveThreshold;
-        const fractionOfHour = dropAmount > 0 ? thresholdDiff / dropAmount : 0;
+      // Look ahead to find when conditions degrade
+      for (let j = i; j < filteredForecasts.length - 1; j++) {
+        const current = filteredForecasts[j];
+        const next = filteredForecasts[j + 1];
 
-        const degradationTime = new Date(
-          current.forecastTime.getTime() + fractionOfHour * 60 * 60 * 1000
-        );
+        // Stop if next forecast is on a different date (use local dates instead of UTC date strings)
+        const currentLocalDate = getLocalDateStr(current.forecastTime);
+        const nextLocalDate = getLocalDateStr(next.forecastTime);
+        if (currentLocalDate !== nextLocalDate) break;
 
-        if (degradationTime < endTime) {
-          endTime = degradationTime;
+        // Use same threshold that qualified the window (morning threshold if applicable)
+        if (current.score >= effectiveThreshold && next.score < effectiveThreshold) {
+          // Linear interpolation to find precise degradation time
+          const dropAmount = current.score - next.score;
+          if (dropAmount <= 0) break; // Guard against edge case
+          const thresholdDiff = current.score - effectiveThreshold;
+          const fractionOfHour = dropAmount > 0 ? thresholdDiff / dropAmount : 0;
+
+          const degradationTime = new Date(
+            current.forecastTime.getTime() + fractionOfHour * 60 * 60 * 1000
+          );
+
+          if (degradationTime < endTime) {
+            endTime = degradationTime;
+          }
+          break;
         }
-        break;
-      }
 
-      // Stop extending if we've gone past max window
-      const windowDuration = (next.forecastTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
-      if (windowDuration >= MAX_WINDOW_HOURS) {
-        endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
-        break;
+        // Stop extending if we've gone past max window
+        const windowDuration = (next.forecastTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
+        if (windowDuration >= MAX_WINDOW_HOURS) {
+          endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+          break;
+        }
       }
     }
 
-    // Cap at sunset (exact clipping)
+    // Cap at sunset (exact clipping) - applies to both tide-driven and fallback
     if (sunset && sunset < endTime) {
       endTime = sunset;
     }
 
-    // Cap at time slot end (e.g., dawn-patrol ends at 9am)
+    // Cap at time slot end (e.g., dawn-patrol ends at 9am) - applies to both
     endTime = capEndTimeToSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
 
     // Validate minimum session length (using effective start time)

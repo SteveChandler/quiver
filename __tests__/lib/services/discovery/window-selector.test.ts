@@ -512,3 +512,122 @@ describe('selectBestWindow', () => {
     }
   });
 });
+
+describe('selectBestWindow with tide-driven boundaries', () => {
+  const fixedNow = new Date('2024-01-15T16:00:00Z'); // 8am PST
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should use tide threshold crossings for window boundaries when data available', () => {
+    // Tide schedule: Low at 14:47 (1.2ft), High at 20:52 (5.8ft)
+    // The 2.0ft crossing occurs around 16:28, the 4.0ft crossing around 18:30
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T14:47:00Z').getTime() / 1000), height: 1.2, type: 'low' as const },
+      { time: Math.floor(new Date('2024-01-15T20:52:00Z').getTime() / 1000), height: 5.8, type: 'high' as const },
+    ];
+
+    // Forecast starts at 15:00 (7am PST) - BEFORE the 2.0ft crossing at ~16:28
+    const forecasts = [
+      createForecast({
+        id: 'forecast-with-tide',
+        forecast_date: '2024-01-15',
+        forecast_time: '15:00', // 7am PST - before 2.0ft crossing
+        wave_height: '4',
+        wave_period: '12s',
+        tide_height: '1.5', // Tide is still low
+        tide_status: 'Rising',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    // Adjust fixed time to be at 15:00 for this test
+    jest.setSystemTime(new Date('2024-01-15T15:00:00Z'));
+
+    const beachWithTidePrefs = {
+      ...mockBeach,
+      preferred_tide_ft_min: 2.0,
+      preferred_tide_ft_max: 4.0,
+      preferred_tide_direction: 'rising',
+    } as Beach;
+
+    const result = selectBestWindow(
+      forecasts,
+      beachWithTidePrefs,
+      null
+    );
+
+    expect(result).not.toBeNull();
+
+    // Window should NOT start exactly on the hour (tide-driven boundaries)
+    const startMinutes = result!.start.getMinutes();
+    const endMinutes = result!.end.getMinutes();
+
+    // At least one of start/end should have non-zero minutes (tide-driven)
+    expect(startMinutes !== 0 || endMinutes !== 0).toBe(true);
+  });
+
+  it('should fall back to hourly boundaries when tide data is missing', () => {
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00',
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+        // No raw_forecast with tide_schedule
+      }),
+    ];
+
+    const result = selectBestWindow(
+      forecasts,
+      mockBeach as Beach,
+      null
+    );
+
+    expect(result).not.toBeNull();
+    // Should start on the hour (fallback behavior)
+    expect(result!.start.getMinutes()).toBe(0);
+  });
+
+  it('should fall back when beach has no tide height thresholds', () => {
+    const tideSchedule = [
+      { time: Math.floor(new Date('2024-01-15T14:47:00Z').getTime() / 1000), height: 1.2, type: 'low' as const },
+      { time: Math.floor(new Date('2024-01-15T20:52:00Z').getTime() / 1000), height: 5.8, type: 'high' as const },
+    ];
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00',
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+        raw_forecast: {
+          tide_schedule: tideSchedule,
+          data_sources: ['NOAA_NWS'],
+        },
+      } as any),
+    ];
+
+    const result = selectBestWindow(
+      forecasts,
+      mockBeachNoPrefs as Beach, // No tide thresholds
+      null
+    );
+
+    expect(result).not.toBeNull();
+    // Should use hourly boundaries (no tide thresholds to apply)
+    expect(result!.start.getMinutes()).toBe(0);
+  });
+});
