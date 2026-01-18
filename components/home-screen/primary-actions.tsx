@@ -1,10 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { motion } from "framer-motion";
 import { Plus, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 
 /**
  * Props for PrimaryActions component
@@ -40,11 +42,14 @@ export function PrimaryActionsSkeleton() {
  * on the home screen.
  *
  * Features:
- * - "I'm at the beach" - Primary orange button for logging current session
- * - "Plan Weekend" - Secondary outline button for trip planning
+ * - "I'm at the beach" - Primary orange button with gradient for logging current session
+ * - "Plan Weekend" - Secondary button with gradient for trip planning
+ * - Bouncy animations on tap (Duolingo-inspired)
+ * - Icon hover animations (plus rotates, calendar bounces)
  * - Responsive layout with equal-width buttons
  * - Proper touch targets for mobile (min 44px)
  * - Disabled state support
+ * - Respects reduced motion preferences
  *
  * @example
  * ```tsx
@@ -61,52 +66,87 @@ export const PrimaryActions = React.memo(function PrimaryActions({
   onPlanWeekend,
   disabled = false,
 }: PrimaryActionsProps) {
+  const reducedMotion = useReducedMotion();
+  const [isPrimaryHovered, setIsPrimaryHovered] = useState(false);
+  const [isSecondaryHovered, setIsSecondaryHovered] = useState(false);
+
   return (
     <div
       className="flex flex-col xs:flex-row gap-3 px-4 sm:px-1"
       data-testid="primary-actions"
     >
       {/* Primary action: I'm at the beach */}
-      <Button
+      <motion.button
         onClick={onAtBeach}
         disabled={disabled}
+        onMouseEnter={() => setIsPrimaryHovered(true)}
+        onMouseLeave={() => setIsPrimaryHovered(false)}
+        whileTap={reducedMotion ? undefined : HOME_HEADER_MOTION.button.tap}
+        whileHover={reducedMotion ? undefined : HOME_HEADER_MOTION.button.hover}
+        transition={reducedMotion ? undefined : HOME_HEADER_MOTION.button.spring}
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
-          "bg-orange-500 hover:bg-orange-600 active:bg-orange-700",
+          "bg-gradient-to-b from-orange-400 to-orange-600",
+          "hover:from-orange-500 hover:to-orange-700",
+          "active:from-orange-600 active:to-orange-800",
           "text-white font-semibold text-sm sm:text-base",
           "shadow-sm hover:shadow-md",
-          "transition-all duration-200",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-500 disabled:hover:shadow-sm"
+          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-orange-400 disabled:hover:to-orange-600 disabled:hover:shadow-sm",
+          "flex items-center justify-center gap-1 sm:gap-1.5"
         )}
         aria-label="Log that you are at the beach"
         data-testid="at-beach-button"
       >
-        <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 shrink-0" />
+        <motion.span
+          animate={
+            !reducedMotion && isPrimaryHovered
+              ? HOME_HEADER_MOTION.button.iconHover.plus
+              : {}
+          }
+          className="shrink-0"
+        >
+          <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+        </motion.span>
         <span className="truncate">I&apos;m at the beach</span>
-      </Button>
+      </motion.button>
 
       {/* Secondary action: Plan Weekend */}
-      <Button
+      <motion.button
         onClick={onPlanWeekend}
         disabled={disabled}
-        variant="outline"
+        onMouseEnter={() => setIsSecondaryHovered(true)}
+        onMouseLeave={() => setIsSecondaryHovered(false)}
+        whileTap={reducedMotion ? undefined : HOME_HEADER_MOTION.button.tap}
+        whileHover={reducedMotion ? undefined : HOME_HEADER_MOTION.button.hover}
+        transition={reducedMotion ? undefined : HOME_HEADER_MOTION.button.spring}
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
-          "bg-white/10 hover:bg-white/20 active:bg-white/30",
+          "bg-gradient-to-b from-white/15 to-white/5",
+          "hover:from-white/20 hover:to-white/10",
+          "active:from-white/25 active:to-white/15",
           "text-white font-semibold text-sm sm:text-base",
           "border border-white/20 hover:border-white/30",
           "shadow-sm hover:shadow-md",
-          "transition-all duration-200",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 disabled:hover:shadow-sm"
+          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-white/15 disabled:hover:to-white/5 disabled:hover:shadow-sm",
+          "flex items-center justify-center gap-1 sm:gap-1.5"
         )}
         aria-label="Plan your weekend surf trip"
         data-testid="plan-weekend-button"
       >
-        <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-1.5 shrink-0" />
+        <motion.span
+          animate={
+            !reducedMotion && isSecondaryHovered
+              ? HOME_HEADER_MOTION.button.iconHover.calendar
+              : {}
+          }
+          className="shrink-0"
+        >
+          <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+        </motion.span>
         <span className="truncate">Plan Weekend</span>
-      </Button>
+      </motion.button>
     </div>
   );
 });
