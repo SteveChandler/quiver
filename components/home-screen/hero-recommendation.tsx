@@ -2,9 +2,11 @@
 
 import React from "react";
 import { Clock, AlertCircle } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { formatBeachDateTime } from "@/lib/utils/date-utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
+import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
@@ -124,14 +126,14 @@ export function HeroRecommendationSkeleton() {
       data-testid="hero-recommendation-loading"
     >
       {/* Main headline skeleton */}
-      <div className="animate-pulse space-y-2">
-        <div className="h-8 sm:h-10 bg-white/20 rounded-lg w-4/5" />
-        <div className="h-8 sm:h-10 bg-white/20 rounded-lg w-2/3" />
+      <div className="space-y-2">
+        <div className="h-8 sm:h-10 bg-gradient-to-r from-white/10 via-white/20 to-white/10 rounded-lg w-4/5 animate-shimmer bg-[length:200%_100%]" />
+        <div className="h-8 sm:h-10 bg-gradient-to-r from-white/10 via-white/20 to-white/10 rounded-lg w-2/3 animate-shimmer bg-[length:200%_100%]" />
       </div>
 
       {/* Time badge skeleton */}
       <div className="flex items-center gap-2 mt-4">
-        <div className="h-6 w-24 bg-white/20 rounded-full animate-pulse" />
+        <div className="h-6 w-24 bg-gradient-to-r from-white/10 via-white/20 to-white/10 rounded-full animate-shimmer bg-[length:200%_100%]" />
       </div>
     </div>
   );
@@ -208,6 +210,8 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   forecastAlertsEnabled = false,
   homeBeachId,
 }: HeroRecommendationProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   // Handle loading state
   if (loading) {
     return <HeroRecommendationSkeleton />;
@@ -243,7 +247,13 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           {beach.name}
         </button>{" "}
         is your best bet at{" "}
-        <span className="text-accent-orange">{formattedScore}/10</span>.
+        <motion.span
+          className="text-accent-orange"
+          data-testid="hero-score"
+          animate={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.scoreGlow}
+        >
+          {formattedScore}/10
+        </motion.span>.
       </h1>
 
       {/* Natural language message */}
@@ -254,36 +264,50 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
       )}
 
       {/* Time window and condition badges */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge
-          variant="outline"
-          className="text-xs sm:text-sm font-medium bg-white/10 text-white border-white/20 py-1.5 px-2.5"
-        >
-          <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
-          {timeWindow}
-        </Badge>
+      <motion.div
+        className="flex flex-wrap items-center gap-2"
+        data-testid="hero-badges"
+        initial="initial"
+        animate="animate"
+        variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badgeStagger}
+      >
+        <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+          <Badge
+            variant="outline"
+            className="text-xs sm:text-sm font-medium bg-white/10 text-white border-white/20 py-1.5 px-2.5"
+          >
+            <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
+            {timeWindow}
+          </Badge>
+        </motion.div>
 
         {/* Recommendation label badge (Perfect Match for high scores) */}
         {score >= 90 && (
-          <Badge
-            variant="outline"
-            className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
-          >
-            Perfect Match
-          </Badge>
+          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+            <Badge
+              variant="outline"
+              className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+            >
+              Perfect Match
+            </Badge>
+          </motion.div>
         )}
 
         {/* Condition badges */}
         {conditionBadges?.slice(0, 3).map((badge) => (
-          <Badge
+          <motion.div
             key={badge.label}
-            variant="outline"
-            className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-white/10 text-white border-white/20"
+            variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}
           >
-            {badge.label}
-          </Badge>
+            <Badge
+              variant="outline"
+              className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-white/10 text-white border-white/20"
+            >
+              {badge.label}
+            </Badge>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 });
