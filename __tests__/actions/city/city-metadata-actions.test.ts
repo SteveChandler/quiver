@@ -28,6 +28,9 @@ const makeChain = () => {
   return obj;
 };
 
+// Default RPC mock response
+const defaultRpcResponse = { data: [], error: null };
+
 // Mock beach data for Santa Cruz (3 beaches to pass minimum threshold)
 const mockSantaCruzBeaches = [
   {
@@ -103,6 +106,7 @@ const mockSanDiegoBeaches = [
 describe("City Metadata Actions", () => {
   let mockSupabaseClient: {
     from: jest.Mock;
+    rpc: jest.Mock;
   };
   let tableChain: ReturnType<typeof makeChain>;
 
@@ -112,6 +116,7 @@ describe("City Metadata Actions", () => {
 
     mockSupabaseClient = {
       from: jest.fn(() => tableChain),
+      rpc: jest.fn(() => Promise.resolve(defaultRpcResponse)),
     };
 
     (createSupabaseServerClient as jest.Mock).mockResolvedValue(
@@ -344,31 +349,16 @@ describe("City Metadata Actions", () => {
 
   describe("findCityBySlug", () => {
     it("finds Santa Cruz by simple slug", async () => {
-      // First call: find matching cities (no order, returns from or())
-      // Second call: getCityMetadata query (has order)
-      const findChain = makeChain();
-      const metadataChain = makeChain();
-
-      // findCityBySlug query returns matching beaches grouped by city
-      findChain.or.mockResolvedValue({
-        data: [
-          { city: "Santa Cruz", state: "CA" },
-          { city: "Santa Cruz", state: "CA" },
-          { city: "Santa Cruz", state: "CA" },
-        ],
+      // RPC returns aggregated city data with beach_count
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: [{ city: "Santa Cruz", state: "CA", beach_count: 3 }],
         error: null,
       });
 
       // getCityMetadata query returns full beach data
-      metadataChain.order.mockResolvedValue({
+      tableChain.order.mockResolvedValue({
         data: mockSantaCruzBeaches,
         error: null,
-      });
-
-      let callCount = 0;
-      mockSupabaseClient.from.mockImplementation(() => {
-        callCount++;
-        return callCount === 1 ? findChain : metadataChain;
       });
 
       const result = await findCityBySlug("santa-cruz");
@@ -376,34 +366,22 @@ describe("City Metadata Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data?.cityName).toBe("Santa Cruz");
       expect(result.data?.state).toBe("CA");
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
+        search_pattern: "santa cruz",
+        state_filter: null,
+      });
     });
 
     it("finds city by slug with state suffix", async () => {
-      const findChain = makeChain();
-      const metadataChain = makeChain();
-
-      // When state filter is applied, .eq() is called after .or()
-      // So we need .eq() to return the resolved value (not .or())
-      findChain.eq.mockResolvedValue({
-        data: [
-          { city: "San Diego", state: "CA" },
-          { city: "San Diego", state: "CA" },
-          { city: "San Diego", state: "CA" },
-          { city: "San Diego", state: "CA" },
-          { city: "San Diego", state: "CA" },
-        ],
+      // RPC returns aggregated city data with beach_count
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: [{ city: "San Diego", state: "CA", beach_count: 5 }],
         error: null,
       });
 
-      metadataChain.order.mockResolvedValue({
+      tableChain.order.mockResolvedValue({
         data: mockSanDiegoBeaches,
         error: null,
-      });
-
-      let callCount = 0;
-      mockSupabaseClient.from.mockImplementation(() => {
-        callCount++;
-        return callCount === 1 ? findChain : metadataChain;
       });
 
       const result = await findCityBySlug("san-diego-ca");
@@ -411,12 +389,15 @@ describe("City Metadata Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data?.cityName).toBe("San Diego");
       expect(result.data?.state).toBe("CA");
-      // Verify state filter was applied
-      expect(findChain.eq).toHaveBeenCalledWith("state", "CA");
+      // Verify state filter was passed to RPC
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
+        search_pattern: "san diego",
+        state_filter: "CA",
+      });
     });
 
     it("returns null for nonexistent city", async () => {
-      tableChain.or.mockResolvedValue({
+      mockSupabaseClient.rpc.mockResolvedValue({
         data: [],
         error: null,
       });
@@ -428,12 +409,9 @@ describe("City Metadata Actions", () => {
     });
 
     it("returns null for city with fewer than 3 beaches", async () => {
-      // City exists but only has 2 beaches (below threshold)
-      tableChain.or.mockResolvedValue({
-        data: [
-          { city: "Tiny Town", state: "CA" },
-          { city: "Tiny Town", state: "CA" },
-        ],
+      // RPC returns city with only 2 beaches (below threshold)
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: [{ city: "Tiny Town", state: "CA", beach_count: 2 }],
         error: null,
       });
 
@@ -444,15 +422,11 @@ describe("City Metadata Actions", () => {
     });
 
     it("returns null for ambiguous slug without state suffix", async () => {
-      // Newport exists in both CA and OR - should return null without state suffix
-      tableChain.or.mockResolvedValue({
+      // Newport exists in both CA and OR with 3+ beaches each - ambiguous without state
+      mockSupabaseClient.rpc.mockResolvedValue({
         data: [
-          { city: "Newport", state: "CA" },
-          { city: "Newport", state: "CA" },
-          { city: "Newport", state: "CA" },
-          { city: "Newport", state: "OR" },
-          { city: "Newport", state: "OR" },
-          { city: "Newport", state: "OR" },
+          { city: "Newport", state: "CA", beach_count: 3 },
+          { city: "Newport", state: "OR", beach_count: 3 },
         ],
         error: null,
       });
@@ -464,21 +438,13 @@ describe("City Metadata Actions", () => {
     });
 
     it("resolves ambiguous city when state suffix provided", async () => {
-      const findChain = makeChain();
-      const metadataChain = makeChain();
-
-      // With state filter, .eq() is called after .or()
-      // So .eq() returns the resolved value
-      findChain.eq.mockResolvedValue({
-        data: [
-          { city: "Newport", state: "OR" },
-          { city: "Newport", state: "OR" },
-          { city: "Newport", state: "OR" },
-        ],
+      // RPC returns only OR Newport when state filter is applied
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: [{ city: "Newport", state: "OR", beach_count: 3 }],
         error: null,
       });
 
-      metadataChain.order.mockResolvedValue({
+      tableChain.order.mockResolvedValue({
         data: [
           {
             id: "beach-np-1",
@@ -508,21 +474,20 @@ describe("City Metadata Actions", () => {
         error: null,
       });
 
-      let callCount = 0;
-      mockSupabaseClient.from.mockImplementation(() => {
-        callCount++;
-        return callCount === 1 ? findChain : metadataChain;
-      });
-
       const result = await findCityBySlug("newport-or");
 
       expect(result.success).toBe(true);
       expect(result.data?.cityName).toBe("Newport");
       expect(result.data?.state).toBe("OR");
+      // Verify state filter was passed to RPC
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
+        search_pattern: "newport",
+        state_filter: "OR",
+      });
     });
 
     it("handles database error gracefully", async () => {
-      tableChain.or.mockResolvedValue({
+      mockSupabaseClient.rpc.mockResolvedValue({
         data: null,
         error: { message: "Database connection failed" },
       });
@@ -533,28 +498,33 @@ describe("City Metadata Actions", () => {
       expect(result.error).toBeDefined();
     });
 
-    it("uses ILIKE for case-insensitive city pattern matching", async () => {
-      tableChain.or.mockResolvedValue({
+    it("calls RPC with correct pattern for case-insensitive matching", async () => {
+      mockSupabaseClient.rpc.mockResolvedValue({
         data: [],
         error: null,
       });
 
       await findCityBySlug("santa-cruz");
 
-      expect(tableChain.ilike).toHaveBeenCalledWith("city", "%santa cruz%");
+      // RPC handles case-insensitive and accent-normalized matching
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
+        search_pattern: "santa cruz",
+        state_filter: null,
+      });
     });
 
-    it("excludes private beaches from results", async () => {
-      tableChain.or.mockResolvedValue({
+    it("passes null state filter for slugs without state suffix", async () => {
+      mockSupabaseClient.rpc.mockResolvedValue({
         data: [],
         error: null,
       });
 
       await findCityBySlug("santa-cruz");
 
-      expect(tableChain.or).toHaveBeenCalledWith(
-        "is_private.is.null,is_private.eq.false"
-      );
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
+        search_pattern: "santa cruz",
+        state_filter: null,
+      });
     });
   });
 });
