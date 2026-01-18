@@ -250,7 +250,10 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
         <motion.span
           className="text-accent-orange"
           data-testid="hero-score"
-          animate={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.scoreGlow}
+          animate={shouldReduceMotion ? undefined : {
+            textShadow: [...HOME_HEADER_MOTION.hero.scoreGlow.textShadow],
+            transition: HOME_HEADER_MOTION.hero.scoreGlow.transition,
+          }}
         >
           {formattedScore}/10
         </motion.span>.
@@ -269,7 +272,15 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
         data-testid="hero-badges"
         initial="initial"
         animate="animate"
-        variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badgeStagger}
+        variants={shouldReduceMotion ? undefined : {
+          initial: {},
+          animate: {
+            transition: {
+              staggerChildren: HOME_HEADER_MOTION.hero.badgeStagger.staggerChildren,
+              delayChildren: HOME_HEADER_MOTION.hero.badgeStagger.delayChildren,
+            },
+          },
+        }}
       >
         <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
           <Badge
