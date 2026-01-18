@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **User Preferences API Endpoint (`/api/user/preferences`):** New GET endpoint for retrieving user's learned surf preferences from the database. Endpoint provides:
+  - Authenticated access to `user_surf_preferences` table
+  - Returns wave_min_ft, wave_max_ft, confidence, sample_size
+  - Handles PGRST116 "no rows" case gracefully (returns null for users without preferences)
+  - Uses `createAPIServerClient` following established API patterns
+  - Full test coverage: 4 unit tests covering authentication, success cases, and error handling
+  - Integrates with established authentication patterns from `app/api/ARCHITECTURE.md`
+
 - **User Preferences Hook (`useUserPreferences`):** New hook for fetching learned surf preferences from the API. Hook provides:
   - Automatic fetching when user is authenticated
   - Returns null when user is not authenticated
