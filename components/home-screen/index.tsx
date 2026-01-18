@@ -85,6 +85,8 @@ export function HomeScreen() {
     lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 
   // Determine seed location for discovery (with validation)
+  // Fallback chain: browser GPS > home beach > default location (San Diego)
+  // This ensures users without configured beaches still see nearby recommendations
   const seedDiscoveryLocation =
     geoSource === "browser" &&
     !usingDefaultLocation &&
@@ -96,7 +98,7 @@ export function HomeScreen() {
           homeBeach?.lon != null &&
           isValidCoordinate(homeBeach.lat, homeBeach.lon)
         ? { lat: homeBeach.lat, lon: homeBeach.lon }
-        : undefined;
+        : DEFAULT_LOCATION;
 
   // Fetch surf discovery (top recommendation + top spots)
   const {

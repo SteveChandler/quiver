@@ -8,6 +8,38 @@ import * as Sentry from "@sentry/nextjs";
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 /**
+ * Detect environment based on hostname.
+ * This prevents localhost errors from being reported as "production"
+ * even when NODE_ENV=production (e.g., running `next start` locally).
+ */
+function detectEnvironment(): string {
+  if (typeof window === "undefined") {
+    return process.env.NODE_ENV || "development";
+  }
+
+  const hostname = window.location.hostname;
+
+  // Localhost patterns - always "development" regardless of NODE_ENV
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".local") ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("10.")
+  ) {
+    return "development";
+  }
+
+  // Vercel preview deployments
+  if (hostname.includes(".vercel.app") && !hostname.startsWith("quiver.")) {
+    return "preview";
+  }
+
+  // Production
+  return "production";
+}
+
+/**
  * Client-side instrumentation entrypoint (Next.js App Router).
  *
  * Sentry recommends moving `sentry.client.config.ts` into this file because
@@ -34,13 +66,18 @@ export async function register(): Promise<void> {
     // in development and sample at a lower rate in production
     replaysOnErrorSampleRate: 1.0,
 
-    // Filter out intentional test errors from E2E tests
+    // Override environment based on actual hostname, not just NODE_ENV
+    // This prevents localhost errors from polluting production error tracking
     beforeSend(event, hint) {
       const error = hint.originalException;
       // Drop errors that are intentionally thrown by E2E tests
       if (error instanceof Error && /^Test error \d+$/.test(error.message)) {
         return null;
       }
+
+      // Override environment based on hostname
+      event.environment = detectEnvironment();
+
       return event;
     },
 
