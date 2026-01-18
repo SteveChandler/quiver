@@ -407,7 +407,7 @@ export const HOME_HEADER_MOTION = {
     spring: { stiffness: 400, damping: 17 },
     tap: { scale: 0.97 },
     selected: {
-      scale: [0.97, 1.03, 1],
+      scale: 1.03,
       transition: {
         type: "spring",
         stiffness: 400,
