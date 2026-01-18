@@ -315,7 +315,7 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
     expect(heartCount).toBe(0);
 
     // Page should still function without errors
-    const mainContent = page.locator("main, [role='main']");
+    const mainContent = page.locator("main, [role='main']").first();
     await expect(mainContent).toBeVisible();
   });
 
