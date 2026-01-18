@@ -20,7 +20,7 @@ describe("robots.txt", () => {
     const rules = Array.isArray(r.rules) ? r.rules[0] : r.rules;
     expect(rules.userAgent).toBe("*");
     expect(rules.allow).toBe("/");
-    expect(rules.disallow).toEqual(expect.arrayContaining(["/_next/*"]));
+    expect(rules.disallow).toEqual(expect.arrayContaining(["/_next/"]));
   });
 
   it("disallows everything when DISALLOW_ROBOTS=true", () => {

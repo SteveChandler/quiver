@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS npc_content_templates (
 COMMENT ON TABLE npc_content_templates IS 'AI-generated content templates for NPC (mock user) posts. Templates contain {{variables}} that are hydrated with real forecast data at runtime.';
 
 -- Indexes for efficient template lookup
-CREATE INDEX idx_npc_templates_lookup
+CREATE INDEX IF NOT EXISTS idx_npc_templates_lookup
 ON npc_content_templates(content_type, personality, tag)
 WHERE archived = false;
 
-CREATE INDEX idx_npc_templates_freshness
+CREATE INDEX IF NOT EXISTS idx_npc_templates_freshness
 ON npc_content_templates(use_count, last_used_at)
 WHERE archived = false;
 
@@ -65,17 +65,31 @@ END $$;
 ALTER TABLE npc_content_templates ENABLE ROW LEVEL SECURITY;
 
 -- Allow read access to all authenticated users (templates are not sensitive)
-CREATE POLICY "Templates are readable by authenticated users"
-ON npc_content_templates FOR SELECT
-TO authenticated
-USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'npc_content_templates' AND policyname = 'Templates are readable by authenticated users'
+  ) THEN
+    CREATE POLICY "Templates are readable by authenticated users"
+    ON npc_content_templates FOR SELECT
+    TO authenticated
+    USING (true);
+  END IF;
+END $$;
 
 -- Only service role can insert/update/delete templates
-CREATE POLICY "Only service role can manage templates"
-ON npc_content_templates FOR ALL
-TO service_role
-USING (true)
-WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'npc_content_templates' AND policyname = 'Only service role can manage templates'
+  ) THEN
+    CREATE POLICY "Only service role can manage templates"
+    ON npc_content_templates FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_npc_template_updated_at()
@@ -87,6 +101,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to auto-update updated_at
+DROP TRIGGER IF EXISTS npc_templates_updated_at ON npc_content_templates;
 CREATE TRIGGER npc_templates_updated_at
   BEFORE UPDATE ON npc_content_templates
   FOR EACH ROW

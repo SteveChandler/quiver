@@ -455,7 +455,20 @@ export async function GET(request: Request) {
                   const { error } = await supabase
                     .from("sun_times")
                     .upsert([row], { onConflict: "beach_id,date,source" });
-                  if (!error) addedSun += 1;
+                  if (error) {
+                    console.error("[Sun Times] Upsert error for beach", b.name, {
+                      beachId: b.id,
+                      date: row.date,
+                      lat: b.lat,
+                      lon: b.lon,
+                      error: error.message,
+                      code: error.code,
+                      details: error.details,
+                      hint: error.hint,
+                    });
+                  } else {
+                    addedSun += 1;
+                  }
                 }
               } catch (e) {
                 console.warn("sun ingest error", b.name, e);

@@ -2,6 +2,11 @@
 -- Part of the Realistic NPC System implementation
 -- Deletes test data, removes duplicates, renames old-style NPCs to realistic names
 
+BEGIN;
+
+-- Allow destructive operations for this migration
+SET LOCAL app.allow_destructive = 'on';
+
 -- ============================================================================
 -- STEP 1: Delete test posts from Test User
 -- ============================================================================
@@ -201,3 +206,5 @@ DELETE FROM beach_reviews WHERE user_id NOT IN (SELECT id FROM profiles);
 -- - 6 newly configured from renamed profiles
 -- - 2 system accounts (Morning Intel Bot, Quiver Surf Forecast)
 -- ============================================================================
+
+COMMIT;

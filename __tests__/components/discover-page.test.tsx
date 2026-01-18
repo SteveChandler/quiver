@@ -398,9 +398,11 @@ describe("DiscoverPage", () => {
       const searchButton = screen.getByRole("button", { name: /search/i });
       await user.click(searchButton);
 
-      // Should show loading state
-      expect(screen.getByText("Searching...")).toBeInTheDocument();
-      expect(searchButton).toBeDisabled();
+      // Should show loading state - wait for the state update
+      await waitFor(() => {
+        expect(screen.getByText("Searching...")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("button", { name: /searching/i })).toBeDisabled();
     });
   });
 
