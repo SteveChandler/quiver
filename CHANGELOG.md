@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Analytics Events for Personalization Features:** Added tracking events to measure personalization feature engagement:
+  - `personalized_score_shown`: Fired when a personalized score is displayed in beach discovery cards (tracks beach_id and score)
+  - `favorite_shown_in_carousel`: Fired when a favorite beach appears in the Top Spots carousel (tracks beach_id and score)
+  - `surf_profile_viewed`: Fired when a user's surf profile is shown with high confidence (>0.5) (tracks confidence and sample_size)
+  - `surf_profile_progress_shown`: Fired when surf profile progress indicator is shown (tracks sessions_needed)
+  - All events use proper useEffect with dependency arrays to prevent duplicate tracking
+  - Events fire once per component mount when relevant data is available
+
 - **Personalized Badge in Beach Discovery Cards:** Beach discovery cards now display a personalized badge when the user has learned preferences that affect the scoring. The badge:
   - Appears alongside other badges (Top Pick, Live, Match Quality) in the card header
   - Shows personalized score as a percentage (e.g., "92% Match")

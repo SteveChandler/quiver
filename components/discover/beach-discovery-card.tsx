@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { formatBeachTimeRange } from "@/lib/utils/date-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { track } from "@/lib/analytics";
 
 
 interface BeachDiscoveryCardProps {
@@ -59,6 +60,16 @@ export function BeachDiscoveryCard({
     baseScore: score,
     forecast,
   });
+
+  // Track when personalized score is shown
+  useEffect(() => {
+    if (personalization?.data?.personalized) {
+      track("personalized_score_shown", {
+        beach_id: beach.id,
+        score: personalization.data.score,
+      });
+    }
+  }, [personalization?.data?.personalized, beach.id, personalization?.data?.score]);
 
   const displayScore = Number.isFinite(score) ? Math.round(score) : 0;
   const waveSourceLabel =

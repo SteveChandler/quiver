@@ -42,6 +42,7 @@ import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import { track } from "@/lib/analytics";
 
 // Lazy load heavy tab components for better performance
 const BoardsManager = lazy(() =>
@@ -191,6 +192,20 @@ function ProfileViewContent() {
       setEditModalOpen(true);
     }
   }, [searchParams]);
+
+  // Track surf profile analytics when preferences are shown
+  useEffect(() => {
+    if (preferences?.confidence !== undefined && preferences?.confidence > 0.5) {
+      track("surf_profile_viewed", {
+        confidence: preferences.confidence,
+        sample_size: preferences.sample_size,
+      });
+    } else if (preferences) {
+      track("surf_profile_progress_shown", {
+        sessions_needed: Math.max(0, 5 - (preferences.sample_size || 0)),
+      });
+    }
+  }, [preferences?.confidence, preferences?.sample_size, preferences]);
 
   // Show loading state while checking authentication
   if (authLoading || (dataLoading && !error && !fetchError)) {

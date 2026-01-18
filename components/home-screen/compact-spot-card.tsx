@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import { Waves, Ruler, Wind, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { track } from "@/lib/analytics";
 
 /**
  * Props for CompactSpotCard component
@@ -54,6 +55,16 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   const { beach, score, window, distanceMiles } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const photoUrl = beach.photo_url;
+
+  // Track when favorite is shown in carousel
+  useEffect(() => {
+    if (recommendation.isFavorite) {
+      track("favorite_shown_in_carousel", {
+        beach_id: beach.id,
+        score: score,
+      });
+    }
+  }, [recommendation.isFavorite, beach.id, score]);
 
   return (
     <Card
