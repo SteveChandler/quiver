@@ -4,11 +4,12 @@ import { useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface UseBeachPersonalizationOptions {
   beachId: string | null;
   baseScore: number;
-  forecast: any; // Required by API endpoint
+  forecast: EnhancedForecastEntity;
 }
 
 interface UseBeachPersonalizationResult {
@@ -32,6 +33,7 @@ interface UseBeachPersonalizationResult {
  * const { data: personalizedScore, loading, error } = useBeachPersonalization({
  *   beachId: "beach-123",
  *   baseScore: 75,
+ *   forecast: currentForecast,
  * });
  *
  * if (personalizedScore?.personalized) {
@@ -75,9 +77,9 @@ export function useBeachPersonalization({
   });
 
   return {
-    data: data ?? null,
+    data,
     loading,
-    error: error ? error : null,
+    error,
     refetch,
   };
 }
