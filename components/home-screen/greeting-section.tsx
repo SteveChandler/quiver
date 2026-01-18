@@ -66,9 +66,9 @@ export function GreetingSection({
     <motion.div
       className={`space-y-2 px-4 sm:px-0 ${className}`.trim()}
       data-testid="greeting-section"
-      initial={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem.initial}
-      animate={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem.animate}
-      transition={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem.transition}
+      initial={reducedMotion ? false : HOME_HEADER_MOTION.entryItem.initial}
+      animate={reducedMotion ? { opacity: 1, y: 0 } : HOME_HEADER_MOTION.entryItem.animate}
+      transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.entryItem.transition}
     >
       <h1 className="text-base xs:text-lg sm:text-xl font-normal text-white/80 leading-tight">
         {greeting}

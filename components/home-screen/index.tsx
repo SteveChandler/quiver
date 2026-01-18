@@ -194,9 +194,11 @@ export function HomeScreen() {
         {/* Dark gradient header section */}
         <motion.div
           className="bg-gradient-to-b from-header-start to-header-end pt-6 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8"
-          initial="hidden"
+          initial={reducedMotion ? false : "hidden"}
           animate="visible"
-          variants={reducedMotion ? undefined : {
+          variants={reducedMotion ? {
+            visible: {},
+          } : {
             hidden: {},
             visible: {
               transition: HOME_HEADER_MOTION.entry,
@@ -206,7 +208,7 @@ export function HomeScreen() {
           {/* 1. Greeting Section */}
           <motion.section
             className="centered-container"
-            variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+            variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
           >
             <GreetingSection
               userName={profile?.full_name || null}
@@ -218,7 +220,7 @@ export function HomeScreen() {
           {profile && (
             <motion.section
               className="centered-container"
-              variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
             >
               <TimeSlotSelector
                 value={timeSlot}
@@ -232,7 +234,7 @@ export function HomeScreen() {
           {profile && (
             <motion.section
               className="centered-container"
-              variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
             >
               <HeroRecommendation
                 recommendation={topRecommendation}
@@ -251,7 +253,7 @@ export function HomeScreen() {
           {profile && (
             <motion.section
               className="centered-container"
-              variants={reducedMotion ? undefined : HOME_HEADER_MOTION.entryItem}
+              variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
             >
               {topRecommendation ? (
                 <PrimaryActions

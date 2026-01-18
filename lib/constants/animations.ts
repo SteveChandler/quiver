@@ -440,7 +440,7 @@ export const HOME_HEADER_MOTION = {
       ],
       transition: {
         duration: 2,
-        repeat: Infinity,
+        repeat: 3, // Limited cycles to conserve battery on mobile
         ease: "easeInOut",
       },
     },

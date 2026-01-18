@@ -83,7 +83,7 @@ export const PrimaryActions = React.memo(function PrimaryActions({
         onMouseLeave={() => setIsPrimaryHovered(false)}
         whileTap={reducedMotion ? undefined : HOME_HEADER_MOTION.button.tap}
         whileHover={reducedMotion ? undefined : HOME_HEADER_MOTION.button.hover}
-        transition={reducedMotion ? undefined : HOME_HEADER_MOTION.button.spring}
+        transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.button.spring}
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
           "bg-gradient-to-b from-orange-400 to-orange-600",
@@ -119,7 +119,7 @@ export const PrimaryActions = React.memo(function PrimaryActions({
         onMouseLeave={() => setIsSecondaryHovered(false)}
         whileTap={reducedMotion ? undefined : HOME_HEADER_MOTION.button.tap}
         whileHover={reducedMotion ? undefined : HOME_HEADER_MOTION.button.hover}
-        transition={reducedMotion ? undefined : HOME_HEADER_MOTION.button.spring}
+        transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.button.spring}
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
           "bg-gradient-to-b from-white/15 to-white/5",

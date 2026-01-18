@@ -43,9 +43,9 @@ export function TimeSlotSelector({ value, onChange, className }: TimeSlotSelecto
             animate={
               isSelected && !reducedMotion
                 ? HOME_HEADER_MOTION.timeSlot.selected
-                : undefined
+                : { scale: 1 }
             }
-            transition={reducedMotion ? undefined : { type: "spring", ...HOME_HEADER_MOTION.timeSlot.spring }}
+            transition={reducedMotion ? { duration: 0 } : { type: "spring", ...HOME_HEADER_MOTION.timeSlot.spring }}
             className={cn(
               'px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap',
               'min-h-[44px] flex items-center justify-center gap-1.5',
