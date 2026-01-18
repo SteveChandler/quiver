@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
+- **Intel Forecast Prefill (useIntelForecastPrefill Hook):** Extracted forecast prefill logic from `intel-post-form.tsx` into reusable `useIntelForecastPrefill` hook. Hook provides:
+  - Auto-fetches forecast when modal opens with conditions tag and beachId
+  - Prefills wave_height, wind_speed, wind_direction, water_temp from current forecast
+  - Tracks field state to prevent overwriting user edits
+  - Preserves user-edited state across modal close/reopen
+  - Exports `parseNumericValue()` and `mapWindDirection()` utilities
+  - Exports `FieldPrefillState`, `ConditionFieldStates`, and `ConditionFieldKey` types
+  - Full test coverage: 13 unit tests covering initialization, prefilling, field editing, and reset
+  - Reduces intel-post-form.tsx complexity by ~120 lines
+
 - **Intel Form Validation (useIntelFormValidation Hook):** Extracted validation logic from `intel-post-form.tsx` into reusable `useIntelFormValidation` hook. Hook provides:
   - `intelPostSchema`: Zod schema for form validation (previously inline)
   - `generateConditionsSummary()`: Auto-generates description from conditions fields (wave types, crowd level, wind, water temp)
