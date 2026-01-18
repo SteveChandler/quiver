@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Personalized Badge in Beach Discovery Cards:** Beach discovery cards now display a personalized badge when the user has learned preferences that affect the scoring. The badge:
+  - Appears alongside other badges (Top Pick, Live, Match Quality) in the card header
+  - Shows personalized score as a percentage (e.g., "92% Match")
+  - Displays score breakdown on hover (desktop) or tap (mobile) showing contributions from base score, user preferences, learned behavior, and beach affinity
+  - Uses small size variant for compact display in card layouts
+  - Only appears when personalization is active (user has preferences and `personalized: true`)
+  - Fetches personalized scores using `useBeachPersonalization` hook with beach ID, base score, and forecast data
+  - Gracefully degrades when user is not authenticated or has no preferences
+  - Full test coverage: 2 new unit tests covering personalization display and non-personalization scenarios
+
+- **Surf Style Card in Profile Header:** Profile page now displays a "Your Surf Style" card showing learned preferences or progress toward unlocking personalization. The card:
+  - Appears in the profile header section after the user avatar
+  - Shows surf style summary (wave range, session count) when confidence > 0.5
+  - Displays progress bar toward 5 sessions when confidence <= 0.5 or low session count
+  - Hides entirely when preferences is null
+  - Styled with glass morphism (bg-white/10, backdrop-blur) for visual consistency
+  - Full test coverage: 8 unit tests covering high confidence, low confidence, null state, and edge cases
+
+- **Favorites Prioritization in Surf Discovery:** The surf discovery orchestrator now merges user's favorite beaches into recommendations, showing them first with an `isFavorite: true` flag. Favorites are scored using current conditions and only included if they meet a minimum score threshold of 50 points. This ensures users see their preferred spots at the top of recommendations when conditions are favorable.
+  - Favorites are fetched using `getFavoriteBeaches` action from the discovery orchestrator
+  - Favorites with score >= 50 are placed first, sorted by score descending
+  - Duplicates are removed to prevent showing the same beach twice
+  - Error handling ensures discovery continues with regular recommendations if favorites fetch fails
+  - Comprehensive test coverage: 8 unit tests covering all edge cases
+
+- **Favorite Heart Badge on Compact Spot Cards:** Added visual heart badge to CompactSpotCard component that displays when a beach is marked as a user's favorite. Badge appears in the top-left corner with a white background and red fill, using the `isFavorite` property from `SurfDiscoveryRecommendation`.
+
 - **Favorite Beach Indicator (`SurfDiscoveryRecommendation.isFavorite`):** Added optional `isFavorite` boolean field to surf discovery recommendations to enable displaying heart badges on favorite beaches in the Top Spots carousel.
 
 - **Beach Personalization Hook (`useBeachPersonalization`):** New hook for fetching personalized beach scores based on user preferences. Hook provides:

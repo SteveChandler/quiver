@@ -13,6 +13,13 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
+// Mock the personalization hook
+jest.mock("@/hooks/use-beach-personalization", () => ({
+  useBeachPersonalization: jest.fn(),
+}));
+
+import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
+
 const { format, addHours, isValid } = dateFns;
 
 describe("BeachDiscoveryCard - Date/Time Display", () => {
@@ -84,6 +91,14 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock personalization hook to return no personalization by default
+    (useBeachPersonalization as jest.Mock).mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
   });
 
   describe("Valid Date Rendering", () => {
@@ -388,6 +403,60 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       const viewLink = screen.getByRole("link", { name: /View Beach/ });
       // URL should include tracking param from surf_discovery
       expect(viewLink).toHaveAttribute("href", "/beach/pipeline?from=surf_discovery");
+    });
+
+    it("should display PersonalizedBadge when personalization is active", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      // Mock personalization hook to return personalized data
+      (useBeachPersonalization as jest.Mock).mockReturnValue({
+        data: {
+          score: 92,
+          personalized: true,
+          breakdown: {
+            base: 75,
+            onboardingPrefs: 10,
+            learnedPrefs: 5,
+            affinity: 2,
+          },
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should display the personalized badge
+      expect(screen.getByTestId("personalized-badge-container")).toBeInTheDocument();
+      expect(screen.getByText("92% Match")).toBeInTheDocument();
+    });
+
+    it("should NOT display PersonalizedBadge when personalization is not active", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      // Default mock already returns null data (no personalization)
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should NOT display the personalized badge
+      expect(screen.queryByTestId("personalized-badge-container")).not.toBeInTheDocument();
     });
   });
 });

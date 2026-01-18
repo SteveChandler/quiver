@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { formatBeachTimeRange } from "@/lib/utils/date-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
+import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 
 
 interface BeachDiscoveryCardProps {
@@ -48,7 +50,15 @@ export function BeachDiscoveryCard({
     warnings,
     window,
     distanceMiles,
+    forecast,
   } = recommendation;
+
+  // Fetch personalized score for this beach
+  const personalization = useBeachPersonalization({
+    beachId: beach.id,
+    baseScore: score,
+    forecast,
+  });
 
   const displayScore = Number.isFinite(score) ? Math.round(score) : 0;
   const waveSourceLabel =
@@ -108,6 +118,14 @@ export function BeachDiscoveryCard({
               <Badge className={matchQualityColors[matchQuality]}>
                 {matchQuality.charAt(0).toUpperCase() + matchQuality.slice(1)}
               </Badge>
+              {personalization?.data?.personalized && (
+                <PersonalizedBadge
+                  personalized={personalization.data.personalized}
+                  score={personalization.data.score}
+                  breakdown={personalization.data.breakdown}
+                  size="sm"
+                />
+              )}
             </div>
             <CardTitle className="text-xl flex items-center gap-2">
               <MapPin className="h-5 w-5 text-gray-500" />
