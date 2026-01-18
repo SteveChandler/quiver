@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
 
 interface UseUserPreferencesResult {
@@ -13,39 +14,28 @@ interface UseUserPreferencesResult {
 
 export function useUserPreferences(): UseUserPreferencesResult {
   const { user } = useAuth();
-  const [data, setData] = useState<UserSurfPreferences | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
-  const fetchPreferences = useCallback(async () => {
-    if (!user) {
-      setData(null);
-      setLoading(false);
-      return;
+  const fetchPreferences = useCallback(async (): Promise<UserSurfPreferences | null> => {
+    if (!user) return null;
+
+    const res = await fetch("/api/user/preferences");
+    if (!res.ok) {
+      throw new Error(`Failed to fetch preferences: ${res.status}`);
     }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/user/preferences");
-      if (!res.ok) {
-        setData(null);
-        return;
-      }
-      const json = await res.json();
-      setData(json.data ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to fetch preferences"));
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+    const json = await res.json();
+    return json.data ?? null;
   }, [user]);
 
-  useEffect(() => {
-    fetchPreferences();
-  }, [fetchPreferences]);
+  const { data, loading, error, refetch } = useDataFetcher(fetchPreferences, {
+    immediate: true,
+    skip: !user,
+    initialData: null,
+  });
 
-  return { data, loading, error, refetch: fetchPreferences };
+  return {
+    data: data ?? null,
+    loading,
+    error: error ? new Error(error) : null,
+    refetch,
+  };
 }
