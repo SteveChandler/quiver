@@ -863,8 +863,10 @@ export function selectBestWindow(
       }
     }
 
-    // Cap at time slot end (e.g., dawn-patrol ends at 9am) - applies to both
-    endTime = capEndTimeToSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
+    // Cap at time slot end - only for fallback (hourly) windows, not tide-driven
+    if (!tideBoundaries || !useTideBoundaries) {
+      endTime = capEndTimeToSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
+    }
 
     // Validate minimum session length (using effective start time)
     const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
