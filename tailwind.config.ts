@@ -131,6 +131,10 @@ const config: Config = {
           "0%": { opacity: "0", transform: "scale(0.9)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -145,6 +149,7 @@ const config: Config = {
         "slide-in-right": "slideInRight 0.8s ease-out",
         "scale-in": "scaleIn 0.8s ease-out",
         "scale-in-large": "scaleInLarge 0.9s ease-out",
+        shimmer: "shimmer 1.5s infinite linear",
       },
     },
   },
