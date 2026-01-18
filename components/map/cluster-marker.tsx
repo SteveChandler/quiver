@@ -11,6 +11,11 @@ interface ClusterMarkerOptions {
   onLeave: () => void;
 }
 
+interface ClusterMarkerResult {
+  element: HTMLElement;
+  cleanup: () => void;
+}
+
 /**
  * Creates a DOM element for a cluster marker
  * Used with Mapbox GL custom markers
@@ -21,7 +26,7 @@ export function createClusterMarkerElement({
   hasFavorite,
   onHover,
   onLeave,
-}: ClusterMarkerOptions): HTMLElement {
+}: ClusterMarkerOptions): ClusterMarkerResult {
   const waveRange = formatClusterWaveRange(waveHeights);
   const bgColor = getClusterColor(hasFavorite);
 
@@ -82,18 +87,29 @@ export function createClusterMarkerElement({
 
   wrapper.appendChild(badge);
 
-  // Hover effects on wrapper (includes badge)
-  wrapper.addEventListener("mouseenter", () => {
+  // Store handlers for cleanup
+  const handleMouseEnter = () => {
     badge.style.transform = "scale(1.1)";
     badge.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.4)";
     onHover();
-  });
+  };
 
-  wrapper.addEventListener("mouseleave", () => {
+  const handleMouseLeave = () => {
     badge.style.transform = "scale(1)";
     badge.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.3)";
     onLeave();
-  });
+  };
 
-  return wrapper;
+  // Hover effects on wrapper (includes badge)
+  wrapper.addEventListener("mouseenter", handleMouseEnter);
+  wrapper.addEventListener("mouseleave", handleMouseLeave);
+
+  // Return element and cleanup function
+  return {
+    element: wrapper,
+    cleanup: () => {
+      wrapper.removeEventListener("mouseenter", handleMouseEnter);
+      wrapper.removeEventListener("mouseleave", handleMouseLeave);
+    },
+  };
 }
