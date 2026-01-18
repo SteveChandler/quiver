@@ -218,6 +218,28 @@ function calculateTideDrivenBoundaries(
 // ============================================================================
 
 /**
+ * Get the hour range for a time slot.
+ * Dawn patrol uses dynamic start based on sunrise; others use static ranges.
+ *
+ * @param timeSlot - The time slot filter
+ * @param sunrises - Array of sunrise times (needed for dawn-patrol)
+ * @param forecastDate - The forecast date
+ * @param beachTz - IANA timezone string
+ * @returns Time range with startHour and endHour
+ */
+export function getTimeSlotRange(
+  timeSlot: TimeSlot,
+  sunrises: Date[],
+  forecastDate: Date,
+  beachTz: string
+): { startHour: number; endHour: number } {
+  if (timeSlot === 'dawn-patrol') {
+    return getDawnPatrolRange(sunrises, forecastDate, beachTz);
+  }
+  return TIME_SLOT_RANGES[timeSlot];
+}
+
+/**
  * Get dawn patrol time range based on sunrise.
  * Start is civil twilight (~30 min before sunrise), end is 9am.
  *

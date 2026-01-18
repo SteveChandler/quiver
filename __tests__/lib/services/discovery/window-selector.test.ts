@@ -1010,6 +1010,49 @@ describe('selectBestWindow with tide-driven boundaries', () => {
   });
 });
 
+describe('getTimeSlotRange', () => {
+  it('should return static range for morning slot', () => {
+    const { getTimeSlotRange } = require('@/lib/services/discovery/window-selector');
+
+    const range = getTimeSlotRange('morning', [], new Date(), 'America/Los_Angeles');
+
+    expect(range.startHour).toBe(6);
+    expect(range.endHour).toBe(12);
+  });
+
+  it('should return static range for afternoon slot', () => {
+    const { getTimeSlotRange } = require('@/lib/services/discovery/window-selector');
+
+    const range = getTimeSlotRange('afternoon', [], new Date(), 'America/Los_Angeles');
+
+    expect(range.startHour).toBe(12);
+    expect(range.endHour).toBe(18);
+  });
+
+  it('should return dynamic range for dawn-patrol based on sunrise', () => {
+    const { getTimeSlotRange } = require('@/lib/services/discovery/window-selector');
+
+    // Winter sunrise at 6:47am PST
+    const sunrises = [new Date('2024-01-15T14:47:00Z')];
+    const forecastDate = new Date('2024-01-15T17:00:00Z');
+
+    const range = getTimeSlotRange('dawn-patrol', sunrises, forecastDate, 'America/Los_Angeles');
+
+    // Should use civil twilight (6:17am -> hour 6)
+    expect(range.startHour).toBe(6);
+    expect(range.endHour).toBe(9);
+  });
+
+  it('should return full day range for any slot', () => {
+    const { getTimeSlotRange } = require('@/lib/services/discovery/window-selector');
+
+    const range = getTimeSlotRange('any', [], new Date(), 'America/Los_Angeles');
+
+    expect(range.startHour).toBe(6);
+    expect(range.endHour).toBe(21);
+  });
+});
+
 describe('getDawnPatrolRange', () => {
   it('should return civil twilight start based on sunrise', () => {
     // Import the helper (will add export after test fails)
