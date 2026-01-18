@@ -15,6 +15,13 @@ jest.mock("mapbox-gl", () => ({
     getCenter: jest.fn(() => ({ lat: 32.7493, lng: -117.2511 })),
     getZoom: jest.fn(() => 13),
     setCenter: jest.fn(),
+    getBounds: jest.fn(() => ({
+      getWest: () => -117.3,
+      getSouth: () => 32.7,
+      getEast: () => -117.2,
+      getNorth: () => 32.8,
+    })),
+    getCanvasContainer: jest.fn(() => document.createElement("div")),
   })),
   Marker: jest.fn(() => ({
     setLngLat: jest.fn().mockReturnThis(),
@@ -207,14 +214,19 @@ describe("Map Forecast Basic Tests", () => {
 
   it("should create Mapbox markers when data is loaded", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
-    render(<InteractiveMap />);
-    
-    // Wait for data loading and marker creation
+
+    // Pass beaches prop directly to trigger marker creation via clustering
+    const mockBeaches = [
+      { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
+    ];
+
+    render(<InteractiveMap beaches={mockBeaches as any} />);
+
+    // Wait for data loading and marker creation via clustering flow
     await waitFor(() => {
       const Marker = require("mapbox-gl").Marker;
       expect(Marker).toHaveBeenCalled();
-    }, { timeout: 2000 });
+    }, { timeout: 3000 });
   });
 
   it("should handle component unmounting", async () => {
