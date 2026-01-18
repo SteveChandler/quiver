@@ -25,7 +25,7 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
-import { buildCandidatePool } from './discovery/candidate-pool-builder';
+import { buildCandidatePool, batchFetchForecasts } from './discovery';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { createContextLogger } from "@/lib/logger";
 
@@ -460,106 +460,6 @@ export async function discoverSurfSpots(
     log.error(`❌ Error after ${duration}ms for user ${userId}:`, error);
     return emptyResponse(maxResults);
   }
-}
-
-// ============================================================================
-// Forecast Fetching
-// ============================================================================
-
-/**
- * Batch fetch forecasts from cache with staleness tracking
- */
-async function batchFetchForecasts(
-  beaches: Beach[],
-  _options: {
-    maxConcurrent: number;
-    timeout: number;
-    overallTimeout: number;
-  }
-): Promise<{
-  successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>;
-  failed: Array<{ beach: Beach; reason: string; stale: boolean }>;
-  staleCount: number;
-}> {
-  const startTime = Date.now();
-
-  log.debug(`🌊 [batchFetchForecasts] Fetching forecasts for ${beaches.length} beaches from cache (batched)`);
-
-  const { getBatchFreshForecastsFromCache } = await import('@/lib/utils/forecast-service-utils');
-
-  // Create beach ID to Beach lookup map
-  const beachMap = new Map<string, Beach>();
-  for (const beach of beaches) {
-    beachMap.set(beach.id, beach);
-  }
-
-  // Fetch all forecasts in 2 queries instead of 2N queries
-  const batchResults = await getBatchFreshForecastsFromCache(
-    beaches.map(b => b.id),
-    FORECAST_WINDOW_HOURS
-  );
-
-  const successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
-  const failed: Array<{ beach: Beach; reason: string; stale: boolean }> = [];
-  let staleCount = 0;
-
-  for (const beach of beaches) {
-    const result = batchResults.get(beach.id);
-
-    if (!result) {
-      failed.push({
-        beach,
-        reason: 'No result returned from batch fetch',
-        stale: false,
-      });
-      continue;
-    }
-
-    if (result.metadata.missing) {
-      failed.push({
-        beach,
-        reason: result.metadata.reason || 'Missing data',
-        stale: false,
-      });
-      continue;
-    }
-
-    if (result.metadata.stale) {
-      staleCount++;
-      failed.push({
-        beach,
-        reason: result.metadata.reason || 'Stale data',
-        stale: true,
-      });
-      continue;
-    }
-
-    if (result.forecasts.length === 0) {
-      failed.push({
-        beach,
-        reason: 'No forecasts available',
-        stale: false,
-      });
-      continue;
-    }
-
-    successful.push({
-      beach,
-      forecasts: result.forecasts,
-    });
-  }
-
-  const duration = Date.now() - startTime;
-  log.debug(`📊 [batchFetchForecasts] Complete in ${duration}ms:`, {
-    total: beaches.length,
-    successful: successful.length,
-    failed: failed.length,
-    staleCount,
-    staleBeaches: failed.filter(f => f.stale).map(f => f.beach.name).join(', '),
-    failedBeaches: failed.map(f => `${f.beach.name} (${f.reason})`).join(', '),
-  });
-
-  return { successful, failed, staleCount };
 }
 
 // ============================================================================

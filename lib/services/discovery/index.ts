@@ -11,3 +11,10 @@ export {
   type CandidatePoolOptions,
   type CandidatePoolResult,
 } from './candidate-pool-builder';
+
+export {
+  batchFetchForecasts,
+  DEFAULT_FORECAST_WINDOW_HOURS,
+  type ForecastBatchOptions,
+  type ForecastBatchResult,
+} from './forecast-batch-fetcher';
