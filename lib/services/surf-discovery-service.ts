@@ -29,8 +29,10 @@ import {
   buildCandidatePool,
   batchFetchForecasts,
   selectBestWindow,
-  capEndTimeToTimeSlot,
-  scoreForecastWindow,
+  enrichWithPhotos,
+  generateDiscoverySummary,
+  getRecommendationLabel,
+  buildDiscoveryMessage,
 } from './discovery';
 import { createContextLogger } from "@/lib/logger";
 
@@ -45,9 +47,7 @@ import type {
   PersonalizedForecastWindow,
   TimeSlot,
 } from '@/types/personalization';
-import { withApprovedPhotos } from '@/lib/supabase/query-builders';
-import { FALLBACK_IMAGE_BY_NAME } from '@/lib/constants/featured-beaches-config';
-import type { RecommendationLabel, MatchQuality } from '@/lib/scoring';
+import type { MatchQuality } from '@/lib/scoring';
 import type { ConditionBadge } from '@/types/personalization';
 import {
   createDiscoveryScoringEngine,
@@ -185,64 +185,8 @@ const FORECAST_WINDOW_HOURS = 48;
 // Note: Window selection constants (TIME_DECAY_PER_HOUR, MIN_SCORE_THRESHOLD, etc.)
 // are now in lib/services/discovery/window-selector.ts
 
-// ============================================================================
-// Photo Enrichment
-// ============================================================================
-
-/**
- * Enrich recommendations with beach photo URLs
- *
- * Photo resolution order:
- * 1. Approved photo from beach_photos table
- * 2. Named fallback from FALLBACK_IMAGE_BY_NAME
- * 3. null (component will render gradient)
- */
-async function enrichWithPhotos(
-  recommendations: SurfDiscoveryRecommendation[]
-): Promise<SurfDiscoveryRecommendation[]> {
-  if (recommendations.length === 0) return recommendations;
-
-  const supabase = createSupabaseServiceRoleClient();
-  const beachIds = recommendations.map((r) => r.beach.id);
-
-  // Fetch approved photos for all beaches in one query
-  const baseQuery = supabase
-    .from('beach_photos')
-    .select('beach_id, image_url')
-    .in('beach_id', beachIds)
-    .order('fetched_at', { ascending: false });
-
-  const { data: photos } = await withApprovedPhotos(baseQuery);
-
-  // Build beach_id -> photo_url map (first photo per beach)
-  const photoMap = new Map<string, string>();
-  if (photos) {
-    for (const photo of photos) {
-      if (!photoMap.has(photo.beach_id)) {
-        photoMap.set(photo.beach_id, photo.image_url);
-      }
-    }
-  }
-
-  // Enrich each recommendation
-  return recommendations.map((rec) => {
-    // Try database photo first
-    let photoUrl = photoMap.get(rec.beach.id) || null;
-
-    // Fall back to named fallback
-    if (!photoUrl) {
-      photoUrl = FALLBACK_IMAGE_BY_NAME[rec.beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME] || null;
-    }
-
-    return {
-      ...rec,
-      beach: {
-        ...rec.beach,
-        photo_url: photoUrl,
-      },
-    };
-  });
-}
+// Note: Photo enrichment functions (enrichWithPhotos, FALLBACK_IMAGE_BY_NAME)
+// are now in lib/services/discovery/response-formatter.ts
 
 // ============================================================================
 // Main Entry Point
@@ -541,75 +485,8 @@ export async function scoreBeachForDiscovery(args: {
 // Note: scoreForecastWindow, selectBestWindow, capEndTimeToTimeSlot have been
 // moved to lib/services/discovery/window-selector.ts
 
-// ============================================================================
-// Summary Generation
-// ============================================================================
-
-/**
- * Generate human-readable summary for discovery recommendation.
- */
-function generateDiscoverySummary(
-  beach: Beach,
-  window: PersonalizedForecastWindow,
-  score: DetailedScore
-): string {
-  const matchDesc =
-    score.matchQuality === 'perfect'
-      ? 'Perfect match'
-      : score.matchQuality === 'excellent'
-        ? 'Excellent match'
-        : score.matchQuality === 'good'
-          ? 'Good match'
-          : 'Fair conditions';
-
-  const preferredSizeWarning = score.warnings.find(
-    (w) =>
-      w.startsWith('Below your preferred size') ||
-      w.startsWith('Above your preferred size')
-  );
-
-  const warningSuffix = preferredSizeWarning ? ` ${preferredSizeWarning}.` : '';
-
-  return `${matchDesc} at ${beach.name} - ${window.waveHeight} with ${window.wind}.${warningSuffix}`;
-}
-
-/**
- * Get recommendation label from score value
- * Score-based: >=70 = Worth it, 40-69 = Maybe, <40 = Skip
- */
-function getRecommendationLabel(score: number): RecommendationLabel {
-  if (score >= 70) return 'Worth it';
-  if (score >= 40) return 'Maybe';
-  return 'Skip';
-}
-
-/**
- * Build natural language message from score, reasons, and warnings
- * Format: "Worth it — Good wave size, Offshore wind. Watch: Tide is high"
- */
-function buildDiscoveryMessage(
-  score: number,
-  reasons: string[],
-  warnings: string[]
-): string {
-  const label = getRecommendationLabel(score);
-
-  if (label === 'Skip') {
-    const skipReason = warnings[0] || 'Conditions not favorable';
-    return `Skip — ${skipReason}`;
-  }
-
-  // Pick top 2 reasons for concise message
-  const topReasons = reasons.slice(0, 2).join(', ');
-  let message = `${label} — ${topReasons || 'Conditions look surfable'}`;
-
-  // Add first warning if present
-  if (warnings.length > 0) {
-    message += `. Watch: ${warnings[0]}`;
-  }
-
-  return message;
-}
+// Note: Summary generation functions (generateDiscoverySummary, getRecommendationLabel,
+// buildDiscoveryMessage) are now in lib/services/discovery/response-formatter.ts
 
 // ============================================================================
 // Helper Functions

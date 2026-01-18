@@ -25,3 +25,11 @@ export {
   scoreForecastWindow,
   type WindowSelectorOptions,
 } from './window-selector';
+
+export {
+  enrichWithPhotos,
+  generateDiscoverySummary,
+  getRecommendationLabel,
+  buildDiscoveryMessage,
+  FALLBACK_IMAGE_BY_NAME,
+} from './response-formatter';
