@@ -286,6 +286,140 @@ export interface TideWindowOptions {
   afterTime: Date | string | number;
 }
 
+export interface TideExtremum {
+  time: Date;
+  height: number;
+  type: "high" | "low";
+}
+
+/**
+ * Finds the nearest tide extremum (high or low) after a given time.
+ *
+ * @param tideSchedule - Array of tide schedule entries (high/low events)
+ * @param afterTime - Find extremum after this time
+ * @param preferredType - Optional: prefer "high" or "low", or null for nearest
+ * @returns The nearest tide extremum, or null if not found
+ */
+export function findNearestTideExtremum(
+  tideSchedule: TideScheduleEntry[],
+  afterTime: Date | string | number,
+  preferredType?: "high" | "low" | null
+): TideExtremum | null {
+  if (!tideSchedule || tideSchedule.length === 0) return null;
+
+  const afterTs = normalizeTimestamp(afterTime);
+
+  // Sort by time and find entries after afterTime
+  const sorted = [...tideSchedule]
+    .map(t => ({
+      time: t.time * 1000, // Convert to ms
+      height: t.height,
+      type: t.type,
+    }))
+    .sort((a, b) => a.time - b.time)
+    .filter(t => t.time > afterTs);
+
+  if (sorted.length === 0) return null;
+
+  // If preferred type specified, find the first matching type
+  if (preferredType) {
+    const preferred = sorted.find(t => t.type === preferredType);
+    if (preferred) {
+      return {
+        time: new Date(preferred.time),
+        height: preferred.height,
+        type: preferred.type,
+      };
+    }
+  }
+
+  // Otherwise return the nearest
+  const nearest = sorted[0];
+  return {
+    time: new Date(nearest.time),
+    height: nearest.height,
+    type: nearest.type,
+  };
+}
+
+/**
+ * Creates a direction-based tide window when threshold crossings aren't available.
+ * Used as fallback when tide stays within acceptable range all day.
+ *
+ * @param tideSchedule - Array of tide schedule entries
+ * @param preferredDirection - Direction preference
+ * @param afterTime - Start searching after this time
+ * @returns Tide window based on tide direction, or null
+ */
+function calculateDirectionBasedWindow(
+  tideSchedule: TideScheduleEntry[],
+  preferredDirection: "rising" | "falling" | "slack" | "either",
+  afterTime: Date | string | number
+): TideWindow | null {
+  const afterTs = normalizeTimestamp(afterTime);
+
+  // Sort tide schedule
+  const sorted = [...tideSchedule]
+    .map(t => ({
+      time: t.time * 1000,
+      height: t.height,
+      type: t.type,
+    }))
+    .sort((a, b) => a.time - b.time);
+
+  if (sorted.length < 2) return null;
+
+  // For rising: find low tide, window until next high
+  // For falling: find high tide, window until next low
+  // For slack/either: find nearest extremum, window ±1.5 hours
+
+  if (preferredDirection === "rising") {
+    // Find the next low tide after afterTime (start of rising phase)
+    const lowIdx = sorted.findIndex(t => t.time > afterTs && t.type === "low");
+    if (lowIdx === -1 || lowIdx >= sorted.length - 1) return null;
+
+    const low = sorted[lowIdx];
+    // Find the next high after this low
+    const highIdx = sorted.findIndex((t, i) => i > lowIdx && t.type === "high");
+    if (highIdx === -1) return null;
+
+    const high = sorted[highIdx];
+    return {
+      start: new Date(low.time),
+      end: new Date(high.time),
+    };
+  }
+
+  if (preferredDirection === "falling") {
+    // Find the next high tide after afterTime (start of falling phase)
+    const highIdx = sorted.findIndex(t => t.time > afterTs && t.type === "high");
+    if (highIdx === -1 || highIdx >= sorted.length - 1) return null;
+
+    const high = sorted[highIdx];
+    // Find the next low after this high
+    const lowIdx = sorted.findIndex((t, i) => i > highIdx && t.type === "low");
+    if (lowIdx === -1) return null;
+
+    const low = sorted[lowIdx];
+    return {
+      start: new Date(high.time),
+      end: new Date(low.time),
+    };
+  }
+
+  // For "slack" or "either": find nearest extremum and create window around it
+  const nearestIdx = sorted.findIndex(t => t.time > afterTs);
+  if (nearestIdx === -1) return null;
+
+  const nearest = sorted[nearestIdx];
+  const SLACK_WINDOW_MS = 1.5 * 60 * 60 * 1000; // 1.5 hours
+
+  return {
+    start: new Date(nearest.time - SLACK_WINDOW_MS),
+    end: new Date(nearest.time + SLACK_WINDOW_MS),
+  };
+}
+
 export interface TideWindow {
   start: Date;
   end: Date;
@@ -353,6 +487,22 @@ export function calculateTideWindow(
     if (endTime.getTime() - startTime.getTime() < 30 * 60 * 1000) continue;
 
     return { start: startTime, end: endTime };
+  }
+
+  // Fallback: If threshold crossings failed (tide stays within range),
+  // use direction-based window calculation
+  const directionWindow = calculateDirectionBasedWindow(
+    tideSchedule,
+    preferredDirection,
+    afterTime
+  );
+
+  if (directionWindow) {
+    // Validate fallback window is reasonable (at least 30 minutes)
+    const duration = directionWindow.end.getTime() - directionWindow.start.getTime();
+    if (duration >= 30 * 60 * 1000) {
+      return directionWindow;
+    }
   }
 
   return null;

@@ -2,6 +2,15 @@
  * @jest-environment node
  */
 
+// Mock React.cache before importing the page component
+jest.mock("react", () => {
+  const originalReact = jest.requireActual("react");
+  return {
+    ...originalReact,
+    cache: <T extends (...args: any[]) => any>(fn: T) => fn,
+  };
+});
+
 import BeachDetailBySlugPage from "@/app/beach/[slug]/page";
 import {
   getBeachById,

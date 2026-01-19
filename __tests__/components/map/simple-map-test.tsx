@@ -30,7 +30,12 @@ jest.mock("mapbox-gl", () => ({
     getBounds: jest.fn(() => ({
       getNorthEast: () => ({ lat: 32.8, lng: -117.2 }),
       getSouthWest: () => ({ lat: 32.7, lng: -117.3 }),
+      getWest: () => -117.3,
+      getSouth: () => 32.7,
+      getEast: () => -117.2,
+      getNorth: () => 32.8,
     })),
+    getCanvasContainer: jest.fn(() => document.createElement("div")),
   })),
   Marker: jest.fn(() => ({
     setLngLat: jest.fn().mockReturnThis(),

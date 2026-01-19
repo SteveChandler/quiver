@@ -18,6 +18,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
+import { getFavoriteBeaches } from '@/actions/beach/beach-favorite-actions';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -58,6 +59,27 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 // ============================================================================
 // Badge Generation
 // ============================================================================
+
+/**
+ * Format wave height as a range string for badge display.
+ * Returns null for flat conditions (< 0.5ft).
+ *
+ * @param waveHeight - Wave height in feet
+ * @returns Range string like "2-3ft" or null if flat
+ */
+export function formatWaveHeightRange(waveHeight: number): string | null {
+  if (waveHeight < 0.5) return null;
+
+  // Round down to nearest 0.5
+  const lower = Math.floor(waveHeight * 2) / 2;
+  // Add ~1ft for upper range
+  const upper = lower + 1;
+
+  // Format without unnecessary decimals
+  const formatNum = (n: number) => n % 1 === 0 ? n.toString() : n.toFixed(1);
+
+  return `${formatNum(lower)}-${formatNum(upper)}ft`;
+}
 
 /**
  * Generate condition badges based on thresholds
@@ -332,9 +354,14 @@ export async function scoreBeachForDiscovery(args: {
   // Generate condition badges (keep existing badge generation)
   const conditionBadges = generateConditionBadges(forecast, beach, detailedScore.subscores);
 
+  // Generate wave height badge from forecast
+  const waveHeight = parseFloat(String(forecast.wave_height ?? '0'));
+  const waveHeightBadge = formatWaveHeightRange(waveHeight);
+
   return {
     ...detailedScore,
     conditionBadges,
+    waveHeightBadge: waveHeightBadge ?? undefined,
     reasons: detailedScore.reasons.slice(0, 5),
   };
 }
@@ -443,6 +470,21 @@ export async function discoverSurfSpots(
       }
     }
 
+    // CRITICAL: Always include today and next 2 days in UTC format
+    // This fixes a bug where forecast_date values might not include today's date
+    // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
+    // The sun_times table stores dates in UTC, so we need to ensure we query for:
+    // - Yesterday (in case of timezone edge cases)
+    // - Today
+    // - Tomorrow
+    // - Day after tomorrow
+    const now = new Date();
+    for (let dayOffset = -1; dayOffset <= 2; dayOffset++) {
+      const d = new Date(now);
+      d.setUTCDate(now.getUTCDate() + dayOffset);
+      allDates.add(d.toISOString().split('T')[0]);
+    }
+
     // Fetch sunsets (now returns Map<beachId, Date[]>)
     const uniqueDates = Array.from(allDates);
     const sunTimesCache = await getBatchSunTimes(
@@ -510,17 +552,63 @@ export async function discoverSurfSpots(
         reasons: detailedScore.reasons,
         warnings: detailedScore.warnings,
         conditionBadges: detailedScore.conditionBadges,
+        waveHeightBadge: detailedScore.waveHeightBadge,
         distanceMiles,
         drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
         generated_at: new Date().toISOString(),
       });
     }
 
-    // 4. Sort and slice to maxResults
-    const ranked = scored.sort((a, b) => b.score - a.score).slice(0, maxResults);
+    // 4. Fetch and merge favorites
+    let favoriteBeachIds = new Set<string>();
+    try {
+      const favoriteBeachesResponse = await getFavoriteBeaches(userId);
+      if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
+        favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
+        log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
+      } else {
+        log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
+    }
+
+    // Separate favorites from scored recommendations
+    const favoriteRecs: SurfDiscoveryRecommendation[] = [];
+    const nonFavoriteRecs: SurfDiscoveryRecommendation[] = [];
+
+    for (const rec of scored) {
+      // Null safety: skip malformed recommendations
+      if (!rec?.beach?.id || typeof rec.score !== 'number') {
+        log.warn('Skipping malformed recommendation in favorites loop', { rec });
+        continue;
+      }
+
+      if (favoriteBeachIds.has(rec.beach.id)) {
+        // Only include favorites with score >= 50
+        if (rec.score >= 50) {
+          favoriteRecs.push({ ...rec, isFavorite: true });
+        }
+      } else {
+        nonFavoriteRecs.push(rec);
+      }
+    }
+
+    // Sort favorites by score descending
+    favoriteRecs.sort((a, b) => b.score - a.score);
+
+    // Sort non-favorites by score descending
+    nonFavoriteRecs.sort((a, b) => b.score - a.score);
+
+    // Merge: favorites first, then non-favorites, then slice to maxResults
+    const merged = [...favoriteRecs, ...nonFavoriteRecs].slice(0, maxResults);
+
+    log.debug(
+      `Merged recommendations: ${favoriteRecs.length} favorites (score >= 50), ${nonFavoriteRecs.length} non-favorites, ${merged.length} total`
+    );
 
     // 5. Enrich with photos
-    const enrichedRanked = await enrichWithPhotos(ranked);
+    const enrichedRanked = await enrichWithPhotos(merged);
 
     const duration = Date.now() - startTime;
     log.debug(

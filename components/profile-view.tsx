@@ -32,6 +32,7 @@ const FavoriteBeaches = lazy(() =>
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useUserPreferences } from "@/hooks/use-user-preferences";
 // Client-server boundary: use client data gateway instead of importing server actions
 import { data as gateway } from "@/lib/data/client";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -41,6 +42,7 @@ import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import { track } from "@/lib/analytics";
 
 // Lazy load heavy tab components for better performance
 const BoardsManager = lazy(() =>
@@ -106,6 +108,7 @@ function ProfileViewContent() {
   const { user, isLoading: authLoading, refreshSession } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: preferences } = useUserPreferences();
   const [boards, setBoards] = useState<Board[]>([]);
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -189,6 +192,20 @@ function ProfileViewContent() {
       setEditModalOpen(true);
     }
   }, [searchParams]);
+
+  // Track surf profile analytics when preferences are shown
+  useEffect(() => {
+    if (preferences?.confidence !== undefined && preferences?.confidence > 0.5) {
+      track("surf_profile_viewed", {
+        confidence: preferences.confidence,
+        sample_size: preferences.sample_size,
+      });
+    } else if (preferences) {
+      track("surf_profile_progress_shown", {
+        sessions_needed: Math.max(0, 5 - (preferences.sample_size || 0)),
+      });
+    }
+  }, [preferences?.confidence, preferences?.sample_size, preferences]);
 
   // Show loading state while checking authentication
   if (authLoading || (dataLoading && !error && !fetchError)) {
@@ -328,6 +345,42 @@ function ProfileViewContent() {
                                   (profile as any).home_beach.name) ||
                                 "Set"}
                             </span>
+                          </div>
+                        )}
+
+                        {/* Surf Style Card */}
+                        {preferences && (
+                          <div className="mt-4 bg-white/10 rounded-lg p-3 backdrop-blur">
+                            <p className="text-white/80 text-xs uppercase tracking-wide font-medium">
+                              Your Surf Style
+                            </p>
+                            {preferences.confidence > 0.5 ? (
+                              <>
+                                <p className="text-white text-sm mt-1">
+                                  {preferences.wave_min_ft && preferences.wave_max_ft
+                                    ? `${preferences.wave_min_ft}-${preferences.wave_max_ft}ft waves`
+                                    : "Learning your preferences..."}
+                                </p>
+                                <p className="text-white/60 text-xs mt-1">
+                                  Based on {preferences.sample_size} sessions
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-white text-sm mt-1">
+                                  Log {Math.max(0, 5 - (preferences.sample_size || 0))} more sessions
+                                  to unlock personalized recommendations
+                                </p>
+                                <div className="mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-white rounded-full transition-all"
+                                    style={{
+                                      width: `${Math.min(100, ((preferences.sample_size || 0) / 5) * 100)}%`,
+                                    }}
+                                  />
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </motion.div>

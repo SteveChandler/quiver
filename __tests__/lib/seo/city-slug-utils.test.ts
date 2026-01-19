@@ -116,4 +116,40 @@ describe("resolveCityFromSlug", () => {
       stateFilter: "OR",
     });
   });
+
+  it("normalizes accented characters in slug", () => {
+    // "rincón" with accent should be normalized to "rincon"
+    const result = resolveCityFromSlug("rincón");
+    expect(result).toEqual({
+      cityPattern: "rincon",
+      stateFilter: null,
+    });
+  });
+
+  it("normalizes accented characters with state suffix", () => {
+    // "rincón-pr" should normalize to "rincon" with PR state filter
+    const result = resolveCityFromSlug("rincón-pr");
+    expect(result).toEqual({
+      cityPattern: "rincon",
+      stateFilter: "PR",
+    });
+  });
+
+  it("handles hyphenated city names", () => {
+    // "cardiff-by-the-sea" should parse as full city pattern
+    const result = resolveCityFromSlug("cardiff-by-the-sea");
+    expect(result).toEqual({
+      cityPattern: "cardiff by the sea",
+      stateFilter: null,
+    });
+  });
+
+  it("handles multiple accented characters", () => {
+    // Various diacritics should all be stripped
+    const result = resolveCityFromSlug("são-paulo");
+    expect(result).toEqual({
+      cityPattern: "sao paulo",
+      stateFilter: null,
+    });
+  });
 });

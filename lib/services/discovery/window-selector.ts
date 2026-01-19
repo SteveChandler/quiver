@@ -133,6 +133,27 @@ function getDirectionDegrees(
 }
 
 /**
+ * Get local date string for a timestamp in a given timezone.
+ * Returns format: YYYY-MM-DD
+ *
+ * @param time - The timestamp to convert
+ * @param beachTz - IANA timezone string for the beach location
+ * @returns Local date string in YYYY-MM-DD format
+ */
+function getLocalDateStr(time: Date, beachTz: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: beachTz,
+    }).format(time);
+  } catch {
+    return time.toISOString().slice(0, 10); // Fallback to UTC
+  }
+}
+
+/**
  * Extract tide schedule from forecasts.
  * The tide schedule is stored in raw_forecast of the first forecast of each day.
  */
@@ -195,6 +216,70 @@ function calculateTideDrivenBoundaries(
 // ============================================================================
 // Exported Functions
 // ============================================================================
+
+/**
+ * Get the hour range for a time slot.
+ * Dawn patrol uses dynamic start based on sunrise; others use static ranges.
+ *
+ * @param timeSlot - The time slot filter
+ * @param sunrises - Array of sunrise times (needed for dawn-patrol)
+ * @param forecastDate - The forecast date
+ * @param beachTz - IANA timezone string
+ * @returns Time range with startHour and endHour
+ */
+export function getTimeSlotRange(
+  timeSlot: TimeSlot,
+  sunrises: Date[],
+  forecastDate: Date,
+  beachTz: string
+): { startHour: number; endHour: number } {
+  if (timeSlot === 'dawn-patrol') {
+    return getDawnPatrolRange(sunrises, forecastDate, beachTz);
+  }
+  return TIME_SLOT_RANGES[timeSlot];
+}
+
+/**
+ * Get dawn patrol time range based on sunrise.
+ * Start is civil twilight (~30 min before sunrise), end is 9am.
+ *
+ * @param sunrises - Array of sunrise times for the area
+ * @param forecastDate - The forecast date to find sunrise for
+ * @param beachTz - IANA timezone string for the beach
+ * @returns Time range with startHour and endHour in local time
+ */
+export function getDawnPatrolRange(
+  sunrises: Date[],
+  forecastDate: Date,
+  beachTz: string
+): { startHour: number; endHour: number } {
+  // Find sunrise for the same local date
+  const forecastDateStr = getLocalDateStr(forecastDate, beachTz);
+  const sameDaySunrise = sunrises.find(s => getLocalDateStr(s, beachTz) === forecastDateStr);
+
+  if (!sameDaySunrise) {
+    // Fallback to conservative 6am if no sunrise data
+    return { startHour: 6, endHour: 9 };
+  }
+
+  // Civil twilight ~30 minutes before sunrise
+  const civilTwilight = new Date(sameDaySunrise.getTime() - 30 * 60 * 1000);
+
+  // Get local hour of civil twilight
+  try {
+    const twilightHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: beachTz,
+      }).format(civilTwilight),
+      10
+    );
+    return { startHour: twilightHour, endHour: 9 };
+  } catch {
+    return { startHour: 6, endHour: 9 };
+  }
+}
 
 /**
  * Score a single forecast window based on conditions and user preferences.
@@ -444,19 +529,8 @@ export function selectBestWindow(
   const now = new Date();
   const beachTz = getTimezoneFromCoords(actualBeach.lat || 0, actualBeach.lon || 0);
 
-  // Helper: get local date string for a timestamp in beach timezone
-  const getLocalDateStr = (time: Date): string => {
-    try {
-      return new Intl.DateTimeFormat("en-CA", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        timeZone: beachTz,
-      }).format(time);
-    } catch {
-      return time.toISOString().slice(0, 10); // Fallback to UTC
-    }
-  };
+  // Helper: get local date string for a timestamp in beach timezone (uses module-level function)
+  const getLocalDateStrForBeach = (time: Date): string => getLocalDateStr(time, beachTz);
 
   // Helper: cap end time to time slot boundary (e.g., dawn-patrol ends at 9am)
   const capEndTimeToSlot = (
@@ -530,28 +604,8 @@ export function selectBestWindow(
 
   if (scoredForecasts.length === 0) return null;
 
-  // Apply time slot filter
-  let filteredForecasts = scoredForecasts;
-
-  if (actualTimeSlot && actualTimeSlot !== 'any') {
-    const { startHour, endHour } = TIME_SLOT_RANGES[actualTimeSlot];
-
-    filteredForecasts = scoredForecasts.filter(({ forecastTime }) => {
-      try {
-        const localHour = parseInt(
-          new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            hour12: false,
-            timeZone: beachTz,
-          }).format(forecastTime),
-          10
-        );
-        return localHour >= startHour && localHour < endHour;
-      } catch {
-        return true; // If timezone conversion fails, include it
-      }
-    });
-  }
+  // No early time slot filtering - we filter AFTER calculating tide boundaries
+  const filteredForecasts = scoredForecasts;
 
   if (filteredForecasts.length === 0) return null;
 
@@ -609,11 +663,34 @@ export function selectBestWindow(
     // 1.5. Post-Sunset Rejection
     // Find the sunset for the SAME DAY as this forecast and reject if start is after it
     // This prevents overnight windows like "7pm-5am" in winter when sunset is at 5pm
-    const forecastDateStr = getLocalDateStr(startTime);
-    const sameDaySunset = sunsets.find(s => getLocalDateStr(s) === forecastDateStr);
+    const forecastDateStr = getLocalDateStrForBeach(startTime);
+    const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
 
     if (sameDaySunset && startTime.getTime() > sameDaySunset.getTime()) {
       continue;
+    }
+
+    // 1.6. Defensive fallback when sunset data is stale
+    // If we have sunset data for OTHER dates but not THIS date, the data is likely stale.
+    // Fall back to conservative 6pm cutoff to prevent post-sunset recommendations.
+    if (!sameDaySunset && sunsets.length > 0) {
+      try {
+        const localHour = parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: beachTz,
+          }).format(startTime),
+          10
+        );
+        // Use conservative 6pm cutoff when sunset data is stale
+        if (localHour >= 18) {
+          continue;
+        }
+      } catch {
+        // If tz conversion fails, skip to be safe
+        continue;
+      }
     }
 
     // 2. Next Sunset Lookup
@@ -628,11 +705,12 @@ export function selectBestWindow(
       if (hoursUntilSunset < MIN_SESSION_HOURS) {
         continue;
       }
-    } else {
-      // No future sunset found in cache.
-      // Rely on Night Filter (passed) to allow session.
-      // We assume broad daylight if no sunset is found (e.g. slight data gap or high latitude summer)
+    } else if (sunsets.length === 0) {
+      // No sunset data at all in cache.
+      // Rely on Night Filter (passed above) to allow session.
+      // We assume broad daylight if no sunset is found (e.g. high latitude summer)
     }
+    // Note: If sunsets.length > 0 but sameDaySunset is null, the defensive fallback above handles it
 
     // Check horizon constraint
     // Clamp to zero so past-start windows don't get bonus from negative decay
@@ -648,6 +726,7 @@ export function selectBestWindow(
 
     // Validate tide-driven boundaries before using them
     let useTideBoundaries = !!tideBoundaries;
+    let skipThisForecast = false;
 
     if (tideBoundaries) {
       // 1. Check if tide window start is within the time slot (if specified)
@@ -661,9 +740,29 @@ export function selectBestWindow(
             }).format(tideBoundaries.start),
             10
           );
-          const { startHour, endHour } = TIME_SLOT_RANGES[actualTimeSlot];
-          if (tideStartHour < startHour || tideStartHour >= endHour) {
-            useTideBoundaries = false;
+          // Get dynamic range (dawn-patrol uses sunrise-based start)
+          const sunrises = sunTimes?.sunrises || [];
+          const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
+
+          if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
+            // Tide window doesn't start within slot
+            // Check if the FORECAST start time is within the slot
+            const forecastStartHour = parseInt(
+              new Intl.DateTimeFormat("en-US", {
+                hour: "numeric",
+                hour12: false,
+                timeZone: beachTz,
+              }).format(startTime),
+              10
+            );
+
+            if (forecastStartHour >= slotRange.startHour && forecastStartHour < slotRange.endHour) {
+              // Forecast is within slot but tide window isn't - fall back to hourly
+              useTideBoundaries = false;
+            } else {
+              // Forecast is outside slot - skip this forecast entirely
+              skipThisForecast = true;
+            }
           }
         } catch {
           useTideBoundaries = false;
@@ -671,13 +770,18 @@ export function selectBestWindow(
       }
 
       // 2. Check if window spans overnight (different local dates)
-      if (useTideBoundaries) {
-        const tideStartDate = getLocalDateStr(tideBoundaries.start);
-        const tideEndDate = getLocalDateStr(tideBoundaries.end);
+      if (useTideBoundaries && !skipThisForecast) {
+        const tideStartDate = getLocalDateStrForBeach(tideBoundaries.start);
+        const tideEndDate = getLocalDateStrForBeach(tideBoundaries.end);
         if (tideStartDate !== tideEndDate) {
           useTideBoundaries = false;
         }
       }
+    }
+
+    // Skip this forecast if tide window doesn't qualify for time slot
+    if (skipThisForecast) {
+      continue;
     }
 
     let endTime: Date;
@@ -696,8 +800,8 @@ export function selectBestWindow(
         const next = filteredForecasts[j + 1];
 
         // Stop if next forecast is on a different date (use local dates instead of UTC date strings)
-        const currentLocalDate = getLocalDateStr(current.forecastTime);
-        const nextLocalDate = getLocalDateStr(next.forecastTime);
+        const currentLocalDate = getLocalDateStrForBeach(current.forecastTime);
+        const nextLocalDate = getLocalDateStrForBeach(next.forecastTime);
         if (currentLocalDate !== nextLocalDate) break;
 
         // Use same threshold that qualified the window (morning threshold if applicable)
@@ -730,10 +834,54 @@ export function selectBestWindow(
     // Cap at sunset (exact clipping) - applies to both tide-driven and fallback
     if (sunset && sunset < endTime) {
       endTime = sunset;
+    } else if (!sunset && sunsets.length > 0) {
+      // Defensive fallback: sunset data is stale (exists for other dates but not this one)
+      // Cap at conservative 6pm (18:00) in beach's local timezone
+      // This mirrors the defensive start-time fallback at lines 619-640
+      try {
+        // Get the local date components for the forecast start
+        const localDateParts = new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          timeZone: beachTz,
+        }).formatToParts(effectiveStartTime);
+
+        const year = localDateParts.find(p => p.type === "year")?.value;
+        const month = localDateParts.find(p => p.type === "month")?.value;
+        const day = localDateParts.find(p => p.type === "day")?.value;
+
+        if (year && month && day) {
+          // Create 6pm in the beach's timezone by parsing as local time
+          const conservative6pmStr = `${year}-${month}-${day}T18:00:00`;
+          // Get the UTC offset for this timezone at this date
+          const tempDate = new Date(effectiveStartTime);
+          const utcTime = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
+          const localTime = tempDate.toLocaleString("en-US", { timeZone: beachTz });
+          const utcDate = new Date(utcTime);
+          const localDate = new Date(localTime);
+          const offsetMs = localDate.getTime() - utcDate.getTime();
+
+          // Parse 6pm as if it were UTC, then adjust for timezone
+          const conservative6pm = new Date(new Date(conservative6pmStr + "Z").getTime() - offsetMs);
+
+          if (conservative6pm < endTime) {
+            endTime = conservative6pm;
+          }
+        }
+      } catch {
+        // If timezone conversion fails, cap at 4 hours from start as safety fallback
+        const maxEnd = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
+        if (maxEnd < endTime) {
+          endTime = maxEnd;
+        }
+      }
     }
 
-    // Cap at time slot end (e.g., dawn-patrol ends at 9am) - applies to both
-    endTime = capEndTimeToSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
+    // Cap at time slot end - only for fallback (hourly) windows, not tide-driven
+    if (!tideBoundaries || !useTideBoundaries) {
+      endTime = capEndTimeToSlot(effectiveStartTime, endTime, actualTimeSlot, beachTz);
+    }
 
     // Validate minimum session length (using effective start time)
     const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
@@ -786,17 +934,15 @@ export function selectBestWindow(
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && filteredForecasts.length > 0) {
-    // Conservative cutoff when no sunset data (6pm covers winter sunset ~5pm + buffer)
-    const fallbackNightCutoff = sunsets.length > 0 ? 21 : 18; // 9pm vs 6pm
-
     // Filter out night hours and post-sunset times before selecting fallback
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
       // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
-      const forecastDateStr = getLocalDateStr(forecastTime);
-      const sameDaySunset = sunsets.find(s => getLocalDateStr(s) === forecastDateStr);
+      const forecastDateStr = getLocalDateStrForBeach(forecastTime);
+      const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
       if (sameDaySunset && forecastTime.getTime() > sameDaySunset.getTime()) {
         return false;
       }
+
       try {
         const localHour = parseInt(
           new Intl.DateTimeFormat("en-US", {
@@ -806,9 +952,17 @@ export function selectBestWindow(
           }).format(forecastTime),
           10
         );
-        return localHour >= 6 && localHour < fallbackNightCutoff;
+
+        // Determine cutoff based on sunset data availability for THIS date
+        // If sunset exists for this date, use 9pm cutoff (sunset cap handles it)
+        // If no sunset for this date (stale data), use conservative 6pm cutoff
+        // If no sunset data at all, use conservative 6pm cutoff
+        const hasValidSunsetForDate = !!sameDaySunset;
+        const nightCutoff = hasValidSunsetForDate ? 21 : 18;
+
+        return localHour >= 6 && localHour < nightCutoff;
       } catch {
-        return true; // If tz conversion fails, allow it
+        return false; // If tz conversion fails, exclude to be safe
       }
     });
 
@@ -865,12 +1019,44 @@ export function selectBestWindow(
       const effectiveStartTime = best.forecastTime;
 
       // Logic for fallback end time (same-day sunset or default)
-      const fallbackDateStr = getLocalDateStr(effectiveStartTime);
-      const fallbackSunset = sunsets.find(s => getLocalDateStr(s) === fallbackDateStr);
+      const fallbackDateStr = getLocalDateStrForBeach(effectiveStartTime);
+      const fallbackSunset = sunsets.find(s => getLocalDateStrForBeach(s) === fallbackDateStr);
 
       let endTime = new Date(effectiveStartTime.getTime() + MAX_WINDOW_HOURS * 60 * 60 * 1000);
       if (fallbackSunset && fallbackSunset < endTime) {
         endTime = fallbackSunset;
+      } else if (!fallbackSunset && sunsets.length > 0) {
+        // Defensive fallback: sunset data is stale (exists for other dates but not this one)
+        // Cap at conservative 6pm (18:00) in beach's local timezone
+        try {
+          const localDateParts = new Intl.DateTimeFormat("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            timeZone: beachTz,
+          }).formatToParts(effectiveStartTime);
+
+          const year = localDateParts.find(p => p.type === "year")?.value;
+          const month = localDateParts.find(p => p.type === "month")?.value;
+          const day = localDateParts.find(p => p.type === "day")?.value;
+
+          if (year && month && day) {
+            const conservative6pmStr = `${year}-${month}-${day}T18:00:00`;
+            const tempDate = new Date(effectiveStartTime);
+            const utcTime = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
+            const localTime = tempDate.toLocaleString("en-US", { timeZone: beachTz });
+            const utcDate = new Date(utcTime);
+            const localDate = new Date(localTime);
+            const offsetMs = localDate.getTime() - utcDate.getTime();
+            const conservative6pm = new Date(new Date(conservative6pmStr + "Z").getTime() - offsetMs);
+
+            if (conservative6pm < endTime) {
+              endTime = conservative6pm;
+            }
+          }
+        } catch {
+          // If timezone conversion fails, keep the MAX_WINDOW_HOURS cap
+        }
       }
 
       // Cap at time slot end for fallback window too

@@ -10,6 +10,7 @@ import {
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   withBotBlockingAndRateLimit: (handler: any) => handler,
+  withErrorHandler: (handler: any) => handler,
 }));
 
 const mockSupabaseClient = createMockSupabaseClient();

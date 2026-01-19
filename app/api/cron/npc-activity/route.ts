@@ -34,6 +34,45 @@ export const dynamic = 'force-dynamic';
 // Maximum posts to create per cron run (to avoid rate limiting)
 const MAX_POSTS_PER_RUN = 10;
 
+/**
+ * Generate jittered timestamps with burst grouping for natural post distribution.
+ * Posts are grouped into bursts of 2-3, spread across ~50 minutes of the hour.
+ */
+function generateJitteredTimestamps(count: number, baseTime: Date): Date[] {
+  if (count === 0) return [];
+  if (count === 1) {
+    // Single post: random offset 5-50 min into the hour
+    const offset = 5 + Math.floor(Math.random() * 45);
+    return [new Date(baseTime.getTime() + offset * 60 * 1000)];
+  }
+
+  // Group into bursts of 2-3
+  const bursts: number[][] = [];
+  let remaining = count;
+  while (remaining > 0) {
+    const burstSize = remaining >= 4 ? (Math.random() < 0.5 ? 2 : 3) : remaining;
+    bursts.push(Array(burstSize).fill(0));
+    remaining -= burstSize;
+  }
+
+  // Space bursts across 50 minutes (5-55 min mark)
+  const burstAnchors = bursts.map((_, i) =>
+    5 + Math.floor((i + Math.random()) * (50 / bursts.length))
+  );
+
+  // Assign timestamps within each burst (2-8 min apart)
+  const timestamps: Date[] = [];
+  bursts.forEach((burst, burstIdx) => {
+    let offset = burstAnchors[burstIdx];
+    burst.forEach(() => {
+      timestamps.push(new Date(baseTime.getTime() + offset * 60 * 1000));
+      offset += 2 + Math.floor(Math.random() * 6); // 2-8 min gap
+    });
+  });
+
+  return timestamps;
+}
+
 // Content type weights for post selection
 const CONTENT_TYPE_WEIGHTS = {
   intel: 0.7, // 70% intel posts (conditions, crowd, parking, etc.)
@@ -85,7 +124,12 @@ export async function GET(request: Request) {
     const npcsToProcess = selectedNpcs.slice(0, MAX_POSTS_PER_RUN);
     const results: PostResult[] = [];
 
-    for (const npc of npcsToProcess) {
+    // Generate staggered timestamps for natural post distribution
+    const postTimestamps = generateJitteredTimestamps(npcsToProcess.length, now);
+
+    for (let i = 0; i < npcsToProcess.length; i++) {
+      const npc = npcsToProcess[i];
+      const postTime = postTimestamps[i];
       try {
         // Get beaches for this NPC
         const beaches = await getBeachesForNPC(supabase, npc, 5);
@@ -100,13 +144,13 @@ export async function GET(request: Request) {
         // Determine content type based on weights
         const contentType = selectContentType();
 
-        // Try to create the post
+        // Try to create the post with staggered timestamp
         const result = await createNpcPost(
           supabase,
           npc,
           beach,
           contentType,
-          now
+          postTime
         );
 
         results.push({

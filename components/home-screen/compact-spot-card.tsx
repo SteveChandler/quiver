@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
-import { Waves, Ruler, Wind } from "lucide-react";
+import { Waves, Ruler, Wind, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { track } from "@/lib/analytics";
 
 /**
  * Props for CompactSpotCard component
@@ -55,6 +56,16 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   const formattedScore = formatDiscoveryScore(score);
   const photoUrl = beach.photo_url;
 
+  // Track when favorite is shown in carousel
+  useEffect(() => {
+    if (recommendation.isFavorite) {
+      track("favorite_shown_in_carousel", {
+        beach_id: beach.id,
+        score: score,
+      });
+    }
+  }, [recommendation.isFavorite, beach.id, score]);
+
   return (
     <Card
       className={cn(
@@ -78,6 +89,16 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       aria-label={`${beach.name}, score ${formattedScore} out of 10`}
       data-testid="compact-spot-card"
     >
+      {/* Favorite Heart Badge */}
+      {recommendation.isFavorite && (
+        <div
+          data-testid="favorite-heart"
+          className="absolute top-2 left-2 z-10 bg-white/90 rounded-full p-1 shadow-sm"
+        >
+          <Heart className="h-3 w-3 text-red-500 fill-red-500" />
+        </div>
+      )}
+
       {/* Background: Photo or Gradient */}
       {photoUrl ? (
         <Image

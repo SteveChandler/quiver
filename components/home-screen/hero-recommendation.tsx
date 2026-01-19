@@ -227,7 +227,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     return <HeroRecommendationEmpty />;
   }
 
-  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges } = recommendation;
+  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges, waveHeightBadge } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const timeWindow = formatTimeWindowCompact(
     window.start,
@@ -291,6 +291,18 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
             {timeWindow}
           </Badge>
         </motion.div>
+
+        {/* Wave height badge */}
+        {waveHeightBadge && (
+          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+            <Badge
+              variant="outline"
+              className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-white/10 text-white border-white/20"
+            >
+              {waveHeightBadge}
+            </Badge>
+          </motion.div>
+        )}
 
         {/* Recommendation label badge (Perfect Match for high scores) */}
         {score >= 90 && (
