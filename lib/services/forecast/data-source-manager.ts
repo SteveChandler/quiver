@@ -374,16 +374,20 @@ export class ForecastDataSourceManager {
 
       if (cdipStation) {
         const cdipData = await this.cdipService.fetchBuoyData(cdipStation);
-        if (cdipData && cdipData.wave_height !== null) {
-          return {
-            source: "CDIP",
-            stationId: cdipStation,
-            waveHeight: cdipData.wave_height,
-            wavePeriod: cdipData.wave_period,
-            waveDirection: cdipData.wave_direction,
-            waterTemp: cdipData.water_temp,
-            observedAt: cdipData.timestamp || new Date().toISOString(),
-          };
+        // CDIPBuoyData has a data array of CDIPDataPoint; get the most recent
+        if (cdipData && cdipData.data && cdipData.data.length > 0) {
+          const latestPoint = cdipData.data[cdipData.data.length - 1];
+          if (latestPoint.significantWaveHeight !== null) {
+            return {
+              source: "CDIP",
+              stationId: cdipStation,
+              waveHeight: latestPoint.significantWaveHeight,
+              wavePeriod: latestPoint.peakWavePeriod,
+              waveDirection: latestPoint.peakWaveDirection,
+              waterTemp: null, // CDIP doesn't provide water temp in CDIPDataPoint
+              observedAt: latestPoint.timestamp || cdipData.lastUpdated,
+            };
+          }
         }
       }
     } catch (error) {

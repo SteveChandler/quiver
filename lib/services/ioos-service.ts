@@ -118,7 +118,7 @@ export class IOOSService {
 
         const station: IOOSStation = {
           station_id: String(datasetId),
-          source_network: this.parseNetwork(String(institution)),
+          source_network: this.parseNetwork(String(datasetId), String(institution)),
           name: String(datasetId),
           latitude: lat,
           longitude: lon,
@@ -263,21 +263,56 @@ export class IOOSService {
   // ==================== Private Methods ====================
 
   /**
-   * Parse institution name to IOOSNetwork type
+   * Parse network from datasetId and institution
+   *
+   * IOOS dataset IDs often follow pattern: "ism-NETWORK-..."
+   * e.g., "ism-secoora-sun2wave-sunset-nearshore-wave"
    */
-  private parseNetwork(institution: string): IOOSNetwork {
-    const lower = institution.toLowerCase();
-    if (lower.includes("pacioos")) return "PacIOOS";
-    if (lower.includes("nanoos")) return "NANOOS";
-    if (lower.includes("cencoos")) return "CeNCOOS";
-    if (lower.includes("sccoos")) return "SCCOOS";
-    if (lower.includes("gcoos")) return "GCOOS";
-    if (lower.includes("secoora")) return "SECOORA";
-    if (lower.includes("maracoos")) return "MARACOOS";
-    if (lower.includes("neracoos")) return "NERACOOS";
-    if (lower.includes("glos")) return "GLOS";
-    if (lower.includes("aoos")) return "AOOS";
-    if (lower.includes("ndbc")) return "NDBC";
+  private parseNetwork(datasetId: string, institution: string): IOOSNetwork {
+    // First check datasetId for "ism-NETWORK-" pattern
+    const ismMatch = datasetId.toLowerCase().match(/^ism-([a-z]+)-/);
+    if (ismMatch) {
+      const network = ismMatch[1];
+      if (network === "pacioos") return "PacIOOS";
+      if (network === "nanoos") return "NANOOS";
+      if (network === "cencoos") return "CeNCOOS";
+      if (network === "sccoos") return "SCCOOS";
+      if (network === "gcoos") return "GCOOS";
+      if (network === "secoora") return "SECOORA";
+      if (network === "maracoos") return "MARACOOS";
+      if (network === "neracoos") return "NERACOOS";
+      if (network === "glos") return "GLOS";
+      if (network === "aoos") return "AOOS";
+    }
+
+    // Also check if network name appears anywhere in datasetId
+    const lowerDatasetId = datasetId.toLowerCase();
+    if (lowerDatasetId.includes("pacioos")) return "PacIOOS";
+    if (lowerDatasetId.includes("secoora")) return "SECOORA";
+    if (lowerDatasetId.includes("maracoos")) return "MARACOOS";
+    if (lowerDatasetId.includes("neracoos")) return "NERACOOS";
+    if (lowerDatasetId.includes("nanoos")) return "NANOOS";
+    if (lowerDatasetId.includes("cencoos")) return "CeNCOOS";
+    if (lowerDatasetId.includes("sccoos")) return "SCCOOS";
+    if (lowerDatasetId.includes("gcoos")) return "GCOOS";
+    if (lowerDatasetId.includes("glos")) return "GLOS";
+    if (lowerDatasetId.includes("aoos")) return "AOOS";
+    if (lowerDatasetId.includes("ndbc")) return "NDBC";
+
+    // Fallback to institution name check
+    const lowerInst = institution.toLowerCase();
+    if (lowerInst.includes("pacioos")) return "PacIOOS";
+    if (lowerInst.includes("secoora")) return "SECOORA";
+    if (lowerInst.includes("maracoos")) return "MARACOOS";
+    if (lowerInst.includes("neracoos")) return "NERACOOS";
+    if (lowerInst.includes("nanoos")) return "NANOOS";
+    if (lowerInst.includes("cencoos")) return "CeNCOOS";
+    if (lowerInst.includes("sccoos")) return "SCCOOS";
+    if (lowerInst.includes("gcoos")) return "GCOOS";
+    if (lowerInst.includes("glos")) return "GLOS";
+    if (lowerInst.includes("aoos")) return "AOOS";
+    if (lowerInst.includes("ndbc")) return "NDBC";
+
     return "unknown";
   }
 
