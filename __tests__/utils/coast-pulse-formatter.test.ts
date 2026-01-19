@@ -1,6 +1,8 @@
 import {
   getHeightAssessment,
   getHeightConditionNote,
+  getPeriodLabel,
+  getPeriodQuality,
 } from "@/lib/utils/coast-pulse-formatter";
 
 describe("getHeightAssessment", () => {
@@ -84,5 +86,50 @@ describe("getHeightConditionNote", () => {
 
   it("notes dangerous for XXL waves", () => {
     expect(getHeightConditionNote(15.0, 18)).toContain("Dangerous");
+  });
+});
+
+describe("getPeriodLabel", () => {
+  it("returns 'Wind chop' for < 6s", () => {
+    expect(getPeriodLabel(5)).toBe("Wind chop");
+  });
+
+  it("returns 'Short-period wind swell' for 6-9s", () => {
+    expect(getPeriodLabel(6)).toBe("Short-period wind swell");
+    expect(getPeriodLabel(8)).toBe("Short-period wind swell");
+  });
+
+  it("returns 'Mid-period swell' for 9-12s", () => {
+    expect(getPeriodLabel(9)).toBe("Mid-period swell");
+    expect(getPeriodLabel(11)).toBe("Mid-period swell");
+  });
+
+  it("returns 'Groundswell' for 12-15s", () => {
+    expect(getPeriodLabel(12)).toBe("Groundswell");
+    expect(getPeriodLabel(14)).toBe("Groundswell");
+  });
+
+  it("returns 'Long-period groundswell' for 15-18s", () => {
+    expect(getPeriodLabel(15)).toBe("Long-period groundswell");
+    expect(getPeriodLabel(17)).toBe("Long-period groundswell");
+  });
+
+  it("returns 'Deep-water groundswell' for > 18s", () => {
+    expect(getPeriodLabel(18)).toBe("Deep-water groundswell");
+    expect(getPeriodLabel(22)).toBe("Deep-water groundswell");
+  });
+});
+
+describe("getPeriodQuality", () => {
+  it("returns negative quality for wind chop", () => {
+    expect(getPeriodQuality(5)).toBe("Bumpy, disorganized");
+  });
+
+  it("returns clean quality for groundswell", () => {
+    expect(getPeriodQuality(14)).toBe("Clean lines, good shape expected");
+  });
+
+  it("returns excellent quality for deep-water swell", () => {
+    expect(getPeriodQuality(20)).toContain("Excellent");
   });
 });

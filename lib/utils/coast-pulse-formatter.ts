@@ -69,3 +69,27 @@ export function getHeightConditionNote(
 
   return "Dangerous, big wave spots only";
 }
+
+/**
+ * Get swell energy label from wave period
+ */
+export function getPeriodLabel(periodS: number): string {
+  if (periodS < 6) return "Wind chop";
+  if (periodS < 9) return "Short-period wind swell";
+  if (periodS < 12) return "Mid-period swell";
+  if (periodS < 15) return "Groundswell";
+  if (periodS < 18) return "Long-period groundswell";
+  return "Deep-water groundswell";
+}
+
+/**
+ * Get quality description from wave period
+ */
+export function getPeriodQuality(periodS: number): string {
+  if (periodS < 6) return "Bumpy, disorganized";
+  if (periodS < 9) return "Inconsistent, close-out prone";
+  if (periodS < 12) return "Decent shape, moderate power";
+  if (periodS < 15) return "Clean lines, good shape expected";
+  if (periodS < 18) return "Solid energy, powerful waves";
+  return "Excellent organization, maximum power";
+}
