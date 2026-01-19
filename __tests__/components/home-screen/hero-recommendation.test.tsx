@@ -138,6 +138,28 @@ describe("getConditionTier", () => {
     expect(getConditionTier(20)).toBe("marginal");
     expect(getConditionTier(39)).toBe("marginal");
   });
+
+  // Edge cases
+  it("handles negative scores as marginal", () => {
+    expect(getConditionTier(-1)).toBe("marginal");
+    expect(getConditionTier(-50)).toBe("marginal");
+    expect(getConditionTier(-100)).toBe("marginal");
+  });
+
+  it("handles scores above 100 as great", () => {
+    expect(getConditionTier(101)).toBe("great");
+    expect(getConditionTier(150)).toBe("great");
+    expect(getConditionTier(1000)).toBe("great");
+  });
+
+  it("handles decimal scores correctly", () => {
+    expect(getConditionTier(79.9)).toBe("good"); // < 80
+    expect(getConditionTier(80.0)).toBe("great"); // >= 80
+    expect(getConditionTier(59.9)).toBe("fair"); // < 60
+    expect(getConditionTier(60.0)).toBe("good"); // >= 60
+    expect(getConditionTier(39.9)).toBe("marginal"); // < 40
+    expect(getConditionTier(40.0)).toBe("fair"); // >= 40
+  });
 });
 
 describe("getScoreColorClass", () => {
@@ -222,5 +244,35 @@ describe("buildHeadlineText", () => {
   it("adds tomorrow prefix for afternoon", () => {
     const result = buildHeadlineText("Blacks", "good", true, "afternoon");
     expect(result.prefix).toContain("Tomorrow afternoon");
+  });
+
+  // Edge cases
+  it("adds generic tomorrow prefix for 'any' slot", () => {
+    const result = buildHeadlineText("Blacks", "good", true, "any");
+    expect(result.prefix).toBe("Tomorrow at ");
+  });
+
+  it("adds generic tomorrow prefix for undefined slot", () => {
+    const result = buildHeadlineText("Blacks", "good", true, undefined);
+    expect(result.prefix).toBe("Tomorrow at ");
+  });
+
+  it("combines tomorrow prefix with fair tier correctly", () => {
+    const result = buildHeadlineText("Blacks", "fair", true, "dawn-patrol");
+    expect(result.prefix).toContain("Tomorrow's dawn patrol");
+    expect(result.connector).toContain("fair");
+  });
+
+  it("combines tomorrow prefix with marginal tier correctly", () => {
+    const result = buildHeadlineText("Blacks", "marginal", true, "morning");
+    expect(result.prefix).toContain("Tomorrow morning");
+    expect(result.connector).toContain("marginal");
+  });
+
+  it("returns correct beachPart for all tiers", () => {
+    expect(buildHeadlineText("Blacks", "great", false).beachPart).toBe("Blacks");
+    expect(buildHeadlineText("Blacks", "good", false).beachPart).toBe("Blacks");
+    expect(buildHeadlineText("Blacks", "fair", false).beachPart).toBe("Blacks");
+    expect(buildHeadlineText("Blacks", "marginal", false).beachPart).toBe("Blacks");
   });
 });
