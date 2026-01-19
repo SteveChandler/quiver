@@ -613,7 +613,7 @@ export function selectBestWindow(
   const scoredForecasts = forecasts
     .map((forecast) => {
       const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
-      const score = scoreForecastWindow(forecast, actualBeach, actualUserPrefs);
+      const score = scoreWindowWithEngine(forecast, actualBeach);
 
       // Check if forecast is for today (in beach timezone)
       let isToday = false;
