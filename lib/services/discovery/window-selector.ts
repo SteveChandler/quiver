@@ -300,6 +300,10 @@ export function getDawnPatrolRange(
 /**
  * Score a single forecast window based on conditions and user preferences.
  *
+ * @deprecated Use `scoreWindowWithEngine` instead. This function uses a
+ * different 0-80 scale that doesn't match the display score (0-100).
+ * Kept for backwards compatibility with tests.
+ *
  * Scoring components:
  * - Wave Height Fit (0-25 points)
  * - Period/Energy Score (0-20 points)
