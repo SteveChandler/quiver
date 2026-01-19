@@ -20,6 +20,7 @@ import {
   CDIP_NDBC_OVERLAPS,
   isNDBCDuplicateOfCDIP,
 } from "@/lib/constants/buoy-mappings";
+import { formatBuoyMessage, formatTideMessage } from "@/lib/utils/coast-pulse-formatter";
 
 // Enable ISR with 2-minute revalidation
 export const revalidate = 120;
@@ -636,29 +637,28 @@ async function fetchLiveNDBCData(
       return null;
     }
 
-    // Format the message
-    const parts: string[] = [];
-    if (observation.wave_height_m != null) {
-      const heightFt = observation.wave_height_m * 3.28084;
-      parts.push(`${heightFt.toFixed(1)}ft`);
-    }
-    if (observation.wave_period_s != null) {
-      parts.push(`@ ${observation.wave_period_s.toFixed(0)}s`);
-    }
-    if (observation.wind_speed_ms != null) {
-      const windKt = observation.wind_speed_ms * 1.94384;
-      const windDir = observation.wind_direction_deg
-        ? ` ${degreesToCardinal(observation.wind_direction_deg)}`
-        : "";
-      parts.push(`${windKt.toFixed(0)}kt${windDir}`);
-    }
-    // Add water temperature if available (convert C to F)
-    if (observation.water_temp_c != null) {
-      const tempF = (observation.water_temp_c * 9 / 5) + 32;
-      parts.push(`${Math.round(tempF)}°F`);
-    }
+    // Format the message using enhanced formatter
+    const heightFt = observation.wave_height_m != null
+      ? observation.wave_height_m * 3.28084
+      : null;
+    const periodS = observation.wave_period_s ?? null;
+    const waterTempF = observation.water_temp_c != null
+      ? (observation.water_temp_c * 9 / 5) + 32
+      : null;
+    const direction = observation.wave_direction_deg != null
+      ? degreesToCardinal(observation.wave_direction_deg)
+      : null;
 
-    const message = parts.length > 0 ? parts.join(", ") : "Live data available";
+    const message = heightFt != null && periodS != null
+      ? formatBuoyMessage({
+          heightFt,
+          periodS,
+          direction,
+          waterTempF,
+          lat: station.lat,
+          lon: station.lon,
+        })
+      : "Live data available";
 
     return {
       id: `ndbc-${station.id}`,
@@ -728,24 +728,24 @@ async function fetchLiveCDIPData(
         // Get the most recent data point
         const latest = buoyData.data[0]; // Data is sorted newest first
 
-        // Format the message
-        const parts: string[] = [];
-        if (latest.significantWaveHeight != null) {
-          parts.push(`${latest.significantWaveHeight.toFixed(1)}ft`);
-        }
-        if (latest.peakWavePeriod != null) {
-          parts.push(`@ ${latest.peakWavePeriod.toFixed(0)}s`);
-        }
-        if (latest.peakWaveDirection != null) {
-          parts.push(`${degreesToCardinal(latest.peakWaveDirection)} swell`);
-        }
-
-        const message = parts.length > 0 ? parts.join(", ") : "Live CDIP data";
-
         // Get station location from config
         const stationConfig = CDIP_STATIONS[stationId];
         const stationLat = stationConfig?.latitude || lat;
         const stationLon = stationConfig?.longitude || lon;
+
+        // Format the message using enhanced formatter
+        const message = latest.significantWaveHeight != null && latest.peakWavePeriod != null
+          ? formatBuoyMessage({
+              heightFt: latest.significantWaveHeight,
+              periodS: latest.peakWavePeriod,
+              direction: latest.peakWaveDirection != null
+                ? degreesToCardinal(latest.peakWaveDirection)
+                : null,
+              waterTempF: null, // CDIP doesn't provide water temp
+              lat: stationLat,
+              lon: stationLon,
+            })
+          : "Live CDIP data";
 
         items.push({
           id: `cdip-${stationId}`,
@@ -802,15 +802,16 @@ async function fetchTideData(
     const msUntil = (nextTide.time * 1000) - now.getTime();
     const hoursUntil = Math.floor(msUntil / 3600000);
     const minsUntil = Math.floor((msUntil % 3600000) / 60000);
-    const timeStr = hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
 
-    // Format current height status
-    const heightStr = currentHeight != null
-      ? `Now: ${currentHeight.toFixed(1)}ft ${tideStatus}`
-      : tideStatus;
-
-    // Build message: "High Tide in 2h 15m @ 5.2ft. Now: 3.1ft Rising"
-    const message = `${nextTide.name} in ${timeStr} @ ${nextTide.height.toFixed(1)}ft. ${heightStr}`;
+    // Format message using enhanced formatter
+    const message = formatTideMessage({
+      nextTideName: nextTide.name,
+      nextTideHeight: nextTide.height,
+      hoursUntil,
+      minsUntil,
+      currentHeight: currentHeight ?? 0,
+      status: tideStatus,
+    });
 
     return {
       id: `tide-${stationId}`,
