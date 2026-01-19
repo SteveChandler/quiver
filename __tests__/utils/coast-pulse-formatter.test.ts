@@ -61,4 +61,28 @@ describe("getHeightConditionNote", () => {
   it("notes experts for big waves", () => {
     expect(getHeightConditionNote(10.0, 18)).toContain("expert");
   });
+
+  it("notes favorable for knee-to-waist waves", () => {
+    expect(getHeightConditionNote(2.0, 12)).toContain("longboards");
+  });
+
+  it("notes choppy for short-period mid-size", () => {
+    expect(getHeightConditionNote(3.5, 8)).toContain("Choppy");
+  });
+
+  it("notes inconsistent for short-period head-high", () => {
+    expect(getHeightConditionNote(5.0, 8)).toContain("Inconsistent");
+  });
+
+  it("notes solid for long-period head-high", () => {
+    expect(getHeightConditionNote(5.0, 14)).toContain("Solid");
+  });
+
+  it("notes powerful for long-period overhead", () => {
+    expect(getHeightConditionNote(7.0, 16)).toContain("Powerful");
+  });
+
+  it("notes dangerous for XXL waves", () => {
+    expect(getHeightConditionNote(15.0, 18)).toContain("Dangerous");
+  });
 });
