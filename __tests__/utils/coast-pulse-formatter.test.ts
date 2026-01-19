@@ -3,7 +3,9 @@ import {
   getHeightConditionNote,
   getPeriodLabel,
   getPeriodQuality,
+  getSwellDirectionContext,
 } from "@/lib/utils/coast-pulse-formatter";
+import { COASTAL_REGIONS } from "@/lib/constants/coastal-regions";
 
 describe("getHeightAssessment", () => {
   it("returns 'Flat' for < 1ft", () => {
@@ -131,5 +133,35 @@ describe("getPeriodQuality", () => {
 
   it("returns excellent quality for deep-water swell", () => {
     expect(getPeriodQuality(20)).toContain("Excellent");
+  });
+});
+
+describe("getSwellDirectionContext", () => {
+  const socal = COASTAL_REGIONS.socal;
+  const norcal = COASTAL_REGIONS.norcal;
+  const eastFl = COASTAL_REGIONS["east-fl"];
+
+  it("notes favorable direction for SoCal SW swell", () => {
+    const context = getSwellDirectionContext("SW", socal);
+    expect(context).toContain("south-facing");
+  });
+
+  it("notes direct hit for NorCal NW swell", () => {
+    const context = getSwellDirectionContext("NW", norcal);
+    expect(context).toContain("direct");
+  });
+
+  it("notes favorable for East Coast SE swell", () => {
+    const context = getSwellDirectionContext("SE", eastFl);
+    expect(context).toContain("east-facing");
+  });
+
+  it("notes shadowed for unfavorable direction", () => {
+    const context = getSwellDirectionContext("N", socal);
+    expect(context).toContain("shadow");
+  });
+
+  it("returns null for null direction", () => {
+    expect(getSwellDirectionContext(null, socal)).toBeNull();
   });
 });
