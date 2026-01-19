@@ -144,7 +144,8 @@ export async function fetchLatestNDBCObservation(
     let ts: string;
     if ([yy, mo, dd, hh].every((n) => isFinite(n))) {
       // Construct UTC date safely
-      const year = 2000 + Number(yy);
+      // Handle both 2-digit (legacy) and 4-digit (current) NDBC year formats
+      const year = yy > 99 ? Number(yy) : 2000 + Number(yy);
       const monthIdx = Math.max(0, Math.min(11, Number(mo) - 1));
       const day = Math.max(1, Math.min(31, Number(dd)));
       const hour = Math.max(0, Math.min(23, Number(hh)));
