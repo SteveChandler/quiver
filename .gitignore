@@ -147,3 +147,6 @@ beach_bias_model_v1.json
 # ML model files (keep .gitkeep)
 ml/models/*.json
 !ml/models/.gitkeep
+
+# ML model artifacts
+models/
