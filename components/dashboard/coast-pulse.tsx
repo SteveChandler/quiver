@@ -208,6 +208,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadMoreError, setLoadMoreError] = useState(false);
+  const [hasPaginated, setHasPaginated] = useState(false); // Track if user has loaded additional pages
 
   // Ref for intersection observer sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -252,6 +253,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       if (cursor) {
         // Append new items
         setItems(prev => [...prev, ...(json.data.items || [])]);
+        setHasPaginated(true); // Mark that user has loaded additional pages
       } else {
         // Replace items (first page or refresh)
         setItems(json.data.items || []);
@@ -290,10 +292,26 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       setHasMore(true);
       setNextCursor(null);
       setLoadMoreError(false);
+      setHasPaginated(false);
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lon]); // fetchData intentionally excluded to prevent double fetch
+
+  // Live polling - refresh data every 2 minutes
+  useEffect(() => {
+    if (lat == null || lon == null) return;
+
+    const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+    const intervalId = setInterval(() => {
+      // Only refresh first page (don't reset pagination state)
+      // This keeps user's scroll position while updating with new data
+      fetchData();
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lon]); // fetchData intentionally excluded to prevent re-creating interval
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -570,10 +588,10 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
             </div>
           )}
 
-          {/* End of feed message */}
-          {!hasMore && !loadingMore && (
+          {/* End of feed message - only show after user has scrolled to load more */}
+          {!hasMore && !loadingMore && hasPaginated && (
             <p className="text-center text-xs text-gray-500 py-4">
-              You&apos;ve reached the beginning
+              No older updates
             </p>
           )}
 
