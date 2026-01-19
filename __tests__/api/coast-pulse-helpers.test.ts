@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 
-import { formatIntelMessage, formatIntelSourceName, findNearestBeachName, formatForecastConditions } from "@/app/api/coast-pulse/route";
+import { formatIntelMessage, formatIntelSourceName, findNearestBeachName, formatForecastConditions } from "@/lib/utils/coast-pulse-formatter";
 
 describe("formatIntelMessage", () => {
   it("formats full structured data with emoji", () => {
