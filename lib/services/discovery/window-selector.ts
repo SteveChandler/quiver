@@ -29,6 +29,12 @@ import { TIME_SLOT_RANGES } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { calculateTideWindow } from '@/lib/utils/tide-interpolation';
+import {
+  createDiscoveryScoringEngine,
+  beachToSpotProfile,
+  forecastToSnapshot,
+} from '@/lib/domains/scoring';
+import type { ScoringEngine } from '@/lib/domains/scoring';
 
 // ============================================================================
 // Types
@@ -68,6 +74,16 @@ const MORNING_CUTOFF_HOUR = 12; // Before noon, prefer today's forecasts
 const TODAY_BONUS_POINTS = 15; // Bonus for today's forecasts during morning hours
 const MORNING_TIME_BONUS = 15; // Extra bonus for morning/afternoon times (before 5pm)
 const EVENING_CUTOFF_HOUR = 17; // 5pm - times after this don't get morning time bonus
+
+// Singleton scoring engine instance (lazy initialized)
+let _scoringEngine: ScoringEngine | null = null;
+
+function getScoringEngine(): ScoringEngine {
+  if (!_scoringEngine) {
+    _scoringEngine = createDiscoveryScoringEngine();
+  }
+  return _scoringEngine;
+}
 
 // ============================================================================
 // Helper Functions (internal)
@@ -403,6 +419,34 @@ export function scoreForecastWindow(
   }
 
   return score;
+}
+
+/**
+ * Score a forecast window using the unified discovery scoring engine.
+ *
+ * This replaces scoreForecastWindow with the same scoring system used
+ * for display, ensuring consistency between window selection and UI.
+ *
+ * @param forecast - Forecast entity to score
+ * @param beach - Beach metadata
+ * @returns Score from 0-100
+ */
+export function scoreWindowWithEngine(
+  forecast: EnhancedForecastEntity,
+  beach: Beach
+): number {
+  const engine = getScoringEngine();
+  const profile = beachToSpotProfile(beach);
+  const snapshot = forecastToSnapshot(forecast);
+
+  const result = engine.score({
+    profile,
+    snapshot,
+    window: null,
+    preferences: null,
+  });
+
+  return result.total;
 }
 
 /**
