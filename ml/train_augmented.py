@@ -269,7 +269,18 @@ def compare_with_baseline(
     df_buoy_holdout = df_buoy.iloc[-buoy_holdout_size:]
 
     # Train baseline model (no weights needed, all buoy)
-    baseline_model = QuiverBiasModel()
+    # Use same random_state as main model for reproducible comparison
+    baseline_params = {
+        'objective': 'reg:squarederror',
+        'n_estimators': 100,
+        'learning_rate': 0.1,
+        'max_depth': 5,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'n_jobs': -1,
+        'random_state': 42
+    }
+    baseline_model = QuiverBiasModel(params=baseline_params)
     baseline_metrics = baseline_model.train(X_buoy_train, y_buoy_train, n_splits=5)
 
     # Evaluate baseline on buoy holdout

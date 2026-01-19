@@ -110,12 +110,15 @@ async def fetch_open_meteo_for_samples(
         batch = samples_df.iloc[batch_start:batch_end]
 
         # Create tasks for this batch
+        async def return_none():
+            return None
+
         tasks = []
         for _, row in batch.iterrows():
             beach_id = row['beach_id']
             ts = pd.to_datetime(row['forecast_ts_utc'])
             if pd.isna(ts):
-                tasks.append(asyncio.coroutine(lambda: None)())
+                tasks.append(return_none())
             else:
                 tasks.append(fetch_with_cache(beach_id, ts))
 

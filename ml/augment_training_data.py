@@ -138,7 +138,7 @@ def fetch_real_training_pairs(supabase) -> pd.DataFrame:
     if len(forecasts_df) == 0 or len(obs_df) == 0:
         return pd.DataFrame()
 
-    # Match forecasts with observations
+    # Match forecasts with observations using merge_asof (O(n log n) vs O(n*m))
     print("  Matching forecasts with observations...")
     forecasts_df['forecast_ts'] = pd.to_datetime(
         forecasts_df['forecast_date'] + ' ' + forecasts_df['forecast_time'].fillna('00:00:00'),
@@ -147,46 +147,48 @@ def fetch_real_training_pairs(supabase) -> pd.DataFrame:
 
     obs_df['observed_ts'] = pd.to_datetime(obs_df['ts'], errors='coerce', utc=True).dt.tz_localize(None)
 
-    matched_rows = []
-    for _, forecast in tqdm(forecasts_df.iterrows(), total=len(forecasts_df), desc="  Matching"):
-        beach_id = forecast['beach_id']
-        forecast_ts = forecast['forecast_ts']
+    # Drop rows with invalid timestamps
+    forecasts_clean = forecasts_df.dropna(subset=['forecast_ts']).copy()
+    obs_clean = obs_df.dropna(subset=['observed_ts']).copy()
 
-        if pd.isna(forecast_ts):
-            continue
+    # Sort by beach_id and timestamp for merge_asof
+    forecasts_clean = forecasts_clean.sort_values(['beach_id', 'forecast_ts'])
+    obs_clean = obs_clean.sort_values(['beach_id', 'observed_ts'])
 
-        beach_obs = obs_df[obs_df['beach_id'] == beach_id]
-        if len(beach_obs) == 0:
-            continue
+    # Use merge_asof for efficient nearest-timestamp matching
+    matched = pd.merge_asof(
+        forecasts_clean,
+        obs_clean,
+        left_on='forecast_ts',
+        right_on='observed_ts',
+        by='beach_id',
+        tolerance=pd.Timedelta(seconds=MAX_TIME_DIFF_SECONDS),
+        direction='nearest'
+    )
 
-        time_diff = abs((beach_obs['observed_ts'] - forecast_ts).dt.total_seconds())
-        valid_obs = beach_obs[time_diff < MAX_TIME_DIFF_SECONDS]
+    # Filter to only matched rows (where observation was found)
+    matched = matched.dropna(subset=['wave_height_m'])
 
-        if len(valid_obs) == 0:
-            continue
+    # Build result DataFrame with expected column names
+    result_df = pd.DataFrame({
+        'beach_id': matched['beach_id'],
+        'forecast_ts_utc': matched['forecast_ts'],
+        'forecast_height_text': matched['wave_height'],
+        'forecast_period_text': matched['wave_period'],
+        'forecast_dir_text': matched['wave_direction'],
+        'wind_speed_text': matched['wind_speed'],
+        'wind_dir_text': matched['wind_direction'],
+        'observed_height_m': matched['wave_height_m'],
+        'observed_period_s': matched['wave_period_s'],
+        'observed_dir_deg': matched['wave_direction_deg'],
+        'observed_ts': matched['observed_ts'],
+        'observation_source': matched['source'],
+        'data_quality': 'buoy',
+        'sample_weight': WEIGHT_BUOY_OBSERVATION
+    })
 
-        closest_idx = time_diff[time_diff < MAX_TIME_DIFF_SECONDS].idxmin()
-        obs = obs_df.loc[closest_idx]
-
-        matched_rows.append({
-            'beach_id': beach_id,
-            'forecast_ts_utc': forecast_ts,
-            'forecast_height_text': forecast['wave_height'],
-            'forecast_period_text': forecast['wave_period'],
-            'forecast_dir_text': forecast['wave_direction'],
-            'wind_speed_text': forecast['wind_speed'],
-            'wind_dir_text': forecast['wind_direction'],
-            'observed_height_m': obs['wave_height_m'],
-            'observed_period_s': obs['wave_period_s'],
-            'observed_dir_deg': obs['wave_direction_deg'],
-            'observed_ts': obs['observed_ts'],
-            'observation_source': obs['source'],
-            'data_quality': 'buoy',
-            'sample_weight': WEIGHT_BUOY_OBSERVATION
-        })
-
-    print(f"  Matched {len(matched_rows)} real forecast-observation pairs")
-    return pd.DataFrame(matched_rows)
+    print(f"  Matched {len(result_df)} real forecast-observation pairs")
+    return result_df
 
 
 async def validate_era5_for_beaches(
@@ -286,63 +288,80 @@ async def create_era5_pairs(
     beach_list = beaches_df[['id', 'latitude', 'longitude']].to_dict('records')
     era5_data = await fetch_era5_for_beaches(beach_list, start_date, end_date, max_concurrent=5)
 
-    # Create pairs
+    # Create pairs using merge_asof (O(n log n) vs O(n*m))
     print("  Matching forecasts with ERA5 data...")
-    era5_pairs = []
 
-    for beach_id, era5_df in tqdm(era5_data.items(), desc="  Processing"):
+    # Combine all ERA5 data into a single DataFrame with weights
+    era5_combined_list = []
+    for beach_id, era5_df in era5_data.items():
         if era5_df.empty:
             continue
 
-        # Get forecasts for this beach
-        beach_forecasts = forecasts_df[forecasts_df['beach_id'] == beach_id]
-        if beach_forecasts.empty:
-            continue
-
-        # Determine sample weight
+        # Determine sample weight and quality
         is_observable = beach_id in observable_beach_ids
         is_validated = beach_id in validation_results and validation_results[beach_id].get('valid', False)
 
         if is_validated:
             weight = WEIGHT_ERA5_VALIDATED
+            quality = 'era5_validated'
         elif is_observable:
             weight = WEIGHT_ERA5_VALIDATED  # Has buoy, just not in validation sample
+            quality = 'era5_validated'
         else:
             weight = WEIGHT_ERA5_UNVALIDATED
+            quality = 'era5'
 
-        # Match each ERA5 timestamp with closest forecast
-        for _, era5_row in era5_df.iterrows():
-            era5_ts = era5_row['timestamp']
+        era5_df = era5_df.copy()
+        era5_df['beach_id'] = beach_id
+        era5_df['sample_weight'] = weight
+        era5_df['data_quality'] = quality
+        era5_combined_list.append(era5_df)
 
-            # Find closest forecast within time window
-            time_diffs = abs((beach_forecasts['forecast_ts'] - era5_ts).dt.total_seconds())
-            valid_forecasts = beach_forecasts[time_diffs < MAX_TIME_DIFF_SECONDS]
+    if not era5_combined_list:
+        print("  Created 0 ERA5 pseudo-observation pairs")
+        return pd.DataFrame()
 
-            if valid_forecasts.empty:
-                continue
+    era5_combined = pd.concat(era5_combined_list, ignore_index=True)
 
-            closest_idx = time_diffs[time_diffs < MAX_TIME_DIFF_SECONDS].idxmin()
-            forecast = forecasts_df.loc[closest_idx]
+    # Prepare forecasts for merge
+    forecasts_clean = forecasts_df.dropna(subset=['forecast_ts']).copy()
+    forecasts_clean = forecasts_clean.sort_values(['beach_id', 'forecast_ts'])
+    era5_combined = era5_combined.sort_values(['beach_id', 'timestamp'])
 
-            era5_pairs.append({
-                'beach_id': beach_id,
-                'forecast_ts_utc': forecast['forecast_ts'],
-                'forecast_height_text': forecast['wave_height'],
-                'forecast_period_text': forecast['wave_period'],
-                'forecast_dir_text': forecast['wave_direction'],
-                'wind_speed_text': forecast['wind_speed'],
-                'wind_dir_text': forecast['wind_direction'],
-                'observed_height_m': era5_row['wave_height_era5'],
-                'observed_period_s': era5_row.get('wave_period_era5'),
-                'observed_dir_deg': era5_row.get('wave_direction_era5'),
-                'observed_ts': era5_ts,
-                'observation_source': 'era5',
-                'data_quality': 'era5_validated' if is_validated else 'era5',
-                'sample_weight': weight
-            })
+    # Use merge_asof for efficient nearest-timestamp matching
+    matched = pd.merge_asof(
+        era5_combined,
+        forecasts_clean,
+        left_on='timestamp',
+        right_on='forecast_ts',
+        by='beach_id',
+        tolerance=pd.Timedelta(seconds=MAX_TIME_DIFF_SECONDS),
+        direction='nearest'
+    )
 
-    print(f"  Created {len(era5_pairs)} ERA5 pseudo-observation pairs")
-    return pd.DataFrame(era5_pairs)
+    # Filter to only matched rows (where forecast was found)
+    matched = matched.dropna(subset=['forecast_ts'])
+
+    # Build result DataFrame with expected column names
+    result_df = pd.DataFrame({
+        'beach_id': matched['beach_id'],
+        'forecast_ts_utc': matched['forecast_ts'],
+        'forecast_height_text': matched['wave_height'],
+        'forecast_period_text': matched['wave_period'],
+        'forecast_dir_text': matched['wave_direction'],
+        'wind_speed_text': matched['wind_speed'],
+        'wind_dir_text': matched['wind_direction'],
+        'observed_height_m': matched['wave_height_era5'],
+        'observed_period_s': matched['wave_period_era5'],
+        'observed_dir_deg': matched['wave_direction_era5'],
+        'observed_ts': matched['timestamp'],
+        'observation_source': 'era5',
+        'data_quality': matched['data_quality'],
+        'sample_weight': matched['sample_weight']
+    })
+
+    print(f"  Created {len(result_df)} ERA5 pseudo-observation pairs")
+    return result_df
 
 
 def combine_and_process(
@@ -383,12 +402,14 @@ def combine_and_process(
 
     print(f"  Retained {len(combined_clean)} rows after dropping missing values")
 
+    # Track missing wind data BEFORE filling (must be done before fillna)
+    combined_clean['wind_missing'] = combined_clean['wind_speed_ms'].isna().astype(int)
+
     # Fill missing optional values
     combined_clean['wind_speed_ms'] = combined_clean['wind_speed_ms'].fillna(0)
     combined_clean['wind_dir_deg'] = combined_clean['wind_dir_deg'].fillna(0)
     combined_clean['forecast_period_s'] = combined_clean['forecast_period_s'].fillna(10)
     combined_clean['forecast_dir_deg'] = combined_clean['forecast_dir_deg'].fillna(270)
-    combined_clean['wind_missing'] = combined_clean['wind_speed_ms'].isna().astype(int)
 
     # Select final columns
     final_cols = [

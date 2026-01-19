@@ -38,14 +38,22 @@ class OpenMeteoService:
     def __init__(self, timeout: float = 30.0):
         self.timeout = timeout
         self._last_request_time: Optional[datetime] = None
+        self._rate_limit_lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        """Get or create the rate limit lock (must be created in async context)."""
+        if self._rate_limit_lock is None:
+            self._rate_limit_lock = asyncio.Lock()
+        return self._rate_limit_lock
 
     async def _rate_limit(self):
-        """Apply rate limiting between requests."""
-        if self._last_request_time:
-            elapsed = (datetime.now() - self._last_request_time).total_seconds() * 1000
-            if elapsed < REQUEST_DELAY_MS:
-                await asyncio.sleep((REQUEST_DELAY_MS - elapsed) / 1000)
-        self._last_request_time = datetime.now()
+        """Apply rate limiting between requests (thread-safe)."""
+        async with self._get_lock():
+            if self._last_request_time:
+                elapsed = (datetime.now() - self._last_request_time).total_seconds() * 1000
+                if elapsed < REQUEST_DELAY_MS:
+                    await asyncio.sleep((REQUEST_DELAY_MS - elapsed) / 1000)
+            self._last_request_time = datetime.now()
 
     async def fetch_forecast(
         self,
