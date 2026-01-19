@@ -10,6 +10,7 @@ import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
+  TimeSlot,
 } from "@/types/personalization";
 
 /**
@@ -97,6 +98,8 @@ export interface HeroRecommendationProps {
   forecastAlertsEnabled?: boolean;
   /** User's current home beach ID */
   homeBeachId?: string | null;
+  /** Selected time slot filter */
+  timeSlot?: TimeSlot;
 }
 
 /**
@@ -272,6 +275,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   onEnableReminder,
   forecastAlertsEnabled = false,
   homeBeachId,
+  timeSlot,
 }: HeroRecommendationProps) {
   const shouldReduceMotion = useReducedMotion();
 

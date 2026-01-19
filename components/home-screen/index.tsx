@@ -245,6 +245,7 @@ export function HomeScreen() {
                 onEnableReminder={handleHeroEnableReminder}
                 forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
                 homeBeachId={homeBeach?.id ?? null}
+                timeSlot={timeSlot}
               />
             </motion.section>
           )}
