@@ -446,20 +446,24 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           </motion.div>
         )}
 
-        {/* Recommendation label badge (Perfect Match for high scores) */}
-        {score >= 90 && (
-          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
-            <Badge
-              variant="outline"
-              className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
-            >
-              Perfect Match
-            </Badge>
-          </motion.div>
-        )}
+        {/* Tier-based condition badge */}
+        {(() => {
+          const conditionBadge = getConditionBadge(tier);
+          if (!conditionBadge) return null;
+          return (
+            <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+              <Badge
+                variant="outline"
+                className={`text-xs sm:text-sm font-medium py-1.5 px-2.5 ${conditionBadge.className}`}
+              >
+                {conditionBadge.label}
+              </Badge>
+            </motion.div>
+          );
+        })()}
 
-        {/* Condition badges */}
-        {conditionBadges?.slice(0, 3).map((badge) => (
+        {/* Condition badges (hidden for marginal tier) */}
+        {tier !== 'marginal' && conditionBadges?.slice(0, 3).map((badge) => (
           <motion.div
             key={badge.label}
             variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}
