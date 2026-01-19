@@ -6,10 +6,8 @@ import type { Metadata } from "next";
 import {
   SURF_INTENTS,
   type SurfIntentSlug,
-  type SurfSpot,
-  getCityBySlug,
-  getSpotsForIntent,
-} from "@/lib/data/surf-spots";
+} from "@/lib/constants/surf-intents";
+import type { SurfSpot } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
@@ -207,42 +205,25 @@ export default async function IntentPage({ params }: IntentPageParams) {
   // Generate content from templates
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
-  // Try database first, then fall back to hardcoded data if needed
+  // Fetch beaches from database
   const beachesResult = await getBeachesByIntentAndCity(
     params.intent,
     params.city,
     cityMetadata.state.toLowerCase()
   );
 
-  let spots: SurfSpot[];
-
-  if (beachesResult.success && beachesResult.data && beachesResult.data.length > 0) {
-    // Use database results - add metrics fields for transformer compatibility
-    const beachesWithMetrics: BeachWithMetrics[] = beachesResult.data.map(beach => ({
-      ...beach,
-      compositeScore: 0,
-      recentIntelCount: 0,
-      avgConfirmations: 0,
-    }));
-    spots = transformBeachesToSurfSpots(beachesWithMetrics);
-  } else {
-    // Fall back to hardcoded data if available (for legacy cities)
-    const city = getCityBySlug(params.city);
-    if (city) {
-      const hardcodedSpots = getSpotsForIntent(city.slug, params.intent as SurfIntentSlug);
-      if (hardcodedSpots.length > 0) {
-        spots = hardcodedSpots;
-      } else {
-        return notFound();
-      }
-    } else {
-      return notFound();
-    }
-  }
-
-  if (spots.length === 0) {
+  if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     return notFound();
   }
+
+  // Transform database results - add metrics fields for transformer compatibility
+  const beachesWithMetrics: BeachWithMetrics[] = beachesResult.data.map(beach => ({
+    ...beach,
+    compositeScore: 0,
+    recentIntelCount: 0,
+    avgConfirmations: 0,
+  }));
+  const spots: SurfSpot[] = transformBeachesToSurfSpots(beachesWithMetrics);
 
   const now = new Date();
   const updatedAt = formatPacificDateTime(now);

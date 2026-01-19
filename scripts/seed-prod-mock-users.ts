@@ -7,7 +7,7 @@
  * 
  * SAFETY FEATURES:
  * - Uses @example.invalid emails (non-deliverable)
- * - Creates auth users with email_confirmed=false
+ * - Creates auth users with email_confirmed=true for immediate E2E testing login
  * - Marks profiles with is_mock=true for easy identification
  * - Idempotent operations (safe to run multiple times)
  * - Never deletes real users
@@ -49,6 +49,7 @@ const mockUsers = [
     name: 'Solid Snake',
     email: 'solid.snake@example.invalid',
     yearsExperience: 2,
+    experienceLevel: 'advanced', // Persona: Tactical
     favoriteSpot: 'Pipeline',
     board: {
       name: 'High Performance',
@@ -85,6 +86,7 @@ const mockUsers = [
     name: 'Riley R.',
     email: 'riley.r@example.invalid',
     yearsExperience: 0.5,
+    experienceLevel: 'beginner', // Persona: Rookie
     favoriteSpot: 'Cowell Beach',
     board: {
       name: 'Beginner Longboard',
@@ -97,6 +99,7 @@ const mockUsers = [
     name: 'Local Larry',
     email: 'local.larry@example.invalid',
     yearsExperience: 5,
+    experienceLevel: 'expert', // Persona: Local
     favoriteSpot: 'The Lane',
     board: {
       name: 'Daily Driver Shortboard',
@@ -109,6 +112,7 @@ const mockUsers = [
     name: 'Tina C.',
     email: 'tina.c@example.invalid',
     yearsExperience: 3,
+    experienceLevel: 'intermediate', // Persona: Traveler
     favoriteSpot: 'Trestles',
     board: {
       name: 'Travel Board',
@@ -121,6 +125,7 @@ const mockUsers = [
     name: 'P. Martinez',
     email: 'p.martinez@example.invalid',
     yearsExperience: 4,
+    experienceLevel: 'intermediate', // Persona: Photographer
     favoriteSpot: 'Malibu',
     board: {
       name: 'Performance Thruster',
@@ -181,6 +186,7 @@ const mockUsers = [
     name: 'Kai N.',
     email: 'kai.n@example.invalid',
     yearsExperience: 10,
+    experienceLevel: 'expert', // Persona: Competitor
     favoriteSpot: 'Pipeline',
     board: {
       name: 'Gun',
@@ -251,9 +257,21 @@ async function createMockUser(userData: typeof mockUsers[0]) {
       authUserId = existingAuthUser.id;
     } else {
       // Create auth user with Supabase Admin API
+      // Password is required - must be set via PERSONA_PASSWORD environment variable
+      const mockPassword = process.env.PERSONA_PASSWORD;
+      if (!mockPassword) {
+        console.error(`❌ PERSONA_PASSWORD environment variable is required to create mock users.`);
+        console.error(`   Set it in your .env file or export it before running this script.`);
+        return false;
+      }
+
+      // Only confirm email if explicitly allowed (for E2E testing in dev/test environments)
+      const allowEmailConfirm = process.env.ALLOW_MOCK_EMAIL_CONFIRM === 'true';
+
       const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
         email: userData.email,
-        email_confirm: false, // Mark as unconfirmed for safety
+        password: mockPassword,
+        email_confirm: allowEmailConfirm, // Only confirm if explicitly allowed
         user_metadata: {
           full_name: userData.name,
           is_mock_user: true,
@@ -296,9 +314,10 @@ async function createMockUser(userData: typeof mockUsers[0]) {
           id: authUserId,
           full_name: userData.name,
           is_mock: true,
+          experience_level: userData.experienceLevel,
           favorite_spot: userData.favoriteSpot,
           email_session_invites: true,
-          inapp_session_invites: true, 
+          inapp_session_invites: true,
           digest_session_invites: false,
           followers_count: Math.floor(Math.random() * 200) + 10,
           following_count: Math.floor(Math.random() * 150) + 5,
@@ -484,7 +503,7 @@ async function main() {
     console.log('');
     console.log('💡 Next steps:');
     console.log('   - Mock users are marked with is_mock=true in profiles');
-    console.log('   - Auth users have email_confirmed=false for safety');
+    console.log(`   - Email confirmed: ${process.env.ALLOW_MOCK_EMAIL_CONFIRM === 'true' ? 'YES (E2E login ready)' : 'NO (set ALLOW_MOCK_EMAIL_CONFIRM=true for E2E)'}`);
     console.log('   - All emails use @example.invalid domain (non-deliverable)');
     console.log('   - You can query mock users with: SELECT * FROM profiles WHERE is_mock = true');
   } else {

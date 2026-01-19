@@ -89,7 +89,9 @@ jscpd-output/
 beaches-null-columns.json
 # Playwright MCP testing artifacts
 .playwright-mcp/
-e2e/.auth/state.json
+
+# Playwright E2E auth state files (all persona and main state files)
+e2e/.auth/*.json
 
 # Mobile build artifacts
 android/app/build/
@@ -106,7 +108,6 @@ ios/App/App/GoogleService-Info.plist
 
 # Local development tunnel config (contains temporary tunnel URLs)
 capacitor.config.dev.ts
-e2e/.auth/state.json
 
 # Auth user cleanup working files (contain deployment-specific user IDs)
 scripts/users-to-delete.txt
@@ -115,7 +116,6 @@ scripts/*-to-delete.txt
 # Cloudflare tunnel temp files
 .tunnel-url
 .tunnel-pid
-e2e/.auth/state.json
 
 # Sentry Config File
 .env.sentry-build-plugin
@@ -147,3 +147,6 @@ beach_bias_model_v1.json
 # ML model files (keep .gitkeep)
 ml/models/*.json
 !ml/models/.gitkeep
+
+# ML model artifacts
+models/

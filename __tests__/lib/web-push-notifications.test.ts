@@ -45,6 +45,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.resetModules(); // Clear module cache to pick up fresh mocks
 
+  // Set up Firebase environment variables (required by implementation)
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "test-api-key";
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "test-project-id";
+  process.env.NEXT_PUBLIC_FIREBASE_APP_ID = "test-app-id";
+
   // Set up global Notification (browser global)
   Object.defineProperty(global, "Notification", {
     value: mockNotification,

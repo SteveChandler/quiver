@@ -11,8 +11,16 @@ load_dotenv()  # Also try ml/.env if exists
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-MODEL_PATH = os.getenv("MODEL_PATH", "models/bias_model_v1.json")
-MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
+# Model configuration - combined model uses ERA5 augmented training + Open-Meteo features
+MODEL_PATH = os.getenv("MODEL_PATH", "models/bias_model_combined_v1.json")
+MODEL_VERSION = os.getenv("MODEL_VERSION", "combined_v1")
+
+# Fallback model (NOAA-only) if Open-Meteo fetch fails or coordinates unavailable
+FALLBACK_MODEL_PATH = os.getenv("FALLBACK_MODEL_PATH", "models/bias_model_v1.json")
+USE_ENSEMBLE = os.getenv("USE_ENSEMBLE", "true").lower() == "true"
+
+# Open-Meteo configuration
+OPEN_METEO_TIMEOUT_MS = int(os.getenv("OPEN_METEO_TIMEOUT_MS", "2000"))
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET")
 
 # Training config

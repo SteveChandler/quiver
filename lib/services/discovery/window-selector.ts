@@ -604,8 +604,35 @@ export function selectBestWindow(
 
   if (scoredForecasts.length === 0) return null;
 
-  // No early time slot filtering - we filter AFTER calculating tide boundaries
-  const filteredForecasts = scoredForecasts;
+  // Get sun times for this beach (sunrises for dawn-patrol, sunsets for window capping)
+  const sunTimes = actualSunTimesCache?.get(actualBeach.id);
+  const sunsets = sunTimes?.sunsets || [];
+  const sunrises = sunTimes?.sunrises || [];
+
+  // Filter forecasts by time slot to enforce strict time slot boundaries
+  // This prevents showing afternoon windows when user selects dawn-patrol
+  const filteredForecasts = scoredForecasts.filter(({ forecastTime }) => {
+    if (!actualTimeSlot || actualTimeSlot === 'any') {
+      return true; // No time slot filter
+    }
+
+    try {
+      const localHour = parseInt(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          hour12: false,
+          timeZone: beachTz,
+        }).format(forecastTime),
+        10
+      );
+
+      // Get dynamic range (dawn-patrol uses sunrise-based start)
+      const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, forecastTime, beachTz);
+      return localHour >= slotRange.startHour && localHour < slotRange.endHour;
+    } catch {
+      return false; // If timezone conversion fails, exclude to be safe
+    }
+  });
 
   if (filteredForecasts.length === 0) return null;
 
@@ -617,17 +644,15 @@ export function selectBestWindow(
   } | null = null;
   let bestAdjustedScore = -1;
 
-  // Get sun times for this beach (sunsets for window capping)
-  const sunTimes = actualSunTimesCache?.get(actualBeach.id);
-  const sunsets = sunTimes?.sunsets || [];
-
   for (let i = 0; i < filteredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore, isToday } = filteredForecasts[i];
 
-    // Morning priority: use lower threshold for today's forecasts before noon
-    const effectiveThreshold = (isMorning && isToday)
-      ? MIN_SCORE_THRESHOLD_MORNING
-      : MIN_SCORE_THRESHOLD;
+    // When a specific time slot is requested (not 'any'), skip score threshold
+    // Always return best window in that slot so UI can show quality indicator
+    const shouldApplyThreshold = !actualTimeSlot || actualTimeSlot === 'any';
+    const effectiveThreshold = shouldApplyThreshold
+      ? (isMorning && isToday) ? MIN_SCORE_THRESHOLD_MORNING : MIN_SCORE_THRESHOLD
+      : 0; // No threshold for specific time slots
 
     // Skip low-scoring start times
     if (startScore < effectiveThreshold) {
@@ -935,7 +960,29 @@ export function selectBestWindow(
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && filteredForecasts.length > 0) {
     // Filter out night hours and post-sunset times before selecting fallback
+    // Also filter by time slot if specified (strict enforcement)
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
+      // Time slot filter - strict enforcement
+      // When a time slot is specified, only return forecasts within that slot
+      if (actualTimeSlot && actualTimeSlot !== 'any') {
+        try {
+          const localHour = parseInt(
+            new Intl.DateTimeFormat("en-US", {
+              hour: "numeric",
+              hour12: false,
+              timeZone: beachTz,
+            }).format(forecastTime),
+            10
+          );
+          const sunrises = sunTimes?.sunrises || [];
+          const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, forecastTime, beachTz);
+          if (localHour < slotRange.startHour || localHour >= slotRange.endHour) {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
       // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
       const forecastDateStr = getLocalDateStrForBeach(forecastTime);
       const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);

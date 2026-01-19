@@ -1,10 +1,10 @@
 # Hooks Directory Architecture
 
-## 🎯 **PURPOSE**
+## **PURPOSE**
 
 The `/hooks` directory provides a comprehensive collection of custom React hooks that implement reusable business logic, data fetching patterns, state management, and UI interactions across the Quiver surf community platform.
 
-## 📁 **DIRECTORY STRUCTURE**
+## **DIRECTORY STRUCTURE**
 
 ```
 hooks/
@@ -21,6 +21,7 @@ hooks/
 ├── use-beach-search.ts              # Beach search and filtering
 ├── use-beach-reviews.ts             # Beach review system
 ├── use-beach-card-data.ts           # Beach card display optimization
+├── use-beach-clustering.ts          # Map marker clustering with Supercluster
 ├── use-enhanced-beach-data.ts       # Comprehensive beach information
 ├── use-geolocation.ts                # Canonical user location services (geolocation)
 │
@@ -48,7 +49,7 @@ hooks/
 ├── use-form-submission.ts           # Form handling and submission
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## **ARCHITECTURE PATTERNS**
 
 ### **Hook Classification System**
 
@@ -67,6 +68,10 @@ BusinessLogic
 ├── Authentication (use-user-profile, use-user-follow)
 ├── Social Features (use-session-like, use-activity-feed)
 └── Domain Logic (use-forecast-*, use-beach-*, use-intel-*)
+
+Geospatial
+├── Clustering (use-beach-clustering)
+└── Location (use-geolocation)
 ```
 
 ### **Standardized Hook Interface Pattern**
@@ -90,9 +95,9 @@ interface HookOptions {
 }
 ```
 
-## 📊 **CORE HOOK CATEGORIES**
+## **CORE HOOK CATEGORIES**
 
-### **🔄 Data Fetching Hooks**
+### **Data Fetching Hooks**
 
 #### **useDataFetcher** (Universal Data Fetching)
 
@@ -158,7 +163,7 @@ export function createLocationCacheKey(
 }
 ```
 
-### **🏖️ Beach & Location Hooks**
+### **Beach & Location Hooks**
 
 #### **useBeachSearch** (Search & Filtering)
 
@@ -167,6 +172,102 @@ export function createLocationCacheKey(
   - Real-time search filtering
   - Beach selection state
   - Search query persistence
+
+#### **useBeachClustering** (Map Marker Clustering)
+
+- **Purpose**: Efficient geo-clustering of beach markers on maps using Supercluster
+- **Location**: `hooks/use-beach-clustering.ts`
+- **Features**:
+  - Integrates with [Supercluster](https://github.com/mapbox/supercluster) library for efficient clustering
+  - Returns `ClusterPoint[]` containing both cluster groups and individual beaches
+  - Provides `getExpansionZoom()` for click-to-expand behavior on clusters
+  - Handles wave height aggregation for clusters (shows min-max range)
+  - Works with favorite beach IDs for styling differentiation
+  - Viewport-aware: recalculates clusters on bounds/zoom changes
+
+**TypeScript Interface:**
+
+```typescript
+interface UseBeachClusteringProps {
+  beaches: Beach[];
+  waveHeights: Map<string, number | undefined>;
+  bounds: { west: number; south: number; east: number; north: number };
+  zoom: number;
+  favoriteBeachIds?: Set<string>;
+}
+
+interface UseBeachClusteringReturn {
+  clusters: ClusterPoint[];
+  getExpansionZoom: (clusterId: number) => number;
+}
+
+interface ClusterPoint {
+  isCluster: boolean;
+  clusterId?: number;
+  pointCount?: number;
+  latitude: number;
+  longitude: number;
+  // For individual beaches
+  beach?: Beach;
+  waveHeight?: number;
+  // For clusters
+  waveHeights?: number[];
+  beachIds?: string[];
+}
+```
+
+**Usage Example:**
+
+```typescript
+function InteractiveMap({ beaches, waveHeights, favoriteBeachIds }) {
+  const [bounds, setBounds] = useState({ west: -180, south: -90, east: 180, north: 90 });
+  const [zoom, setZoom] = useState(10);
+
+  const { clusters, getExpansionZoom } = useBeachClustering({
+    beaches,
+    waveHeights,
+    bounds,
+    zoom,
+    favoriteBeachIds,
+  });
+
+  const handleClusterClick = (clusterId: number) => {
+    const expansionZoom = getExpansionZoom(clusterId);
+    // Zoom map to expansion zoom level
+    map.easeTo({ zoom: expansionZoom });
+  };
+
+  return (
+    <>
+      {clusters.map((point) =>
+        point.isCluster ? (
+          <ClusterMarker
+            key={`cluster-${point.clusterId}`}
+            waveHeights={point.waveHeights}
+            pointCount={point.pointCount}
+            onClick={() => handleClusterClick(point.clusterId!)}
+          />
+        ) : (
+          <BeachMarker key={point.beach?.id} beach={point.beach} />
+        )
+      )}
+    </>
+  );
+}
+```
+
+**Supercluster Configuration:**
+
+- `radius: 60` - Cluster radius in pixels
+- `maxZoom: 14` - Max zoom level to cluster at (shows individual markers beyond this)
+- `minZoom: 0` - Min zoom level for clustering
+- Custom `reduce` function aggregates wave heights and beach IDs from clustered points
+
+**Integration:**
+
+- Used by `InteractiveMap` component (`components/map/interactive-map.tsx`)
+- Works with `ClusterMarker` component for rendering cluster badges
+- Supports favorite beach highlighting via `hasFavorite` detection
 
 #### **useBeachCardData** (Display Optimization)
 
@@ -250,7 +351,7 @@ export function useBeachCardData(
 
 **Note**: See `/docs/COORDINATE_CONVENTIONS.md` for complete coordinate naming standards. Database fields use `center_lat`/`center_lng` but must be mapped to `latitude`/`longitude` for component props.
 
-### **📊 Session Management Hooks**
+### **Session Management Hooks**
 
 #### **useSessionForm** (Complex Form State)
 
@@ -307,7 +408,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
   - Error rollback handling
   - Real-time synchronization
 
-### **🌊 Forecast & Weather Hooks**
+### **Forecast & Weather Hooks**
 
 #### **useEnhancedForecast** (Advanced Forecasting)
 
@@ -468,7 +569,7 @@ function HomePage() {
 - **Location**: `hooks/use-insights.ts`
 - **Features**:
   - Automatic fetching when enabled with valid beach and conditions
-  - Three states: ready (≥3 sessions), onboarding (<3 sessions), degraded (no snapshots)
+  - Three states: ready (>=3 sessions), onboarding (<3 sessions), degraded (no snapshots)
   - Similar sessions list with match percentages
   - Board recommendations when pattern detected
   - Match quality labels (Perfect/Great/Good/Low)
@@ -557,7 +658,7 @@ function PersonalizedForecastCard({ recommendation }) {
 - Provides board recommendation UI
 - Shows match quality indicators
 
-### **👥 Social & Real-time Hooks**
+### **Social & Real-time Hooks**
 
 #### **useOptimizedRealtime** (Real-time Optimization)
 
@@ -614,7 +715,7 @@ class RealtimeSubscriptionManager {
   - User-specific vs global feeds
   - Background refresh capabilities
 
-### **📱 UI & Interaction Hooks**
+### **UI & Interaction Hooks**
 
 #### **useFormSubmission** (Form Handling)
 
@@ -673,7 +774,7 @@ export function useFormSubmission(options: UseFormSubmissionOptions = {}) {
 }
 ```
 
-## 🚀 **PERFORMANCE OPTIMIZATIONS**
+## **PERFORMANCE OPTIMIZATIONS**
 
 ### **Memoization Patterns**
 
@@ -718,7 +819,7 @@ const { data, loading, error } = useDataFetcher(fetchData, {
 });
 ```
 
-## 🔧 **INTEGRATION PATTERNS**
+## **INTEGRATION PATTERNS**
 
 ### **Server Action Integration**
 
@@ -767,7 +868,7 @@ useEffect(() => {
 }, [sessionId]);
 ```
 
-## 🧪 **TESTING STRATEGIES**
+## **TESTING STRATEGIES**
 
 ### **Hook Testing Patterns**
 
@@ -795,7 +896,7 @@ test("useSessionLike should toggle like state", async () => {
 - Cache invalidation behavior
 - Error boundary integration
 
-## 🔮 **FUTURE ENHANCEMENTS**
+## **FUTURE ENHANCEMENTS**
 
 ### **Planned Features**
 
@@ -812,7 +913,7 @@ test("useSessionLike should toggle like state", async () => {
 - Web Worker integration for heavy computations
 - Service Worker caching hooks
 
-## 🏆 **BEST PRACTICES**
+## **BEST PRACTICES**
 
 ### **Hook Design Principles**
 
@@ -832,6 +933,6 @@ test("useSessionLike should toggle like state", async () => {
 
 ---
 
-**Last Updated**: December 17, 2025
+**Last Updated**: January 18, 2026
 **Status**: Production-ready with comprehensive custom hook library
 **Next Review**: After offline synchronization hooks implementation

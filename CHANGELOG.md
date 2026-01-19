@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Map Marker Clustering:** Beaches are now clustered on the map when zoomed out to reduce visual clutter and improve performance. Clusters display aggregated wave height ranges (e.g., "2-4ft") and beach counts, expanding on click to reveal individual beaches. Uses Supercluster library with `useBeachClustering` hook (`hooks/use-beach-clustering.ts`) and `ClusterMarker` component (`components/map/cluster-marker.tsx`). Clusters highlight when containing favorite beaches.
+
+- **Tide-Driven Session Windows:** Discovery window selector now calculates session windows based on tide boundaries when beaches have tide thresholds configured (`preferred_tide_ft_min/max`). Shows the full recommended window aligned to optimal tide conditions without truncation. Includes direction-based fallback (rising/falling/slack preference) when no optimal tide window exists within the selected time slot. Falls back to hourly windows when tide data is unavailable.
+
+- **Dynamic Dawn Patrol Range:** Added `getDawnPatrolRange()` and `getTimeSlotRange()` helpers (`lib/services/discovery/window-selector.ts`) that calculate dawn patrol start time based on actual sunrise (civil twilight ~30 min before) rather than fixed hours. Supports dynamic time slot boundaries for morning, afternoon, and any time filters.
+
+- **Persona-Based E2E Testing:** Comprehensive testing framework using 6 NPC personality types (Rookie, Local, Traveler, Photographer, Tactical, Competitor) for multi-user authenticated E2E test scenarios. Includes:
+  - `e2e/fixtures/personas.ts` - Persona definitions with writing styles, typical content, and expected rating ranges
+  - `e2e/utils/persona-auth.ts` - Multi-user authentication helpers
+  - `e2e/utils/persona-content-generators.ts` - Persona-specific content generation
+  - `e2e/utils/persona-helpers.ts` - Cross-persona feature test utilities
+  - Enables realistic testing of social features, reviews, and intel posts with diverse user behaviors
+
 - **Analytics Events for Personalization Features:** Added tracking events to measure personalization feature engagement:
   - `personalized_score_shown`: Fired when a personalized score is displayed in beach discovery cards (tracks beach_id and score)
   - `favorite_shown_in_carousel`: Fired when a favorite beach appears in the Top Spots carousel (tracks beach_id and score)
@@ -121,7 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Database Schema (3 new tables):**
   - `city_metadata`: Core city data (city, state, slug, region, coordinates) with unique slug constraint and indexed lookups
   - `city_editorial_content`: AI-generated editorial content (surf_vibe, local_knowledge, best_for, season_overview) for rich SEO
-  - `city_beach_mapping`: Many-to-many relationships allowing beaches to belong to multiple cities (e.g., Malibu → LA County + Ventura County)
+  - `city_beach_mapping`: Many-to-many relationships allowing beaches to belong to multiple cities (e.g., Malibu -> LA County + Ventura County)
 
   **Server Actions (3 new action files):**
   - `actions/city/city-metadata-actions.ts`: `findCityBySlug()`, `getCityMetadata()`, `getCitySummary()` for city discovery and geographic calculations
@@ -137,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `lib/utils/beach-to-surfspot-transformer.ts`: Converts database `Beach` records to legacy `SurfSpot` format for UI compatibility
 
   **Static Generation:**
-  - Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate ~350 intent pages (50+ cities × 7 intents) plus all 50 US states
+  - Updated `generateStaticParams()` in `app/[intent]/[city]/page.tsx` to dynamically generate ~350 intent pages (50+ cities x 7 intents) plus all 50 US states
   - Intelligent fallback to hardcoded data for legacy cities when database is empty
   - State-level intent pages (e.g., `/beginner/ca`) with aggregated beach results
 
@@ -181,13 +194,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Coast Pulse Intel Display Improvements:** Enhanced how user intel posts are displayed in Live Coast Pulse. Intel items now show richer, more actionable data:
   - **Beach name in source:** Intel posts display as "{username} @ {beach_name}" instead of just the username
-  - **Emoji ratings prominently displayed:** Condition emojis (🔥 🤙 😐 👎) appear at the start of the message
-  - **Structured conditions:** When available, shows formatted wave height, wind, and crowd level (e.g., "🔥 · 4ft · 8kt NW · light")
+  - **Emoji ratings prominently displayed:** Condition emojis (fire, hang loose, neutral, thumbs down) appear at the start of the message
+  - **Structured conditions:** When available, shows formatted wave height, wind, and crowd level (e.g., "fire . 4ft . 8kt NW . light")
   - **Graceful fallbacks:** Falls back to description text when no structured data is available
   - **Performance optimization:** Beaches queries reduced from 3 to 1 per request via shared cache
   - **Helper functions:** Added `formatIntelMessage()`, `formatIntelSourceName()`, and `findNearestBeachName()` with 19 unit tests
 
 ### Fixed
+
+- **TypeScript Types (ForecastBuilder):** Fixed type mismatch where `ForecastBuilder.buildForecasts()` was returning `EnhancedForecastEntity[]` but should return `EnhancedForecastWithRawData[]` since it populates the `raw_forecast` field with CDIP data, quality scores, and tide schedules.
+- **Code Quality (Time Slot Filtering):** Addressed code review feedback for time slot filtering feature:
+  - Extracted duplicated time slot end capping logic into reusable `capEndTimeToSlot()` helper function, eliminating 30+ lines of duplication
+  - Added comprehensive documentation explaining why beach affinity is intentionally disabled (prioritizing current surf conditions over session history)
+  - Improved cache key hash robustness in `use-surf-discovery.ts` by replacing fragile `btoa().slice(0, 16)` with explicit string concatenation of critical fields, reducing collision risk
+  - Documented that `affinityMap` is loaded but intentionally unused, preserved for future reactivation
+- **Session Logging (Forecast Accuracy Persistence):** Fixed critical bug where user-submitted forecast accuracy feedback (Yes/Kinda/No buttons) and condition fields were not being saved to the database. The `sessions.forecast_accuracy`, `wave_height_ft`, `wind_speed_mph`, `wind_direction`, `tide_height_ft`, and `tide_status` columns were always NULL. Root cause: `app/sessions/new/page.tsx` had its own `handleSessionComplete` function that built `loggedSessionData` without including these fields, even though `ConditionsSection.tsx` captured them and `AnimatedSessionWizard.tsx` passed them correctly. Fixed by adding all condition field mappings to the page-level handler (lines 409-431). Updated architecture documentation to document the dual code path requirement.
+- **Timezone Display (Discovery Cards):** Fixed "Best at Thu 6:00 PM" vs "Thu 10:00 AM - 1:00 PM" mismatch on surf discovery cards. The server-generated summary no longer embeds a pre-formatted timestamp; instead, all time displays are now formatted client-side using the beach's local IANA timezone. Added shared `formatBeachDateTime`, `formatBeachTimeRange`, and `formatBestAtLabel` helpers to `lib/utils/date-utils.ts` to ensure consistent beach-local time formatting across all UI surfaces.
+- **Magic Hour Peak Time (Top Card):** Fixed Magic Hour peak time drifting by timezone offset (e.g. showing "Peak at 3:00 PM" when the window is "7:00 AM - 10:00 AM") by parsing enhanced forecast timestamps explicitly as UTC (`...T...Z`) before formatting in the beach's timezone.
+- **SEO (Query Param Variants):** Prevented parameterized versions of `/map` and `/discover` (e.g. `?search=`, `?city=`, `?level=`) from being indexable while keeping the canonical base routes indexable.
+
+- **Coast Pulse Pagination (nextCursor Calculation):** Fixed critical pagination bug in `/api/coast-pulse` where `nextCursor` was set to the last **returned item** instead of the **extra fetched item**. When fetching 9 items (limit + 1 = 8 + 1), the old logic set cursor to item #8's timestamp, causing the next page to potentially miss item #9 or create duplicates. Fixed by:
+  - Paginated requests (when `before` cursor provided): Use `intelItems[limit].timestamp` for nextCursor when hasMore=true
+  - First page requests: Use the extra intel item's timestamp when hasMore=true, otherwise use last returned item
+  - This ensures pagination always continues from the exact point where the previous page ended, with no gaps or overlaps
+  - Applied fix consistently in both pagination branches (lines 114-118 and 255-259)
 
 - **TypeScript Types (ForecastBuilder):** Fixed type mismatch where `ForecastBuilder.buildForecasts()` was returning `EnhancedForecastEntity[]` but should return `EnhancedForecastWithRawData[]` since it populates the `raw_forecast` field with CDIP data, quality scores, and tide schedules.
 - **Code Quality (Time Slot Filtering):** Addressed code review feedback for time slot filtering feature:

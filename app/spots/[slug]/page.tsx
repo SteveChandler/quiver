@@ -4,7 +4,6 @@ import Link from "next/link";
 
 import {
   SURF_SPOT_SLUGS,
-  getCityBySlug,
   type SurfSpotSlug,
   type SurfCitySlug,
 } from "@/lib/data/surf-spots";
@@ -47,7 +46,7 @@ export async function generateMetadata({
     return {};
   }
 
-  const city = spot.citySlug ? getCityBySlug(spot.citySlug) : null;
+  const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
   const now = new Date();
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
@@ -70,7 +69,7 @@ export async function generateMetadata({
       `${spot.name} tides`,
       `${spot.name} water temperature`,
       `${spot.name} forecast`,
-      `${city?.name ?? "San Diego"} surf`,
+      `${cityName} surf`,
       "Quiver surf reports",
     ],
   });
@@ -93,7 +92,8 @@ export default async function SpotPage({ params }: SpotPageParams) {
     permanentRedirect(canonicalUrl);
   }
 
-  const city = spot.citySlug ? getCityBySlug(spot.citySlug) : null;
+  // Get city name from spot data (database-driven)
+  const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
 
   // Fetch featured photo if we have a beach ID
   const featuredPhoto = spot.id ? await getSpotFeaturedPhoto(spot.id) : null;
@@ -177,7 +177,8 @@ export default async function SpotPage({ params }: SpotPageParams) {
           nearby: spot.nearby || [],
           intentTags: (spot.intentTags as any) || [],
         }}
-        citySlug={spot.citySlug || ("san-diego" as SurfCitySlug)}
+        cityName={cityName}
+        citySlug={spot.citySlug || undefined}
         baseUrl={baseUrl}
       />
 
@@ -199,7 +200,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
             {spot.name} surf report and forecast
           </h1>
           <p className="js-daily-summary text-base text-slate-700">
-            Updated {updatedAt} PT · {city?.name ?? "Southern California"} ·{" "}
+            Updated {updatedAt} PT · {cityName ?? "Southern California"} ·{" "}
             {spot.region || ""}
           </p>
           <p className="text-base text-slate-700">
@@ -209,7 +210,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                 className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                 href={`/beaches/usa/ca/${spot.citySlug}`}
               >
-                {city?.name} surf spots
+                {cityName} surf spots
               </a>
             ) : (
               "local surf spots"
@@ -347,7 +348,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                       href={`/beginner/${spot.citySlug}`}
                       className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                     >
-                      beginner surf spots in {city?.name ?? "this region"}
+                      beginner surf spots in {cityName ?? "this region"}
                     </a>
                     .
                   </p>
@@ -364,7 +365,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                     href={`/least-crowded/${spot.citySlug}`}
                     className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                   >
-                    less crowded {city?.name ?? ""} surf guide
+                    less crowded {cityName ?? ""} surf guide
                   </a>{" "}
                   for tide windows and alternate peaks.
                 </p>

@@ -10,7 +10,124 @@ import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
+  TimeSlot,
 } from "@/types/personalization";
+
+/**
+ * Condition tier based on score thresholds
+ */
+export type ConditionTier = "great" | "good" | "fair" | "marginal";
+
+/**
+ * Get condition tier based on score thresholds
+ * @param score Score value (0-100)
+ * @returns ConditionTier - 'great' (80+), 'good' (60-79), 'fair' (40-59), 'marginal' (<40)
+ */
+export function getConditionTier(score: number): ConditionTier {
+  if (score >= 80) return "great";
+  if (score >= 60) return "good";
+  if (score >= 40) return "fair";
+  return "marginal";
+}
+
+/**
+ * Get Tailwind color class for score display based on condition tier
+ * @param tier Condition tier
+ * @returns Tailwind color class
+ */
+export function getScoreColorClass(tier: ConditionTier): string {
+  switch (tier) {
+    case "great":
+    case "good":
+      return "text-accent-orange";
+    case "fair":
+      return "text-amber-400";
+    case "marginal":
+      return "text-white/60";
+  }
+}
+
+/**
+ * Get condition badge configuration based on tier
+ * @param tier Condition tier
+ * @returns Badge config with label and className, or null for 'good' tier
+ */
+export function getConditionBadge(
+  tier: ConditionTier
+): { label: string; className: string } | null {
+  switch (tier) {
+    case "great":
+      return {
+        label: "Great Conditions",
+        className: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
+      };
+    case "good":
+      return null;
+    case "fair":
+      return {
+        label: "Fair Conditions",
+        className: "bg-amber-500/20 text-amber-300 border-amber-400/30",
+      };
+    case "marginal":
+      return {
+        label: "Marginal",
+        className: "bg-white/10 text-white/60 border-white/20",
+      };
+  }
+}
+
+/**
+ * Build headline parts based on condition tier and time context
+ * @param beachName Name of the beach
+ * @param tier Condition tier
+ * @param isTomorrow Whether the forecast is for tomorrow
+ * @param timeSlot Optional time slot for tomorrow prefix
+ * @returns Object with prefix, beachPart, and connector strings
+ */
+export function buildHeadlineText(
+  beachName: string,
+  tier: ConditionTier,
+  isTomorrow: boolean,
+  timeSlot?: TimeSlot
+): { prefix: string; beachPart: string; connector: string } {
+  // Build tomorrow prefix based on time slot
+  let prefix = "";
+  if (isTomorrow) {
+    switch (timeSlot) {
+      case "dawn-patrol":
+        prefix = "Tomorrow's dawn patrol at ";
+        break;
+      case "morning":
+        prefix = "Tomorrow morning at ";
+        break;
+      case "afternoon":
+        prefix = "Tomorrow afternoon at ";
+        break;
+      default:
+        prefix = "Tomorrow at ";
+    }
+  }
+
+  // Build main headline based on tier
+  switch (tier) {
+    case "great":
+      return { prefix, beachPart: beachName, connector: "is your best bet at" };
+    case "good":
+      return { prefix, beachPart: beachName, connector: "is a good option at" };
+    case "fair":
+      return {
+        prefix: prefix || "Conditions are fair at ",
+        beachPart: beachName,
+        connector: prefix ? "— conditions are fair at" : "—",
+      };
+    case "marginal":
+      return {
+        prefix: prefix || "Conditions are marginal at ",
+        beachPart: beachName,
+        connector: prefix ? "— conditions are marginal at" : "—",
+      };
+  }
+}
 
 /**
  * Props for HeroRecommendation component
@@ -34,6 +151,8 @@ export interface HeroRecommendationProps {
   forecastAlertsEnabled?: boolean;
   /** User's current home beach ID */
   homeBeachId?: string | null;
+  /** Selected time slot filter */
+  timeSlot?: TimeSlot;
 }
 
 /**
@@ -209,6 +328,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   onEnableReminder,
   forecastAlertsEnabled = false,
   homeBeachId,
+  timeSlot,
 }: HeroRecommendationProps) {
   const shouldReduceMotion = useReducedMotion();
 
@@ -235,20 +355,42 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     window.timezone
   );
 
+  // Calculate tier and score color
+  const tier = getConditionTier(score);
+  const scoreColorClass = getScoreColorClass(tier);
+
+  // Determine if showing tomorrow's forecast
+  const timezone = window.timezone || beach.timezone || "America/Los_Angeles";
+  const isTomorrow = (() => {
+    const now = new Date();
+    const dateFormatter = new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: timezone,
+    });
+    const todayStr = dateFormatter.format(now);
+    const startDayStr = dateFormatter.format(window.start);
+    return todayStr !== startDayStr && window.start > now;
+  })();
+
+  const headline = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
+
   return (
     <div className="space-y-3 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}
       <h1 className="text-2xl xs:text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
+        {headline.prefix}
         <button
           onClick={() => onViewBeach(beach.id)}
           className="hover:text-accent-orange focus-visible:text-accent-orange focus-visible:outline-none focus-visible:underline transition-colors text-left min-h-[44px] inline"
           aria-label={`View details for ${beach.name}`}
         >
-          {beach.name}
+          {headline.beachPart}
         </button>{" "}
-        is your best bet at{" "}
+        {headline.connector}{" "}
         <motion.span
-          className="text-accent-orange"
+          className={scoreColorClass}
           data-testid="hero-score"
           animate={shouldReduceMotion ? undefined : {
             textShadow: [...HOME_HEADER_MOTION.hero.scoreGlow.textShadow],
@@ -304,20 +446,24 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           </motion.div>
         )}
 
-        {/* Recommendation label badge (Perfect Match for high scores) */}
-        {score >= 90 && (
-          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
-            <Badge
-              variant="outline"
-              className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
-            >
-              Perfect Match
-            </Badge>
-          </motion.div>
-        )}
+        {/* Tier-based condition badge */}
+        {(() => {
+          const conditionBadge = getConditionBadge(tier);
+          if (!conditionBadge) return null;
+          return (
+            <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+              <Badge
+                variant="outline"
+                className={`text-xs sm:text-sm font-medium py-1.5 px-2.5 ${conditionBadge.className}`}
+              >
+                {conditionBadge.label}
+              </Badge>
+            </motion.div>
+          );
+        })()}
 
-        {/* Condition badges */}
-        {conditionBadges?.slice(0, 3).map((badge) => (
+        {/* Condition badges (hidden for marginal tier) */}
+        {tier !== 'marginal' && conditionBadges?.slice(0, 3).map((badge) => (
           <motion.div
             key={badge.label}
             variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}

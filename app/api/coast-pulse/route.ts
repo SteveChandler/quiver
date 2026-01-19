@@ -20,6 +20,7 @@ import {
   CDIP_NDBC_OVERLAPS,
   isNDBCDuplicateOfCDIP,
 } from "@/lib/constants/buoy-mappings";
+import { formatBuoyMessage, formatTideMessage } from "@/lib/utils/coast-pulse-formatter";
 
 // Enable ISR with 2-minute revalidation
 export const revalidate = 120;
@@ -69,6 +70,8 @@ interface CoastPulseSummary {
 interface CoastPulseResponse {
   items: CoastPulseItem[];
   summary: CoastPulseSummary;
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
 /**
@@ -78,7 +81,8 @@ interface CoastPulseResponse {
 async function fetchCoastPulseData(
   lat: number,
   lon: number,
-  limit: number
+  limit: number,
+  before?: string // Pagination cursor
 ): Promise<CoastPulseResponse> {
   const supabase = await createSupabaseServerClient();
   const items: CoastPulseItem[] = [];
@@ -98,14 +102,45 @@ async function fetchCoastPulseData(
     windOffshoreDeg: b.wind_offshore_deg,
   }));
 
-  // Fetch from all sources in parallel (including live external sources)
-  // Hybrid approach: Use beach_daily_intel (pre-computed) alongside live data
+  // If paginating (before cursor provided), only fetch intel
+  if (before) {
+    const intelItems = await fetchRecentIntel(supabase, lat, lon, beachesCache, {
+      before,
+      limit: limit + 1, // Fetch one extra to check hasMore
+    });
+
+    const hasMore = intelItems.length > limit;
+    const returnItems = intelItems.slice(0, limit);
+    const nextCursor = hasMore
+      ? new Date(intelItems[limit].timestamp).toISOString() // Use the EXTRA item (index = limit)
+      : (returnItems.length > 0
+          ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+          : null);
+
+    return {
+      items: returnItems,
+      summary: {
+        waveHeight: null,
+        heightType: null,
+        windSpeed: null,
+        tideHeight: null,
+        waterTemp: null,
+        trend: null,
+        confidence: 0,
+        lastUpdated: new Date().toISOString(),
+      },
+      hasMore,
+      nextCursor,
+    };
+  }
+
+  // First page: fetch from all sources in parallel
   const [localBuoysResult, forecastResult, dailyIntelResult, intelResult, ndbcResult, cdipResult, tideResult] =
     await Promise.allSettled([
       fetchLocalBuoys(supabase, lat, lon),
       fetchEnhancedForecast(supabase, lat, lon, beachesCache),
       fetchDailyIntel(supabase, lat, lon, beachesCache),
-      fetchRecentIntel(supabase, lat, lon, beachesCache),
+      fetchRecentIntel(supabase, lat, lon, beachesCache, { limit: limit + 1 }),
       fetchLiveNDBCData(lat, lon),
       fetchLiveCDIPData(lat, lon),
       fetchTideData(lat, lon),
@@ -159,9 +194,11 @@ async function fetchCoastPulseData(
     items.push(dailyIntelResult.value);
   }
 
-  // Process intel
+  // Process intel - track if we have more for pagination
+  let intelHasMore = false;
   if (intelResult.status === "fulfilled" && intelResult.value.length > 0) {
-    items.push(...intelResult.value);
+    intelHasMore = intelResult.value.length > limit;
+    items.push(...intelResult.value.slice(0, limit));
   }
 
   // Process live CDIP data FIRST (higher credibility than NDBC)
@@ -212,16 +249,26 @@ async function fetchCoastPulseData(
 
   // Compute summary from best available data
   const summary = computeSummary(sorted);
+  const returnItems = sorted.slice(0, limit);
+
+  // Determine nextCursor: use the extra intel item if hasMore, otherwise use last returned item
+  const nextCursor = intelHasMore && intelResult.status === "fulfilled" && intelResult.value.length > limit
+    ? new Date(intelResult.value[limit].timestamp).toISOString() // Use the EXTRA intel item (index = limit)
+    : (returnItems.length > 0
+        ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+        : null);
 
   return {
-    items: sorted.slice(0, limit),
+    items: returnItems,
     summary,
+    hasMore: intelHasMore,
+    nextCursor,
   };
 }
 
 /**
- * Create a cached version of the data fetcher
- * Cache key is geohash (precision 4 = ~20km areas) + limit
+ * Create a cached version of the data fetcher (first page only)
+ * Paginated requests bypass cache since they're user-specific
  */
 const getCachedCoastPulseData = unstable_cache(
   async (geohashKey: string, limit: number) => {
@@ -246,6 +293,7 @@ const getCachedCoastPulseData = unstable_cache(
  * - lat: Latitude (required)
  * - lon: Longitude (required)
  * - limit: Max items to return (default: 8, max: 15)
+ * - before: ISO timestamp cursor for pagination (optional)
  */
 async function coastPulseHandler(request: NextRequest) {
   try {
@@ -264,19 +312,34 @@ async function coastPulseHandler(request: NextRequest) {
       Math.max(parseInt(searchParams.get("limit") || "8"), 1),
       15
     );
+    const before = searchParams.get("before") || undefined;
 
-    // Create geohash key for caching (precision 4 = ~20km areas)
-    const geohashKey = ngeohash.encode(coords.lat, coords.lon, 4);
+    // Validate before cursor is a valid ISO timestamp
+    if (before) {
+      const parsedDate = new Date(before);
+      if (isNaN(parsedDate.getTime())) {
+        return createValidationError("Invalid 'before' cursor: must be a valid ISO timestamp");
+      }
+    }
 
-    // Fetch data using cached function
-    const data = await getCachedCoastPulseData(geohashKey, limit);
+    let data;
+    if (before) {
+      // Paginated request - bypass cache
+      data = await fetchCoastPulseData(coords.lat, coords.lon, limit, before);
+    } else {
+      // First page - use cache
+      const geohashKey = ngeohash.encode(coords.lat, coords.lon, 4);
+      data = await getCachedCoastPulseData(geohashKey, limit);
+    }
 
     // Return with cache headers for CDN
     return NextResponse.json(
       { success: true, data, timestamp: new Date().toISOString() },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+          "Cache-Control": before
+            ? "private, no-cache"
+            : "public, s-maxage=120, stale-while-revalidate=300",
         },
       }
     );
@@ -325,7 +388,18 @@ async function fetchLocalBuoys(
           type: "local" as const,
           credibility: 85,
         },
-        message: formatBuoyConditions(buoy),
+        message: buoy.wave_height != null && buoy.wave_period != null
+          ? formatBuoyMessage({
+              heightFt: buoy.wave_height,
+              periodS: buoy.wave_period,
+              direction: null,  // LOCAL buoys don't have swell direction
+              waterTempF: buoy.water_temperature != null
+                ? buoy.water_temperature  // Already in Fahrenheit from DB
+                : null,
+              lat,
+              lon,
+            })
+          : formatBuoyConditions(buoy),
         timestamp: new Date(buoy.updated_at),
         trend: "stable" as const,
       }));
@@ -340,7 +414,18 @@ async function fetchLocalBuoys(
         type: "local" as const,
         credibility: 85,
       },
-      message: formatBuoyConditions(buoy),
+      message: buoy.wave_height != null && buoy.wave_period != null
+        ? formatBuoyMessage({
+            heightFt: buoy.wave_height,
+            periodS: buoy.wave_period,
+            direction: null,  // LOCAL buoys don't have swell direction
+            waterTempF: buoy.water_temperature != null
+              ? buoy.water_temperature  // Already in Fahrenheit from DB
+              : null,
+            lat,
+            lon,
+          })
+        : formatBuoyConditions(buoy),
       timestamp: new Date(buoy.updated_at),
       location: {
         lat: lat,
@@ -531,19 +616,23 @@ async function fetchDailyIntel(
 }
 
 /**
- * Fetch recent user intel posts
+ * Fetch recent user intel posts with optional pagination
  */
 async function fetchRecentIntel(
   supabase: SupabaseClient,
   lat: number,
   lon: number,
-  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = [],
+  options?: {
+    before?: string; // ISO timestamp cursor for pagination
+    limit?: number;
+  }
 ): Promise<CoastPulseItem[]> {
   try {
-    // Fetch intel from last 24 hours (was 2 hours - extended for more content)
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const limit = options?.limit || 10;
+    const before = options?.before;
 
-    const { data: posts } = await supabase
+    let query = supabase
       .from("intel_posts")
       .select(
         `
@@ -566,9 +655,19 @@ async function fetchRecentIntel(
       `
       )
       .eq("is_active", true)
-      .gte("created_at", twentyFourHoursAgo)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(limit + 1); // Fetch one extra to check if more exist
+
+    if (before) {
+      // Paginated request - fetch posts older than cursor
+      query = query.lt("created_at", before);
+    } else {
+      // First page - fetch recent posts (last 24 hours)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      query = query.gte("created_at", twentyFourHoursAgo);
+    }
+
+    const { data: posts } = await query;
 
     if (!posts?.length) return [];
 
@@ -579,7 +678,7 @@ async function fetchRecentIntel(
       return dist <= 50; // Within 50km
     });
 
-    return nearbyPosts.slice(0, 5).map((post: any) => {
+    return nearbyPosts.slice(0, limit).map((post: any) => {
       const surferName = post.profiles?.full_name || "Local Surfer";
 
       // Get beach name from join or nearest lookup
@@ -636,29 +735,28 @@ async function fetchLiveNDBCData(
       return null;
     }
 
-    // Format the message
-    const parts: string[] = [];
-    if (observation.wave_height_m != null) {
-      const heightFt = observation.wave_height_m * 3.28084;
-      parts.push(`${heightFt.toFixed(1)}ft`);
-    }
-    if (observation.wave_period_s != null) {
-      parts.push(`@ ${observation.wave_period_s.toFixed(0)}s`);
-    }
-    if (observation.wind_speed_ms != null) {
-      const windKt = observation.wind_speed_ms * 1.94384;
-      const windDir = observation.wind_direction_deg
-        ? ` ${degreesToCardinal(observation.wind_direction_deg)}`
-        : "";
-      parts.push(`${windKt.toFixed(0)}kt${windDir}`);
-    }
-    // Add water temperature if available (convert C to F)
-    if (observation.water_temp_c != null) {
-      const tempF = (observation.water_temp_c * 9 / 5) + 32;
-      parts.push(`${Math.round(tempF)}°F`);
-    }
+    // Format the message using enhanced formatter
+    const heightFt = observation.wave_height_m != null
+      ? observation.wave_height_m * 3.28084
+      : null;
+    const periodS = observation.wave_period_s ?? null;
+    const waterTempF = observation.water_temp_c != null
+      ? (observation.water_temp_c * 9 / 5) + 32
+      : null;
+    const direction = observation.wave_direction_deg != null
+      ? degreesToCardinal(observation.wave_direction_deg)
+      : null;
 
-    const message = parts.length > 0 ? parts.join(", ") : "Live data available";
+    const message = heightFt != null && periodS != null
+      ? formatBuoyMessage({
+          heightFt,
+          periodS,
+          direction,
+          waterTempF,
+          lat: station.lat,
+          lon: station.lon,
+        })
+      : "Live data available";
 
     return {
       id: `ndbc-${station.id}`,
@@ -708,9 +806,9 @@ async function fetchLiveCDIPData(
         nearbyStations.map(s => `${s.name} (${s.id}) - ${s.distance.toFixed(1)}km`).join(", "));
     }
 
-    // Sort by distance and take up to 6 nearest (some may not have data)
+    // Sort by distance and take up to 2 nearest (avoid duplicate-feeling feed)
     nearbyStations.sort((a, b) => a.distance - b.distance);
-    const stationsToFetch = nearbyStations.slice(0, 6);
+    const stationsToFetch = nearbyStations.slice(0, 2);
 
     if (stationsToFetch.length === 0) return [];
 
@@ -728,24 +826,24 @@ async function fetchLiveCDIPData(
         // Get the most recent data point
         const latest = buoyData.data[0]; // Data is sorted newest first
 
-        // Format the message
-        const parts: string[] = [];
-        if (latest.significantWaveHeight != null) {
-          parts.push(`${latest.significantWaveHeight.toFixed(1)}ft`);
-        }
-        if (latest.peakWavePeriod != null) {
-          parts.push(`@ ${latest.peakWavePeriod.toFixed(0)}s`);
-        }
-        if (latest.peakWaveDirection != null) {
-          parts.push(`${degreesToCardinal(latest.peakWaveDirection)} swell`);
-        }
-
-        const message = parts.length > 0 ? parts.join(", ") : "Live CDIP data";
-
         // Get station location from config
         const stationConfig = CDIP_STATIONS[stationId];
         const stationLat = stationConfig?.latitude || lat;
         const stationLon = stationConfig?.longitude || lon;
+
+        // Format the message using enhanced formatter
+        const message = latest.significantWaveHeight != null && latest.peakWavePeriod != null
+          ? formatBuoyMessage({
+              heightFt: latest.significantWaveHeight,
+              periodS: latest.peakWavePeriod,
+              direction: latest.peakWaveDirection != null
+                ? degreesToCardinal(latest.peakWaveDirection)
+                : null,
+              waterTempF: null, // CDIP doesn't provide water temp
+              lat: stationLat,
+              lon: stationLon,
+            })
+          : "Live CDIP data";
 
         items.push({
           id: `cdip-${stationId}`,
@@ -802,15 +900,16 @@ async function fetchTideData(
     const msUntil = (nextTide.time * 1000) - now.getTime();
     const hoursUntil = Math.floor(msUntil / 3600000);
     const minsUntil = Math.floor((msUntil % 3600000) / 60000);
-    const timeStr = hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
 
-    // Format current height status
-    const heightStr = currentHeight != null
-      ? `Now: ${currentHeight.toFixed(1)}ft ${tideStatus}`
-      : tideStatus;
-
-    // Build message: "High Tide in 2h 15m @ 5.2ft. Now: 3.1ft Rising"
-    const message = `${nextTide.name} in ${timeStr} @ ${nextTide.height.toFixed(1)}ft. ${heightStr}`;
+    // Format message using enhanced formatter
+    const message = formatTideMessage({
+      nextTideName: nextTide.name,
+      nextTideHeight: nextTide.height,
+      hoursUntil,
+      minsUntil,
+      currentHeight: currentHeight ?? 0,
+      status: tideStatus,
+    });
 
     return {
       id: `tide-${stationId}`,

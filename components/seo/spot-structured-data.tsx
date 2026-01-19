@@ -1,31 +1,28 @@
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import {
-  SURF_CITIES,
-  type SurfCitySlug,
-  type SurfSpot,
-} from "@/lib/data/surf-spots";
+import type { SurfSpot } from "@/lib/data/surf-spots";
 
 interface SpotStructuredDataProps {
   spot: SurfSpot;
-  citySlug: SurfCitySlug;
+  cityName?: string;
+  citySlug?: string;
   baseUrl: string;
 }
 
 export function SpotStructuredData({
   spot,
+  cityName,
   citySlug,
   baseUrl,
 }: SpotStructuredDataProps) {
   const safeBase = baseUrl.replace(/\/$/, "");
-  const city = SURF_CITIES[citySlug];
 
   const breadcrumbs = [
     { name: "Quiver", url: `${safeBase}/` },
-    city
+    cityName && citySlug
       ? {
-          name: `${city.name} Surf`,
-          url: `${safeBase}/ca/${city.slug}`,
+          name: `${cityName} Surf`,
+          url: `${safeBase}/ca/${citySlug}`,
         }
       : undefined,
     {
