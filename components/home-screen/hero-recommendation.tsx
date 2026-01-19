@@ -117,13 +117,13 @@ export function buildHeadlineText(
     case "fair":
       return {
         prefix: prefix || "Conditions are fair at ",
-        beachPart: prefix ? beachName : beachName,
+        beachPart: beachName,
         connector: prefix ? "— conditions are fair at" : "—",
       };
     case "marginal":
       return {
         prefix: prefix || "Conditions are marginal at ",
-        beachPart: prefix ? beachName : beachName,
+        beachPart: beachName,
         connector: prefix ? "— conditions are marginal at" : "—",
       };
   }
@@ -360,11 +360,17 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   const scoreColorClass = getScoreColorClass(tier);
 
   // Determine if showing tomorrow's forecast
-  const timezone = window.timezone || beach.timezone;
+  const timezone = window.timezone || beach.timezone || "America/Los_Angeles";
   const isTomorrow = (() => {
     const now = new Date();
-    const todayStr = formatBeachDateTime(now, timezone, "yyyy-MM-dd");
-    const startDayStr = formatBeachDateTime(window.start, timezone, "yyyy-MM-dd");
+    const dateFormatter = new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: timezone,
+    });
+    const todayStr = dateFormatter.format(now);
+    const startDayStr = dateFormatter.format(window.start);
     return todayStr !== startDayStr && window.start > now;
   })();
 
