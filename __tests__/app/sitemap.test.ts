@@ -2,16 +2,13 @@
  * Tests for Sitemap Generation
  *
  * Tests the sitemap.ts file that generates the XML sitemap for the application.
- * Priority 2 test coverage for San Diego page redesign.
+ * Sitemap now uses database-driven city resolution instead of hardcoded SURF_CITIES.
  */
 
 import sitemap from "@/app/sitemap";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import {
-  SURF_CITY_SLUGS,
-  getCityBySlug,
-} from "@/lib/data/surf-spots";
+import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -22,10 +19,8 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeaches: jest.fn(),
 }));
 
-// Mock the surf-spots module to control test data
-jest.mock("@/lib/data/surf-spots", () => ({
-  SURF_CITY_SLUGS: ["san-diego", "orange-county"],
-  getCityBySlug: jest.fn(),
+jest.mock("@/actions/beach/beach-location-actions", () => ({
+  getAllCitiesWithBeaches: jest.fn(),
 }));
 
 describe("Sitemap Generation", () => {
@@ -47,11 +42,14 @@ describe("Sitemap Generation", () => {
       data: [],
     });
 
-    (getCityBySlug as jest.Mock).mockImplementation((slug: string) => ({
-      slug,
-      name: slug === "san-diego" ? "San Diego" : "Orange County",
-      featuredIntents: ["beginner", "tide"],
-    }));
+    // Mock database-driven city resolution
+    (getAllCitiesWithBeaches as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        { city: "San Diego", state: "CA", beach_count: 15 },
+        { city: "Encinitas", state: "CA", beach_count: 5 },
+      ],
+    });
   });
 
   describe("Static Routes", () => {
@@ -114,56 +112,57 @@ describe("Sitemap Generation", () => {
     });
   });
 
-  describe("City Routes", () => {
-    it("should include routes for all SURF_CITY_SLUGS", async () => {
+  describe("Database-Driven Intent Routes", () => {
+    it("should generate intent routes for cities from database", async () => {
       const result = await sitemap();
 
-      SURF_CITY_SLUGS.forEach((slug) => {
+      // San Diego should have intent routes (from mocked getAllCitiesWithBeaches)
+      const sanDiegoIntentRoute = result.find(
+        (r) => r.url === `${baseUrl}/beginner/san-diego`
+      );
+      expect(sanDiegoIntentRoute).toBeDefined();
+
+      // Encinitas should also have intent routes
+      const encinitasIntentRoute = result.find(
+        (r) => r.url === `${baseUrl}/beginner/encinitas`
+      );
+      expect(encinitasIntentRoute).toBeDefined();
+    });
+
+    it("should call getAllCitiesWithBeaches with minimum beach count", async () => {
+      await sitemap();
+
+      expect(getAllCitiesWithBeaches).toHaveBeenCalledWith(3);
+    });
+
+    it("should generate all intent types for each city", async () => {
+      const result = await sitemap();
+      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+
+      intents.forEach((intent) => {
         const route = result.find(
-          (r) => r.url === `${baseUrl}/beaches/usa/ca/${slug}`
+          (r) => r.url === `${baseUrl}/${intent}/san-diego`
         );
         expect(route).toBeDefined();
       });
     });
 
-    it("should set high priority (0.9) for city routes", async () => {
-      const result = await sitemap();
-      const cityRoute = result.find(
-        (r) => r.url === `${baseUrl}/beaches/usa/ca/san-diego`
+    it("should handle getAllCitiesWithBeaches failure gracefully", async () => {
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+      (getAllCitiesWithBeaches as jest.Mock).mockRejectedValue(
+        new Error("Database error")
       );
 
-      expect(cityRoute?.priority).toBe(0.9);
-    });
-
-    it("should use correct URL format /ca/{city}", async () => {
       const result = await sitemap();
-      const cityRoutes = result.filter((r) =>
-        r.url.includes("/beaches/usa/ca/")
-      );
 
-      cityRoutes.forEach((route) => {
-        expect(route.url).toMatch(/\/beaches\/usa\/ca\/[a-z-]+$/);
-      });
-    });
+      // Should still return static routes
+      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
 
-    it("should call getCityBySlug for each city", async () => {
-      await sitemap();
-
-      expect(getCityBySlug).toHaveBeenCalledWith("san-diego");
-      expect(getCityBySlug).toHaveBeenCalledWith("orange-county");
+      consoleSpy.mockRestore();
     });
   });
 
-  describe("Intent Routes", () => {
-    it("should generate intent routes for each city", async () => {
-      const result = await sitemap();
-      const intentRoute = result.find(
-        (r) => r.url === `${baseUrl}/beginner/san-diego`
-      );
-
-      expect(intentRoute).toBeDefined();
-    });
-
+  describe("Intent Route Priorities", () => {
     it("should prioritize beginner intent (0.85) over others (0.8)", async () => {
       const result = await sitemap();
 
@@ -189,38 +188,25 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("should skip intent routes for city with empty featuredIntents", async () => {
-      // Note: cityRoutes uses getCityBySlug(slug)! which assumes non-null
-      // (SURF_CITY_SLUGS is expected to be curated with valid entries)
-      // But intentRoutes properly filters cities without featuredIntents
-      (getCityBySlug as jest.Mock).mockImplementation((slug: string) => {
-        if (slug === "orange-county") {
-          return {
-            slug,
-            name: "Orange County",
-            featuredIntents: [], // Empty intents array
-          };
-        }
-        return {
-          slug,
-          name: "San Diego",
-          featuredIntents: ["beginner"],
-        };
+    it("should not generate intent routes when getAllCitiesWithBeaches returns empty", async () => {
+      (getAllCitiesWithBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [],
       });
 
       const result = await sitemap();
-      // Intent routes for orange-county should not exist (empty featuredIntents)
-      const ocIntentRoute = result.find(
-        (r) => r.url === `${baseUrl}/beginner/orange-county`
-      );
 
-      expect(ocIntentRoute).toBeUndefined();
-
-      // But SD intent routes should still exist
-      const sdIntentRoute = result.find(
+      // No city-level intent routes (state-level still exist)
+      const cityIntentRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/san-diego`
       );
-      expect(sdIntentRoute).toBeDefined();
+      expect(cityIntentRoute).toBeUndefined();
+
+      // State-level intent routes should still exist
+      const stateIntentRoute = result.find(
+        (r) => r.url === `${baseUrl}/beginner/ca`
+      );
+      expect(stateIntentRoute).toBeDefined();
     });
   });
 

@@ -1,283 +1,26 @@
 /**
- * Surf Spots Data
+ * Surf Spot Content Data
  *
- * @deprecated SURF_CITIES and SURF_SPOTS are deprecated.
- * City and spot data now comes from Supabase via the city_editorial_content table.
+ * This file contains rich SEO content for surf spots (history, advice, FAQs, etc.)
+ * that is merged with database records to provide the best user experience.
  *
- * KEEP:
- * - SURF_INTENTS - Used by intent pages (/beginner/[city], /least-crowded/[city], etc.)
- * - Type definitions (SurfCitySlug, SurfIntentSlug, SurfCity, SurfSpot)
+ * SURF_INTENTS has been moved to: lib/constants/surf-intents.ts
+ * City data now comes from: actions/city/city-metadata-actions.ts (findCityBySlug)
  *
- * See: actions/city/city-editorial-actions.ts for database-driven approach
- * See: lib/utils/beach-to-surfspot-transformer.ts for converting database beaches to SurfSpot format
+ * See: lib/utils/spot-data-transformer.ts for merging database + static content
  */
 
-export type SurfCitySlug = "san-diego" | "orange-county";
+import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
 
-export type SurfIntentSlug =
-  | "beginner"
-  | "least-crowded"
-  | "tide"
-  | "water-temp"
-  | "longboard"
-  | "dawn-patrol"
-  | "sunset";
-
-export interface SurfIntentDefinition {
-  slug: SurfIntentSlug;
-  label: string;
-  titleTemplate: (args: { cityName: string }) => string;
-  heading: (args: { cityName: string }) => string;
-  metaDescription: (args: { cityName: string; topSpots: string[] }) => string;
-  intro: (args: { cityName: string }) => string;
-  focusPoints: string[];
-}
-
-export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
-  beginner: {
-    slug: "beginner",
-    label: "Beginner Friendly",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Beginner Surf Spots, Lessons & Safety Tips`,
-    heading: ({ cityName }) =>
-      `Beginner-friendly breaks in ${cityName}`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `Find the safest beginner surf spots in ${cityName}, including ${topSpots
-        .slice(0, 3)
-        .join(
-          ", "
-        )}. Get coaching tips, mellow wave forecasts, and session planning advice designed for new surfers.`,
-    intro: ({ cityName }) =>
-      `${cityName} has a long season of approachable peelers, surf schools, and forgiving sandbars. This guide highlights where new surfers can practice, how to pick a window with manageable tides, and what to expect from parking to post-surf snacks.`,
-    focusPoints: [
-      "Soft wave takeoff zones and sand-bottom channels",
-      "Typical crowd patterns and local school schedules",
-      "Weather, tide, and swell ranges that keep waves manageable",
-      "Nearby shops for rentals, foamies, and lessons",
-    ],
-  },
-  "least-crowded": {
-    slug: "least-crowded",
-    label: "Less Crowded",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Least Crowded Surf Spots & Backup Plans`,
-    heading: ({ cityName }) =>
-      `Where to surf in ${cityName} when the crowd packs the peak`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `Skip the pack and score cleaner sessions in ${cityName}. Explore lower-profile spots like ${topSpots
-        .slice(0, 3)
-        .join(
-          ", "
-        )}, learn the best tide swings for stealth windows, and get quick pivot options if the lot is full.`,
-    intro: ({ cityName }) =>
-      `${cityName} can get claustrophobic on swell pulses, but shifting a few blocks or timing the tide flip often unlocks empty shoulders. Use this playbook to pivot quickly with backup spots, parking intel, and crowd-aware forecasting.`,
-    focusPoints: [
-      "Secondary peaks and tide windows that thin crowds",
-      "Parking tricks and walk-in trails most visitors skip",
-      "Forecast cues that trigger locals-only surges",
-      "Nearby alternates when the primary target turns into a zoo",
-    ],
-  },
-  tide: {
-    slug: "tide",
-    label: "Tide Timing",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Tide Chart & Best Tidal Windows for Surfing`,
-    heading: ({ cityName }) =>
-      `${cityName} tide guide for faster wave selection`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `Dial in the tide for ${cityName} surf spots like ${topSpots
-        .slice(0, 3)
-        .join(
-          ", "
-        )}. See optimal tide heights, upcoming swings, and how changing water levels reshuffle sandbars and reefs.`,
-    intro: ({ cityName }) =>
-      `Tides dictate which banks fire in ${cityName}. This breakdown maps upcoming highs and lows to the sandbars, reefs, and piers that flip on with just a foot of variance.`,
-    focusPoints: [
-      "Annotated tide windows tied to specific breaks",
-      "How lunar cycles reshape sandbars through the season",
-      "Safety notes for rip-prone outbound tides",
-      "Session planning tips for dawn patrol versus sunset",
-    ],
-  },
-  "water-temp": {
-    slug: "water-temp",
-    label: "Water Temperature",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Water Temperature & Wetsuit Guide`,
-    heading: ({ cityName }) =>
-      `Live water temps and wetsuit planner for ${cityName}`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `Stay warm and surf longer in ${cityName}. Track water temperatures, upwelling events, and recommended wetsuit thickness for breaks like ${topSpots
-        .slice(0, 3)
-        .join(", ")}.`,
-    intro: ({ cityName }) =>
-      `From spring upwelling chills to balmy south-swell summers, ${cityName} water temps fluctuate more than the forecast suggests. Use this guide to pick the right rubber and understand when sudden drops are coming.`,
-    focusPoints: [
-      "Weekly temperature trends and seasonal averages",
-      "Gear recommendations for dawn patrol versus midday",
-      "Upwelling signals that drop temps overnight",
-      "Health and recovery tips for long cold sessions",
-    ],
-  },
-  longboard: {
-    slug: "longboard",
-    label: "Longboard Friendly",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Longboard Surf Spots & Mellow Waves`,
-    heading: ({ cityName }) =>
-      `Best longboard waves in ${cityName}`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `Find the best longboard-friendly waves in ${cityName}. Mellow point breaks and rolling beach breaks at ${topSpots.slice(0, 3).join(", ")}.`,
-    intro: ({ cityName }) =>
-      `${cityName} offers plenty of mellow, longboard-friendly waves. These spots feature gentle shoulders, long rides, and a classic surfing vibe.`,
-    focusPoints: [
-      "Long, peeling waves perfect for noseriding",
-      "Mellow takeoff zones with forgiving shoulders",
-      "Classic surf spots with old-school vibes",
-      "Best tide windows for logging sessions",
-    ],
-  },
-  "dawn-patrol": {
-    slug: "dawn-patrol",
-    label: "Dawn Patrol",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Dawn Patrol Surf Spots | Best Sunrise Sessions`,
-    heading: ({ cityName }) =>
-      `Best dawn patrol spots in ${cityName}`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `Catch the best sunrise surf sessions in ${cityName}. Early morning waves with less crowds at ${topSpots.slice(0, 3).join(", ")}.`,
-    intro: ({ cityName }) =>
-      `Early risers in ${cityName} are rewarded with glassy conditions and empty lineups. These spots offer the best dawn patrol sessions before the wind picks up.`,
-    focusPoints: [
-      "Glassy morning conditions before onshore winds",
-      "Less crowded lineups at sunrise",
-      "East-facing beaches for sunrise views",
-      "Spots with easy parking for early arrivals",
-    ],
-  },
-  sunset: {
-    slug: "sunset",
-    label: "Sunset Sessions",
-    titleTemplate: ({ cityName }) =>
-      `${cityName} Sunset Surf Spots | Best Evening Sessions`,
-    heading: ({ cityName }) =>
-      `Best sunset surf spots in ${cityName}`,
-    metaDescription: ({ cityName, topSpots }) =>
-      `End your day with epic sunset surf sessions in ${cityName}. West-facing beaches with golden hour waves at ${topSpots.slice(0, 3).join(", ")}.`,
-    intro: ({ cityName }) =>
-      `There's nothing like surfing into the sunset. These ${cityName} spots offer stunning golden hour sessions with west-facing views and often improving afternoon conditions.`,
-    focusPoints: [
-      "West-facing beaches for stunning sunset views",
-      "Often cleaner afternoon conditions",
-      "Golden hour photography opportunities",
-      "After-work session favorites",
-    ],
-  },
-};
-
-export interface SurfCity {
-  slug: SurfCitySlug;
-  name: string;
-  regionLabel: string;
-  hero: string;
-  summary: string;
-  description: string[];
-  highlights: string[];
-  topSpots: string[];
-  featuredIntents: SurfIntentSlug[];
-  quickLinks: { label: string; href: string }[];
-}
+// Re-export for backwards compatibility during migration
+export type { SurfIntentSlug } from "@/lib/constants/surf-intents";
+export { SURF_INTENTS } from "@/lib/constants/surf-intents";
 
 /**
- * @deprecated Use city_editorial_content table instead.
- * This data remains for backwards compatibility with intent pages.
+ * Legacy city slug type - used by SurfSpot interface.
+ * New code should use database city lookups instead.
  */
-export const SURF_CITIES: Record<SurfCitySlug, SurfCity> = {
-  "san-diego": {
-    slug: "san-diego",
-    name: "San Diego",
-    regionLabel: "San Diego County, California",
-    hero:
-      "San Diego blends canyon-fed power with user-friendly beachbreaks, so you can chase hollow reefs at dawn and still sneak a log session before lunch.",
-    summary:
-      "From Torrey Pines to Imperial Beach, San Diego delivers a 70-mile mix of reefs, points, and playful sandbars. Local surfers juggle marine layer mornings, relentless sunshine, and canyon bathymetry that supercharges winter swells.",
-    description: [
-      "San Diego surf culture is a rhythm of dawn patrols, parking lot burritos, and checking canyon buoys more often than work email. North County reefs translate long-period northwest lines into running walls, while Mission Bay sandbars stay approachable for crews still dialing their pop-up.",
-      "Seasonality matters. Autumn brings glassy peaks with combo swells, winter lights up submarine canyons like Blacks, and spring favors wind-sensitive windows with south pulses. Summer stays playful along La Jolla Shores and the Coronado sandbars with warm water and forgiving tides.",
-      "Whether you're logging sessions for bragging rights or tracking progression in the Quiver journal, San Diego gives you enough spot diversity to chase goals year-round. The key is pairing the right tide with the right bank and having a backup when the lot is full.",
-    ],
-    highlights: [
-      "North County reefs that stay consistent through winter",
-      "Mission Beach, PB, and La Jolla Shores for mellow practice days",
-      "Daily tide swings over six feet reshape sandbars overnight",
-      "Local forecast knowledge rooted in canyon bathymetry",
-    ],
-    topSpots: [
-      "blacks-beach",
-      "swamis",
-      "windansea",
-      "la-jolla-shores",
-      "mission-beach",
-      "pacific-beach",
-      "ocean-beach",
-      "sunset-cliffs",
-      "cardiff-reef",
-      "pipes",
-      "del-mar",
-      "torrey-pines",
-      "san-elijo",
-      "silver-strand",
-      "imperial-beach",
-    ],
-    featuredIntents: ["beginner", "least-crowded", "tide", "water-temp"],
-    quickLinks: [
-      { label: "San Diego surf map", href: "/map?city=san-diego" },
-      { label: "Today’s tide chart", href: "/tide/san-diego" },
-      { label: "Beginner-friendly breaks", href: "/beginner/san-diego" },
-      { label: "Session log templates", href: "/features" },
-    ],
-  },
-  "orange-county": {
-    slug: "orange-county",
-    name: "Orange County",
-    regionLabel: "Orange County, California",
-    hero:
-      "Orange County pairs cobblestone points with high-tide beachies, delivering performance peaks, longboard playgrounds, and dependable Santa Ana offshore mornings.",
-    summary:
-      "The stretch from San Onofre to Seal Beach stacks up classic California energy. Cobblestone points like Trestles reward cardio with machine-like walls, while Bolsa Chica and Huntington Pier keep the contest vibe alive year-round.",
-    description: [
-      "Orange County’s surf scene revolves around tides and traffic. Dawn patrol still wins, but late-morning Santa Ana winds can polish shoulders midweek. South swells wake up the points while combo windswell keeps beachies rippable even when long-period energy fades.",
-      "San Clemente is the training ground for pros for a reason. Consistent energy, organized lineups, and cobblestone reefs reward rail-to-rail surfing. Newport and Huntington bring punchy sandbars with localism focused near the pier peaks, leaving outer sandbars approachable.",
-      "Families, longboard crews, and beginners flock to Doheny and Old Man’s for predictable rollers that stay fun through higher tides. When the pack stacks up, shifting north to Bolsa or Seal Beach can save the session with less competitive peaks.",
-    ],
-    highlights: [
-      "World-class points at Lower and Upper Trestles",
-      "Reliable south swell magnets with Santa Ana offshores",
-      "Dedicated beginner zones at Doheny and San Onofre State Beach",
-      "Night-lighted sessions near Huntington Pier during summer events",
-    ],
-    topSpots: [
-      "lowers-trestles",
-      "uppers-trestles",
-      "churches",
-      "san-onofre",
-      "old-mans",
-      "doheny-state-beach",
-      "huntington-pier",
-      "newport-56th-street",
-      "bolsa-chica",
-      "seal-beach",
-    ],
-    featuredIntents: ["beginner", "least-crowded", "tide", "water-temp"],
-    quickLinks: [
-      { label: "Orange County surf camera list", href: "/map?city=orange-county" },
-      { label: "Weekend crowd forecast", href: "/least-crowded/orange-county" },
-      { label: "Warm-water breaks", href: "/water-temp/orange-county" },
-      { label: "Plan a Trestles strike mission", href: "/spots/lowers-trestles" },
-    ],
-  },
-};
+export type SurfCitySlug = "san-diego" | "orange-county";
 
 export interface SurfSpot {
   id?: string; // Database UUID for forecast lookups
@@ -1730,42 +1473,16 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   },
 };
 
-/** @deprecated Use city_editorial_content table */
-export const SURF_CITY_SLUGS = Object.keys(SURF_CITIES) as SurfCitySlug[];
+// Type for spot slugs
 export type SurfSpotSlug = keyof typeof SURF_SPOTS;
-/** @deprecated Use beaches table */
+
+// Array of all spot slugs for static generation
 export const SURF_SPOT_SLUGS = Object.keys(SURF_SPOTS) as SurfSpotSlug[];
 
-/** @deprecated Use getCityEditorialContent() from actions/city/city-editorial-actions.ts */
-export function getCityBySlug(slug: string): SurfCity | undefined {
-  return SURF_CITIES[slug as SurfCitySlug];
-}
-
-/** @deprecated Use beach lookup from Supabase */
+/**
+ * Get static spot content by slug for SEO enrichment.
+ * Used by spot-data-actions.ts to merge with database records.
+ */
 export function getSpotBySlug(slug: string): SurfSpot | undefined {
   return SURF_SPOTS[slug];
-}
-
-/** @deprecated Use beaches query with city filter from Supabase */
-export function getSpotsForCity(citySlug: SurfCitySlug): SurfSpot[] {
-  return Object.values(SURF_SPOTS).filter(
-    (spot) => spot.citySlug === citySlug
-  );
-}
-
-/** @deprecated Use beaches query with intent filter from Supabase */
-export function getSpotsForIntent(
-  citySlug: SurfCitySlug,
-  intent: SurfIntentSlug
-): SurfSpot[] {
-  return getSpotsForCity(citySlug).filter((spot) =>
-    spot.intentTags.includes(intent)
-  );
-}
-
-/** @deprecated Use beaches query with intent filter from Supabase */
-export function getTopSpotsForIntent(intent: SurfIntentSlug): SurfSpot[] {
-  return Object.values(SURF_SPOTS).filter((spot) =>
-    spot.intentTags.includes(intent)
-  );
 }

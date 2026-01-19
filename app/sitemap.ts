@@ -1,9 +1,5 @@
 import type { MetadataRoute } from "next";
 
-import {
-  SURF_CITY_SLUGS,
-  getCityBySlug,
-} from "@/lib/data/surf-spots";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -42,31 +38,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily",
     priority: route === "/" ? 1 : 0.7,
   }));
-
-  const cityRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.map((slug) => {
-    const city = getCityBySlug(slug)!;
-    // All curated cities are in California - canonical listing URL is /beaches/usa/ca/{city}
-    const cityUrl = `/beaches/usa/ca/${slugifyAscii(city.name)}`;
-    return {
-      url: `${baseUrl}${cityUrl}`,
-      lastModified: lastmod,
-      changeFrequency: "daily",
-      priority: 0.9,
-    };
-  });
-
-  const intentRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.flatMap(
-    (citySlug) => {
-      const city = getCityBySlug(citySlug);
-      if (!city) return [];
-      return city.featuredIntents.map((intent) => ({
-        url: `${baseUrl}/${intent}/${city.slug}`,
-        lastModified: lastmod,
-        changeFrequency: "daily",
-        priority: intent === "beginner" ? 0.85 : 0.8,
-      }));
-    }
-  );
 
   // Generate intent routes for ALL cities with 3+ beaches (database-driven)
   let dynamicIntentRoutes: MetadataRoute.Sitemap = [];
@@ -214,17 +185,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }));
   }
 
-  // Deduplicate URLs: intentRoutes (curated cities) take precedence over dynamicIntentRoutes
-  const intentUrls = new Set(intentRoutes.map((route) => route.url));
-  const deduplicatedDynamicIntentRoutes = dynamicIntentRoutes.filter(
-    (route) => !intentUrls.has(route.url)
-  );
-
   return [
     ...staticRoutes,
-    ...cityRoutes,
-    ...intentRoutes,
-    ...deduplicatedDynamicIntentRoutes,
+    ...dynamicIntentRoutes,
     ...stateIntentRoutes,
     ...hubRoutes,
     ...usaStateRoutes,
