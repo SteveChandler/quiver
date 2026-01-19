@@ -229,3 +229,75 @@ export function formatWaterTemp(
 
   return `Water ${Math.round(tempF)}°F (${comfort})`;
 }
+
+interface TideData {
+  nextTideName: string; // "High Tide" or "Low Tide"
+  nextTideHeight: number;
+  hoursUntil: number;
+  minsUntil: number;
+  currentHeight: number;
+  status: "Rising" | "Falling" | string;
+}
+
+/**
+ * Format tide status with interpretive context
+ */
+export function formatTideMessage(data: TideData): string {
+  const {
+    nextTideName,
+    nextTideHeight,
+    hoursUntil,
+    minsUntil,
+    currentHeight,
+    status,
+  } = data;
+
+  const isGoingHigh = nextTideName.toLowerCase().includes("high");
+  const isNear = hoursUntil === 0 && minsUntil <= 30;
+
+  // Time string
+  const timeStr =
+    hoursUntil > 0 ? `${hoursUntil}h ${minsUntil}m` : `${minsUntil}m`;
+
+  // Extreme tide warnings
+  if (currentHeight < 0 || nextTideHeight < 0) {
+    if (currentHeight < -0.5 || nextTideHeight < -0.5) {
+      return `Extremely low, ${nextTideHeight.toFixed(1)}ft low in ${timeStr}. Exposed rocks likely.`;
+    }
+  }
+
+  if (currentHeight > 6 || nextTideHeight > 6) {
+    return `King tide range, ${nextTideHeight.toFixed(1)}ft ${isGoingHigh ? "high" : "low"} in ${timeStr}. Reduced beach access.`;
+  }
+
+  // Near tide states (within 30 min)
+  if (isNear) {
+    if (isGoingHigh) {
+      return `Near high, ${currentHeight.toFixed(1)}ft. Fat and slow at most spots.`;
+    } else {
+      return `Near low, ${currentHeight.toFixed(1)}ft. Watch for shallow sections.`;
+    }
+  }
+
+  // Transitional states
+  if (status === "Rising") {
+    if (currentHeight < 1.5) {
+      // Rising from low
+      return `Filling in, rising for ${timeStr}. Sandbars coming alive.`;
+    }
+    // Rising toward high
+    return `Pushing in, high in ${timeStr}. Beach breaks may back off.`;
+  }
+
+  if (status === "Falling") {
+    if (currentHeight > 3) {
+      // Falling from high
+      return `Draining out, dropping for ${timeStr}. Reefs and points improving.`;
+    }
+    // Falling toward low
+    return `Draining fast, ${nextTideHeight.toFixed(1)}ft low in ${timeStr}. Reefs and points improving.`;
+  }
+
+  // Fallback
+  return `${nextTideName} in ${timeStr} @ ${nextTideHeight.toFixed(1)}ft.`;
+}

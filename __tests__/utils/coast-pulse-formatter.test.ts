@@ -6,6 +6,7 @@ import {
   getSwellDirectionContext,
   getTempComfortLabel,
   formatWaterTemp,
+  formatTideMessage,
 } from "@/lib/utils/coast-pulse-formatter";
 import { COASTAL_REGIONS } from "@/lib/constants/coastal-regions";
 
@@ -220,5 +221,85 @@ describe("formatWaterTemp", () => {
   it("omits seasonal context when typical", () => {
     const result = formatWaterTemp(68, socal, 6); // July, avg 68
     expect(result).not.toContain("for July");
+  });
+});
+
+describe("formatTideMessage", () => {
+  it("formats rising toward high", () => {
+    const result = formatTideMessage({
+      nextTideName: "High Tide",
+      nextTideHeight: 5.2,
+      hoursUntil: 2,
+      minsUntil: 15,
+      currentHeight: 3.1,
+      status: "Rising",
+    });
+    expect(result).toContain("Pushing in");
+    expect(result).toContain("high in 2h 15m");
+    expect(result).toContain("Beach breaks may back off");
+  });
+
+  it("formats near high tide", () => {
+    const result = formatTideMessage({
+      nextTideName: "High Tide",
+      nextTideHeight: 5.2,
+      hoursUntil: 0,
+      minsUntil: 20,
+      currentHeight: 5.0,
+      status: "Rising",
+    });
+    expect(result).toContain("Near high");
+    expect(result).toContain("Fat and slow");
+  });
+
+  it("formats falling from high", () => {
+    const result = formatTideMessage({
+      nextTideName: "Low Tide",
+      nextTideHeight: -0.5,
+      hoursUntil: 4,
+      minsUntil: 0,
+      currentHeight: 3.5,
+      status: "Falling",
+    });
+    expect(result).toContain("Draining out");
+    expect(result).toContain("Reefs and points improving");
+  });
+
+  it("formats near low tide", () => {
+    const result = formatTideMessage({
+      nextTideName: "Low Tide",
+      nextTideHeight: -0.5,
+      hoursUntil: 0,
+      minsUntil: 15,
+      currentHeight: -0.3,
+      status: "Falling",
+    });
+    expect(result).toContain("Near low");
+    expect(result).toContain("shallow");
+  });
+
+  it("formats rising from low", () => {
+    const result = formatTideMessage({
+      nextTideName: "High Tide",
+      nextTideHeight: 4.8,
+      hoursUntil: 5,
+      minsUntil: 0,
+      currentHeight: 0.5,
+      status: "Rising",
+    });
+    expect(result).toContain("Filling in");
+    expect(result).toContain("Sandbars coming alive");
+  });
+
+  it("notes extremely low tide", () => {
+    const result = formatTideMessage({
+      nextTideName: "Low Tide",
+      nextTideHeight: -1.5,
+      hoursUntil: 0,
+      minsUntil: 30,
+      currentHeight: -1.2,
+      status: "Falling",
+    });
+    expect(result).toContain("Extremely low");
   });
 });
