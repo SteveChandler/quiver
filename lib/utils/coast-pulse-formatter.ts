@@ -3,7 +3,10 @@
  * Transforms raw buoy data into interpretive surf commentary
  */
 
-import type { CoastalRegion } from "@/lib/constants/coastal-regions";
+import {
+  getSeasonalTempContext,
+  type CoastalRegion,
+} from "@/lib/constants/coastal-regions";
 
 /**
  * Get size assessment label from wave height
@@ -194,4 +197,35 @@ export function getSwellDirectionContext(
 
   // Unfavorable direction
   return "Many spots in shadow from this direction";
+}
+
+/**
+ * Get comfort label from water temperature
+ */
+export function getTempComfortLabel(tempF: number): string {
+  if (tempF < 50) return "cold";
+  if (tempF < 55) return "chilly";
+  if (tempF < 60) return "cool";
+  if (tempF < 65) return "mild";
+  if (tempF < 70) return "comfortable";
+  if (tempF < 75) return "warm";
+  return "tropical";
+}
+
+/**
+ * Format water temperature with comfort and seasonal context
+ */
+export function formatWaterTemp(
+  tempF: number,
+  region: CoastalRegion,
+  month: number
+): string {
+  const comfort = getTempComfortLabel(tempF);
+  const seasonal = getSeasonalTempContext(tempF, region, month);
+
+  if (seasonal) {
+    return `Water ${Math.round(tempF)}°F, ${comfort} (${seasonal})`;
+  }
+
+  return `Water ${Math.round(tempF)}°F (${comfort})`;
 }

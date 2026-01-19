@@ -4,6 +4,8 @@ import {
   getPeriodLabel,
   getPeriodQuality,
   getSwellDirectionContext,
+  getTempComfortLabel,
+  formatWaterTemp,
 } from "@/lib/utils/coast-pulse-formatter";
 import { COASTAL_REGIONS } from "@/lib/constants/coastal-regions";
 
@@ -163,5 +165,60 @@ describe("getSwellDirectionContext", () => {
 
   it("returns null for null direction", () => {
     expect(getSwellDirectionContext(null, socal)).toBeNull();
+  });
+});
+
+describe("getTempComfortLabel", () => {
+  it("returns 'cold' for < 50F", () => {
+    expect(getTempComfortLabel(48)).toBe("cold");
+  });
+
+  it("returns 'chilly' for 50-55F", () => {
+    expect(getTempComfortLabel(52)).toBe("chilly");
+  });
+
+  it("returns 'cool' for 55-60F", () => {
+    expect(getTempComfortLabel(58)).toBe("cool");
+  });
+
+  it("returns 'mild' for 60-65F", () => {
+    expect(getTempComfortLabel(63)).toBe("mild");
+  });
+
+  it("returns 'comfortable' for 65-70F", () => {
+    expect(getTempComfortLabel(68)).toBe("comfortable");
+  });
+
+  it("returns 'warm' for 70-75F", () => {
+    expect(getTempComfortLabel(72)).toBe("warm");
+  });
+
+  it("returns 'tropical' for > 75F", () => {
+    expect(getTempComfortLabel(80)).toBe("tropical");
+  });
+});
+
+describe("formatWaterTemp", () => {
+  const socal = COASTAL_REGIONS.socal;
+
+  it("includes temperature and comfort label", () => {
+    const result = formatWaterTemp(63, socal, 6); // July
+    expect(result).toContain("63°F");
+    expect(result).toContain("mild");
+  });
+
+  it("adds seasonal context when significantly above average", () => {
+    const result = formatWaterTemp(75, socal, 0); // January, avg 58
+    expect(result).toContain("warm for January");
+  });
+
+  it("adds seasonal context when significantly below average", () => {
+    const result = formatWaterTemp(60, socal, 7); // August, avg 70
+    expect(result).toContain("cool for August");
+  });
+
+  it("omits seasonal context when typical", () => {
+    const result = formatWaterTemp(68, socal, 6); // July, avg 68
+    expect(result).not.toContain("for July");
   });
 });
