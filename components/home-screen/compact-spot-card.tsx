@@ -2,13 +2,30 @@
 
 import React, { useEffect } from "react";
 import Image from "next/image";
-import { Waves, Ruler, Wind, Heart } from "lucide-react";
+import { Ruler, Wind, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
+
+/**
+ * Short variants for condition badge labels on mobile
+ */
+const SHORT_BADGE_LABELS: Record<string, string> = {
+  "Light Offshore": "Offshore",
+  "Clean Swell": "Clean",
+  "Rising Tide": "Rising",
+  "Falling Tide": "Falling",
+};
+
+/**
+ * Get the short variant of a badge label for compact display
+ */
+function getShortBadgeLabel(label: string): string {
+  return SHORT_BADGE_LABELS[label] ?? label;
+}
 
 /**
  * Props for CompactSpotCard component
@@ -52,9 +69,12 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   onTap,
   featured = false,
 }: CompactSpotCardProps) {
-  const { beach, score, window, distanceMiles } = recommendation;
+  const { beach, score, window, distanceMiles, conditionBadges } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const photoUrl = beach.photo_url;
+  const primaryBadge = conditionBadges?.[0]?.label
+    ? getShortBadgeLabel(conditionBadges[0].label)
+    : null;
 
   // Track when favorite is shown in carousel
   useEffect(() => {
@@ -119,9 +139,9 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       <div className="relative z-10 h-full p-2.5 xs:p-3 sm:p-4 flex flex-col">
         {/* Top row: Wave icon and score */}
         <div className="flex items-start justify-between">
-          {/* Wave icon */}
-          <div className="p-1 xs:p-1.5 rounded-md bg-white/20 backdrop-blur-sm">
-            <Waves className="h-3.5 w-3.5 xs:h-4 xs:w-4 text-white" />
+          {/* Wave emoji */}
+          <div className="p-1 xs:p-1.5 rounded-md bg-white/20 backdrop-blur-sm text-sm xs:text-base leading-none">
+            🌊
           </div>
 
           {/* Score circle */}
@@ -149,12 +169,21 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
             {beach.name}
           </h3>
 
-          {/* Conditions with icons */}
-          <div className="flex items-center gap-1 xs:gap-1.5 text-[10px] xs:text-xs text-white/80">
-            <Ruler className="h-3 w-3 text-white/70 shrink-0" />
-            <span className="font-medium truncate">{window.waveHeight}</span>
-            <Wind className="h-3 w-3 text-white/70 shrink-0 ml-1" />
-            <span className="truncate">{window.wind}</span>
+          {/* Conditions - stacked for mobile */}
+          <div className="space-y-0.5 text-[10px] xs:text-xs text-white/80">
+            <div className="flex items-center gap-1">
+              <Ruler className="h-3 w-3 text-white/70 shrink-0" />
+              <span className="font-medium">{window.waveHeight}</span>
+              {primaryBadge && (
+                <span className="text-white font-semibold bg-white/20 px-1 rounded">
+                  {primaryBadge}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <Wind className="h-3 w-3 text-white/70 shrink-0" />
+              <span className="truncate">{window.wind}</span>
+            </div>
           </div>
 
           {/* Distance */}
