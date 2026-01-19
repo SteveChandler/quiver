@@ -76,6 +76,11 @@ GRANT EXECUTE ON FUNCTION get_observations_for_beach TO service_role;
 -- Returns forecast predictions paired with actual observations
 -- Used for ML model training and evaluation
 -- Note: enhanced_forecasts stores wave data as TEXT, so we cast to NUMERIC
+--
+-- Performance: This function performs time-based joins between observations
+-- and forecasts. Ensure the following index exists for optimal performance:
+--   CREATE INDEX IF NOT EXISTS idx_enhanced_forecasts_beach_date_time
+--     ON enhanced_forecasts(beach_id, forecast_date, forecast_time);
 -- ============================================
 CREATE OR REPLACE FUNCTION get_forecast_vs_observation_pairs(
   p_days_back INTEGER DEFAULT 7,

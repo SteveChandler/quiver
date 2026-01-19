@@ -30,6 +30,17 @@ export interface ForecastSourceHealthMetrics {
   };
 }
 
+/**
+ * IOOS station health row from database query
+ */
+interface IOOSStationHealthRow {
+  station_id: string;
+  source_network: string | null;
+  last_seen_at: string;
+  active: boolean;
+  nearest_beach_id: string | null;
+}
+
 export interface ForecastHealthMetrics {
   totalBeaches: number;
   /**
@@ -263,8 +274,8 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       ioosAvailable = false;
       issues.push('Failed to fetch IOOS stations: ' + ioosStationsResult.error.message);
     } else {
-      (ioosStationsResult.data ?? []).forEach((row: any) => {
-        if (!row?.station_id || !row.last_seen_at || !row.nearest_beach_id) return;
+      (ioosStationsResult.data ?? []).forEach((row: IOOSStationHealthRow) => {
+        if (!row.station_id || !row.last_seen_at || !row.nearest_beach_id) return;
         // Track one station per beach (most recent wins)
         const existing = ioosStationsByBeach.get(row.nearest_beach_id);
         if (!existing || new Date(row.last_seen_at) > new Date(existing.last_seen_at)) {

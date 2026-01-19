@@ -386,8 +386,13 @@ export class ForecastDataSourceManager {
           };
         }
       }
-    } catch {
-      // CDIP failed, continue to fallback
+    } catch (error) {
+      // CDIP failed, continue to fallback - log at debug level for troubleshooting
+      console.debug('[ForecastDataSourceManager] CDIP buoy fetch failed, falling back to IOOS', {
+        lat: location.latitude,
+        lon: location.longitude,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     // Fallback to IOOS (covers Hawaii, East Coast, Gulf)
@@ -415,8 +420,13 @@ export class ForecastDataSourceManager {
           }
         }
       }
-    } catch {
-      // IOOS also failed
+    } catch (error) {
+      // IOOS also failed - log at debug level for troubleshooting
+      console.debug('[ForecastDataSourceManager] IOOS buoy fetch also failed', {
+        lat: location.latitude,
+        lon: location.longitude,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     return null;
