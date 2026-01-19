@@ -35,7 +35,7 @@ import type { IntelEmojiRating } from "@/types/database";
 /**
  * Source type for Coast Pulse items
  */
-type SourceType = "local" | "cdip" | "ndbc" | "forecast" | "intel" | "wind" | "tide";
+type SourceType = "local" | "cdip" | "ndbc" | "forecast" | "intel" | "wind" | "tide" | "daily-intel";
 
 /**
  * Coast Pulse item from API
@@ -125,6 +125,11 @@ const SOURCE_CONFIG: Record<
     label: "TIDE",
     colorClass: "text-teal-400 bg-teal-400/10",
     icon: <Waves className="h-3 w-3" />,
+  },
+  "daily-intel": {
+    label: "DAILY",
+    colorClass: "text-amber-400 bg-amber-400/10",
+    icon: <Activity className="h-3 w-3" />,
   },
 };
 
