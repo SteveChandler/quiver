@@ -57,7 +57,7 @@ const profileRequestCache = new Map<
 >();
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [homeBeach, setHomeBeach] = useState<Beach | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -225,6 +225,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Initial fetch on mount or when user changes
   useEffect(() => {
+    // Wait for auth to finish loading before making any decisions
+    // This prevents the race condition where profile shows "not loading"
+    // while auth is still initializing, causing onboarding to flash
+    if (authLoading) {
+      return;
+    }
+
     if (!user?.id) {
       setProfile(null);
       setHomeBeach(null);
@@ -251,7 +258,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       initializingRef.current = false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, fetchProfileAndHomeBeach]); // Removed cachedData to prevent re-fetch loops
+  }, [user?.id, authLoading, fetchProfileAndHomeBeach]); // Removed cachedData to prevent re-fetch loops
 
   // Clear cache function
   const clearCache = useCallback(() => {

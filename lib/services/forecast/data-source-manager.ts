@@ -11,6 +11,7 @@
 import { NOAAWaveWatchService } from "../noaa-wavewatch-service";
 import { NOAACOOPSService } from "../noaa-coops-service";
 import { CDIPService } from "../cdip-service";
+import { IOOSService } from "../ioos-service";
 import {
   createConfidenceScore,
   type Location,
@@ -268,12 +269,14 @@ export class ForecastDataSourceManager {
   private waveWatchService: NOAAWaveWatchService;
   private coopsService: NOAACOOPSService;
   private cdipService: CDIPService;
+  private ioosService: IOOSService;
 
   constructor() {
     // Initialize underlying services
     this.waveWatchService = new NOAAWaveWatchService();
     this.coopsService = new NOAACOOPSService();
     this.cdipService = new CDIPService();
+    this.ioosService = new IOOSService();
 
     // Initialize data sources
     this.waveDataSource = new WaveWatchDataSource(this.waveWatchService);
@@ -322,11 +325,115 @@ export class ForecastDataSourceManager {
 
   /**
    * Get underlying COOPS service
-   * 
+   *
    * Provides access to CO-OPS-specific methods like getStationForLocation()
    */
   getCOOPSService(): NOAACOOPSService {
     return this.coopsService;
+  }
+
+  /**
+   * Get underlying IOOS service
+   *
+   * Provides access to IOOS-specific methods for wave buoy observations.
+   * IOOS covers Hawaii, East Coast, and other regions where CDIP has limited coverage.
+   */
+  getIOOSService(): IOOSService {
+    return this.ioosService;
+  }
+
+  /**
+   * Fetch buoy observation with fallback chain: CDIP → IOOS
+   *
+   * Tries CDIP first (best coverage for West Coast), then falls back to IOOS
+   * for regions with limited CDIP coverage (Hawaii, East Coast, Gulf).
+   *
+   * @param location - The location to fetch buoy data for
+   * @param radiusKm - Search radius in kilometers (default: 150km)
+   * @returns Observation data with source indicator, or null if no data
+   */
+  async fetchBuoyObservationWithFallback(
+    location: Location,
+    radiusKm: number = 150
+  ): Promise<{
+    source: "CDIP" | "IOOS";
+    stationId: string;
+    waveHeight: number | null;
+    wavePeriod: number | null;
+    waveDirection: number | null;
+    waterTemp: number | null;
+    observedAt: string;
+  } | null> {
+    // Try CDIP first (primary for West Coast)
+    try {
+      const cdipStation = await this.cdipService.getNearestStation(
+        location.latitude,
+        location.longitude,
+        radiusKm
+      );
+
+      if (cdipStation) {
+        const cdipData = await this.cdipService.fetchBuoyData(cdipStation);
+        // CDIPBuoyData has a data array of CDIPDataPoint; get the most recent
+        if (cdipData && cdipData.data && cdipData.data.length > 0) {
+          const latestPoint = cdipData.data[cdipData.data.length - 1];
+          if (latestPoint.significantWaveHeight !== null) {
+            return {
+              source: "CDIP",
+              stationId: cdipStation,
+              waveHeight: latestPoint.significantWaveHeight,
+              wavePeriod: latestPoint.peakWavePeriod,
+              waveDirection: latestPoint.peakWaveDirection,
+              waterTemp: null, // CDIP doesn't provide water temp in CDIPDataPoint
+              observedAt: latestPoint.timestamp || cdipData.lastUpdated,
+            };
+          }
+        }
+      }
+    } catch (error) {
+      // CDIP failed, continue to fallback - log at debug level for troubleshooting
+      console.debug('[ForecastDataSourceManager] CDIP buoy fetch failed, falling back to IOOS', {
+        lat: location.latitude,
+        lon: location.longitude,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Fallback to IOOS (covers Hawaii, East Coast, Gulf)
+    try {
+      const ioosStations = await this.ioosService.findNearbyStations(
+        location.latitude,
+        location.longitude,
+        radiusKm
+      );
+
+      if (ioosStations.length > 0) {
+        // Try each nearby station until we get valid data
+        for (const station of ioosStations) {
+          const ioosObs = await this.ioosService.fetchObservation(station.station_id);
+          if (ioosObs && ioosObs.wave_height_m !== null) {
+            return {
+              source: "IOOS",
+              stationId: station.station_id,
+              waveHeight: ioosObs.wave_height_m,
+              wavePeriod: ioosObs.wave_period_s,
+              waveDirection: ioosObs.wave_direction_deg,
+              waterTemp: ioosObs.water_temp_c,
+              observedAt: ioosObs.observed_at,
+            };
+          }
+        }
+      }
+    } catch (error) {
+      // IOOS also failed - log at debug level for troubleshooting
+      console.debug('[ForecastDataSourceManager] IOOS buoy fetch also failed', {
+        lat: location.latitude,
+        lon: location.longitude,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return null;
   }
 
   /**

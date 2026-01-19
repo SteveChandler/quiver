@@ -29,6 +29,12 @@ import { TIME_SLOT_RANGES } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { calculateTideWindow } from '@/lib/utils/tide-interpolation';
+import {
+  createDiscoveryScoringEngine,
+  beachToSpotProfile,
+  forecastToSnapshot,
+} from '@/lib/domains/scoring';
+import type { ScoringEngine } from '@/lib/domains/scoring';
 
 // ============================================================================
 // Types
@@ -58,8 +64,8 @@ const UNDERWAY_BONUS = 4; // Bonus for windows already in progress
 
 // Sunset-aware window constants
 const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
-const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor"
-const MIN_SCORE_THRESHOLD_MORNING = 35; // Lower threshold for today when it's morning
+const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor" (0-100 scale, displays as 5/10)
+const MIN_SCORE_THRESHOLD_MORNING = 40; // Lower threshold for today when it's morning (0-100 scale, displays as 4/10)
 const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
 const WINDOW_HOURS = 3; // Lookback period for past windows
 
@@ -68,6 +74,24 @@ const MORNING_CUTOFF_HOUR = 12; // Before noon, prefer today's forecasts
 const TODAY_BONUS_POINTS = 15; // Bonus for today's forecasts during morning hours
 const MORNING_TIME_BONUS = 15; // Extra bonus for morning/afternoon times (before 5pm)
 const EVENING_CUTOFF_HOUR = 17; // 5pm - times after this don't get morning time bonus
+
+// Singleton scoring engine instance (lazy initialized)
+let _scoringEngine: ScoringEngine | null = null;
+
+function getScoringEngine(): ScoringEngine {
+  if (!_scoringEngine) {
+    _scoringEngine = createDiscoveryScoringEngine();
+  }
+  return _scoringEngine;
+}
+
+/**
+ * Reset the singleton scoring engine instance.
+ * Used in tests to ensure isolation between test suites.
+ */
+export function resetScoringEngine(): void {
+  _scoringEngine = null;
+}
 
 // ============================================================================
 // Helper Functions (internal)
@@ -284,6 +308,10 @@ export function getDawnPatrolRange(
 /**
  * Score a single forecast window based on conditions and user preferences.
  *
+ * @deprecated Use `scoreWindowWithEngine` instead. This function uses a
+ * different 0-80 scale that doesn't match the display score (0-100).
+ * Kept for backwards compatibility with tests.
+ *
  * Scoring components:
  * - Wave Height Fit (0-25 points)
  * - Period/Energy Score (0-20 points)
@@ -403,6 +431,34 @@ export function scoreForecastWindow(
   }
 
   return score;
+}
+
+/**
+ * Score a forecast window using the unified discovery scoring engine.
+ *
+ * This replaces scoreForecastWindow with the same scoring system used
+ * for display, ensuring consistency between window selection and UI.
+ *
+ * @param forecast - Forecast entity to score
+ * @param beach - Beach metadata
+ * @returns Score from 0-100
+ */
+export function scoreWindowWithEngine(
+  forecast: EnhancedForecastEntity,
+  beach: Beach
+): number {
+  const engine = getScoringEngine();
+  const profile = beachToSpotProfile(beach);
+  const snapshot = forecastToSnapshot(forecast);
+
+  const result = engine.score({
+    profile,
+    snapshot,
+    window: null,
+    preferences: null,
+  });
+
+  return result.total;
 }
 
 /**
@@ -569,7 +625,7 @@ export function selectBestWindow(
   const scoredForecasts = forecasts
     .map((forecast) => {
       const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
-      const score = scoreForecastWindow(forecast, actualBeach, actualUserPrefs);
+      const score = scoreWindowWithEngine(forecast, actualBeach);
 
       // Check if forecast is for today (in beach timezone)
       let isToday = false;

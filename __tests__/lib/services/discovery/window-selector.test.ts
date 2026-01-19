@@ -1272,3 +1272,38 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     expect(startMinutes !== 0 || endMinutes !== 0).toBe(true);
   });
 });
+
+describe('scoreWindowWithEngine', () => {
+  it('should return score on 0-100 scale', () => {
+    const forecast = createForecast({
+      wave_height: '4',
+      wave_period: '12s',
+      wind_speed: '5',
+      tide_height: '3.5',
+    });
+
+    const { scoreWindowWithEngine } = require('@/lib/services/discovery/window-selector');
+    const score = scoreWindowWithEngine(forecast, mockBeach as Beach);
+
+    // Score should be 0-100
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThanOrEqual(100);
+    // Good conditions should score above threshold
+    expect(score).toBeGreaterThan(50);
+  });
+
+  it('should score consistently with display scoring', () => {
+    const forecast = createForecast({
+      wave_height: '4',
+      wave_period: '14s',
+      wind_speed: '3',
+      tide_height: '3.5',
+    });
+
+    const { scoreWindowWithEngine } = require('@/lib/services/discovery/window-selector');
+    const score = scoreWindowWithEngine(forecast, mockBeach as Beach);
+
+    // Excellent conditions (glass, good period, good size) should score 60+
+    expect(score).toBeGreaterThanOrEqual(60);
+  });
+});

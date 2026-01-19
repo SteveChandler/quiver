@@ -87,6 +87,15 @@ export async function GET(request: Request) {
           oldestAgeHours: sources.sun.available ? Number(sources.sun.oldestAgeHours.toFixed(2)) : null,
           averageAgeHours: sources.sun.available ? Number(sources.sun.averageAgeHours.toFixed(2)) : null,
         },
+        ioos: {
+          available: sources.ioos.available,
+          coverage: sources.ioos.available ? formatCoverage(sources.ioos.coveragePercentage) : 'unavailable',
+          stale: sources.ioos.beachesWithStaleData,
+          critical: sources.ioos.beachesWithCriticalStaleData,
+          warning: sources.ioos.beachesWithWarningStaleData,
+          oldestAgeHours: sources.ioos.available ? Number(sources.ioos.oldestAgeHours.toFixed(2)) : null,
+          averageAgeHours: sources.ioos.available ? Number(sources.ioos.averageAgeHours.toFixed(2)) : null,
+        },
       },
       issues: metrics.issues,
     });
