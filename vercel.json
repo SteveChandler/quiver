@@ -79,6 +79,14 @@
     {
       "path": "/api/cron/npc-activity",
       "schedule": "0 0-4,13-23 * * *"
+    },
+    {
+      "path": "/api/cron/ioos-sync?phase=observations",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/ioos-sync?phase=stations",
+      "schedule": "0 5 * * 0"
     }
   ]
 }
