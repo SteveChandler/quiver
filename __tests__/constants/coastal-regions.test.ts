@@ -1,7 +1,7 @@
 import {
   detectCoastalRegion,
   COASTAL_REGIONS,
-  type CoastalRegion,
+  getSeasonalTempContext,
 } from "@/lib/constants/coastal-regions";
 
 describe("detectCoastalRegion", () => {
@@ -11,7 +11,7 @@ describe("detectCoastalRegion", () => {
     expect(region?.coastFaces).toContain("SW");
   });
 
-  it("detects NorCal from Santa Cruz coordinates", () => {
+  it("detects Central California from Santa Cruz coordinates", () => {
     const region = detectCoastalRegion(36.95, -122.03);
     expect(region?.id).toBe("central-ca");
   });
@@ -44,5 +44,25 @@ describe("COASTAL_REGIONS", () => {
       expect(region.waterTempAvgByMonth).toHaveLength(12);
       expect(region.waterTempAvgByMonth.every((t) => t >= 38 && t <= 86)).toBe(true);
     }
+  });
+});
+
+describe("getSeasonalTempContext", () => {
+  it("returns 'warm for [month]' when temp is 5+ degrees above average", () => {
+    const socal = COASTAL_REGIONS.socal;
+    const result = getSeasonalTempContext(75, socal, 0); // Jan avg is 58
+    expect(result).toBe("warm for January");
+  });
+
+  it("returns 'cool for [month]' when temp is 5+ degrees below average", () => {
+    const socal = COASTAL_REGIONS.socal;
+    const result = getSeasonalTempContext(53, socal, 0); // Jan avg is 58
+    expect(result).toBe("cool for January");
+  });
+
+  it("returns null when temp is within typical range", () => {
+    const socal = COASTAL_REGIONS.socal;
+    const result = getSeasonalTempContext(60, socal, 0); // Within +/- 5 of 58
+    expect(result).toBeNull();
   });
 });
