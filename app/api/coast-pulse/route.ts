@@ -111,9 +111,11 @@ async function fetchCoastPulseData(
 
     const hasMore = intelItems.length > limit;
     const returnItems = intelItems.slice(0, limit);
-    const nextCursor = returnItems.length > 0
-      ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
-      : null;
+    const nextCursor = hasMore
+      ? new Date(intelItems[limit].timestamp).toISOString() // Use the EXTRA item (index = limit)
+      : (returnItems.length > 0
+          ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+          : null);
 
     return {
       items: returnItems,
@@ -249,10 +251,12 @@ async function fetchCoastPulseData(
   const summary = computeSummary(sorted);
   const returnItems = sorted.slice(0, limit);
 
-  // Determine nextCursor from oldest item
-  const nextCursor = returnItems.length > 0
-    ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
-    : null;
+  // Determine nextCursor: use the extra intel item if hasMore, otherwise use last returned item
+  const nextCursor = intelHasMore && intelResult.status === "fulfilled" && intelResult.value.length > limit
+    ? new Date(intelResult.value[limit].timestamp).toISOString() // Use the EXTRA intel item (index = limit)
+    : (returnItems.length > 0
+        ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+        : null);
 
   return {
     items: returnItems,
