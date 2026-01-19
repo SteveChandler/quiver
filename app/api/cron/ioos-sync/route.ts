@@ -4,7 +4,7 @@ import {
   handleApiError,
   validateCronRequest,
 } from "@/lib/api-utils";
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { IOOSService } from "@/lib/services/ioos-service";
 import {
   IOOS_STATION_FILTERS,
@@ -128,7 +128,7 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
 
   try {
     const ioosService = new IOOSService();
-    const supabase = await createClient();
+    const supabase = createSupabaseServiceRoleClient();
 
     // Discover stations from IOOS ERDDAP
     console.log("📡 Discovering IOOS stations...");
@@ -264,7 +264,7 @@ async function syncObservations(
 
   try {
     const ioosService = new IOOSService();
-    const supabase = await createClient();
+    const supabase = createSupabaseServiceRoleClient();
 
     // Get active stations with wave data
     const { data: stations, error: stationsError } = await supabase

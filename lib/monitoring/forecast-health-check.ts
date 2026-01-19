@@ -8,7 +8,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { MONITORING_CONFIG, HealthStatus, DataSourceType } from './forecast-monitoring-config';
 
-type HealthSourceKey = 'enhanced' | 'marine' | 'tide' | 'sun';
+type HealthSourceKey = 'enhanced' | 'marine' | 'tide' | 'sun' | 'ioos';
 
 export interface ForecastSourceHealthMetrics {
   source: HealthSourceKey;
@@ -90,6 +90,7 @@ function createEmptyMetrics(status: HealthStatus, issues: string[]): ForecastHea
       marine: emptySource('marine'),
       tide: emptySource('tide'),
       sun: emptySource('sun'),
+      ioos: emptySource('ioos'),
     },
     healthStatus: status,
     issues,
@@ -142,11 +143,13 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       latestMarineResult,
       latestTideResult,
       latestSunResult,
+      ioosStationsResult,
     ] = await Promise.all([
       supabase.from('v_enhanced_forecast_latest').select('beach_id, updated_at, data_source'),
       supabase.from('v_marine_forecast_latest').select('beach_id, created_at, ts, source, is_observed'),
       supabase.from('v_tide_forecast_latest').select('beach_id, created_at, ts, source'),
       supabase.from('v_sun_times_latest').select('beach_id, created_at, date, source'),
+      supabase.from('ioos_stations').select('station_id, source_network, last_seen_at, active, nearest_beach_id').eq('active', true),
     ]);
 
     const issues: string[] = [];
@@ -154,6 +157,7 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     let marineAvailable = true;
     let tideAvailable = true;
     let sunAvailable = true;
+    let ioosAvailable = true;
 
     // Process enhanced forecasts
     const latestEnhancedByBeach = new Map<string, { beach_id: string; updated_at: string; data_source: string | null }>();
@@ -248,6 +252,30 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       warningHours: MONITORING_CONFIG.SUN_WARNING_HOURS,
       criticalHours: MONITORING_CONFIG.SUN_CRITICAL_HOURS,
     };
+    const IOOS_THRESHOLDS = {
+      warningHours: MONITORING_CONFIG.IOOS_WARNING_HOURS,
+      criticalHours: MONITORING_CONFIG.IOOS_CRITICAL_HOURS,
+    };
+
+    // Process IOOS stations (uses last_seen_at - measures station freshness by beach coverage)
+    const ioosStationsByBeach = new Map<string, { station_id: string; last_seen_at: string; source_network: string | null }>();
+    if (ioosStationsResult.error) {
+      ioosAvailable = false;
+      issues.push('Failed to fetch IOOS stations: ' + ioosStationsResult.error.message);
+    } else {
+      (ioosStationsResult.data ?? []).forEach((row: any) => {
+        if (!row?.station_id || !row.last_seen_at || !row.nearest_beach_id) return;
+        // Track one station per beach (most recent wins)
+        const existing = ioosStationsByBeach.get(row.nearest_beach_id);
+        if (!existing || new Date(row.last_seen_at) > new Date(existing.last_seen_at)) {
+          ioosStationsByBeach.set(row.nearest_beach_id, {
+            station_id: row.station_id,
+            last_seen_at: row.last_seen_at,
+            source_network: row.source_network ?? null,
+          });
+        }
+      });
+    }
 
     const enhancedStaleBeaches: ForecastHealthMetrics['staleBeaches'] = [];
     const dataSourceCounts: Record<string, number> = {};
@@ -352,6 +380,28 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     const sunCoverage = Math.min(1, sunBeachesWithData / totalBeaches);
     const sunAvgAge = sunBeachesWithData > 0 ? sunTotalAge / sunBeachesWithData : 0;
 
+    // IOOS (uses last_seen_at - tracks station freshness per beach)
+    let ioosTotalAge = 0;
+    let ioosOldestAge = 0;
+    let ioosStale = 0;
+    let ioosCritical = 0;
+    let ioosWarning = 0;
+    if (ioosAvailable) {
+      ioosStationsByBeach.forEach((station) => {
+        const age = (nowMs - new Date(station.last_seen_at).getTime()) / (1000 * 60 * 60);
+        ioosTotalAge += age;
+        ioosOldestAge = Math.max(ioosOldestAge, age);
+        if (age > IOOS_THRESHOLDS.warningHours) {
+          ioosStale += 1;
+          if (age > IOOS_THRESHOLDS.criticalHours) ioosCritical += 1;
+          else ioosWarning += 1;
+        }
+      });
+    }
+    const ioosBeachesWithData = ioosStationsByBeach.size;
+    const ioosCoverage = Math.min(1, ioosBeachesWithData / totalBeaches);
+    const ioosAvgAge = ioosBeachesWithData > 0 ? ioosTotalAge / ioosBeachesWithData : 0;
+
     // Overall rollups (backwards-compatible fields reflect enhanced).
     let healthStatus: HealthStatus = 'healthy';
 
@@ -381,16 +431,19 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     const sunStatus = sunAvailable
       ? statusFromCounts(sunCritical, sunWarning, sunStale, MONITORING_CONFIG.STALE_DATA_THRESHOLD_BEACHES)
       : 'degraded';
+    const ioosStatus = ioosAvailable
+      ? statusFromCounts(ioosCritical, ioosWarning, ioosStale, MONITORING_CONFIG.STALE_DATA_THRESHOLD_BEACHES)
+      : 'degraded';
 
     /**
      * Overall health semantics:
      * - "critical" is reserved for enhanced forecast cache failures (coverage or critical staleness),
      *   because enhanced forecasts are the primary user-facing data source.
-     * - marine/tide/sun issues can degrade experience but should not page/alert as "critical" by default.
+     * - marine/tide/sun/ioos issues can degrade experience but should not page/alert as "critical" by default.
      */
     healthStatus = mergeHealthStatus(healthStatus, enhancedStatus);
     if (healthStatus !== 'critical') {
-      const secondaryStatuses: HealthStatus[] = [marineStatus, tideStatus, sunStatus];
+      const secondaryStatuses: HealthStatus[] = [marineStatus, tideStatus, sunStatus, ioosStatus];
       if (secondaryStatuses.some((s) => s !== 'healthy')) {
         healthStatus = 'degraded';
       }
@@ -409,6 +462,7 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     if (marineAvailable && marineCritical > 0) issues.push(`${marineCritical} beaches have critically stale marine data (>${MARINE_THRESHOLDS.criticalHours}h)`);
     if (tideAvailable && tideCritical > 0) issues.push(`${tideCritical} beaches have critically stale tide data (>${TIDE_THRESHOLDS.criticalHours}h)`);
     if (sunAvailable && sunCritical > 0) issues.push(`${sunCritical} beaches have critically stale sun times data (>${SUN_THRESHOLDS.criticalHours}h)`);
+    if (ioosAvailable && ioosCritical > 0) issues.push(`${ioosCritical} beaches have critically stale IOOS data (>${IOOS_THRESHOLDS.criticalHours}h)`);
 
     // Sort stale beaches for reporting (enhanced only for now, keeps contract stable).
     enhancedStaleBeaches.sort((a, b) => b.ageHours - a.ageHours);
@@ -461,6 +515,18 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
         oldestAgeHours: sunOldestAge,
         averageAgeHours: sunAvgAge,
         thresholds: SUN_THRESHOLDS,
+      },
+      ioos: {
+        source: 'ioos',
+        available: ioosAvailable,
+        beachesWithData: ioosBeachesWithData,
+        coveragePercentage: ioosCoverage,
+        beachesWithStaleData: ioosStale,
+        beachesWithCriticalStaleData: ioosCritical,
+        beachesWithWarningStaleData: ioosWarning,
+        oldestAgeHours: ioosOldestAge,
+        averageAgeHours: ioosAvgAge,
+        thresholds: IOOS_THRESHOLDS,
       },
     };
 

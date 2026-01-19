@@ -54,7 +54,15 @@ export const MONITORING_CONFIG = {
   get SUN_CRITICAL_HOURS() {
     return envNumber("MONITORING_SUN_CRITICAL_HOURS", 336);
   },
-  
+  get IOOS_WARNING_HOURS() {
+    // IOOS observation sync runs every 2h; 6h warning threshold
+    return envNumber("MONITORING_IOOS_WARNING_HOURS", 6);
+  },
+  get IOOS_CRITICAL_HOURS() {
+    // Critical if no observations for 12+ hours
+    return envNumber("MONITORING_IOOS_CRITICAL_HOURS", 12);
+  },
+
   // Cron job monitoring
   EXPECTED_CRON_INTERVAL_HOURS: 2,   // Cron should run every 2h
   CRON_TIMEOUT_MULTIPLIER: 1.5,      // Alert if 1.5x expected time passes
@@ -88,6 +96,7 @@ export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical';
 export const DATA_SOURCES = {
   CDIP: 'CDIP',
   NOAA_NWS: 'NOAA_NWS',
+  IOOS: 'IOOS',
   FALLBACK: 'FALLBACK',
   UNKNOWN: 'UNKNOWN',
 } as const;

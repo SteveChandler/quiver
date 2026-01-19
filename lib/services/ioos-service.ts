@@ -11,7 +11,7 @@
  */
 
 import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
-import { createClient } from "@/lib/supabase/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   IOOSStation,
   IOOSObservation,
@@ -232,7 +232,7 @@ export class IOOSService {
     radiusKm: number = 100
   ): Promise<IOOSStation[]> {
     try {
-      const supabase = await createClient();
+      const supabase = createSupabaseServiceRoleClient();
 
       // Use PostGIS ST_DWithin for efficient spatial query
       const { data, error } = await supabase.rpc("find_nearby_ioos_stations", {
