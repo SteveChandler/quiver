@@ -4,6 +4,7 @@ import {
   getConditionTier,
   getScoreColorClass,
   getConditionBadge,
+  buildHeadlineText,
   type ConditionTier,
 } from "@/components/home-screen/hero-recommendation";
 
@@ -184,5 +185,42 @@ describe("getConditionBadge", () => {
       label: "Marginal",
       className: "bg-white/10 text-white/60 border-white/20",
     });
+  });
+});
+
+describe("buildHeadlineText", () => {
+  it("builds great tier headline", () => {
+    const result = buildHeadlineText("Blacks", "great", false);
+    expect(result.connector).toBe("is your best bet at");
+  });
+
+  it("builds good tier headline", () => {
+    const result = buildHeadlineText("Blacks", "good", false);
+    expect(result.connector).toBe("is a good option at");
+  });
+
+  it("builds fair tier headline", () => {
+    const result = buildHeadlineText("Blacks", "fair", false);
+    expect(result.prefix).toContain("fair");
+  });
+
+  it("builds marginal tier headline", () => {
+    const result = buildHeadlineText("Blacks", "marginal", false);
+    expect(result.prefix).toContain("marginal");
+  });
+
+  it("adds tomorrow prefix for dawn-patrol", () => {
+    const result = buildHeadlineText("Blacks", "good", true, "dawn-patrol");
+    expect(result.prefix).toContain("Tomorrow's dawn patrol");
+  });
+
+  it("adds tomorrow prefix for morning", () => {
+    const result = buildHeadlineText("Blacks", "good", true, "morning");
+    expect(result.prefix).toContain("Tomorrow morning");
+  });
+
+  it("adds tomorrow prefix for afternoon", () => {
+    const result = buildHeadlineText("Blacks", "good", true, "afternoon");
+    expect(result.prefix).toContain("Tomorrow afternoon");
   });
 });

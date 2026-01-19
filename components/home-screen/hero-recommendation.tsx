@@ -77,6 +77,59 @@ export function getConditionBadge(
 }
 
 /**
+ * Build headline parts based on condition tier and time context
+ * @param beachName Name of the beach
+ * @param tier Condition tier
+ * @param isTomorrow Whether the forecast is for tomorrow
+ * @param timeSlot Optional time slot for tomorrow prefix
+ * @returns Object with prefix, beachPart, and connector strings
+ */
+export function buildHeadlineText(
+  beachName: string,
+  tier: ConditionTier,
+  isTomorrow: boolean,
+  timeSlot?: TimeSlot
+): { prefix: string; beachPart: string; connector: string } {
+  // Build tomorrow prefix based on time slot
+  let prefix = "";
+  if (isTomorrow) {
+    switch (timeSlot) {
+      case "dawn-patrol":
+        prefix = "Tomorrow's dawn patrol at ";
+        break;
+      case "morning":
+        prefix = "Tomorrow morning at ";
+        break;
+      case "afternoon":
+        prefix = "Tomorrow afternoon at ";
+        break;
+      default:
+        prefix = "Tomorrow at ";
+    }
+  }
+
+  // Build main headline based on tier
+  switch (tier) {
+    case "great":
+      return { prefix, beachPart: beachName, connector: "is your best bet at" };
+    case "good":
+      return { prefix, beachPart: beachName, connector: "is a good option at" };
+    case "fair":
+      return {
+        prefix: prefix || "Conditions are fair at ",
+        beachPart: prefix ? beachName : beachName,
+        connector: prefix ? "— conditions are fair at" : "—",
+      };
+    case "marginal":
+      return {
+        prefix: prefix || "Conditions are marginal at ",
+        beachPart: prefix ? beachName : beachName,
+        connector: prefix ? "— conditions are marginal at" : "—",
+      };
+  }
+}
+
+/**
  * Props for HeroRecommendation component
  */
 export interface HeroRecommendationProps {
@@ -302,20 +355,36 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     window.timezone
   );
 
+  // Calculate tier and score color
+  const tier = getConditionTier(score);
+  const scoreColorClass = getScoreColorClass(tier);
+
+  // Determine if showing tomorrow's forecast
+  const timezone = window.timezone || beach.timezone;
+  const isTomorrow = (() => {
+    const now = new Date();
+    const todayStr = formatBeachDateTime(now, timezone, "yyyy-MM-dd");
+    const startDayStr = formatBeachDateTime(window.start, timezone, "yyyy-MM-dd");
+    return todayStr !== startDayStr && window.start > now;
+  })();
+
+  const headline = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
+
   return (
     <div className="space-y-3 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}
       <h1 className="text-2xl xs:text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
+        {headline.prefix}
         <button
           onClick={() => onViewBeach(beach.id)}
           className="hover:text-accent-orange focus-visible:text-accent-orange focus-visible:outline-none focus-visible:underline transition-colors text-left min-h-[44px] inline"
           aria-label={`View details for ${beach.name}`}
         >
-          {beach.name}
+          {headline.beachPart}
         </button>{" "}
-        is your best bet at{" "}
+        {headline.connector}{" "}
         <motion.span
-          className="text-accent-orange"
+          className={scoreColorClass}
           data-testid="hero-score"
           animate={shouldReduceMotion ? undefined : {
             textShadow: [...HOME_HEADER_MOTION.hero.scoreGlow.textShadow],
