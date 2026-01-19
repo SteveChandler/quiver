@@ -113,7 +113,8 @@ describe("CoastPulse Infinite Scroll", () => {
     });
 
     it("should transition from loading to loaded state", () => {
-      let state = {
+      type MockItem = typeof mockFirstPageResponse.data.items[number];
+      let state: { loading: boolean; loadingMore: boolean; items: MockItem[]; hasMore: boolean } = {
         loading: true,
         loadingMore: false,
         items: [],
@@ -405,7 +406,7 @@ describe("CoastPulse Infinite Scroll", () => {
     it("should use correct rootMargin for triggering", () => {
       let capturedOptions: IntersectionObserverInit | undefined;
 
-      (window as any).IntersectionObserver = jest.fn((callback, options) => {
+      (window as any).IntersectionObserver = jest.fn((callback: IntersectionObserverCallback, options?: IntersectionObserverInit) => {
         capturedOptions = options;
         return {
           observe: jest.fn(),
