@@ -8,14 +8,18 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-describe("Database Coordinate Naming", () => {
+// Skip integration tests when Supabase credentials are not available
+const shouldSkip = !supabaseUrl || !supabaseAnonKey;
+const describeIfConfigured = shouldSkip ? describe.skip : describe;
+
+describeIfConfigured("Database Coordinate Naming", () => {
   let supabase: ReturnType<typeof createClient<Database>>;
 
   beforeAll(() => {
-    supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+    supabase = createClient<Database>(supabaseUrl!, supabaseAnonKey!);
   });
 
   describe("get_beaches_by_location_with_scores", () => {

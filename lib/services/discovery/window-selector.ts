@@ -960,7 +960,29 @@ export function selectBestWindow(
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && filteredForecasts.length > 0) {
     // Filter out night hours and post-sunset times before selecting fallback
+    // Also filter by time slot if specified (strict enforcement)
     const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
+      // Time slot filter - strict enforcement
+      // When a time slot is specified, only return forecasts within that slot
+      if (actualTimeSlot && actualTimeSlot !== 'any') {
+        try {
+          const localHour = parseInt(
+            new Intl.DateTimeFormat("en-US", {
+              hour: "numeric",
+              hour12: false,
+              timeZone: beachTz,
+            }).format(forecastTime),
+            10
+          );
+          const sunrises = sunTimes?.sunrises || [];
+          const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, forecastTime, beachTz);
+          if (localHour < slotRange.startHour || localHour >= slotRange.endHour) {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
       // Post-sunset rejection - check against SAME DAY's sunset (not just today's)
       const forecastDateStr = getLocalDateStrForBeach(forecastTime);
       const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);

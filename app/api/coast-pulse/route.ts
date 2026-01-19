@@ -70,6 +70,8 @@ interface CoastPulseSummary {
 interface CoastPulseResponse {
   items: CoastPulseItem[];
   summary: CoastPulseSummary;
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
 /**
@@ -79,7 +81,8 @@ interface CoastPulseResponse {
 async function fetchCoastPulseData(
   lat: number,
   lon: number,
-  limit: number
+  limit: number,
+  before?: string // Pagination cursor
 ): Promise<CoastPulseResponse> {
   const supabase = await createSupabaseServerClient();
   const items: CoastPulseItem[] = [];
@@ -99,14 +102,45 @@ async function fetchCoastPulseData(
     windOffshoreDeg: b.wind_offshore_deg,
   }));
 
-  // Fetch from all sources in parallel (including live external sources)
-  // Hybrid approach: Use beach_daily_intel (pre-computed) alongside live data
+  // If paginating (before cursor provided), only fetch intel
+  if (before) {
+    const intelItems = await fetchRecentIntel(supabase, lat, lon, beachesCache, {
+      before,
+      limit: limit + 1, // Fetch one extra to check hasMore
+    });
+
+    const hasMore = intelItems.length > limit;
+    const returnItems = intelItems.slice(0, limit);
+    const nextCursor = hasMore
+      ? new Date(intelItems[limit].timestamp).toISOString() // Use the EXTRA item (index = limit)
+      : (returnItems.length > 0
+          ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+          : null);
+
+    return {
+      items: returnItems,
+      summary: {
+        waveHeight: null,
+        heightType: null,
+        windSpeed: null,
+        tideHeight: null,
+        waterTemp: null,
+        trend: null,
+        confidence: 0,
+        lastUpdated: new Date().toISOString(),
+      },
+      hasMore,
+      nextCursor,
+    };
+  }
+
+  // First page: fetch from all sources in parallel
   const [localBuoysResult, forecastResult, dailyIntelResult, intelResult, ndbcResult, cdipResult, tideResult] =
     await Promise.allSettled([
       fetchLocalBuoys(supabase, lat, lon),
       fetchEnhancedForecast(supabase, lat, lon, beachesCache),
       fetchDailyIntel(supabase, lat, lon, beachesCache),
-      fetchRecentIntel(supabase, lat, lon, beachesCache),
+      fetchRecentIntel(supabase, lat, lon, beachesCache, { limit: limit + 1 }),
       fetchLiveNDBCData(lat, lon),
       fetchLiveCDIPData(lat, lon),
       fetchTideData(lat, lon),
@@ -160,9 +194,11 @@ async function fetchCoastPulseData(
     items.push(dailyIntelResult.value);
   }
 
-  // Process intel
+  // Process intel - track if we have more for pagination
+  let intelHasMore = false;
   if (intelResult.status === "fulfilled" && intelResult.value.length > 0) {
-    items.push(...intelResult.value);
+    intelHasMore = intelResult.value.length > limit;
+    items.push(...intelResult.value.slice(0, limit));
   }
 
   // Process live CDIP data FIRST (higher credibility than NDBC)
@@ -213,16 +249,26 @@ async function fetchCoastPulseData(
 
   // Compute summary from best available data
   const summary = computeSummary(sorted);
+  const returnItems = sorted.slice(0, limit);
+
+  // Determine nextCursor: use the extra intel item if hasMore, otherwise use last returned item
+  const nextCursor = intelHasMore && intelResult.status === "fulfilled" && intelResult.value.length > limit
+    ? new Date(intelResult.value[limit].timestamp).toISOString() // Use the EXTRA intel item (index = limit)
+    : (returnItems.length > 0
+        ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+        : null);
 
   return {
-    items: sorted.slice(0, limit),
+    items: returnItems,
     summary,
+    hasMore: intelHasMore,
+    nextCursor,
   };
 }
 
 /**
- * Create a cached version of the data fetcher
- * Cache key is geohash (precision 4 = ~20km areas) + limit
+ * Create a cached version of the data fetcher (first page only)
+ * Paginated requests bypass cache since they're user-specific
  */
 const getCachedCoastPulseData = unstable_cache(
   async (geohashKey: string, limit: number) => {
@@ -247,6 +293,7 @@ const getCachedCoastPulseData = unstable_cache(
  * - lat: Latitude (required)
  * - lon: Longitude (required)
  * - limit: Max items to return (default: 8, max: 15)
+ * - before: ISO timestamp cursor for pagination (optional)
  */
 async function coastPulseHandler(request: NextRequest) {
   try {
@@ -265,19 +312,34 @@ async function coastPulseHandler(request: NextRequest) {
       Math.max(parseInt(searchParams.get("limit") || "8"), 1),
       15
     );
+    const before = searchParams.get("before") || undefined;
 
-    // Create geohash key for caching (precision 4 = ~20km areas)
-    const geohashKey = ngeohash.encode(coords.lat, coords.lon, 4);
+    // Validate before cursor is a valid ISO timestamp
+    if (before) {
+      const parsedDate = new Date(before);
+      if (isNaN(parsedDate.getTime())) {
+        return createValidationError("Invalid 'before' cursor: must be a valid ISO timestamp");
+      }
+    }
 
-    // Fetch data using cached function
-    const data = await getCachedCoastPulseData(geohashKey, limit);
+    let data;
+    if (before) {
+      // Paginated request - bypass cache
+      data = await fetchCoastPulseData(coords.lat, coords.lon, limit, before);
+    } else {
+      // First page - use cache
+      const geohashKey = ngeohash.encode(coords.lat, coords.lon, 4);
+      data = await getCachedCoastPulseData(geohashKey, limit);
+    }
 
     // Return with cache headers for CDN
     return NextResponse.json(
       { success: true, data, timestamp: new Date().toISOString() },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+          "Cache-Control": before
+            ? "private, no-cache"
+            : "public, s-maxage=120, stale-while-revalidate=300",
         },
       }
     );
@@ -554,19 +616,23 @@ async function fetchDailyIntel(
 }
 
 /**
- * Fetch recent user intel posts
+ * Fetch recent user intel posts with optional pagination
  */
 async function fetchRecentIntel(
   supabase: SupabaseClient,
   lat: number,
   lon: number,
-  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
+  beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = [],
+  options?: {
+    before?: string; // ISO timestamp cursor for pagination
+    limit?: number;
+  }
 ): Promise<CoastPulseItem[]> {
   try {
-    // Fetch intel from last 24 hours (was 2 hours - extended for more content)
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const limit = options?.limit || 10;
+    const before = options?.before;
 
-    const { data: posts } = await supabase
+    let query = supabase
       .from("intel_posts")
       .select(
         `
@@ -589,9 +655,19 @@ async function fetchRecentIntel(
       `
       )
       .eq("is_active", true)
-      .gte("created_at", twentyFourHoursAgo)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(limit + 1); // Fetch one extra to check if more exist
+
+    if (before) {
+      // Paginated request - fetch posts older than cursor
+      query = query.lt("created_at", before);
+    } else {
+      // First page - fetch recent posts (last 24 hours)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      query = query.gte("created_at", twentyFourHoursAgo);
+    }
+
+    const { data: posts } = await query;
 
     if (!posts?.length) return [];
 
@@ -602,7 +678,7 @@ async function fetchRecentIntel(
       return dist <= 50; // Within 50km
     });
 
-    return nearbyPosts.slice(0, 5).map((post: any) => {
+    return nearbyPosts.slice(0, limit).map((post: any) => {
       const surferName = post.profiles?.full_name || "Local Surfer";
 
       // Get beach name from join or nearest lookup

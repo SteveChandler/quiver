@@ -77,8 +77,8 @@ describe('selectBestWindow with timeSlot filter', () => {
     const highTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 24 * 3600; // 00:00 UTC next day
 
     const tideSchedule = [
-      { time: lowTideTimestamp, height: 1.0, type: 'low' },   // Low tide - below preferred min (2ft)
-      { time: highTideTimestamp, height: 6.0, type: 'high' }, // High tide - above preferred max (5ft)
+      { time: lowTideTimestamp, height: 1.0, type: 'low' as const },   // Low tide - below preferred min (2ft)
+      { time: highTideTimestamp, height: 6.0, type: 'high' as const }, // High tide - above preferred max (5ft)
     ];
 
     const forecastWithTideSchedule = (hour: number, score: number = 70) => {
@@ -146,8 +146,8 @@ describe('selectBestWindow with timeSlot filter', () => {
     const highTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 26 * 3600; // 02:00 UTC next day = 6pm PST
 
     const tideSchedule = [
-      { time: lowTideTimestamp, height: 1.0, type: 'low' },   // Low tide at 12pm PST
-      { time: highTideTimestamp, height: 6.0, type: 'high' }, // High tide at 6pm PST
+      { time: lowTideTimestamp, height: 1.0, type: 'low' as const },   // Low tide at 12pm PST
+      { time: highTideTimestamp, height: 6.0, type: 'high' as const }, // High tide at 6pm PST
     ];
 
     const forecastWithTideSchedule = (hour: number) => {

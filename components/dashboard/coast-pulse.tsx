@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
   Activity,
@@ -79,6 +79,8 @@ interface CoastPulseResponse {
   data: {
     items: CoastPulseItem[];
     summary: CoastPulseSummary;
+    hasMore: boolean;
+    nextCursor: string | null;
   };
 }
 
@@ -196,7 +198,16 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ open: boolean; url: string; caption?: string } | null>(null);
 
-  const fetchData = useCallback(async () => {
+  // Pagination state
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+
+  // Ref for intersection observer sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const fetchData = useCallback(async (cursor?: string) => {
     if (lat == null || lon == null) return;
 
     // Validate coordinates before API call
@@ -207,13 +218,21 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       return;
     }
 
-    setLoading(true);
-    setError(false);
+    // Set appropriate loading state
+    if (cursor) {
+      setLoadingMore(true);
+      setLoadMoreError(false);
+    } else {
+      setLoading(true);
+      setError(false);
+    }
 
     try {
-      const response = await fetch(
-        `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=8`
-      );
+      const url = cursor
+        ? `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=8&before=${encodeURIComponent(cursor)}`
+        : `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=8`;
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -225,21 +244,72 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
         throw new Error("Invalid response");
       }
 
-      setItems(json.data.items || []);
-      setSummary(json.data.summary || null);
+      if (cursor) {
+        // Append new items
+        setItems(prev => [...prev, ...(json.data.items || [])]);
+      } else {
+        // Replace items (first page or refresh)
+        setItems(json.data.items || []);
+        setSummary(json.data.summary || null);
+      }
+
+      setHasMore(json.data.hasMore ?? false);
+      setNextCursor(json.data.nextCursor ?? null);
     } catch (err) {
       console.error("Failed to fetch coast pulse data:", err);
-      setError(true);
+      if (!cursor) {
+        setError(true);
+      } else {
+        // Load more error - show retry option
+        setLoadMoreError(true);
+      }
+      // On load more error, keep existing items
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [lat, lon]);
 
+  // Load more function for infinite scroll
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+    fetchData(nextCursor);
+  }, [fetchData, loadingMore, hasMore, nextCursor]);
+
+  // Fetch initial data and reset state on location change
   useEffect(() => {
     if (lat != null && lon != null) {
+      // Reset pagination state on location change
+      setItems([]);
+      setSummary(null);
+      setHasMore(true);
+      setNextCursor(null);
+      setLoadMoreError(false);
       fetchData();
     }
-  }, [lat, lon, fetchData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lon]); // fetchData intentionally excluded to prevent double fetch
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore();
+        }
+      },
+      {
+        rootMargin: "200px", // Trigger 200px before reaching bottom
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, loadMore]);
 
   const handleReport = useCallback(async (postId: string) => {
     try {
@@ -356,7 +426,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
         <div className="flex flex-col items-center justify-center py-6 gap-3">
           <p className="text-sm text-gray-400">Unable to load coast data</p>
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#f97316] rounded-full hover:bg-[#ea580c] transition-colors"
           >
             <RefreshCw size={12} />
@@ -382,7 +452,10 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
             const config = SOURCE_CONFIG[item.source.type] || SOURCE_CONFIG.local;
 
             return (
-              <div key={item.id} className="relative pb-4 last:pb-0">
+              <div
+                key={item.id}
+                className="relative pb-4 last:pb-0 animate-in fade-in duration-300"
+              >
                 {/* Timeline dot */}
                 <div className="absolute -left-6 top-1 w-4 h-4 rounded-full bg-[#f97316] border-[3px] border-[#1e1e1e]" />
 
@@ -463,6 +536,45 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
             );
           })}
         </div>
+      )}
+
+      {/* Infinite scroll sentinel and loading states */}
+      {!loading && !error && items.length > 0 && (
+        <>
+          {/* Loading more indicator */}
+          {loadingMore && (
+            <div className="flex justify-center py-4">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-2 h-2 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-2 h-2 bg-[#f97316] rounded-full animate-bounce" />
+              </div>
+            </div>
+          )}
+
+          {/* Load more error with retry button */}
+          {loadMoreError && !loadingMore && (
+            <div className="flex flex-col items-center py-4 gap-2">
+              <p className="text-xs text-gray-500">Failed to load more</p>
+              <button
+                onClick={loadMore}
+                className="text-xs text-[#f97316] font-medium px-3 py-1 rounded-full border border-[#f97316] hover:bg-[#f97316]/10 transition-colors"
+              >
+                Tap to retry
+              </button>
+            </div>
+          )}
+
+          {/* End of feed message */}
+          {!hasMore && !loadingMore && (
+            <p className="text-center text-xs text-gray-500 py-4">
+              You&apos;ve reached the beginning
+            </p>
+          )}
+
+          {/* Invisible sentinel for intersection observer */}
+          <div ref={sentinelRef} className="h-1" aria-hidden="true" />
+        </>
       )}
 
       {/* Quick Check-in Sheet */}
