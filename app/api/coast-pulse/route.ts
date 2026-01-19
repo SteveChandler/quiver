@@ -730,9 +730,9 @@ async function fetchLiveCDIPData(
         nearbyStations.map(s => `${s.name} (${s.id}) - ${s.distance.toFixed(1)}km`).join(", "));
     }
 
-    // Sort by distance and take up to 6 nearest (some may not have data)
+    // Sort by distance and take up to 2 nearest (avoid duplicate-feeling feed)
     nearbyStations.sort((a, b) => a.distance - b.distance);
-    const stationsToFetch = nearbyStations.slice(0, 6);
+    const stationsToFetch = nearbyStations.slice(0, 2);
 
     if (stationsToFetch.length === 0) return [];
 

@@ -325,7 +325,7 @@ export function formatBuoyMessage(data: BuoyData): string {
 
   // 1. Period-based energy label + measurements
   const periodLabel = getPeriodLabel(periodS);
-  parts.push(`${periodLabel}, ${heightFt.toFixed(1)}ft @ ${periodS}s`);
+  parts.push(`${periodLabel}, ${heightFt.toFixed(1)}ft @ ${Math.round(periodS)}s`);
 
   // 2. Direction with context (if available)
   if (direction && region) {
