@@ -603,52 +603,50 @@ describe('selectBestWindow threshold consistency', () => {
   });
 
   it('truncates morning window when conditions degrade below morning threshold', () => {
-    // Morning window starts with score ~38 (above morning threshold 35)
-    // Then conditions degrade to score ~25 (below morning threshold 35)
-    // Window should be interpolated to end when score drops below 35
+    // With unified 0-100 scoring engine:
+    // Morning window starts with decent score (above morning threshold 40)
+    // Then conditions degrade to very poor score (below morning threshold 40)
+    // Window should be interpolated to end when score drops below 40
     //
-    // BUG: The extension loop uses MIN_SCORE_THRESHOLD (50) for interpolation.
-    // When score drops from 38 to 25:
-    // - Correct behavior: Interpolate when score crosses 35 (morning threshold)
-    // - Bug behavior: Since 38 < 50, interpolation never triggers, window extends to MAX_WINDOW_HOURS
+    // The extension loop uses effectiveThreshold (morning threshold = 40) for interpolation.
+    // When score drops from decent to poor:
+    // - Correct behavior: Interpolate when score crosses 40 (morning threshold)
     //
-    // Score breakdown for degraded conditions:
-    // - Wave height 1.0ft (tiny): 10 points
-    // - Wave period 6s (short): 5 points
-    // - Wind speed 18mph (strong): 0 points (>15mph)
-    // - Tide (no prefs): 8 points
-    // Total: 23 points
+    // Test uses deliberately poor conditions to ensure score drops below 40:
+    // - Wave height 0.5ft (flat): very low score
+    // - Wave period 4s (very short): very low score
+    // - Wind speed 25mph (very strong): penalty
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '17:00:00', // 9am PT - GOOD (score 38)
-        wave_height: '1.5',
-        wave_period: '8s',
+        forecast_time: '17:00:00', // 9am PT - DECENT
+        wave_height: '2.0',
+        wave_period: '9s',
         wind_speed: '8',
         tide_height: '3.0',
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '18:00:00', // 10am PT - GOOD (score 38)
-        wave_height: '1.5',
-        wave_period: '8s',
+        forecast_time: '18:00:00', // 10am PT - DECENT
+        wave_height: '2.0',
+        wave_period: '9s',
         wind_speed: '8',
         tide_height: '3.0',
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '19:00:00', // 11am PT - BAD (score 23)
-        wave_height: '1.0',        // Tiny
-        wave_period: '6s',         // Short
-        wind_speed: '18',          // Strong wind, >15mph = 0 pts
+        forecast_time: '19:00:00', // 11am PT - VERY POOR (should be well below 40)
+        wave_height: '0.5',        // Flat
+        wave_period: '4s',         // Very short/choppy
+        wind_speed: '25',          // Very strong wind
         tide_height: '3.0',
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT - BAD (score 23)
-        wave_height: '1.0',
-        wave_period: '6s',
-        wind_speed: '18',
+        forecast_time: '20:00:00', // 12pm PT - VERY POOR
+        wave_height: '0.5',
+        wave_period: '4s',
+        wind_speed: '25',
         tide_height: '3.0',
       }),
     ];
@@ -664,19 +662,15 @@ describe('selectBestWindow threshold consistency', () => {
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
 
     expect(result).not.toBeNull();
-    // Window should be truncated when conditions degrade below morning threshold
-    // Expected: End should be interpolated between 10am and 11am (when score drops from 38 to 23)
-    // The interpolation should find when score crosses 35 (morning threshold)
+    // Window should be truncated when conditions degrade below morning threshold (40)
+    // Expected: End should be interpolated between 10am and 11am (when score drops below 40)
+    // The interpolation should find when score crosses 40 (morning threshold)
     const tenAm = new Date('2026-01-13T18:00:00Z').getTime();
     const elevenAm = new Date('2026-01-13T19:00:00Z').getTime();
-    const noon = new Date('2026-01-13T20:00:00Z').getTime();
 
-    // BUG: Current code uses MIN_SCORE_THRESHOLD (50) for interpolation.
-    // Since score 38 < 50, the condition `current.score >= MIN_SCORE_THRESHOLD` fails,
-    // so interpolation never triggers. Window extends to MAX_WINDOW_HOURS (4h = 1pm PT).
-    //
-    // EXPECTED (fixed): Should interpolate when score drops below 35 (morning threshold).
-    // Window should end between 10am and 11am.
+    // With unified 0-100 scoring engine and morning threshold of 40:
+    // The window should be interpolated when score drops from decent (>40) to very poor (<40).
+    // Window should end between 10am and 11am, not extend to MAX_WINDOW_HOURS (1pm).
     expect(result!.end.getTime()).toBeGreaterThan(tenAm);
     expect(result!.end.getTime()).toBeLessThan(elevenAm);
   });
