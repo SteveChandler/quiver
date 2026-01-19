@@ -13,6 +13,69 @@ import type {
 } from "@/types/personalization";
 
 /**
+ * Condition tier based on score thresholds
+ */
+export type ConditionTier = "great" | "good" | "fair" | "marginal";
+
+/**
+ * Get condition tier based on score thresholds
+ * @param score Score value (0-100)
+ * @returns ConditionTier - 'great' (80+), 'good' (60-79), 'fair' (40-59), 'marginal' (<40)
+ */
+export function getConditionTier(score: number): ConditionTier {
+  if (score >= 80) return "great";
+  if (score >= 60) return "good";
+  if (score >= 40) return "fair";
+  return "marginal";
+}
+
+/**
+ * Get Tailwind color class for score display based on condition tier
+ * @param tier Condition tier
+ * @returns Tailwind color class
+ */
+export function getScoreColorClass(tier: ConditionTier): string {
+  switch (tier) {
+    case "great":
+    case "good":
+      return "text-accent-orange";
+    case "fair":
+      return "text-amber-400";
+    case "marginal":
+      return "text-white/60";
+  }
+}
+
+/**
+ * Get condition badge configuration based on tier
+ * @param tier Condition tier
+ * @returns Badge config with label and className, or null for 'good' tier
+ */
+export function getConditionBadge(
+  tier: ConditionTier
+): { label: string; className: string } | null {
+  switch (tier) {
+    case "great":
+      return {
+        label: "Great Conditions",
+        className: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
+      };
+    case "good":
+      return null;
+    case "fair":
+      return {
+        label: "Fair Conditions",
+        className: "bg-amber-500/20 text-amber-300 border-amber-400/30",
+      };
+    case "marginal":
+      return {
+        label: "Marginal",
+        className: "bg-white/10 text-white/60 border-white/20",
+      };
+  }
+}
+
+/**
  * Props for HeroRecommendation component
  */
 export interface HeroRecommendationProps {

@@ -1,5 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { HeroRecommendation } from "@/components/home-screen/hero-recommendation";
+import {
+  HeroRecommendation,
+  getConditionTier,
+  getScoreColorClass,
+  getConditionBadge,
+  type ConditionTier,
+} from "@/components/home-screen/hero-recommendation";
 
 // Mock framer-motion
 jest.mock("framer-motion", () => ({
@@ -104,5 +110,79 @@ describe("HeroRecommendation", () => {
     );
 
     expect(screen.queryByText(/^\d+-\d+ft$/)).not.toBeInTheDocument();
+  });
+});
+
+describe("getConditionTier", () => {
+  it("returns 'great' for scores >= 80", () => {
+    expect(getConditionTier(80)).toBe("great");
+    expect(getConditionTier(85)).toBe("great");
+    expect(getConditionTier(100)).toBe("great");
+  });
+
+  it("returns 'good' for scores 60-79", () => {
+    expect(getConditionTier(60)).toBe("good");
+    expect(getConditionTier(70)).toBe("good");
+    expect(getConditionTier(79)).toBe("good");
+  });
+
+  it("returns 'fair' for scores 40-59", () => {
+    expect(getConditionTier(40)).toBe("fair");
+    expect(getConditionTier(50)).toBe("fair");
+    expect(getConditionTier(59)).toBe("fair");
+  });
+
+  it("returns 'marginal' for scores < 40", () => {
+    expect(getConditionTier(0)).toBe("marginal");
+    expect(getConditionTier(20)).toBe("marginal");
+    expect(getConditionTier(39)).toBe("marginal");
+  });
+});
+
+describe("getScoreColorClass", () => {
+  it("returns text-accent-orange for great tier", () => {
+    expect(getScoreColorClass("great")).toBe("text-accent-orange");
+  });
+
+  it("returns text-accent-orange for good tier", () => {
+    expect(getScoreColorClass("good")).toBe("text-accent-orange");
+  });
+
+  it("returns text-amber-400 for fair tier", () => {
+    expect(getScoreColorClass("fair")).toBe("text-amber-400");
+  });
+
+  it("returns text-white/60 for marginal tier", () => {
+    expect(getScoreColorClass("marginal")).toBe("text-white/60");
+  });
+});
+
+describe("getConditionBadge", () => {
+  it("returns Great Conditions badge for great tier", () => {
+    const badge = getConditionBadge("great");
+    expect(badge).toEqual({
+      label: "Great Conditions",
+      className: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
+    });
+  });
+
+  it("returns null for good tier", () => {
+    expect(getConditionBadge("good")).toBeNull();
+  });
+
+  it("returns Fair Conditions badge for fair tier", () => {
+    const badge = getConditionBadge("fair");
+    expect(badge).toEqual({
+      label: "Fair Conditions",
+      className: "bg-amber-500/20 text-amber-300 border-amber-400/30",
+    });
+  });
+
+  it("returns Marginal badge for marginal tier", () => {
+    const badge = getConditionBadge("marginal");
+    expect(badge).toEqual({
+      label: "Marginal",
+      className: "bg-white/10 text-white/60 border-white/20",
+    });
   });
 });
