@@ -604,8 +604,35 @@ export function selectBestWindow(
 
   if (scoredForecasts.length === 0) return null;
 
-  // No early time slot filtering - we filter AFTER calculating tide boundaries
-  const filteredForecasts = scoredForecasts;
+  // Get sun times for this beach (sunrises for dawn-patrol, sunsets for window capping)
+  const sunTimes = actualSunTimesCache?.get(actualBeach.id);
+  const sunsets = sunTimes?.sunsets || [];
+  const sunrises = sunTimes?.sunrises || [];
+
+  // Filter forecasts by time slot to enforce strict time slot boundaries
+  // This prevents showing afternoon windows when user selects dawn-patrol
+  const filteredForecasts = scoredForecasts.filter(({ forecastTime }) => {
+    if (!actualTimeSlot || actualTimeSlot === 'any') {
+      return true; // No time slot filter
+    }
+
+    try {
+      const localHour = parseInt(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          hour12: false,
+          timeZone: beachTz,
+        }).format(forecastTime),
+        10
+      );
+
+      // Get dynamic range (dawn-patrol uses sunrise-based start)
+      const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, forecastTime, beachTz);
+      return localHour >= slotRange.startHour && localHour < slotRange.endHour;
+    } catch {
+      return false; // If timezone conversion fails, exclude to be safe
+    }
+  });
 
   if (filteredForecasts.length === 0) return null;
 
@@ -617,17 +644,15 @@ export function selectBestWindow(
   } | null = null;
   let bestAdjustedScore = -1;
 
-  // Get sun times for this beach (sunsets for window capping)
-  const sunTimes = actualSunTimesCache?.get(actualBeach.id);
-  const sunsets = sunTimes?.sunsets || [];
-
   for (let i = 0; i < filteredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore, isToday } = filteredForecasts[i];
 
-    // Morning priority: use lower threshold for today's forecasts before noon
-    const effectiveThreshold = (isMorning && isToday)
-      ? MIN_SCORE_THRESHOLD_MORNING
-      : MIN_SCORE_THRESHOLD;
+    // When a specific time slot is requested (not 'any'), skip score threshold
+    // Always return best window in that slot so UI can show quality indicator
+    const shouldApplyThreshold = !actualTimeSlot || actualTimeSlot === 'any';
+    const effectiveThreshold = shouldApplyThreshold
+      ? (isMorning && isToday) ? MIN_SCORE_THRESHOLD_MORNING : MIN_SCORE_THRESHOLD
+      : 0; // No threshold for specific time slots
 
     // Skip low-scoring start times
     if (startScore < effectiveThreshold) {
