@@ -152,9 +152,9 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
     // Get all beaches for proximity linking
     const { data: beaches, error: beachError } = await supabase
       .from("beaches")
-      .select("id, name, center_lat, center_lng")
-      .not("center_lat", "is", null)
-      .not("center_lng", "is", null);
+      .select("id, name, lat, lon")
+      .not("lat", "is", null)
+      .not("lon", "is", null);
 
     if (beachError) {
       result.errors.push(`Failed to fetch beaches: ${beachError.message}`);
@@ -173,8 +173,8 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
         const distance = calculateDistance(
           station.latitude,
           station.longitude,
-          beach.center_lat,
-          beach.center_lng
+          beach.lat,
+          beach.lon
         );
 
         if (
