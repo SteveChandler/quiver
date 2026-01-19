@@ -64,10 +64,29 @@ def prepare_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, np.ndar
     fe = FeatureEngineer()
     X = fe.preprocess(df_renamed)
 
+    # Check for ensemble features (from Open-Meteo)
+    ensemble_features = [
+        'wave_height_om', 'wave_period_om', 'wave_direction_om',
+        'swell_height_om', 'swell_period_om', 'swell_direction_om',
+        'wind_wave_height_om', 'height_diff_om_noaa',
+        'direction_agreement', 'swell_ratio_om', 'wind_wave_ratio_om'
+    ]
+
+    # Add ensemble features if present
+    has_ensemble = any(col in df.columns for col in ensemble_features)
+    if has_ensemble:
+        print("   Found ensemble features from Open-Meteo")
+        for col in ensemble_features:
+            if col in df.columns:
+                X[col] = df[col].values
+
     # Drop non-feature columns
     drop_cols = ['timestamp', 'wave_height_model', 'beach_id', 'observed_ts',
                  'observed_height_m', 'residual_m', 'forecast_height_m',
-                 'observation_source', 'data_quality', 'sample_weight']
+                 'observation_source', 'data_quality', 'sample_weight',
+                 'forecast_height_text', 'forecast_period_text', 'forecast_dir_text',
+                 'wind_speed_text', 'wind_dir_text', 'observed_period_s', 'observed_dir_deg',
+                 'wind_wave_period_om', 'wind_wave_direction_om', 'period_diff_om_noaa']
     X_clean = X.drop(columns=[c for c in drop_cols if c in X.columns], errors='ignore')
 
     # Target is the residual
