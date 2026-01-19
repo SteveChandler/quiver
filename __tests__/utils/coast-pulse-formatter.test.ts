@@ -7,6 +7,7 @@ import {
   getTempComfortLabel,
   formatWaterTemp,
   formatTideMessage,
+  formatBuoyMessage,
 } from "@/lib/utils/coast-pulse-formatter";
 import { COASTAL_REGIONS } from "@/lib/constants/coastal-regions";
 
@@ -301,5 +302,85 @@ describe("formatTideMessage", () => {
       status: "Falling",
     });
     expect(result).toContain("Extremely low");
+  });
+});
+
+describe("formatBuoyMessage", () => {
+  it("formats complete NOAA data with all fields", () => {
+    const result = formatBuoyMessage({
+      heightFt: 1.6,
+      periodS: 13,
+      direction: "SW",
+      waterTempF: 63,
+      lat: 32.75,
+      lon: -117.25,
+    });
+    expect(result).toContain("Groundswell");
+    expect(result).toContain("1.6ft @ 13s");
+    expect(result).toContain("SW");
+    expect(result).toContain("63°F");
+  });
+
+  it("handles missing direction", () => {
+    const result = formatBuoyMessage({
+      heightFt: 2.4,
+      periodS: 17,
+      direction: null,
+      waterTempF: 65,
+      lat: 32.75,
+      lon: -117.25,
+    });
+    expect(result).toContain("Long-period groundswell");
+    expect(result).toContain("2.4ft @ 17s");
+    expect(result).not.toContain("null");
+  });
+
+  it("handles missing water temp", () => {
+    const result = formatBuoyMessage({
+      heightFt: 1.1,
+      periodS: 12,
+      direction: "W",
+      waterTempF: null,
+      lat: 32.75,
+      lon: -117.25,
+    });
+    expect(result).not.toContain("°F");
+    expect(result).not.toContain("null");
+  });
+
+  it("adapts to different regions", () => {
+    // NorCal coordinates
+    const norcal = formatBuoyMessage({
+      heightFt: 3.0,
+      periodS: 14,
+      direction: "NW",
+      waterTempF: 54,
+      lat: 38.0,
+      lon: -123.0,
+    });
+    expect(norcal).toContain("direct hit");
+
+    // Florida coordinates
+    const florida = formatBuoyMessage({
+      heightFt: 2.0,
+      periodS: 10,
+      direction: "SE",
+      waterTempF: 78,
+      lat: 26.0,
+      lon: -80.1,
+    });
+    expect(florida).toContain("east-facing");
+  });
+
+  it("falls back gracefully for unknown regions", () => {
+    const result = formatBuoyMessage({
+      heightFt: 2.0,
+      periodS: 12,
+      direction: "W",
+      waterTempF: 60,
+      lat: 45.0,
+      lon: -124.0,
+    });
+    expect(result).toContain("2.0ft @ 12s");
   });
 });

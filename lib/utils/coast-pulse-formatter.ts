@@ -5,6 +5,7 @@
 
 import {
   getSeasonalTempContext,
+  detectCoastalRegion,
   type CoastalRegion,
 } from "@/lib/constants/coastal-regions";
 
@@ -230,7 +231,7 @@ export function formatWaterTemp(
   return `Water ${Math.round(tempF)}°F (${comfort})`;
 }
 
-interface TideData {
+export interface TideData {
   nextTideName: string; // "High Tide" or "Low Tide"
   nextTideHeight: number;
   hoursUntil: number;
@@ -300,4 +301,54 @@ export function formatTideMessage(data: TideData): string {
 
   // Fallback
   return `${nextTideName} in ${timeStr} @ ${nextTideHeight.toFixed(1)}ft.`;
+}
+
+export interface BuoyData {
+  heightFt: number;
+  periodS: number;
+  direction: string | null;
+  waterTempF: number | null;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Format complete buoy message with interpretive commentary
+ */
+export function formatBuoyMessage(data: BuoyData): string {
+  const { heightFt, periodS, direction, waterTempF, lat, lon } = data;
+
+  const region = detectCoastalRegion(lat, lon);
+  const month = new Date().getMonth();
+
+  const parts: string[] = [];
+
+  // 1. Period-based energy label + measurements
+  const periodLabel = getPeriodLabel(periodS);
+  parts.push(`${periodLabel}, ${heightFt.toFixed(1)}ft @ ${periodS}s`);
+
+  // 2. Direction with context (if available)
+  if (direction && region) {
+    const dirContext = getSwellDirectionContext(direction, region);
+    if (dirContext) {
+      parts.push(`${direction}. ${dirContext}`);
+    } else {
+      parts.push(direction);
+    }
+  } else if (direction) {
+    parts.push(direction);
+  }
+
+  // 3. Condition note based on size + period
+  const conditionNote = getHeightConditionNote(heightFt, periodS);
+  parts.push(conditionNote);
+
+  // 4. Water temp with seasonal context (if available)
+  if (waterTempF != null && region) {
+    parts.push(formatWaterTemp(waterTempF, region, month));
+  } else if (waterTempF != null) {
+    parts.push(`Water ${Math.round(waterTempF)}°F`);
+  }
+
+  return parts.join(". ").replace(/\.\./g, ".").replace(/\. \./g, ".");
 }
