@@ -61,6 +61,11 @@ Sentry.init({
     const requestUrl = event.request?.url;
     const detectedEnv = detectEnvironment(requestUrl);
 
+    // Drop localhost events entirely - don't send to Sentry
+    if (detectedEnv === "development") {
+      return null;
+    }
+
     // Override the environment tag
     event.environment = detectedEnv;
 
