@@ -314,6 +314,14 @@ async function coastPulseHandler(request: NextRequest) {
     );
     const before = searchParams.get("before") || undefined;
 
+    // Validate before cursor is a valid ISO timestamp
+    if (before) {
+      const parsedDate = new Date(before);
+      if (isNaN(parsedDate.getTime())) {
+        return createValidationError("Invalid 'before' cursor: must be a valid ISO timestamp");
+      }
+    }
+
     let data;
     if (before) {
       // Paginated request - bypass cache
