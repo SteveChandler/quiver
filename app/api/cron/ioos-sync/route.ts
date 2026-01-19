@@ -141,6 +141,22 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
     result.stationsDiscovered = discovery.totalFound;
     console.log(`Found ${discovery.totalFound} total stations, ${discovery.waveStationsFound} with wave data`);
 
+    // Debug: Log network distribution
+    const networkCounts = new Map<string, number>();
+    const waveStations = discovery.stations.filter((s) => s.has_wave_data);
+    for (const station of discovery.stations) {
+      const count = networkCounts.get(station.source_network) || 0;
+      networkCounts.set(station.source_network, count + 1);
+    }
+    console.log(`Network distribution:`, Object.fromEntries(networkCounts));
+    console.log(`Wave-capable stations by network:`,
+      Object.fromEntries(
+        [...new Set(waveStations.map(s => s.source_network))].map(n =>
+          [n, waveStations.filter(s => s.source_network === n).length]
+        )
+      )
+    );
+
     // Filter to priority networks and wave-capable stations
     const priorityStations = discovery.stations
       .filter((s) => s.has_wave_data)
