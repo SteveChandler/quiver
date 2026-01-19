@@ -326,7 +326,18 @@ async function fetchLocalBuoys(
           type: "local" as const,
           credibility: 85,
         },
-        message: formatBuoyConditions(buoy),
+        message: buoy.wave_height != null && buoy.wave_period != null
+          ? formatBuoyMessage({
+              heightFt: buoy.wave_height,
+              periodS: buoy.wave_period,
+              direction: null,  // LOCAL buoys don't have swell direction
+              waterTempF: buoy.water_temperature != null
+                ? buoy.water_temperature  // Already in Fahrenheit from DB
+                : null,
+              lat,
+              lon,
+            })
+          : formatBuoyConditions(buoy),
         timestamp: new Date(buoy.updated_at),
         trend: "stable" as const,
       }));
@@ -341,7 +352,18 @@ async function fetchLocalBuoys(
         type: "local" as const,
         credibility: 85,
       },
-      message: formatBuoyConditions(buoy),
+      message: buoy.wave_height != null && buoy.wave_period != null
+        ? formatBuoyMessage({
+            heightFt: buoy.wave_height,
+            periodS: buoy.wave_period,
+            direction: null,  // LOCAL buoys don't have swell direction
+            waterTempF: buoy.water_temperature != null
+              ? buoy.water_temperature  // Already in Fahrenheit from DB
+              : null,
+            lat,
+            lon,
+          })
+        : formatBuoyConditions(buoy),
       timestamp: new Date(buoy.updated_at),
       location: {
         lat: lat,
