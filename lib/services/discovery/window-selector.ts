@@ -64,8 +64,8 @@ const UNDERWAY_BONUS = 4; // Bonus for windows already in progress
 
 // Sunset-aware window constants
 const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
-const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor"
-const MIN_SCORE_THRESHOLD_MORNING = 35; // Lower threshold for today when it's morning
+const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor" (0-100 scale, displays as 5/10)
+const MIN_SCORE_THRESHOLD_MORNING = 40; // Lower threshold for today when it's morning (0-100 scale, displays as 4/10)
 const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
 const WINDOW_HOURS = 3; // Lookback period for past windows
 
