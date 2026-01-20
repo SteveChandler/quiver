@@ -30,6 +30,27 @@ function formatPacificDateTime(date: Date) {
   }).format(date);
 }
 
+/**
+ * Determine if a citySlug is actually a county-level identifier.
+ */
+function isCountySlug(slug: string | null | undefined): boolean {
+  if (!slug) return false;
+  return slug.endsWith("-county");
+}
+
+/**
+ * Get the appropriate slug for intent page links.
+ * For county-level pages, use state-level URLs to avoid 404s.
+ */
+function getIntentSlug(citySlug: string | null, state: string | null): string | null {
+  if (!citySlug) return null;
+  if (isCountySlug(citySlug) && state) {
+    // Convert state to lowercase slug (e.g., "CA" -> "ca")
+    return state.toLowerCase();
+  }
+  return citySlug;
+}
+
 export async function generateStaticParams() {
   return SURF_SPOT_SLUGS.map((slug) => ({ slug }));
 }
@@ -345,7 +366,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                   <p className="mt-3 text-sm text-slate-600">
                     For more gentle peaks, explore{" "}
                     <a
-                      href={`/beginner/${spot.citySlug}`}
+                      href={`/beginner/${getIntentSlug(spot.citySlug, spot.state) || spot.citySlug}`}
                       className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                     >
                       beginner surf spots in {cityName ?? "this region"}
@@ -362,7 +383,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                 <p className="text-sm text-slate-700">
                   Looking for fewer heads in the lineup? Check the{" "}
                   <a
-                    href={`/least-crowded/${spot.citySlug}`}
+                    href={`/least-crowded/${getIntentSlug(spot.citySlug, spot.state) || spot.citySlug}`}
                     className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                   >
                     less crowded {cityName ?? ""} surf guide
@@ -381,7 +402,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                   <li>
                     Monitor{" "}
                     <a
-                      href={`/tide/${spot.citySlug}`}
+                      href={`/tide/${getIntentSlug(spot.citySlug, spot.state) || spot.citySlug}`}
                       className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                     >
                       tide swings

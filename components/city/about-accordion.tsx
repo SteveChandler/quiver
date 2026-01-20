@@ -11,9 +11,29 @@ import {
 interface AboutAccordionProps {
   cityName: string;
   citySlug: string;
+  stateSlug?: string;
   description: string[];
   topSpotSlug?: string;
   topSpotName?: string;
+}
+
+/**
+ * Determine if a citySlug is actually a county-level identifier.
+ * County slugs typically end with "-county" or match known patterns.
+ */
+function isCountySlug(slug: string): boolean {
+  return slug.endsWith("-county");
+}
+
+/**
+ * Get the appropriate slug for intent page links.
+ * For county-level pages, use state-level URLs to avoid 404s.
+ */
+function getIntentSlug(citySlug: string, stateSlug?: string): string {
+  if (isCountySlug(citySlug) && stateSlug) {
+    return stateSlug;
+  }
+  return citySlug;
 }
 
 /**
@@ -26,11 +46,14 @@ interface AboutAccordionProps {
 export function AboutAccordion({
   cityName,
   citySlug,
+  stateSlug,
   description,
   topSpotSlug,
   topSpotName,
 }: AboutAccordionProps) {
   if (!description || description.length === 0) return null;
+
+  const intentSlug = getIntentSlug(citySlug, stateSlug);
 
   return (
     <section className="mt-12">
@@ -68,7 +91,7 @@ export function AboutAccordion({
                 plan. If the headline reef is shoulder-to-shoulder, slide to the
                 secondary peak listed below or jump into the{" "}
                 <Link
-                  href={`/least-crowded/${citySlug}`}
+                  href={`/least-crowded/${intentSlug}`}
                   className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                 >
                   less-crowded guide

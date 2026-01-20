@@ -215,6 +215,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
           <AboutAccordion
             cityName={editorial.city_name}
             citySlug={params.city}
+            stateSlug={params.state}
             description={editorial.description}
             topSpotSlug={topSpot?.slug || undefined}
             topSpotName={topSpot?.name || undefined}
@@ -224,6 +225,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
           <GuidesByIntentGrid
             cityName={editorial.city_name}
             citySlug={params.city}
+            stateSlug={params.state}
             featuredIntents={editorial.featured_intents}
             beaches={beaches}
           />

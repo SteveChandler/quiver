@@ -6,6 +6,37 @@ import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { PROFILE_FULL_SELECT } from "@/lib/profile/constants";
 import type { ProfileDTO } from "@/types/profile";
 
+/**
+ * Type for profile details query result.
+ * Matches the fields selected via PROFILE_FULL_SELECT.
+ */
+interface ProfileDetails {
+  followers_count: number | null;
+  following_count: number | null;
+  created_at: string | null;
+  avatar_url: string | null;
+  email: string | null;
+  bio: string | null;
+  location: string | null;
+  experience_level: string | null;
+  instagram: string | null;
+  onboarding_completed_at: string | null;
+  surf_styles: string[] | null;
+  preferred_wave_size: string | null;
+  preferred_break_type: string | null;
+  crowd_preference: string | null;
+  notif_push_enabled: boolean | null;
+  notif_forecast_alerts: boolean | null;
+  notif_email_enabled: boolean | null;
+  notif_inapp_enabled: boolean | null;
+  notif_session_invites: boolean | null;
+  notif_likes: boolean | null;
+  notif_follows: boolean | null;
+  notif_reminders: boolean | null;
+  notif_xp_updates: boolean | null;
+  home_beach: { id: string; name: string } | null;
+}
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -46,7 +77,7 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
       .from("profiles")
       .select(PROFILE_FULL_SELECT)
       .eq("id", userId)
-      .single();
+      .single<ProfileDetails>();
 
     // Add session stats (only public sessions for privacy)
     const { data: sessions, error: sessionsError } = await supabase
