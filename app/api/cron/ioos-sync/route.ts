@@ -238,10 +238,11 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
     // Mark stations not seen in this discovery as inactive
     const seenIds = stationsToUpsert.map((s) => s.station_id);
     if (seenIds.length > 0) {
+      // Note: Supabase not.in filter expects unquoted comma-separated values
       const { error: deactivateError } = await supabase
         .from("ioos_stations")
         .update({ active: false })
-        .not("station_id", "in", `(${seenIds.map((id) => `'${id}'`).join(",")})`);
+        .not("station_id", "in", `(${seenIds.join(",")})`);
 
       if (deactivateError) {
         result.errors.push(`Failed to deactivate old stations: ${deactivateError.message}`);
