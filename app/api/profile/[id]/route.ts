@@ -67,6 +67,7 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
         notif_follows,
         notif_reminders,
         notif_xp_updates,
+        onboarding_completed_at,
         home_beach:beaches!profiles_home_beach_id_fkey(id, name)
       `
       )
@@ -136,6 +137,8 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
       notif_follows: details?.notif_follows ?? true,
       notif_reminders: details?.notif_reminders ?? true,
       notif_xp_updates: details?.notif_xp_updates ?? true,
+      // Onboarding tracking
+      onboarding_completed_at: details?.onboarding_completed_at ?? null,
       ...sessionStats,
       isFollowing: isFollowingUser,
       isOwnProfile: user?.id === userId,

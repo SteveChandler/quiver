@@ -152,6 +152,91 @@ describe("/api/profile/[id]", () => {
       });
     });
 
+    it("should return onboarding_completed_at when user has completed onboarding", async () => {
+      const targetUserId = "user-onboarding-complete";
+      const completionDate = "2025-01-10T14:30:00.000Z";
+      const mockProfile = createMockProfile({
+        id: targetUserId,
+        full_name: "Completed User",
+        onboarding_completed_at: completionDate,
+      });
+
+      mockUnauthenticatedUser(mockSupabaseClient);
+
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
+        if (tableName === 'profiles') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn(() => Promise.resolve({
+              data: mockProfile,
+              error: null,
+            })),
+          };
+        } else if (tableName === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            data: [],
+            error: null,
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+        };
+      });
+
+      const request = createMockRequest("GET");
+      const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
+
+      const data = await expectSuccessResponse(response, 200);
+      expect(data.data.onboarding_completed_at).toBe(completionDate);
+    });
+
+    it("should return null onboarding_completed_at for users who have not completed", async () => {
+      const targetUserId = "user-onboarding-incomplete";
+      const mockProfile = createMockProfile({
+        id: targetUserId,
+        full_name: "New User",
+        onboarding_completed_at: null,
+      });
+
+      mockUnauthenticatedUser(mockSupabaseClient);
+
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
+        if (tableName === 'profiles') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn(() => Promise.resolve({
+              data: mockProfile,
+              error: null,
+            })),
+          };
+        } else if (tableName === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            data: [],
+            error: null,
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+        };
+      });
+
+      const request = createMockRequest("GET");
+      const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
+
+      const data = await expectSuccessResponse(response, 200);
+      expect(data.data.onboarding_completed_at).toBeNull();
+    });
+
     it("should handle concurrent profile requests", async () => {
       const targetUserId = "user-123";
       const mockProfile = createMockProfile({ id: targetUserId });

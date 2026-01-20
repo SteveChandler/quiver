@@ -11,6 +11,8 @@ export type ProfileDTO = {
   experience_level?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  /** Timestamp when user completed onboarding wizard, null if not completed */
+  onboarding_completed_at?: string | null;
 };
 
 
