@@ -27,7 +27,11 @@ export function TimeSlotSelector({ value, onChange, className }: TimeSlotSelecto
     <div
       role="radiogroup"
       aria-label="Time slot filter"
-      className={cn('flex gap-2 overflow-x-auto pb-1', className)}
+      className={cn(
+        'flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:-mx-6 sm:px-6',
+        'scrollbar-hide',
+        className
+      )}
       data-testid="time-slot-selector"
     >
       {TIME_SLOT_OPTIONS.map((option) => {
@@ -47,7 +51,7 @@ export function TimeSlotSelector({ value, onChange, className }: TimeSlotSelecto
             }
             transition={reducedMotion ? { duration: 0 } : { type: "spring", ...HOME_HEADER_MOTION.timeSlot.spring }}
             className={cn(
-              'px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap',
+              'px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0',
               'min-h-[44px] flex items-center justify-center gap-1.5',
               'transition-colors duration-200',
               isSelected

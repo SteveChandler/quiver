@@ -377,7 +377,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   const headline = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
 
   return (
-    <div className="space-y-3 px-4 sm:px-1" data-testid="hero-recommendation">
+    <div className="space-y-4 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}
       <h1 className="text-2xl xs:text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
         {headline.prefix}
@@ -403,14 +403,14 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
 
       {/* Natural language message */}
       {message && (
-        <p className="text-sm sm:text-base text-white/80" data-testid="hero-message">
+        <p className="text-sm sm:text-base text-white/80 leading-relaxed" data-testid="hero-message">
           {message}
         </p>
       )}
 
       {/* Time window and condition badges */}
       <motion.div
-        className="flex flex-wrap items-center gap-2"
+        className="flex items-center gap-2 overflow-x-auto -mx-4 px-4 sm:-mx-1 sm:px-1 pb-1 scrollbar-hide"
         data-testid="hero-badges"
         initial="initial"
         animate="animate"
@@ -424,7 +424,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           },
         }}
       >
-        <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+        <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge} className="flex-shrink-0">
           <Badge
             variant="outline"
             className="text-xs sm:text-sm font-medium bg-white/10 text-white border-white/20 py-1.5 px-2.5"
@@ -436,7 +436,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
 
         {/* Wave height badge */}
         {waveHeightBadge && (
-          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge} className="flex-shrink-0">
             <Badge
               variant="outline"
               className="text-xs sm:text-sm font-medium py-1.5 px-2.5 bg-white/10 text-white border-white/20"
@@ -451,7 +451,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           const conditionBadge = getConditionBadge(tier);
           if (!conditionBadge) return null;
           return (
-            <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}>
+            <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge} className="flex-shrink-0">
               <Badge
                 variant="outline"
                 className={`text-xs sm:text-sm font-medium py-1.5 px-2.5 ${conditionBadge.className}`}
@@ -467,6 +467,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
           <motion.div
             key={badge.label}
             variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}
+            className="flex-shrink-0"
           >
             <Badge
               variant="outline"

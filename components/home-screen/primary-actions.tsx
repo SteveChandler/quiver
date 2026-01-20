@@ -122,15 +122,13 @@ export const PrimaryActions = React.memo(function PrimaryActions({
         transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.button.spring}
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
-          "bg-gradient-to-b from-white/15 to-white/5",
-          "hover:from-white/20 hover:to-white/10",
-          "active:from-white/25 active:to-white/15",
-          "text-white font-semibold text-sm sm:text-base",
-          "border border-white/20 hover:border-white/30",
-          "shadow-sm hover:shadow-md",
+          "bg-transparent hover:bg-white/10 active:bg-white/15",
+          "text-white/80 hover:text-white font-medium text-sm sm:text-base",
+          "border border-white/30 hover:border-white/40",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-white/15 disabled:hover:to-white/5 disabled:hover:shadow-sm",
-          "flex items-center justify-center gap-1 sm:gap-1.5"
+          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent",
+          "flex items-center justify-center gap-1 sm:gap-1.5",
+          "transition-colors duration-200"
         )}
         aria-label="Plan your weekend surf trip"
         data-testid="plan-weekend-button"
