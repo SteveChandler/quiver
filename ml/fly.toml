@@ -10,10 +10,13 @@ primary_region = 'lax'
   dockerfile = 'Dockerfile'
 
 [env]
-  MODEL_PATH = 'models/bias_model_combined_v1.json'
-  MODEL_VERSION = 'combined_v1'
+  # ROLLBACK: Disabled combined_v1 model due to severe performance regression
+  # combined_v1 showed 16.5% improvement rate (target >55%) and avg -0.59m degradation
+  # See docs/postmortems/2026-01-20-ml-model-regression.md for details
+  MODEL_PATH = 'models/bias_model_v1.json'
+  MODEL_VERSION = 'v1'
   FALLBACK_MODEL_PATH = 'models/bias_model_v1.json'
-  USE_ENSEMBLE = 'true'
+  USE_ENSEMBLE = 'false'
   PORT = '8080'
 
 [http_service]
