@@ -18,6 +18,10 @@ import {
   createMockRequest,
   expectSuccessResponse,
 } from "@/test-utils/api-test-helpers";
+import {
+  createMockProfileDTO,
+  expectOnboardingField,
+} from "@/test-utils/profile-api-test-helpers";
 
 // Create mock client before mocking modules
 const mockSupabaseClient = createMockSupabaseClient();
@@ -63,127 +67,65 @@ describe("GET /api/profile - onboarding_completed_at field", () => {
     const userId = "test-user-123";
     const completionDate = "2025-01-15T10:00:00.000Z";
 
-    // Mock the profile DTO fetcher
-    getProfileDTOById.mockResolvedValue({
-      id: userId,
-      full_name: "Test User",
-      home_beach_id: "beach-123",
-      homeBeachName: "Test Beach",
-      home_beach: { id: "beach-123", name: "Test Beach" },
-      experience_level: "intermediate",
-      created_at: "2024-12-01T00:00:00.000Z",
-      updated_at: "2025-01-15T10:00:00.000Z",
-    });
-
-    // Mock the profiles table query for onboarding_completed_at
-    (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
-      if (tableName === "profiles") {
-        return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn(() =>
-            Promise.resolve({
-              data: { onboarding_completed_at: completionDate },
-              error: null,
-            })
-          ),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      };
-    });
+    // Mock using helper - cleaner and more maintainable
+    getProfileDTOById.mockResolvedValue(
+      createMockProfileDTO({
+        id: userId,
+        full_name: "Test User",
+        home_beach_id: "beach-123",
+        homeBeachName: "Test Beach",
+        home_beach: { id: "beach-123", name: "Test Beach" },
+        experience_level: "intermediate",
+        onboarding_completed_at: completionDate,
+      })
+    );
 
     const request = createMockRequest("GET", "http://localhost:3000/api/profile");
     const response = await GET(request);
 
     const data = await expectSuccessResponse(response, 200);
-    expect(data.data.onboarding_completed_at).toBe(completionDate);
+    expectOnboardingField(data.data, completionDate);
   });
 
   it("should return null onboarding_completed_at for users who have not completed onboarding", async () => {
     const userId = "test-user-123";
 
-    // Mock the profile DTO fetcher
-    getProfileDTOById.mockResolvedValue({
-      id: userId,
-      full_name: "New User",
-      home_beach_id: null,
-      homeBeachName: null,
-      home_beach: null,
-      experience_level: null,
-      created_at: "2025-01-20T00:00:00.000Z",
-      updated_at: "2025-01-20T00:00:00.000Z",
-    });
-
-    // Mock the profiles table query - user has NOT completed onboarding
-    (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
-      if (tableName === "profiles") {
-        return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn(() =>
-            Promise.resolve({
-              data: { onboarding_completed_at: null },
-              error: null,
-            })
-          ),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      };
-    });
+    // Mock using helper with null onboarding
+    getProfileDTOById.mockResolvedValue(
+      createMockProfileDTO({
+        id: userId,
+        full_name: "New User",
+        onboarding_completed_at: null,
+      })
+    );
 
     const request = createMockRequest("GET", "http://localhost:3000/api/profile");
     const response = await GET(request);
 
     const data = await expectSuccessResponse(response, 200);
-    expect(data.data.onboarding_completed_at).toBeNull();
+    expectOnboardingField(data.data, null);
   });
 
   it("should handle missing onboarding data gracefully (returns null)", async () => {
     const userId = "test-user-123";
 
-    // Mock the profile DTO fetcher
-    getProfileDTOById.mockResolvedValue({
-      id: userId,
-      full_name: "Edge Case User",
-      home_beach_id: "beach-456",
-      homeBeachName: "Another Beach",
-      home_beach: { id: "beach-456", name: "Another Beach" },
-    });
-
-    // Mock the profiles table query - returns empty/no data for onboarding field
-    (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
-      if (tableName === "profiles") {
-        return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn(() =>
-            Promise.resolve({
-              data: null, // No data returned
-              error: null,
-            })
-          ),
-        };
-      }
-      return {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      };
-    });
+    // Mock using helper - onboarding_completed_at intentionally omitted to test fallback
+    getProfileDTOById.mockResolvedValue(
+      createMockProfileDTO({
+        id: userId,
+        full_name: "Edge Case User",
+        home_beach_id: "beach-456",
+        homeBeachName: "Another Beach",
+        home_beach: { id: "beach-456", name: "Another Beach" },
+        onboarding_completed_at: undefined as any, // Explicitly test undefined handling
+      })
+    );
 
     const request = createMockRequest("GET", "http://localhost:3000/api/profile");
     const response = await GET(request);
 
     const data = await expectSuccessResponse(response, 200);
     // Should default to null when data is missing (defensive coding)
-    expect(data.data.onboarding_completed_at).toBeNull();
+    expectOnboardingField(data.data, null);
   });
 });

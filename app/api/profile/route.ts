@@ -20,13 +20,6 @@ export const GET = withAuth(
       return createNotFoundError("Profile not found");
     }
 
-    // Fetch onboarding status directly from profiles table (not in view)
-    const { data: onboardingData } = await supabase
-      .from("profiles")
-      .select("onboarding_completed_at")
-      .eq("id", user.id)
-      .single();
-
     const toIsoOrNull = (value?: string | null) => {
       if (!value) return null;
       const d = new Date(value);
@@ -50,8 +43,8 @@ export const GET = withAuth(
       home_beach_name: dto.homeBeachName ?? null,
       // API contract alias: expose `experience_level` as `skill_level`
       skill_level: dto.experience_level ?? null,
-      // Onboarding tracking
-      onboarding_completed_at: onboardingData?.onboarding_completed_at ?? null,
+      // Onboarding tracking (now included in view)
+      onboarding_completed_at: dto.onboarding_completed_at ?? null,
     };
 
     return createSuccessResponse(profile);
