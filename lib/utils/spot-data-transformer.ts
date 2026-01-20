@@ -4,7 +4,8 @@
  */
 
 import type { Beach } from "@/types/database";
-import type { SurfSpot, SurfCitySlug } from "@/lib/data/surf-spots";
+import type { SurfSpot } from "@/lib/data/surf-spots";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 /**
  * Unified data structure for spot pages.
@@ -22,7 +23,8 @@ export interface SpotPageData {
   city: string | null;
   state: string | null;
   region: string | null;
-  citySlug: SurfCitySlug | null;
+  /** City slug for intent page links (e.g., "huntington-beach", "san-diego") */
+  citySlug: string | null;
 
   // Content (from database)
   description: string | null;
@@ -54,39 +56,40 @@ export interface SpotPageData {
 
 /**
  * Maps city names to city slugs for URL generation.
+ * Uses slugifyAscii to convert city names to URL-safe slugs that match
+ * the intent page routing (e.g., "Huntington Beach" -> "huntington-beach").
+ *
+ * Special cases:
+ * - San Diego area neighborhoods map to "san-diego" since they share intent pages
+ * - Generic "Orange County" entries map to null since county-level intent pages don't exist
  */
-function inferCitySlug(city: string | null): SurfCitySlug | null {
+function inferCitySlug(city: string | null): string | null {
   if (!city) return null;
-  const cityLower = city.toLowerCase();
+  const cityLower = city.toLowerCase().trim();
 
-  if (
-    cityLower.includes("san diego") ||
-    cityLower.includes("la jolla") ||
-    cityLower.includes("encinitas") ||
-    cityLower.includes("cardiff") ||
-    cityLower.includes("del mar") ||
-    cityLower.includes("coronado") ||
-    cityLower.includes("imperial beach") ||
-    cityLower.includes("ocean beach") ||
-    cityLower.includes("pacific beach") ||
-    cityLower.includes("mission beach")
-  ) {
+  // San Diego area neighborhoods should map to the main "san-diego" slug
+  // since the intent pages aggregate at the city level
+  const sanDiegoNeighborhoods = [
+    "la jolla",
+    "ocean beach",
+    "pacific beach",
+    "mission beach",
+    "del mar",
+  ];
+  if (sanDiegoNeighborhoods.some((n) => cityLower === n)) {
     return "san-diego";
   }
 
-  if (
-    cityLower.includes("orange county") ||
-    cityLower.includes("huntington") ||
-    cityLower.includes("newport") ||
-    cityLower.includes("dana point") ||
-    cityLower.includes("san clemente") ||
-    cityLower.includes("seal beach") ||
-    cityLower.includes("laguna")
-  ) {
-    return "orange-county";
+  // Generic "Orange County" doesn't have a valid intent page - return null
+  // Individual OC cities (Huntington Beach, Newport Beach, etc.) will be slugified normally
+  if (cityLower === "orange county") {
+    return null;
   }
 
-  return null;
+  // For all other cities, generate a slug using slugifyAscii
+  // This matches the intent page routing which uses city slugs from the database
+  const slug = slugifyAscii(city);
+  return slug || null;
 }
 
 /**
