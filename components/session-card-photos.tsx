@@ -3,6 +3,7 @@
 import React from "react";
 import { Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTransformedUrl } from "@/lib/utils/image-utils";
 
 export interface SessionPhoto {
   id: string;
@@ -78,10 +79,10 @@ export function SessionCardPhotos({
             key={photo.id}
             className="relative aspect-square overflow-hidden bg-gray-100"
           >
-            {/* Photo Image */}
+            {/* Photo Image - using Supabase image transformations for optimized delivery */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={photo.public_url}
+              src={getTransformedUrl(photo.public_url, 'sessionCard')}
               alt={photo.caption || `Session photo ${index + 1}`}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
               loading="lazy"

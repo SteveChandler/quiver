@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { getTransformedUrl } from "@/lib/utils/image-utils";
 
 interface UserAvatarProps {
   src?: string | null;
@@ -46,7 +47,7 @@ export function UserAvatar({
     xl: "h-24 w-24",
   };
 
-  // Clean up the src URL and validate
+  // Clean up the src URL and apply transformations for optimized delivery
   const cleanSrc = (() => {
     if (!src || imageError) return null;
 
@@ -54,7 +55,9 @@ export function UserAvatar({
     // Don't filter out Supabase storage URLs or other valid image URLs
     if (src.startsWith("/placeholder.svg")) return null;
 
-    return src;
+    // Apply Supabase image transformations based on avatar size
+    // This converts to WebP and resizes on-the-fly (Pro plan feature)
+    return getTransformedUrl(src, size === 'xl' ? 'avatarLarge' : 'avatar');
   })();
 
   const handleImageError = () => {

@@ -34,6 +34,7 @@ import {
   uploadSessionPhotosAction,
 } from "@/actions/session-media-actions";
 import { toast } from "sonner";
+import { getTransformedUrl } from "@/lib/utils/image-utils";
 
 interface SessionPhoto {
   id: string;
@@ -417,7 +418,7 @@ export default function SessionPhotoGallery({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photo.public_url}
+                src={getTransformedUrl(photo.public_url, 'galleryPreview')}
                 alt={photo.caption || `Session photo ${index + 1}`}
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 loading="lazy"
@@ -485,7 +486,7 @@ export default function SessionPhotoGallery({
               <div className="relative bg-black">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={currentPhoto.public_url}
+                  src={getTransformedUrl(currentPhoto.public_url, 'fullWidth')}
                   alt={currentPhoto.caption || "Session photo"}
                   className="w-full max-h-[70vh] object-contain"
                 />
