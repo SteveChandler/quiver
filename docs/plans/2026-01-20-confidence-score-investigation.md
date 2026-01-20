@@ -48,29 +48,30 @@ export function calculateConfidenceScore({
 
 **To get 1%:** All flags must be false AND forecastHoursAhead > 98 hours (impossible with our data)
 
-## Root Cause Hypothesis
+## Root Cause (CONFIRMED)
 
-The confidence is calculated in `lib/services/forecast/forecast-builder.ts:98-105`:
+**Scale mismatch between confidence scorer and weighting service:**
+
+| System | Scale | Example |
+|--------|-------|---------|
+| `calculateConfidenceScore()` | 0-100 | 70 means 70% |
+| Weighting service | 0-1 | 0.7 means 70% |
+
+In `lib/services/enhanced-forecast-service.ts`:
 
 ```typescript
-const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
-const tideInfo = this.getTideInfo(tideData, forecastTime);
-const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
-const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
+// Line 403: Passes 0-100 scale value to 0-1 scale system
+confidence: forecast.confidence_score || 0.7,  // If confidence_score=70, confidence=70
 
-const confidenceScore = calculateConfidenceScore({
-  hasWaveData: !!wavePoint,      // <-- These are returning null!
-  hasTideData: !!tideInfo,
-  hasWeatherData: !!weatherPoint,
-  hasBuoyData: useBuoyData,
-  hasCDIPData: useCDIPData,
-  forecastHoursAhead: i * 3,
-});
+// In weighting service, line 196:
+confidence: Math.min(1.0, forecast.confidence + calibration.confidenceBoost),
+// Math.min(1.0, 70 + 0.1) = 1.0 (caps at 1.0!)
+
+// Line 432: Writes 1.0 back as confidence_score
+confidence_score: weightedForecast.confidence,  // Stores 1, displays as "1%"
 ```
 
-**The issue:** The time-lookup functions (`getWaveDataForTime`, `getTideInfo`, etc.) are returning `null` even though the raw data exists. This creates a mismatch:
-- `data_source` field shows "CDIP" (data was fetched)
-- But `hasWaveData` is false (time alignment failed)
+**The bug:** A 70% confidence score gets passed as 70 (not 0.7) to the weighting service, which caps at 1.0, resulting in "1% confidence" display
 
 ## Investigation Steps
 
@@ -123,48 +124,30 @@ Check if the raw_forecast JSON contains data that wasn't used:
 - Does `raw_forecast.data_sources` list multiple sources?
 - Why didn't these translate to high confidence?
 
-## Likely Fixes
+## Fix (IMPLEMENTED)
 
-### Option A: Fix Time Alignment in Lookup Functions
-
-The lookup functions may use exact time matching when they should use nearest-neighbor:
+Convert between scales at the boundary in `lib/services/enhanced-forecast-service.ts`:
 
 ```typescript
-// Current (hypothetical):
-getWaveDataForTime(waveData, forecastTime) {
-  return waveData.find(d => d.time === forecastTime); // Exact match fails
-}
+// Line 397-398: Convert 0-100 to 0-1 before passing to weighting service
+const confidenceDecimal = (forecast.confidence_score ?? 70) / 100;
+const automatedForecast = {
+  // ...
+  confidence: confidenceDecimal,
+};
 
-// Fixed:
-getWaveDataForTime(waveData, forecastTime) {
-  return findNearest(waveData, forecastTime, maxGapHours: 1); // Nearest within 1 hour
-}
+// Line 435: Convert 0-1 back to 0-100 when storing
+const updatedForecast = {
+  // ...
+  confidence_score: Math.round(weightedForecast.confidence * 100),
+};
 ```
 
-### Option B: Fix Timezone Handling
+**Before fix:**
+- `confidence_score: 70` → `confidence: 70` → `Math.min(1.0, 70.1)` = 1.0 → stored as 1 → **"1% confidence"**
 
-CDIP/NOAA data may use different timezone conventions:
-
-```typescript
-// Current (hypothetical):
-const forecastTime = new Date(dateString + 'T' + timeString); // Local time?
-
-// Fixed:
-const forecastTime = new Date(dateString + 'T' + timeString + 'Z'); // Explicit UTC
-```
-
-### Option C: Inherit Confidence from Data Source
-
-If data_source shows "CDIP", ensure minimum confidence:
-
-```typescript
-// Fallback if time lookups fail
-const minConfidence = useCDIPData ? 70 : hasWaveData ? 60 : 50;
-const confidenceScore = Math.max(
-  minConfidence,
-  calculateConfidenceScore({ ... })
-);
-```
+**After fix:**
+- `confidence_score: 70` → `confidence: 0.7` → `Math.min(1.0, 0.8)` = 0.8 → stored as 80 → **"80% confidence"**
 
 ## Files to Investigate
 
