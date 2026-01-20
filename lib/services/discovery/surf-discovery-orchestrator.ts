@@ -573,9 +573,9 @@ export async function discoverSurfSpots(
       log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
     }
 
-    // Separate favorites from scored recommendations
-    const favoriteRecs: SurfDiscoveryRecommendation[] = [];
-    const nonFavoriteRecs: SurfDiscoveryRecommendation[] = [];
+    // Mark favorites with badge flag, but do NOT prioritize in ranking
+    // All beaches are ranked purely by score - favorites just get a heart badge
+    const allRecs: SurfDiscoveryRecommendation[] = [];
 
     for (const rec of scored) {
       // Null safety: skip malformed recommendations
@@ -584,27 +584,21 @@ export async function discoverSurfSpots(
         continue;
       }
 
-      if (favoriteBeachIds.has(rec.beach.id)) {
-        // Only include favorites with score >= 50
-        if (rec.score >= 50) {
-          favoriteRecs.push({ ...rec, isFavorite: true });
-        }
-      } else {
-        nonFavoriteRecs.push(rec);
-      }
+      allRecs.push({
+        ...rec,
+        isFavorite: favoriteBeachIds.has(rec.beach.id),
+      });
     }
 
-    // Sort favorites by score descending
-    favoriteRecs.sort((a, b) => b.score - a.score);
+    // Sort ALL recommendations by score descending (pure score ranking)
+    allRecs.sort((a, b) => b.score - a.score);
 
-    // Sort non-favorites by score descending
-    nonFavoriteRecs.sort((a, b) => b.score - a.score);
+    // Take top results
+    const merged = allRecs.slice(0, maxResults);
 
-    // Merge: favorites first, then non-favorites, then slice to maxResults
-    const merged = [...favoriteRecs, ...nonFavoriteRecs].slice(0, maxResults);
-
+    const favoriteCount = merged.filter(r => r.isFavorite).length;
     log.debug(
-      `Merged recommendations: ${favoriteRecs.length} favorites (score >= 50), ${nonFavoriteRecs.length} non-favorites, ${merged.length} total`
+      `Merged recommendations: ${favoriteCount} favorites in top ${merged.length} (pure score ranking)`
     );
 
     // 5. Enrich with photos
