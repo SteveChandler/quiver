@@ -10,6 +10,7 @@
  * - Mexico route structure changes
  */
 
+import * as Sentry from "@sentry/nextjs";
 import {
   isValidStateSlug,
   stateToSlug,
@@ -55,6 +56,17 @@ const RESERVED_PATHS = new Set([
   "least-crowded",
 ]);
 
+// Valid intent slugs for legacy URL redirect handling
+const INTENT_SLUGS = new Set([
+  "beginner",
+  "longboard",
+  "tide",
+  "water-temp",
+  "dawn-patrol",
+  "sunset",
+  "least-crowded",
+]);
+
 /**
  * URL pattern types for SEO redirect handling
  */
@@ -62,6 +74,7 @@ export type UrlPatternType =
   | "state-only"      // /ca, /nj, /pr
   | "us-beach"        // /ca/san-diego/blacks
   | "mexico-beach"    // /mexico/baja-california/rosarito/alfonsos
+  | "legacy-intent"   // /beginner/san-diego (old format without state)
   | "none";           // Not a redirect candidate
 
 /**
@@ -77,10 +90,22 @@ export function classifyUrlPattern(pathname: string): UrlPatternType {
 
   const segments = pathname.split("/").filter(Boolean);
   const firstSegment = segments[0]?.toLowerCase() || "";
+  const secondSegment = segments[1]?.toLowerCase() || "";
 
-  // Skip reserved paths
-  if (RESERVED_PATHS.has(firstSegment)) {
+  // Skip reserved paths (except intent slugs which we handle specially)
+  if (RESERVED_PATHS.has(firstSegment) && !INTENT_SLUGS.has(firstSegment)) {
     return "none";
+  }
+
+  // 2 segments: /{intent}/{city} - legacy intent URLs without state
+  // Must match: first segment is intent, second is NOT a state slug
+  // (If second segment IS a state slug, let it pass to [intent]/[state] route)
+  if (
+    segments.length === 2 &&
+    INTENT_SLUGS.has(firstSegment) &&
+    !isValidStateSlug(secondSegment)
+  ) {
+    return "legacy-intent";
   }
 
   // 1 segment: /{state} - state-only pages like /ca, /nj
@@ -145,6 +170,83 @@ export interface BeachLookupResult {
 }
 
 /**
+ * City lookup result for legacy intent URL redirects
+ */
+export interface CityLookupResultForRedirect {
+  city: string;
+  state: string;
+}
+
+/**
+ * Lookup city by slug using direct Supabase REST API
+ *
+ * Queries the beaches table to find a city and its state by slug.
+ * Uses DISTINCT to deduplicate since multiple beaches may share a city.
+ *
+ * @param citySlug - City slug to look up (e.g., "san-diego")
+ * @returns City data with state if found, null otherwise
+ */
+export async function lookupCityBySlugForRedirect(
+  citySlug: string
+): Promise<CityLookupResultForRedirect | null> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn("[SEO Redirect] Missing Supabase credentials");
+      return null;
+    }
+
+    // Normalize the slug to a searchable city name pattern
+    // "san-diego" -> "San Diego" (approximate - we search case-insensitively)
+    const searchPattern = citySlug.replace(/-/g, " ");
+
+    // Query beaches table for city matching the slug
+    // We use ilike for case-insensitive partial match
+    const url = `${supabaseUrl}/rest/v1/beaches?city=ilike.${encodeURIComponent(searchPattern)}&select=city,state&limit=1`;
+
+    const fetchOptions: RequestInit = {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnonKey}`,
+      },
+    };
+
+    // Add timeout signal if available (500ms to avoid blocking requests)
+    if (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal) {
+      fetchOptions.signal = AbortSignal.timeout(500);
+    }
+
+    const response = await fetch(url, fetchOptions);
+
+    if (!response.ok) {
+      console.warn("[SEO Redirect] City lookup query failed:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data) && data.length > 0 && data[0].city && data[0].state) {
+      return {
+        city: data[0].city,
+        state: data[0].state,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    Sentry.withScope((scope) => {
+      scope.setTag('seo_redirect_type', 'city_lookup');
+      scope.setContext('redirect_context', { citySlug });
+      Sentry.captureException(error);
+    });
+    console.warn("[SEO Redirect] City lookup error:", error instanceof Error ? error.message : "Unknown error");
+    return null;
+  }
+}
+
+/**
  * Lookup beach by slug using direct Supabase REST API
  *
  * Uses fetch instead of Supabase client to avoid SSR overhead in middleware.
@@ -202,11 +304,12 @@ export async function lookupBeachBySlug(
 
     return null;
   } catch (error) {
-    // Fail open - don't block requests on lookup errors
-    console.warn(
-      "[SEO Redirect] Lookup error:",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    Sentry.withScope((scope) => {
+      scope.setTag('seo_redirect_type', 'beach_lookup');
+      scope.setContext('redirect_context', { slug });
+      Sentry.captureException(error);
+    });
+    console.warn("[SEO Redirect] Lookup error:", error instanceof Error ? error.message : "Unknown error");
     return null;
   }
 }
@@ -325,12 +428,56 @@ async function handleUsBeachRedirect(
 }
 
 /**
+ * Handle legacy intent URL redirects
+ * Example: /beginner/san-diego → /beginner/ca/san-diego
+ *
+ * These are old URLs from before we added the state segment.
+ * We look up the city to find its state and redirect to the new format.
+ */
+async function handleLegacyIntentRedirect(
+  pathname: string
+): Promise<SeoRedirectResult> {
+  const segments = pathname.split("/").filter(Boolean);
+
+  if (segments.length !== 2) {
+    return { redirect: false };
+  }
+
+  const intentSlug = segments[0]?.toLowerCase() || "";
+  const citySlug = segments[1]?.toLowerCase() || "";
+
+  if (!INTENT_SLUGS.has(intentSlug) || !citySlug) {
+    return { redirect: false };
+  }
+
+  // Lookup city to find its state
+  const cityData = await lookupCityBySlugForRedirect(citySlug);
+
+  if (!cityData) {
+    // City not found - let request pass through to 404
+    return { redirect: false };
+  }
+
+  // Convert state to slug (e.g., "California" -> "ca")
+  const stateSlug = stateToSlug(cityData.state);
+  if (!stateSlug) {
+    return { redirect: false };
+  }
+
+  // Build new URL: /{intent}/{state}/{city}
+  const redirectUrl = `/${intentSlug}/${stateSlug}/${citySlug}`;
+  console.log(`[SEO Redirect] Legacy intent ${pathname} → ${redirectUrl}`);
+  return { redirect: true, url: redirectUrl };
+}
+
+/**
  * Main handler for SEO redirects
  *
  * Handles multiple URL pattern types:
  * - State-only: /ca → /beaches/usa/ca
  * - US beach: /ca/orange-county/doheny → /ca/dana-point/doheny
  * - Mexico beach: /mexico/baja-california/rosarito/alfonsos → /spots/alfonsos
+ * - Legacy intent: /beginner/san-diego → /beginner/ca/san-diego
  *
  * Design principles:
  * - Fail open: If anything goes wrong, return no redirect (let request pass)
@@ -343,20 +490,32 @@ async function handleUsBeachRedirect(
 export async function handleSeoRedirect(
   pathname: string
 ): Promise<SeoRedirectResult> {
-  const patternType = classifyUrlPattern(pathname);
+  try {
+    const patternType = classifyUrlPattern(pathname);
 
-  switch (patternType) {
-    case "state-only":
-      return handleStateOnlyRedirect(pathname);
+    switch (patternType) {
+      case "state-only":
+        return handleStateOnlyRedirect(pathname);
 
-    case "us-beach":
-      return handleUsBeachRedirect(pathname);
+      case "us-beach":
+        return handleUsBeachRedirect(pathname);
 
-    case "mexico-beach":
-      return handleMexicoBeachRedirect(pathname);
+      case "mexico-beach":
+        return handleMexicoBeachRedirect(pathname);
 
-    case "none":
-    default:
-      return { redirect: false };
+      case "legacy-intent":
+        return handleLegacyIntentRedirect(pathname);
+
+      case "none":
+      default:
+        return { redirect: false };
+    }
+  } catch (error) {
+    Sentry.withScope((scope) => {
+      scope.setTag('seo_redirect_type', 'handler_error');
+      scope.setContext('redirect_context', { pathname });
+      Sentry.captureException(error);
+    });
+    return { redirect: false };
   }
 }
