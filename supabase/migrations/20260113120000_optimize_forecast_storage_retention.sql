@@ -1,16 +1,20 @@
 -- Migration: Optimize Forecast Storage Retention
--- Purpose: Reduce database storage by ~250MB through:
--- 1. Updating retention from 30 days to 7 days for marine/tide, 14 days for enhanced
--- 2. Dropping redundant index on tide_forecasts (saves ~30MB)
--- 3. Immediate cleanup of old data
+-- Purpose: Configure retention policies for forecast data:
+-- 1. 90-day retention for marine/tide forecasts (supports ML training data requirements)
+-- 2. 14-day retention for enhanced forecasts (user-facing data)
+-- 3. Drop redundant index on tide_forecasts (saves ~30MB)
+--
+-- Updated January 2026: Extended raw forecast retention from 7 to 90 days
+-- to provide adequate training data for ML bias correction models.
+-- See: docs/architecture/DATABASE_SCHEMA.md#ml-training-data-requirements
 
 -- ============================================================================
--- Step 1: Update the prune_forecasts_retention function to use shorter retention
+-- Step 1: Update the prune_forecasts_retention function
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.prune_forecasts_retention(
-  keep_days_raw integer DEFAULT 7,        -- Changed from 30 to 7 for raw forecasts
-  keep_days_enhanced integer DEFAULT 14,  -- Keep enhanced forecasts longer
+  keep_days_raw integer DEFAULT 90,       -- 90 days for ML training data
+  keep_days_enhanced integer DEFAULT 14,  -- 14 days for user-facing forecasts
   batch_size integer DEFAULT 25000
 )
 RETURNS TABLE(marine_deleted bigint, tide_deleted bigint, enhanced_deleted bigint)
@@ -27,7 +31,7 @@ BEGIN
   tide_deleted := 0;
   enhanced_deleted := 0;
 
-  -- Delete old marine_forecasts (7 day retention)
+  -- Delete old marine_forecasts (90 day retention for ML training data)
   LOOP
     DELETE FROM public.marine_forecasts
     WHERE ctid IN (
@@ -41,7 +45,7 @@ BEGIN
     EXIT WHEN v_deleted = 0;
   END LOOP;
 
-  -- Delete old tide_forecasts (7 day retention)
+  -- Delete old tide_forecasts (90 day retention for ML training data)
   LOOP
     DELETE FROM public.tide_forecasts
     WHERE ctid IN (
@@ -74,7 +78,7 @@ END;
 $function$;
 
 -- ============================================================================
--- Step 2: Update the cron job to use new default parameters
+-- Step 2: Update the cron job to use 90-day retention
 -- ============================================================================
 
 -- Unschedule the old job (handle case where job doesn't exist on fresh databases)
@@ -85,11 +89,11 @@ EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'cron job "prune_forecasts_retention" not found, skipping unschedule';
 END $$;
 
--- Schedule new job with updated parameters (7 days for raw, 14 for enhanced)
+-- Schedule new job with 90-day retention for raw forecasts
 SELECT cron.schedule(
   'prune_forecasts_retention',
   '0 5 * * *',  -- Run at 5am daily
-  $$SELECT public.prune_forecasts_retention(7, 14, 25000);$$
+  $$SELECT public.prune_forecasts_retention(90, 14, 25000);$$
 );
 
 -- ============================================================================
@@ -103,10 +107,9 @@ DROP INDEX IF EXISTS public.idx_tide_forecasts_beach_ts;
 
 -- ============================================================================
 -- Step 4: Run immediate cleanup to free space (one-time)
--- This will delete ~28 days of old data
 -- NOTE: For production databases with large datasets, consider running this
 -- separately after the migration to avoid transaction timeout issues:
---   SELECT * FROM public.prune_forecasts_retention(7, 14, 25000);
+--   SELECT * FROM public.prune_forecasts_retention(90, 14, 25000);
 -- ============================================================================
 
 -- Run the cleanup function with error handling to prevent migration failure
@@ -117,14 +120,14 @@ BEGIN
   -- Set a statement timeout for this block (5 minutes)
   SET LOCAL statement_timeout = '300s';
 
-  SELECT * INTO result FROM public.prune_forecasts_retention(7, 14, 25000);
+  SELECT * INTO result FROM public.prune_forecasts_retention(90, 14, 25000);
   RAISE NOTICE 'Cleanup complete - deleted: marine=%, tide=%, enhanced=%',
     result.marine_deleted, result.tide_deleted, result.enhanced_deleted;
 EXCEPTION
   WHEN query_canceled THEN
-    RAISE WARNING 'Cleanup timed out. Run manually after migration: SELECT * FROM public.prune_forecasts_retention(7, 14, 25000);';
+    RAISE WARNING 'Cleanup timed out. Run manually after migration: SELECT * FROM public.prune_forecasts_retention(90, 14, 25000);';
   WHEN OTHERS THEN
-    RAISE WARNING 'Cleanup failed (%). Run manually after migration: SELECT * FROM public.prune_forecasts_retention(7, 14, 25000);', SQLERRM;
+    RAISE WARNING 'Cleanup failed (%). Run manually after migration: SELECT * FROM public.prune_forecasts_retention(90, 14, 25000);', SQLERRM;
 END $$;
 
 -- ============================================================================
@@ -141,6 +144,6 @@ END $$;
 
 COMMENT ON FUNCTION public.prune_forecasts_retention IS
 'Prunes old forecast data to reduce storage.
-Default retention: 7 days for marine/tide_forecasts, 14 days for enhanced_forecasts.
+Default retention: 90 days for marine/tide_forecasts (ML training), 14 days for enhanced_forecasts.
 Runs in batches to avoid locking.
 Scheduled to run daily at 5am via pg_cron.';
