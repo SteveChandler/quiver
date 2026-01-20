@@ -210,13 +210,49 @@ describe("Sitemap Generation", () => {
     });
   });
 
-  describe("Curated Spot Routes", () => {
-    it("should not include deprecated /spots routes", async () => {
+  describe("Canonical Spot Routes", () => {
+    it("should use hierarchical URL for beaches with complete location data", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+          },
+        ],
+      });
+
       const result = await sitemap();
-      const hasDeprecatedSpotsRoutes = result.some((r) =>
-        r.url.includes("/spots/")
+      // Complete data uses hierarchical URL (canonical, no redirect)
+      const hierarchicalRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs")
       );
-      expect(hasDeprecatedSpotsRoutes).toBe(false);
+      expect(hierarchicalRoute).toBeDefined();
+    });
+
+    it("should use /spots/{slug} for beaches missing location data", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "mystery-break",
+            city: null,
+            state: null,
+            country: null,
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      // Incomplete data falls back to /spots/ URL
+      const spotsRoute = result.find((r) =>
+        r.url.includes("/spots/mystery-break")
+      );
+      expect(spotsRoute).toBeDefined();
     });
   });
 
@@ -363,7 +399,7 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Beach Routes", () => {
-    it("should include beach routes from getBeaches", async () => {
+    it("should include beach routes using hierarchical URL for complete data", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -379,7 +415,7 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      // buildBeachUrl returns /{state}/{city}/{beach} format
+      // Uses hierarchical URL when city and state are present (matches redirect in /spots/[slug])
       const beachRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs")
       );
@@ -387,7 +423,7 @@ describe("Sitemap Generation", () => {
       expect(beachRoute).toBeDefined();
     });
 
-    it("should include international beach routes when country is non-USA", async () => {
+    it("should use hierarchical URL for international beaches with complete data", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -403,6 +439,7 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
+      // Uses hierarchical URL for international beaches with complete data
       const beachRoute = result.find((r) =>
         r.url.includes("/mexico/baja-california/rosarito/teresas")
       );
@@ -424,22 +461,22 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      // Beach with null slug should not be in beach entries (hierarchical URLs)
-      const beachHierarchicalRoute = result.find(
-        (r) => r.url.includes("/ca/san-diego/")
+      // Beach with null slug should not be in beach entries
+      const beachRoute = result.find(
+        (r) => r.url.includes("/spots/") && r.url.includes("beach-1")
       );
 
-      expect(beachHierarchicalRoute).toBeUndefined();
+      expect(beachRoute).toBeUndefined();
     });
 
-    it("should filter out beaches without city", async () => {
+    it("should use /spots/{slug} fallback for beaches without city", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
           {
             id: "beach-1",
             slug: "sunset-cliffs",
-            city: null, // Missing city
+            city: null, // Missing city - falls back to /spots/ URL
             state: "CA",
           },
         ],
@@ -447,13 +484,13 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
       const sunsetRoute = result.find((r) =>
-        r.url.includes("sunset-cliffs")
+        r.url.includes("/spots/sunset-cliffs")
       );
 
-      expect(sunsetRoute).toBeUndefined();
+      expect(sunsetRoute).toBeDefined();
     });
 
-    it("should filter out beaches without state", async () => {
+    it("should use /spots/{slug} fallback for beaches without state", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -461,17 +498,17 @@ describe("Sitemap Generation", () => {
             id: "beach-1",
             slug: "sunset-cliffs",
             city: "San Diego",
-            state: null, // Missing state
+            state: null, // Missing state - falls back to /spots/ URL
           },
         ],
       });
 
       const result = await sitemap();
       const sunsetRoute = result.find((r) =>
-        r.url.includes("sunset-cliffs")
+        r.url.includes("/spots/sunset-cliffs")
       );
 
-      expect(sunsetRoute).toBeUndefined();
+      expect(sunsetRoute).toBeDefined();
     });
 
     it("should set priority 0.6 for beach routes", async () => {
@@ -490,7 +527,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
       const beachRoute = result.find((r) =>
-        r.url.includes("sunset-cliffs")
+        r.url.includes("/ca/san-diego/sunset-cliffs")
       );
 
       expect(beachRoute?.priority).toBe(0.6);
@@ -514,7 +551,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
       const beachRoute = result.find((r) =>
-        r.url.includes("sunset-cliffs")
+        r.url.includes("/ca/san-diego/sunset-cliffs")
       );
 
       expect(beachRoute?.lastModified).toBe(updatedAt);

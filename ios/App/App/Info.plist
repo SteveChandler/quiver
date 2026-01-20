@@ -48,6 +48,8 @@
 	<true />
 	<key>KeyboardDisplayRequiresUserAction</key>
 	<false />
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Quiver needs your location to find nearby surf spots and share local conditions with the community.</string>
 	<key>WKWebViewConfiguration</key>
 	<dict>
 		<key>allowsInlineMediaPlayback</key>
