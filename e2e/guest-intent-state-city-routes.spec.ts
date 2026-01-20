@@ -236,12 +236,15 @@ test.describe("Intent Routes - Accessibility", () => {
   test("should have accessible links", async ({ page }) => {
     await page.goto("/beginner/ca", { timeout: PAGE_LOAD_TIMEOUT });
 
-    // All links should have accessible text
+    // All links should have accessible text or aria-label
     const links = await page.getByRole("link").all();
     for (const link of links.slice(0, 10)) {
-      // Check first 10 links
+      // Check first 10 links - accept text, aria-label, or title
       const text = await link.textContent();
-      expect(text?.trim().length).toBeGreaterThan(0);
+      const ariaLabel = await link.getAttribute("aria-label");
+      const title = await link.getAttribute("title");
+      const hasAccessibleName = (text?.trim().length || 0) > 0 || !!ariaLabel || !!title;
+      expect(hasAccessibleName).toBe(true);
     }
   });
 

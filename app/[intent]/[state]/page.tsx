@@ -6,22 +6,17 @@ import {
   SURF_INTENTS,
   type SurfIntentSlug,
 } from "@/lib/constants/surf-intents";
-import {
-  INTENT_DEFINITIONS,
-  type IntentKey,
-} from "@/lib/constants/intent-definitions";
+import { INTENT_DEFINITIONS } from "@/lib/constants/intent-definitions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { StateMapView } from "@/components/state/state-map-view";
-import { PopularCitiesForIntent } from "@/components/intent/popular-cities-for-intent";
 import {
   isValidStateSlug,
   getUsStateDisplayNameFromSlug,
 } from "@/lib/utils/beach-url-utils";
 import { getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
-import { getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 
 export const revalidate = 1800;
 
@@ -101,15 +96,6 @@ export default async function StateIntentPage({ params }: StateIntentPageParams)
   const beaches = beachesResult.success && beachesResult.data ? beachesResult.data : [];
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-  // Fetch top cities for PopularCitiesForIntent component
-  const citiesResult = await getTopCitiesInState(state, 8);
-  const cities = citiesResult.success && citiesResult.data
-    ? citiesResult.data.map((c) => ({ slug: c.slug, name: c.cityName }))
-    : [];
-
-  // Find matching intent definition for key
-  const intentDef = INTENT_DEFINITIONS.find((d) => d.key === intent);
-
   return (
     <div className="bg-white">
       <BreadcrumbStructuredData
@@ -172,19 +158,6 @@ export default async function StateIntentPage({ params }: StateIntentPageParams)
                 ariaLabel={`${definition.label} spots in ${stateName}`}
               />
             </section>
-
-            {/* Popular Cities - SEO crawl loop */}
-            {cities.length > 0 && intentDef && (
-              <section className="mb-8">
-                <PopularCitiesForIntent
-                  intentKey={intent as IntentKey}
-                  intentLabel={definition.label}
-                  stateSlug={state}
-                  stateName={stateName}
-                  cities={cities}
-                />
-              </section>
-            )}
 
             {/* Focus Points */}
             <section>

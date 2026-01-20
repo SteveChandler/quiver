@@ -108,15 +108,92 @@ jobs:
                   NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
                   NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
 
+            - name: Verify build artifacts exist
+              run: |
+                  echo "🔍 Checking build artifacts..."
+                  if [ ! -d ".next" ]; then
+                    echo "❌ .next directory not found - build may have failed"
+                    exit 1
+                  fi
+                  echo "✅ .next directory exists"
+                  ls -la .next/ | head -20
+
             - name: Wait for server to be ready
               run: |
                   echo "⏳ Waiting for server at http://localhost:3000..."
-                  npx wait-on http://localhost:3000 --timeout 60000 --interval 1000
-                  echo "✅ Server is ready!"
 
-                  # Verify server is responding
-                  curl -f http://localhost:3000 || (echo "❌ Server health check failed" && exit 1)
+                  # Give server a few seconds to start, then check logs
+                  sleep 5
+
+                  # Check if server process is still running
+                  if ! kill -0 $SERVER_PID 2>/dev/null; then
+                    echo "❌ Server process died immediately"
+                    echo "=== Server Output Log ==="
+                    cat server_output.log || echo "No server log found"
+                    exit 1
+                  fi
+
+                  # Wait for server with periodic log checks
+                  for i in {1..12}; do
+                    if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+                      echo "✅ Server is ready!"
+                      break
+                    fi
+                    echo "⏳ Attempt $i/12 - Server not ready yet..."
+
+                    # Show last 10 lines of server log for debugging
+                    if [ -f server_output.log ]; then
+                      echo "--- Recent server output ---"
+                      tail -10 server_output.log
+                      echo "----------------------------"
+                    fi
+
+                    # Check if process is still alive
+                    if ! kill -0 $SERVER_PID 2>/dev/null; then
+                      echo "❌ Server process died"
+                      echo "=== Full Server Output Log ==="
+                      cat server_output.log || echo "No server log found"
+                      exit 1
+                    fi
+
+                    sleep 5
+                  done
+
+                  # Final verification
+                  curl -f http://localhost:3000 || (echo "❌ Server health check failed" && cat server_output.log && exit 1)
                   echo "✅ Server health check passed"
+
+            - name: Install Playwright browsers
+              run: |
+                  echo "📦 Installing Playwright Chromium browser..."
+                  npx playwright install chromium --with-deps
+                  echo "✅ Playwright Chromium installed"
+
+            - name: Run Playwright smoke tests
+              id: playwright
+              run: |
+                  echo "🧪 Running Playwright smoke tests..."
+                  if BASE_URL=http://localhost:3000 npx playwright test --grep @smoke --project=guest 2>&1 | tee playwright_output.log; then
+                    echo "✅ Playwright smoke tests passed"
+                    echo "success=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "⚠️ Playwright smoke tests failed"
+                    echo "success=false" >> $GITHUB_OUTPUT
+                    # Don't fail the workflow - continue to Lighthouse
+                  fi
+              env:
+                  CI: true
+
+            - name: Upload Playwright results
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-results-${{ github.run_number }}
+                  path: |
+                      playwright-report/
+                      test-results/
+                      playwright_output.log
+                  retention-days: 7
 
             - name: Install Lighthouse CI and Puppeteer
               run: |
@@ -184,11 +261,20 @@ jobs:
             - name: Create performance summary
               if: always()
               run: |
-                  echo "## 🔍 Lighthouse CI Performance Report" >> $GITHUB_STEP_SUMMARY
+                  echo "## 🔍 CI Performance Report" >> $GITHUB_STEP_SUMMARY
                   echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
                   echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
                   echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-                  echo "**Status:** ${{ steps.lighthouse.outputs.success == 'true' && '✅ Passed' || '⚠️ Failed/Warnings' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  echo "### Status" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Playwright Smoke Tests:** ${{ steps.playwright.outputs.success == 'true' && '✅ Passed' || '⚠️ Failed' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Lighthouse CI:** ${{ steps.lighthouse.outputs.success == 'true' && '✅ Passed' || '⚠️ Failed/Warnings' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  echo "### 🧪 Playwright Smoke Tests" >> $GITHUB_STEP_SUMMARY
+                  echo "Smoke tests run against guest project (unauthenticated)." >> $GITHUB_STEP_SUMMARY
+                  echo "Download \`playwright-results-${{ github.run_number }}\` artifact for details." >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Audited URLs (Authenticated)" >> $GITHUB_STEP_SUMMARY
@@ -230,13 +316,19 @@ jobs:
             - name: Notify on failure
               if: failure()
               run: |
-                  echo "🚨 Lighthouse CI Workflow Failed"
+                  echo "🚨 CI Workflow Failed"
                   echo "Check the artifacts and logs for detailed error information"
 
                   if [ -f server_output.log ]; then
                     echo ""
                     echo "=== Server Output (Last 20 Lines) ==="
                     tail -20 server_output.log
+                  fi
+
+                  if [ -f playwright_output.log ]; then
+                    echo ""
+                    echo "=== Playwright Output (Last 20 Lines) ==="
+                    tail -20 playwright_output.log
                   fi
 
                   if [ -f lighthouse_output.log ]; then
