@@ -848,6 +848,55 @@ CREATE POLICY npc_templates_select_all ON npc_content_templates
 
 **Documentation**: See [docs/features/NPC_INTEL_BOTS.md](/docs/features/NPC_INTEL_BOTS.md) for comprehensive details.
 
+
+#### **ML Forecast Data Retention Extension (extend_forecast_retention_90_days_v2)**
+
+**Purpose**: Extend raw forecast data retention from 7 days to 90 days to support ML bias correction model training.
+
+**Background**: The ML bias correction model (v1) was trained on only 8 days of data (2,275 samples) during an unusual weather period. This caused the model to learn biased patterns that didn't generalize well. Extended retention enables proper training with diverse conditions.
+
+**Schema Changes**:
+
+```sql
+-- Updated prune_forecasts_retention function defaults
+CREATE OR REPLACE FUNCTION prune_forecasts_retention(
+  keep_days_raw integer DEFAULT 90,      -- Changed from 7 → 90
+  keep_days_enhanced integer DEFAULT 14, -- Unchanged
+  batch_size integer DEFAULT 25000
+) RETURNS TABLE(marine_deleted bigint, tide_deleted bigint, enhanced_deleted bigint);
+
+-- Updated pg_cron schedule
+SELECT cron.schedule(
+  'prune_forecasts_retention',
+  '0 5 * * *',
+  $$SELECT prune_forecasts_retention(90, 14, 25000);$$
+);
+```
+
+**Retention Policy Changes**:
+
+| Table | Before | After |
+|-------|--------|-------|
+| `marine_forecasts` | 7 days | 90 days |
+| `tide_forecasts` | 7 days | 90 days |
+| `enhanced_forecasts` | 14 days | 14 days (unchanged) |
+
+**Storage Impact**:
+
+- Current DB size: ~535 MB
+- Estimated at 90 days: ~1.2 GB for marine_forecasts
+- Supabase Pro limit: 8 GB
+- Available headroom: ~6.3 GB
+
+**ML Training Requirements**:
+
+- Target samples: 30,000+ (expected by mid-April 2026)
+- Time span: 90+ days for seasonal variation
+- Data diversity: Multiple weather patterns to prevent overfitting
+
+**Documentation**: See [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md) and [ML README](/ml/README.md) for training data requirements.
+
+
 ## 🔄 **Future Migration Strategy**
 
 ### **Planned Enhancements**
