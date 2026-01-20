@@ -3,6 +3,7 @@ import {
   PROFILE_PREFERENCE_FIELDS,
   PROFILE_NOTIFICATION_FIELDS,
   PROFILE_FULL_SELECT,
+  PROFILE_ONBOARDING_SELECT,
 } from '@/lib/profile/constants';
 
 describe('profile constants', () => {
@@ -46,6 +47,17 @@ describe('profile constants', () => {
 
     it('should include onboarding_completed_at', () => {
       expect(PROFILE_FULL_SELECT).toContain('onboarding_completed_at');
+    });
+  });
+
+  describe('PROFILE_ONBOARDING_SELECT', () => {
+    it('should select only onboarding_completed_at field', () => {
+      expect(PROFILE_ONBOARDING_SELECT).toBe('onboarding_completed_at');
+    });
+
+    it('should be a non-empty string', () => {
+      expect(typeof PROFILE_ONBOARDING_SELECT).toBe('string');
+      expect(PROFILE_ONBOARDING_SELECT.length).toBeGreaterThan(0);
     });
   });
 });

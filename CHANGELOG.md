@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Shared Slug Helper Utilities:** Created `lib/utils/slug-helpers.ts` to centralize `isCountySlug()` and `getIntentSlug()` helper functions, eliminating code duplication across 3 files (`components/city/about-accordion.tsx`, `components/city/guides-by-intent-grid.tsx`, `app/spots/[slug]/page.tsx`). Improves maintainability and ensures consistent handling of county-level slug logic.
+
+### Fixed
+
+- **LIKE Pattern Escaping:** Added `escapeLikePattern()` function to `actions/beach/beach-query-actions.ts` to properly escape special characters (`%`, `_`) in city patterns when using Supabase `.ilike()` queries, preventing unintended pattern matches.
+
+- **Redundant Fallbacks Removed:** Simplified intent slug links in `app/spots/[slug]/page.tsx` by removing redundant `|| spot.citySlug` fallbacks since `getIntentSlug()` already handles null cases appropriately.
+
+### Added
+
 - **Map Marker Clustering:** Beaches are now clustered on the map when zoomed out to reduce visual clutter and improve performance. Clusters display aggregated wave height ranges (e.g., "2-4ft") and beach counts, expanding on click to reveal individual beaches. Uses Supercluster library with `useBeachClustering` hook (`hooks/use-beach-clustering.ts`) and `ClusterMarker` component (`components/map/cluster-marker.tsx`). Clusters highlight when containing favorite beaches.
 
 - **Tide-Driven Session Windows:** Discovery window selector now calculates session windows based on tide boundaries when beaches have tide thresholds configured (`preferred_tide_ft_min/max`). Shows the full recommended window aligned to optimal tide conditions without truncation. Includes direction-based fallback (rising/falling/slack preference) when no optimal tide window exists within the selected time slot. Falls back to hourly windows when tide data is unavailable.

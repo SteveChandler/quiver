@@ -17,6 +17,21 @@ const BEACH_LIST_FIELDS_LEGACY =
 // Includes all fields from beaches table for comprehensive beach view
 const BEACH_DETAIL_FIELDS = "*";
 
+/**
+ * Escape special characters in LIKE patterns to prevent unintended matches.
+ * Escapes % and _ which are wildcards in SQL LIKE patterns.
+ *
+ * @param pattern - The string to escape for use in a LIKE pattern
+ * @returns The escaped pattern safe for use in LIKE queries
+ *
+ * @example
+ * escapeLikePattern('san_diego') // 'san\_diego'
+ * escapeLikePattern('test%value') // 'test\%value'
+ */
+function escapeLikePattern(pattern: string): string {
+  return pattern.replace(/[%_]/g, "\\$&");
+}
+
 export async function getBeaches() {
   return withDatabaseOperation<Beach[]>(async (supabase) => {
     try {
@@ -153,7 +168,8 @@ export async function getBeachesByIntentAndCity(
 
     // Match city by slug pattern (handles hyphenated city names)
     const cityPattern = citySlug.replace(/-/g, " ");
-    query = query.ilike("city", `%${cityPattern}%`);
+    const escapedCityPattern = escapeLikePattern(cityPattern);
+    query = query.ilike("city", `%${escapedCityPattern}%`);
 
     // Match state
     const stateUpper = stateSlug.toUpperCase();

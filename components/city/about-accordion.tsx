@@ -7,6 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { getIntentSlug } from "@/lib/utils/slug-helpers";
 
 interface AboutAccordionProps {
   cityName: string;
@@ -15,25 +16,6 @@ interface AboutAccordionProps {
   description: string[];
   topSpotSlug?: string;
   topSpotName?: string;
-}
-
-/**
- * Determine if a citySlug is actually a county-level identifier.
- * County slugs typically end with "-county" or match known patterns.
- */
-function isCountySlug(slug: string): boolean {
-  return slug.endsWith("-county");
-}
-
-/**
- * Get the appropriate slug for intent page links.
- * For county-level pages, use state-level URLs to avoid 404s.
- */
-function getIntentSlug(citySlug: string, stateSlug?: string): string {
-  if (isCountySlug(citySlug) && stateSlug) {
-    return stateSlug;
-  }
-  return citySlug;
 }
 
 /**

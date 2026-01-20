@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { SURF_INTENTS, type SurfIntentSlug } from "@/lib/data/surf-spots";
 import type { BeachWithMetrics } from "@/types/location";
+import { getIntentSlug } from "@/lib/utils/slug-helpers";
 
 interface GuidesByIntentGridProps {
   cityName: string;
@@ -10,24 +11,6 @@ interface GuidesByIntentGridProps {
   stateSlug?: string;
   featuredIntents: string[];
   beaches: BeachWithMetrics[];
-}
-
-/**
- * Determine if a citySlug is actually a county-level identifier.
- */
-function isCountySlug(slug: string): boolean {
-  return slug.endsWith("-county");
-}
-
-/**
- * Get the appropriate slug for intent page links.
- * For county-level pages, use state-level URLs to avoid 404s.
- */
-function getIntentSlug(citySlug: string, stateSlug?: string): string {
-  if (isCountySlug(citySlug) && stateSlug) {
-    return stateSlug;
-  }
-  return citySlug;
 }
 
 /**
