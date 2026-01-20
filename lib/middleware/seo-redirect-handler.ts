@@ -17,6 +17,18 @@ import {
   cityToSlug,
 } from "@/lib/utils/beach-url-utils";
 
+// Valid intent slugs for legacy URL redirect handling
+// Defined first as the single source of truth for intent paths
+const INTENT_SLUGS = new Set([
+  "beginner",
+  "longboard",
+  "tide",
+  "water-temp",
+  "dawn-patrol",
+  "sunset",
+  "least-crowded",
+]);
+
 // Reserved first-segment paths that should never be treated as state/country
 const RESERVED_PATHS = new Set([
   // System routes
@@ -47,24 +59,7 @@ const RESERVED_PATHS = new Set([
   "plan-session",
   "guides",
   // Intent slugs (handled by /app/[intent]/ routes)
-  "beginner",
-  "longboard",
-  "tide",
-  "water-temp",
-  "dawn-patrol",
-  "sunset",
-  "least-crowded",
-]);
-
-// Valid intent slugs for legacy URL redirect handling
-const INTENT_SLUGS = new Set([
-  "beginner",
-  "longboard",
-  "tide",
-  "water-temp",
-  "dawn-patrol",
-  "sunset",
-  "least-crowded",
+  ...INTENT_SLUGS,
 ]);
 
 /**
