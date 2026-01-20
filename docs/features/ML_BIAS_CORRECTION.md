@@ -12,6 +12,7 @@ The ML Bias Correction Pipeline improves NOAA wave height forecast accuracy by l
 **Key Metrics:**
 - Model: XGBoost regressor trained on residuals (Observed - Model)
 - Correction Cadence: Every 3 hours via Vercel cron
+- Backfill Cadence: Every 10 minutes via Supabase pg_cron
 - Service URL: `https://quiver-ml.fly.dev`
 
 ## Architecture
@@ -29,14 +30,71 @@ The ML Bias Correction Pipeline improves NOAA wave height forecast accuracy by l
 | parse-wave-height|     | POST /correct/   |     | corrected_       |
 |                  |     |      batch       |     | forecasts        |
 +------------------+     +------------------+     +------------------+
-                                 |
-                                 v
-                         +------------------+
-                         | Backfill Ground  |
-                         | Truth Hourly     |
-                         | ml_predictions_  |
-                         |      log         |
-                         +------------------+
+                                                         |
+                                                         v
++------------------+     +------------------+     +------------------+
+| Buoy Observations| --> | pg_cron Backfill | --> | ml_predictions_  |
+| marine_forecasts |     | backfill_ml_     |     |      log         |
+|                  |     | observations     |     | (ground truth)   |
++------------------+     +------------------+     +------------------+
+```
+
+## Data Requirements
+
+Effective ML model training requires sufficient historical data to capture diverse weather patterns.
+
+### Training Data Retention Policy
+
+As of January 2026, forecast data retention was extended to support proper model training:
+
+| Table | Retention | Notes |
+|-------|-----------|-------|
+| `marine_forecasts` | 90 days | Buoy observations for training |
+| `tide_forecasts` | 90 days | Aligned with marine data |
+| `enhanced_forecasts` | 14 days | User-facing forecasts (unchanged) |
+
+### Minimum Training Requirements
+
+| Requirement | Minimum | Target | Rationale |
+|-------------|---------|--------|-----------|
+| **Time span** | 60 days | 90+ days | Seasonal variation |
+| **Sample count** | 10,000 | 30,000+ | Statistical significance |
+| **Weather diversity** | Multiple patterns | All seasons | Prevents overfitting |
+| **Beach coverage** | 50+ beaches | 96 beaches | Geographic generalization |
+
+### Why Extended Retention?
+
+The v1 model was trained on only 8 days of data (2,275 samples) during an unusual weather period. This caused:
+
+1. **Biased predictions**: Model learned patterns from one weather system
+2. **Poor generalization**: Couldn't predict well when conditions changed
+3. **Overfitting**: Memorized specific conditions vs. learning general bias
+
+With 90-day retention, we expect 30,000+ samples by mid-April 2026, covering diverse conditions.
+
+### Storage Impact
+
+| Metric | Value |
+|--------|-------|
+| Current DB size | ~535 MB |
+| 90-day forecast estimate | ~1.2 GB |
+| Supabase Pro limit | 8 GB |
+| Available headroom | ~6.3 GB |
+
+### Monitoring Training Data
+
+```sql
+-- Check training data availability
+SELECT
+  source,
+  COUNT(*) as total_samples,
+  MIN(ts) as earliest,
+  MAX(ts) as latest,
+  EXTRACT(EPOCH FROM (MAX(ts) - MIN(ts))) / 86400 as days_span
+FROM marine_forecasts
+WHERE is_observed = true
+  AND wave_height_m IS NOT NULL
+GROUP BY source;
 ```
 
 ## Database Schema
@@ -75,7 +133,35 @@ Stores latest corrected forecasts for fast app reads.
 
 **Migration:** `supabase/migrations/20260113200200_create_corrected_forecasts.sql`
 
-### `get_ml_weekly_metrics()`
+### Database Functions
+
+#### `backfill_ml_observations(batch_size INT)`
+
+Processes ML predictions and matches them with ground truth observations. Called by pg_cron every 10 minutes.
+
+```sql
+SELECT * FROM backfill_ml_observations(1000);
+
+-- Returns:
+-- processed | matched | no_match | elapsed_ms
+-- ----------+---------+----------+-----------
+--      1000 |     847 |      153 |       1234
+```
+
+#### `get_ml_health_metrics()`
+
+Returns ML pipeline health for monitoring and alerting.
+
+```sql
+SELECT * FROM get_ml_health_metrics();
+
+-- Returns:
+-- pending_count | matched_last_24h | total_last_24h | match_rate_24h | current_model_version | needs_alert
+-- --------------+------------------+----------------+----------------+-----------------------+------------
+--          1234 |             2847 |           3456 |          82.37 | v1                    | false
+```
+
+#### `get_ml_weekly_metrics()`
 
 PostgreSQL function for monitoring model performance.
 
@@ -109,17 +195,37 @@ const windMS = parseWindSpeed('10 mph');
 - Flat: `"Flat"`, `"flat"` (returns 0.15m)
 - Wind: mph, knots, m/s
 
-### Cron Jobs
+### Scheduled Jobs
 
-**Correction Job:** `app/api/cron/ml/correct-forecasts/route.ts`
+#### Correction Job (Vercel Cron)
+
+**File:** `app/api/cron/ml/correct-forecasts/route.ts`
 - Schedule: Every 3 hours (`0 */3 * * *`)
 - Timeout: 60 seconds (cold start + processing)
 - Processes up to 500 forecasts per run
 
-**Backfill Job:** `app/api/cron/ml/backfill-observations/route.ts`
-- Schedule: Every hour at :30 (`30 * * * *`)
-- Matches predictions with ground truth from `marine_forecasts`
-- 2-hour delay ensures observations are available
+#### Backfill Job (Supabase pg_cron)
+
+**Function:** `backfill_ml_observations(batch_size INT)`
+- Schedule: Every 10 minutes (`*/10 * * * *`)
+- Batch size: 1000 predictions per run
+- Matches predictions with observations from `marine_forecasts`
+- Runs directly in PostgreSQL for improved reliability
+
+**pg_cron Configuration:**
+
+| Job Name | Schedule | Command |
+|----------|----------|---------|
+| `ml-backfill-observations` | `*/10 * * * *` | `SELECT * FROM backfill_ml_observations(1000)` |
+
+**Monitor job execution:**
+```sql
+SELECT jobname, start_time, end_time, status, return_message
+FROM cron.job_run_details
+WHERE jobname = 'ml-backfill-observations'
+ORDER BY start_time DESC
+LIMIT 10;
+```
 
 ### ML Service API
 
@@ -163,14 +269,12 @@ INTERNAL_SECRET=<shared-secret>
     {
       "path": "/api/cron/ml/correct-forecasts",
       "schedule": "0 */3 * * *"
-    },
-    {
-      "path": "/api/cron/ml/backfill-observations",
-      "schedule": "30 * * * *"
     }
   ]
 }
 ```
+
+Note: The backfill job has been migrated from Vercel cron to Supabase pg_cron for improved reliability.
 
 ## Testing
 
@@ -212,11 +316,21 @@ curl -X POST http://localhost:8080/correct/batch \
 ### Monitoring Queries
 
 ```sql
+-- Pipeline health check
+SELECT * FROM get_ml_health_metrics();
+
 -- Recent prediction stats
 SELECT * FROM get_ml_weekly_metrics();
 
 -- Pending backfills
 SELECT COUNT(*) FROM ml_predictions_log WHERE observed_m IS NULL;
+
+-- pg_cron job status
+SELECT jobname, start_time, status, return_message
+FROM cron.job_run_details
+WHERE jobname = 'ml-backfill-observations'
+ORDER BY start_time DESC
+LIMIT 5;
 
 -- Latest corrections
 SELECT beach_id, corrected_height_m, raw_height_m, bias_applied_m
@@ -246,9 +360,11 @@ fly status
 
 - [ ] `INTERNAL_SECRET` set in Fly.io secrets and Vercel env vars
 - [ ] Model file exists at `ml/models/bias_model_v1.json`
-- [ ] Database migrations applied (3 migration files)
-- [ ] Cron jobs configured in `vercel.json`
+- [ ] Database migrations applied
+- [ ] Vercel cron configured for `correct-forecasts`
+- [ ] pg_cron job registered for `ml-backfill-observations`
 - [ ] Health endpoint accessible: `https://quiver-ml.fly.dev/health`
+- [ ] Sufficient training data (90+ days) before retraining
 
 ## Operational Notes
 
@@ -273,12 +389,34 @@ If corrections fail:
 - Next cron run will attempt correction again
 - No data loss; graceful degradation
 
+### Manual Backfill
+
+If you need to manually run backfill (e.g., to clear a backlog):
+
+```sql
+-- Run a single batch
+SELECT * FROM backfill_ml_observations(1000);
+
+-- Run larger batch to clear backlog faster
+SELECT * FROM backfill_ml_observations(5000);
+
+-- Check remaining backlog
+SELECT COUNT(*) as pending
+FROM ml_predictions_log
+WHERE observed_m IS NULL
+  AND predicted_at < NOW() - INTERVAL '2 hours';
+```
+
 ## Related Documentation
 
 - [ML Service Architecture](/ml/ARCHITECTURE.md)
+- [ML README](/ml/README.md) - Training data requirements
+- [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md)
 - [TypeScript ML Module](/lib/ml/ARCHITECTURE.md)
 - [Cron Jobs Architecture](/app/api/cron/ml/ARCHITECTURE.md)
+- [Database Schema](/docs/architecture/DATABASE_SCHEMA.md) - Retention policies
 - [Forecast Architecture](/docs/architecture/FORECAST_SCORING.md)
+- [Postmortem: ML Model Regression](/docs/postmortems/2026-01-20-ml-model-regression.md)
 
 ---
 

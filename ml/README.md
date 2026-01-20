@@ -6,6 +6,7 @@ This directory contains the ML pipeline for correcting wave height forecasts. Th
 
 - [Pipeline Overview](#pipeline-overview)
 - [Architecture](#architecture)
+- [Data Requirements](#data-requirements)
 - [Model Training](#model-training)
 - [Deployment](#deployment)
 - [API Reference](#api-reference)
@@ -34,6 +35,13 @@ This directory contains the ML pipeline for correcting wave height forecasts. Th
 | (ensemble)       |------------------------>     | corrected_       |
 +------------------+                              | forecasts table  |
                                                   +------------------+
+                                                          |
+                                                          v
+                                                  +------------------+
+                                                  | pg_cron Backfill |
+                                                  | backfill_ml_     |
+                                                  | observations()   |
+                                                  +------------------+
 ```
 
 ### Data Flow
@@ -43,6 +51,7 @@ This directory contains the ML pipeline for correcting wave height forecasts. Th
 3. **Inference Phase**: Cron job fetches current NOAA forecasts and sends them to the ML service
 4. **Correction**: The model predicts the bias and applies it: `corrected = forecast + predicted_bias`
 5. **Storage**: Corrected forecasts are stored in `corrected_forecasts` table for the application to use
+6. **Validation**: pg_cron job matches predictions with ground truth observations for monitoring
 
 ---
 
@@ -52,8 +61,10 @@ This directory contains the ML pipeline for correcting wave height forecasts. Th
 
 | Model | File | Features | Use Case |
 |-------|------|----------|----------|
-| **Primary (Combined)** | `models/bias_model_combined_v1.json` | NOAA + Open-Meteo (35 features) | Default when coordinates available |
-| **Fallback** | `models/bias_model_v1.json` | NOAA-only (14 features) | When Open-Meteo unavailable |
+| **Primary** | `models/bias_model_v1.json` | NOAA-only (14 features) | Default model |
+| **Fallback** | `models/bias_model_v1.json` | NOAA-only (14 features) | Same as primary |
+
+Note: The combined_v1 model with Open-Meteo features was rolled back due to regression issues. See postmortem for details.
 
 ### Key Components
 
@@ -76,6 +87,84 @@ This directory contains the ML pipeline for correcting wave height forecasts. Th
 | `marine_forecasts` | Buoy observations (is_observed=true) |
 | `corrected_forecasts` | ML-corrected wave heights |
 | `ml_predictions_log` | Prediction audit log for validation |
+
+### Database Functions
+
+| Function | Purpose | Schedule |
+|----------|---------|----------|
+| `backfill_ml_observations(batch_size)` | Match predictions with observations | pg_cron: `*/10 * * * *` |
+| `get_ml_health_metrics()` | Pipeline health for alerting | On-demand |
+| `get_ml_weekly_metrics()` | Model performance metrics | On-demand |
+
+---
+
+## Data Requirements
+
+### Training Data Retention Policy
+
+Effective ML model training requires sufficient historical data to capture diverse weather patterns. The forecast data retention policy was extended in January 2026 to support proper ML training.
+
+| Data Type | Retention | Rationale |
+|-----------|-----------|-----------|
+| `marine_forecasts` | 90 days | Provides 3 months of observation data for training |
+| `tide_forecasts` | 90 days | Aligned with marine_forecasts |
+| `enhanced_forecasts` | 14 days | User-facing forecasts (unchanged) |
+
+### Minimum Training Data Requirements
+
+| Requirement | Minimum | Target | Rationale |
+|-------------|---------|--------|-----------|
+| **Time span** | 60 days | 90+ days | Captures seasonal variation |
+| **Sample count** | 10,000 | 30,000+ | Statistical significance |
+| **Weather diversity** | Multiple patterns | All seasons | Prevents overfitting |
+| **Beach coverage** | 50+ beaches | 96 beaches | Geographic generalization |
+
+### Why 90 Days?
+
+The v1 model was trained on only 8 days of data (2,275 samples) during an unusual weather period (January 12-20, 2026). This caused several issues:
+
+1. **Insufficient samples**: 2,275 samples is too few for reliable XGBoost training
+2. **Biased patterns**: Data captured only one weather pattern (winter storm followed by calm)
+3. **No seasonal variation**: Missing spring/summer/fall conditions
+4. **Overfitting risk**: Model memorized specific conditions rather than learning general bias patterns
+
+With 90-day retention, we expect:
+- **30,000+ samples** by mid-April 2026
+- **Diverse conditions**: Winter storms, spring swells, calm periods
+- **Better generalization**: Model learns true systematic bias, not anomalies
+
+### Storage Impact
+
+| Metric | Value |
+|--------|-------|
+| Current DB size | ~535 MB |
+| 90-day marine_forecasts estimate | ~1.2 GB |
+| Supabase Pro limit | 8 GB |
+| Available headroom | ~6.3 GB |
+
+### Monitoring Training Data
+
+```sql
+-- Check current training data availability
+SELECT
+  source,
+  COUNT(*) as total_samples,
+  MIN(ts) as earliest,
+  MAX(ts) as latest,
+  EXTRACT(EPOCH FROM (MAX(ts) - MIN(ts))) / 86400 as days_span
+FROM marine_forecasts
+WHERE is_observed = true
+  AND wave_height_m IS NOT NULL
+GROUP BY source;
+
+-- Monitor storage growth
+SELECT
+  relname as table_name,
+  pg_size_pretty(pg_total_relation_size(relid)) as total_size
+FROM pg_stat_user_tables
+WHERE relname IN ('marine_forecasts', 'tide_forecasts', 'enhanced_forecasts')
+ORDER BY pg_total_relation_size(relid) DESC;
+```
 
 ---
 
@@ -144,6 +233,16 @@ ls -la models/
 
 The model uses TimeSeriesSplit with 5 folds to prevent data leakage from future observations. Expected CV RMSE is typically 0.15-0.25 meters.
 
+### Training Data Checklist
+
+Before training a new model version, verify:
+
+- [ ] At least 60 days of observation data available
+- [ ] At least 10,000 matched forecast-observation pairs
+- [ ] Data includes diverse weather conditions (not just one pattern)
+- [ ] Observable beaches view is up to date: `SELECT COUNT(*) FROM observable_beaches;`
+- [ ] No data quality issues: `SELECT * FROM get_ml_health_metrics();`
+
 ---
 
 ## Deployment
@@ -158,10 +257,10 @@ app = 'quiver-ml'
 primary_region = 'lax'
 
 [env]
-  MODEL_PATH = 'models/bias_model_combined_v1.json'
-  MODEL_VERSION = 'combined_v1'
+  MODEL_PATH = 'models/bias_model_v1.json'
+  MODEL_VERSION = 'v1'
   FALLBACK_MODEL_PATH = 'models/bias_model_v1.json'
-  USE_ENSEMBLE = 'true'
+  USE_ENSEMBLE = 'false'
   PORT = '8080'
 
 [http_service]
@@ -184,10 +283,10 @@ primary_region = 'lax'
 | `SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Yes | Supabase service role key |
 | `INTERNAL_SECRET` | Yes | API authentication secret |
-| `MODEL_PATH` | No | Path to primary model (default: `models/bias_model_combined_v1.json`) |
-| `MODEL_VERSION` | No | Version string for logging (default: `combined_v1`) |
-| `FALLBACK_MODEL_PATH` | No | Path to fallback model (default: `models/bias_model_v1.json`) |
-| `USE_ENSEMBLE` | No | Enable Open-Meteo ensemble features (default: `true`) |
+| `MODEL_PATH` | No | Path to primary model (default: `models/bias_model_v1.json`) |
+| `MODEL_VERSION` | No | Version string for logging (default: `v1`) |
+| `FALLBACK_MODEL_PATH` | No | Path to fallback model |
+| `USE_ENSEMBLE` | No | Enable Open-Meteo ensemble features (default: `false`) |
 | `OPEN_METEO_TIMEOUT_MS` | No | Timeout for Open-Meteo API calls (default: `2000`) |
 
 ### Deployment Commands
@@ -234,7 +333,7 @@ Health check endpoint (no authentication required).
 {
   "status": "ok",
   "model_loaded": true,
-  "model_version": "combined_v1"
+  "model_version": "v1"
 }
 ```
 
@@ -271,11 +370,11 @@ Correct multiple forecasts in a single request. Requires `X-Internal-Secret` hea
       "raw_height_m": 1.5,
       "corrected_height_m": 1.62,
       "bias_applied_m": 0.12,
-      "model_version": "combined_v1",
-      "ensemble_used": true
+      "model_version": "v1",
+      "ensemble_used": false
     }
   ],
-  "model_version": "combined_v1",
+  "model_version": "v1",
   "count": 1
 }
 ```
@@ -296,83 +395,35 @@ Correct multiple forecasts in a single request. Requires `X-Internal-Secret` hea
 
 ## Validation and Monitoring
 
-### Validation Queries
-
-Run these SQL queries in Supabase SQL Editor to check model performance:
+### Pipeline Health Check
 
 ```sql
--- 1. Check prediction status (last 7 days)
-SELECT
-  model_version,
-  COUNT(*) as total_predictions,
-  COUNT(observed_m) as with_observations,
-  MIN(predicted_at) as earliest,
-  MAX(predicted_at) as latest
-FROM ml_predictions_log
-WHERE predicted_at > now() - interval '7 days'
-GROUP BY model_version
-ORDER BY latest DESC;
+-- Quick health check
+SELECT * FROM get_ml_health_metrics();
 
--- 2. Match predictions with ground truth observations
-WITH recent_predictions AS (
-  SELECT id, beach_id, predicted_at, raw_forecast_m, corrected_forecast_m
-  FROM ml_predictions_log
-  WHERE observed_m IS NULL
-    AND predicted_at < now() - interval '1 hour'
-    AND predicted_at > now() - interval '48 hours'
-),
-matched_observations AS (
-  SELECT
-    rp.id as prediction_id,
-    rp.raw_forecast_m,
-    rp.corrected_forecast_m,
-    mf.wave_height_m as observed_m,
-    ABS(EXTRACT(EPOCH FROM (mf.ts - rp.predicted_at))) as time_diff_seconds
-  FROM recent_predictions rp
-  JOIN marine_forecasts mf
-    ON mf.beach_id = rp.beach_id
-    AND mf.is_observed = true
-    AND mf.wave_height_m IS NOT NULL
-    AND mf.ts BETWEEN rp.predicted_at - interval '2 hours'
-                  AND rp.predicted_at + interval '2 hours'
-),
-best_matches AS (
-  SELECT DISTINCT ON (prediction_id)
-    prediction_id, observed_m, raw_forecast_m, corrected_forecast_m
-  FROM matched_observations
-  ORDER BY prediction_id, time_diff_seconds ASC
-)
-UPDATE ml_predictions_log p
-SET
-  observed_m = bm.observed_m,
-  raw_error_m = ABS(bm.raw_forecast_m - bm.observed_m),
-  corrected_error_m = ABS(bm.corrected_forecast_m - bm.observed_m)
-FROM best_matches bm
-WHERE p.id = bm.prediction_id;
+-- Detailed model performance
+SELECT * FROM get_ml_weekly_metrics();
+```
 
--- 3. Check improvement metrics after matching
-SELECT
-  model_version,
-  COUNT(*) as predictions,
-  COUNT(observed_m) as with_ground_truth,
-  ROUND(AVG(raw_error_m)::numeric, 3) as avg_raw_error_m,
-  ROUND(AVG(corrected_error_m)::numeric, 3) as avg_corrected_error_m,
-  ROUND(AVG(raw_error_m - corrected_error_m)::numeric, 3) as avg_improvement_m,
-  ROUND(100.0 * COUNT(*) FILTER (WHERE corrected_error_m < raw_error_m) /
-        NULLIF(COUNT(observed_m), 0), 1) as pct_improved
-FROM ml_predictions_log
-WHERE predicted_at > now() - interval '7 days'
-GROUP BY model_version;
+### pg_cron Job Monitoring
+
+```sql
+-- Check recent job runs
+SELECT jobname, start_time, end_time, status, return_message
+FROM cron.job_run_details
+WHERE jobname = 'ml-backfill-observations'
+ORDER BY start_time DESC
+LIMIT 10;
 ```
 
 ### Key Metrics to Monitor
 
 | Metric | Target | Description |
 |--------|--------|-------------|
-| Improvement Rate | > 55% | Percentage of forecasts where correction reduces error |
-| Avg Improvement | > 0.05m | Mean error reduction in meters |
-| CV RMSE | < 0.25m | Cross-validation root mean squared error |
-| Predictions/Day | > 0 | Ensures cron job is running |
+| Improvement Rate | > 45% | Percentage of forecasts where correction reduces error |
+| Avg Improvement | > 0.01m | Mean error reduction in meters |
+| Match Rate (24h) | > 50% | Ground truth match rate |
+| Pending Backlog | < 10,000 | Predictions awaiting ground truth |
 
 ### Cron Job
 
@@ -383,6 +434,12 @@ The correction job runs via `/app/api/cron/ml/correct-forecasts/route.ts`:
 - Processes in batches of 500
 - Stores results in `corrected_forecasts` table
 - Logs to `ml_predictions_log` for validation
+
+The backfill job runs via Supabase pg_cron:
+- Job: `ml-backfill-observations`
+- Schedule: `*/10 * * * *` (every 10 minutes)
+- Processes 1000 predictions per run
+- Updates ground truth and error metrics
 
 ---
 
@@ -402,26 +459,15 @@ The correction job runs via `/app/api/cron/ml/correct-forecasts/route.ts`:
 python -c "
 import xgboost as xgb
 model = xgb.XGBRegressor()
-model.load_model('models/bias_model_combined_v1.json')
+model.load_model('models/bias_model_v1.json')
 print(f'Feature count: {model.n_features_in_}')
 print(f'Feature names: {model.feature_names_in_}')
 "
 ```
 
-Ensure `transformers_ensemble.py:get_feature_columns()` matches the model's expected features.
+Ensure `transformers.py:get_feature_columns()` matches the model's expected features.
 
-#### 2. Open-Meteo Timeout
-
-**Symptom**: Ensemble features unavailable, falling back to NOAA-only model.
-
-**Cause**: Open-Meteo API is slow or unreachable.
-
-**Solution**:
-- Check Open-Meteo service status
-- Increase `OPEN_METEO_TIMEOUT_MS` if needed
-- Fallback model will be used automatically
-
-#### 3. Service Cold Start
+#### 2. Service Cold Start
 
 **Symptom**: First request after idle period times out.
 
@@ -434,7 +480,7 @@ curl https://quiver-ml.fly.dev/health
 curl https://quiver-ml.fly.dev/health
 ```
 
-#### 4. No Predictions Generated
+#### 3. No Predictions Generated
 
 **Symptom**: `ml_predictions_log` table is empty.
 
@@ -444,7 +490,7 @@ curl https://quiver-ml.fly.dev/health
 3. Verify `enhanced_forecasts` has data for today
 4. Check `observable_beaches` view returns results
 
-#### 5. Model Not Loading
+#### 4. Model Not Loading
 
 **Symptom**: `/health` returns `model_loaded: false`.
 
@@ -457,6 +503,30 @@ ls -la /app/models/
 # Check logs for load errors
 fly logs | grep -i "model"
 ```
+
+#### 5. Low Ground Truth Match Rate
+
+**Symptom**: `get_ml_health_metrics()` shows low `match_rate_24h`
+
+**Solution**: See ML Operations Runbook for detailed troubleshooting steps.
+
+#### 6. Insufficient Training Data
+
+**Symptom**: Model shows poor generalization or inconsistent predictions.
+
+**Diagnosis**:
+```sql
+-- Check training data volume
+SELECT
+  COUNT(*) as total_obs,
+  MIN(ts) as earliest,
+  MAX(ts) as latest,
+  EXTRACT(EPOCH FROM (MAX(ts) - MIN(ts))) / 86400 as days_span
+FROM marine_forecasts
+WHERE is_observed = true AND wave_height_m IS NOT NULL;
+```
+
+**Solution**: Wait for more data accumulation (target: 90+ days) before retraining.
 
 ### Local Development
 
@@ -501,10 +571,18 @@ ml/
 ├── fly.toml                  # Fly.io deployment config
 ├── requirements.txt          # Python dependencies
 ├── models/
-│   ├── bias_model_combined_v1.json  # Primary model (NOAA + Open-Meteo)
-│   └── bias_model_v1.json           # Fallback model (NOAA-only)
+│   ├── bias_model_combined_v1.json  # Combined model (disabled)
+│   └── bias_model_v1.json           # Primary model (NOAA-only)
 ├── data/
 │   └── augmented_training_data.csv  # Training data (git-ignored)
-└── scripts/
-    └── validate_model.sql    # Validation queries
+├── ARCHITECTURE.md           # Detailed architecture docs
+└── README.md                 # This file
 ```
+
+## Related Documentation
+
+- [ML Architecture](/ml/ARCHITECTURE.md) - Detailed technical architecture
+- [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md) - Operational procedures
+- [ML Bias Correction Feature](/docs/features/ML_BIAS_CORRECTION.md) - Feature documentation
+- [Database Schema](/docs/architecture/DATABASE_SCHEMA.md) - Retention policies and data flow
+- [Postmortem: ML Model Regression](/docs/postmortems/2026-01-20-ml-model-regression.md) - Incident details
