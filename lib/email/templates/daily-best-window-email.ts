@@ -5,6 +5,12 @@
  */
 
 import { signEmailToken } from '@/lib/utils/email-token';
+import {
+  EMAIL_COLORS,
+  EMAIL_FONT_FAMILY,
+  EMAIL_BUTTON_STYLE,
+  EMAIL_CHIP_STYLE,
+} from '../email-constants';
 
 export interface BeachWindow {
   beachId: string;
@@ -45,28 +51,9 @@ export async function generateDailyEmail(
   // Build save window URL
   const saveWindowUrl = `${baseUrl}/window/save?token=${token}&beach_id=${bestWindow.beachId}&start=${encodeURIComponent(bestWindow.startTime)}&end=${encodeURIComponent(bestWindow.endTime)}`;
 
-  const chipStyle = `
-    display: inline-block;
-    padding: 6px 12px;
-    margin: 2px;
-    background: #e0f2fe;
-    color: #0369a1;
-    border-radius: 16px;
-    font-size: 13px;
-  `;
-
-  const buttonStyle = `
-    display: inline-block;
-    padding: 12px 24px;
-    margin: 8px 4px;
-    background: #3b82f6;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-  `;
-
-  const decisionColor = isWorthIt ? '#16a34a' : '#dc2626';
+  const chipStyle = EMAIL_CHIP_STYLE;
+  const buttonStyle = EMAIL_BUTTON_STYLE;
+  const decisionColor = isWorthIt ? EMAIL_COLORS.success : EMAIL_COLORS.error;
 
   const html = `
 <!DOCTYPE html>
@@ -75,13 +62,13 @@ export async function generateDailyEmail(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+<body style="font-family: ${EMAIL_FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${EMAIL_COLORS.text};">
 
   <div style="text-align: center; margin-bottom: 24px;">
     <div style="font-size: 48px; font-weight: bold; color: ${decisionColor};">
       ${decision}
     </div>
-    <div style="font-size: 18px; color: #666;">
+    <div style="font-size: 18px; color: ${EMAIL_COLORS.textSecondary};">
       ${decisionReason}
     </div>
   </div>
@@ -91,15 +78,15 @@ export async function generateDailyEmail(
   </div>
 
   ${isWorthIt ? `
-    <div style="background: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+    <div style="background: ${EMAIL_COLORS.cardBgAlt}; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
       <div style="font-weight: 600; font-size: 16px;">
         ${bestWindow.beachName} — ${bestWindow.score.toFixed(1)}/10 (${bestWindow.startTime}–${bestWindow.endTime})
-        ${bestWindow.isHomeBeach ? '<span style="color: #3b82f6;"> ← your home break</span>' : ''}
+        ${bestWindow.isHomeBeach ? `<span style="color: ${EMAIL_COLORS.primary};"> ← your home break</span>` : ''}
       </div>
     </div>
 
     ${backups.length > 0 ? `
-      <div style="color: #666; font-size: 14px; margin-bottom: 24px;">
+      <div style="color: ${EMAIL_COLORS.textSecondary}; font-size: 14px; margin-bottom: 24px;">
         <strong>Backups:</strong><br>
         ${backups.map(b => `${b.beachName} — ${b.score.toFixed(1)}/10 (${b.startTime}–${b.endTime})`).join('<br>')}
       </div>
@@ -110,7 +97,7 @@ export async function generateDailyEmail(
       <a href="${saveWindowUrl}" style="${buttonStyle}">Save this window</a>
     </div>
   ` : `
-    <div style="text-align: center; margin-bottom: 24px; color: #666;">
+    <div style="text-align: center; margin-bottom: 24px; color: ${EMAIL_COLORS.textSecondary};">
       Next good window: <strong>${nextGoodDate}</strong>
     </div>
 
@@ -119,9 +106,9 @@ export async function generateDailyEmail(
     </div>
   `}
 
-  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
+  <hr style="border: none; border-top: 1px solid ${EMAIL_COLORS.border}; margin: 32px 0;">
 
-  <p style="color: #999; font-size: 12px; text-align: center;">
+  <p style="color: ${EMAIL_COLORS.textTertiary}; font-size: 12px; text-align: center;">
     Quiver · The smart surf forecast
   </p>
 </body>

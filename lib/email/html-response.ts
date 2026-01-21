@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { escapeHtml } from '@/lib/utils/html';
+import { EMAIL_COLORS, EMAIL_FONT_FAMILY } from './email-constants';
 
 export interface EmailActionPageOptions {
   title: string;
@@ -56,8 +57,8 @@ export function renderEmailActionPage(options: EmailActionPageOptions): NextResp
     buttonUrl = '/',
   } = options;
 
-  const bgColor = isError ? '#fef2f2' : '#f0fdf4';
-  const textColor = isError ? '#dc2626' : '#16a34a';
+  const bgColor = isError ? EMAIL_COLORS.errorBg : EMAIL_COLORS.successBg;
+  const textColor = isError ? EMAIL_COLORS.error : EMAIL_COLORS.success;
   // Use HTML entities for icons (compatible with all email clients)
   const icon = isError ? '&#33;' : '&#10003;';
 
@@ -69,7 +70,7 @@ export function renderEmailActionPage(options: EmailActionPageOptions): NextResp
   <title>${escapeHtml(title)} - Quiver</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: ${EMAIL_FONT_FAMILY};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -78,7 +79,7 @@ export function renderEmailActionPage(options: EmailActionPageOptions): NextResp
       background: ${bgColor};
     }
     .card {
-      background: white;
+      background: ${EMAIL_COLORS.cardBg};
       padding: 2rem;
       border-radius: 12px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -100,7 +101,7 @@ export function renderEmailActionPage(options: EmailActionPageOptions): NextResp
     }
     .btn {
       display: inline-block;
-      background: #3b82f6;
+      background: ${EMAIL_COLORS.primary};
       color: white;
       padding: 0.75rem 1.5rem;
       border-radius: 8px;
@@ -108,7 +109,7 @@ export function renderEmailActionPage(options: EmailActionPageOptions): NextResp
       font-weight: 500;
     }
     .btn:hover {
-      background: #2563eb;
+      background: ${EMAIL_COLORS.primaryHover};
     }
   </style>
 </head>

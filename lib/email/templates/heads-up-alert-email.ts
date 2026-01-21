@@ -5,6 +5,11 @@
  */
 
 import { signEmailToken } from '@/lib/utils/email-token';
+import {
+  EMAIL_COLORS,
+  EMAIL_FONT_FAMILY,
+  EMAIL_BUTTON_STYLE,
+} from '../email-constants';
 
 export interface HeadsUpEmailProps {
   userId: string;
@@ -32,16 +37,7 @@ export async function generateHeadsUpEmail(
 
   const logSessionUrl = `${baseUrl}/session/log?token=${token}&beach_id=${beachId}&window_start=${encodeURIComponent(startTime)}&beach_name=${encodeURIComponent(beachName)}&score=${score}`;
 
-  const buttonStyle = `
-    display: inline-block;
-    padding: 12px 24px;
-    margin: 8px 4px;
-    background: #3b82f6;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-  `;
+  const buttonStyle = EMAIL_BUTTON_STYLE;
 
   const html = `
 <!DOCTYPE html>
@@ -50,25 +46,25 @@ export async function generateHeadsUpEmail(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+<body style="font-family: ${EMAIL_FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${EMAIL_COLORS.text};">
 
   <div style="text-align: center; margin-bottom: 16px;">
     <div style="font-size: 48px;">⏰</div>
   </div>
 
-  <h1 style="text-align: center; font-size: 24px; color: #1e40af; margin-bottom: 8px;">
+  <h1 style="text-align: center; font-size: 24px; color: ${EMAIL_COLORS.heading}; margin-bottom: 8px;">
     ${beachName}
   </h1>
 
-  <div style="text-align: center; font-size: 32px; font-weight: bold; color: #16a34a; margin-bottom: 8px;">
+  <div style="text-align: center; font-size: 32px; font-weight: bold; color: ${EMAIL_COLORS.success}; margin-bottom: 8px;">
     ${score.toFixed(1)}/10
   </div>
 
-  <div style="text-align: center; font-size: 16px; color: #666; margin-bottom: 24px;">
+  <div style="text-align: center; font-size: 16px; color: ${EMAIL_COLORS.textSecondary}; margin-bottom: 24px;">
     ${startTime}–${endTime}
   </div>
 
-  <p style="text-align: center; color: #666; margin-bottom: 24px;">
+  <p style="text-align: center; color: ${EMAIL_COLORS.textSecondary}; margin-bottom: 24px;">
     ${conditionNote}
   </p>
 
@@ -77,9 +73,9 @@ export async function generateHeadsUpEmail(
     <a href="${logSessionUrl}" style="${buttonStyle}">Log this session</a>
   </div>
 
-  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
+  <hr style="border: none; border-top: 1px solid ${EMAIL_COLORS.border}; margin: 32px 0;">
 
-  <p style="color: #999; font-size: 12px; text-align: center;">
+  <p style="color: ${EMAIL_COLORS.textTertiary}; font-size: 12px; text-align: center;">
     Quiver · The smart surf forecast
   </p>
 </body>

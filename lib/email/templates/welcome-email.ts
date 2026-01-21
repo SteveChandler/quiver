@@ -5,6 +5,11 @@
  */
 
 import { signEmailToken } from '@/lib/utils/email-token';
+import {
+  EMAIL_COLORS,
+  EMAIL_FONT_FAMILY,
+  EMAIL_BUTTON_STYLE_COMPACT,
+} from '../email-constants';
 
 export interface WelcomeEmailProps {
   userId: string;
@@ -38,16 +43,7 @@ export async function generateWelcomeEmail(
     { label: 'Only when it\'s good', value: 'only_good' },
   ];
 
-  const buttonStyle = `
-    display: inline-block;
-    padding: 12px 20px;
-    margin: 4px;
-    background: #3b82f6;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-  `;
+  const buttonStyle = EMAIL_BUTTON_STYLE_COMPACT;
 
   const subject = 'Welcome to Quiver — set your surf defaults (10 seconds)';
 
@@ -58,46 +54,46 @@ export async function generateWelcomeEmail(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-  <h1 style="color: #1e40af; font-size: 24px; margin-bottom: 8px;">🌊 Welcome to Quiver</h1>
+<body style="font-family: ${EMAIL_FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${EMAIL_COLORS.text};">
+  <h1 style="color: ${EMAIL_COLORS.heading}; font-size: 24px; margin-bottom: 8px;">🌊 Welcome to Quiver</h1>
 
-  <p style="font-size: 18px; color: #666; margin-bottom: 24px;">
+  <p style="font-size: 18px; color: ${EMAIL_COLORS.textSecondary}; margin-bottom: 24px;">
     Quiver emails you one thing: the best yes/no surf call.
   </p>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">When do you usually surf?</h2>
+    <h2 style="font-size: 16px; color: ${EMAIL_COLORS.text}; margin-bottom: 12px;">When do you usually surf?</h2>
     ${timeButtons.map(b => `
       <a href="${baseUrl}/prefs/set?time=${b.value}&token=${token}" style="${buttonStyle}">${b.label}</a>
     `).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">What's your level?</h2>
+    <h2 style="font-size: 16px; color: ${EMAIL_COLORS.text}; margin-bottom: 12px;">What's your level?</h2>
     ${levelButtons.map(b => `
       <a href="${baseUrl}/prefs/set?level=${b.value}&token=${token}" style="${buttonStyle}">${b.label}</a>
     `).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">How often should we email?</h2>
+    <h2 style="font-size: 16px; color: ${EMAIL_COLORS.text}; margin-bottom: 12px;">How often should we email?</h2>
     ${frequencyButtons.map(b => `
       <a href="${baseUrl}/prefs/set?frequency=${b.value}&token=${token}" style="${buttonStyle}">${b.label}</a>
     `).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">Home break?</h2>
+    <h2 style="font-size: 16px; color: ${EMAIL_COLORS.text}; margin-bottom: 12px;">Home break?</h2>
     <a href="${baseUrl}/prefs/home-beach?token=${token}" style="${buttonStyle}">Set home beach →</a>
   </div>
 
-  <p style="color: #999; font-size: 14px; margin-top: 32px;">
+  <p style="color: ${EMAIL_COLORS.textTertiary}; font-size: 14px; margin-top: 32px;">
     Or just reply with your home break name.
   </p>
 
-  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
+  <hr style="border: none; border-top: 1px solid ${EMAIL_COLORS.border}; margin: 32px 0;">
 
-  <p style="color: #999; font-size: 12px;">
+  <p style="color: ${EMAIL_COLORS.textTertiary}; font-size: 12px;">
     Quiver · The smart surf forecast
   </p>
 </body>
