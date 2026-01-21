@@ -1,10 +1,33 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
-const EMAIL_TOKEN_SECRET = Deno.env.get('EMAIL_TOKEN_SECRET')!;
-const EMAIL_FROM_ADDRESS = Deno.env.get('EMAIL_FROM_ADDRESS')!;
+// Environment variables - validated at runtime in the handler
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const EMAIL_TOKEN_SECRET = Deno.env.get('EMAIL_TOKEN_SECRET');
+const EMAIL_FROM_ADDRESS = Deno.env.get('EMAIL_FROM_ADDRESS');
 const APP_URL = Deno.env.get('APP_URL') || 'https://quiver.surf';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+function validateEnvVars(): { valid: true } | { valid: false; missing: string[] } {
+  const required = {
+    RESEND_API_KEY,
+    EMAIL_TOKEN_SECRET,
+    EMAIL_FROM_ADDRESS,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+  };
+
+  const missing = Object.entries(required)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    return { valid: false, missing };
+  }
+
+  return { valid: true };
+}
 
 // Simple JWT signing for Deno (Web Crypto API)
 async function signToken(payload: Record<string, unknown>, secret: string): Promise<string> {
@@ -37,6 +60,16 @@ async function signToken(payload: Record<string, unknown>, secret: string): Prom
 
 serve(async (req) => {
   try {
+    // Validate environment variables at runtime
+    const envCheck = validateEnvVars();
+    if (!envCheck.valid) {
+      console.error('Missing required environment variables:', envCheck.missing);
+      return new Response(
+        `Configuration error: Missing environment variables: ${envCheck.missing.join(', ')}`,
+        { status: 500 }
+      );
+    }
+
     const { record } = await req.json();
 
     if (!record?.email || !record?.id) {
@@ -46,8 +79,8 @@ serve(async (req) => {
     const userId = record.id;
     const userEmail = record.email;
 
-    // Generate token
-    const token = await signToken({ user_id: userId, purpose: 'prefs' }, EMAIL_TOKEN_SECRET);
+    // Generate token (env vars validated above, safe to assert)
+    const token = await signToken({ user_id: userId, purpose: 'prefs' }, EMAIL_TOKEN_SECRET!);
 
     // Build email HTML
     const buttonStyle = `
@@ -147,18 +180,20 @@ serve(async (req) => {
       return new Response('Email send failed', { status: 500 });
     }
 
-    // Log the send
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    // Log the send (env vars validated above, safe to assert)
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    await supabase.from('email_send_log').insert({
+    const { error: logError } = await supabase.from('email_send_log').insert({
       user_id: userId,
       email_type: 'welcome',
       local_date: new Date().toISOString().split('T')[0],
       subject,
     });
+
+    // Log error but don't fail - email was already sent successfully
+    if (logError) {
+      console.error('Failed to log email send (email was sent successfully):', logError);
+    }
 
     console.log(`Welcome email sent to ${userEmail}`);
     return new Response('OK', { status: 200 });
