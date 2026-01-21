@@ -8,9 +8,9 @@
  */
 
 import { NextRequest } from 'next/server';
-import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
+import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
 // Valid values for each preference
 const VALID_TIME_BUCKETS = ['dawn', 'after_work', 'weekends'] as const;
@@ -28,35 +28,16 @@ export async function GET(request: NextRequest) {
   const level = searchParams.get('level') as SkillLevel | null;
   const frequency = searchParams.get('frequency') as Frequency | null;
 
-  // Validate token is present
-  if (!token) {
-    return renderEmailActionPage({
-      title: 'Missing Token',
-      message: 'Missing token parameter. Please use the link from your email.',
-      isError: true,
-    });
-  }
-
   // Verify token
-  let secret: string;
-  try {
-    secret = getEmailTokenSecret();
-  } catch {
+  const verification = await verifyEmailActionToken(token, 'prefs');
+  if (!verification.success) {
     return renderEmailActionPage({
-      title: 'Configuration Error',
-      message: 'Email system not configured properly.',
+      title: verification.errorType === 'config' ? 'Configuration Error' : 'Invalid Link',
+      message: verification.error,
       isError: true,
     });
   }
-
-  const payload = await verifyEmailToken(token, secret);
-  if (!payload || payload.purpose !== 'prefs') {
-    return renderEmailActionPage({
-      title: 'Invalid Link',
-      message: 'Invalid or expired link. Please check your most recent email.',
-      isError: true,
-    });
-  }
+  const userId = verification.userId;
 
   // Validate at least one preference is being set
   if (!time && !level && !frequency) {
@@ -92,7 +73,7 @@ export async function GET(request: NextRequest) {
 
   // Build update object
   const updates: Record<string, string> = {
-    user_id: payload.user_id,
+    user_id: userId,
   };
 
   if (time) updates.pref_time_bucket = time;

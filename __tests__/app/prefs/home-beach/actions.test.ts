@@ -183,7 +183,7 @@ describe('home-beach actions', () => {
       const result = await saveHomeBeach('', 'beach-123');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Invalid or expired link');
+      expect(result.error).toBe('Missing authentication token');
     });
   });
 

@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
+import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 import { revalidatePath } from 'next/cache';
 
 export interface SaveHomeBeachResult {
@@ -22,17 +22,11 @@ export async function saveHomeBeach(
   beachId: string
 ): Promise<SaveHomeBeachResult> {
   // Verify token
-  let secret: string;
-  try {
-    secret = getEmailTokenSecret();
-  } catch {
-    return { success: false, error: 'Email system not configured' };
+  const verification = await verifyEmailActionToken(token, 'prefs');
+  if (!verification.success) {
+    return { success: false, error: verification.error };
   }
-
-  const payload = await verifyEmailToken(token, secret);
-  if (!payload || payload.purpose !== 'prefs') {
-    return { success: false, error: 'Invalid or expired link' };
-  }
+  const userId = verification.userId;
 
   // Update database
   const supabase = createSupabaseServerClient();
@@ -40,7 +34,7 @@ export async function saveHomeBeach(
     .from('user_email_prefs')
     .upsert(
       {
-        user_id: payload.user_id,
+        user_id: userId,
         home_beach_id: beachId,
       },
       { onConflict: 'user_id' }

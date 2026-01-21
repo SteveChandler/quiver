@@ -6,9 +6,9 @@
  */
 
 import { NextRequest } from 'next/server';
-import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
+import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const end = searchParams.get('end');
 
   // Validate required params
-  if (!token || !beachId || !start || !end) {
+  if (!beachId || !start || !end) {
     return renderEmailActionPage({
       title: 'Missing Info',
       message: 'Missing required parameters. Please use the link from your email.',
@@ -27,25 +27,15 @@ export async function GET(request: NextRequest) {
   }
 
   // Verify token
-  let secret: string;
-  try {
-    secret = getEmailTokenSecret();
-  } catch {
+  const verification = await verifyEmailActionToken(token, 'save_window');
+  if (!verification.success) {
     return renderEmailActionPage({
-      title: 'Configuration Error',
-      message: 'Email system not configured.',
+      title: verification.errorType === 'config' ? 'Configuration Error' : 'Invalid Link',
+      message: verification.error,
       isError: true,
     });
   }
-
-  const payload = await verifyEmailToken(token, secret);
-  if (!payload || payload.purpose !== 'save_window') {
-    return renderEmailActionPage({
-      title: 'Invalid Link',
-      message: 'Invalid or expired link.',
-      isError: true,
-    });
-  }
+  const userId = verification.userId;
 
   // Parse dates
   const startTs = new Date(start);
@@ -62,7 +52,7 @@ export async function GET(request: NextRequest) {
   // Save to database
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from('saved_windows').insert({
-    user_id: payload.user_id,
+    user_id: userId,
     beach_id: beachId,
     start_ts: startTs.toISOString(),
     end_ts: endTs.toISOString(),

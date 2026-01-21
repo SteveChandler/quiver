@@ -45,7 +45,7 @@ describe('logSession', () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Invalid or expired link');
+      expect(result.error).toBe('Missing authentication token');
     });
 
     it('returns error for invalid token', async () => {

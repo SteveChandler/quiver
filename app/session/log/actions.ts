@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
+import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
 export interface LogSessionResult {
   success: boolean;
@@ -17,22 +17,16 @@ export async function logSession(
   predictedScore?: number
 ): Promise<LogSessionResult> {
   // Verify token
-  let secret: string;
-  try {
-    secret = getEmailTokenSecret();
-  } catch {
-    return { success: false, error: 'Email system not configured' };
+  const verification = await verifyEmailActionToken(token, 'log_session');
+  if (!verification.success) {
+    return { success: false, error: verification.error };
   }
-
-  const payload = await verifyEmailToken(token, secret);
-  if (!payload || payload.purpose !== 'log_session') {
-    return { success: false, error: 'Invalid or expired link' };
-  }
+  const userId = verification.userId;
 
   // Save to database
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from('session_logs').insert({
-    user_id: payload.user_id,
+    user_id: userId,
     beach_id: beachId,
     window_start: windowStart,
     rating,
