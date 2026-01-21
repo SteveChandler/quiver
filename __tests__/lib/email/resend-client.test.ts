@@ -16,7 +16,7 @@ describe('resend-client', () => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     process.env.RESEND_API_KEY = 'test-api-key';
-    process.env.EMAIL_FROM_ADDRESS = 'test@example.com';
+    process.env.MAIL_FROM = 'test@example.com';
     mockSend.mockResolvedValue({ data: { id: 'email-123' }, error: null });
   });
 
@@ -44,10 +44,10 @@ describe('resend-client', () => {
       expect(getFromAddress()).toBe('test@example.com');
     });
 
-    it('throws when EMAIL_FROM_ADDRESS is not set', async () => {
-      delete process.env.EMAIL_FROM_ADDRESS;
+    it('throws when MAIL_FROM is not set', async () => {
+      delete process.env.MAIL_FROM;
       const { getFromAddress } = await import('@/lib/email/resend-client');
-      expect(() => getFromAddress()).toThrow('EMAIL_FROM_ADDRESS environment variable is not set');
+      expect(() => getFromAddress()).toThrow('MAIL_FROM environment variable is not set');
     });
   });
 

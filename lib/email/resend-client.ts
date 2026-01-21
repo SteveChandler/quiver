@@ -20,9 +20,9 @@ export function getResendClient(): Resend {
 }
 
 export function getFromAddress(): string {
-  const from = process.env.EMAIL_FROM_ADDRESS;
+  const from = process.env.MAIL_FROM;
   if (!from) {
-    throw new Error('EMAIL_FROM_ADDRESS environment variable is not set');
+    throw new Error('MAIL_FROM environment variable is not set');
   }
   return from;
 }

@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // Environment variables - validated at runtime in the handler
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const EMAIL_TOKEN_SECRET = Deno.env.get('EMAIL_TOKEN_SECRET');
-const EMAIL_FROM_ADDRESS = Deno.env.get('EMAIL_FROM_ADDRESS');
+const MAIL_FROM = Deno.env.get('MAIL_FROM');
 const APP_URL = Deno.env.get('APP_URL') || 'https://quiver.surf';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -13,7 +13,7 @@ function validateEnvVars(): { valid: true } | { valid: false; missing: string[] 
   const required = {
     RESEND_API_KEY,
     EMAIL_TOKEN_SECRET,
-    EMAIL_FROM_ADDRESS,
+    MAIL_FROM,
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
   };
@@ -210,7 +210,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: EMAIL_FROM_ADDRESS,
+        from: MAIL_FROM,
         to: userEmail,
         subject: WELCOME_EMAIL_SUBJECT,
         html,
