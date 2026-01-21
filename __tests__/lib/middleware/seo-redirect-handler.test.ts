@@ -40,8 +40,8 @@ describe("SeoRedirectHandler", () => {
       expect(classifyUrlPattern("/admin/users/settings")).toBe("none");
     });
 
-    it("classifies legacy intent pages for redirect", () => {
-      // 2-segment intent URLs (/{intent}/{city}) should be classified for redirect
+    it("classifies legacy intent URLs (intent/city without state)", () => {
+      // These are old intent URLs that should be redirected to the new format
       expect(classifyUrlPattern("/beginner/malibu")).toBe("legacy-intent");
       expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("legacy-intent");
     });

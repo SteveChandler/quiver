@@ -38,6 +38,8 @@ const customJestConfig = {
     "^canvas$": "<rootDir>/__tests__/setup/mock-canvas.js",
     // Mock supercluster (ESM-only module)
     "^supercluster$": "<rootDir>/__tests__/__mocks__/supercluster.ts",
+    // Mock jose (ESM-only module)
+    "^jose$": "<rootDir>/__tests__/__mocks__/jose.ts",
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
