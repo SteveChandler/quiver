@@ -669,23 +669,29 @@ export class EnhancedForecastService {
 
   /**
    * Select CDIP beaches for update based on staleness
+   *
+   * FIXED: Previously this method only selected beaches that already had data_source='CDIP',
+   * which meant beaches not initially seeded with CDIP data were never updated by the CDIP cron.
+   * Now we use the cdip_eligible column to determine which beaches should receive CDIP updates,
+   * regardless of their current data_source.
    */
   private async selectCdipBeachesForUpdate(config: { freshnessWindowHours: number; maxBeachesPerRun: number }) {
     const supabase = await createSupabaseServiceRoleClient();
     const staleThresholdMs = Date.now() - config.freshnessWindowHours * 60 * 60 * 1000;
 
-    // Get all beaches
-    const { data: allBeaches, error: beachError } = await supabase
+    // Load CDIP-eligible beaches from DB (not all beaches)
+    const { data: cdipBeaches, error: beachError } = await supabase
       .from("beaches")
-      .select("*");
+      .select("*")
+      .eq("cdip_eligible", true);
 
     if (beachError) throw beachError;
-    if (!allBeaches || allBeaches.length === 0) {
-      log.info("No beaches found to update");
+    if (!cdipBeaches || cdipBeaches.length === 0) {
+      log.info("No CDIP-eligible beaches found");
       return null;
     }
 
-    // Get latest forecast data including data_source
+    // Get latest forecast data
     const { data: latestRows, error: latestError } = await supabase
       .from("v_enhanced_forecast_latest")
       .select("beach_id, updated_at, data_source");
@@ -698,19 +704,24 @@ export class EnhancedForecastService {
       latestByBeach.set(row.beach_id, { updated_at: row.updated_at, data_source: row.data_source ?? null });
     }
 
-    // Select CDIP beaches older than the freshness window
-    const cdipStale = allBeaches
+    // Select stale OR missing beaches (DO NOT filter by data_source)
+    const cdipStale = cdipBeaches
       .filter((b) => {
         const latest = latestByBeach.get(b.id);
-        if (!latest) return false;
-        if ((latest.data_source || "").toUpperCase() !== "CDIP") return false;
+        // FIXED: Missing forecast data = needs update (was incorrectly returning false)
+        if (!latest) return true;
+        // FIXED: Removed data_source check - we want to update based on eligibility, not current source
         const ts = new Date(latest.updated_at).getTime();
         return Number.isFinite(ts) && ts < staleThresholdMs;
       })
       .sort((a, b) => {
-        const aUpdated = new Date(latestByBeach.get(a.id)!.updated_at).getTime();
-        const bUpdated = new Date(latestByBeach.get(b.id)!.updated_at).getTime();
-        return aUpdated - bUpdated;
+        // Sort missing first, then by oldest updated
+        const aLatest = latestByBeach.get(a.id);
+        const bLatest = latestByBeach.get(b.id);
+        if (!aLatest && bLatest) return -1;
+        if (aLatest && !bLatest) return 1;
+        if (!aLatest && !bLatest) return 0;
+        return new Date(aLatest!.updated_at).getTime() - new Date(bLatest!.updated_at).getTime();
       });
 
     return {
