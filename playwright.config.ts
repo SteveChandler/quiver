@@ -78,7 +78,7 @@ export default defineConfig({
     // Guest-only: runs unauthenticated checks with cleared auth state
     {
       name: 'guest',
-      testMatch: ['e2e/guest-*.spec.ts'],
+      testMatch: ['e2e/guest-*.spec.ts', 'e2e/email-core-loop/**/*.spec.ts'],
       use: {
         ...devices['Desktop Chrome'],
         // Clear any auth state for truly unauthenticated tests
@@ -88,7 +88,7 @@ export default defineConfig({
     // Authenticated: uses storageState produced by globalSetup
     {
       name: 'auth',
-      testIgnore: ['e2e/guest-*.spec.ts', 'e2e/personas/**', 'e2e/persona-features/**'],
+      testIgnore: ['e2e/guest-*.spec.ts', 'e2e/personas/**', 'e2e/persona-features/**', 'e2e/email-core-loop/**'],
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
     },
     // Persona-based tests: each test uses its own persona's auth state via test.use()

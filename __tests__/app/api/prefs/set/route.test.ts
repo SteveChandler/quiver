@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * Tests for /prefs/set route
+ * Tests for /api/prefs/set route
  *
  * This route handles 1-tap preference updates from email buttons.
  * It verifies the token and updates the user's preferences.
@@ -23,7 +23,7 @@ jest.mock('@/lib/supabase/server', () => ({
 // Mock environment
 const TEST_SECRET = 'test-secret-key-that-is-at-least-32-characters-long';
 
-describe('GET /prefs/set', () => {
+describe('GET /api/prefs/set', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
@@ -34,8 +34,8 @@ describe('GET /prefs/set', () => {
   });
 
   it('returns error for missing token', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
-    const request = new NextRequest('http://localhost:3000/prefs/set?time=dawn');
+    const { GET } = await import('@/app/api/prefs/set/route');
+    const request = new NextRequest('http://localhost:3000/api/prefs/set?time=dawn');
     const response = await GET(request);
 
     expect(response.status).toBe(400);
@@ -44,9 +44,9 @@ describe('GET /prefs/set', () => {
   });
 
   it('returns error for invalid token', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const request = new NextRequest(
-      'http://localhost:3000/prefs/set?time=dawn&token=invalid'
+      'http://localhost:3000/api/prefs/set?time=dawn&token=invalid'
     );
     const response = await GET(request);
 
@@ -56,14 +56,14 @@ describe('GET /prefs/set', () => {
   });
 
   it('updates time preference with valid token', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(
       { user_id: 'user-123', purpose: 'prefs' },
       TEST_SECRET
     );
 
     const request = new NextRequest(
-      `http://localhost:3000/prefs/set?time=dawn&token=${token}`
+      `http://localhost:3000/api/prefs/set?time=dawn&token=${token}`
     );
     const response = await GET(request);
 
@@ -73,14 +73,14 @@ describe('GET /prefs/set', () => {
   });
 
   it('updates skill level with valid token', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(
       { user_id: 'user-123', purpose: 'prefs' },
       TEST_SECRET
     );
 
     const request = new NextRequest(
-      `http://localhost:3000/prefs/set?level=intermediate&token=${token}`
+      `http://localhost:3000/api/prefs/set?level=intermediate&token=${token}`
     );
     const response = await GET(request);
 
@@ -90,14 +90,14 @@ describe('GET /prefs/set', () => {
   });
 
   it('updates email frequency with valid token', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(
       { user_id: 'user-123', purpose: 'prefs' },
       TEST_SECRET
     );
 
     const request = new NextRequest(
-      `http://localhost:3000/prefs/set?frequency=only_good&token=${token}`
+      `http://localhost:3000/api/prefs/set?frequency=only_good&token=${token}`
     );
     const response = await GET(request);
 
@@ -107,14 +107,14 @@ describe('GET /prefs/set', () => {
   });
 
   it('rejects invalid preference values', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(
       { user_id: 'user-123', purpose: 'prefs' },
       TEST_SECRET
     );
 
     const request = new NextRequest(
-      `http://localhost:3000/prefs/set?time=invalid_value&token=${token}`
+      `http://localhost:3000/api/prefs/set?time=invalid_value&token=${token}`
     );
     const response = await GET(request);
 
@@ -124,14 +124,14 @@ describe('GET /prefs/set', () => {
   });
 
   it('returns error when no preference is specified', async () => {
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(
       { user_id: 'user-123', purpose: 'prefs' },
       TEST_SECRET
     );
 
     const request = new NextRequest(
-      `http://localhost:3000/prefs/set?token=${token}`
+      `http://localhost:3000/api/prefs/set?token=${token}`
     );
     const response = await GET(request);
 
@@ -143,14 +143,14 @@ describe('GET /prefs/set', () => {
   it('handles database errors gracefully', async () => {
     mockUpsert.mockResolvedValueOnce({ error: { message: 'DB error' } });
 
-    const { GET } = await import('@/app/prefs/set/route');
+    const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(
       { user_id: 'user-123', purpose: 'prefs' },
       TEST_SECRET
     );
 
     const request = new NextRequest(
-      `http://localhost:3000/prefs/set?time=dawn&token=${token}`
+      `http://localhost:3000/api/prefs/set?time=dawn&token=${token}`
     );
     const response = await GET(request);
 
