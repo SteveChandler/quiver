@@ -17,6 +17,21 @@ const BEACH_LIST_FIELDS_LEGACY =
 // Includes all fields from beaches table for comprehensive beach view
 const BEACH_DETAIL_FIELDS = "*";
 
+/**
+ * Escape special characters in LIKE patterns to prevent unintended matches.
+ * Escapes % and _ which are wildcards in SQL LIKE patterns.
+ *
+ * @param pattern - The string to escape for use in a LIKE pattern
+ * @returns The escaped pattern safe for use in LIKE queries
+ *
+ * @example
+ * escapeLikePattern('san_diego') // 'san\_diego'
+ * escapeLikePattern('test%value') // 'test\%value'
+ */
+function escapeLikePattern(pattern: string): string {
+  return pattern.replace(/[%_]/g, "\\$&");
+}
+
 export async function getBeaches() {
   return withDatabaseOperation<Beach[]>(async (supabase) => {
     try {
@@ -104,11 +119,32 @@ const INTENT_SKILL_FILTERS: Record<string, string[]> = {
 };
 
 /**
- * Intent to crowd_level mapping.
+ * Intent to crowd_level mapping for SORTING (not filtering).
+ * These intents show all beaches but prioritize beaches with matching crowd levels.
  */
-const INTENT_CROWD_FILTERS: Record<string, string[]> = {
+const INTENT_CROWD_SORT_PRIORITY: Record<string, string[]> = {
   "least-crowded": ["light", "low"],
 };
+
+/**
+ * Sort beaches by crowd_level priority.
+ * Beaches with crowd_level in priorityLevels appear first, others at the end.
+ * Secondary sort by name for consistent ordering.
+ */
+function sortByIntentCrowdPriority(
+  beaches: Beach[],
+  priorityLevels: string[]
+): Beach[] {
+  const prioritySet = new Set(priorityLevels.map((l) => l.toLowerCase()));
+  return [...beaches].sort((a, b) => {
+    const aMatch = a.crowd_level && prioritySet.has(a.crowd_level.toLowerCase());
+    const bMatch = b.crowd_level && prioritySet.has(b.crowd_level.toLowerCase());
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    // Secondary sort by name for consistent ordering
+    return (a.name || "").localeCompare(b.name || "");
+  });
+}
 
 /**
  * Fetch beaches matching an intent for a specific city.
@@ -132,13 +168,14 @@ export async function getBeachesByIntentAndCity(
 
     // Match city by slug pattern (handles hyphenated city names)
     const cityPattern = citySlug.replace(/-/g, " ");
-    query = query.ilike("city", `%${cityPattern}%`);
+    const escapedCityPattern = escapeLikePattern(cityPattern);
+    query = query.ilike("city", `%${escapedCityPattern}%`);
 
     // Match state
     const stateUpper = stateSlug.toUpperCase();
     query = query.or(`state.eq.${stateUpper},state.ilike.%${stateSlug}%`);
 
-    // Apply intent-specific filters
+    // Apply intent-specific filters (skill-based intents)
     const skillFilters = INTENT_SKILL_FILTERS[intent];
     if (skillFilters) {
       const skillConditions = skillFilters
@@ -147,21 +184,22 @@ export async function getBeachesByIntentAndCity(
       query = query.or(skillConditions);
     }
 
-    const crowdFilters = INTENT_CROWD_FILTERS[intent];
-    if (crowdFilters) {
-      const crowdConditions = crowdFilters
-        .map((c) => `crowd_level.ilike.%${c}%`)
-        .join(",");
-      query = query.or(crowdConditions);
-    }
-
-    // tide and water-temp intents return all beaches (no filtering)
+    // NOTE: crowd-based intents (least-crowded) now use SORTING not FILTERING
+    // to ensure pages always render content even without crowd_level data
 
     const { data, error } = await query.order("name");
 
     if (error) throw error;
 
-    return { data: (data ?? []) as Beach[], error: null };
+    let beaches = (data ?? []) as Beach[];
+
+    // Apply post-query sorting for crowd-based intents
+    const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
+    if (crowdSortPriority) {
+      beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
+    }
+
+    return { data: beaches, error: null };
   });
 }
 
@@ -186,7 +224,7 @@ export async function getBeachesByIntentAndState(
     const stateUpper = stateSlug.toUpperCase();
     query = query.or(`state.eq.${stateUpper},state.ilike.%${stateSlug}%`);
 
-    // Apply intent-specific filters (same as city version)
+    // Apply intent-specific filters (skill-based intents only)
     const skillFilters = INTENT_SKILL_FILTERS[intent];
     if (skillFilters) {
       const skillConditions = skillFilters
@@ -195,13 +233,8 @@ export async function getBeachesByIntentAndState(
       query = query.or(skillConditions);
     }
 
-    const crowdFilters = INTENT_CROWD_FILTERS[intent];
-    if (crowdFilters) {
-      const crowdConditions = crowdFilters
-        .map((c) => `crowd_level.ilike.%${c}%`)
-        .join(",");
-      query = query.or(crowdConditions);
-    }
+    // NOTE: crowd-based intents (least-crowded) now use SORTING not FILTERING
+    // to ensure pages always render content even without crowd_level data
 
     const { data, error } = await query
       .order("city")
@@ -210,6 +243,14 @@ export async function getBeachesByIntentAndState(
 
     if (error) throw error;
 
-    return { data: (data ?? []) as Beach[], error: null };
+    let beaches = (data ?? []) as Beach[];
+
+    // Apply post-query sorting for crowd-based intents
+    const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
+    if (crowdSortPriority) {
+      beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
+    }
+
+    return { data: beaches, error: null };
   });
 }

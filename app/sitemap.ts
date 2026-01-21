@@ -169,20 +169,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (beachesResponse.success && beachesResponse.data) {
     const beaches = beachesResponse.data;
 
-    // Generate hierarchical URLs for beaches
+    // Generate canonical URLs for beaches:
+    // - Hierarchical URL for beaches with complete data (slug + city + state)
+    // - /spots/{slug} fallback for beaches missing city or state
     beachEntries = beaches
-      .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
-      .map((beach) => ({
-        url: `${baseUrl}${buildBeachUrl(beach)}`,
-        // Prefer updated_at when present so the sitemap reflects freshness.
-        lastModified:
-          // getBeaches() selects a subset; treat updated_at as optional.
-          (beach as { updated_at?: string | null }).updated_at ||
-          beach.created_at ||
-          lastmod,
-        changeFrequency: "weekly",
-        priority: 0.6,
-      }));
+      .filter((b) => b.slug) // Only include beaches with a slug
+      .map((beach) => {
+        // Use hierarchical URL if we have complete location data (matches redirect logic in /spots/[slug])
+        const url = beach.city && beach.state
+          ? `${baseUrl}${buildBeachUrl(beach)}`
+          : `${baseUrl}/spots/${beach.slug}`;
+
+        return {
+          url,
+          // Prefer updated_at when present so the sitemap reflects freshness.
+          lastModified:
+            // getBeaches() selects a subset; treat updated_at as optional.
+            (beach as { updated_at?: string | null }).updated_at ||
+            beach.created_at ||
+            lastmod,
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        };
+      });
   }
 
   return [

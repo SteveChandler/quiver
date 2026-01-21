@@ -4,6 +4,13 @@
  * Silently blends multiple data sources (NOAA, CDIP, expert predictions)
  * to improve forecast accuracy without exposing individual sources.
  *
+ * CONFIDENCE SCALE: This service uses 0-1 scale internally.
+ * - 0.7 means 70% confidence
+ * - 1.0 means 100% confidence
+ *
+ * The rest of the codebase uses 0-100 scale. Conversion happens
+ * at the boundary in enhanced-forecast-service.ts.
+ *
  * This service uses expert predictions to calibrate and weight automated
  * model forecasts, improving accuracy for SoCal beaches.
  */

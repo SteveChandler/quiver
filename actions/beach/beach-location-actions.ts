@@ -2,6 +2,8 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { slugify } from "@/lib/utils/text-utils";
+import { stateToSlug } from "@/lib/utils/beach-url-utils";
 import type { Beach } from "@/types/database";
 
 export async function getNearbyBeaches(
@@ -163,5 +165,89 @@ export async function getAllCitiesWithBeaches(minBeaches: number = 1) {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+}
+
+// ============================================================================
+// City Lookup Functions (for redirect handling)
+// ============================================================================
+
+export interface CityLookupResult {
+  slug: string;
+  cityName: string;
+  stateSlug: string;
+  stateName: string;
+  country: string;
+}
+
+/**
+ * Look up a city by its URL slug.
+ * Used for redirect handling when we only have a city slug.
+ *
+ * @param citySlug - The URL slug of the city (e.g., "san-diego")
+ * @returns City data if found, null otherwise
+ */
+export async function lookupCityBySlug(
+  citySlug: string
+): Promise<CityLookupResult | null> {
+  try {
+    const citiesResult = await getAllCitiesWithBeaches(1);
+    if (!citiesResult.success || !citiesResult.data) return null;
+
+    for (const cityRecord of citiesResult.data) {
+      const slug = slugify(cityRecord.city);
+      if (slug === citySlug) {
+        return {
+          slug,
+          cityName: cityRecord.city,
+          stateSlug: stateToSlug(cityRecord.state),
+          stateName: cityRecord.state,
+          country: cityRecord.country || "USA",
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error looking up city by slug:", error);
+    return null;
+  }
+}
+
+/**
+ * Look up a city by city slug + state slug.
+ * Used for redirect handling of collision-aware slugs like "oceanside-ca".
+ *
+ * @param citySlug - The URL slug of the city (e.g., "oceanside")
+ * @param stateSlug - The URL slug of the state (e.g., "ca")
+ * @returns City data if found, null otherwise
+ */
+export async function lookupCityByCityAndStateSlug(
+  citySlug: string,
+  stateSlug: string
+): Promise<CityLookupResult | null> {
+  try {
+    const citiesResult = await getAllCitiesWithBeaches(1);
+    if (!citiesResult.success || !citiesResult.data) return null;
+
+    for (const cityRecord of citiesResult.data) {
+      const slug = slugify(cityRecord.city);
+      const state = stateToSlug(cityRecord.state);
+
+      if (slug === citySlug && state === stateSlug) {
+        return {
+          slug,
+          cityName: cityRecord.city,
+          stateSlug: state,
+          stateName: cityRecord.state,
+          country: cityRecord.country || "USA",
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error looking up city by city+state:", error);
+    return null;
   }
 }

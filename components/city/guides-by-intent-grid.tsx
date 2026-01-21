@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { SURF_INTENTS, type SurfIntentSlug } from "@/lib/data/surf-spots";
 import type { BeachWithMetrics } from "@/types/location";
+import { getIntentSlug } from "@/lib/utils/slug-helpers";
 
 interface GuidesByIntentGridProps {
   cityName: string;
   citySlug: string;
+  stateSlug?: string;
   featuredIntents: string[];
   beaches: BeachWithMetrics[];
 }
@@ -50,10 +52,13 @@ function getBeachesForIntent(
 export function GuidesByIntentGrid({
   cityName,
   citySlug,
+  stateSlug,
   featuredIntents,
   beaches,
 }: GuidesByIntentGridProps) {
   if (!featuredIntents || featuredIntents.length === 0) return null;
+
+  const intentSlug = getIntentSlug(citySlug, stateSlug);
 
   // Filter to valid intent slugs
   const validIntents = featuredIntents.filter(
@@ -93,7 +98,7 @@ export function GuidesByIntentGrid({
                   {intentBeaches.map((beach) => (
                     <li key={beach.slug}>
                       <Link
-                        href={`/${intent}/${citySlug}#${beach.slug}`}
+                        href={`/${intent}/${intentSlug}#${beach.slug}`}
                         className="underline-offset-2 hover:underline"
                       >
                         {beach.name}
@@ -104,7 +109,7 @@ export function GuidesByIntentGrid({
               )}
 
               <Link
-                href={`/${intent}/${citySlug}`}
+                href={`/${intent}/${intentSlug}`}
                 className="mt-4 inline-flex text-sm font-semibold text-sky-700 underline-offset-2 hover:underline"
               >
                 View the full {definition.label.toLowerCase()} playbook

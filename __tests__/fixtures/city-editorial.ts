@@ -93,7 +93,7 @@ export const mockOrangeCountyEditorial: CityEditorialContent = {
   ],
   quick_links: [
     { label: "Surf spots", href: "/beaches/usa/ca/orange-county" },
-    { label: "Tide info", href: "/tide/orange-county" },
+    { label: "Tide info", href: "/tide/ca" },
   ],
   featured_intents: ["tide", "water-temp"],
   planning_checklist: [

@@ -4,6 +4,7 @@ import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { hasUTMParams, getAttributionForAnalytics } from '@/lib/attribution'
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL"
@@ -88,6 +89,9 @@ export function AnalyticsLoader() {
     <>
       {/* Vercel Web Analytics (page views + basic metrics) */}
       <Analytics />
+
+      {/* Vercel Speed Insights (Core Web Vitals monitoring) */}
+      <SpeedInsights />
 
       {/* Google Analytics (GA4) - Load on ALL pages for attribution */}
       <Script

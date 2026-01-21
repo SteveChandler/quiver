@@ -3,6 +3,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { X } from "lucide-react";
 import Image from "next/image";
+import { getTransformedUrl } from "@/lib/utils/image-utils";
 
 interface PhotoModalProps {
   open: boolean;
@@ -33,10 +34,10 @@ export function PhotoModal({
           <X className="w-5 h-5 text-white" />
         </button>
 
-        {/* Image */}
+        {/* Image - using Supabase image transformations for optimized delivery */}
         <div className="relative w-full h-full flex items-center justify-center">
           <Image
-            src={photoUrl}
+            src={getTransformedUrl(photoUrl, 'fullWidth')}
             alt={caption || "Intel photo"}
             fill
             className="object-contain"

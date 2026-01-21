@@ -150,3 +150,6 @@ ml/models/*.json
 
 # ML model artifacts
 models/
+
+# Android debug build artifacts
+quiver/android/debug/

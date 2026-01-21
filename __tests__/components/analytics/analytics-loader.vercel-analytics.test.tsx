@@ -17,12 +17,21 @@ jest.mock("@vercel/analytics/react", () => ({
   Analytics: () => <div data-testid="vercel-analytics" />,
 }));
 
+jest.mock("@vercel/speed-insights/next", () => ({
+  SpeedInsights: () => <div data-testid="vercel-speed-insights" />,
+}));
+
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 
 describe("AnalyticsLoader (Vercel Web Analytics)", () => {
   it("mounts the Vercel Analytics component", () => {
     render(<AnalyticsLoader />);
     expect(screen.getByTestId("vercel-analytics")).toBeInTheDocument();
+  });
+
+  it("mounts the Vercel Speed Insights component", () => {
+    render(<AnalyticsLoader />);
+    expect(screen.getByTestId("vercel-speed-insights")).toBeInTheDocument();
   });
 });
 

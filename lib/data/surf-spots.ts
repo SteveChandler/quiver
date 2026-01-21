@@ -17,10 +17,12 @@ export type { SurfIntentSlug } from "@/lib/constants/surf-intents";
 export { SURF_INTENTS } from "@/lib/constants/surf-intents";
 
 /**
- * Legacy city slug type - used by SurfSpot interface.
- * New code should use database city lookups instead.
+ * City slug type for URL generation.
+ * City slugs should match the slugified city name from the database
+ * (e.g., "huntington-beach", "san-diego", "newport-beach").
+ * @deprecated Use string type directly - city slugs are generated from city names
  */
-export type SurfCitySlug = "san-diego" | "orange-county";
+export type SurfCitySlug = string;
 
 export interface SurfSpot {
   id?: string; // Database UUID for forecast lookups
@@ -908,7 +910,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "doheny-state-beach": {
     slug: "doheny-state-beach",
     name: "Doheny State Beach",
-    citySlug: "orange-county",
+    citySlug: "dana-point",
     region: "Dana Point, Orange County",
     coordinates: { lat: 33.4616, lng: -117.6902 },
     overview:
@@ -966,7 +968,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "san-onofre": {
     slug: "san-onofre",
     name: "San Onofre Trails",
-    citySlug: "orange-county",
+    citySlug: "san-clemente",
     region: "San Clemente, Orange County",
     coordinates: { lat: 33.3764, lng: -117.5725 },
     overview:
@@ -1022,7 +1024,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "old-mans": {
     slug: "old-mans",
     name: "Old Man's",
-    citySlug: "orange-county",
+    citySlug: "san-clemente",
     region: "San Clemente, Orange County",
     coordinates: { lat: 33.3846, lng: -117.5699 },
     overview:
@@ -1080,7 +1082,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   churches: {
     slug: "churches",
     name: "Churches",
-    citySlug: "orange-county",
+    citySlug: "san-clemente",
     region: "San Onofre, Orange County",
     coordinates: { lat: 33.3873, lng: -117.579 },
     overview:
@@ -1136,7 +1138,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "lowers-trestles": {
     slug: "lowers-trestles",
     name: "Lower Trestles",
-    citySlug: "orange-county",
+    citySlug: "san-clemente",
     region: "San Clemente, Orange County",
     coordinates: { lat: 33.384, lng: -117.5931 },
     overview:
@@ -1192,7 +1194,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "uppers-trestles": {
     slug: "uppers-trestles",
     name: "Upper Trestles",
-    citySlug: "orange-county",
+    citySlug: "san-clemente",
     region: "San Clemente, Orange County",
     coordinates: { lat: 33.3854, lng: -117.5963 },
     overview:
@@ -1248,7 +1250,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "huntington-pier": {
     slug: "huntington-pier",
     name: "Huntington Beach Pier",
-    citySlug: "orange-county",
+    citySlug: "huntington-beach",
     region: "Huntington Beach, Orange County",
     coordinates: { lat: 33.6542, lng: -118.002 },
     overview:
@@ -1304,7 +1306,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "newport-56th-street": {
     slug: "newport-56th-street",
     name: "Newport 56th Street",
-    citySlug: "orange-county",
+    citySlug: "newport-beach",
     region: "Newport Beach, Orange County",
     coordinates: { lat: 33.6118, lng: -117.9342 },
     overview:
@@ -1360,7 +1362,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "bolsa-chica": {
     slug: "bolsa-chica",
     name: "Bolsa Chica",
-    citySlug: "orange-county",
+    citySlug: "huntington-beach",
     region: "Huntington Beach, Orange County",
     coordinates: { lat: 33.6962, lng: -118.0454 },
     overview:
@@ -1418,7 +1420,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   "seal-beach": {
     slug: "seal-beach",
     name: "Seal Beach Pier",
-    citySlug: "orange-county",
+    citySlug: "huntington-beach",
     region: "Seal Beach, Orange County",
     coordinates: { lat: 33.7414, lng: -118.1048 },
     overview:

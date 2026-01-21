@@ -159,7 +159,28 @@ describe("AboutAccordion Component", () => {
       expect(screen.getByText("About Orange County Surf")).toBeInTheDocument();
     });
 
-    it("should use correct city slug for links", () => {
+    it("should use state-level URL for county slugs when stateSlug provided", () => {
+      render(
+        <AboutAccordion
+          cityName="Orange County"
+          citySlug="orange-county"
+          stateSlug="ca"
+          description={["Test description."]}
+        />
+      );
+
+      const trigger = screen.getByText("About Orange County Surf");
+      fireEvent.click(trigger);
+
+      const crowdedLink = screen.getByText("less-crowded guide");
+      // County slugs should use state-level URLs to avoid 404s
+      expect(crowdedLink.closest("a")).toHaveAttribute(
+        "href",
+        "/least-crowded/ca"
+      );
+    });
+
+    it("should fallback to citySlug when stateSlug not provided for county", () => {
       render(
         <AboutAccordion
           cityName="Orange County"
@@ -172,9 +193,31 @@ describe("AboutAccordion Component", () => {
       fireEvent.click(trigger);
 
       const crowdedLink = screen.getByText("less-crowded guide");
+      // Without stateSlug, falls back to citySlug (legacy behavior)
       expect(crowdedLink.closest("a")).toHaveAttribute(
         "href",
         "/least-crowded/orange-county"
+      );
+    });
+
+    it("should use citySlug for regular cities even with stateSlug", () => {
+      render(
+        <AboutAccordion
+          cityName="San Diego"
+          citySlug="san-diego"
+          stateSlug="ca"
+          description={["Test description."]}
+        />
+      );
+
+      const trigger = screen.getByText("About San Diego Surf");
+      fireEvent.click(trigger);
+
+      const crowdedLink = screen.getByText("less-crowded guide");
+      // Regular city slugs should NOT change to state-level URLs
+      expect(crowdedLink.closest("a")).toHaveAttribute(
+        "href",
+        "/least-crowded/san-diego"
       );
     });
   });

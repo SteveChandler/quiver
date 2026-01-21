@@ -305,7 +305,26 @@ describe("GuidesByIntentGrid Component", () => {
       ).toBeInTheDocument();
     });
 
-    it("should use correct city slug in links", () => {
+    it("should use state-level URL for county slugs when stateSlug provided", () => {
+      render(
+        <GuidesByIntentGrid
+          cityName="Orange County"
+          citySlug="orange-county"
+          stateSlug="ca"
+          featuredIntents={["beginner"]}
+          beaches={mockBeaches}
+        />
+      );
+
+      const playbook = screen.getByText(/View the full beginner friendly playbook/i);
+      // County slugs should use state-level URLs to avoid 404s
+      expect(playbook.closest("a")).toHaveAttribute(
+        "href",
+        "/beginner/ca"
+      );
+    });
+
+    it("should fallback to citySlug when stateSlug not provided for county", () => {
       render(
         <GuidesByIntentGrid
           cityName="Orange County"
@@ -316,9 +335,29 @@ describe("GuidesByIntentGrid Component", () => {
       );
 
       const playbook = screen.getByText(/View the full beginner friendly playbook/i);
+      // Without stateSlug, falls back to citySlug (legacy behavior)
       expect(playbook.closest("a")).toHaveAttribute(
         "href",
         "/beginner/orange-county"
+      );
+    });
+
+    it("should use citySlug for regular cities even with stateSlug", () => {
+      render(
+        <GuidesByIntentGrid
+          cityName="San Diego"
+          citySlug="san-diego"
+          stateSlug="ca"
+          featuredIntents={["beginner"]}
+          beaches={mockBeaches}
+        />
+      );
+
+      const playbook = screen.getByText(/View the full beginner friendly playbook/i);
+      // Regular city slugs should NOT change to state-level URLs
+      expect(playbook.closest("a")).toHaveAttribute(
+        "href",
+        "/beginner/san-diego"
       );
     });
   });

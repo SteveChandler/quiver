@@ -1,0 +1,56 @@
+import Link from "next/link";
+import {
+  buildCityIntentUrl,
+  type IntentKey,
+} from "@/lib/constants/intent-definitions";
+
+interface CityLink {
+  slug: string;
+  name: string;
+}
+
+interface PopularCitiesForIntentProps {
+  intentKey: IntentKey;
+  intentLabel: string;
+  stateSlug: string;
+  stateName: string;
+  cities: CityLink[];
+}
+
+/**
+ * PopularCitiesForIntent - State-level backstop for crawl loops
+ *
+ * Displayed on state intent pages (e.g., /beginner/ca) to link DOWN
+ * to city intent pages, creating the crawl loop:
+ * state intent -> city intent -> city hub -> state intent
+ */
+export function PopularCitiesForIntent({
+  intentKey,
+  intentLabel,
+  stateSlug,
+  stateName,
+  cities,
+}: PopularCitiesForIntentProps) {
+  if (cities.length === 0) return null;
+
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold text-slate-900">
+        Popular cities for {intentLabel} in {stateName}
+      </h2>
+      <ul className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {cities.map((city) => (
+          <li key={city.slug}>
+            <Link
+              href={buildCityIntentUrl(intentKey, stateSlug, city.slug)}
+              className="block p-3 rounded-md border border-slate-200 hover:bg-slate-50 transition-colors"
+              aria-label={`${intentLabel} guide for ${city.name}`}
+            >
+              {city.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

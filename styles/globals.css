@@ -352,6 +352,12 @@ body {
     transform: scale(1);
     opacity: 1;
   }
+
+  /* Wave Background Animation - GPU accelerated horizontal scroll */
+  .wave-layer {
+    will-change: transform;
+    backface-visibility: hidden; /* Force GPU layer without conflicting with animation */
+  }
 }
 
 /* Accessibility - Respect reduced motion preference */
@@ -368,7 +374,8 @@ body {
   .wizard-field-focus,
   .wizard-hint-enter,
   .wizard-celebration,
-  .wizard-autosave {
+  .wizard-autosave,
+  .wave-layer {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
     transform: none !important;

@@ -66,7 +66,7 @@ Primary user-facing forecasts combining data from multiple sources. Retained for
 
 #### `marine_forecasts`
 
-Raw wave and wind data from CDIP, NDBC, and Open-Meteo. Retained for 7 days.
+Raw wave and wind data from CDIP, NDBC, and Open-Meteo. Retained for 90 days (extended January 2026 to support ML training).
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -84,11 +84,13 @@ Raw wave and wind data from CDIP, NDBC, and Open-Meteo. Retained for 7 days.
 
 **Indexes**: `idx_marine_forecasts_beach_ts` (beach_id, ts)
 
+**Note**: Extended to 90-day retention in January 2026 to provide adequate ML training data. See [ML Data Requirements](#ml-training-data-requirements).
+
 ---
 
 #### `tide_forecasts`
 
-NOAA tide predictions. Retained for 7 days.
+NOAA tide predictions. Retained for 90 days (extended January 2026 to support ML training).
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -697,22 +699,26 @@ Coast Pulse    Home Screen    Session Planner
 
 ## Retention Policies
 
+### Overview
+
+Retention policies balance storage costs against ML training data requirements. As of January 2026, raw forecast data is retained for 90 days to support ML bias correction model training.
+
 ### `prune_forecasts_retention`
 
 Runs daily at 5am UTC via pg_cron.
 
 | Table | Retention | Notes |
 |-------|-----------|-------|
-| `marine_forecasts` | 7 days | Raw wave/wind data |
-| `tide_forecasts` | 7 days | Raw tide predictions |
-| `enhanced_forecasts` | 14 days | Processed forecasts |
+| `marine_forecasts` | 90 days | Extended Jan 2026 for ML training |
+| `tide_forecasts` | 90 days | Extended Jan 2026 for ML training |
+| `enhanced_forecasts` | 14 days | User-facing processed forecasts |
 | `beach_daily_intel` | 3 days | Pre-computed cache |
 
 ### Function Definition
 
 ```sql
 CREATE OR REPLACE FUNCTION prune_forecasts_retention(
-  keep_days_raw integer DEFAULT 7,
+  keep_days_raw integer DEFAULT 90,
   keep_days_enhanced integer DEFAULT 14,
   batch_size integer DEFAULT 25000
 ) RETURNS TABLE(marine_deleted bigint, tide_deleted bigint, enhanced_deleted bigint);
@@ -725,7 +731,7 @@ CREATE OR REPLACE FUNCTION prune_forecasts_retention(
 SELECT cron.schedule(
   'prune_forecasts_retention',
   '0 5 * * *',
-  $$SELECT prune_forecasts_retention(7, 14, 25000);$$
+  $$SELECT prune_forecasts_retention(90, 14, 25000);$$
 );
 
 -- Daily maintenance at 2am UTC
@@ -742,6 +748,26 @@ SELECT cron.schedule(
   'SELECT run_database_maintenance(true, true, true, 14, 3);'
 );
 ```
+
+### ML Training Data Requirements
+
+The extended 90-day retention policy was implemented to address ML model training issues:
+
+| Requirement | Value | Rationale |
+|-------------|-------|-----------|
+| Minimum retention | 90 days | Captures seasonal weather variation |
+| Target samples | 30,000+ | Statistical significance for bias patterns |
+| Data diversity | Multiple weather patterns | Prevents overfitting to anomalous conditions |
+
+**Background**: The ML bias correction model (v1) was trained on only 8 days of data (2,275 samples) during an unusual weather period. This caused the model to learn biased patterns that didn't generalize well. The 90-day retention ensures adequate training data for future model versions.
+
+**Storage Impact**:
+- Current DB size: ~535 MB
+- Estimated at 90 days: ~1.2 GB for marine_forecasts
+- Supabase Pro limit: 8 GB
+- Headroom: Sufficient
+
+See [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md) for training data monitoring.
 
 ---
 
@@ -869,6 +895,7 @@ Example: `20260113120000_optimize_forecast_storage_retention.sql`
 - `/docs/architecture/FORECAST_SCORING.md` - Surf condition scoring algorithms
 - `/docs/architecture/CACHE_STRATEGY.md` - Caching patterns
 - `/lib/services/ARCHITECTURE.md` - Service layer implementation
+- `/docs/guides/ML_OPERATIONS_RUNBOOK.md` - ML pipeline operations
 
 ---
 

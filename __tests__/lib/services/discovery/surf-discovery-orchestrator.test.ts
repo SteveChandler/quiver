@@ -234,16 +234,26 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     mockState.sunTimesCache = new Map();
   });
 
-  test('places favorite beaches first with isFavorite flag', async () => {
+  test('marks favorite beaches with isFavorite flag but ranks by score', async () => {
     // Setup: beach-2 is a favorite
     mockState.favoriteBeaches = [mockBeach2];
 
     const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
 
-    // Verify first recommendation is the favorite
+    // Verify results are returned and favorites are marked
     expect(result.recommendations.length).toBeGreaterThan(0);
-    expect(result.recommendations[0].beach.id).toBe('beach-2');
-    expect(result.recommendations[0].isFavorite).toBe(true);
+
+    // Find beach-2 and verify it has isFavorite flag
+    const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
+    expect(beach2Rec).toBeDefined();
+    expect(beach2Rec?.isFavorite).toBe(true);
+
+    // Verify sorting is by score (highest first), not favorites-first
+    for (let i = 1; i < result.recommendations.length; i++) {
+      expect(result.recommendations[i - 1].score).toBeGreaterThanOrEqual(
+        result.recommendations[i].score
+      );
+    }
   });
 
   test('removes duplicates when beach is both favorite and in algo results', async () => {
@@ -261,7 +271,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(beach1Rec?.isFavorite).toBe(true);
   });
 
-  test('excludes favorites with score below 50', async () => {
+  test('includes all beaches regardless of score, sorted by score descending', async () => {
     // Setup: beach-2 is a favorite but will have low score
     mockState.favoriteBeaches = [mockBeach2];
 
@@ -270,7 +280,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     scoreBeachWithEngine.mockImplementation((engine: any, beach: Beach) => {
       if (beach.id === 'beach-2') {
         return {
-          total: 45, // Below threshold
+          total: 45, // Low score
           subscores: {
             waveHeightFit: 10,
             periodEnergyScore: 10,
@@ -304,9 +314,15 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
 
-    // Verify beach-2 is not in results
+    // Verify beach-2 IS in results (no longer excluded based on score)
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
-    expect(beach2Rec).toBeUndefined();
+    expect(beach2Rec).toBeDefined();
+    expect(beach2Rec?.isFavorite).toBe(true);
+    expect(beach2Rec?.score).toBe(45);
+
+    // Verify it's sorted to the end due to low score
+    const lastRec = result.recommendations[result.recommendations.length - 1];
+    expect(lastRec.beach.id).toBe('beach-2');
   });
 
   test('handles empty favorites gracefully', async () => {
@@ -329,11 +345,11 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations.every(r => !r.isFavorite)).toBe(true);
   });
 
-  test('sorts multiple favorites by score descending', async () => {
+  test('sorts all beaches by score descending with correct isFavorite flags', async () => {
     // Setup: multiple favorites
     mockState.favoriteBeaches = [mockBeach1, mockBeach2, mockBeach3];
 
-    // Mock different scores for each favorite
+    // Mock different scores for each beach
     const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
     scoreBeachWithEngine.mockImplementation((engine: any, beach: Beach) => {
       const scores: Record<string, number> = {
@@ -361,7 +377,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
 
-    // Verify favorites are first and sorted by score
+    // Verify all beaches are sorted by score (pure score ranking)
     expect(result.recommendations[0].beach.id).toBe('beach-2'); // 92
     expect(result.recommendations[0].isFavorite).toBe(true);
     expect(result.recommendations[1].beach.id).toBe('beach-1'); // 85
@@ -369,10 +385,10 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations[2].beach.id).toBe('beach-3'); // 78
     expect(result.recommendations[2].isFavorite).toBe(true);
     expect(result.recommendations[3].beach.id).toBe('beach-4'); // 70
-    expect(result.recommendations[3].isFavorite).toBeUndefined();
+    expect(result.recommendations[3].isFavorite).toBe(false); // Non-favorite has isFavorite: false
   });
 
-  test('respects maxResults limit after merging favorites', async () => {
+  test('respects maxResults limit with pure score ranking', async () => {
     mockState.favoriteBeaches = [mockBeach1, mockBeach2];
 
     const result = await discoverSurfSpots(testUserId, { maxResults: 3 });
@@ -380,12 +396,21 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Should return exactly 3 results
     expect(result.recommendations.length).toBe(3);
 
-    // First two should be favorites
-    expect(result.recommendations[0].isFavorite).toBe(true);
-    expect(result.recommendations[1].isFavorite).toBe(true);
+    // Results should be sorted by score, favorites marked correctly
+    for (let i = 1; i < result.recommendations.length; i++) {
+      expect(result.recommendations[i - 1].score).toBeGreaterThanOrEqual(
+        result.recommendations[i].score
+      );
+    }
+
+    // Favorites should have isFavorite: true
+    const beach1Rec = result.recommendations.find(r => r.beach.id === 'beach-1');
+    const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
+    if (beach1Rec) expect(beach1Rec.isFavorite).toBe(true);
+    if (beach2Rec) expect(beach2Rec.isFavorite).toBe(true);
   });
 
-  test('does not mark non-favorites with isFavorite flag', async () => {
+  test('marks non-favorites with isFavorite: false', async () => {
     mockState.favoriteBeaches = [mockBeach1];
 
     const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
@@ -393,7 +418,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Find a non-favorite recommendation
     const nonFavorite = result.recommendations.find(r => r.beach.id !== 'beach-1');
     expect(nonFavorite).toBeDefined();
-    expect(nonFavorite?.isFavorite).toBeUndefined();
+    expect(nonFavorite?.isFavorite).toBe(false); // Now explicitly false, not undefined
   });
 
   test('handles malformed recommendations with null safety', async () => {

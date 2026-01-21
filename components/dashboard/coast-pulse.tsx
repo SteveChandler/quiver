@@ -19,6 +19,9 @@ import {
   MoreVertical,
   Flag,
 } from "lucide-react";
+import { AnimatedWaveIcon } from "@/components/ui/animated-wave-icon";
+import { WaveBackground } from "@/components/ui/wave-background";
+// import { ParticleBackground } from "@/components/ui/particle-background"; // Kept for easy rollback
 import { formatTimeAgo } from "@/lib/utils/time-formatters";
 import { QuickCheckinSheet } from "../intel/quick-checkin-sheet";
 import { PhotoModal } from "../intel/photo-modal";
@@ -360,11 +363,19 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
   return (
     <div
-      className="bg-[#1e1e1e] rounded-2xl p-4 space-y-4"
+      className="relative bg-[#1e1e1e] rounded-2xl p-4 space-y-4 overflow-hidden"
       data-testid="coast-pulse-section"
     >
+      {/* Ambient wave background */}
+      <WaveBackground
+        layerCount={3}
+        color="white"
+        maxOpacity={0.15}
+        speed={1}
+      />
+
       {/* Header with Live indicator and Add button */}
-      <div className="flex items-center justify-between">
+      <div className="relative z-10 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white">
           <Activity className="text-[#f97316]" size={16} />
           Live Coast Pulse
@@ -393,10 +404,10 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
       {/* Summary Section */}
       {!loading && !error && summary && (summary.waveHeight || summary.windSpeed || summary.tideHeight || summary.waterTemp) && (
-        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300 bg-[#2a2a2a] rounded-lg px-3 py-2">
+        <div className="relative z-10 flex flex-wrap items-center gap-3 text-xs text-gray-300 bg-[#2a2a2a] rounded-lg px-3 py-2">
           {summary.waveHeight && (
-            <span className="flex items-center gap-1">
-              <Waves className="h-3.5 w-3.5 text-blue-400" />
+            <span className="flex items-center gap-1.5">
+              <AnimatedWaveIcon className="text-blue-400" size={14} duration={1.5} />
               {summary.waveHeight}
             </span>
           )}
@@ -424,7 +435,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
       {/* Loading State */}
       {loading && (
-        <div className="relative pl-6" role="list">
+        <div className="relative z-10 pl-6" role="list">
           {/* Orange vertical line */}
           <div className="absolute left-[7px] top-1 bottom-1 w-0.5 bg-[#f97316]" />
 
@@ -446,7 +457,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
       {/* Error State */}
       {!loading && error && (
-        <div className="flex flex-col items-center justify-center py-6 gap-3">
+        <div className="relative z-10 flex flex-col items-center justify-center py-6 gap-3">
           <p className="text-sm text-gray-400">Unable to load coast data</p>
           <button
             onClick={() => fetchData()}
@@ -460,14 +471,14 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
       {/* Empty State */}
       {!loading && !error && items.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-6">
+        <div className="relative z-10 flex flex-col items-center justify-center py-6">
           <p className="text-sm text-gray-400">No nearby data available</p>
         </div>
       )}
 
       {/* Timeline */}
       {!loading && !error && items.length > 0 && (
-        <div className="relative pl-6" role="list">
+        <div className="relative z-10 pl-6" role="list">
           {/* Orange vertical line */}
           <div className="absolute left-[7px] top-1 bottom-1 w-0.5 bg-[#f97316]" />
 
@@ -563,7 +574,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
       {/* Infinite scroll sentinel and loading states */}
       {!loading && !error && items.length > 0 && (
-        <>
+        <div className="relative z-10">
           {/* Loading more indicator */}
           {loadingMore && (
             <div className="flex justify-center py-4">
@@ -597,7 +608,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
           {/* Invisible sentinel for intersection observer */}
           <div ref={sentinelRef} className="h-1" aria-hidden="true" />
-        </>
+        </div>
       )}
 
       {/* Quick Check-in Sheet */}

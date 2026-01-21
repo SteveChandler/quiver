@@ -216,9 +216,9 @@ Ground truth matching is the process of pairing ML predictions with actual buoy 
    - Filters to only process beaches with observation sources (96 beaches)
    - Logs predictions to `ml_predictions_log` table with `observed_m = NULL`
 
-2. **Observation Backfill** (`/api/cron/ml/backfill-observations`)
-   - Runs periodically to match predictions with observations
-   - Processes up to 1000 predictions per run with parallel queries (50 concurrent)
+2. **Observation Backfill** (pg_cron: `backfill_ml_observations`)
+   - Runs every 10 minutes via Supabase pg_cron
+   - Processes up to 1000 predictions per run
    - For each prediction, searches `marine_forecasts` for observations within +/- 1 hour
    - Updates `ml_predictions_log` with `observed_m`, `raw_error_m`, and `corrected_error_m`
 
@@ -226,6 +226,33 @@ Ground truth matching is the process of pairing ML predictions with actual buoy 
    - Predictions are eligible for matching after 2 hours (observation delay)
    - Predictions older than 7 days are excluded (observation data retention)
    - Observations must have non-null `wave_height_m` to match
+
+### Backfill Function
+
+The `backfill_ml_observations(batch_size INT)` function runs directly in PostgreSQL:
+
+```sql
+-- Manual execution
+SELECT * FROM backfill_ml_observations(1000);
+
+-- Returns:
+-- processed | matched | no_match | elapsed_ms
+-- ----------+---------+----------+-----------
+--      1000 |     847 |      153 |       1234
+```
+
+**Function behavior:**
+- Selects oldest unmatched predictions (up to `batch_size`)
+- Joins with `observable_beaches` materialized view for efficiency
+- Finds closest observation within +/- 1 hour window
+- Updates prediction record with ground truth and error metrics
+- Returns processing statistics
+
+**pg_cron Schedule:**
+
+| Job Name | Schedule | Command |
+|----------|----------|---------|
+| `ml-backfill-observations` | `*/10 * * * *` | `SELECT * FROM backfill_ml_observations(1000)` |
 
 ### Observable Beaches View
 
@@ -249,12 +276,41 @@ WITH DATA;
 
 **Refresh Schedule:**
 - Daily at 6am UTC via pg_cron
-- Manual refresh: `/api/cron/ml/refresh-observable-beaches`
+- Manual refresh: `REFRESH MATERIALIZED VIEW CONCURRENTLY observable_beaches`
 - Function: `SELECT refresh_observable_beaches();`
 
 ### Health Monitoring
 
-Use `check_ml_ground_truth_health()` to monitor pipeline health:
+#### Primary Health Check: `get_ml_health_metrics()`
+
+Returns ML pipeline health for monitoring and alerting:
+
+```sql
+SELECT * FROM get_ml_health_metrics();
+```
+
+**Columns returned:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `pending_count` | INT | Predictions awaiting ground truth match |
+| `matched_last_24h` | INT | Predictions matched in last 24 hours |
+| `total_last_24h` | INT | Total predictions in last 24 hours |
+| `match_rate_24h` | NUMERIC | Percentage of predictions matched |
+| `current_model_version` | TEXT | Active model version |
+| `needs_alert` | BOOLEAN | True when match rate < 1% |
+
+**Alert Thresholds:**
+
+| Metric | Healthy | Warning | Critical |
+|--------|---------|---------|----------|
+| `match_rate_24h` | > 50% | 20-50% | < 20% |
+| `pending_count` | < 5,000 | 5,000-20,000 | > 20,000 |
+| `needs_alert` | false | - | true |
+
+#### Legacy Health Check: `check_ml_ground_truth_health()`
+
+More detailed health check with status messages:
 
 ```sql
 SELECT * FROM check_ml_ground_truth_health();
@@ -279,6 +335,34 @@ improvement_rate_7d     | 58.2   | ok      | ML corrections improved 58.2% of fo
 observable_beaches      | 96     | ok      | 96 beaches have observation sources
 ```
 
+### pg_cron Job Monitoring
+
+Monitor the backfill job execution:
+
+```sql
+-- Recent job runs
+SELECT
+  jobname,
+  start_time,
+  end_time,
+  EXTRACT(EPOCH FROM (end_time - start_time)) as duration_seconds,
+  status,
+  return_message
+FROM cron.job_run_details
+WHERE jobname = 'ml-backfill-observations'
+ORDER BY start_time DESC
+LIMIT 10;
+
+-- Job success rate (last 24 hours)
+SELECT
+  status,
+  COUNT(*) as count
+FROM cron.job_run_details
+WHERE jobname = 'ml-backfill-observations'
+  AND start_time > NOW() - INTERVAL '24 hours'
+GROUP BY status;
+```
+
 ### Troubleshooting
 
 **Low Ground Truth Rate (<50%)**
@@ -301,15 +385,27 @@ observable_beaches      | 96     | ok      | 96 beaches have observation sources
    GROUP BY source;
    ```
 
-3. Check if backfill cron is running:
-   - Look for recent runs in Vercel cron logs
-   - Manually trigger: `curl -H "Authorization: Bearer $CRON_SECRET" /api/cron/ml/backfill-observations`
+3. Check pg_cron job status:
+   ```sql
+   SELECT * FROM cron.job WHERE jobname = 'ml-backfill-observations';
+   ```
 
 **Growing Backlog (>50k)**
 
-1. Check cron execution frequency and duration
-2. Consider temporarily increasing batch size in `backfill-observations/route.ts`
-3. Verify database performance (index on `ml_predictions_log.predicted_at`)
+1. Check pg_cron job execution history
+2. Consider temporarily increasing batch size:
+   ```sql
+   -- Run larger batch manually
+   SELECT * FROM backfill_ml_observations(5000);
+   ```
+
+3. Temporarily increase job frequency:
+   ```sql
+   SELECT cron.alter_job(
+     job_id := (SELECT jobid FROM cron.job WHERE jobname = 'ml-backfill-observations'),
+     schedule := '*/5 * * * *'
+   );
+   ```
 
 **NDBC Observations Missing Wave Heights**
 
@@ -326,13 +422,9 @@ If NDBC data is missing:
 
 Refresh the materialized view:
 ```sql
-SELECT refresh_observable_beaches();
--- or
 REFRESH MATERIALIZED VIEW CONCURRENTLY observable_beaches;
-```
 
-Then verify:
-```sql
+-- Verify count
 SELECT COUNT(*) FROM observable_beaches;
 ```
 
@@ -341,7 +433,6 @@ SELECT COUNT(*) FROM observable_beaches;
 | File | Purpose |
 |------|---------|
 | `app/api/cron/ml/correct-forecasts/route.ts` | Generate ML predictions (filters to observable beaches) |
-| `app/api/cron/ml/backfill-observations/route.ts` | Match predictions with observations |
 | `app/api/cron/ml/refresh-observable-beaches/route.ts` | Refresh observable_beaches view |
 | `lib/services/ndbc-service.ts` | NDBC station data fetching |
 | `app/api/cron/forecasts/refresh/route.ts` | Ingest NDBC/CDIP observations |
@@ -544,8 +635,10 @@ corrected_forecast = corrected_forecast.apply(lambda x: max(0.01, x))
 ## Related Documentation
 
 - [ML Bias Correction Feature](/docs/features/ML_BIAS_CORRECTION.md)
+- [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md)
 - [TypeScript ML Module](/lib/ml/ARCHITECTURE.md)
 - [Cron Jobs](/app/api/cron/ml/ARCHITECTURE.md)
+- [Postmortem: ML Model Regression](/docs/postmortems/2026-01-20-ml-model-regression.md)
 
 ---
 

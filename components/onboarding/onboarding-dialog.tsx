@@ -18,6 +18,7 @@ import { CompletionStep } from "./steps/completion-step";
 import { OnboardingProgress } from "./onboarding-progress";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
+import { skipOnboarding } from "@/actions/onboarding-actions";
 import type { Profile } from "@/types/database";
 
 const STEPS = [
@@ -32,7 +33,6 @@ const STEPS = [
 // Delays for dialog opening (ms)
 const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
 const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
-const DISMISS_TTL_MS = 6 * 60 * 60 * 1000; // Re-prompt after 6 hours
 
 /** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
 function isProfileSubstantiallyComplete(
@@ -182,11 +182,9 @@ export function OnboardingDialog() {
         // In a controlled Radix Dialog, internal close controls (X / DialogClose)
         // only work if we sync the new open state back to our store.
         if (!open) {
+          // Permanently skip onboarding by setting onboarding_completed_at in DB
           if (user?.id && !isTesting) {
-            safeSetLocalStorage(
-              `onboarding_dismissed_until_${user.id}`,
-              String(Date.now() + DISMISS_TTL_MS)
-            );
+            skipOnboarding(); // Fire and forget - persists to database
           }
           closeDialog();
         }

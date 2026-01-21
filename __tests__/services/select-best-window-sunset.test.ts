@@ -218,9 +218,10 @@ describe('selectBestWindow with sunset', () => {
     const threepm = new Date('2026-01-13T23:00:00Z').getTime();
     // End time should be at or before 3pm (when conditions become poor)
     expect(endTime).toBeLessThanOrEqual(threepm);
-    // End time should be after 2pm (still had good conditions)
+    // End time should be at or after 2pm (still had good conditions)
+    // Note: Sub-hour refinement floor-snaps to 15-minute boundaries, so end may be exactly 2pm
     const twopm = new Date('2026-01-13T22:00:00Z').getTime();
-    expect(endTime).toBeGreaterThan(twopm);
+    expect(endTime).toBeGreaterThanOrEqual(twopm);
   });
 
   it('respects MAX_WINDOW_HOURS cap', () => {

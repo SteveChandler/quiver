@@ -38,10 +38,12 @@ const customJestConfig = {
     "^canvas$": "<rootDir>/__tests__/setup/mock-canvas.js",
     // Mock supercluster (ESM-only module)
     "^supercluster$": "<rootDir>/__tests__/__mocks__/supercluster.ts",
+    // Mock jose (ESM-only module)
+    "^jose$": "<rootDir>/__tests__/__mocks__/jose.ts",
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|supercluster|kdbush)/)",
+    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],

@@ -9,6 +9,7 @@ import {
 } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import { SpotStructuredData } from "@/components/seo/spot-structured-data";
 import {
   getSpotDataBySlug,
@@ -345,7 +346,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                   <p className="mt-3 text-sm text-slate-600">
                     For more gentle peaks, explore{" "}
                     <a
-                      href={`/beginner/${spot.citySlug}`}
+                      href={`/beginner/${getIntentSlug(spot.citySlug, spot.state)}`}
                       className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                     >
                       beginner surf spots in {cityName ?? "this region"}
@@ -362,7 +363,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                 <p className="text-sm text-slate-700">
                   Looking for fewer heads in the lineup? Check the{" "}
                   <a
-                    href={`/least-crowded/${spot.citySlug}`}
+                    href={`/least-crowded/${getIntentSlug(spot.citySlug, spot.state)}`}
                     className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                   >
                     less crowded {cityName ?? ""} surf guide
@@ -381,7 +382,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
                   <li>
                     Monitor{" "}
                     <a
-                      href={`/tide/${spot.citySlug}`}
+                      href={`/tide/${getIntentSlug(spot.citySlug, spot.state)}`}
                       className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                     >
                       tide swings

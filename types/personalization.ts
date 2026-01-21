@@ -64,6 +64,8 @@ export interface PersonalizedForecastWindow {
   confidence: number;
   /** Beach's IANA timezone for consistent time display (e.g., "America/Los_Angeles") */
   timezone: string;
+  /** Whether tide-driven boundaries were used for this window (vs hourly fallback) */
+  usedTideBoundaries?: boolean;
 }
 
 /** Condition badge shown on recommendations */

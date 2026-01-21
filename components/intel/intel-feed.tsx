@@ -33,6 +33,7 @@ import {
   ConditionsIntelCard,
   getMorningIntelPayloadV2,
 } from "@/components/intel/conditions-intel-card";
+import { getTransformedUrl } from "@/lib/utils/image-utils";
 
 interface IntelFeedProps {
   posts: IntelPostWithUser[];
@@ -271,11 +272,11 @@ export function IntelFeedCard({
             <span>{nearestBeach}</span>
           </div>
 
-          {/* Photo */}
+          {/* Photo - using Supabase image transformations for optimized delivery */}
           {post.photo_url && (
             <div className="relative h-32 rounded-lg overflow-hidden">
               <Image
-                src={post.photo_url}
+                src={getTransformedUrl(post.photo_url, 'intelPost')}
                 alt="Intel photo"
                 fill
                 loading="lazy"

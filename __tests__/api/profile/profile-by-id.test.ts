@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { 
+import {
   createMockSupabaseClient,
   createMockUser,
   createMockProfile,
@@ -16,6 +16,10 @@ import {
   mockDatabaseSuccess,
   mockDatabaseError,
 } from "@/test-utils/api-test-helpers";
+import {
+  setupProfileApiMocks,
+  expectOnboardingField,
+} from "@/test-utils/profile-api-test-helpers";
 
 // Mock the Supabase API server client
 const mockSupabaseClient = createMockSupabaseClient();
@@ -150,6 +154,51 @@ describe("/api/profile/[id]", () => {
         isFollowing: false,
         isOwnProfile: false,
       });
+    });
+
+    it("should return onboarding_completed_at when user has completed onboarding", async () => {
+      const targetUserId = "user-onboarding-complete";
+      const completionDate = "2025-01-10T14:30:00.000Z";
+
+      mockUnauthenticatedUser(mockSupabaseClient);
+
+      // Using new helper - much cleaner setup
+      setupProfileApiMocks(mockSupabaseClient, {
+        profileData: createMockProfile({
+          id: targetUserId,
+          full_name: "Completed User",
+          onboarding_completed_at: completionDate,
+        }),
+        sessions: [],
+      });
+
+      const request = createMockRequest("GET");
+      const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
+
+      const data = await expectSuccessResponse(response, 200);
+      expectOnboardingField(data.data, completionDate);
+    });
+
+    it("should return null onboarding_completed_at for users who have not completed", async () => {
+      const targetUserId = "user-onboarding-incomplete";
+
+      mockUnauthenticatedUser(mockSupabaseClient);
+
+      // Using new helper - much cleaner setup
+      setupProfileApiMocks(mockSupabaseClient, {
+        profileData: createMockProfile({
+          id: targetUserId,
+          full_name: "New User",
+          onboarding_completed_at: null,
+        }),
+        sessions: [],
+      });
+
+      const request = createMockRequest("GET");
+      const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
+
+      const data = await expectSuccessResponse(response, 200);
+      expectOnboardingField(data.data, null);
     });
 
     it("should handle concurrent profile requests", async () => {

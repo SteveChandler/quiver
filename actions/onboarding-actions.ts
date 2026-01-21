@@ -17,6 +17,32 @@ interface OnboardingData {
   emailEnabled?: boolean;
 }
 
+/**
+ * Skip onboarding permanently by setting onboarding_completed_at.
+ * Called when user dismisses the onboarding dialog.
+ */
+export async function skipOnboarding() {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        onboarding_completed_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Failed to skip onboarding:', error);
+      throw error;
+    }
+
+    track('onboarding_skipped', {
+      user_id: user.id,
+    });
+
+    return { success: true };
+  });
+}
+
 export async function saveOnboardingData(data: OnboardingData) {
   return withAuthenticatedAction(async (user, supabase) => {
     try {

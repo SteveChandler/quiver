@@ -142,15 +142,10 @@ export default async function IntentPage({ params }: IntentPageParams) {
     const intentDefinition = SURF_INTENTS[params.intent as SurfIntentSlug];
 
     const beachesResult = await getBeachesByIntentAndState(params.intent, params.city);
-
-    if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
-      return notFound();
-    }
-
-    const beaches = beachesResult.data;
+    const beaches = beachesResult.success && beachesResult.data ? beachesResult.data : [];
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-    // Render state-level intent page
+    // Render state-level intent page (with empty state if no beaches)
     return (
       <div className="bg-white">
         <BreadcrumbStructuredData
@@ -180,15 +175,55 @@ export default async function IntentPage({ params }: IntentPageParams) {
             </p>
           </header>
 
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
-              {intentDefinition.label} spots in {stateName}
-            </h2>
-            <StateMapView
-              beaches={beaches}
-              ariaLabel={`${intentDefinition.label} spots in ${stateName}`}
-            />
-          </section>
+          {beaches.length === 0 ? (
+            <section className="mb-8">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
+                  No {intentDefinition.label.toLowerCase()} spots found in {stateName}
+                </h2>
+                <p className="text-slate-600 mb-4">
+                  We&apos;re expanding our coverage. Explore other regions or browse all surf spots.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link href="/map" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-ocean-blue text-white rounded-lg hover:bg-ocean-blue/90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ocean-blue transition-colors">
+                    Explore the Map
+                  </Link>
+                  <Link href={`/beaches/usa/${params.city}`} className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+                    All {stateName} Beaches
+                  </Link>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                  {intentDefinition.label} spots in {stateName}
+                </h2>
+                <StateMapView
+                  beaches={beaches}
+                  ariaLabel={`${intentDefinition.label} spots in ${stateName}`}
+                />
+              </section>
+
+              {/* Focus Points */}
+              <section>
+                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                  What to focus on
+                </h2>
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {intentDefinition.focusPoints.map((point) => (
+                    <li
+                      key={point}
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                    >
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          )}
         </div>
       </div>
     );

@@ -17,6 +17,30 @@ async function globalSetup(config: FullConfig) {
   dotenv.config({ path: '.env.playwright' });
   dotenv.config(); // Fallback to .env
 
+  // Skip authentication setup if only running guest or email-core-loop tests
+  // These tests don't require authentication
+  const projectsToRun = config.projects.filter(p => {
+    // Check if project is selected via --project flag or will run based on grep
+    return p.grep ? true : !p.grepInvert;
+  });
+
+  const onlyGuestProjects = projectsToRun.every(p =>
+    p.name === 'guest' ||
+    p.testMatch?.toString().includes('guest-') ||
+    p.testMatch?.toString().includes('email-core-loop')
+  );
+
+  // Also check if running via SKIP_AUTH_SETUP env var (for CI or explicit skipping)
+  const skipAuthSetup = process.env.SKIP_AUTH_SETUP === 'true' || onlyGuestProjects;
+
+  if (skipAuthSetup) {
+    console.log('[Global Setup] ============================================');
+    console.log('[Global Setup] Skipping authentication setup');
+    console.log('[Global Setup] (Only running guest/unauthenticated tests)');
+    console.log('[Global Setup] ============================================');
+    return;
+  }
+
   // Get configuration from the correct project
   // Find the auth project or fallback to first project
   const authProject = config.projects.find(p => p.name === 'auth');

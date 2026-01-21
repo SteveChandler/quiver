@@ -43,6 +43,8 @@ export const GET = withAuth(
       home_beach_name: dto.homeBeachName ?? null,
       // API contract alias: expose `experience_level` as `skill_level`
       skill_level: dto.experience_level ?? null,
+      // Onboarding tracking (now included in view)
+      onboarding_completed_at: dto.onboarding_completed_at ?? null,
     };
 
     return createSuccessResponse(profile);
