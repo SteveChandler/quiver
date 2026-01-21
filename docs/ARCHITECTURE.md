@@ -6,7 +6,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 
 ---
 
-### Stack & System Overview
+### Stack and System Overview
 
 - **Next.js 14 App Router** (React, Server Actions)
 - **Supabase** (PostgreSQL, Auth, RLS, Realtime)
@@ -19,7 +19,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 
 ---
 
-### Product Vision & Growth Strategy
+### Product Vision and Growth Strategy
 
 **Mission**: A community-driven, trail-style surf app where surfers can plan sessions, share experiences, and build meaningful connections.
 
@@ -43,6 +43,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - `types/` - TypeScript domain models (see `types/ARCHITECTURE.md`)
 - `test-utils/` - Testing helpers (see `test-utils/ARCHITECTURE.md`)
 - `e2e/` - Playwright tests (see `e2e/ARCHITECTURE.md`)
+- `scripts/terrain/` - Terrain analysis for geometry scoring (see `scripts/terrain/ARCHITECTURE.md`)
 
 **Primary Reference**: `docs/STYLE_GUIDE.md` (Brand, patterns, accessibility).
 
@@ -52,8 +53,8 @@ This document is the canonical, high-level overview of Quiver's architecture and
 
 See `docs/DESIGN_PRINCIPLES.md`. Highlights:
 
-- **Simplicity & Consistency**: Standard React data fetching, centralized API utils.
-- **DRY & Modularity**: Reusable components, shared utilities.
+- **Simplicity and Consistency**: Standard React data fetching, centralized API utils.
+- **DRY and Modularity**: Reusable components, shared utilities.
 - **Performance by Design**: Fail-fast on stale data, efficient fetching.
 - **Security by Default**: RLS on all tables, authenticated actions.
 - **Growth-Driven**: All features must drive sharing/referrals.
@@ -131,12 +132,50 @@ NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
 
 ---
 
+### Terrain Analysis System
+
+**Status**: Implementation in progress
+
+The terrain analysis system encodes beach-specific wind shelter and swell wrap behavior into Quiver's scoring algorithm. This captures surfer intuition like "Beach C fires when wind is SW because the hills block it."
+
+**Components:**
+- **Analysis Scripts** (`scripts/terrain/`): CLI pipeline for computing terrain factors
+- **Type Definitions** (`types/terrain.ts`): TypeScript types and constants
+- **Scoring Integration** (`lib/surf/scoring.ts`): Modified scoring formula
+
+**Key Concepts:**
+- 72 directional bins (5-degree resolution) for wind and swell
+- Wind exposure: horizon angle analysis with sigmoid transform
+- Swell access: direct access + wrap contribution from refraction
+- Per-beach `terrain_enabled` flag for staged rollout
+
+**Documentation:**
+| Document | Description |
+|----------|-------------|
+| [Terrain Architecture](../scripts/terrain/ARCHITECTURE.md) | Full system documentation |
+| [Surf Scoring](../lib/surf/ARCHITECTURE.md) | Scoring integration details |
+| [Design Document](plans/2026-01-20-terrain-geometry-scoring-design.md) | Original design specification |
+| [Type Definitions](../types/terrain.ts) | TypeScript types and constants |
+
+**Data Flow:**
+```
+[DEM Data] --> [Wind Exposure Analysis] --> [wind_exposure_factors]
+                                                    |
+[Landmask]  --> [Swell Access Analysis]  --> [swell_access_factors]
+                                                    |
+                                                    v
+[Forecast] --> [Modified Scoring] --> [terrain-aware scores]
+```
+
+---
+
 ### Feature Status Highlights
 
 - **Personalization**: "Single User Experience" engine with affinity/history learning, time slot filtering (Jan 2026).
 - **Social Platform**: Follows, feeds, likes, comments, real-time updates.
 - **Forecasting**: 10-day NOAA integration with confidence scoring.
 - **ML Bias Correction**: XGBoost-corrected wave height forecasts.
+- **Terrain-Aware Scoring**: Beach-specific wind shelter and swell access factors.
 - **Media**: Photo upload, galleries, optimized storage.
 - **Session Management**: Logging, planning, rich metadata.
 - **Attribution**: UTM tracking and referral system for growth analytics.
@@ -171,6 +210,7 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **Architecture** | [URL Routing](architecture/URL_ROUTING.md) | Hierarchical URL patterns |
 | **Architecture** | [Forecast Scoring](architecture/FORECAST_SCORING.md) | Surf scoring algorithm |
 | **Architecture** | [Cache Strategy](architecture/CACHE_STRATEGY.md) | Multi-tier caching patterns |
+| **Architecture** | [Terrain Analysis](../scripts/terrain/ARCHITECTURE.md) | Terrain-aware geometry scoring |
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
 | **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |

@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const EMAIL_TOKEN_SECRET = Deno.env.get('EMAIL_TOKEN_SECRET');
 const MAIL_FROM = Deno.env.get('MAIL_FROM');
-const APP_URL = Deno.env.get('APP_URL') || 'https://quiver.surf';
+const APP_URL = (Deno.env.get('APP_URL') || 'https://quiver.surf').trim();
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -119,7 +119,8 @@ const FREQUENCY_BUTTONS = [
 ] as const;
 
 function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
-  const { baseUrl, token } = params;
+  const { baseUrl: rawBaseUrl, token } = params;
+  const baseUrl = rawBaseUrl.trim();
 
   return `
 <!DOCTYPE html>
@@ -129,47 +130,51 @@ function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body style="font-family: ${FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${COLORS.text};">
-  <h1 style="color: ${COLORS.heading}; font-size: 24px; margin-bottom: 8px;">🌊 Welcome to Quiver</h1>
+  <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 8px;">
+    You know that 5am moment — alarm goes off, and you're still not sure if it's actually worth it.
+  </p>
 
-  <p style="font-size: 18px; color: ${COLORS.textSecondary}; margin-bottom: 24px;">
-    Quiver emails you one thing: the best yes/no surf call.
+  <p style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 24px;">
+    Quiver just tells you. Yes or no. Best window. That's it.
+  </p>
+
+  <p style="font-size: 14px; color: ${COLORS.textSecondary}; margin-bottom: 20px;">
+    To dial it in, I just need a few things:
   </p>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">When do you usually surf?</h2>
+    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">When do you usually surf?</h2>
     ${TIME_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?time=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">What's your level?</h2>
+    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">What's your level?</h2>
     ${LEVEL_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?level=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">How often should we email?</h2>
+    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">How often should I email?</h2>
     ${FREQUENCY_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?frequency=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">Home break?</h2>
-    <a href="${baseUrl}/prefs/home-beach?token=${token}" style="${BUTTON_STYLE}">Set home beach →</a>
+    <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">Home break?</h2>
+    <a href="${baseUrl}/prefs/home-beach?token=${token}" style="${BUTTON_STYLE}">Set it here →</a>
   </div>
 
-  <p style="color: ${COLORS.textTertiary}; font-size: 14px; margin-top: 32px;">
-    Or just reply with your home break name.
+  <p style="color: ${COLORS.textTertiary}; font-size: 14px; margin-top: 24px;">
+    Or just <a href="${baseUrl}" style="color: ${COLORS.primary}; text-decoration: none;">check out the app →</a>
   </p>
 
-  <hr style="border: none; border-top: 1px solid ${COLORS.border}; margin: 32px 0;">
-
-  <p style="color: ${COLORS.textTertiary}; font-size: 12px;">
-    Quiver · The smart surf forecast
+  <p style="color: ${COLORS.text}; font-size: 14px; margin-top: 32px;">
+    — Steven
   </p>
 </body>
 </html>
   `.trim();
 }
 
-const WELCOME_EMAIL_SUBJECT = 'Welcome to Quiver — set your surf defaults (10 seconds)';
+const WELCOME_EMAIL_SUBJECT = "You're in";
 
 // ============================================================================
 // END WELCOME EMAIL TEMPLATE
