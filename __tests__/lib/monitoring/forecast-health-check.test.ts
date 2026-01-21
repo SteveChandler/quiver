@@ -9,6 +9,7 @@ const enhancedLatestMock = jest.fn<() => Promise<QueryResult>>();
 const marineLatestMock = jest.fn<() => Promise<QueryResult>>();
 const tideLatestMock = jest.fn<() => Promise<QueryResult>>();
 const sunLatestMock = jest.fn<() => Promise<QueryResult>>();
+const ioosStationsMock = jest.fn<() => Promise<QueryResult>>();
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
@@ -52,6 +53,14 @@ jest.mock('@/lib/supabase/server', () => ({
         };
       }
 
+      if (table === 'ioos_stations') {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ioosStationsMock()),
+          })),
+        };
+      }
+
       throw new Error(`Unexpected table: ${table}`);
     },
   })),
@@ -65,6 +74,7 @@ describe('Forecast Health Check', () => {
     marineLatestMock.mockReset();
     tideLatestMock.mockReset();
     sunLatestMock.mockReset();
+    ioosStationsMock.mockReset();
     jest.resetModules();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2025-12-12T12:00:00Z'));
@@ -115,6 +125,13 @@ describe('Forecast Health Check', () => {
         { beach_id: 'beach-1', created_at: nowIso, date: '2025-12-12', source: 'computed' },
         { beach_id: 'beach-2', created_at: nowIso, date: '2025-12-12', source: 'computed' },
         { beach_id: 'beach-3', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+      ],
+      error: null,
+    });
+
+    ioosStationsMock.mockResolvedValueOnce({
+      data: [
+        { station_id: 'station-1', source_network: 'cdip', last_seen_at: nowIso, active: true, nearest_beach_id: 'beach-1' },
       ],
       error: null,
     });
@@ -191,6 +208,14 @@ describe('Forecast Health Check', () => {
       error: null,
     });
 
+    // IOOS is fresh
+    ioosStationsMock.mockResolvedValueOnce({
+      data: [
+        { station_id: 'station-1', source_network: 'cdip', last_seen_at: nowIso, active: true, nearest_beach_id: 'beach-1' },
+      ],
+      error: null,
+    });
+
     const metrics = await checkForecastHealth();
 
     // Enhanced is healthy, so overall should be degraded (not critical) even though marine/tide are critical.
@@ -233,6 +258,13 @@ describe('Forecast Health Check', () => {
         { beach_id: 'beach-1', created_at: nowIso, date: '2025-12-12', source: 'computed' },
         { beach_id: 'beach-2', created_at: nowIso, date: '2025-12-12', source: 'computed' },
         { beach_id: 'beach-3', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+      ],
+      error: null,
+    });
+
+    ioosStationsMock.mockResolvedValueOnce({
+      data: [
+        { station_id: 'station-1', source_network: 'cdip', last_seen_at: nowIso, active: true, nearest_beach_id: 'beach-1' },
       ],
       error: null,
     });

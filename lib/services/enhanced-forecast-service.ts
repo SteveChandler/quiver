@@ -56,6 +56,7 @@ import {
   withRetry,
   logError,
 } from "@/lib/errors/forecast-errors";
+import * as Sentry from '@sentry/nextjs';
 
 // Data source implementations moved to lib/services/forecast/data-source-manager.ts
 
@@ -426,13 +427,32 @@ export class EnhancedForecastService {
         return `${Math.round(s * 10) / 10}s`;
       };
 
+      // Calculate confidence with defensive minimum
+      const originalConfidence = forecast.confidence_score ?? 70;
+      const blendedConfidence = Math.round(weightedForecast.confidence * 100);
+      const defensiveMinimumApplied = blendedConfidence < originalConfidence;
+
+      if (defensiveMinimumApplied) {
+        Sentry.captureMessage('Confidence defensive minimum applied', {
+          level: 'warning',
+          tags: { component: 'forecast-weighting' },
+          extra: {
+            beachId: forecast.beach_id,
+            beachName,
+            originalConfidence,
+            blendedConfidence,
+            delta: originalConfidence - blendedConfidence,
+          },
+        });
+      }
+
       // Apply weighted values back to forecast
       // Convert confidence back from 0-1 to 0-100 scale
       const updatedForecast = {
         ...forecast,
         wave_height: formatHeight(weightedForecast.wave_height_ft),
         wave_period: formatPeriod(weightedForecast.wave_period_s),
-        confidence_score: Math.round(weightedForecast.confidence * 100),
+        confidence_score: Math.max(originalConfidence, blendedConfidence),
         // Note: No visible attribution to expert sources - silent integration
       };
 

@@ -1,11 +1,11 @@
 /**
  * Forecast Confidence Scorer
- * 
+ *
  * Calculates confidence scores for forecast data based on:
  * - Data source availability (wave, tide, weather, buoy)
  * - Data quality (CDIP buoy data gets premium scores)
  * - Temporal factors (forecasts degrade over time)
- * 
+ *
  * Extracted from lib/services/enhanced-forecast-service.ts as part of P1 refactoring
  * to reduce file size and improve maintainability.
  */
@@ -30,7 +30,14 @@ export interface ConfidenceParams {
 
 /**
  * Calculate confidence score based on data availability and quality
- * 
+ *
+ * @returns Confidence score on 0-100 scale (e.g., 70 means 70%)
+ *
+ * IMPORTANT: ForecastWeightingService uses 0-1 scale internally.
+ * Conversion happens at the boundary in enhanced-forecast-service.ts:
+ * - Before weighting: confidenceDecimal = confidence_score / 100
+ * - After weighting: confidence_score = Math.round(confidence * 100)
+ *
  * Scoring breakdown:
  * - Base score: 50
  * - CDIP buoy data: +25 (premium quality)
@@ -39,10 +46,9 @@ export interface ConfidenceParams {
  * - Buoy data: +15
  * - Weather data: +10
  * - Time penalty: -0.3 to -0.5 per hour (depends on data source)
- * 
+ *
  * @param params - Confidence parameters
- * @returns Confidence score from 0-100
- * 
+ *
  * @example
  * ```typescript
  * const confidence = calculateConfidenceScore({
@@ -83,8 +89,3 @@ export function calculateConfidenceScore({
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
-
-
-
-
-

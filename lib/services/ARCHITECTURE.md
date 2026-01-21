@@ -1,10 +1,10 @@
 # Services Library Architecture
 
-## 🎯 **PURPOSE**
+## **PURPOSE**
 
 The `/lib/services` directory provides comprehensive integration with external APIs and data sources, implementing reliable data fetching, caching, and synchronization services for oceanographic and weather data.
 
-## 📁 **DIRECTORY STRUCTURE**
+## **DIRECTORY STRUCTURE**
 
 ```
 lib/services/
@@ -23,7 +23,7 @@ lib/services/
 
 **Note:** `personalized-home-forecast-service.ts` was deprecated in November 2025 and replaced by `surf-discovery-service.ts`. See `CHANGELOG.md` for details.
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## **ARCHITECTURE PATTERNS**
 
 ### **Service Layer Architecture**
 
@@ -61,7 +61,7 @@ DataFlow
 └── Rate Limiting → Queue Management → Retry Logic
 ```
 
-## 📊 **SERVICE RESPONSIBILITIES**
+## **SERVICE RESPONSIBILITIES**
 
 ### **CDIPService** (Buoy Data Integration)
 
@@ -707,7 +707,7 @@ These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService`
   - Upsert operations for station data
   - Comprehensive logging
 
-## 🚀 **PERFORMANCE OPTIMIZATIONS**
+## **PERFORMANCE OPTIMIZATIONS**
 
 ### **Intelligent Caching**
 
@@ -767,7 +767,7 @@ async function fetchWithRateLimit<T>(
 }
 ```
 
-## 🔧 **INTEGRATION PATTERNS**
+## **INTEGRATION PATTERNS**
 
 ### **Service Composition**
 
@@ -803,7 +803,7 @@ async function fetchWaveDataWithFallback(location: Location) {
 }
 ```
 
-## 🧪 **TESTING STRATEGIES**
+## **TESTING STRATEGIES**
 
 ### **Service Testing**
 
@@ -819,7 +819,7 @@ async function fetchWaveDataWithFallback(location: Location) {
 - Test cache invalidation
 - Validate error propagation
 
-## 🔮 **FUTURE ENHANCEMENTS**
+## **FUTURE ENHANCEMENTS**
 
 ### **Planned Features**
 
@@ -837,7 +837,7 @@ async function fetchWaveDataWithFallback(location: Location) {
 - Optimistic updates
 - Service worker caching
 
-## 🏆 **BEST PRACTICES**
+## **BEST PRACTICES**
 
 ### **Service Design Guidelines**
 
@@ -855,7 +855,7 @@ async function fetchWaveDataWithFallback(location: Location) {
 4. **Freshness Tracking**: Monitor data age and relevance
 5. **Source Attribution**: Track data sources for debugging
 
-## 🎯 **PERSONALIZATION ARCHITECTURE**
+## **PERSONALIZATION ARCHITECTURE**
 
 ### **Data Flow: Surf Discovery Service**
 
@@ -914,7 +914,26 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 
 ---
 
-## 📐 **SERVICE IMPLEMENTATION PATTERNS**
+## **CONFIDENCE SCORE CONVENTIONS**
+
+| System | Scale | Example |
+|--------|-------|---------|
+| `calculateConfidenceScore()` | 0-100 | 70 means 70% |
+| `ForecastWeightingService` | 0-1 | 0.7 means 70% |
+| Database `confidence_score` | 0-100 | Stored as integer |
+| UI display | 0-100% | Shown with % suffix |
+
+**Boundary conversion** happens in `enhanced-forecast-service.ts`:
+- Before weighting: `confidenceDecimal = confidence_score / 100`
+- After weighting: `confidence_score = Math.round(confidence * 100)`
+
+**Defensive minimum:** `Math.max(original, blended)` ensures confidence never
+decreases after expert calibration. A Sentry warning fires if this applies,
+helping detect potential issues or inform future product decisions.
+
+---
+
+## **SERVICE IMPLEMENTATION PATTERNS**
 
 ### When to Use Classes vs Functions
 
