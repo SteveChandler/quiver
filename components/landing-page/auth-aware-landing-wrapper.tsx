@@ -2,11 +2,13 @@
 
 import { useAuth } from "@/context/auth-context";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
+import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
+import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
@@ -30,38 +32,35 @@ const HomeScreenDynamic = dynamic(
  * - Authenticated: Renders the full HomeScreen dashboard
  * - Unauthenticated: Renders interactive landing page sections
  *
+ * Special Cases:
+ * - Signup Confirmation (`?signup=confirm-email`): Bypasses auth loading screen
+ *   to show landing page with success toast, even while auth is initializing.
+ *   This improves UX by providing immediate feedback after signup.
+ * - Standalone/PWA Mode: Redirects to `/auth/sign-in` immediately unless showing
+ *   signup confirmation, preventing unauthenticated access to PWA shell.
+ *
+ * Progressive Enhancement:
+ * - Manages `js-loaded` body class to hide SSR beach section when client renders
+ * - SSR beach section remains for SEO crawlers and no-JS fallback
+ * - `authenticated` body class is managed globally by AuthBodyClassManager
+ *
  * Note: PopularBeachesSection and FooterSection are rendered in the server shell
  * to ensure beach links are always in the HTML for SEO purposes.
  */
 export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [isConfirmEmailSignup, setIsConfirmEmailSignup] = useState(false);
+  const searchParams = useSearchParams();
   const redirectedRef = useRef(false);
   const didShowSignupToastRef = useRef(false);
   const [hasAuthCookie, setHasAuthCookie] = useState(false);
 
-  // Parse query params after mount to avoid SSR/client rendering bailouts that can
-  // lead to hydration mismatches.
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line no-restricted-properties -- Reading URL on mount, not for navigation
-      const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
-      const signupParam = url?.searchParams.get("signup") ?? null;
-      setIsConfirmEmailSignup(signupParam === "confirm-email");
-    } catch {
-      setIsConfirmEmailSignup(false);
-    }
-  }, []);
+  // Reactive: updates when URL parameters change via soft navigation
+  const isConfirmEmailSignup = searchParams.get("signup") === "confirm-email";
 
   // Detect auth cookies after mount only, so SSR + first client render match (prevents hydration mismatch).
   useEffect(() => {
-    try {
-      // Supabase cookie looks like: sb-<projectRef>-auth-token.<n>=...
-      setHasAuthCookie(/(?:^|;\\s*)sb-[^=]+-auth-token\\./.test(document.cookie));
-    } catch {
-      setHasAuthCookie(false);
-    }
+    setHasAuthCookie(hasSupabaseAuthCookie());
   }, []);
 
   // Redirect to sign-in in standalone/PWA mode immediately (don't wait for auth)
@@ -78,7 +77,7 @@ export function AuthAwareLandingWrapper() {
 
   // Show post-signup confirm-email toast on landing, then clean the URL.
   useEffect(() => {
-    if (!isConfirmEmailSignup) return;
+    if (searchParams.get("signup") !== "confirm-email") return;
     if (didShowSignupToastRef.current) return;
 
     didShowSignupToastRef.current = true;
@@ -87,9 +86,12 @@ export function AuthAwareLandingWrapper() {
         "We sent you a confirmation link. Open your inbox to finish creating your account.",
     });
 
-    // Remove the query param so refreshes don't re-toast.
-    router.replace("/");
-  }, [isConfirmEmailSignup, router]);
+    // Remove the signup param while preserving other query params (e.g., UTM tracking)
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("signup");
+    const cleanUrl = params.toString() ? `/?${params.toString()}` : "/";
+    router.replace(cleanUrl);
+  }, [searchParams, router]);
 
   // Initialize performance monitoring
   useEffect(() => {
@@ -99,7 +101,7 @@ export function AuthAwareLandingWrapper() {
     if (process.env.NODE_ENV === "development") {
       setTimeout(() => {
         PerformanceUtils.monitorMemoryUsage();
-      }, 5000);
+      }, PERFORMANCE_TIMING.MEMORY_MONITOR_DELAY_MS);
     }
   }, []);
 
@@ -110,17 +112,18 @@ export function AuthAwareLandingWrapper() {
   // This keeps the SSR version for SEO crawlers and no-JS fallback
   useEffect(() => {
     if (!user) {
-      document.body.classList.add("js-loaded");
+      document.body.classList.add(BODY_CLASSES.JS_LOADED);
     }
     return () => {
-      document.body.classList.remove("js-loaded");
+      document.body.classList.remove(BODY_CLASSES.JS_LOADED);
     };
   }, [user]);
 
-  // Show loading state while checking authentication
-  // - Logged-in users: keep the checking state to avoid landing flicker.
-  // - Logged-out users: render the landing immediately (faster FCP/LCP) while auth resolves.
-  if (isLoading && hasAuthCookie && !(isConfirmEmailSignup && !user)) {
+  // Show loading for authenticated users while auth resolves, but skip for signup confirmation
+  const shouldShowAuthLoading =
+    isLoading && hasAuthCookie && !(isConfirmEmailSignup && !user);
+
+  if (shouldShowAuthLoading) {
     return AuthLoadingStates.checking();
   }
 
