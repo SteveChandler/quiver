@@ -20,7 +20,8 @@ import {
   Flag,
 } from "lucide-react";
 import { AnimatedWaveIcon } from "@/components/ui/animated-wave-icon";
-import { ParticleBackground } from "@/components/ui/particle-background";
+import { WaveBackground } from "@/components/ui/wave-background";
+// import { ParticleBackground } from "@/components/ui/particle-background"; // Kept for easy rollback
 import { formatTimeAgo } from "@/lib/utils/time-formatters";
 import { QuickCheckinSheet } from "../intel/quick-checkin-sheet";
 import { PhotoModal } from "../intel/photo-modal";
@@ -365,14 +366,12 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       className="relative bg-[#1e1e1e] rounded-2xl p-4 space-y-4 overflow-hidden"
       data-testid="coast-pulse-section"
     >
-      {/* Ambient particle background */}
-      <ParticleBackground
-        particleCount={18}
+      {/* Ambient wave background */}
+      <WaveBackground
+        layerCount={3}
         color="white"
-        maxOpacity={0.12}
-        minSize={1.5}
-        maxSize={3}
-        speed={0.8}
+        maxOpacity={0.15}
+        speed={1}
       />
 
       {/* Header with Live indicator and Add button */}
