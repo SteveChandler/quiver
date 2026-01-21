@@ -2,7 +2,17 @@
 // These utilities intentionally mirror the logic used in DB scoring but can be
 // extended or tuned independently for client/server usage.
 
+import {
+  toBin5,
+  clamp01 as terrainClamp01,
+  useTerrainFactors,
+  TERRAIN_BINS,
+} from '@/types/terrain';
+
 type Grade = "epic" | "good" | "fair" | "poor";
+
+/** Minimum wind exposure floor (prevents "perfect wind" in extreme shelter) */
+export const MIN_EXPOSURE = 0.15;
 
 // Generalized types used by range-based window picker
 export interface BeachMeta {
@@ -15,6 +25,10 @@ export interface BeachMeta {
   swell_window_max_deg?: number;
   tide_min_ft?: number;
   tide_max_ft?: number;
+  // Terrain-aware scoring fields
+  wind_exposure_factors?: number[] | null;
+  swell_access_factors?: number[] | null;
+  terrain_enabled?: boolean;
 }
 
 export interface HourlyMarine {
@@ -38,6 +52,10 @@ interface BeachScoringParams {
   swellWindowMaxDeg: number; // degrees (0-360)
   tidePreferredFtMin: number; // feet
   tidePreferredFtMax: number; // feet
+  // Terrain-aware scoring
+  terrainEnabled?: boolean;
+  windExposureFactors?: number[] | null;
+  swellAccessFactors?: number[] | null;
 }
 
 export interface HourInputs {
@@ -60,6 +78,10 @@ interface HourScoreBreakdown {
   periodScore: number; // reserved
   heightScore: number; // reserved
   total0to100: number; // 0..100
+  // Terrain telemetry (optional)
+  terrainFactorsApplied?: boolean;
+  windExposure?: number; // 0..1, from terrain factors
+  swellAccess?: number; // 0..1, from terrain factors
 }
 
 function toKnots(ms: number | null): number {
@@ -137,7 +159,18 @@ function computeHourScoreObject(input: HourInputs): HourScoreBreakdown {
     params,
   } = input;
 
-  const windScore = computeWindScore(
+  // Check if terrain factors should be applied
+  const hasTerrainData =
+    params.terrainEnabled &&
+    params.windExposureFactors &&
+    params.swellAccessFactors &&
+    Array.isArray(params.windExposureFactors) &&
+    Array.isArray(params.swellAccessFactors) &&
+    params.windExposureFactors.length === TERRAIN_BINS &&
+    params.swellAccessFactors.length === TERRAIN_BINS;
+
+  // Compute raw scores first
+  const rawWindScore = computeWindScore(
     windDirectionDeg,
     windSpeedMs,
     params.windOffshoreDeg,
@@ -148,11 +181,38 @@ function computeHourScoreObject(input: HourInputs): HourScoreBreakdown {
     params.tidePreferredFtMin,
     params.tidePreferredFtMax
   );
-  const swellDirScore = computeSwellDirScore(
+  const rawSwellDirScore = computeSwellDirScore(
     waveDirectionDeg,
     params.swellWindowMinDeg,
     params.swellWindowMaxDeg
   );
+
+  // Default terrain factors (no adjustment)
+  let windExposure = 1.0;
+  let swellAccess = 1.0;
+  let windScore = rawWindScore;
+  let swellDirScore = rawSwellDirScore;
+
+  // Apply terrain factors if available
+  if (hasTerrainData && windDirectionDeg !== null) {
+    const windBin = toBin5(windDirectionDeg);
+    windExposure = clamp01(params.windExposureFactors![windBin]);
+
+    // Apply wind exposure: reduces penalty of bad wind
+    // effectiveExposure = MIN_EXPOSURE + (1 - MIN_EXPOSURE) * windExposure
+    const effectiveExposure = MIN_EXPOSURE + (1 - MIN_EXPOSURE) * windExposure;
+    const rawWindPenalty = 1 - rawWindScore;
+    const adjustedWindPenalty = rawWindPenalty * effectiveExposure;
+    windScore = 1 - adjustedWindPenalty;
+  }
+
+  if (hasTerrainData && waveDirectionDeg !== null) {
+    const swellBin = toBin5(waveDirectionDeg);
+    swellAccess = clamp01(params.swellAccessFactors![swellBin]);
+
+    // Apply swell access: gates how much swell direction score counts
+    swellDirScore = rawSwellDirScore * swellAccess;
+  }
 
   // Reserved scoring dimensions (for future tuning)
   const periodScore = 0;
@@ -173,6 +233,10 @@ function computeHourScoreObject(input: HourInputs): HourScoreBreakdown {
     periodScore,
     heightScore,
     total0to100,
+    // Include terrain telemetry
+    terrainFactorsApplied: !!hasTerrainData,
+    windExposure: hasTerrainData ? windExposure : undefined,
+    swellAccess: hasTerrainData ? swellAccess : undefined,
   };
 }
 
@@ -197,14 +261,23 @@ export function computeHourScore(arg1: any, arg2?: any, arg3?: any): any {
     swellWindowMaxDeg: beach.swell_window_max_deg ?? 0,
     tidePreferredFtMin: beach.tide_min_ft ?? 0.5,
     tidePreferredFtMax: beach.tide_max_ft ?? 3.5,
+    // Pass through terrain factors
+    terrainEnabled: beach.terrain_enabled ?? false,
+    windExposureFactors: beach.wind_exposure_factors,
+    swellAccessFactors: beach.swell_access_factors,
   };
-  const wind = computeWindScore(m.wind_dir_deg ?? null, m.wind_spd_kts != null ? m.wind_spd_kts / 1.94384449 : null, params.windOffshoreDeg, params.windCrossOkKts);
-  const tide = computeTideScore(tideFt / 3.28084, params.tidePreferredFtMin, params.tidePreferredFtMax);
-  const swell = computeSwellDirScore(m.swell_dir_deg ?? null, params.swellWindowMinDeg, params.swellWindowMaxDeg);
-  const total0to100 = Math.round(
-    100 * clamp01(0.4 * clamp01(wind) + 0.2 * clamp01(tide) + 0.4 * clamp01(swell))
-  );
-  return total0to100;
+
+  // Use the object-based scoring to get terrain-aware results
+  const input: HourInputs = {
+    waveDirectionDeg: m.swell_dir_deg,
+    wavePeriodS: m.tp_s,
+    windDirectionDeg: m.wind_dir_deg,
+    windSpeedMs: m.wind_spd_kts != null ? m.wind_spd_kts / 1.94384449 : null,
+    tideHeightM: tideFt / 3.28084,
+    params,
+  };
+  const breakdown = computeHourScoreObject(input);
+  return breakdown.total0to100;
 }
 
 // Keep the object-based implementation available under a named export

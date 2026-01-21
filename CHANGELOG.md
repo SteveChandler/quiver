@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Golden Beach Validation:** Created comprehensive validation system for terrain-aware geometry scoring with curated test beaches representing diverse coastal geometries. Features include:
+  - `scripts/terrain/golden-beaches.ts` - Dataset of 9 California beaches with known terrain characteristics (Huntington Beach, Ocean Beach SF, Rincon, Malibu First Point, Trestles, Santa Cruz - Cowell Beach, Stinson Beach, San Diego - Tourmaline, Steamer Lane)
+  - Each beach includes expected wind exposure patterns, swell access patterns, and detailed notes for validation
+  - Beach types cover: open (baseline), sheltered (hills block wind), deep_bay (protected wind/narrow swell), headland (asymmetric wrap), false_shelter (catches over-shelter bugs), harbor (complex coastline), peninsula (wrap asymmetry)
+  - `scripts/terrain/validate-golden-beaches.ts` - Validation script that runs terrain analysis on golden beaches and compares results to expected behavior
+  - Automated symmetry sanity checks for open beaches (catches projection bugs, landmask errors, DEM artifacts)
+  - CLI flags: `--beach`, `--type`, `--verbose`, `--polar` for flexible testing
+  - Comprehensive test suite in `scripts/terrain/__tests__/golden-beaches.test.ts` validates dataset structure and utility functions
+  - Mock DEM/landmask helper functions (`createMockDEMTile`, `createMockLandmaskTile`) enable end-to-end pipeline testing with uniform data
+  - Added `yarn terrain:validate` script to package.json
+  - Ready for real terrain validation once DEM/landmask integration is complete
+
+- **Swell Access Algorithm:** Implemented complete swell access algorithm for terrain-aware geometry scoring. Added `scripts/terrain/swell-access.ts` with directional swell access factor computation that determines how terrain blocks swell from reaching beaches. Features include:
+  - Directional ray casting (72 bins, 5° resolution) to detect land blockage up to 3.5km
+  - Smooth access factor calculation with distance-based falloff (power 1.5)
+  - Wave wrap-around effects: Adjacent open directions contribute via exponential decay (lambda=0.04, max angle=45°)
+  - Circular smoothing with kernel [0.25, 0.5, 0.25] for realistic transitions
+  - Mock landmask implementation returns uniform access (1.0) for open water testing
+  - Comprehensive test suite validates 72-element output, [0,1] range, wrapping, and directional consistency
+  - Integrated into `terrain-analysis.ts` script alongside wind exposure algorithm
+  - Updated `landmask-loader.ts` with `isLand()` and `distanceToLand()` implementations
+
 - **Shared Slug Helper Utilities:** Created `lib/utils/slug-helpers.ts` to centralize `isCountySlug()` and `getIntentSlug()` helper functions, eliminating code duplication across 3 files (`components/city/about-accordion.tsx`, `components/city/guides-by-intent-grid.tsx`, `app/spots/[slug]/page.tsx`). Improves maintainability and ensures consistent handling of county-level slug logic.
 
 ### Fixed
