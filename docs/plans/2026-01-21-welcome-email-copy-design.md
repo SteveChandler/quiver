@@ -16,7 +16,7 @@ Rewrite the email with a "chill surfer friend" tone — like a buddy texting abo
 
 ## New Email Copy
 
-**Subject:** (To be finalized — current: "Welcome to Quiver — set your surf defaults (10 seconds)")
+**Subject:** You're in
 
 ---
 
