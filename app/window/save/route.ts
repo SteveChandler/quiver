@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 function escapeHtml(str: string): string {
   return str
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Save to database
-  const supabase = await createClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from('saved_windows').insert({
     user_id: payload.user_id,
     beach_id: beachId,

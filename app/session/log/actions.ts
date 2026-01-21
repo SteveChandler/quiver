@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
 
 export interface LogSessionResult {
@@ -30,7 +30,7 @@ export async function logSession(
   }
 
   // Save to database
-  const supabase = await createClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from('session_logs').insert({
     user_id: payload.user_id,
     beach_id: beachId,
