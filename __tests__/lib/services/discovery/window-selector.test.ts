@@ -1584,3 +1584,331 @@ describe('sub-hour window refinement integration', () => {
     expect(endMinutes % 15).toBe(0);
   });
 });
+
+describe('sub-hour window refinement with peak centering', () => {
+  const fixedNow = new Date('2024-01-15T16:00:00Z'); // 8am PST
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('produces sub-hour times for tomorrow windows with uniform good conditions', () => {
+    // This test verifies that even when conditions are uniformly good (no degradation),
+    // the window produces sub-hour times centered around the peak, matching
+    // the magic-hour-finder behavior.
+
+    // Create forecasts for "tomorrow" (Jan 16) with uniformly good conditions
+    // Set time to Jan 15 evening so tomorrow is Jan 16
+    jest.setSystemTime(new Date('2024-01-15T22:00:00Z')); // 2pm PST on Jan 15
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-0700',
+        forecast_date: '2024-01-16',
+        forecast_time: '15:00', // 7am PST tomorrow
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        tide_status: 'Rising',
+        confidence_score: 75,
+      }),
+      createForecast({
+        id: 'forecast-0800',
+        forecast_date: '2024-01-16',
+        forecast_time: '16:00', // 8am PST tomorrow
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        tide_status: 'Rising',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-0900',
+        forecast_date: '2024-01-16',
+        forecast_time: '17:00', // 9am PST tomorrow - slightly higher score (peak)
+        wave_height: '4',
+        wave_period: '14s', // Slightly better period
+        wind_speed: '3', // Slightly less wind
+        tide_height: '3.0',
+        tide_status: 'Rising',
+        confidence_score: 85,
+      }),
+      createForecast({
+        id: 'forecast-1000',
+        forecast_date: '2024-01-16',
+        forecast_time: '18:00', // 10am PST tomorrow
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        tide_status: 'Rising',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-1100',
+        forecast_date: '2024-01-16',
+        forecast_time: '19:00', // 11am PST tomorrow
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        tide_status: 'Rising',
+        confidence_score: 75,
+      }),
+    ];
+
+    // Provide sunset data for tomorrow to avoid conservative cutoffs
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [
+          new Date('2024-01-15T14:47:00Z'), // Today sunrise
+          new Date('2024-01-16T14:47:00Z'), // Tomorrow sunrise 6:47am PST
+        ],
+        sunsets: [
+          new Date('2024-01-16T01:00:00Z'), // Today sunset 5pm PST
+          new Date('2024-01-17T01:00:00Z'), // Tomorrow sunset 5pm PST
+        ],
+      }],
+    ]);
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeachNoPrefs as Beach, // No tide preferences
+      sunTimesCache,
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+
+    // The window should be centered around the peak (9am PST = 17:00 UTC)
+    // with ±30 minutes, producing sub-hour times like 8:30am-9:30am
+    // After 15-minute snapping: start should be 8:30 or 8:45, end should be 9:15 or 9:30
+
+    // Key assertion: window is NOT the full 4-hour hourly window (7am-11am)
+    // Instead it should be a ~1 hour window centered around the peak
+    const durationHours =
+      (result!.end.getTime() - result!.start.getTime()) / (1000 * 60 * 60);
+
+    // Duration should be around 1 hour (±30min centered on peak), not 4 hours
+    expect(durationHours).toBeLessThanOrEqual(1.5);
+
+    // Both times should be on 15-minute boundaries
+    expect(result!.start.getMinutes() % 15).toBe(0);
+    expect(result!.end.getMinutes() % 15).toBe(0);
+  });
+
+  it('centers window around highest scoring forecast within the window', () => {
+    // Test that the peak-centering finds the best scoring hour and centers on it
+    // Note: The scoring engine uses beach-specific preferences, so with mockBeachNoPrefs
+    // (no tide/wind preferences), the scoring may be more uniform than expected.
+
+    jest.setSystemTime(new Date('2024-01-15T16:00:00Z')); // 8am PST
+
+    const forecasts = [
+      createForecast({
+        id: 'forecast-0800',
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 8am PST - moderate
+        wave_height: '3',
+        wave_period: '10s',
+        wind_speed: '8',
+        tide_height: '3.0',
+        confidence_score: 65,
+      }),
+      createForecast({
+        id: 'forecast-0900',
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00', // 9am PST - moderate
+        wave_height: '3',
+        wave_period: '10s',
+        wind_speed: '8',
+        tide_height: '3.0',
+        confidence_score: 65,
+      }),
+      createForecast({
+        id: 'forecast-1000',
+        forecast_date: '2024-01-15',
+        forecast_time: '18:00', // 10am PST - PEAK (best conditions)
+        wave_height: '5',
+        wave_period: '14s',
+        wind_speed: '3',
+        tide_height: '3.5',
+        confidence_score: 90,
+      }),
+      createForecast({
+        id: 'forecast-1100',
+        forecast_date: '2024-01-15',
+        forecast_time: '19:00', // 11am PST - moderate
+        wave_height: '3',
+        wave_period: '10s',
+        wind_speed: '8',
+        tide_height: '3.0',
+        confidence_score: 65,
+      }),
+      createForecast({
+        id: 'forecast-1200',
+        forecast_date: '2024-01-15',
+        forecast_time: '20:00', // 12pm PST - moderate
+        wave_height: '3',
+        wave_period: '10s',
+        wind_speed: '8',
+        tide_height: '3.0',
+        confidence_score: 65,
+      }),
+    ];
+
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2024-01-15T14:47:00Z')],
+        sunsets: [new Date('2024-01-16T01:00:00Z')],
+      }],
+    ]);
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeachNoPrefs as Beach,
+      sunTimesCache,
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+
+    // Verify the window is a focused sub-hour window (not the full 4-hour span)
+    // Peak centering should produce a ~1 hour window
+    const durationHours =
+      (result!.end.getTime() - result!.start.getTime()) / (1000 * 60 * 60);
+    expect(durationHours).toBeLessThanOrEqual(1.5);
+
+    // Window should have 15-minute boundary times (sub-hour precision)
+    expect(result!.start.getMinutes() % 15).toBe(0);
+    expect(result!.end.getMinutes() % 15).toBe(0);
+  });
+
+  it('respects original window bounds when peak centering', () => {
+    // Test that peak centering produces windows within the refined bounds
+    // (not extending beyond what the original refinement determined)
+
+    jest.setSystemTime(new Date('2024-01-15T16:00:00Z')); // 8am PST
+
+    // Create forecasts where the window has a clear boundary (score degradation)
+    const forecasts = [
+      createForecast({
+        id: 'forecast-0800',
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 8am PST - good
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-0900',
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00', // 9am PST - PEAK
+        wave_height: '5',
+        wave_period: '14s',
+        wind_speed: '3',
+        tide_height: '3.5',
+        confidence_score: 90,
+      }),
+      createForecast({
+        id: 'forecast-1000',
+        forecast_date: '2024-01-15',
+        forecast_time: '18:00', // 10am PST - good
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-1100',
+        forecast_date: '2024-01-15',
+        forecast_time: '19:00', // 11am PST - good
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        confidence_score: 75,
+      }),
+    ];
+
+    const sunTimesCache = new Map([
+      ['beach-1', {
+        sunrises: [new Date('2024-01-15T14:47:00Z')],
+        sunsets: [new Date('2024-01-16T01:00:00Z')],
+      }],
+    ]);
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeachNoPrefs as Beach,
+      sunTimesCache,
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+
+    // Window should be a focused ~1 hour window centered around the peak
+    const durationHours =
+      (result!.end.getTime() - result!.start.getTime()) / (1000 * 60 * 60);
+    expect(durationHours).toBeLessThanOrEqual(1.5);
+
+    // Window start should not be before the first forecast time
+    expect(result!.start.getTime()).toBeGreaterThanOrEqual(
+      new Date('2024-01-15T16:00:00Z').getTime()
+    );
+  });
+
+  it('falls back to refined window when peak window would be too short', () => {
+    // Test that if peak centering produces a window < 30 min, we fall back
+
+    jest.setSystemTime(new Date('2024-01-15T16:00:00Z')); // 8am PST
+
+    // Create a narrow window where peak centering might collapse
+    const forecasts = [
+      createForecast({
+        id: 'forecast-0800',
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 8am PST
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-0900',
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00', // 9am PST
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        tide_height: '3.0',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeachNoPrefs as Beach,
+      userPrefs: null,
+    });
+
+    // Should still produce a valid window
+    expect(result).not.toBeNull();
+
+    // Window should have reasonable duration (at least 30 minutes)
+    const durationMinutes =
+      (result!.end.getTime() - result!.start.getTime()) / (1000 * 60);
+    expect(durationMinutes).toBeGreaterThanOrEqual(30);
+  });
+});

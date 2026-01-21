@@ -251,6 +251,94 @@ interface CandidateWindow {
 }
 
 /**
+ * Find the peak scoring time within a window for sub-hour precision.
+ *
+ * This mirrors the approach used by magic-hour-finder.ts to produce consistent
+ * sub-hour times between beach detail and discovery/home screens.
+ *
+ * @param windowStart - Start of the window
+ * @param windowEnd - End of the window
+ * @param forecasts - Array of scored forecasts with forecastTime
+ * @returns Peak time within the window (interpolated for sub-hour precision)
+ */
+function findPeakWithinWindow(
+  windowStart: Date,
+  windowEnd: Date,
+  forecasts: Array<{ forecastTime: Date; score: number }>
+): Date {
+  // Find forecasts within or overlapping the window
+  // Include forecasts slightly before/after for interpolation context
+  const windowForecasts = forecasts.filter(
+    (f) => f.forecastTime >= windowStart && f.forecastTime <= windowEnd
+  );
+
+  if (windowForecasts.length === 0) {
+    // Fallback to window midpoint
+    return new Date((windowStart.getTime() + windowEnd.getTime()) / 2);
+  }
+
+  // Find the highest scoring forecast within the window
+  const peak = windowForecasts.reduce((best, curr) =>
+    curr.score > best.score ? curr : best
+  );
+
+  // Find peak's position in the full forecast array for interpolation context
+  const peakIdx = forecasts.findIndex(
+    (f) => f.forecastTime.getTime() === peak.forecastTime.getTime()
+  );
+
+  // If we have adjacent forecasts, interpolate for sub-hour precision
+  if (peakIdx > 0 && peakIdx < forecasts.length - 1) {
+    const prev = forecasts[peakIdx - 1];
+    const next = forecasts[peakIdx + 1];
+
+    // If adjacent scores are very similar (within 5 points), use the peak time as-is
+    // This prevents unnecessary jitter when conditions are stable
+    if (Math.abs(prev.score - next.score) < 5) {
+      return peak.forecastTime;
+    }
+
+    // Interpolate toward the higher adjacent score for more precise peak location
+    // This shifts the peak time toward whichever neighbor has better conditions
+    const prevDiff = peak.score - prev.score;
+    const nextDiff = peak.score - next.score;
+    const totalDiff = prevDiff + nextDiff;
+
+    if (totalDiff <= 0) {
+      // Guard against edge case where peak is lower than neighbors
+      return peak.forecastTime;
+    }
+
+    // Ratio > 0.5 means next has better conditions, shift toward next
+    // Ratio < 0.5 means prev has better conditions, shift toward prev
+    const ratio = prevDiff / totalDiff;
+
+    const prevTime = prev.forecastTime.getTime();
+    const peakTime = peak.forecastTime.getTime();
+    const nextTime = next.forecastTime.getTime();
+
+    // Calculate shift: positive shifts toward next, negative toward prev
+    // Scale by half the distance to the neighbor (max 30 min shift)
+    let shiftMs: number;
+    if (ratio > 0.5) {
+      // Shift toward next (conditions improving after peak hour)
+      shiftMs = (ratio - 0.5) * (nextTime - peakTime);
+    } else {
+      // Shift toward prev (conditions were better before peak hour)
+      shiftMs = (ratio - 0.5) * (peakTime - prevTime);
+    }
+
+    // Clamp shift to ±30 minutes to prevent excessive movement
+    const maxShiftMs = 30 * 60 * 1000;
+    shiftMs = Math.max(-maxShiftMs, Math.min(maxShiftMs, shiftMs));
+
+    return new Date(peakTime + shiftMs);
+  }
+
+  return peak.forecastTime;
+}
+
+/**
  * Apply sub-hour refinement to a window that used hourly boundaries.
  * Only applicable when tide-driven boundaries were NOT used.
  *
@@ -305,64 +393,123 @@ function applySubHourRefinement(
   // Build hourly scores array for index lookups
   const hourlyScores = filteredForecasts.map((f) => f.score);
 
-  // Can only refine if we have the 4 scores needed for interpolation
+  // Can only do score-based refinement if we have the 4 scores needed for interpolation
   const canRefine =
     startIdx !== -1 &&
     endIdx !== -1 &&
     startIdx + 1 < hourlyScores.length &&
     endIdx > 0;
 
-  if (!canRefine) {
-    return { start: windowStart, end: windowEnd };
-  }
+  // Step 1: Apply score/tide/light refinement if possible
+  let refinedStart = windowStart;
+  let refinedEnd = windowEnd;
 
-  // Build tide data points for interpolation
-  const tidePoints =
-    extractTideSchedule(forecasts)?.map((t) => ({
-      time: t.time * 1000,
-      height: t.height,
-    })) ?? [];
+  if (canRefine) {
+    // Build tide data points for interpolation
+    const tidePoints =
+      extractTideSchedule(forecasts)?.map((t) => ({
+        time: t.time * 1000,
+        height: t.height,
+      })) ?? [];
 
-  // Create light checker for sunrise/sunset constraints
-  const isLightOk = (t: Date): boolean => {
-    const tDateStr = getLocalDateStrForBeach(t);
-    const tSunset = sunsets.find((s) => getLocalDateStrForBeach(s) === tDateStr);
-    const tSunrise = sunrises.find((s) => getLocalDateStrForBeach(s) === tDateStr);
-    if (tSunrise && t < tSunrise) return false;
-    if (tSunset && t > tSunset) return false;
-    return true;
-  };
+    // Create light checker for sunrise/sunset constraints
+    const isLightOk = (t: Date): boolean => {
+      const tDateStr = getLocalDateStrForBeach(t);
+      const tSunset = sunsets.find((s) => getLocalDateStrForBeach(s) === tDateStr);
+      const tSunrise = sunrises.find((s) => getLocalDateStrForBeach(s) === tDateStr);
+      if (tSunrise && t < tSunrise) return false;
+      if (tSunset && t > tSunset) return false;
+      return true;
+    };
 
-  // Apply refinement
-  const refined = refineWindowBounds({
-    hourlyStart: windowStart,
-    hourlyEnd: windowEnd,
-    scoreAtStart: hourlyScores[startIdx],
-    scoreAtNextHour: hourlyScores[startIdx + 1],
-    scoreAtPrevHour: hourlyScores[endIdx - 1],
-    scoreAtEnd: hourlyScores[endIdx],
-    threshold: MIN_SCORE_THRESHOLD,
-    getTideHeightAtTime: (t) =>
-      tidePoints.length > 0 ? interpolateTideHeight(tidePoints, t) : null,
-    tideMin: beach.preferred_tide_ft_min ?? null,
-    tideMax: beach.preferred_tide_ft_max ?? null,
-    isLightOk,
-  });
-
-  // Log telemetry in development
-  if (process.env.NODE_ENV === 'development' && refined.usedInterpolation) {
-    console.debug('[window-refine]', {
-      beach: beach.name,
-      rawStartDelta: refined.rawStartDeltaMin,
-      rawEndDelta: refined.rawEndDeltaMin,
-      finalStartDelta: refined.finalStartDeltaMin,
-      finalEndDelta: refined.finalEndDeltaMin,
-      clampedStart: refined.clampedStart,
-      clampedEnd: refined.clampedEnd,
+    // Apply refinement
+    const refined = refineWindowBounds({
+      hourlyStart: windowStart,
+      hourlyEnd: windowEnd,
+      scoreAtStart: hourlyScores[startIdx],
+      scoreAtNextHour: hourlyScores[startIdx + 1],
+      scoreAtPrevHour: hourlyScores[endIdx - 1],
+      scoreAtEnd: hourlyScores[endIdx],
+      threshold: MIN_SCORE_THRESHOLD,
+      getTideHeightAtTime: (t) =>
+        tidePoints.length > 0 ? interpolateTideHeight(tidePoints, t) : null,
+      tideMin: beach.preferred_tide_ft_min ?? null,
+      tideMax: beach.preferred_tide_ft_max ?? null,
+      isLightOk,
     });
+
+    refinedStart = refined.start;
+    refinedEnd = refined.end;
+
+    // Log telemetry in development
+    if (process.env.NODE_ENV === 'development' && refined.usedInterpolation) {
+      console.debug('[window-refine]', {
+        beach: beach.name,
+        rawStartDelta: refined.rawStartDeltaMin,
+        rawEndDelta: refined.rawEndDeltaMin,
+        finalStartDelta: refined.finalStartDeltaMin,
+        finalEndDelta: refined.finalEndDeltaMin,
+        clampedStart: refined.clampedStart,
+        clampedEnd: refined.clampedEnd,
+      });
+    }
   }
 
-  return { start: refined.start, end: refined.end };
+  // Step 2: Apply peak-centering for sub-hour precision
+  // This mirrors magic-hour-finder.ts to produce consistent times between
+  // beach detail and discovery/home screens.
+  //
+  // Find the peak time within the refined window and create a ±30min window
+  // around it, clamped to the refined bounds.
+  const PEAK_BUFFER_MS = 30 * 60 * 1000; // 30 minutes
+  const SNAP_MS = 15 * 60 * 1000; // Snap to 15-minute boundaries
+
+  const peakTime = findPeakWithinWindow(
+    refinedStart,
+    refinedEnd,
+    filteredForecasts
+  );
+
+  // Create ±30min window around peak
+  const peakWindowStart = new Date(peakTime.getTime() - PEAK_BUFFER_MS);
+  const peakWindowEnd = new Date(peakTime.getTime() + PEAK_BUFFER_MS);
+
+  // Clamp to the refined window bounds (don't exceed what refinement determined)
+  const clampedStart = new Date(
+    Math.max(peakWindowStart.getTime(), refinedStart.getTime())
+  );
+  const clampedEnd = new Date(
+    Math.min(peakWindowEnd.getTime(), refinedEnd.getTime())
+  );
+
+  // Snap to 15-minute boundaries for user-friendly display
+  // Use ceil for start (don't start before the snapped time)
+  // Use floor for end (don't extend past the snapped time)
+  const snappedStart = new Date(Math.ceil(clampedStart.getTime() / SNAP_MS) * SNAP_MS);
+  const snappedEnd = new Date(Math.floor(clampedEnd.getTime() / SNAP_MS) * SNAP_MS);
+
+  // Validate: ensure we have at least 30 minutes after snapping
+  const MIN_DURATION_MS = 30 * 60 * 1000;
+  if (snappedEnd.getTime() - snappedStart.getTime() < MIN_DURATION_MS) {
+    // If peak-centered window is too short, fall back to refined window
+    return { start: refinedStart, end: refinedEnd };
+  }
+
+  // Log peak-centering telemetry in development
+  if (process.env.NODE_ENV === 'development') {
+    const startDelta = (snappedStart.getTime() - refinedStart.getTime()) / 60000;
+    const endDelta = (refinedEnd.getTime() - snappedEnd.getTime()) / 60000;
+    if (startDelta !== 0 || endDelta !== 0) {
+      console.debug('[window-peak-center]', {
+        beach: beach.name,
+        peakTime: peakTime.toISOString(),
+        startDeltaMin: startDelta,
+        endDeltaMin: endDelta,
+      });
+    }
+  }
+
+  return { start: snappedStart, end: snappedEnd };
 }
 
 // ============================================================================
