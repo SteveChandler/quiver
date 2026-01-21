@@ -697,6 +697,7 @@ export function selectBestWindow(
     start: Date;
     end: Date;
     score: number;
+    usedTideBoundaries: boolean;
   } | null = null;
   let bestAdjustedScore = -1;
 
@@ -1009,7 +1010,13 @@ export function selectBestWindow(
 
     if (adjustedScore > bestAdjustedScore) {
       bestAdjustedScore = adjustedScore;
-      bestWindow = { forecast, start: effectiveStartTime, end: endTime, score: startScore };
+      bestWindow = {
+        forecast,
+        start: effectiveStartTime,
+        end: endTime,
+        score: startScore,
+        usedTideBoundaries: useTideBoundaries,
+      };
     }
   }
 
@@ -1173,6 +1180,7 @@ export function selectBestWindow(
           start: effectiveStartTime,
           end: endTime,
           score: best.score,
+          usedTideBoundaries: false, // Fallback always uses hourly boundaries
         };
       }
     }
@@ -1193,5 +1201,6 @@ export function selectBestWindow(
     dataSource: bestWindow.forecast.data_source || 'FALLBACK',
     confidence: bestWindow.forecast.confidence_score || 50,
     timezone: beachTz,
+    usedTideBoundaries: bestWindow.usedTideBoundaries,
   };
 }
