@@ -133,4 +133,32 @@ describe('GET /window/save', () => {
     const html = await response.text();
     expect(html).toContain('Failed');
   });
+
+  it('returns error for invalid token', async () => {
+    const { GET } = await import('@/app/window/save/route');
+    const request = new NextRequest(
+      'http://localhost:3000/window/save?token=invalid-token&beach_id=beach-456&start=2026-01-20T06:30:00Z&end=2026-01-20T08:00:00Z'
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(400);
+    const html = await response.text();
+    expect(html).toContain('Invalid');
+  });
+
+  it('returns error for wrong token purpose', async () => {
+    const { GET } = await import('@/app/window/save/route');
+    const token = await signEmailToken(
+      { user_id: 'user-123', purpose: 'prefs' }, // Wrong purpose
+      TEST_SECRET
+    );
+    const request = new NextRequest(
+      `http://localhost:3000/window/save?token=${token}&beach_id=beach-456&start=2026-01-20T06:30:00Z&end=2026-01-20T08:00:00Z`
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(400);
+    const html = await response.text();
+    expect(html).toContain('Invalid');
+  });
 });

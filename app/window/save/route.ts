@@ -9,6 +9,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
 import { createClient } from '@/lib/supabase/server';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderPage(title: string, message: string, isError: boolean = false) {
   const bgColor = isError ? '#fef2f2' : '#f0fdf4';
   const textColor = isError ? '#dc2626' : '#16a34a';
@@ -20,7 +29,7 @@ function renderPage(title: string, message: string, isError: boolean = false) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title} - Quiver</title>
+  <title>${escapeHtml(title)} - Quiver</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -56,8 +65,8 @@ function renderPage(title: string, message: string, isError: boolean = false) {
 <body>
   <div class="card">
     <div class="icon">${icon}</div>
-    <h1>${title}</h1>
-    <p>${message}</p>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(message)}</p>
     <a href="/" class="btn">Open Quiver</a>
   </div>
 </body>
@@ -94,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 
   const payload = await verifyEmailToken(token, secret);
-  if (!payload) {
+  if (!payload || payload.purpose !== 'save_window') {
     return renderPage('Invalid Link', 'Invalid or expired link.', true);
   }
 
