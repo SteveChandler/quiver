@@ -240,11 +240,38 @@ export function clamp01(n: number): number {
 // Window Refinement Types and Constants
 // ============================================================================
 
-const HOUR_MS = 60 * 60 * 1000;
-const SCAN_STEP_MS = 5 * 60 * 1000;    // 5-minute scan resolution
-const SNAP_MS = 15 * 60 * 1000;         // 15-minute snap increments
-const MAX_SHIFT_MS = 45 * 60 * 1000;    // Max 45-minute edge shift
-const MIN_DURATION_MS = 60 * 60 * 1000; // Min 60-minute window
+/** Window refinement configuration constants */
+export const REFINEMENT_CONFIG = {
+  /** Duration of one hour in milliseconds */
+  HOUR_MS: 60 * 60 * 1000,
+  /** Scan resolution for finding eligibility boundaries (5 minutes) */
+  SCAN_STEP_MS: 5 * 60 * 1000,
+  /** Snap boundaries to 15-minute increments for user-friendly times */
+  SNAP_MS: 15 * 60 * 1000,
+  /** Maximum allowed shift from hourly boundary (45 minutes) */
+  MAX_SHIFT_MS: 45 * 60 * 1000,
+  /** Minimum viable window duration (60 minutes) */
+  MIN_DURATION_MS: 60 * 60 * 1000,
+} as const;
+
+// Destructure for internal use
+const { HOUR_MS, SCAN_STEP_MS, SNAP_MS, MAX_SHIFT_MS, MIN_DURATION_MS } = REFINEMENT_CONFIG;
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Linear interpolation between two values.
+ * @param from - Starting value
+ * @param to - Ending value
+ * @param alpha - Interpolation factor (clamped to [0,1])
+ * @returns Interpolated value
+ */
+export function lerp(from: number, to: number, alpha: number): number {
+  const clampedAlpha = Math.min(1, Math.max(0, alpha));
+  return from + clampedAlpha * (to - from);
+}
 
 export type FallbackReason =
   | 'missing_scores'
@@ -284,32 +311,28 @@ export interface RefinedWindow {
 // Window Refinement Implementation
 // ============================================================================
 
-/**
- * Refines hourly window boundaries to sub-hour precision by interpolating
- * score, tide, and light conditions.
- *
- * @param params - Window parameters and eligibility functions
- * @returns Refined window with telemetry
- */
-export function refineWindowBounds(
-  params: RefineWindowBoundsParams
-): RefinedWindow {
-  const {
-    hourlyStart,
-    hourlyEnd,
-    scoreAtStart,
-    scoreAtNextHour,
-    scoreAtPrevHour,
-    scoreAtEnd,
-    threshold,
-    getTideHeightAtTime,
-    tideMin,
-    tideMax,
-    isLightOk,
-  } = params;
+/** Parameters for tide constraint checking */
+interface TideConstraints {
+  getTideHeightAtTime: (t: Date) => number | null;
+  tideMin: number | null;
+  tideMax: number | null;
+}
 
-  // Helper to create fallback result
-  const hourlyFallback = (reason: FallbackReason): RefinedWindow => ({
+/** Result from edge scanning */
+interface EdgeScanResult {
+  time: Date;
+  found: boolean;
+}
+
+/**
+ * Creates a fallback RefinedWindow with original hourly boundaries.
+ */
+function createFallbackWindow(
+  hourlyStart: Date,
+  hourlyEnd: Date,
+  reason: FallbackReason
+): RefinedWindow {
+  return {
     start: hourlyStart,
     end: hourlyEnd,
     rawStartDeltaMin: 0,
@@ -320,16 +343,20 @@ export function refineWindowBounds(
     clampedEnd: false,
     usedInterpolation: false,
     fallbackReason: reason,
-  });
+  };
+}
 
-  // Sanity guard: window must be at least 2 hours for interpolation
-  const windowMs = hourlyEnd.getTime() - hourlyStart.getTime();
-  if (windowMs < 2 * HOUR_MS) {
-    return hourlyFallback('window_too_short');
-  }
+/**
+ * Creates an eligibility checker function for a given set of constraints.
+ */
+function createEligibilityChecker(
+  threshold: number,
+  isLightOk: (t: Date) => boolean,
+  tideConstraints: TideConstraints
+): (t: Date, interpScore: number) => boolean {
+  const { getTideHeightAtTime, tideMin, tideMax } = tideConstraints;
 
-  // Eligibility function
-  const isEligibleAt = (t: Date, interpScore: number): boolean => {
+  return (t: Date, interpScore: number): boolean => {
     // 1. Score check (cheap, first)
     if (interpScore < threshold) return false;
 
@@ -348,99 +375,210 @@ export function refineWindowBounds(
 
     return true;
   };
+}
 
-  // --- Refine START edge ---
-  // Scan within [hourlyStart, hourlyStart + 1hr) for earliest eligible
-  let refinedStart = hourlyStart;
-  let foundStart = false;
+/**
+ * Scans forward from hourlyStart to find the earliest eligible time.
+ */
+function scanStartEdge(
+  hourlyStart: Date,
+  scoreAtStart: number,
+  scoreAtNextHour: number,
+  isEligible: (t: Date, score: number) => boolean
+): EdgeScanResult {
   for (let offset = 0; offset < HOUR_MS; offset += SCAN_STEP_MS) {
     const t = new Date(hourlyStart.getTime() + offset);
-    const alphaRaw = offset / HOUR_MS;
-    const alpha = Math.min(1, Math.max(0, alphaRaw));
-    const interpScore = scoreAtStart + alpha * (scoreAtNextHour - scoreAtStart);
+    const interpScore = lerp(scoreAtStart, scoreAtNextHour, offset / HOUR_MS);
 
-    if (isEligibleAt(t, interpScore)) {
-      refinedStart = t;
-      foundStart = true;
-      break; // First eligible = earliest
+    if (isEligible(t, interpScore)) {
+      return { time: t, found: true };
     }
   }
+  return { time: hourlyStart, found: false };
+}
 
-  // --- Refine END edge ---
-  // Scan within [hourlyEnd - 1hr, hourlyEnd) for latest eligible
-  let refinedEnd = hourlyEnd;
-  let foundEnd = false;
+/**
+ * Scans backward from hourlyEnd to find the latest eligible time.
+ */
+function scanEndEdge(
+  hourlyEnd: Date,
+  scoreAtPrevHour: number,
+  scoreAtEnd: number,
+  isEligible: (t: Date, score: number) => boolean
+): EdgeScanResult {
   const endScanStart = hourlyEnd.getTime() - HOUR_MS;
   for (let offset = HOUR_MS - SCAN_STEP_MS; offset >= 0; offset -= SCAN_STEP_MS) {
     const t = new Date(endScanStart + offset);
-    const alphaRaw = offset / HOUR_MS;
-    const alpha = Math.min(1, Math.max(0, alphaRaw));
-    const interpScore = scoreAtPrevHour + alpha * (scoreAtEnd - scoreAtPrevHour);
+    const interpScore = lerp(scoreAtPrevHour, scoreAtEnd, offset / HOUR_MS);
 
-    if (isEligibleAt(t, interpScore)) {
-      refinedEnd = t;
-      foundEnd = true;
-      break; // Last eligible (scanning backwards)
+    if (isEligible(t, interpScore)) {
+      return { time: t, found: true };
     }
   }
+  return { time: hourlyEnd, found: false };
+}
 
-  // If no eligible found at all, fall back
-  if (!foundStart && !foundEnd) {
-    return hourlyFallback('no_eligible_found');
-  }
-
-  // --- Guard negative deltas (defensive) ---
+/**
+ * Applies clamping, snapping, and validation to refined boundaries.
+ * Returns null if validation fails (inversion or duration collapse).
+ */
+function snapAndValidate(
+  refinedStart: Date,
+  refinedEnd: Date,
+  hourlyStart: Date,
+  hourlyEnd: Date
+): {
+  snappedStartMs: number;
+  snappedEndMs: number;
+  clampedStart: boolean;
+  clampedEnd: boolean;
+  rawStartDeltaMin: number;
+  rawEndDeltaMin: number;
+} | null {
+  // Guard negative deltas (defensive)
   const startDeltaMs = Math.max(0, refinedStart.getTime() - hourlyStart.getTime());
   const endDeltaMs = Math.max(0, hourlyEnd.getTime() - refinedEnd.getTime());
 
   const rawStartDeltaMin = startDeltaMs / 60000;
   const rawEndDeltaMin = endDeltaMs / 60000;
 
-  // --- Clamp to max 45-min shift ---
+  // Clamp to max shift
   let clampedStart = false;
   let clampedEnd = false;
+  let clampedStartMs = refinedStart.getTime();
+  let clampedEndMs = refinedEnd.getTime();
 
   if (startDeltaMs > MAX_SHIFT_MS) {
-    refinedStart = new Date(hourlyStart.getTime() + MAX_SHIFT_MS);
+    clampedStartMs = hourlyStart.getTime() + MAX_SHIFT_MS;
     clampedStart = true;
   }
   if (endDeltaMs > MAX_SHIFT_MS) {
-    refinedEnd = new Date(hourlyEnd.getTime() - MAX_SHIFT_MS);
+    clampedEndMs = hourlyEnd.getTime() - MAX_SHIFT_MS;
     clampedEnd = true;
   }
 
-  // --- Directional snap ---
-  // Start: ceil to next 15-min tick
-  const snappedStartMs = Math.ceil(refinedStart.getTime() / SNAP_MS) * SNAP_MS;
-  // End: floor to previous 15-min tick
-  const snappedEndMs = Math.floor(refinedEnd.getTime() / SNAP_MS) * SNAP_MS;
+  // Directional snap: start = ceil, end = floor
+  const snappedStartMs = Math.ceil(clampedStartMs / SNAP_MS) * SNAP_MS;
+  const snappedEndMs = Math.floor(clampedEndMs / SNAP_MS) * SNAP_MS;
 
-  // --- Inversion check ---
+  // Validation: check for inversion
   if (snappedStartMs >= snappedEndMs) {
-    return hourlyFallback('inverted');
+    return null;
   }
 
-  // --- Duration check ---
+  // Validation: check minimum duration
   if (snappedEndMs - snappedStartMs < MIN_DURATION_MS) {
-    return hourlyFallback('duration_collapsed');
+    return null;
   }
-
-  // --- Return refined window with telemetry ---
-  const finalStartDeltaMin = (snappedStartMs - hourlyStart.getTime()) / 60000;
-  const finalEndDeltaMin = (hourlyEnd.getTime() - snappedEndMs) / 60000;
-  const changed =
-    snappedStartMs !== hourlyStart.getTime() ||
-    snappedEndMs !== hourlyEnd.getTime();
 
   return {
-    start: new Date(snappedStartMs),
-    end: new Date(snappedEndMs),
-    rawStartDeltaMin,
-    rawEndDeltaMin,
-    finalStartDeltaMin,
-    finalEndDeltaMin,
+    snappedStartMs,
+    snappedEndMs,
     clampedStart,
     clampedEnd,
+    rawStartDeltaMin,
+    rawEndDeltaMin,
+  };
+}
+
+/**
+ * Refines hourly window boundaries to sub-hour precision by interpolating
+ * score, tide, and light conditions.
+ *
+ * ## Algorithm Overview
+ *
+ * 1. **Validation**: Ensure window is at least 2 hours (needs interpolation context)
+ * 2. **Edge Scanning**:
+ *    - Start: Forward scan from hourlyStart to find first eligible time
+ *    - End: Backward scan from hourlyEnd to find last eligible time
+ * 3. **Interpolation**: Linear interpolation of scores between hourly boundaries
+ * 4. **Constraints**: Check score threshold, tide range, and daylight
+ * 5. **Clamping**: Limit shifts to 45 min to prevent extreme changes
+ * 6. **Snapping**: Align to 15-minute increments (ceil for start, floor for end)
+ * 7. **Validation**: Ensure inverted/collapsed windows fall back to hourly
+ *
+ * @param params - Window parameters and eligibility functions
+ * @returns Refined window with telemetry metadata
+ */
+export function refineWindowBounds(
+  params: RefineWindowBoundsParams
+): RefinedWindow {
+  const {
+    hourlyStart,
+    hourlyEnd,
+    scoreAtStart,
+    scoreAtNextHour,
+    scoreAtPrevHour,
+    scoreAtEnd,
+    threshold,
+    getTideHeightAtTime,
+    tideMin,
+    tideMax,
+    isLightOk,
+  } = params;
+
+  // Early validation: window must be at least 2 hours for interpolation
+  const windowMs = hourlyEnd.getTime() - hourlyStart.getTime();
+  if (windowMs < 2 * HOUR_MS) {
+    return createFallbackWindow(hourlyStart, hourlyEnd, 'window_too_short');
+  }
+
+  // Create eligibility checker with all constraints
+  const isEligible = createEligibilityChecker(threshold, isLightOk, {
+    getTideHeightAtTime,
+    tideMin,
+    tideMax,
+  });
+
+  // Scan edges for eligible boundaries
+  const startResult = scanStartEdge(hourlyStart, scoreAtStart, scoreAtNextHour, isEligible);
+  const endResult = scanEndEdge(hourlyEnd, scoreAtPrevHour, scoreAtEnd, isEligible);
+
+  // If no eligible time found at either edge, fall back
+  if (!startResult.found && !endResult.found) {
+    return createFallbackWindow(hourlyStart, hourlyEnd, 'no_eligible_found');
+  }
+
+  // Apply clamping, snapping, and validation
+  const snapResult = snapAndValidate(
+    startResult.time,
+    endResult.time,
+    hourlyStart,
+    hourlyEnd
+  );
+
+  // Validation failed (inversion or duration collapse)
+  if (!snapResult) {
+    // Determine appropriate fallback reason
+    const startDeltaMs = startResult.time.getTime() - hourlyStart.getTime();
+    const endDeltaMs = hourlyEnd.getTime() - endResult.time.getTime();
+    const clampedStartMs = Math.min(startDeltaMs, MAX_SHIFT_MS);
+    const clampedEndMs = Math.min(endDeltaMs, MAX_SHIFT_MS);
+    const snappedStart = Math.ceil((hourlyStart.getTime() + clampedStartMs) / SNAP_MS) * SNAP_MS;
+    const snappedEnd = Math.floor((hourlyEnd.getTime() - clampedEndMs) / SNAP_MS) * SNAP_MS;
+
+    if (snappedStart >= snappedEnd) {
+      return createFallbackWindow(hourlyStart, hourlyEnd, 'inverted');
+    }
+    return createFallbackWindow(hourlyStart, hourlyEnd, 'duration_collapsed');
+  }
+
+  // Calculate final deltas and changed status
+  const finalStartDeltaMin = (snapResult.snappedStartMs - hourlyStart.getTime()) / 60000;
+  const finalEndDeltaMin = (hourlyEnd.getTime() - snapResult.snappedEndMs) / 60000;
+  const changed =
+    snapResult.snappedStartMs !== hourlyStart.getTime() ||
+    snapResult.snappedEndMs !== hourlyEnd.getTime();
+
+  return {
+    start: new Date(snapResult.snappedStartMs),
+    end: new Date(snapResult.snappedEndMs),
+    rawStartDeltaMin: snapResult.rawStartDeltaMin,
+    rawEndDeltaMin: snapResult.rawEndDeltaMin,
+    finalStartDeltaMin,
+    finalEndDeltaMin,
+    clampedStart: snapResult.clampedStart,
+    clampedEnd: snapResult.clampedEnd,
     usedInterpolation: changed,
   };
 }
