@@ -58,6 +58,123 @@ async function signToken(payload: Record<string, unknown>, secret: string): Prom
   return `${header}.${body}.${sig}`;
 }
 
+// ============================================================================
+// WELCOME EMAIL TEMPLATE
+// ============================================================================
+// SYNC WITH: lib/email/templates/welcome-email-html.ts (CANONICAL SOURCE)
+//
+// This template is duplicated here because Deno Edge Functions cannot import
+// from the Node.js lib directory. If you modify this template, you MUST also
+// update the canonical source file.
+//
+// The canonical source exports:
+// - generateWelcomeEmailHtml(params: { baseUrl: string; token: string }): string
+// - generateWelcomeEmailText(params: { baseUrl: string; token: string }): string
+// - WELCOME_EMAIL_SUBJECT: string
+// ============================================================================
+
+interface WelcomeEmailParams {
+  baseUrl: string;
+  token: string;
+}
+
+// Inline style constants
+const COLORS = {
+  primary: '#3b82f6',
+  text: '#333333',
+  textSecondary: '#666666',
+  textTertiary: '#999999',
+  heading: '#1e40af',
+  border: '#eeeeee',
+} as const;
+
+const FONT_FAMILY = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+const BUTTON_STYLE = `
+  display: inline-block;
+  padding: 12px 20px;
+  margin: 4px;
+  background: ${COLORS.primary};
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+`.trim();
+
+const TIME_BUTTONS = [
+  { label: 'Dawn patrol', value: 'dawn' },
+  { label: 'After work', value: 'after_work' },
+  { label: 'Weekends', value: 'weekends' },
+] as const;
+
+const LEVEL_BUTTONS = [
+  { label: 'Beginner', value: 'beginner' },
+  { label: 'Intermediate', value: 'intermediate' },
+  { label: 'Advanced', value: 'advanced' },
+] as const;
+
+const FREQUENCY_BUTTONS = [
+  { label: 'Daily (even if flat)', value: 'daily' },
+  { label: "Only when it's good", value: 'only_good' },
+] as const;
+
+function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
+  const { baseUrl, token } = params;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="font-family: ${FONT_FAMILY}; max-width: 600px; margin: 0 auto; padding: 20px; color: ${COLORS.text};">
+  <h1 style="color: ${COLORS.heading}; font-size: 24px; margin-bottom: 8px;">🌊 Welcome to Quiver</h1>
+
+  <p style="font-size: 18px; color: ${COLORS.textSecondary}; margin-bottom: 24px;">
+    Quiver emails you one thing: the best yes/no surf call.
+  </p>
+
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">When do you usually surf?</h2>
+    ${TIME_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?time=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">What's your level?</h2>
+    ${LEVEL_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?level=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">How often should we email?</h2>
+    ${FREQUENCY_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?frequency=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 16px; color: ${COLORS.text}; margin-bottom: 12px;">Home break?</h2>
+    <a href="${baseUrl}/prefs/home-beach?token=${token}" style="${BUTTON_STYLE}">Set home beach →</a>
+  </div>
+
+  <p style="color: ${COLORS.textTertiary}; font-size: 14px; margin-top: 32px;">
+    Or just reply with your home break name.
+  </p>
+
+  <hr style="border: none; border-top: 1px solid ${COLORS.border}; margin: 32px 0;">
+
+  <p style="color: ${COLORS.textTertiary}; font-size: 12px;">
+    Quiver · The smart surf forecast
+  </p>
+</body>
+</html>
+  `.trim();
+}
+
+const WELCOME_EMAIL_SUBJECT = 'Welcome to Quiver — set your surf defaults (10 seconds)';
+
+// ============================================================================
+// END WELCOME EMAIL TEMPLATE
+// ============================================================================
+
 serve(async (req) => {
   try {
     // Validate environment variables at runtime
@@ -82,83 +199,8 @@ serve(async (req) => {
     // Generate token (env vars validated above, safe to assert)
     const token = await signToken({ user_id: userId, purpose: 'prefs' }, EMAIL_TOKEN_SECRET!);
 
-    // Build email HTML
-    const buttonStyle = `
-      display: inline-block;
-      padding: 12px 20px;
-      margin: 4px;
-      background: #3b82f6;
-      color: white;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 500;
-    `;
-
-    const timeButtons = [
-      { label: 'Dawn patrol', value: 'dawn' },
-      { label: 'After work', value: 'after_work' },
-      { label: 'Weekends', value: 'weekends' },
-    ];
-
-    const levelButtons = [
-      { label: 'Beginner', value: 'beginner' },
-      { label: 'Intermediate', value: 'intermediate' },
-      { label: 'Advanced', value: 'advanced' },
-    ];
-
-    const frequencyButtons = [
-      { label: 'Daily (even if flat)', value: 'daily' },
-      { label: 'Only when it\'s good', value: 'only_good' },
-    ];
-
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-  <h1 style="color: #1e40af; font-size: 24px; margin-bottom: 8px;">🌊 Welcome to Quiver</h1>
-
-  <p style="font-size: 18px; color: #666; margin-bottom: 24px;">
-    Quiver emails you one thing: the best yes/no surf call.
-  </p>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">When do you usually surf?</h2>
-    ${timeButtons.map(b => `<a href="${APP_URL}/prefs/set?time=${b.value}&token=${token}" style="${buttonStyle}">${b.label}</a>`).join('')}
-  </div>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">What's your level?</h2>
-    ${levelButtons.map(b => `<a href="${APP_URL}/prefs/set?level=${b.value}&token=${token}" style="${buttonStyle}">${b.label}</a>`).join('')}
-  </div>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">How often should we email?</h2>
-    ${frequencyButtons.map(b => `<a href="${APP_URL}/prefs/set?frequency=${b.value}&token=${token}" style="${buttonStyle}">${b.label}</a>`).join('')}
-  </div>
-
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 16px; color: #333; margin-bottom: 12px;">Home break?</h2>
-    <a href="${APP_URL}/prefs/home-beach?token=${token}" style="${buttonStyle}">Set home beach →</a>
-  </div>
-
-  <p style="color: #999; font-size: 14px; margin-top: 32px;">
-    Or just reply with your home break name.
-  </p>
-
-  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
-
-  <p style="color: #999; font-size: 12px;">
-    Quiver · The smart surf forecast
-  </p>
-</body>
-</html>
-    `.trim();
-
-    const subject = 'Welcome to Quiver — set your surf defaults (10 seconds)';
+    // Build email HTML using the shared template structure
+    const html = generateWelcomeEmailHtml({ baseUrl: APP_URL, token });
 
     // Send via Resend
     const res = await fetch('https://api.resend.com/emails', {
@@ -170,7 +212,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: EMAIL_FROM_ADDRESS,
         to: userEmail,
-        subject,
+        subject: WELCOME_EMAIL_SUBJECT,
         html,
       }),
     });
@@ -187,7 +229,7 @@ serve(async (req) => {
       user_id: userId,
       email_type: 'welcome',
       local_date: new Date().toISOString().split('T')[0],
-      subject,
+      subject: WELCOME_EMAIL_SUBJECT,
     });
 
     // Log error but don't fail - email was already sent successfully
