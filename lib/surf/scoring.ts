@@ -279,3 +279,168 @@ export interface RefinedWindow {
   usedInterpolation: boolean;
   fallbackReason?: FallbackReason;
 }
+
+// ============================================================================
+// Window Refinement Implementation
+// ============================================================================
+
+/**
+ * Refines hourly window boundaries to sub-hour precision by interpolating
+ * score, tide, and light conditions.
+ *
+ * @param params - Window parameters and eligibility functions
+ * @returns Refined window with telemetry
+ */
+export function refineWindowBounds(
+  params: RefineWindowBoundsParams
+): RefinedWindow {
+  const {
+    hourlyStart,
+    hourlyEnd,
+    scoreAtStart,
+    scoreAtNextHour,
+    scoreAtPrevHour,
+    scoreAtEnd,
+    threshold,
+    getTideHeightAtTime,
+    tideMin,
+    tideMax,
+    isLightOk,
+  } = params;
+
+  // Helper to create fallback result
+  const hourlyFallback = (reason: FallbackReason): RefinedWindow => ({
+    start: hourlyStart,
+    end: hourlyEnd,
+    rawStartDeltaMin: 0,
+    rawEndDeltaMin: 0,
+    finalStartDeltaMin: 0,
+    finalEndDeltaMin: 0,
+    clampedStart: false,
+    clampedEnd: false,
+    usedInterpolation: false,
+    fallbackReason: reason,
+  });
+
+  // Sanity guard: window must be at least 2 hours for interpolation
+  const windowMs = hourlyEnd.getTime() - hourlyStart.getTime();
+  if (windowMs < 2 * HOUR_MS) {
+    return hourlyFallback('window_too_short');
+  }
+
+  // Eligibility function
+  const isEligibleAt = (t: Date, interpScore: number): boolean => {
+    // 1. Score check (cheap, first)
+    if (interpScore < threshold) return false;
+
+    // 2. Light check (cheap boolean)
+    if (!isLightOk(t)) return false;
+
+    // 3. Tide check (may involve interpolation lookup)
+    if (tideMin !== null || tideMax !== null) {
+      const tideHeight = getTideHeightAtTime(t);
+      if (tideHeight !== null) {
+        if (tideMin !== null && tideHeight < tideMin) return false;
+        if (tideMax !== null && tideHeight > tideMax) return false;
+      }
+      // tideHeight === null → pass (permissive on missing data)
+    }
+
+    return true;
+  };
+
+  // --- Refine START edge ---
+  // Scan within [hourlyStart, hourlyStart + 1hr) for earliest eligible
+  let refinedStart = hourlyStart;
+  let foundStart = false;
+  for (let offset = 0; offset < HOUR_MS; offset += SCAN_STEP_MS) {
+    const t = new Date(hourlyStart.getTime() + offset);
+    const alphaRaw = offset / HOUR_MS;
+    const alpha = Math.min(1, Math.max(0, alphaRaw));
+    const interpScore = scoreAtStart + alpha * (scoreAtNextHour - scoreAtStart);
+
+    if (isEligibleAt(t, interpScore)) {
+      refinedStart = t;
+      foundStart = true;
+      break; // First eligible = earliest
+    }
+  }
+
+  // --- Refine END edge ---
+  // Scan within [hourlyEnd - 1hr, hourlyEnd) for latest eligible
+  let refinedEnd = hourlyEnd;
+  let foundEnd = false;
+  const endScanStart = hourlyEnd.getTime() - HOUR_MS;
+  for (let offset = HOUR_MS - SCAN_STEP_MS; offset >= 0; offset -= SCAN_STEP_MS) {
+    const t = new Date(endScanStart + offset);
+    const alphaRaw = offset / HOUR_MS;
+    const alpha = Math.min(1, Math.max(0, alphaRaw));
+    const interpScore = scoreAtPrevHour + alpha * (scoreAtEnd - scoreAtPrevHour);
+
+    if (isEligibleAt(t, interpScore)) {
+      refinedEnd = t;
+      foundEnd = true;
+      break; // Last eligible (scanning backwards)
+    }
+  }
+
+  // If no eligible found at all, fall back
+  if (!foundStart && !foundEnd) {
+    return hourlyFallback('no_eligible_found');
+  }
+
+  // --- Guard negative deltas (defensive) ---
+  const startDeltaMs = Math.max(0, refinedStart.getTime() - hourlyStart.getTime());
+  const endDeltaMs = Math.max(0, hourlyEnd.getTime() - refinedEnd.getTime());
+
+  const rawStartDeltaMin = startDeltaMs / 60000;
+  const rawEndDeltaMin = endDeltaMs / 60000;
+
+  // --- Clamp to max 45-min shift ---
+  let clampedStart = false;
+  let clampedEnd = false;
+
+  if (startDeltaMs > MAX_SHIFT_MS) {
+    refinedStart = new Date(hourlyStart.getTime() + MAX_SHIFT_MS);
+    clampedStart = true;
+  }
+  if (endDeltaMs > MAX_SHIFT_MS) {
+    refinedEnd = new Date(hourlyEnd.getTime() - MAX_SHIFT_MS);
+    clampedEnd = true;
+  }
+
+  // --- Directional snap ---
+  // Start: ceil to next 15-min tick
+  const snappedStartMs = Math.ceil(refinedStart.getTime() / SNAP_MS) * SNAP_MS;
+  // End: floor to previous 15-min tick
+  const snappedEndMs = Math.floor(refinedEnd.getTime() / SNAP_MS) * SNAP_MS;
+
+  // --- Inversion check ---
+  if (snappedStartMs >= snappedEndMs) {
+    return hourlyFallback('inverted');
+  }
+
+  // --- Duration check ---
+  if (snappedEndMs - snappedStartMs < MIN_DURATION_MS) {
+    return hourlyFallback('duration_collapsed');
+  }
+
+  // --- Return refined window with telemetry ---
+  const finalStartDeltaMin = (snappedStartMs - hourlyStart.getTime()) / 60000;
+  const finalEndDeltaMin = (hourlyEnd.getTime() - snappedEndMs) / 60000;
+  const changed =
+    snappedStartMs !== hourlyStart.getTime() ||
+    snappedEndMs !== hourlyEnd.getTime();
+
+  return {
+    start: new Date(snappedStartMs),
+    end: new Date(snappedEndMs),
+    rawStartDeltaMin,
+    rawEndDeltaMin,
+    finalStartDeltaMin,
+    finalEndDeltaMin,
+    clampedStart,
+    clampedEnd,
+    usedInterpolation: changed,
+  };
+}
