@@ -8,15 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { escapeHtml } from '@/lib/utils/html';
 
 function renderPage(title: string, message: string, isError: boolean = false) {
   const bgColor = isError ? '#fef2f2' : '#f0fdf4';

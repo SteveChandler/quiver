@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyEmailToken, getEmailTokenSecret } from '@/lib/utils/email-token';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { escapeHtml } from '@/lib/utils/html';
 
 // Valid values for each preference
 const VALID_TIME_BUCKETS = ['dawn', 'after_work', 'weekends'] as const;
@@ -31,7 +32,7 @@ function renderPage(title: string, message: string, isError: boolean = false) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title} - Quiver</title>
+  <title>${escapeHtml(title)} - Quiver</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -80,8 +81,8 @@ function renderPage(title: string, message: string, isError: boolean = false) {
 <body>
   <div class="card">
     <div class="icon">${icon === 'check' ? '&#10003;' : '&#33;'}</div>
-    <h1>${title}</h1>
-    <p>${message}</p>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(message)}</p>
     <a href="/" class="btn">Open Quiver</a>
   </div>
 </body>
