@@ -675,7 +675,7 @@ export function BestSurfWindow({
             {intel.conditions_score !== null &&
               intel.conditions_score !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  Score: {intel.conditions_score}/100
+                  Score: {intel.conditions_score}/10
                 </p>
               )}
           </div>
