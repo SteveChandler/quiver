@@ -35,6 +35,8 @@ import {
   forecastToSnapshot,
 } from '@/lib/domains/scoring';
 import type { ScoringEngine } from '@/lib/domains/scoring';
+import { refineWindowBounds } from '@/lib/surf/scoring';
+import { interpolateTideHeight } from '@/lib/utils/tide-interpolation';
 
 // ============================================================================
 // Types
@@ -1188,6 +1190,88 @@ export function selectBestWindow(
 
   if (!bestWindow) {
     return null;
+  }
+
+  // --- Apply sub-hour refinement to hourly (non-tide-driven) windows ---
+  if (!bestWindow.usedTideBoundaries) {
+    // Capture values for use in closures (TypeScript narrowing)
+    const windowStart = bestWindow.start;
+    const windowEnd = bestWindow.end;
+
+    // Get score indices from filtered forecasts
+    // Floor to hour boundaries since windowStart/windowEnd may be non-hourly
+    // (e.g., capped by sunset, max window hours, etc.)
+    const startHourBoundary = new Date(windowStart);
+    startHourBoundary.setUTCMinutes(0, 0, 0);
+    const startIdx = filteredForecasts.findIndex(
+      (f) => f.forecastTime.getTime() === startHourBoundary.getTime()
+    );
+    const endHourBoundary = new Date(windowEnd);
+    endHourBoundary.setUTCMinutes(0, 0, 0);
+    const endIdx = filteredForecasts.findIndex(
+      (f) => f.forecastTime.getTime() === endHourBoundary.getTime()
+    );
+
+    // Build hourly scores array for index lookups
+    const hourlyScores = filteredForecasts.map((f) => f.score);
+
+    // Only refine if we have the 4 scores needed
+    const canRefine =
+      startIdx !== -1 &&
+      endIdx !== -1 &&
+      startIdx + 1 < hourlyScores.length &&
+      endIdx > 0;
+
+    if (canRefine) {
+      // Build tide data points for interpolation
+      const tidePoints = extractTideSchedule(forecasts)?.map((t) => ({
+        time: t.time * 1000,
+        height: t.height,
+      })) ?? [];
+
+      const refined = refineWindowBounds({
+        hourlyStart: windowStart,
+        hourlyEnd: windowEnd,
+        scoreAtStart: hourlyScores[startIdx],
+        scoreAtNextHour: hourlyScores[startIdx + 1],
+        scoreAtPrevHour: hourlyScores[endIdx - 1],
+        scoreAtEnd: hourlyScores[endIdx],
+        threshold: MIN_SCORE_THRESHOLD,
+        getTideHeightAtTime: (t) =>
+          tidePoints.length > 0 ? interpolateTideHeight(tidePoints, t) : null,
+        tideMin: actualBeach.preferred_tide_ft_min ?? null,
+        tideMax: actualBeach.preferred_tide_ft_max ?? null,
+        isLightOk: (t) => {
+          // Check against same-day sunset
+          const tDateStr = getLocalDateStrForBeach(t);
+          const tSunset = sunsets.find((s) => getLocalDateStrForBeach(s) === tDateStr);
+          const tSunrise = sunrises.find((s) => getLocalDateStrForBeach(s) === tDateStr);
+          if (tSunrise && t < tSunrise) return false;
+          if (tSunset && t > tSunset) return false;
+          return true;
+        },
+      });
+
+      // Apply refinement
+      bestWindow = {
+        ...bestWindow,
+        start: refined.start,
+        end: refined.end,
+      };
+
+      // Log telemetry in development
+      if (process.env.NODE_ENV === 'development' && refined.usedInterpolation) {
+        console.debug('[window-refine]', {
+          beach: actualBeach.name,
+          rawStartDelta: refined.rawStartDeltaMin,
+          rawEndDelta: refined.rawEndDeltaMin,
+          finalStartDelta: refined.finalStartDeltaMin,
+          finalEndDelta: refined.finalEndDeltaMin,
+          clampedStart: refined.clampedStart,
+          clampedEnd: refined.clampedEnd,
+        });
+      }
+    }
   }
 
   // Build the PersonalizedForecastWindow
