@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
   }
 
   const payload = await verifyEmailToken(token, secret);
-  if (!payload) {
+  if (!payload || payload.purpose !== 'prefs') {
     return renderPage(
       'Invalid Link',
       'Invalid or expired link. Please check your most recent email.',

@@ -30,7 +30,7 @@ export async function saveHomeBeach(
   }
 
   const payload = await verifyEmailToken(token, secret);
-  if (!payload) {
+  if (!payload || payload.purpose !== 'prefs') {
     return { success: false, error: 'Invalid or expired link' };
   }
 

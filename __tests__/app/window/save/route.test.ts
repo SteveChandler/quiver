@@ -13,7 +13,7 @@ import { signEmailToken } from '@/lib/utils/email-token';
 // Mock Supabase
 const mockInsert = jest.fn().mockResolvedValue({ error: null });
 jest.mock('@/lib/supabase/server', () => ({
-  createClient: jest.fn(() => ({
+  createSupabaseServerClient: jest.fn(() => ({
     from: jest.fn(() => ({
       insert: mockInsert,
     })),
