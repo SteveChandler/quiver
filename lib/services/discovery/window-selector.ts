@@ -35,6 +35,8 @@ import {
   forecastToSnapshot,
 } from '@/lib/domains/scoring';
 import type { ScoringEngine } from '@/lib/domains/scoring';
+import { refineWindowBounds } from '@/lib/surf/scoring';
+import { interpolateTideHeight } from '@/lib/utils/tide-interpolation';
 
 // ============================================================================
 // Types
@@ -235,6 +237,132 @@ function calculateTideDrivenBoundaries(
   });
 
   return tideWindow;
+}
+
+/**
+ * Interface for the internal best window structure before sub-hour refinement
+ */
+interface CandidateWindow {
+  forecast: EnhancedForecastEntity;
+  start: Date;
+  end: Date;
+  score: number;
+  usedTideBoundaries: boolean;
+}
+
+/**
+ * Apply sub-hour refinement to a window that used hourly boundaries.
+ * Only applicable when tide-driven boundaries were NOT used.
+ *
+ * @param window - The candidate window to potentially refine
+ * @param filteredForecasts - Array of scored forecasts with forecastTime
+ * @param forecasts - All forecast entities (for tide data extraction)
+ * @param sunsets - Array of sunset times for daylight checking
+ * @param sunrises - Array of sunrise times for daylight checking
+ * @param beach - Beach entity with tide preferences
+ * @param beachTz - IANA timezone for the beach
+ * @returns Window with potentially refined start/end times
+ */
+function applySubHourRefinement(
+  window: CandidateWindow,
+  filteredForecasts: Array<{ forecastTime: Date; score: number }>,
+  forecasts: EnhancedForecastEntity[],
+  sunsets: Date[],
+  sunrises: Date[],
+  beach: Beach,
+  beachTz: string
+): { start: Date; end: Date } {
+  // Only apply to non-tide-driven windows
+  if (window.usedTideBoundaries) {
+    return { start: window.start, end: window.end };
+  }
+
+  const windowStart = window.start;
+  const windowEnd = window.end;
+
+  // Helper to get local date string for beach timezone
+  const getLocalDateStrForBeach = (d: Date): string => {
+    try {
+      return d.toLocaleDateString('en-CA', { timeZone: beachTz });
+    } catch {
+      return d.toISOString().slice(0, 10);
+    }
+  };
+
+  // Floor to hour boundaries for index lookup (window times may be non-hourly)
+  const startHourBoundary = new Date(windowStart);
+  startHourBoundary.setUTCMinutes(0, 0, 0);
+  const startIdx = filteredForecasts.findIndex(
+    (f) => f.forecastTime.getTime() === startHourBoundary.getTime()
+  );
+
+  const endHourBoundary = new Date(windowEnd);
+  endHourBoundary.setUTCMinutes(0, 0, 0);
+  const endIdx = filteredForecasts.findIndex(
+    (f) => f.forecastTime.getTime() === endHourBoundary.getTime()
+  );
+
+  // Build hourly scores array for index lookups
+  const hourlyScores = filteredForecasts.map((f) => f.score);
+
+  // Can only refine if we have the 4 scores needed for interpolation
+  const canRefine =
+    startIdx !== -1 &&
+    endIdx !== -1 &&
+    startIdx + 1 < hourlyScores.length &&
+    endIdx > 0;
+
+  if (!canRefine) {
+    return { start: windowStart, end: windowEnd };
+  }
+
+  // Build tide data points for interpolation
+  const tidePoints =
+    extractTideSchedule(forecasts)?.map((t) => ({
+      time: t.time * 1000,
+      height: t.height,
+    })) ?? [];
+
+  // Create light checker for sunrise/sunset constraints
+  const isLightOk = (t: Date): boolean => {
+    const tDateStr = getLocalDateStrForBeach(t);
+    const tSunset = sunsets.find((s) => getLocalDateStrForBeach(s) === tDateStr);
+    const tSunrise = sunrises.find((s) => getLocalDateStrForBeach(s) === tDateStr);
+    if (tSunrise && t < tSunrise) return false;
+    if (tSunset && t > tSunset) return false;
+    return true;
+  };
+
+  // Apply refinement
+  const refined = refineWindowBounds({
+    hourlyStart: windowStart,
+    hourlyEnd: windowEnd,
+    scoreAtStart: hourlyScores[startIdx],
+    scoreAtNextHour: hourlyScores[startIdx + 1],
+    scoreAtPrevHour: hourlyScores[endIdx - 1],
+    scoreAtEnd: hourlyScores[endIdx],
+    threshold: MIN_SCORE_THRESHOLD,
+    getTideHeightAtTime: (t) =>
+      tidePoints.length > 0 ? interpolateTideHeight(tidePoints, t) : null,
+    tideMin: beach.preferred_tide_ft_min ?? null,
+    tideMax: beach.preferred_tide_ft_max ?? null,
+    isLightOk,
+  });
+
+  // Log telemetry in development
+  if (process.env.NODE_ENV === 'development' && refined.usedInterpolation) {
+    console.debug('[window-refine]', {
+      beach: beach.name,
+      rawStartDelta: refined.rawStartDeltaMin,
+      rawEndDelta: refined.rawEndDeltaMin,
+      finalStartDelta: refined.finalStartDeltaMin,
+      finalEndDelta: refined.finalEndDeltaMin,
+      clampedStart: refined.clampedStart,
+      clampedEnd: refined.clampedEnd,
+    });
+  }
+
+  return { start: refined.start, end: refined.end };
 }
 
 // ============================================================================
@@ -697,6 +825,7 @@ export function selectBestWindow(
     start: Date;
     end: Date;
     score: number;
+    usedTideBoundaries: boolean;
   } | null = null;
   let bestAdjustedScore = -1;
 
@@ -1009,7 +1138,13 @@ export function selectBestWindow(
 
     if (adjustedScore > bestAdjustedScore) {
       bestAdjustedScore = adjustedScore;
-      bestWindow = { forecast, start: effectiveStartTime, end: endTime, score: startScore };
+      bestWindow = {
+        forecast,
+        start: effectiveStartTime,
+        end: endTime,
+        score: startScore,
+        usedTideBoundaries: useTideBoundaries,
+      };
     }
   }
 
@@ -1173,6 +1308,7 @@ export function selectBestWindow(
           start: effectiveStartTime,
           end: endTime,
           score: best.score,
+          usedTideBoundaries: false, // Fallback always uses hourly boundaries
         };
       }
     }
@@ -1181,6 +1317,22 @@ export function selectBestWindow(
   if (!bestWindow) {
     return null;
   }
+
+  // Apply sub-hour refinement (only affects non-tide-driven windows)
+  const refinedTimes = applySubHourRefinement(
+    bestWindow,
+    filteredForecasts,
+    forecasts,
+    sunsets,
+    sunrises,
+    actualBeach,
+    beachTz
+  );
+  bestWindow = {
+    ...bestWindow,
+    start: refinedTimes.start,
+    end: refinedTimes.end,
+  };
 
   // Build the PersonalizedForecastWindow
   return {
@@ -1193,5 +1345,6 @@ export function selectBestWindow(
     dataSource: bestWindow.forecast.data_source || 'FALLBACK',
     confidence: bestWindow.forecast.confidence_score || 50,
     timezone: beachTz,
+    usedTideBoundaries: bestWindow.usedTideBoundaries,
   };
 }

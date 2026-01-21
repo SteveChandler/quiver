@@ -40,9 +40,10 @@ describe("SeoRedirectHandler", () => {
       expect(classifyUrlPattern("/admin/users/settings")).toBe("none");
     });
 
-    it("returns none for intent pages", () => {
-      expect(classifyUrlPattern("/beginner/malibu")).toBe("none");
-      expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("none");
+    it("classifies legacy intent pages for redirect", () => {
+      // 2-segment intent URLs (/{intent}/{city}) should be classified for redirect
+      expect(classifyUrlPattern("/beginner/malibu")).toBe("legacy-intent");
+      expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("legacy-intent");
     });
 
     it("returns none for invalid patterns", () => {

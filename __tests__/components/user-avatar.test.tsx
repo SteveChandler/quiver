@@ -30,6 +30,11 @@ jest.mock("@/lib/utils", () => ({
   cn: (...classes: any[]) => classes.filter(Boolean).join(" "),
 }));
 
+// Mock image-utils to return URLs unchanged (no transformation)
+jest.mock("@/lib/utils/image-utils", () => ({
+  getTransformedUrl: (url: string) => url,
+}));
+
 describe("UserAvatar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
