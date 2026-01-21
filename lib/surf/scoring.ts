@@ -235,3 +235,47 @@ export function clamp01(n: number): number {
   if (Number.isNaN(n)) return 0;
   return Math.max(0, Math.min(1, n));
 }
+
+// ============================================================================
+// Window Refinement Types and Constants
+// ============================================================================
+
+const HOUR_MS = 60 * 60 * 1000;
+const SCAN_STEP_MS = 5 * 60 * 1000;    // 5-minute scan resolution
+const SNAP_MS = 15 * 60 * 1000;         // 15-minute snap increments
+const MAX_SHIFT_MS = 45 * 60 * 1000;    // Max 45-minute edge shift
+const MIN_DURATION_MS = 60 * 60 * 1000; // Min 60-minute window
+
+export type FallbackReason =
+  | 'missing_scores'
+  | 'inverted'
+  | 'duration_collapsed'
+  | 'no_eligible_found'
+  | 'window_too_short';
+
+export interface RefineWindowBoundsParams {
+  hourlyStart: Date;
+  hourlyEnd: Date;
+  scoreAtStart: number;
+  scoreAtNextHour: number;
+  scoreAtPrevHour: number;
+  scoreAtEnd: number;
+  threshold: number;
+  getTideHeightAtTime: (t: Date) => number | null;
+  tideMin: number | null;
+  tideMax: number | null;
+  isLightOk: (t: Date) => boolean;
+}
+
+export interface RefinedWindow {
+  start: Date;
+  end: Date;
+  rawStartDeltaMin: number;
+  rawEndDeltaMin: number;
+  finalStartDeltaMin: number;
+  finalEndDeltaMin: number;
+  clampedStart: boolean;
+  clampedEnd: boolean;
+  usedInterpolation: boolean;
+  fallbackReason?: FallbackReason;
+}
