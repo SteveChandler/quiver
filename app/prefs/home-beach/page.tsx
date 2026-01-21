@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { saveHomeBeach, searchBeaches, getPopularBeaches, type Beach } from './actions';
+import { saveHomeBeach, searchBeaches, getPopularBeaches, getNearbyBeaches, type Beach } from './actions';
 
 function HomeBeachPickerContent() {
   const searchParams = useSearchParams();
@@ -20,8 +20,30 @@ function HomeBeachPickerContent() {
 
   // Load nearby/popular beaches on mount
   useEffect(() => {
-    // Start with popular beaches as defaults
-    getPopularBeaches().then(setNearbyBeaches);
+    const loadBeaches = async () => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            // User granted location - show nearby beaches
+            const beaches = await getNearbyBeaches(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            setNearbyBeaches(beaches);
+          },
+          async () => {
+            // Geolocation denied or failed - show popular defaults
+            const beaches = await getPopularBeaches();
+            setNearbyBeaches(beaches);
+          }
+        );
+      } else {
+        // No geolocation available - load popular defaults
+        const beaches = await getPopularBeaches();
+        setNearbyBeaches(beaches);
+      }
+    };
+    loadBeaches();
   }, []);
 
   // Debounced search
