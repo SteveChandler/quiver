@@ -71,26 +71,37 @@ class QuiverBiasModel:
     def predict(self, X: pd.DataFrame, physics_forecast: pd.Series) -> pd.Series:
         """
         Predicts the corrected wave height.
-        
+
         Args:
             X: Features for the forecast time points
             physics_forecast: The raw physics model output (Hs model)
-            
+
         Returns:
             Corrected Forecast (Hs model + Predicted Bias)
         """
         if self.model is None:
             raise ValueError("Model has not been trained yet.")
-        
+
         # Predict the residual (bias)
-        predicted_bias = self.model.predict(X)
-        
+        predicted_bias = pd.Series(self.model.predict(X), index=physics_forecast.index)
+
+        # --- v2 Guardrails ---
+        # 1. Clip bias to +/- 50% of raw forecast (min 0.3m floor for small waves)
+        max_bias = np.maximum(physics_forecast.abs() * 0.5, 0.3)
+        predicted_bias = predicted_bias.clip(lower=-max_bias, upper=max_bias)
+
+        # 2. Absolute bias cap at +/- 1.5m
+        predicted_bias = predicted_bias.clip(lower=-1.5, upper=1.5)
+
+        # 3. No-correction zone: skip corrections smaller than 0.03m
+        predicted_bias = predicted_bias.where(predicted_bias.abs() >= 0.03, 0.0)
+
         # Apply correction: Final = Model + Bias
         corrected_forecast = physics_forecast + predicted_bias
-        
-        # Enforce physical constraints (Wave height > 0)
-        corrected_forecast = corrected_forecast.apply(lambda x: max(0.01, x))
-        
+
+        # 4. Physical bounds: wave height in [0.01, 15.0]m
+        corrected_forecast = corrected_forecast.clip(lower=0.01, upper=15.0)
+
         return corrected_forecast
 
     def save(self, filepath: str):

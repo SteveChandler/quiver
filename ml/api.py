@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 from model import QuiverBiasModel
 from transformers import FeatureEngineer
+from transformers_v2 import preprocess_v2
 from transformers_ensemble import EnsembleFeatureEngineer
 from open_meteo_service import OpenMeteoService
 from config import (
@@ -50,8 +51,8 @@ async def lifespan(app: FastAPI):
         logger.error(f"FATAL: Could not load primary model: {e}")
         raise RuntimeError(f"Model load failed: {e}")
 
-    # Load fallback model (NOAA-only) for when Open-Meteo is unavailable
-    if USE_ENSEMBLE and FALLBACK_MODEL_PATH and os.path.exists(FALLBACK_MODEL_PATH):
+    # Load fallback model (v1 NOAA-only) for degraded mode or v2 rollback
+    if FALLBACK_MODEL_PATH and os.path.exists(FALLBACK_MODEL_PATH) and FALLBACK_MODEL_PATH != MODEL_PATH:
         logger.info(f"Loading fallback model from {FALLBACK_MODEL_PATH}...")
         fallback_model = QuiverBiasModel()
         try:
@@ -60,8 +61,6 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Could not load fallback model: {e}")
             fallback_model = None
-    elif USE_ENSEMBLE:
-        logger.warning("Ensemble mode enabled but no fallback model configured")
 
     yield
 
@@ -232,23 +231,37 @@ async def correct_single(input: ForecastInput):
         corrected = model.predict(features, pd.Series([input.wave_height_m]))
     else:
         # Fall back to NOAA-only model
-        active_model = fallback_model if fallback_model else model
-        data = {
-            'wave_height_model': [input.wave_height_m],
-            'wave_period': [input.wave_period_s],
-            'wave_direction': [input.wave_direction_deg],
-            'wind_speed': [input.wind_speed_ms if input.wind_speed_ms is not None else 0],
-            'wind_direction': [input.wind_direction_deg if input.wind_direction_deg is not None else 0],
-            'wind_missing': [wind_missing],
-            'timestamp': [forecast_ts]
-        }
-        df = pd.DataFrame(data)
+        active_model = fallback_model if (fallback_model and MODEL_VERSION not in ('v2',)) else model
 
-        # Feature engineering (NOAA-only)
-        X = fe.preprocess(df)
-        features = X.drop(columns=['timestamp', 'wave_height_model'], errors='ignore')
+        if MODEL_VERSION == 'v2':
+            # v2 feature pipeline
+            data = {
+                'forecast_height_m': [input.wave_height_m],
+                'forecast_period_s': [input.wave_period_s],
+                'forecast_dir_deg': [input.wave_direction_deg],
+                'wind_speed_ms': [input.wind_speed_ms if input.wind_speed_ms is not None else 0],
+                'wind_dir_deg': [input.wind_direction_deg if input.wind_direction_deg is not None else 0],
+                'wind_missing': [wind_missing],
+                'forecast_ts_utc': [forecast_ts]
+            }
+            df = pd.DataFrame(data)
+            features = preprocess_v2(df)
+        else:
+            # v1 feature pipeline
+            data = {
+                'wave_height_model': [input.wave_height_m],
+                'wave_period': [input.wave_period_s],
+                'wave_direction': [input.wave_direction_deg],
+                'wind_speed': [input.wind_speed_ms if input.wind_speed_ms is not None else 0],
+                'wind_direction': [input.wind_direction_deg if input.wind_direction_deg is not None else 0],
+                'wind_missing': [wind_missing],
+                'timestamp': [forecast_ts]
+            }
+            df = pd.DataFrame(data)
+            X = fe.preprocess(df)
+            features = X.drop(columns=['timestamp', 'wave_height_model'], errors='ignore')
 
-        # Predict with baseline model
+        # Predict with active model
         corrected = active_model.predict(features, pd.Series([input.wave_height_m]))
 
     bias = corrected.iloc[0] - input.wave_height_m
@@ -395,20 +408,35 @@ async def correct_batch(input: BatchInput):
 
     # Process fallback forecasts (NOAA-only)
     if fallback_indices:
-        active_model = fallback_model if fallback_model else model
-        data = {
-            'wave_height_model': [input.forecasts[i].wave_height_m for i in fallback_indices],
-            'wave_period': [input.forecasts[i].wave_period_s for i in fallback_indices],
-            'wave_direction': [input.forecasts[i].wave_direction_deg for i in fallback_indices],
-            'wind_speed': [input.forecasts[i].wind_speed_ms if input.forecasts[i].wind_speed_ms is not None else 0 for i in fallback_indices],
-            'wind_direction': [input.forecasts[i].wind_direction_deg if input.forecasts[i].wind_direction_deg is not None else 0 for i in fallback_indices],
-            'wind_missing': [1 if input.forecasts[i].wind_speed_ms is None else 0 for i in fallback_indices],
-            'timestamp': [pd.to_datetime(input.forecasts[i].forecast_ts) for i in fallback_indices]
-        }
-        df = pd.DataFrame(data)
+        active_model = fallback_model if (fallback_model and MODEL_VERSION not in ('v2',)) else model
 
-        X = fe.preprocess(df)
-        features = X.drop(columns=['timestamp', 'wave_height_model'], errors='ignore')
+        if MODEL_VERSION == 'v2':
+            # v2 feature pipeline
+            data = {
+                'forecast_height_m': [input.forecasts[i].wave_height_m for i in fallback_indices],
+                'forecast_period_s': [input.forecasts[i].wave_period_s for i in fallback_indices],
+                'forecast_dir_deg': [input.forecasts[i].wave_direction_deg for i in fallback_indices],
+                'wind_speed_ms': [input.forecasts[i].wind_speed_ms if input.forecasts[i].wind_speed_ms is not None else 0 for i in fallback_indices],
+                'wind_dir_deg': [input.forecasts[i].wind_direction_deg if input.forecasts[i].wind_direction_deg is not None else 0 for i in fallback_indices],
+                'wind_missing': [1 if input.forecasts[i].wind_speed_ms is None else 0 for i in fallback_indices],
+                'forecast_ts_utc': [pd.to_datetime(input.forecasts[i].forecast_ts) for i in fallback_indices]
+            }
+            df = pd.DataFrame(data)
+            features = preprocess_v2(df)
+        else:
+            # v1 feature pipeline
+            data = {
+                'wave_height_model': [input.forecasts[i].wave_height_m for i in fallback_indices],
+                'wave_period': [input.forecasts[i].wave_period_s for i in fallback_indices],
+                'wave_direction': [input.forecasts[i].wave_direction_deg for i in fallback_indices],
+                'wind_speed': [input.forecasts[i].wind_speed_ms if input.forecasts[i].wind_speed_ms is not None else 0 for i in fallback_indices],
+                'wind_direction': [input.forecasts[i].wind_direction_deg if input.forecasts[i].wind_direction_deg is not None else 0 for i in fallback_indices],
+                'wind_missing': [1 if input.forecasts[i].wind_speed_ms is None else 0 for i in fallback_indices],
+                'timestamp': [pd.to_datetime(input.forecasts[i].forecast_ts) for i in fallback_indices]
+            }
+            df = pd.DataFrame(data)
+            X = fe.preprocess(df)
+            features = X.drop(columns=['timestamp', 'wave_height_model'], errors='ignore')
 
         raw_heights = pd.Series([input.forecasts[i].wave_height_m for i in fallback_indices])
         corrected = active_model.predict(features, raw_heights)
