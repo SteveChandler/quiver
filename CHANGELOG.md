@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **IOOS Observation Ingestion:** Fixed empty `ioos_observations` table caused by ISM federated station IDs being incompatible with ERDDAP tabledap API. Station IDs like `ism-secoora-cap2wave-capers-near` were stored but only native IDs like `cap2wave-capers-nearshore-wave` work with the observation API. Solution:
+  - Added filter in `lib/services/ioos-service.ts` `discoverStations()` to skip ISM-prefixed IDs during station discovery
+  - Added logging to monitor filtered station counts with warning threshold (>50% filtered)
+  - Created migration `20260122170000_remove_ism_prefixed_ioos_stations.sql` to clean existing invalid stations
+  - This unblocks the ML pipeline backfill which requires observation data for ground truth
+
 - **LIKE Pattern Escaping:** Added `escapeLikePattern()` function to `actions/beach/beach-query-actions.ts` to properly escape special characters (`%`, `_`) in city patterns when using Supabase `.ilike()` queries, preventing unintended pattern matches.
 
 - **Redundant Fallbacks Removed:** Simplified intent slug links in `app/spots/[slug]/page.tsx` by removing redundant `|| spot.citySlug` fallbacks since `getIntentSlug()` already handles null cases appropriately.

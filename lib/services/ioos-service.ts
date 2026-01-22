@@ -96,6 +96,9 @@ export class IOOSService {
       const minLonIdx = columnNames.indexOf("minLongitude");
       const maxLonIdx = columnNames.indexOf("maxLongitude");
 
+      // Track ISM-filtered stations for monitoring
+      let ismFilteredCount = 0;
+
       for (const row of rows) {
         const datasetId = row[idIdx];
         const institution = row[instIdx];
@@ -108,6 +111,7 @@ export class IOOSService {
         // Example ISM ID: "ism-secoora-cap2wave-capers-near"
         // We only want native IDs: "cap2wave-capers-nearshore-wave"
         if (String(datasetId).toLowerCase().startsWith("ism-")) {
+          ismFilteredCount++;
           continue;
         }
 
@@ -141,6 +145,22 @@ export class IOOSService {
 
         result.stations.push(station);
         if (hasWaveKeyword) result.waveStationsFound++;
+      }
+
+      // Log ISM filtering stats for monitoring
+      if (ismFilteredCount > 0) {
+        console.log(
+          `[IOOS] Filtered ${ismFilteredCount} ISM-prefixed stations (incompatible with tabledap API)`
+        );
+      }
+
+      // Warn if suspiciously high filter rate (potential API change indicator)
+      const totalProcessed = result.totalFound + ismFilteredCount;
+      if (totalProcessed > 0 && ismFilteredCount / totalProcessed > 0.5) {
+        console.warn(
+          `[IOOS] Warning: Over 50% of stations were ISM-prefixed and filtered ` +
+            `(${ismFilteredCount}/${totalProcessed}). This may indicate an ERDDAP API change.`
+        );
       }
     } catch (error) {
       result.errors.push(
