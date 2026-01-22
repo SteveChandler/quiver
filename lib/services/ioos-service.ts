@@ -104,6 +104,13 @@ export class IOOSService {
 
         if (!datasetId || !isFinite(lat) || !isFinite(lon)) continue;
 
+        // Skip ISM federated IDs - they don't work with tabledap API
+        // Example ISM ID: "ism-secoora-cap2wave-capers-near"
+        // We only want native IDs: "cap2wave-capers-nearshore-wave"
+        if (String(datasetId).toLowerCase().startsWith("ism-")) {
+          continue;
+        }
+
         // Apply geographic bounds filter
         if (bounds) {
           if (lat < bounds.minLat || lat > bounds.maxLat) continue;
