@@ -40,6 +40,8 @@ import {
   categorizeAuthError,
   extractEmailDomain,
 } from "@/lib/analytics/auth-events";
+import { useLocationSafe } from "@/context/location-context";
+import { getAttributionFromCookies } from "@/lib/attribution";
 
 /**
  * Props for the UnifiedAuthModal component
@@ -108,7 +110,8 @@ export function UnifiedAuthModal({
   const router = useRouter();
   const pathname = usePathname();
 
-  const initialMode: "login" | "signup" = mode === "signup" ? "signup" : "login";
+  const initialMode: "login" | "signup" =
+    mode === "signup" ? "signup" : "login";
 
   // View and form state
   const [view, setView] = useState<AuthView>(initialView);
@@ -124,6 +127,74 @@ export function UnifiedAuthModal({
 
   // Refs
   const emailInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Location context for signup metadata
+  const locationContext = useLocationSafe();
+
+  /**
+   * Build rich metadata payload for signup
+   */
+  const buildSignupMetadata = (method: "email" | "google") => {
+    const attribution = getAttributionFromCookies();
+    const ipLocation = locationContext?.ipLocation;
+
+    // Strip query params from referrer to avoid leaking sensitive URLs
+    let referrer = "direct";
+    if (typeof document !== "undefined" && document.referrer) {
+      try {
+        const url = new URL(document.referrer);
+        referrer = url.origin + url.pathname;
+      } catch {
+        referrer = "unknown";
+      }
+    }
+
+    // Detect device type using modern API with UA fallback
+    let deviceKind: "mobile" | "desktop" = "desktop";
+    if (typeof navigator !== "undefined") {
+      if ("userAgentData" in navigator && (navigator as any).userAgentData?.mobile) {
+        deviceKind = "mobile";
+      } else if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        deviceKind = "mobile";
+      }
+    }
+
+    return {
+      signup_context: {
+        method,
+        entrypoint: source,
+        landing_path:
+          typeof window !== "undefined" ? window.location.pathname : "/",
+        referrer,
+        utm: {
+          source: attribution.utm_source,
+          medium: attribution.utm_medium,
+          campaign: attribution.utm_campaign,
+          content: attribution.utm_content,
+          term: attribution.utm_term,
+        },
+        tz:
+          typeof Intl !== "undefined"
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone
+            : null,
+        locale: typeof navigator !== "undefined" ? navigator.language : null,
+        device: {
+          kind: deviceKind,
+        },
+        captured_at: new Date().toISOString(),
+      },
+      location_data: ipLocation
+        ? {
+            source: "ip",
+            city: ipLocation.city,
+            region: ipLocation.region,
+            country: ipLocation.country,
+            latitude: ipLocation.latitude,
+            longitude: ipLocation.longitude,
+          }
+        : null,
+    };
+  };
 
   // Track modal open event
   useEffect(() => {
@@ -185,7 +256,11 @@ export function UnifiedAuthModal({
     }
     setStartTime(Date.now());
 
-    const result = await initiateOAuthFlow("google", getReturnPath());
+    // Build metadata only for signup
+    const metadata =
+      activeMode === "signup" ? buildSignupMetadata("google") : undefined;
+
+    const result = await initiateOAuthFlow("google", getReturnPath(), metadata);
 
     if (result.error) {
       setError(result.error);
@@ -256,7 +331,11 @@ export function UnifiedAuthModal({
       if (activeMode === "signup") {
         // Signup flow
         trackSignupStarted("password");
-        await signUp(email, password, displayName.trim());
+
+        // Build metadata for signup
+        const metadata = buildSignupMetadata("email");
+
+        await signUp(email, password, displayName.trim(), metadata);
 
         const duration = Date.now() - startTime;
         trackSignupSuccess({ method: "password", requires_verification: true });

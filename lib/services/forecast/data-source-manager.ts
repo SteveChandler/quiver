@@ -548,9 +548,12 @@ export class ForecastDataSourceManager {
           }, {
             onConflict: "station_id,observed_at",
             ignoreDuplicates: true,
-          }).then(() => {}).catch((err: unknown) => {
-            console.error('[DataSourceManager] Cache write failed:', err);
-          });
+          }).then(
+            () => {},
+            (err: unknown) => {
+              console.error('[DataSourceManager] Cache write failed:', err);
+            }
+          );
 
           return {
             source: "IOOS",

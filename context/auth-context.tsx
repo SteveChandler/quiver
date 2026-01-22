@@ -35,7 +35,12 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName?: string,
+    metadata?: Record<string, any>
+  ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -187,6 +192,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 );
                 localStorage.removeItem("auth_redirect_path");
               }
+
+              // Handle pending signup metadata from OAuth flow
+              // Only apply if this is a fresh signup (created within last 60 seconds)
+              const pendingMetadata = sessionStorage.getItem(
+                "pending_signup_metadata"
+              );
+              if (pendingMetadata && session.user.created_at) {
+                const createdAt = new Date(session.user.created_at).getTime();
+                const isNewUser = Date.now() - createdAt < 60_000;
+
+                if (isNewUser) {
+                  try {
+                    const raw = JSON.parse(pendingMetadata);
+
+                    // Validate expected shape — reject unexpected keys
+                    const allowedKeys = new Set(["signup_context", "location_data"]);
+                    const metadata: Record<string, unknown> = {};
+                    for (const key of Object.keys(raw)) {
+                      if (allowedKeys.has(key)) {
+                        metadata[key] = raw[key];
+                      }
+                    }
+
+                    // Reject if payload is too large (16KB limit)
+                    if (JSON.stringify(metadata).length > 16_384) {
+                      throw new Error("Metadata payload exceeds size limit");
+                    }
+
+                    supabase.auth
+                      .updateUser({ data: metadata })
+                      .then(({ error }: { error: unknown }) => {
+                        if (error && process.env.NODE_ENV === "development") {
+                          console.error(
+                            "[AuthContext] Failed to update user metadata:",
+                            error
+                          );
+                        }
+                      });
+                  } catch (e) {
+                    if (process.env.NODE_ENV === "development") {
+                      console.error(
+                        "[AuthContext] Error parsing pending signup metadata:",
+                        e
+                      );
+                    }
+                  }
+                }
+                // Always remove regardless of whether we applied it
+                sessionStorage.removeItem("pending_signup_metadata");
+              }
               // Note: We don't navigate here. The auth state update (below) will cause
               // React components to re-render and show authenticated content.
               // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts
@@ -243,7 +298,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (
     email: string,
     password: string,
-    fullName?: string
+    fullName?: string,
+    metadata?: Record<string, any>
   ): Promise<void> => {
     setIsLoading(true);
     try {
@@ -252,11 +308,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? `${siteUrl.replace(/\/$/, "")}/auth/confirm?next=/`
         : undefined;
 
+      // Merge fullName into metadata if provided
+      const userData = {
+        ...(fullName ? { full_name: fullName } : {}),
+        ...(metadata || {}),
+      };
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          ...(fullName ? { data: { full_name: fullName } } : {}),
+          ...(Object.keys(userData).length > 0 ? { data: userData } : {}),
           ...(emailRedirectTo ? { emailRedirectTo } : {}),
         },
       });

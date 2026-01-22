@@ -15,7 +15,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-const ioosService = new IOOSService(supabase);
+const ioosService = new IOOSService();
 
 interface RefreshStats {
   total: number;

@@ -18,6 +18,14 @@ import { IOOSService, ParsedObservation } from "@/lib/services/ioos-service";
 import { CDIPService } from "@/lib/services/cdip-service";
 import { rankStations, StationCandidate } from "@/lib/services/ioos-station-scorer";
 import type { IOOSStation } from "@/types/ioos";
+import type { Location } from "@/types/forecast";
+import { createLatitude, createLongitude } from "@/types/forecast";
+
+// Helper to create typed Location for tests
+const loc = (lat: number, lon: number): Location => ({
+  latitude: createLatitude(lat),
+  longitude: createLongitude(lon),
+});
 
 // Mock fetch to control external API calls
 global.fetch = jest.fn();
@@ -86,6 +94,8 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       jest.spyOn(mockCDIPService, "getNearestStation").mockResolvedValue("station_123");
       jest.spyOn(mockCDIPService, "fetchBuoyData").mockResolvedValue({
         stationId: "station_123",
+        stationName: "Test Station 123",
+        dataSource: "CDIP",
         data: [
           {
             timestamp: "2026-01-22T12:00:00Z",
@@ -97,10 +107,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
         lastUpdated: "2026-01-22T12:00:00Z",
       });
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).not.toBeNull();
       expect(result?.source).toBe("CDIP");
@@ -118,10 +127,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       // Mock IOOS fallback returning empty list
       jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).toBeNull();
       expect(mockCDIPService.getNearestStation).toHaveBeenCalled();
@@ -133,6 +141,8 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       jest.spyOn(mockCDIPService, "getNearestStation").mockResolvedValue("station_123");
       jest.spyOn(mockCDIPService, "fetchBuoyData").mockResolvedValue({
         stationId: "station_123",
+        stationName: "Test Station 123",
+        dataSource: "CDIP",
         data: [],
         lastUpdated: "2026-01-22T12:00:00Z",
       });
@@ -140,10 +150,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       // Mock IOOS fallback
       jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).toBeNull();
     });
@@ -157,10 +166,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       // Mock IOOS fallback
       jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       // Should fall back to IOOS after CDIP timeout
       expect(result).toBeNull();
@@ -179,10 +187,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
     it("should return null when no IOOS stations found", async () => {
       jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 21.5,
-        longitude: -158.0,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(21.5, -158.0)
+      );
 
       expect(result).toBeNull();
     });
@@ -263,10 +270,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
 
       jest.spyOn(mockIOOSService, "fetchObservationDynamic").mockResolvedValue(liveObs);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).not.toBeNull();
       expect(result?.source).toBe("IOOS");
@@ -306,10 +312,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
 
       jest.spyOn(mockIOOSService, "fetchObservationDynamic").mockResolvedValue(liveObs);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).not.toBeNull();
       expect(result?.source).toBe("IOOS");
@@ -376,10 +381,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       // Mock live fetch (all fail)
       jest.spyOn(mockIOOSService, "fetchObservationDynamic").mockResolvedValue(null);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       // Should only try maxLiveFetchAttempts (3) stations
       expect(mockIOOSService.fetchObservationDynamic).toHaveBeenCalledTimes(3);
@@ -461,10 +465,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
         upsert: mockUpsert,
       });
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).not.toBeNull();
       expect(result?.waveHeight).toBe(2.8);
@@ -558,10 +561,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       });
 
       // Should still return observation even if cache write fails
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).not.toBeNull();
       expect(result?.waveHeight).toBe(2.0);
@@ -616,10 +618,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       // Mock live fetch returns null (station offline)
       jest.spyOn(mockIOOSService, "fetchObservationDynamic").mockResolvedValue(null);
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       expect(result).toBeNull();
     });
@@ -664,10 +665,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
         })),
       });
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       // Should skip station without variable_map
       expect(result).toBeNull();
@@ -711,10 +711,9 @@ describe("fetchBuoyObservationWithFallback integration", () => {
         })),
       });
 
-      const result = await manager.fetchBuoyObservationWithFallback({
-        latitude: 32.8,
-        longitude: -117.2,
-      });
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.8, -117.2)
+      );
 
       // Should handle error gracefully and return null
       expect(result).toBeNull();
