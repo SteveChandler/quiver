@@ -80,7 +80,7 @@ interface WelcomeEmailParams {
 
 // Inline style constants
 const COLORS = {
-  primary: '#3b82f6',
+  primary: '#0077B6',
   text: '#333333',
   textSecondary: '#666666',
   textTertiary: '#999999',
