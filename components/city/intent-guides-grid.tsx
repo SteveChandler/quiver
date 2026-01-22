@@ -1,11 +1,14 @@
-import Link from "next/link";
-import {
-  INTENTS_BY_GROUP,
-  INTENT_GROUPS,
-  buildCityIntentUrl,
-  type IntentDefinitionType,
-  type IntentKey,
-} from "@/lib/constants/intent-definitions";
+/**
+ * City Intent Guides Grid
+ *
+ * Thin wrapper around the shared IntentGuidesGrid component
+ * that provides the city-specific props interface.
+ *
+ * @deprecated Import from '@/components/shared/intent-guides-grid' directly
+ * and use locationType="city" for new code.
+ */
+
+import { IntentGuidesGrid as SharedIntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 
 interface IntentGuidesGridProps {
   citySlug: string;
@@ -30,67 +33,12 @@ export function IntentGuidesGrid({
   cityName,
   stateAbbrev,
 }: IntentGuidesGridProps) {
-  const displayName = stateAbbrev ? `${cityName}, ${stateAbbrev}` : cityName;
-
   return (
-    <section className="space-y-6">
-      <h2 className="text-xl font-semibold text-slate-900">
-        Surf Guides for {displayName}
-      </h2>
-
-      {/* SESSION group */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          {INTENT_GROUPS.session}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {INTENTS_BY_GROUP.session.map((intent) => (
-            <IntentCard
-              key={intent.key}
-              intent={intent}
-              citySlug={citySlug}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* STYLE group */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          {INTENT_GROUPS.style}
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {INTENTS_BY_GROUP.style.map((intent) => (
-            <IntentCard
-              key={intent.key}
-              intent={intent}
-              citySlug={citySlug}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-interface IntentCardProps {
-  intent: IntentDefinitionType;
-  citySlug: string;
-}
-
-function IntentCard({ intent, citySlug }: IntentCardProps) {
-  const href = buildCityIntentUrl(intent.key as IntentKey, citySlug);
-
-  return (
-    <Link
-      href={href}
-      className="block p-4 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
-      aria-label={`${intent.label} surf guide for ${citySlug}`}
-    >
-      <div className="font-medium text-slate-900">{intent.label}</div>
-      <div className="text-sm text-slate-600 line-clamp-2">
-        {intent.description}
-      </div>
-    </Link>
+    <SharedIntentGuidesGrid
+      locationSlug={citySlug}
+      locationName={cityName}
+      locationType="city"
+      stateAbbrev={stateAbbrev}
+    />
   );
 }

@@ -193,8 +193,9 @@ describe("IntentGuidesGrid", () => {
       render(<IntentGuidesGrid {...defaultProps} />);
 
       // Each link should have an aria-label describing what it links to
+      // Uses display name (San Diego) for better screen reader experience
       const beginnerLink = screen.getByRole("link", {
-        name: /beginner spots surf guide for san-diego/i,
+        name: /beginner spots surf guide for San Diego/i,
       });
       expect(beginnerLink).toBeInTheDocument();
     });

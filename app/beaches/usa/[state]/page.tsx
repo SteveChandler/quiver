@@ -16,6 +16,7 @@ import {
   normalizeCountry,
 } from "@/lib/utils/location-slug";
 import { StateMapView } from "@/components/state/state-map-view";
+import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -194,6 +195,12 @@ export default async function UsaStatePage({
           </p>
         </section>
       </div>
+
+      <IntentGuidesGrid
+        locationSlug={stateSlug}
+        locationName={stateName}
+        locationType="state"
+      />
     </div>
   );
 }
