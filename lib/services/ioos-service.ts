@@ -41,12 +41,29 @@ interface CacheEntry {
 export class IOOSService {
   private readonly config: IOOSServiceConfig;
   private readonly observationCache: Map<string, CacheEntry> = new Map();
+  // Track stations that returned "Unrecognized variable" errors (no wave data)
+  private readonly stationsWithoutWaveData: Set<string> = new Set();
 
   constructor(configOverrides?: Partial<IOOSServiceConfig>) {
     this.config = {
       ...IOOS_API_CONFIG,
       ...configOverrides,
     };
+  }
+
+  /**
+   * Get stations that were found to not have wave data
+   * (returned "Unrecognized variable" error for wave height)
+   */
+  getStationsWithoutWaveData(): string[] {
+    return Array.from(this.stationsWithoutWaveData);
+  }
+
+  /**
+   * Clear the set of stations without wave data
+   */
+  clearStationsWithoutWaveData(): void {
+    this.stationsWithoutWaveData.clear();
   }
 
   /**
@@ -121,9 +138,21 @@ export class IOOSService {
           if (lon < bounds.minLon || lon > bounds.maxLon) continue;
         }
 
-        // Check if this looks like a wave dataset
-        const hasWaveKeyword = String(datasetId).toLowerCase().includes("wave") ||
-          String(institution).toLowerCase().includes("buoy");
+        // Check if this is a wave-capable dataset
+        // More specific checks to avoid non-wave stations:
+        // 1. CDIP stations always have wave data (edu_ucsd_cdip_*)
+        // 2. Stations with "wave" in ID (e.g., cap2wave, sun2wave)
+        // 3. Exclude DART buoys (tsunami detection, not wave height)
+        const lowerDatasetId = String(datasetId).toLowerCase();
+        const lowerInstitution = String(institution).toLowerCase();
+
+        const isCdipStation = lowerInstitution.includes("cdip") ||
+          lowerDatasetId.startsWith("edu_ucsd_cdip");
+        const hasWaveInId = lowerDatasetId.includes("wave");
+        const isDartBuoy = lowerDatasetId.includes("dart");
+
+        // CDIP stations and wave-named stations are reliable, exclude DART buoys
+        const hasWaveKeyword = (isCdipStation || hasWaveInId) && !isDartBuoy;
 
         result.totalFound++;
 
@@ -193,6 +222,18 @@ export class IOOSService {
       });
 
       if (!response.ok) {
+        // Check if the error is due to missing wave variables
+        // ERDDAP returns 400 with "Unrecognized variable" for missing fields
+        try {
+          const errorText = await response.text();
+          if (errorText.includes("Unrecognized variable")) {
+            // This station doesn't have wave data - track it
+            this.stationsWithoutWaveData.add(stationId);
+            console.log(`[IOOS] Station ${stationId} has no wave variables`);
+          }
+        } catch {
+          // Ignore error parsing failures
+        }
         this.observationCache.set(stationId, { at: Date.now(), data: null });
         return null;
       }
@@ -347,17 +388,18 @@ export class IOOSService {
    * Build URL for fetching observations
    */
   private buildObservationUrl(stationId: string): string {
-    // Build query for wave variables
+    // Only request time and wave height - the most universally available variable
+    // Different datasets use different variable names for period/direction/temp
+    // which causes 400 errors if the variable doesn't exist
+    // We'll get wave height reliably and handle missing period gracefully in parsing
     const waveVars = [
       "time",
       ...IOOS_WAVE_VARIABLES.waveHeight.slice(0, 1),
-      ...IOOS_WAVE_VARIABLES.wavePeriod.slice(0, 1),
-      ...IOOS_WAVE_VARIABLES.waveDirection.slice(0, 1),
-      ...IOOS_WAVE_VARIABLES.waterTemp.slice(0, 1),
     ].join(",");
 
     const endpoint = IOOS_ENDPOINTS.observations.replace("{datasetId}", stationId);
-    return `${this.config.baseUrl}${endpoint}?${waveVars}&time>=max(time)-1hour&orderBy(%22time/desc%22)`;
+    // URL-encode >= as %3E= to avoid 500 errors on some ERDDAP servers
+    return `${this.config.baseUrl}${endpoint}?${waveVars}&time%3E=max(time)-1hour`;
   }
 
   /**

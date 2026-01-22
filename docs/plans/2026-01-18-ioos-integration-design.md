@@ -3,6 +3,7 @@
 **Date:** 2026-01-18
 **Status:** Approved
 **Author:** Brainstorming Session
+**Last Updated:** 2026-01-22
 
 ---
 
@@ -328,19 +329,85 @@ Add to `/api/monitoring/forecast-health`:
 
 ---
 
+## Troubleshooting
+
+### ISM Federated Station ID Issue (Fixed: 2026-01-22)
+
+**Problem:** The `ioos_observations` table was empty (0 rows), blocking the ML pipeline backfill which requires observation data for ground truth.
+
+**Root Cause:** Station IDs were being stored in ISM (IOOS Sensor Map) federated format, but the ERDDAP tabledap API only accepts native dataset IDs.
+
+| ID Type | Format Example | Works with tabledap? |
+|---------|----------------|----------------------|
+| ISM Federated | `ism-secoora-cap2wave-capers-near` | No (404 error) |
+| Native | `cap2wave-capers-nearshore-wave` | Yes |
+
+The ERDDAP `allDatasets` endpoint returns BOTH formats for the same physical station. When station discovery stored the ISM IDs, all subsequent observation fetches returned 404 errors because the tabledap endpoint does not recognize ISM-prefixed IDs.
+
+**Solution Implemented:**
+
+1. **Code Fix** (`lib/services/ioos-service.ts`, lines 107-116):
+   ```typescript
+   // Skip ISM federated IDs - they don't work with tabledap API
+   if (String(datasetId).toLowerCase().startsWith("ism-")) {
+     ismFilteredCount++;
+     continue;
+   }
+   ```
+
+2. **Database Cleanup** (`supabase/migrations/20260122170000_remove_ism_prefixed_ioos_stations.sql`):
+   - Deletes ISM-prefixed observations (foreign key constraint)
+   - Deletes ISM-prefixed stations
+   - Refreshes `observable_beaches` materialized view
+
+3. **Monitoring Added**:
+   - Logs count of filtered ISM stations
+   - Warns if >50% of stations are ISM-prefixed (potential API change indicator)
+
+**Detection Method:**
+
+If IOOS observations stop being ingested, check:
+
+```sql
+-- Check for ISM-prefixed stations (should be 0)
+SELECT COUNT(*) FROM ioos_stations WHERE LOWER(station_id) LIKE 'ism-%';
+
+-- Check observation ingestion health
+SELECT
+  COUNT(*) as total_obs,
+  MAX(observed_at) as latest_obs,
+  COUNT(DISTINCT station_id) as unique_stations
+FROM ioos_observations
+WHERE created_at > NOW() - INTERVAL '24 hours';
+```
+
+**Unit Tests Added** (`__tests__/lib/services/ioos-service.test.ts`):
+- `should filter out ISM federated dataset IDs`
+- `should handle case-insensitive ISM prefix`
+- `should NOT filter dataset IDs that contain 'ism' but don't start with it`
+
+**Files Modified:**
+| File | Change |
+|------|--------|
+| `lib/services/ioos-service.ts` | Added ISM filter + logging/monitoring |
+| `__tests__/lib/services/ioos-service.test.ts` | Added 3 unit tests for ISM filtering |
+| `supabase/migrations/20260122170000_remove_ism_prefixed_ioos_stations.sql` | New migration |
+
+---
+
 ## Implementation Phases
 
 ### Phase 1: Foundation (Week 1)
 
-- [ ] Create `ioos_stations` and `ioos_observations` tables with migrations
-- [ ] Implement `IOOSService` class with station discovery
-- [ ] Add basic observation fetching (single station)
-- [ ] Unit tests for service
+- [x] Create `ioos_stations` and `ioos_observations` tables with migrations
+- [x] Implement `IOOSService` class with station discovery
+- [x] Add basic observation fetching (single station)
+- [x] Unit tests for service
 
 ### Phase 2: Sync Pipeline (Week 2)
 
 - [ ] Implement `/api/cron/ioos-sync` route (both phases)
-- [ ] Add batch fetching with rate limiting
+- [x] Add batch fetching with rate limiting
 - [ ] Link stations to nearest beaches (PostGIS query)
 - [ ] Add to `vercel.json` cron schedule
 - [ ] Integration tests
