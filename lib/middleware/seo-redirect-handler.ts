@@ -68,11 +68,13 @@ const RESERVED_PATHS = new Set([
  * URL pattern types for SEO redirect handling
  */
 export type UrlPatternType =
-  | "state-only"      // /ca, /nj, /pr
-  | "us-beach"        // /ca/san-diego/blacks
-  | "mexico-beach"    // /mexico/baja-california/rosarito/alfonsos
-  | "legacy-intent"   // /beginner/san-diego (old format without state)
-  | "none";           // Not a redirect candidate
+  | "state-only"           // /ca, /nj, /pr
+  | "us-beach"             // /ca/san-diego/blacks
+  | "mexico-beach"         // /mexico/baja-california/rosarito/alfonsos
+  | "legacy-intent"        // /beginner/san-diego (old format without state)
+  | "intent-city-legacy"   // /beginner/ca/san-diego (3-segment with state)
+  | "intent-beach-legacy"  // /beginner/ca/san-diego/blacks (4-segment with beach)
+  | "none";                // Not a redirect candidate
 
 /**
  * Classify a URL pattern for redirect handling
@@ -103,6 +105,26 @@ export function classifyUrlPattern(pathname: string): UrlPatternType {
     !isValidStateSlug(secondSegment)
   ) {
     return "legacy-intent";
+  }
+
+  // 3 segments: /{intent}/{state}/{city} - legacy intent URLs with state
+  // These should redirect to the new 2-segment format: /{intent}/{city}
+  if (
+    segments.length === 3 &&
+    INTENT_SLUGS.has(firstSegment) &&
+    isValidStateSlug(secondSegment)
+  ) {
+    return "intent-city-legacy";
+  }
+
+  // 4 segments: /{intent}/{state}/{city}/{beach} - legacy intent URLs with beach
+  // These should redirect to the city intent page: /{intent}/{city}
+  if (
+    segments.length === 4 &&
+    INTENT_SLUGS.has(firstSegment) &&
+    isValidStateSlug(secondSegment)
+  ) {
+    return "intent-beach-legacy";
   }
 
   // 1 segment: /{state} - state-only pages like /ca, /nj
@@ -464,6 +486,63 @@ async function handleLegacyIntentRedirect(
 }
 
 /**
+ * Handle 3-segment intent URL redirects (intent + state + city)
+ * Example: /sunset/ca/san-diego → /sunset/san-diego
+ *
+ * These are legacy URLs that included the state segment.
+ * The new format uses only 2 segments: /{intent}/{city}
+ */
+function handleIntentCityLegacyRedirect(pathname: string): SeoRedirectResult {
+  const segments = pathname.split("/").filter(Boolean);
+
+  if (segments.length !== 3) {
+    return { redirect: false };
+  }
+
+  const intentSlug = segments[0]?.toLowerCase() || "";
+  // segments[1] is the state slug - we skip it
+  const citySlug = segments[2]?.toLowerCase() || "";
+
+  if (!INTENT_SLUGS.has(intentSlug) || !citySlug) {
+    return { redirect: false };
+  }
+
+  // Redirect to 2-segment format: /{intent}/{city}
+  const redirectUrl = `/${intentSlug}/${citySlug}`;
+  console.log(`[SEO Redirect] Intent city legacy ${pathname} → ${redirectUrl}`);
+  return { redirect: true, url: redirectUrl };
+}
+
+/**
+ * Handle 4-segment intent URL redirects (intent + state + city + beach)
+ * Example: /sunset/ca/san-diego/blacks → /sunset/san-diego
+ *
+ * These are legacy URLs that included both state and beach segments.
+ * We redirect to the city intent page since that's the best match for the user's intent.
+ */
+function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
+  const segments = pathname.split("/").filter(Boolean);
+
+  if (segments.length !== 4) {
+    return { redirect: false };
+  }
+
+  const intentSlug = segments[0]?.toLowerCase() || "";
+  // segments[1] is the state slug - we skip it
+  const citySlug = segments[2]?.toLowerCase() || "";
+  // segments[3] is the beach slug - we skip it (redirect to city intent page)
+
+  if (!INTENT_SLUGS.has(intentSlug) || !citySlug) {
+    return { redirect: false };
+  }
+
+  // Redirect to 2-segment format: /{intent}/{city}
+  const redirectUrl = `/${intentSlug}/${citySlug}`;
+  console.log(`[SEO Redirect] Intent beach legacy ${pathname} → ${redirectUrl}`);
+  return { redirect: true, url: redirectUrl };
+}
+
+/**
  * Main handler for SEO redirects
  *
  * Handles multiple URL pattern types:
@@ -471,6 +550,8 @@ async function handleLegacyIntentRedirect(
  * - US beach: /ca/orange-county/doheny → /ca/dana-point/doheny
  * - Mexico beach: /mexico/baja-california/rosarito/alfonsos → /spots/alfonsos
  * - Legacy intent: /beginner/san-diego → /beginner/ca/san-diego
+ * - Intent city legacy: /sunset/ca/san-diego → /sunset/san-diego
+ * - Intent beach legacy: /sunset/ca/san-diego/blacks → /sunset/san-diego
  *
  * Design principles:
  * - Fail open: If anything goes wrong, return no redirect (let request pass)
@@ -498,6 +579,12 @@ export async function handleSeoRedirect(
 
       case "legacy-intent":
         return handleLegacyIntentRedirect(pathname);
+
+      case "intent-city-legacy":
+        return handleIntentCityLegacyRedirect(pathname);
+
+      case "intent-beach-legacy":
+        return handleIntentBeachLegacyRedirect(pathname);
 
       case "none":
       default:

@@ -453,4 +453,289 @@ describe("SeoRedirectHandler", () => {
       expect(result).toEqual({ redirect: false });
     });
   });
+
+  /**
+   * Intent Legacy URL Redirect Tests
+   *
+   * Tests for redirecting legacy 3-segment and 4-segment intent URLs
+   * to the new 2-segment format:
+   * - 3-segment: /sunset/ca/san-diego → /sunset/san-diego
+   * - 4-segment: /sunset/ca/san-diego/blacks → /sunset/san-diego
+   */
+  describe("Intent Legacy URL Redirects", () => {
+    describe("classifyUrlPattern - Intent Legacy Patterns", () => {
+      it("classifies 3-segment intent URLs as intent-city-legacy", () => {
+        expect(classifyUrlPattern("/sunset/ca/san-diego")).toBe("intent-city-legacy");
+        expect(classifyUrlPattern("/beginner/nj/asbury-park")).toBe("intent-city-legacy");
+        expect(classifyUrlPattern("/tide/hi/honolulu")).toBe("intent-city-legacy");
+      });
+
+      it("classifies 4-segment intent URLs as intent-beach-legacy", () => {
+        expect(classifyUrlPattern("/sunset/ca/san-diego/blacks")).toBe("intent-beach-legacy");
+        expect(classifyUrlPattern("/longboard/ca/huntington-beach/pier")).toBe("intent-beach-legacy");
+        expect(classifyUrlPattern("/water-temp/hi/oahu/waikiki")).toBe("intent-beach-legacy");
+      });
+
+      it("handles all valid intent slugs for 3-segment URLs", () => {
+        const intents = ["beginner", "longboard", "tide", "water-temp", "dawn-patrol", "sunset", "least-crowded"];
+
+        intents.forEach(intent => {
+          expect(classifyUrlPattern(`/${intent}/ca/san-diego`)).toBe("intent-city-legacy");
+        });
+      });
+
+      it("handles all valid intent slugs for 4-segment URLs", () => {
+        const intents = ["beginner", "longboard", "tide", "water-temp", "dawn-patrol", "sunset", "least-crowded"];
+
+        intents.forEach(intent => {
+          expect(classifyUrlPattern(`/${intent}/ca/san-diego/blacks`)).toBe("intent-beach-legacy");
+        });
+      });
+
+      it("does NOT classify intent/state URLs as legacy (should route normally)", () => {
+        // 2-segment /intent/state should pass through to the [intent]/[state] route
+        expect(classifyUrlPattern("/sunset/ca")).not.toBe("intent-city-legacy");
+        expect(classifyUrlPattern("/sunset/ca")).not.toBe("intent-beach-legacy");
+        expect(classifyUrlPattern("/tide/nj")).not.toBe("intent-city-legacy");
+      });
+
+      it("does NOT classify invalid intent slugs as legacy patterns", () => {
+        expect(classifyUrlPattern("/invalid/ca/san-diego")).toBe("none");
+        expect(classifyUrlPattern("/random/ca/san-diego/blacks")).toBe("none");
+        expect(classifyUrlPattern("/surfing/ca/malibu")).toBe("none");
+      });
+
+      it("does NOT classify URLs with invalid state slugs", () => {
+        expect(classifyUrlPattern("/sunset/xx/san-diego")).toBe("none");
+        expect(classifyUrlPattern("/sunset/invalid/san-diego/blacks")).toBe("none");
+        expect(classifyUrlPattern("/tide/california/malibu")).toBe("none");
+      });
+
+      it("differentiates 3-segment intent URLs from US beach URLs", () => {
+        // /ca/san-diego/blacks is a US beach URL (state first)
+        expect(classifyUrlPattern("/ca/san-diego/blacks")).toBe("us-beach");
+        // /sunset/ca/san-diego is an intent city legacy URL (intent first)
+        expect(classifyUrlPattern("/sunset/ca/san-diego")).toBe("intent-city-legacy");
+      });
+    });
+
+    describe("handleSeoRedirect - Intent City Legacy (3-segment)", () => {
+      it("redirects 3-segment intent URL to 2-segment format", async () => {
+        const result = await handleSeoRedirect("/sunset/ca/san-diego");
+
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("redirects all valid intent slugs correctly", async () => {
+        const testCases = [
+          ["/beginner/ca/san-diego", "/beginner/san-diego"],
+          ["/longboard/nj/asbury-park", "/longboard/asbury-park"],
+          ["/tide/hi/honolulu", "/tide/honolulu"],
+          ["/water-temp/ca/malibu", "/water-temp/malibu"],
+          ["/dawn-patrol/ca/huntington", "/dawn-patrol/huntington"],
+          ["/sunset/fl/miami", "/sunset/miami"],
+          ["/least-crowded/nc/outer-banks", "/least-crowded/outer-banks"],
+        ];
+
+        for (const [input, expected] of testCases) {
+          const result = await handleSeoRedirect(input);
+          expect(result).toEqual({
+            redirect: true,
+            url: expected
+          });
+        }
+      });
+
+      it("handles different state slugs", async () => {
+        const states = ["ca", "ny", "fl", "tx", "hi", "nj", "nc", "sc", "or", "wa", "pr"];
+
+        for (const state of states) {
+          const result = await handleSeoRedirect(`/sunset/${state}/test-city`);
+          expect(result).toEqual({
+            redirect: true,
+            url: "/sunset/test-city"
+          });
+        }
+      });
+
+      it("normalizes URL casing to lowercase", async () => {
+        const result = await handleSeoRedirect("/Sunset/CA/San-Diego");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("handles cities with hyphens", async () => {
+        const result = await handleSeoRedirect("/sunset/ca/cardiff-by-the-sea");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/cardiff-by-the-sea"
+        });
+      });
+
+      it("returns no redirect for invalid intent", async () => {
+        const result = await handleSeoRedirect("/invalid/ca/san-diego");
+        expect(result).toEqual({ redirect: false });
+      });
+
+      it("returns no redirect for invalid state", async () => {
+        const result = await handleSeoRedirect("/sunset/xx/san-diego");
+        expect(result).toEqual({ redirect: false });
+      });
+    });
+
+    describe("handleSeoRedirect - Intent Beach Legacy (4-segment)", () => {
+      it("redirects 4-segment intent URL to 2-segment city format", async () => {
+        const result = await handleSeoRedirect("/sunset/ca/san-diego/blacks");
+
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("strips beach slug for all valid intents", async () => {
+        const testCases = [
+          ["/beginner/ca/san-diego/mission-beach", "/beginner/san-diego"],
+          ["/longboard/ca/huntington-beach/pier", "/longboard/huntington-beach"],
+          ["/tide/nj/asbury-park/convention-hall", "/tide/asbury-park"],
+          ["/water-temp/hi/oahu/waikiki", "/water-temp/oahu"],
+          ["/dawn-patrol/ca/encinitas/swamis", "/dawn-patrol/encinitas"],
+          ["/sunset/ca/santa-cruz/pleasure-point", "/sunset/santa-cruz"],
+          ["/least-crowded/nc/outer-banks/rodanthe", "/least-crowded/outer-banks"],
+        ];
+
+        for (const [input, expected] of testCases) {
+          const result = await handleSeoRedirect(input);
+          expect(result).toEqual({
+            redirect: true,
+            url: expected
+          });
+        }
+      });
+
+      it("handles different state slugs", async () => {
+        const states = ["ca", "ny", "fl", "tx", "hi", "nj", "nc", "sc", "or", "wa", "pr"];
+
+        for (const state of states) {
+          const result = await handleSeoRedirect(`/sunset/${state}/test-city/test-beach`);
+          expect(result).toEqual({
+            redirect: true,
+            url: "/sunset/test-city"
+          });
+        }
+      });
+
+      it("normalizes URL casing to lowercase", async () => {
+        const result = await handleSeoRedirect("/SUNSET/CA/SAN-DIEGO/BLACKS");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("handles beach slugs with complex names", async () => {
+        const result = await handleSeoRedirect("/sunset/ca/san-diego/torrey-pines-state-beach");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("returns no redirect for invalid intent", async () => {
+        const result = await handleSeoRedirect("/invalid/ca/san-diego/blacks");
+        expect(result).toEqual({ redirect: false });
+      });
+
+      it("returns no redirect for invalid state", async () => {
+        const result = await handleSeoRedirect("/sunset/xx/city/beach");
+        expect(result).toEqual({ redirect: false });
+      });
+    });
+
+    describe("Edge Cases and Integration", () => {
+      it("does not create redirect loops - target URL should not redirect", async () => {
+        // The 2-segment target URL should NOT redirect again
+        const result = await handleSeoRedirect("/sunset/san-diego");
+        expect(result).toEqual({ redirect: false });
+      });
+
+      it("handles trailing slashes on 3-segment URLs", async () => {
+        const result = await handleSeoRedirect("/sunset/ca/san-diego/");
+        expect(result.redirect).toBe(true);
+        expect(result.url).toBe("/sunset/san-diego");
+      });
+
+      it("handles trailing slashes on 4-segment URLs", async () => {
+        const result = await handleSeoRedirect("/sunset/ca/san-diego/blacks/");
+        expect(result.redirect).toBe(true);
+        expect(result.url).toBe("/sunset/san-diego");
+      });
+
+      it("does not interfere with state-only redirects", async () => {
+        // State-only redirects should still work
+        const result = await handleSeoRedirect("/ca");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/beaches/usa/ca"
+        });
+      });
+
+      it("prioritizes intent patterns over ambiguous matches", async () => {
+        // /sunset/ca/san-diego - first segment is intent, should be intent-city-legacy
+        expect(classifyUrlPattern("/sunset/ca/san-diego")).toBe("intent-city-legacy");
+        // /ca/san-diego/blacks - first segment is state, should be us-beach
+        expect(classifyUrlPattern("/ca/san-diego/blacks")).toBe("us-beach");
+      });
+
+      it("handles all-uppercase URLs", async () => {
+        const result3 = await handleSeoRedirect("/SUNSET/CA/SAN-DIEGO");
+        expect(result3).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+
+        const result4 = await handleSeoRedirect("/SUNSET/CA/SAN-DIEGO/BLACKS");
+        expect(result4).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("handles mixed case URLs", async () => {
+        const result = await handleSeoRedirect("/Sunset/Ca/San-Diego/Blacks");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/sunset/san-diego"
+        });
+      });
+
+      it("does not require database lookup for intent legacy redirects", async () => {
+        // These redirects are pure URL transformations, no DB needed
+        // Clear any previous mocks and track fresh calls
+        jest.clearAllMocks();
+
+        // Remove Supabase credentials to ensure no DB calls can succeed
+        const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const originalKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        // These should still work without database access
+        const result3 = await handleSeoRedirect("/sunset/ca/san-diego");
+        const result4 = await handleSeoRedirect("/sunset/ca/san-diego/blacks");
+
+        expect(result3).toEqual({ redirect: true, url: "/sunset/san-diego" });
+        expect(result4).toEqual({ redirect: true, url: "/sunset/san-diego" });
+
+        // Restore env vars
+        process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalKey;
+      });
+    });
+  });
 });
