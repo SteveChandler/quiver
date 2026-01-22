@@ -347,17 +347,18 @@ export class IOOSService {
    * Build URL for fetching observations
    */
   private buildObservationUrl(stationId: string): string {
-    // Build query for wave variables
+    // Only request time and wave height - the most universally available variable
+    // Different datasets use different variable names for period/direction/temp
+    // which causes 400 errors if the variable doesn't exist
+    // We'll get wave height reliably and handle missing period gracefully in parsing
     const waveVars = [
       "time",
       ...IOOS_WAVE_VARIABLES.waveHeight.slice(0, 1),
-      ...IOOS_WAVE_VARIABLES.wavePeriod.slice(0, 1),
-      ...IOOS_WAVE_VARIABLES.waveDirection.slice(0, 1),
-      ...IOOS_WAVE_VARIABLES.waterTemp.slice(0, 1),
     ].join(",");
 
     const endpoint = IOOS_ENDPOINTS.observations.replace("{datasetId}", stationId);
-    return `${this.config.baseUrl}${endpoint}?${waveVars}&time>=max(time)-1hour&orderBy(%22time/desc%22)`;
+    // URL-encode >= as %3E= to avoid 500 errors on some ERDDAP servers
+    return `${this.config.baseUrl}${endpoint}?${waveVars}&time%3E=max(time)-1hour`;
   }
 
   /**
