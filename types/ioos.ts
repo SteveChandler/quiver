@@ -162,11 +162,14 @@ export const IOOS_NETWORKS_BY_REGION: Record<string, IOOSNetwork[]> = {
 };
 
 /**
- * Priority networks for initial rollout (Hawaii + East Coast focus)
+ * Priority networks for initial rollout
+ * NDBC is critical - it's the National Data Buoy Center with most wave buoys
  */
 export const PRIORITY_NETWORKS: IOOSNetwork[] = [
+  "NDBC",      // National Data Buoy Center - primary source of wave data
   "PacIOOS",   // Hawaii
   "SECOORA",   // Southeast (FL, GA, SC, NC)
   "MARACOOS", // Mid-Atlantic (VA, MD, DE, NJ, NY)
   "NERACOOS", // Northeast (MA, NH, ME)
+  "GCOOS",    // Gulf of Mexico
 ];

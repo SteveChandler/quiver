@@ -117,6 +117,82 @@ describe("IOOSService", () => {
       expect(result.stations).toEqual([]);
       expect(result.totalFound).toBe(0);
     });
+
+    it("should filter out ISM federated dataset IDs", async () => {
+      const mockResponseWithISM = {
+        table: {
+          columnNames: ["datasetID", "institution", "minLatitude", "maxLatitude", "minLongitude", "maxLongitude"],
+          rows: [
+            // ISM federated ID - should be filtered
+            ["ism-secoora-cap2wave-capers-near", "SECOORA", 32.5, 32.5, -80.0, -80.0],
+            // Native ID - should be included
+            ["cap2wave-capers-nearshore-wave", "SECOORA", 32.5, 32.5, -80.0, -80.0],
+            // Another ISM - should be filtered
+            ["ism-pacioos-swan-oahu-nearshore", "PacIOOS", 21.3, 21.3, -157.8, -157.8],
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponseWithISM),
+      });
+
+      const result = await service.discoverStations();
+
+      // Should only have the native ID, ISM IDs filtered out
+      expect(result.stations).toHaveLength(1);
+      expect(result.stations[0].station_id).toBe("cap2wave-capers-nearshore-wave");
+      expect(result.totalFound).toBe(1);
+    });
+
+    it("should handle case-insensitive ISM prefix", async () => {
+      const mockResponse = {
+        table: {
+          columnNames: ["datasetID", "institution", "minLatitude", "maxLatitude", "minLongitude", "maxLongitude"],
+          rows: [
+            ["ISM-uppercase-wave-test", "Test", 30.0, 30.0, -120.0, -120.0],
+            ["Ism-mixedCase-wave-test", "Test", 30.0, 30.0, -120.0, -120.0],
+            ["ism-lowercase-wave-test", "Test", 30.0, 30.0, -120.0, -120.0],
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.discoverStations();
+
+      // All ISM variations should be filtered
+      expect(result.stations).toHaveLength(0);
+      expect(result.totalFound).toBe(0);
+    });
+
+    it("should NOT filter dataset IDs that contain 'ism' but don't start with it", async () => {
+      const mockResponse = {
+        table: {
+          columnNames: ["datasetID", "institution", "minLatitude", "maxLatitude", "minLongitude", "maxLongitude"],
+          rows: [
+            // Contains 'ism' but doesn't start with it - should be included
+            ["tourism-wave-station", "TestNetwork", 30.0, 30.0, -120.0, -120.0],
+            ["mechanism-wave-sensor", "TestNetwork", 30.0, 30.0, -120.0, -120.0],
+          ],
+        },
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.discoverStations();
+
+      // Should include both since they don't START with 'ism-'
+      expect(result.stations).toHaveLength(2);
+      expect(result.totalFound).toBe(2);
+    });
   });
 
   describe("fetchObservation", () => {
