@@ -13,32 +13,24 @@ import type {
   LocationPageData,
 } from "@/types/location";
 import type { Beach } from "@/types/database";
+// Import centralized mock factory to avoid duplication
+import { createMockBeach as createMockBeachBase } from "./typed-mocks";
 
 /**
- * Create a mock Beach object
+ * Create a mock Beach object for location tests.
+ * Delegates to typed-mocks.ts to ensure consistency across test utilities.
  */
 export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
-  return {
-    id: `beach-${Math.random().toString(36).substr(2, 9)}`,
-    name: "Test Beach",
-    slug: "test-beach",
+  return createMockBeachBase({
+    // Location-specific defaults
     city: "La Jolla",
     state: "CA",
     country: "USA",
     lat: 32.8572,
     lon: -117.2540,
-    average_rating: 4.0,
-    review_count: 10,
-    skill_level: "Intermediate",
-    break_type: "Beach Break",
-    crowd_level: "Moderate",
-    description: "Test beach description",
-    is_private: false,
-    created_at: new Date().toISOString(),
-    best_conditions_prose: null,
-    region_id: null,
+    slug: "test-beach",
     ...overrides,
-  } as unknown as Beach;
+  });
 }
 
 /**

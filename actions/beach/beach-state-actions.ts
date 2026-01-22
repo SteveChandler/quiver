@@ -2,6 +2,7 @@
 
 import { withDatabaseOperation } from "@/lib/server-action-utils";
 import type { Beach } from "@/types/database";
+import { expandPartialBeach } from "@/lib/utils/beach-defaults";
 
 const STATE_MAP_BEACH_FIELDS =
   "id, name, slug, city, lat, lon, state, country, created_at, is_private, geog";
@@ -11,59 +12,26 @@ type StateMapBeachRow = Pick<
   "id" | "name" | "slug" | "city" | "lat" | "lon" | "state" | "country" | "created_at" | "is_private" | "geog"
 >;
 
+/**
+ * Convert partial beach row from database query to full Beach object.
+ *
+ * Uses expandPartialBeach utility to fill in missing fields with defaults.
+ * This ensures components like InteractiveMap receive complete Beach objects.
+ */
 function toFullBeach(row: StateMapBeachRow): Beach {
-  // Ensure we return a full `Beach` row type (no `undefined` fields) so components
-  // like `InteractiveMap` can consume it safely.
-  return {
-    access_tips: null,
-    aspect_deg: null,
-    average_rating: null,
-    best_conditions_prose: null,
-    best_months: null,
-    break_type: null,
-    cdip_station: null,
+  return expandPartialBeach({
+    id: row.id,
+    name: row.name,
     city: row.city ?? null,
     country: row.country ?? null,
     created_at: row.created_at,
-    crowd_level: null,
-    crowd_tips: null,
-    deleted_at: null,
-    description: null,
-    features: null,
     geog: row.geog,
-    hazards: null,
-    id: row.id,
     is_private: row.is_private,
     lat: row.lat ?? null,
-    local_etiquette: null,
     lon: row.lon ?? null,
-    name: row.name,
-    owner_id: null,
-    parking_tips: null,
-    preference_model: null,
-    preferred_tide_ft_max: null,
-    preferred_tide_ft_min: null,
-    preferred_tide_direction: null,
-    real_takeaways: null,
-    region: null,
-    region_id: null,
-    review_count: null,
-    skill_level: null,
     slug: row.slug ?? null,
     state: row.state ?? null,
-    swell_window_center_deg: null,
-    swell_window_halfwidth_deg: null,
-    swell_window_max_deg: null,
-    swell_window_min_deg: null,
-    tide_direction_sensitivity: null,
-    timezone: null,
-    warnings: null,
-    wave_tips: null,
-    wind_cross_shore_ok_kt: null,
-    wind_offshore_deg: null,
-    wind_offshore_tol_deg: null,
-    wind_onshore_bad_kt: null,
-  };
+  });
 }
 
 /**
