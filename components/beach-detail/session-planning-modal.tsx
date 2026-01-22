@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 import type { Beach } from "@/types/database";
 import { useMagicHour } from "@/hooks/use-magic-hour";
 import { cn } from "@/lib/utils";
+import { decimalToConfidence } from "@/lib/services/forecast/confidence-scorer";
 
 // Dynamically import session form components
 const SessionForm = dynamic(
@@ -110,7 +111,7 @@ function MagicHourSuggestion({
   };
 
   const windDisplay = getWindQualityDisplay(magicHour.windQuality);
-  const confidencePercent = Math.round(magicHour.confidence * 100);
+  const confidencePercent = decimalToConfidence(magicHour.confidence);
 
   return (
     <div

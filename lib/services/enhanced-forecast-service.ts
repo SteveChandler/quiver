@@ -1,7 +1,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
 import { cardinalToDegrees } from "./forecast/forecast-transformer";
-import { calculateConfidenceScore } from "./forecast/confidence-scorer";
+import { calculateConfidenceScore, decimalToConfidence } from "./forecast/confidence-scorer";
 import { ForecastStorageService } from "./forecast/storage-service";
 import { getForecastWeightingService } from "./forecast-weighting-service";
 import { calculateDistance } from "@/lib/utils/distance-utils";
@@ -429,7 +429,7 @@ export class EnhancedForecastService {
 
       // Calculate confidence with defensive minimum
       const originalConfidence = forecast.confidence_score ?? 70;
-      const blendedConfidence = Math.round(weightedForecast.confidence * 100);
+      const blendedConfidence = decimalToConfidence(weightedForecast.confidence);
       const defensiveMinimumApplied = blendedConfidence < originalConfidence;
 
       if (defensiveMinimumApplied) {

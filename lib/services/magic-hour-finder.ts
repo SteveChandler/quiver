@@ -75,12 +75,34 @@ export interface EnhancedForecastEntity {
 
 /**
  * Result of Magic Hour calculation.
+ *
+ * **IMPORTANT: Confidence Type Clarification**
+ *
+ * The `confidence` field here represents **condition match quality**,
+ * NOT forecast data quality. This is fundamentally different from the
+ * confidence scores in `calculateConfidenceScore()` from the ML pipeline.
+ *
+ * Condition match confidence (0-1 scale):
+ * - Swell in optimal window: +0.3
+ * - Wind quality: +0.4 (perfect) or +0.2 (acceptable)
+ * - Tide in preferred range: +0.3
+ *
+ * This confidence measures: "How well do the CONDITIONS at this time
+ * match the BEACH'S OPTIMAL PREFERENCES?"
+ *
+ * It does NOT measure: "How reliable is the underlying forecast data?"
+ * (That's handled by `calculateConfidenceScore()` in confidence-scorer.ts)
  */
 export interface MagicHourResult {
   found: boolean;
   peakTime: Date | null;
   windowStart: string | null; // "8:30 AM"
   windowEnd: string | null; // "9:30 AM"
+  /**
+   * Condition match confidence (0-1 scale).
+   * Measures how well conditions match beach preferences, NOT forecast data quality.
+   * See MagicHourResult JSDoc for breakdown.
+   */
   confidence: number; // 0-1
   swellMatch: boolean;
   windQuality: 'perfect' | 'acceptable' | 'cross' | 'onshore' | null;
@@ -608,10 +630,12 @@ export function calculateSwellScore(
  * @returns Magic Hour result with peak time and quality assessment
  *
  * @example
+ * import { decimalToConfidence } from '@/lib/services/forecast/confidence-scorer';
+ *
  * const result = findMagicHour(forecasts, beach);
  * if (result.found) {
  *   console.log(`Magic Hour: ${result.windowStart} - ${result.windowEnd}`);
- *   console.log(`Confidence: ${Math.round(result.confidence * 100)}%`);
+ *   console.log(`Confidence: ${decimalToConfidence(result.confidence)}%`);
  *   console.log(`Swell match: ${result.swellMatch}`);
  *   console.log(`Wind quality: ${result.windQuality}`);
  * } else {
