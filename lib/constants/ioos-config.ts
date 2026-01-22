@@ -181,3 +181,80 @@ export const IOOS_SYNC_CONFIG = {
   // Maximum runtime for station discovery (ms)
   stationDiscoveryMaxRuntimeMs: 10 * 60 * 1000, // 10 minutes
 } as const;
+
+/**
+ * Canonical variable names used internally
+ */
+export type CanonicalVar =
+  | "wave_height"
+  | "wave_period"
+  | "wave_direction"
+  | "water_temp"
+  | "wind_speed"
+  | "wind_direction";
+
+/**
+ * ERDDAP variable name aliases for each canonical variable
+ * Order matters: first match wins during capability discovery
+ */
+export const IOOS_VARIABLE_ALIASES: Record<CanonicalVar, readonly string[]> = {
+  wave_height: [
+    "sea_surface_wave_significant_height",
+  ],
+  wave_period: [
+    "sea_surface_wave_period_at_variance_spectral_density_maximum", // Tp (peak)
+    "sea_surface_wave_peak_period",
+    "sea_surface_wave_mean_period",
+  ],
+  wave_direction: [
+    "sea_surface_wave_from_direction",
+    "sea_surface_wave_to_direction",
+    "mean_wave_direction",
+  ],
+  water_temp: [
+    "sea_surface_temperature",
+    "sea_water_temperature",
+  ],
+  wind_speed: [
+    "wind_speed",
+    "wind_speed_of_gust",
+  ],
+  wind_direction: [
+    "wind_from_direction",
+    "wind_to_direction",
+  ],
+} as const;
+
+/**
+ * Network priority weights for station ranking
+ * Higher = more trusted/preferred
+ */
+export const IOOS_NETWORK_PRIORITY: Record<string, number> = {
+  CDIP: 0.30,      // Wave-focused, lots of nearshore buoys
+  NDBC: 0.15,      // Reliable, broad coverage, often more offshore
+  CeNCOOS: 0.05,   // Regional IOOS networks
+  SCCOOS: 0.05,
+  NERACOOS: 0.05,
+  PacIOOS: 0.05,
+  SECOORA: 0.05,
+  MARACOOS: 0.05,
+  GCOOS: 0.05,
+};
+
+/**
+ * Observation fetching and caching configuration
+ */
+export const IOOS_OBSERVATION_CONFIG = {
+  /** How far back to query ERDDAP for observations */
+  lookbackHours: 12,
+  /** Buffer for clock skew (allow slightly future timestamps) */
+  maxFutureMinutes: 10,
+  /** Max staleness for scoring to use cached observation */
+  maxCacheAgeHours: 4,
+  /** Don't store observations older than this */
+  maxStorageAgeHours: 24,
+  /** Try this many stations before giving up on live fetch */
+  maxLiveFetchAttempts: 3,
+  /** Re-check station variables after this many days */
+  variableRefreshDays: 7,
+} as const;

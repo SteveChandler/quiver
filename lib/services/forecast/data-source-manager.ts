@@ -11,7 +11,13 @@
 import { NOAAWaveWatchService } from "../noaa-wavewatch-service";
 import { NOAACOOPSService } from "../noaa-coops-service";
 import { CDIPService } from "../cdip-service";
-import { IOOSService } from "../ioos-service";
+import { IOOSService, ParsedObservation } from "../ioos-service";
+import { rankStations, StationCandidate } from "../ioos-station-scorer";
+import {
+  IOOS_OBSERVATION_CONFIG,
+  CanonicalVar,
+} from "@/lib/constants/ioos-config";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   createConfidenceScore,
   type Location,
@@ -343,10 +349,54 @@ export class ForecastDataSourceManager {
   }
 
   /**
-   * Fetch buoy observation with fallback chain: CDIP → IOOS
+   * Get latest cached observations for multiple stations
+   */
+  private async getLatestCachedObservations(
+    stationIds: string[],
+    maxAgeHours: number = IOOS_OBSERVATION_CONFIG.maxCacheAgeHours
+  ): Promise<Map<string, {
+    observed_at: string;
+    wave_height_m: number | null;
+    wave_period_s: number | null;
+    wave_direction_deg: number | null;
+    water_temp_c: number | null;
+  }>> {
+    const supabase = createSupabaseServiceRoleClient();
+    const cutoff = new Date(Date.now() - maxAgeHours * 3600_000).toISOString();
+
+    const { data, error } = await supabase
+      .from("ioos_observations")
+      .select("station_id, observed_at, wave_height_m, wave_period_s, wave_direction_deg, water_temp_c")
+      .in("station_id", stationIds)
+      .gte("observed_at", cutoff)
+      .order("observed_at", { ascending: false });
+
+    if (error) {
+      console.error("[DataSourceManager] Error fetching cached observations:", error);
+      return new Map();
+    }
+
+    // Group by station, keep only most recent per station
+    const result = new Map<string, typeof data[0]>();
+    for (const row of data || []) {
+      if (!result.has(row.station_id)) {
+        result.set(row.station_id, row);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Fetch buoy observation with cached-first strategy and station ranking
    *
-   * Tries CDIP first (best coverage for West Coast), then falls back to IOOS
-   * for regions with limited CDIP coverage (Hawaii, East Coast, Gulf).
+   * Flow:
+   * 1. Try CDIP first (primary for West Coast)
+   * 2. Find nearby IOOS stations
+   * 3. Get cached observations for all candidates
+   * 4. Rank stations by freshness, completeness, distance, network
+   * 5. Return best cached observation if fresh enough
+   * 6. Otherwise, try live fetch for top candidates
    *
    * @param location - The location to fetch buoy data for
    * @param radiusKm - Search radius in kilometers (default: 150km)
@@ -366,74 +416,163 @@ export class ForecastDataSourceManager {
   } | null> {
     // Try CDIP first (primary for West Coast)
     try {
-      const cdipStation = await this.cdipService.getNearestStation(
-        location.latitude,
-        location.longitude,
-        radiusKm
+      // Bug Fix #3: Add timeout to CDIP fallback (10 seconds)
+      const cdipTimeout = new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('CDIP fetch timeout')), 10000)
       );
 
-      if (cdipStation) {
-        const cdipData = await this.cdipService.fetchBuoyData(cdipStation);
-        // CDIPBuoyData has a data array of CDIPDataPoint; get the most recent
-        if (cdipData && cdipData.data && cdipData.data.length > 0) {
-          const latestPoint = cdipData.data[cdipData.data.length - 1];
-          if (latestPoint.significantWaveHeight !== null) {
-            return {
-              source: "CDIP",
-              stationId: cdipStation,
-              waveHeight: latestPoint.significantWaveHeight,
-              wavePeriod: latestPoint.peakWavePeriod,
-              waveDirection: latestPoint.peakWaveDirection,
-              waterTemp: null, // CDIP doesn't provide water temp in CDIPDataPoint
-              observedAt: latestPoint.timestamp || cdipData.lastUpdated,
-            };
+      const cdipFetch = (async () => {
+        const cdipStation = await this.cdipService.getNearestStation(
+          location.latitude,
+          location.longitude,
+          radiusKm
+        );
+
+        if (cdipStation) {
+          const cdipData = await this.cdipService.fetchBuoyData(cdipStation);
+          if (cdipData && cdipData.data && cdipData.data.length > 0) {
+            const latestPoint = cdipData.data[cdipData.data.length - 1];
+            if (latestPoint.significantWaveHeight !== null) {
+              return {
+                source: "CDIP" as const,
+                stationId: cdipStation,
+                waveHeight: latestPoint.significantWaveHeight,
+                wavePeriod: latestPoint.peakWavePeriod,
+                waveDirection: latestPoint.peakWaveDirection,
+                waterTemp: null,
+                observedAt: latestPoint.timestamp || cdipData.lastUpdated,
+              };
+            }
           }
         }
+        return null;
+      })();
+
+      const cdipResult = await Promise.race([cdipFetch, cdipTimeout]);
+      if (cdipResult) {
+        return cdipResult;
       }
     } catch (error) {
-      // CDIP failed, continue to fallback - log at debug level for troubleshooting
-      console.debug('[ForecastDataSourceManager] CDIP buoy fetch failed, falling back to IOOS', {
+      console.debug('[DataSourceManager] CDIP buoy fetch failed, falling back to IOOS', {
         lat: location.latitude,
         lon: location.longitude,
         error: error instanceof Error ? error.message : String(error),
       });
     }
 
-    // Fallback to IOOS (covers Hawaii, East Coast, Gulf)
+    // IOOS cached-first strategy
     try {
+      // 1. Find nearby stations
       const ioosStations = await this.ioosService.findNearbyStations(
         location.latitude,
         location.longitude,
         radiusKm
       );
 
-      if (ioosStations.length > 0) {
-        // Try each nearby station until we get valid data
-        for (const station of ioosStations) {
-          const ioosObs = await this.ioosService.fetchObservation(station.station_id);
-          if (ioosObs && ioosObs.wave_height_m !== null) {
+      if (ioosStations.length === 0) {
+        return null;
+      }
+
+      // 2. Get cached observations
+      const stationIds = ioosStations.map(s => s.station_id);
+      const cachedObs = await this.getLatestCachedObservations(stationIds);
+
+      // 3. Build candidates with observation data
+      const now = new Date();
+      const candidates: StationCandidate[] = ioosStations.map(s => {
+        const obs = cachedObs.get(s.station_id);
+        return {
+          stationId: s.station_id,
+          distanceKm: s.distance_to_beach_km || 999,
+          network: s.source_network,
+          latestObservedAt: obs ? new Date(obs.observed_at) : null,
+          hasWaveHeight: obs?.wave_height_m != null,
+          hasPeriod: obs?.wave_period_s != null,
+          hasDirection: obs?.wave_direction_deg != null,
+        };
+      });
+
+      // 4. Rank stations
+      const ranked = rankStations(candidates, now);
+
+      // 5. Try to use cached observation from best station
+      const maxCacheAge = IOOS_OBSERVATION_CONFIG.maxCacheAgeHours * 3600_000;
+
+      for (const candidate of ranked) {
+        const obs = cachedObs.get(candidate.stationId);
+        if (obs && candidate.latestObservedAt) {
+          const age = now.getTime() - candidate.latestObservedAt.getTime();
+          if (age <= maxCacheAge && obs.wave_height_m != null) {
             return {
               source: "IOOS",
-              stationId: station.station_id,
-              waveHeight: ioosObs.wave_height_m,
-              wavePeriod: ioosObs.wave_period_s,
-              waveDirection: ioosObs.wave_direction_deg,
-              waterTemp: ioosObs.water_temp_c,
-              observedAt: ioosObs.observed_at,
+              stationId: candidate.stationId,
+              waveHeight: obs.wave_height_m,
+              wavePeriod: obs.wave_period_s,
+              waveDirection: obs.wave_direction_deg,
+              waterTemp: obs.water_temp_c,
+              observedAt: obs.observed_at,
             };
           }
         }
       }
+
+      // 6. Cache miss: try live fetch for top candidates
+      const maxAttempts = IOOS_OBSERVATION_CONFIG.maxLiveFetchAttempts;
+
+      for (const candidate of ranked.slice(0, maxAttempts)) {
+        const station = ioosStations.find(s => s.station_id === candidate.stationId);
+        if (!station) continue;
+
+        const variableMap = (station.variable_map || {}) as Partial<Record<CanonicalVar, string>>;
+        if (!variableMap.wave_height) continue;
+
+        const liveObs = await this.ioosService.fetchObservationDynamic(
+          candidate.stationId,
+          variableMap
+        );
+
+        if (liveObs && liveObs.waveHeightM != null) {
+          // Bug Fix #2: Add error handler for cache write promise
+          // Write to cache (fire-and-forget)
+          const supabase = createSupabaseServiceRoleClient();
+          supabase.from("ioos_observations").upsert({
+            station_id: candidate.stationId,
+            observed_at: liveObs.observedAt,
+            wave_height_m: liveObs.waveHeightM,
+            wave_period_s: liveObs.wavePeriodS,
+            wave_direction_deg: liveObs.waveDirectionDeg,
+            water_temp_c: liveObs.waterTempC,
+            wind_speed_ms: liveObs.windSpeedMS,
+            wind_direction_deg: liveObs.windDirectionDeg,
+            raw_data: liveObs.raw,
+          }, {
+            onConflict: "station_id,observed_at",
+            ignoreDuplicates: true,
+          }).then(() => {}).catch((err: unknown) => {
+            console.error('[DataSourceManager] Cache write failed:', err);
+          });
+
+          return {
+            source: "IOOS",
+            stationId: candidate.stationId,
+            waveHeight: liveObs.waveHeightM,
+            wavePeriod: liveObs.wavePeriodS,
+            waveDirection: liveObs.waveDirectionDeg,
+            waterTemp: liveObs.waterTempC,
+            observedAt: liveObs.observedAt,
+          };
+        }
+      }
+
+      return null;
     } catch (error) {
-      // IOOS also failed - log at debug level for troubleshooting
-      console.debug('[ForecastDataSourceManager] IOOS buoy fetch also failed', {
+      console.debug('[DataSourceManager] IOOS observation fetch failed', {
         lat: location.latitude,
         lon: location.longitude,
         error: error instanceof Error ? error.message : String(error),
       });
+      return null;
     }
-
-    return null;
   }
 
   /**

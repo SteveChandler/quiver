@@ -25,14 +25,140 @@ import {
   IOOS_ENDPOINTS,
   IOOS_WAVE_VARIABLES,
   IOOS_QUALITY_THRESHOLDS,
+  IOOS_VARIABLE_ALIASES,
+  IOOS_OBSERVATION_CONFIG,
+  CanonicalVar,
 } from "@/lib/constants/ioos-config";
+
+/**
+ * Format date as ISO Zulu string without milliseconds (ERDDAP format)
+ */
+function isoZulu(d: Date): string {
+  return d.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+/**
+ * Build observation URL dynamically based on station's variable_map
+ * Uses absolute time constraints to avoid ancient data
+ * Returns null if station has no wave height variable
+ */
+export function buildDynamicObservationUrl(
+  stationId: string,
+  variableMap: Partial<Record<CanonicalVar, string>>,
+  now: Date = new Date()
+): string | null {
+  // Bug Fix #1: Validate station ID format to prevent URL injection
+  if (!/^[a-zA-Z0-9_-]+$/.test(stationId)) {
+    console.warn(`[IOOS] Invalid station ID format: ${stationId}`);
+    return null;
+  }
+
+  // Bug Fix #1: Must have at least wave height to be useful (with trim check for empty strings)
+  if (!variableMap.wave_height || variableMap.wave_height.trim() === '') {
+    return null;
+  }
+
+  const { lookbackHours, maxFutureMinutes } = IOOS_OBSERVATION_CONFIG;
+  const minTime = new Date(now.getTime() - lookbackHours * 3600_000);
+  const maxTime = new Date(now.getTime() + maxFutureMinutes * 60_000);
+
+  // Build variable list from what's available
+  const vars: string[] = ["time"];
+  if (variableMap.wave_height) vars.push(variableMap.wave_height);
+  if (variableMap.wave_period) vars.push(variableMap.wave_period);
+  if (variableMap.wave_direction) vars.push(variableMap.wave_direction);
+  if (variableMap.water_temp) vars.push(variableMap.water_temp);
+  if (variableMap.wind_speed) vars.push(variableMap.wind_speed);
+  if (variableMap.wind_direction) vars.push(variableMap.wind_direction);
+
+  const base = `${IOOS_API_CONFIG.baseUrl}/tabledap/${stationId}.json`;
+
+  // Build constraints with proper URL encoding
+  const constraints = [
+    `time>=${isoZulu(minTime)}`,
+    `time<=${isoZulu(maxTime)}`,
+    `orderByMax("time")`,
+  ].map(c => encodeURIComponent(c));
+
+  return `${base}?${vars.join(",")}&${constraints.join("&")}`;
+}
+
+/**
+ * Build a variable map by matching available ERDDAP variables to canonical names
+ * Uses alias priority: first match in the alias list wins
+ */
+export function buildVariableMap(
+  availableVars: string[]
+): Partial<Record<CanonicalVar, string>> {
+  const varSet = new Set(availableVars);
+  const result: Partial<Record<CanonicalVar, string>> = {};
+
+  for (const [canonical, aliases] of Object.entries(IOOS_VARIABLE_ALIASES)) {
+    for (const alias of aliases) {
+      if (varSet.has(alias)) {
+        result[canonical as CanonicalVar] = alias;
+        break; // First match wins
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Parsed observation with canonical field names
+ */
+export interface ParsedObservation {
+  observedAt: string;
+  waveHeightM: number | null;
+  wavePeriodS: number | null;
+  waveDirectionDeg: number | null;
+  waterTempC: number | null;
+  windSpeedMS: number | null;
+  windDirectionDeg: number | null;
+  raw: Record<string, unknown>;
+}
+
+/**
+ * Safely convert value to number, returning null for invalid values
+ */
+function toNumber(x: unknown): number | null {
+  if (x === null || x === undefined) return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Parse an ERDDAP response row into a canonical observation
+ * Uses the station's variable_map to find the right columns
+ */
+export function parseObservationRow(
+  row: Record<string, unknown>,
+  variableMap: Partial<Record<CanonicalVar, string>>
+): ParsedObservation | null {
+  const time = row["time"];
+  if (typeof time !== "string") return null;
+
+  const get = (k?: string): unknown => (k ? row[k] : null);
+
+  return {
+    observedAt: time,
+    waveHeightM: toNumber(get(variableMap.wave_height)),
+    wavePeriodS: toNumber(get(variableMap.wave_period)),
+    waveDirectionDeg: toNumber(get(variableMap.wave_direction)),
+    waterTempC: toNumber(get(variableMap.water_temp)),
+    windSpeedMS: toNumber(get(variableMap.wind_speed)),
+    windDirectionDeg: toNumber(get(variableMap.wind_direction)),
+    raw: row,
+  };
+}
 
 /**
  * Cache entry for observations
  */
 interface CacheEntry {
   at: number;
-  data: IOOSObservation | null;
+  data: IOOSObservation | ParsedObservation | null;
 }
 
 /**
@@ -139,10 +265,12 @@ export class IOOSService {
         }
 
         // Check if this is a wave-capable dataset
-        // More specific checks to avoid non-wave stations:
-        // 1. CDIP stations always have wave data (edu_ucsd_cdip_*)
+        // Detection rules:
+        // 1. CDIP stations always have wave data (edu_ucsd_cdip_* or institution contains "CDIP")
         // 2. Stations with "wave" in ID (e.g., cap2wave, sun2wave)
-        // 3. Exclude DART buoys (tsunami detection, not wave height)
+        // 3. NDBC ocean buoys (wmo_4xxxx pattern) - most have wave data
+        // 4. Exclude DART buoys (tsunami detection, not wave height)
+        // Note: Stations incorrectly marked will be cleaned up during observation sync
         const lowerDatasetId = String(datasetId).toLowerCase();
         const lowerInstitution = String(institution).toLowerCase();
 
@@ -150,9 +278,12 @@ export class IOOSService {
           lowerDatasetId.startsWith("edu_ucsd_cdip");
         const hasWaveInId = lowerDatasetId.includes("wave");
         const isDartBuoy = lowerDatasetId.includes("dart");
+        // NDBC ocean buoys typically have wave data (wmo_4xxxx or wmo_5xxxx pattern)
+        const isNdbcOceanBuoy = lowerInstitution.includes("ndbc") &&
+          (lowerDatasetId.match(/^wmo_[45]\d{4}/) !== null);
 
-        // CDIP stations and wave-named stations are reliable, exclude DART buoys
-        const hasWaveKeyword = (isCdipStation || hasWaveInId) && !isDartBuoy;
+        // CDIP, wave-named stations, and NDBC ocean buoys are likely to have wave data
+        const hasWaveKeyword = (isCdipStation || hasWaveInId || isNdbcOceanBuoy) && !isDartBuoy;
 
         result.totalFound++;
 
@@ -207,7 +338,7 @@ export class IOOSService {
     // Check cache first
     const cached = this.observationCache.get(stationId);
     if (cached && Date.now() - cached.at < this.config.cacheTtlMs) {
-      return cached.data;
+      return cached.data as IOOSObservation | null;
     }
 
     try {
@@ -247,9 +378,22 @@ export class IOOSService {
         return null;
       }
 
-      // Parse the most recent observation (first row)
-      const row = rows[0];
-      const obs = this.parseObservation(stationId, row, columnNames);
+      // Find the wave height column index
+      const waveHeightIdx = columnNames.indexOf(IOOS_WAVE_VARIABLES.waveHeight[0]);
+
+      // Find the most recent row with non-null wave height
+      // CDIP data often has interleaved null/non-null values
+      let selectedRow = rows[0];
+      if (waveHeightIdx >= 0) {
+        for (const row of rows) {
+          if (row[waveHeightIdx] !== null) {
+            selectedRow = row;
+            break;
+          }
+        }
+      }
+
+      const obs = this.parseObservation(stationId, selectedRow, columnNames);
 
       this.observationCache.set(stationId, { at: Date.now(), data: obs });
       return obs;
@@ -292,6 +436,144 @@ export class IOOSService {
   }
 
   /**
+   * Fetch latest observation for a single station using dynamic URL
+   * Requires station to have variable_map populated
+   */
+  async fetchObservationDynamic(
+    stationId: string,
+    variableMap: Partial<Record<CanonicalVar, string>>
+  ): Promise<ParsedObservation | null> {
+    // Check cache first
+    const cacheKey = `dynamic_${stationId}`;
+    const cached = this.observationCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < this.config.cacheTtlMs) {
+      return cached.data as ParsedObservation | null;
+    }
+
+    const url = buildDynamicObservationUrl(stationId, variableMap);
+    if (!url) {
+      console.log(`[IOOS] Station ${stationId} has no wave height variable, skipping`);
+      return null;
+    }
+
+    try {
+      const response = await fetchWithTimeout(url, {
+        timeoutMs: this.config.timeoutMs,
+        init: {
+          headers: {
+            "User-Agent": this.config.userAgent,
+          },
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          // Likely variable mismatch - mark for re-sync
+          console.warn(`[IOOS] Station ${stationId} returned 400, may need variable refresh`);
+        }
+        this.observationCache.set(cacheKey, { at: Date.now(), data: null });
+        return null;
+      }
+
+      const json = await response.json();
+      const rows = json?.table?.rows || [];
+      const columnNames = json?.table?.columnNames || [];
+
+      if (rows.length === 0) {
+        this.observationCache.set(cacheKey, { at: Date.now(), data: null });
+        return null;
+      }
+
+      // Convert array row to object using column names
+      const rowObj: Record<string, unknown> = {};
+      for (let i = 0; i < columnNames.length; i++) {
+        rowObj[columnNames[i]] = rows[0][i];
+      }
+
+      const obs = parseObservationRow(rowObj, variableMap);
+
+      // Validate observation is fresh enough to store
+      if (obs) {
+        const obsTime = new Date(obs.observedAt);
+        const maxAge = IOOS_OBSERVATION_CONFIG.maxStorageAgeHours * 3600_000;
+        if (Date.now() - obsTime.getTime() > maxAge) {
+          console.log(`[IOOS] Station ${stationId} observation too old (${obs.observedAt}), skipping`);
+          this.observationCache.set(cacheKey, { at: Date.now(), data: null });
+          return null;
+        }
+      }
+
+      this.observationCache.set(cacheKey, { at: Date.now(), data: obs });
+      return obs;
+    } catch (error) {
+      console.error(`[IOOS] Error fetching observation for ${stationId}:`, error);
+      this.observationCache.set(cacheKey, { at: Date.now(), data: null });
+      return null;
+    }
+  }
+
+  /**
+   * Fetch available variables for a station from ERDDAP /info endpoint
+   * Returns both raw variable list and computed variable_map
+   */
+  async fetchStationVariables(stationId: string): Promise<{
+    availableVariables: string[];
+    variableMap: Partial<Record<CanonicalVar, string>>;
+  } | null> {
+    try {
+      const url = `${this.config.baseUrl}/info/${stationId}/index.json`;
+
+      const response = await fetchWithTimeout(url, {
+        timeoutMs: this.config.timeoutMs,
+        init: {
+          headers: {
+            "User-Agent": this.config.userAgent,
+          },
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; // Station doesn't exist
+        }
+        console.error(`[IOOS] Failed to fetch variables for ${stationId}: ${response.status}`);
+        return null;
+      }
+
+      const json = await response.json();
+      const rows = json?.table?.rows || [];
+      const columnNames = json?.table?.columnNames || [];
+
+      // Find the column indices
+      const rowTypeIdx = columnNames.indexOf("Row Type");
+      const varNameIdx = columnNames.indexOf("Variable Name");
+
+      if (rowTypeIdx === -1 || varNameIdx === -1) {
+        console.error(`[IOOS] Unexpected /info response format for ${stationId}`);
+        return null;
+      }
+
+      // Extract variable names from rows where Row Type is "variable"
+      const availableVariables: string[] = [];
+      for (const row of rows) {
+        if (row[rowTypeIdx] === "variable") {
+          const varName = row[varNameIdx];
+          if (typeof varName === "string") {
+            availableVariables.push(varName);
+          }
+        }
+      }
+
+      const variableMap = buildVariableMap(availableVariables);
+
+      return { availableVariables, variableMap };
+    } catch (error) {
+      console.error(`[IOOS] Error fetching variables for ${stationId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Find stations near a location from the database
    */
   async findNearbyStations(
@@ -302,12 +584,13 @@ export class IOOSService {
     try {
       const supabase = createSupabaseServiceRoleClient();
 
+      // Bug Fix #4: Add limit to prevent unbounded station queries
       // Use PostGIS ST_DWithin for efficient spatial query
       const { data, error } = await supabase.rpc("find_nearby_ioos_stations", {
         p_lat: lat,
         p_lon: lon,
         p_radius_km: radiusKm,
-      });
+      }).limit(100);
 
       if (error) {
         console.error("Error finding nearby stations:", error);
@@ -379,7 +662,10 @@ export class IOOSService {
     if (lowerInst.includes("gcoos")) return "GCOOS";
     if (lowerInst.includes("glos")) return "GLOS";
     if (lowerInst.includes("aoos")) return "AOOS";
-    if (lowerInst.includes("ndbc")) return "NDBC";
+    if (lowerInst.includes("ndbc") || lowerInst.includes("data buoy")) return "NDBC";
+    // CDIP (Coastal Data Information Program) - run by Scripps/UCSD
+    // Map to CeNCOOS as they operate California coastal buoys
+    if (lowerInst.includes("cdip")) return "CeNCOOS";
 
     return "unknown";
   }
@@ -389,9 +675,8 @@ export class IOOSService {
    */
   private buildObservationUrl(stationId: string): string {
     // Only request time and wave height - the most universally available variable
-    // Different datasets use different variable names for period/direction/temp
+    // Different datasets use different variable names for period (peak vs mean)
     // which causes 400 errors if the variable doesn't exist
-    // We'll get wave height reliably and handle missing period gracefully in parsing
     const waveVars = [
       "time",
       ...IOOS_WAVE_VARIABLES.waveHeight.slice(0, 1),

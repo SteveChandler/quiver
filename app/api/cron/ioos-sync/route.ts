@@ -10,8 +10,11 @@ import {
   IOOS_STATION_FILTERS,
   IOOS_SYNC_CONFIG,
   IOOS_QUALITY_THRESHOLDS,
+  IOOS_OBSERVATION_CONFIG,
+  CanonicalVar,
 } from "@/lib/constants/ioos-config";
 import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
+import { ParsedObservation } from "@/lib/services/ioos-service";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -259,8 +262,39 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
 }
 
 /**
+ * Helper to refresh station capabilities from ERDDAP /info endpoint
+ */
+async function refreshStationCapabilities(
+  ioosService: IOOSService,
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
+  stationIds: string[]
+): Promise<number> {
+  let refreshed = 0;
+
+  for (const stationId of stationIds) {
+    const caps = await ioosService.fetchStationVariables(stationId);
+    if (caps) {
+      const { error } = await supabase
+        .from("ioos_stations")
+        .update({
+          available_variables: caps.availableVariables,
+          variable_map: caps.variableMap,
+          variables_last_synced_at: new Date().toISOString(),
+        })
+        .eq("station_id", stationId);
+
+      if (!error) refreshed++;
+    }
+    // Small delay to avoid rate limiting
+    await delay(100);
+  }
+
+  return refreshed;
+}
+
+/**
  * Observation Sync Phase
- * Fetches latest observations for active stations
+ * Fetches latest observations for active stations using dynamic URL building
  */
 async function syncObservations(
   maxStations: number,
@@ -283,10 +317,10 @@ async function syncObservations(
     const ioosService = new IOOSService();
     const supabase = createSupabaseServiceRoleClient();
 
-    // Get active stations with wave data
+    // Get active stations with wave data, including variable_map
     const { data: stations, error: stationsError } = await supabase
       .from("ioos_stations")
-      .select("station_id, source_network, name")
+      .select("station_id, source_network, name, variable_map, variables_last_synced_at")
       .eq("active", true)
       .eq("has_wave_data", true)
       .limit(maxStations);
@@ -303,6 +337,35 @@ async function syncObservations(
       return result;
     }
 
+    // Find stations needing variable refresh (missing or stale variable_map)
+    const refreshThreshold = new Date(
+      Date.now() - IOOS_OBSERVATION_CONFIG.variableRefreshDays * 24 * 3600_000
+    ).toISOString();
+
+    const stationsNeedingRefresh = stations
+      .filter(s => !s.variables_last_synced_at || s.variables_last_synced_at < refreshThreshold)
+      .map(s => s.station_id)
+      .slice(0, 20); // Limit per run to avoid timeout
+
+    if (stationsNeedingRefresh.length > 0) {
+      console.log(`📡 Refreshing capabilities for ${stationsNeedingRefresh.length} stations...`);
+      const refreshed = await refreshStationCapabilities(ioosService, supabase, stationsNeedingRefresh);
+      console.log(`✅ Refreshed ${refreshed} station capabilities`);
+
+      // Re-fetch stations to get updated variable_map
+      const { data: updatedStations } = await supabase
+        .from("ioos_stations")
+        .select("station_id, source_network, name, variable_map, variables_last_synced_at")
+        .eq("active", true)
+        .eq("has_wave_data", true)
+        .limit(maxStations);
+
+      if (updatedStations) {
+        stations.length = 0;
+        stations.push(...updatedStations);
+      }
+    }
+
     console.log(`📊 Syncing observations for ${stations.length} active stations...`);
 
     // Process in batches
@@ -315,36 +378,46 @@ async function syncObservations(
       }
 
       const batch = stations.slice(i, i + batchSize);
-      const stationIds = batch.map((s) => s.station_id);
 
       console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(stations.length / batchSize)}...`);
 
-      // Fetch observations for batch
-      const observations = await ioosService.fetchBatch(stationIds, batchSize);
+      // Fetch observations for batch using dynamic URLs
+      const batchResults: Array<{ stationId: string; obs: ParsedObservation | null }> = [];
+
+      for (const station of batch) {
+        const variableMap = (station.variable_map || {}) as Partial<Record<CanonicalVar, string>>;
+
+        // Skip stations without variable_map (will be refreshed next run)
+        if (!variableMap.wave_height) {
+          result.stationsSkipped++;
+          continue;
+        }
+
+        const obs = await ioosService.fetchObservationDynamic(station.station_id, variableMap);
+        batchResults.push({ stationId: station.station_id, obs });
+      }
 
       // Prepare observations for insert
       const observationsToInsert: Partial<IOOSObservation>[] = [];
 
-      for (const [stationId, obs] of observations.entries()) {
-        // Validate observation has meaningful data
-        if (obs.wave_height_m !== null || obs.wave_period_s !== null) {
+      for (const { stationId, obs } of batchResults) {
+        if (obs && obs.waveHeightM !== null) {
           observationsToInsert.push({
             station_id: stationId,
-            observed_at: obs.observed_at,
-            wave_height_m: obs.wave_height_m,
-            wave_period_s: obs.wave_period_s,
-            wave_direction_deg: obs.wave_direction_deg,
-            water_temp_c: obs.water_temp_c,
-            wind_speed_ms: obs.wind_speed_ms,
-            wind_direction_deg: obs.wind_direction_deg,
-            raw_data: obs.raw_data,
+            observed_at: obs.observedAt,
+            wave_height_m: obs.waveHeightM,
+            wave_period_s: obs.wavePeriodS,
+            wave_direction_deg: obs.waveDirectionDeg,
+            water_temp_c: obs.waterTempC,
+            wind_speed_ms: obs.windSpeedMS,
+            wind_direction_deg: obs.windDirectionDeg,
+            raw_data: obs.raw,
           });
           result.stationsSynced++;
+        } else {
+          result.stationsFailed++;
         }
       }
-
-      // Track failures
-      result.stationsFailed += stationIds.length - observations.size;
 
       // Insert observations (ignore duplicates)
       if (observationsToInsert.length > 0) {
@@ -363,7 +436,10 @@ async function syncObservations(
       }
 
       // Update last_seen_at for successful stations
-      const successfulIds = Array.from(observations.keys());
+      const successfulIds = batchResults
+        .filter(r => r.obs !== null)
+        .map(r => r.stationId);
+
       if (successfulIds.length > 0) {
         await supabase
           .from("ioos_stations")
