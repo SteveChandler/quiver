@@ -69,7 +69,19 @@ const MIN_SESSION_HOURS = 1.0; // Minimum viable session length
 const MIN_SCORE_THRESHOLD = 50; // Score below which conditions are "poor" (0-100 scale, displays as 5/10)
 const MIN_SCORE_THRESHOLD_MORNING = 40; // Lower threshold for today when it's morning (0-100 scale, displays as 4/10)
 const MAX_WINDOW_HOURS = 4; // Maximum window even with perfect conditions
-const WINDOW_HOURS = 3; // Lookback period for past windows
+
+/**
+ * Duration of each forecast window in minutes.
+ * Forecasts represent 30-minute prediction windows.
+ */
+const FORECAST_WINDOW_DURATION_MINUTES = 30;
+
+/**
+ * Grace period for showing recently-ended windows (in minutes).
+ * Allows users to see recommendations that just passed, improving UX
+ * when they check conditions shortly after a good window ended.
+ */
+const PAST_WINDOW_TOLERANCE_MINUTES = 15;
 
 // Morning priority constants
 const MORNING_CUTOFF_HOUR = 12; // Before noon, prefer today's forecasts
@@ -926,10 +938,14 @@ export function selectBestWindow(
       return { forecast, forecastTime, score, isToday, localHourStr };
     })
     .filter(({ forecastTime }) => {
-      // Allow windows that started within lookback period (3 hours)
-      const lookbackMs = WINDOW_HOURS * 60 * 60 * 1000;
-      const minEligible = new Date(now.getTime() - lookbackMs);
-      return forecastTime >= minEligible;
+      // Only show windows that are still in progress or just ended
+      // Example: At 6:07pm with 15 min tolerance, cutoff is 5:52pm
+      // A 4:00-4:30pm window (ends 4:30pm) is excluded since 4:30pm < 5:52pm
+      const windowDurationMs = FORECAST_WINDOW_DURATION_MINUTES * 60 * 1000;
+      const toleranceMs = PAST_WINDOW_TOLERANCE_MINUTES * 60 * 1000;
+      const windowEndTime = new Date(forecastTime.getTime() + windowDurationMs);
+      const cutoffTime = new Date(now.getTime() - toleranceMs);
+      return windowEndTime >= cutoffTime;
     })
     .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
 

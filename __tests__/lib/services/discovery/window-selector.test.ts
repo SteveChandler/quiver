@@ -513,6 +513,217 @@ describe('selectBestWindow', () => {
   });
 });
 
+describe('selectBestWindow past window filtering with tolerance', () => {
+  // Tests for the tolerance-based past window filter
+  // Windows are 30 minutes, with a 15-minute tolerance for "just missed" windows
+  // A window should be shown if: windowEndTime >= (now - 15 minutes)
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should include window that ended within 15 min tolerance', () => {
+    // Current time: 4:12pm UTC
+    // Window: 3:30pm-4:00pm UTC (ended 12 min ago)
+    // Cutoff: 4:12pm - 15min = 3:57pm UTC
+    // 4:00pm end >= 3:57pm cutoff = INCLUDED
+    jest.setSystemTime(new Date('2024-01-15T16:12:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).not.toBeNull();
+  });
+
+  it('should exclude window that ended beyond 15 min tolerance', () => {
+    // Current time: 4:20pm UTC
+    // Window: 3:30pm-4:00pm UTC (ended 20 min ago)
+    // Cutoff: 4:20pm - 15min = 4:05pm UTC
+    // 4:00pm end < 4:05pm cutoff = EXCLUDED
+    jest.setSystemTime(new Date('2024-01-15T16:20:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).toBeNull();
+  });
+
+  it('should include window currently in progress', () => {
+    // Current time: 4:10pm UTC
+    // Window: 4:00pm-4:30pm UTC (currently in progress)
+    // End time is in the future, so definitely included
+    jest.setSystemTime(new Date('2024-01-15T16:10:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 4:00pm UTC, window ends at 4:30pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).not.toBeNull();
+  });
+
+  it('should handle boundary exactly at tolerance cutoff (inclusive)', () => {
+    // Current time: 4:15pm UTC exactly
+    // Window: 3:30pm-4:00pm UTC (ended 15 min ago)
+    // Cutoff: 4:15pm - 15min = 4:00pm UTC
+    // 4:00pm end >= 4:00pm cutoff = INCLUDED (boundary is inclusive)
+    jest.setSystemTime(new Date('2024-01-15T16:15:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    // Should be included due to >= comparison
+    expect(result).not.toBeNull();
+  });
+
+  it('should exclude window that ended 1 minute beyond tolerance', () => {
+    // Current time: 4:16pm UTC
+    // Window: 3:30pm-4:00pm UTC (ended 16 min ago)
+    // Cutoff: 4:16pm - 15min = 4:01pm UTC
+    // 4:00pm end < 4:01pm cutoff = EXCLUDED
+    jest.setSystemTime(new Date('2024-01-15T16:16:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).toBeNull();
+  });
+
+  it('should exclude the original bug scenario (4-4:30pm shown at 6:07pm)', () => {
+    // Original bug: At 6:07pm, the 4:00-4:30pm window was shown
+    // Current time: 6:07pm UTC
+    // Window: 4:00pm-4:30pm UTC (ended 1hr 37min ago)
+    // Cutoff: 6:07pm - 15min = 5:52pm UTC
+    // 4:30pm end < 5:52pm cutoff = EXCLUDED
+    jest.setSystemTime(new Date('2024-01-15T18:07:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 4:00pm UTC, window ends at 4:30pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).toBeNull();
+  });
+
+  it('should include future windows', () => {
+    // Current time: 3:00pm UTC
+    // Window: 4:00pm-4:30pm UTC (starts in 1 hour)
+    // Future windows should always be included
+    jest.setSystemTime(new Date('2024-01-15T15:00:00Z'));
+
+    const forecasts = [
+      createForecast({
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 4:00pm UTC, window ends at 4:30pm
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).not.toBeNull();
+  });
+
+  it('should correctly filter multiple windows with mixed past/present/future', () => {
+    // Current time: 5:00pm UTC
+    // Window 1: 3:30pm-4:00pm (ended 60 min ago) - EXCLUDED
+    // Window 2: 4:30pm-5:00pm (just ended) - INCLUDED (within 15 min tolerance)
+    // Window 3: 5:00pm-5:30pm (in progress) - INCLUDED
+    // Window 4: 6:00pm-6:30pm (future) - INCLUDED
+    jest.setSystemTime(new Date('2024-01-15T17:00:00Z'));
+
+    const forecasts = [
+      createForecast({
+        id: 'past-excluded',
+        forecast_date: '2024-01-15',
+        forecast_time: '15:30', // Ends at 4:00pm - excluded
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'just-ended',
+        forecast_date: '2024-01-15',
+        forecast_time: '16:30', // Ends at 5:00pm - included (just ended)
+        wave_height: '5', // Better conditions
+        wave_period: '14s',
+        confidence_score: 90,
+      }),
+      createForecast({
+        id: 'in-progress',
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00', // Ends at 5:30pm - included
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'future',
+        forecast_date: '2024-01-15',
+        forecast_time: '18:00', // Ends at 6:30pm - included
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, mockBeach as Beach, null);
+    expect(result).not.toBeNull();
+    // Should NOT pick the 3:30pm window (excluded by tolerance filter)
+    // The result should be from one of the other windows
+    expect(result!.start.getUTCHours()).toBeGreaterThanOrEqual(16);
+  });
+});
+
 describe('selectBestWindow with tide-driven boundaries', () => {
   const fixedNow = new Date('2024-01-15T16:00:00Z'); // 8am PST
 
