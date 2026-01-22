@@ -109,16 +109,6 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       aria-label={`${beach.name}, score ${formattedScore} out of 10`}
       data-testid="compact-spot-card"
     >
-      {/* Favorite Heart Badge */}
-      {recommendation.isFavorite && (
-        <div
-          data-testid="favorite-heart"
-          className="absolute top-2 left-2 z-10 bg-white/90 rounded-full p-1 shadow-sm"
-        >
-          <Heart className="h-3 w-3 text-red-500 fill-red-500" />
-        </div>
-      )}
-
       {/* Background: Photo or Gradient */}
       {photoUrl ? (
         <Image
@@ -139,9 +129,16 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       <div className="relative z-10 h-full p-2.5 xs:p-3 sm:p-4 flex flex-col">
         {/* Top row: Wave icon and score */}
         <div className="flex items-start justify-between">
-          {/* Wave emoji */}
+          {/* Top-left icon: Heart (if favorite) or Wave emoji */}
           <div className="p-1 xs:p-1.5 rounded-md bg-white/20 backdrop-blur-sm text-sm xs:text-base leading-none">
-            🌊
+            {recommendation.isFavorite ? (
+              <Heart
+                data-testid="favorite-heart"
+                className="h-4 w-4 xs:h-5 xs:w-5 text-red-500 fill-red-500 animate-pulse"
+              />
+            ) : (
+              "🌊"
+            )}
           </div>
 
           {/* Score circle */}

@@ -142,14 +142,14 @@ describe("CompactSpotCard - Favorite Heart Badge", () => {
     expect(heart).not.toBeInTheDocument();
   });
 
-  it("renders heart with correct styling", () => {
+  it("renders heart with correct styling (red, filled, pulsing)", () => {
     const recommendation = createMockRecommendation({ isFavorite: true });
     render(
       <CompactSpotCard recommendation={recommendation} onTap={mockOnTap} />
     );
 
     const heart = screen.getByTestId("favorite-heart");
-    expect(heart).toHaveClass("absolute", "top-2", "left-2", "z-10");
+    expect(heart).toHaveClass("text-red-500", "fill-red-500", "animate-pulse");
   });
 
   it("heart does not interfere with card click functionality", async () => {
