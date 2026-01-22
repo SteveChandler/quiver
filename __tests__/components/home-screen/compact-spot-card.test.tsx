@@ -149,7 +149,7 @@ describe("CompactSpotCard - Favorite Heart Badge", () => {
     );
 
     const heart = screen.getByTestId("favorite-heart");
-    expect(heart).toHaveClass("text-red-500", "fill-red-500", "animate-pulse");
+    expect(heart).toHaveClass("text-red-500", "fill-red-500", "motion-safe:animate-pulse");
   });
 
   it("heart does not interfere with card click functionality", async () => {

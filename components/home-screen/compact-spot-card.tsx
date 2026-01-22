@@ -134,7 +134,8 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
             {recommendation.isFavorite ? (
               <Heart
                 data-testid="favorite-heart"
-                className="h-4 w-4 xs:h-5 xs:w-5 text-red-500 fill-red-500 animate-pulse"
+                aria-label="Favorited spot"
+                className="h-4 w-4 xs:h-5 xs:w-5 text-red-500 fill-red-500 motion-safe:animate-pulse"
               />
             ) : (
               "🌊"
