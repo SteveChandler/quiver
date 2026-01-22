@@ -4,6 +4,7 @@ import {
   calculateDistanceInMiles,
   calculateDistanceLegacy,
   toRadians,
+  formatDistanceDisplay,
 } from "@/lib/utils/distance-utils";
 import type { Coordinates } from "@/lib/types/coordinates";
 
@@ -138,5 +139,63 @@ describe("toRadians", () => {
     expect(toRadians(180)).toBeCloseTo(Math.PI, 10);
     expect(toRadians(90)).toBeCloseTo(Math.PI / 2, 10);
     expect(toRadians(360)).toBeCloseTo(2 * Math.PI, 10);
+  });
+});
+
+describe("formatDistanceDisplay", () => {
+  describe("compact variant", () => {
+    it("returns null for undefined distance", () => {
+      expect(formatDistanceDisplay(undefined, "compact")).toBeNull();
+    });
+
+    it("returns null for null distance", () => {
+      expect(formatDistanceDisplay(null, "compact")).toBeNull();
+    });
+
+    it("returns null for zero distance", () => {
+      expect(formatDistanceDisplay(0, "compact")).toBeNull();
+    });
+
+    it("returns null for negative distance", () => {
+      expect(formatDistanceDisplay(-5, "compact")).toBeNull();
+    });
+
+    it("returns null for NaN", () => {
+      expect(formatDistanceDisplay(NaN, "compact")).toBeNull();
+    });
+
+    it("uses decimal for distances under 10 miles", () => {
+      expect(formatDistanceDisplay(3.5, "compact")).toBe("3.5 mi away");
+      expect(formatDistanceDisplay(0.1, "compact")).toBe("0.1 mi away");
+      expect(formatDistanceDisplay(9.9, "compact")).toBe("9.9 mi away");
+    });
+
+    it("rounds distances of 10 miles or more", () => {
+      expect(formatDistanceDisplay(10, "compact")).toBe("10 mi away");
+      expect(formatDistanceDisplay(15.7, "compact")).toBe("16 mi away");
+      expect(formatDistanceDisplay(100.4, "compact")).toBe("100 mi away");
+    });
+
+    it("defaults to compact variant when no variant specified", () => {
+      expect(formatDistanceDisplay(3.5)).toBe("3.5 mi away");
+      expect(formatDistanceDisplay(15.7)).toBe("16 mi away");
+    });
+  });
+
+  describe("full variant", () => {
+    it("returns null for undefined distance", () => {
+      expect(formatDistanceDisplay(undefined, "full")).toBeNull();
+    });
+
+    it("returns null for zero distance", () => {
+      expect(formatDistanceDisplay(0, "full")).toBeNull();
+    });
+
+    it("always rounds and uses full word", () => {
+      expect(formatDistanceDisplay(3.5, "full")).toBe("4 miles away");
+      expect(formatDistanceDisplay(3.4, "full")).toBe("3 miles away");
+      expect(formatDistanceDisplay(15.7, "full")).toBe("16 miles away");
+      expect(formatDistanceDisplay(0.6, "full")).toBe("1 miles away");
+    });
   });
 });

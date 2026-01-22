@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
+import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
 
@@ -72,6 +73,7 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   const { beach, score, window, distanceMiles, conditionBadges } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const photoUrl = beach.photo_url;
+  const formattedDistance = formatDistanceDisplay(distanceMiles, "compact");
   const primaryBadge = conditionBadges?.[0]?.label
     ? getShortBadgeLabel(conditionBadges[0].label)
     : null;
@@ -185,12 +187,9 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
           </div>
 
           {/* Distance */}
-          {distanceMiles !== undefined && distanceMiles > 0 && (
+          {formattedDistance && (
             <p className="text-[10px] xs:text-xs text-white/60">
-              {distanceMiles < 10
-                ? distanceMiles.toFixed(1)
-                : Math.round(distanceMiles)}{" "}
-              mi away
+              {formattedDistance}
             </p>
           )}
         </div>
