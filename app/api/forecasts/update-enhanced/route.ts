@@ -12,6 +12,13 @@ import { authenticateAdmin } from "@/lib/auth/admin";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
+/**
+ * Feature flag to disable ML corrections.
+ * Set ML_CORRECTIONS_ENABLED=false in environment to disable.
+ * Use this when ML model is degraded and making forecasts worse.
+ */
+const ML_CORRECTIONS_ENABLED = process.env.ML_CORRECTIONS_ENABLED !== 'false';
+
 /** Conversion factor: meters to feet */
 const METERS_TO_FEET = 3.28084;
 
@@ -26,6 +33,12 @@ async function mergeMLCorrections(
   forecasts: EnhancedForecastEntity[],
   beachId: string
 ): Promise<EnhancedForecastEntity[]> {
+  // Feature flag to disable ML corrections when model is degraded
+  if (!ML_CORRECTIONS_ENABLED) {
+    console.log('[ML] Corrections disabled via ML_CORRECTIONS_ENABLED=false');
+    return forecasts;
+  }
+
   if (forecasts.length === 0) return forecasts;
 
   try {
