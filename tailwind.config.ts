@@ -135,6 +135,10 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        heartbeat: {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.15)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -150,6 +154,7 @@ const config: Config = {
         "scale-in": "scaleIn 0.8s ease-out",
         "scale-in-large": "scaleInLarge 0.9s ease-out",
         shimmer: "shimmer 1.5s infinite linear",
+        heartbeat: "heartbeat 1.2s ease-in-out infinite",
       },
     },
   },
