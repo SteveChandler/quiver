@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { IntelPostForm } from "./intel-post-form";
 import { useIntelData } from "@/hooks/use-intel-data";
+
+// Lazy load modal form since it's not needed on initial render
+const IntelPostForm = dynamic(
+  () => import("./intel-post-form").then((m) => m.IntelPostForm),
+  { ssr: false }
+);
 import { useAuth } from "@/context/auth-context";
 import {
   confirmIntelPost,

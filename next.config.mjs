@@ -268,7 +268,13 @@ const nextConfig = {
   },
   experimental: {
     // Enable performance optimizations (removed optimizeCss due to critters dependency)
-    optimizePackageImports: ["@radix-ui/react-icons", "lucide-react"],
+    optimizePackageImports: [
+      "@radix-ui/react-icons",
+      "lucide-react",
+      "recharts",
+      "zod",
+      "react-hook-form",
+    ],
 
     // Enable server components optimizations
     serverComponentsExternalPackages: ["@supabase/supabase-js"],
@@ -478,8 +484,8 @@ export default withSentryConfig(pwaConfig(nextConfig), {
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  widenClientFileUpload: true,
+  // Reduced source map upload for faster builds (set to true for prettier stack traces)
+  widenClientFileUpload: false,
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   // This can increase your server load as well as your hosting bill.
@@ -489,6 +495,9 @@ export default withSentryConfig(pwaConfig(nextConfig), {
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
+
+  // Disable automatic middleware instrumentation to reduce bundle size
+  autoInstrumentMiddleware: false,
 
   // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
   // See the following for more information:

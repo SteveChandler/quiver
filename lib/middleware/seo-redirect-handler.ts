@@ -8,9 +8,11 @@
  * - City name mismatches (e.g., URLs with "orange-county" but beach is actually in "dana-point")
  * - URL typos (e.g., "rincn" instead of "rincon")
  * - Mexico route structure changes
+ *
+ * NOTE: Sentry removed from this file to reduce middleware bundle size.
+ * Errors are logged to console instead.
  */
 
-import * as Sentry from "@sentry/nextjs";
 import {
   isValidStateSlug,
   stateToSlug,
@@ -231,12 +233,10 @@ export async function lookupCityBySlugForRedirect(
 
     return null;
   } catch (error) {
-    Sentry.withScope((scope) => {
-      scope.setTag('seo_redirect_type', 'city_lookup');
-      scope.setContext('redirect_context', { citySlug });
-      Sentry.captureException(error);
+    console.warn("[SEO Redirect] City lookup error:", {
+      citySlug,
+      error: error instanceof Error ? error.message : "Unknown error",
     });
-    console.warn("[SEO Redirect] City lookup error:", error instanceof Error ? error.message : "Unknown error");
     return null;
   }
 }
@@ -299,12 +299,10 @@ export async function lookupBeachBySlug(
 
     return null;
   } catch (error) {
-    Sentry.withScope((scope) => {
-      scope.setTag('seo_redirect_type', 'beach_lookup');
-      scope.setContext('redirect_context', { slug });
-      Sentry.captureException(error);
+    console.warn("[SEO Redirect] Beach lookup error:", {
+      slug,
+      error: error instanceof Error ? error.message : "Unknown error",
     });
-    console.warn("[SEO Redirect] Lookup error:", error instanceof Error ? error.message : "Unknown error");
     return null;
   }
 }
@@ -506,10 +504,9 @@ export async function handleSeoRedirect(
         return { redirect: false };
     }
   } catch (error) {
-    Sentry.withScope((scope) => {
-      scope.setTag('seo_redirect_type', 'handler_error');
-      scope.setContext('redirect_context', { pathname });
-      Sentry.captureException(error);
+    console.warn("[SEO Redirect] Handler error:", {
+      pathname,
+      error: error instanceof Error ? error.message : "Unknown error",
     });
     return { redirect: false };
   }

@@ -304,52 +304,5 @@ export async function generateMetadata({
   });
 }
 
-// Generate static params for beaches at build time
-// This covers all states that have beaches with complete location data (excluding CA)
-export async function generateStaticParams() {
-  try {
-    // Fetch all beaches with their location data
-    const response = await fetch(`${baseUrl}/api/beaches`, {
-      next: { revalidate: 86400 }, // Revalidate daily
-    });
-
-    if (!response.ok) {
-      console.warn(
-        "Failed to fetch beaches for generateStaticParams, returning empty array"
-      );
-      return [];
-    }
-
-    const json = await response.json();
-    // Handle both wrapped response format (json.data.beaches) and direct format (json.beaches)
-    const beaches: Array<{
-      slug: string | null;
-      city: string | null;
-      state: string | null;
-    }> = json?.data?.beaches || json?.beaches || [];
-
-    // Generate params for all beaches with complete location data
-    // This route handles all state-based beach URLs including California (/ca/...)
-    const beachParams = beaches
-      .filter((b) => {
-        return !!(b.slug && b.city && b.state);
-      })
-      .map((beach) => ({
-        intent: stateToSlug(beach.state), // Named 'intent' for route param consistency
-        city: cityToSlug(beach.city),
-        beachSlug: beach.slug!,
-      }));
-
-    console.log(
-      `Generated ${beachParams.length} beach pages for generic state route`
-    );
-    return beachParams;
-  } catch (error) {
-    console.warn(
-      "Error generating static params for generic beach pages (likely build-time fetch):",
-      error instanceof Error ? error.message : "Unknown error"
-    );
-    // Return empty array during build - pages will be generated on-demand
-    return [];
-  }
-}
+// NOTE: generateStaticParams removed - this page uses force-dynamic due to cookie access.
+// Pages are rendered on-demand with ISR caching via Next.js defaults.
