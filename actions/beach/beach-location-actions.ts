@@ -251,3 +251,62 @@ export async function lookupCityByCityAndStateSlug(
     return null;
   }
 }
+
+// ============================================================================
+// State-Level City Functions (for intent page linking)
+// ============================================================================
+
+export interface TopCityInState {
+  slug: string;
+  name: string;
+  beachCount: number;
+}
+
+/**
+ * Get the top cities in a state by beach count.
+ * Used to populate PopularCitiesForIntent on state intent pages.
+ *
+ * @param stateSlug - 2-letter state slug (e.g., "ca", "fl")
+ * @param limit - Maximum number of cities to return (default: 8)
+ * @returns Array of cities sorted by beach count (descending)
+ */
+export async function getTopCitiesInState(
+  stateSlug: string,
+  limit = 8
+): Promise<TopCityInState[]> {
+  try {
+    // Get all cities with at least 3 beaches (threshold for intent pages)
+    const citiesResult = await getAllCitiesWithBeaches(3);
+    if (!citiesResult.success || !citiesResult.data) return [];
+
+    // Normalize the state slug for comparison
+    const normalizedStateSlug = stateSlug.toLowerCase();
+
+    // Filter to cities in this state
+    const citiesInState = citiesResult.data.filter((city) => {
+      const cityStateSlug = stateToSlug(city.state);
+      return cityStateSlug === normalizedStateSlug;
+    });
+
+    // Sort by beach count (descending) and take top N
+    const sortedCities = citiesInState
+      .sort((a, b) => b.beachCount - a.beachCount)
+      .slice(0, limit);
+
+    // Detect collisions for slug building
+    const { detectCityCollisions, buildCitySlug } = await import(
+      "@/lib/seo/city-slug-utils"
+    );
+    const collisionMap = detectCityCollisions(citiesResult.data);
+
+    // Transform to TopCityInState format
+    return sortedCities.map((city) => ({
+      slug: buildCitySlug(city.city, city.state, collisionMap),
+      name: city.city,
+      beachCount: city.beachCount,
+    }));
+  } catch (error) {
+    console.error("Error getting top cities in state:", error);
+    return [];
+  }
+}
