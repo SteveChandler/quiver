@@ -34,7 +34,6 @@ describe("IntentGuidesGrid", () => {
   const defaultProps = {
     citySlug: "san-diego",
     cityName: "San Diego",
-    stateSlug: "ca",
     stateAbbrev: "CA",
   };
 
@@ -81,13 +80,13 @@ describe("IntentGuidesGrid", () => {
   });
 
   describe("URL Building", () => {
-    it("should build correct URLs with state slug", () => {
+    it("should build correct URLs with city slug only", () => {
       render(<IntentGuidesGrid {...defaultProps} />);
 
       const beginnerLink = screen.getByRole("link", {
         name: /beginner spots surf guide/i,
       });
-      expect(beginnerLink).toHaveAttribute("href", "/beginner/ca/san-diego");
+      expect(beginnerLink).toHaveAttribute("href", "/beginner/san-diego");
     });
 
     it("should build correct URLs for all intents", () => {
@@ -95,22 +94,22 @@ describe("IntentGuidesGrid", () => {
 
       // Verify URL format for each intent
       const dawnLink = screen.getByRole("link", { name: /dawn patrol surf guide/i });
-      expect(dawnLink).toHaveAttribute("href", "/dawn-patrol/ca/san-diego");
+      expect(dawnLink).toHaveAttribute("href", "/dawn-patrol/san-diego");
 
       const sunsetLink = screen.getByRole("link", { name: /sunset sessions surf guide/i });
-      expect(sunsetLink).toHaveAttribute("href", "/sunset/ca/san-diego");
+      expect(sunsetLink).toHaveAttribute("href", "/sunset/san-diego");
 
       const tideLink = screen.getByRole("link", { name: /tide windows surf guide/i });
-      expect(tideLink).toHaveAttribute("href", "/tide/ca/san-diego");
+      expect(tideLink).toHaveAttribute("href", "/tide/san-diego");
 
       const longboardLink = screen.getByRole("link", { name: /longboard spots surf guide/i });
-      expect(longboardLink).toHaveAttribute("href", "/longboard/ca/san-diego");
+      expect(longboardLink).toHaveAttribute("href", "/longboard/san-diego");
 
       const crowdedLink = screen.getByRole("link", { name: /less crowded surf guide/i });
-      expect(crowdedLink).toHaveAttribute("href", "/least-crowded/ca/san-diego");
+      expect(crowdedLink).toHaveAttribute("href", "/least-crowded/san-diego");
 
       const tempLink = screen.getByRole("link", { name: /water temperature surf guide/i });
-      expect(tempLink).toHaveAttribute("href", "/water-temp/ca/san-diego");
+      expect(tempLink).toHaveAttribute("href", "/water-temp/san-diego");
     });
   });
 
@@ -128,7 +127,6 @@ describe("IntentGuidesGrid", () => {
         <IntentGuidesGrid
           citySlug="san-diego"
           cityName="San Diego"
-          stateSlug="ca"
         />
       );
 
@@ -153,7 +151,6 @@ describe("IntentGuidesGrid", () => {
         <IntentGuidesGrid
           citySlug="huntington-beach"
           cityName="Huntington Beach"
-          stateSlug="ca"
           stateAbbrev="CA"
         />
       );
@@ -167,7 +164,7 @@ describe("IntentGuidesGrid", () => {
       });
       expect(beginnerLink).toHaveAttribute(
         "href",
-        "/beginner/ca/huntington-beach"
+        "/beginner/huntington-beach"
       );
     });
 
@@ -176,7 +173,6 @@ describe("IntentGuidesGrid", () => {
         <IntentGuidesGrid
           citySlug="newport"
           cityName="Newport"
-          stateSlug="or"
           stateAbbrev="OR"
         />
       );
@@ -188,7 +184,7 @@ describe("IntentGuidesGrid", () => {
       const beginnerLink = screen.getByRole("link", {
         name: /beginner spots surf guide/i,
       });
-      expect(beginnerLink).toHaveAttribute("href", "/beginner/or/newport");
+      expect(beginnerLink).toHaveAttribute("href", "/beginner/newport");
     });
   });
 

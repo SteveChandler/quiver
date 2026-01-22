@@ -12,7 +12,6 @@ interface CityLink {
 interface PopularCitiesForIntentProps {
   intentKey: IntentKey;
   intentLabel: string;
-  stateSlug: string;
   stateName: string;
   cities: CityLink[];
 }
@@ -27,7 +26,6 @@ interface PopularCitiesForIntentProps {
 export function PopularCitiesForIntent({
   intentKey,
   intentLabel,
-  stateSlug,
   stateName,
   cities,
 }: PopularCitiesForIntentProps) {
@@ -42,7 +40,7 @@ export function PopularCitiesForIntent({
         {cities.map((city) => (
           <li key={city.slug}>
             <Link
-              href={buildCityIntentUrl(intentKey, stateSlug, city.slug)}
+              href={buildCityIntentUrl(intentKey, city.slug)}
               className="block p-3 rounded-md border border-slate-200 hover:bg-slate-50 transition-colors"
               aria-label={`${intentLabel} guide for ${city.name}`}
             >

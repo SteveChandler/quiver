@@ -10,7 +10,6 @@ import {
 interface IntentGuidesGridProps {
   citySlug: string;
   cityName: string;
-  stateSlug: string;
   stateAbbrev?: string;
 }
 
@@ -24,12 +23,11 @@ interface IntentGuidesGridProps {
  * Features:
  * - Deterministic: always shows all 7 intents, no conditional logic
  * - Grouped by Session (3) and Style (4) categories
- * - Uses new URL format: /{intent}/{state}/{city}
+ * - Uses URL format: /{intent}/{city}
  */
 export function IntentGuidesGrid({
   citySlug,
   cityName,
-  stateSlug,
   stateAbbrev,
 }: IntentGuidesGridProps) {
   const displayName = stateAbbrev ? `${cityName}, ${stateAbbrev}` : cityName;
@@ -50,7 +48,6 @@ export function IntentGuidesGrid({
             <IntentCard
               key={intent.key}
               intent={intent}
-              stateSlug={stateSlug}
               citySlug={citySlug}
             />
           ))}
@@ -67,7 +64,6 @@ export function IntentGuidesGrid({
             <IntentCard
               key={intent.key}
               intent={intent}
-              stateSlug={stateSlug}
               citySlug={citySlug}
             />
           ))}
@@ -79,12 +75,11 @@ export function IntentGuidesGrid({
 
 interface IntentCardProps {
   intent: IntentDefinitionType;
-  stateSlug: string;
   citySlug: string;
 }
 
-function IntentCard({ intent, stateSlug, citySlug }: IntentCardProps) {
-  const href = buildCityIntentUrl(intent.key as IntentKey, stateSlug, citySlug);
+function IntentCard({ intent, citySlug }: IntentCardProps) {
+  const href = buildCityIntentUrl(intent.key as IntentKey, citySlug);
 
   return (
     <Link
