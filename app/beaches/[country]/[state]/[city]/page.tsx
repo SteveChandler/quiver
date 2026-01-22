@@ -23,9 +23,11 @@ import {
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
-import { getBeachHrefSafe, getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import {
+  getBeachHrefSafe,
+  getBeachUrlSafe,
+  isValidStateSlug,
+  isValidCountrySlug,
   parseHiIslandCitySlug,
   getHiIslandDisplayName,
 } from "@/lib/utils/beach-url-utils";
@@ -74,6 +76,12 @@ interface LocationPageProps {
 }
 
 export default async function LocationPage({ params }: LocationPageProps) {
+  // Validate country parameter - reject non-country values like "beginner", "sunset", etc.
+  // This prevents intent slugs from being treated as countries, stopping broken URLs
+  if (!isValidCountrySlug(params.country)) {
+    notFound();
+  }
+
   // Fetch location page data
   const response = await getLocationPageData(
     params.city,
@@ -466,6 +474,13 @@ export async function generateStaticParams() {
  * Configure page metadata
  */
 export async function generateMetadata({ params }: LocationPageProps) {
+  // Validate country parameter - return not found metadata for invalid countries
+  if (!isValidCountrySlug(params.country)) {
+    return {
+      title: "Location Not Found",
+    };
+  }
+
   try {
     const metroConfig = isMetroArea(params.city)
       ? getMetroConfig(params.city)

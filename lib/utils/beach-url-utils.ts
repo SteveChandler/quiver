@@ -479,6 +479,37 @@ export function isValidStateSlug(slug: string): boolean {
   return getValidStateSlugs().includes(slug.toLowerCase());
 }
 
+// ============================================================================
+// Country Validation
+// ============================================================================
+
+/**
+ * Valid country slugs for the location page route.
+ *
+ * This set prevents intent slugs (beginner, sunset, etc.) from being
+ * incorrectly matched as the country parameter in /beaches/[country]/[state]/[city]
+ * routes, which would cause broken beach URLs to be generated.
+ *
+ * @see app/beaches/[country]/[state]/[city]/page.tsx
+ */
+export const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
+
+/**
+ * Validate if a slug represents a valid country in the routing system.
+ *
+ * @param slug - The slug to validate (e.g., "usa", "mexico", "beginner")
+ * @returns true if the slug represents a valid country
+ *
+ * @example
+ * isValidCountrySlug("usa")      // true
+ * isValidCountrySlug("mexico")   // true
+ * isValidCountrySlug("beginner") // false (intent, not country)
+ */
+export function isValidCountrySlug(slug: string): boolean {
+  if (!slug) return false;
+  return VALID_COUNTRY_SLUGS.has(slug.toLowerCase());
+}
+
 /**
  * Get a human-friendly US state display name from a 2-letter state slug.
  *
