@@ -916,6 +916,8 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 
 ## **CONFIDENCE SCORE CONVENTIONS**
 
+### Scale Definitions
+
 | System | Scale | Example |
 |--------|-------|---------|
 | `calculateConfidenceScore()` | 0-100 | 70 means 70% |
@@ -923,9 +925,47 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 | Database `confidence_score` | 0-100 | Stored as integer |
 | UI display | 0-100% | Shown with % suffix |
 
-**Boundary conversion** happens in `enhanced-forecast-service.ts`:
-- Before weighting: `confidenceDecimal = confidence_score / 100`
-- After weighting: `confidence_score = Math.round(confidence * 100)`
+### Centralized Scale Conversion Utilities
+
+**ALWAYS use these functions for scale conversion** (from `@/lib/services/forecast/confidence-scorer`):
+
+```typescript
+import { confidenceToDecimal, decimalToConfidence } from "@/lib/services/forecast/confidence-scorer";
+
+// Convert 0-100 to 0-1 (before weighting, ML models)
+const decimal = confidenceToDecimal(confidence_score); // 75 → 0.75
+
+// Convert 0-1 to 0-100 (after weighting, for storage/display)
+const score = decimalToConfidence(decimal); // 0.75 → 75
+```
+
+**DO NOT** use ad-hoc conversions like:
+- ❌ `confidence / 100`
+- ❌ `Math.round(confidence * 100)`
+- ❌ `if (confidence > 1) confidence = confidence / 100`
+
+### Confidence Types (Important Distinction)
+
+The codebase has **two fundamentally different confidence concepts**:
+
+| Type | Measures | Source of Truth | Scale |
+|------|----------|-----------------|-------|
+| **Forecast Data Quality** | How reliable is the forecast data? | `calculateConfidenceScore()` | 0-100 |
+| **Recommendation Quality** | How well does this match user preferences? | Domain-specific logic | 0-1 |
+
+**Forecast Data Quality** (CDIP/buoy availability, time decay):
+- Use `calculateConfidenceScore()` or `calculateConfidenceFromForecastRow()`
+- Stored in database as `confidence_score`
+
+**Recommendation Quality** (board match, condition preferences):
+- Domain-specific calculations in `gear-suggestions`, `magic-hour-finder`
+- NOT the same as forecast data quality - don't mix them
+
+### Boundary Conversion
+
+**In `enhanced-forecast-service.ts`:**
+- Before weighting: Use `confidenceToDecimal(confidence_score)`
+- After weighting: Use `decimalToConfidence(weightedForecast.confidence)`
 
 **Defensive minimum:** `Math.max(original, blended)` ensures confidence never
 decreases after expert calibration. A Sentry warning fires if this applies,

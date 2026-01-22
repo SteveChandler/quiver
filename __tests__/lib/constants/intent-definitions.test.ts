@@ -54,9 +54,9 @@ describe('intent-definitions', () => {
   });
 
   describe('buildCityIntentUrl', () => {
-    it('should build correct city intent URL with state', () => {
-      expect(buildCityIntentUrl('beginner', 'ca', 'san-diego')).toBe('/beginner/ca/san-diego');
-      expect(buildCityIntentUrl('sunset', 'hi', 'honolulu')).toBe('/sunset/hi/honolulu');
+    it('should build correct city intent URL', () => {
+      expect(buildCityIntentUrl('beginner', 'san-diego')).toBe('/beginner/san-diego');
+      expect(buildCityIntentUrl('sunset', 'honolulu')).toBe('/sunset/honolulu');
     });
   });
 

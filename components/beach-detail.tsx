@@ -34,13 +34,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const BeachIntelSection = dynamic(
-  () =>
-    import("@/components/intel/beach-intel-section").then(
-      (m) => m.BeachIntelSection
-    ),
-  { ssr: false }
-);
+// NOTE: BeachIntelSection removed - it's only used via IntelTab which is already lazy-loaded
 const SessionForecastComparison = dynamic(
   () =>
     import("@/components/forecast/session-forecast-comparison").then(

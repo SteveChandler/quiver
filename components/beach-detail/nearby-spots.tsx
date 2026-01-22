@@ -6,6 +6,7 @@ import { MapPin, ChevronRight, Loader2 } from "lucide-react";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { cn } from "@/lib/utils";
+import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 interface NearbyBeach extends Beach {
@@ -124,9 +125,9 @@ export function NearbySpots({
                 {location && (
                   <p className="text-sm text-gray-500 truncate">{location}</p>
                 )}
-                {typeof (nearbyBeach as NearbyBeach).distance === "number" && (
+                {formatDistanceDisplay((nearbyBeach as NearbyBeach).distance, "compact") && (
                   <p className="text-xs text-gray-400 mt-1">
-                    {Math.round((nearbyBeach as NearbyBeach).distance!)} mi away
+                    {formatDistanceDisplay((nearbyBeach as NearbyBeach).distance, "compact")}
                   </p>
                 )}
               </div>

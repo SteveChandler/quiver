@@ -85,9 +85,8 @@ export const buildStateIntentUrl = (intent: IntentKey, stateSlug: string): strin
 
 export const buildCityIntentUrl = (
   intent: IntentKey,
-  stateSlug: string,
   citySlug: string
-): string => `/${intent}/${stateSlug}/${citySlug}`;
+): string => `/${intent}/${citySlug}`;
 
 export const buildCityHubUrl = (stateSlug: string, citySlug: string): string =>
   `/beaches/usa/${stateSlug}/${citySlug}`;

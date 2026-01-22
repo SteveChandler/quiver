@@ -27,7 +27,6 @@ describe("PopularCitiesForIntent", () => {
   const defaultProps = {
     intentKey: "beginner" as const,
     intentLabel: "Beginner Spots",
-    stateSlug: "ca",
     stateName: "California",
     cities: [
       { slug: "san-diego", name: "San Diego" },
@@ -56,7 +55,7 @@ describe("PopularCitiesForIntent", () => {
     render(<PopularCitiesForIntent {...defaultProps} />);
 
     const sanDiegoLink = screen.getByRole("link", { name: /san diego/i });
-    expect(sanDiegoLink).toHaveAttribute("href", "/beginner/ca/san-diego");
+    expect(sanDiegoLink).toHaveAttribute("href", "/beginner/san-diego");
   });
 
   it("should return null when no cities", () => {

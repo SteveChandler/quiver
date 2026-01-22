@@ -190,11 +190,13 @@ async function fetchEnhancedForecasts(
  *   if (error) return <div>Error: {error.message}</div>;
  *   if (!magicHour?.found) return <div>No optimal window found</div>;
  *
+ *   // Use decimalToConfidence from @/lib/services/forecast/confidence-scorer
+ *   // for consistent scale conversion: decimalToConfidence(magicHour.confidence)
  *   return (
  *     <div>
  *       <h3>Magic Hour</h3>
  *       <p>{magicHour.windowStart} - {magicHour.windowEnd}</p>
- *       <p>Confidence: {Math.round(magicHour.confidence * 100)}%</p>
+ *       <p>Confidence: {decimalToConfidence(magicHour.confidence)}%</p>
  *       <p>Wind: {magicHour.windQuality}</p>
  *       <button onClick={refetch}>Refresh</button>
  *     </div>

@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
+import { decimalToConfidence } from '@/lib/services/forecast/confidence-scorer';
 
 interface LearnedPreferencesDisplayProps {
   preferences: UserSurfPreferences;
@@ -80,7 +81,7 @@ export function LearnedPreferencesDisplay({
     preferences.preferred_tide_statuses.length > 0;
 
   const confidenceColor = getConfidenceColor(preferences.confidence);
-  const confidencePercentage = Math.round(preferences.confidence * 100);
+  const confidencePercentage = decimalToConfidence(preferences.confidence);
   const confidenceExplanation = getConfidenceExplanation(
     preferences.confidence,
     preferences.sample_size

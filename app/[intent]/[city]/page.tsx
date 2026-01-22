@@ -21,8 +21,10 @@ import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-trans
 import { StateMapView } from "@/components/state/state-map-view";
 import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
-import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
+import { getAllCitiesWithBeaches, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
+import { PopularCitiesForIntent } from "@/components/intent/popular-cities-for-intent";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 
 export const revalidate = 1800;
 
@@ -145,6 +147,9 @@ export default async function IntentPage({ params }: IntentPageParams) {
     const beaches = beachesResult.success && beachesResult.data ? beachesResult.data : [];
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
+    // Fetch top cities in this state for PopularCitiesForIntent component
+    const topCities = await getTopCitiesInState(params.city);
+
     // Render state-level intent page (with empty state if no beaches)
     return (
       <div className="bg-white">
@@ -222,6 +227,18 @@ export default async function IntentPage({ params }: IntentPageParams) {
                   ))}
                 </ul>
               </section>
+
+              {/* Popular Cities - Links DOWN to city intent pages */}
+              {topCities.length > 0 && (
+                <section className="mt-8">
+                  <PopularCitiesForIntent
+                    intentKey={params.intent as IntentKey}
+                    intentLabel={intentDefinition.label}
+                    stateName={stateName}
+                    cities={topCities}
+                  />
+                </section>
+              )}
             </>
           )}
         </div>
@@ -404,6 +421,14 @@ export default async function IntentPage({ params }: IntentPageParams) {
                       className="underline-offset-2 hover:underline"
                     >
                       Back to the {cityMetadata.cityName} surf hub
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={`/${params.intent}/${cityMetadata.state.toLowerCase()}`}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {definition.label} spots across {cityMetadata.stateName}
                     </a>
                   </li>
                   <li>

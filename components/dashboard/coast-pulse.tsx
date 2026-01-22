@@ -23,6 +23,7 @@ import { AnimatedWaveIcon } from "@/components/ui/animated-wave-icon";
 import { WaveBackground } from "@/components/ui/wave-background";
 // import { ParticleBackground } from "@/components/ui/particle-background"; // Kept for easy rollback
 import { formatTimeAgo } from "@/lib/utils/time-formatters";
+import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import { QuickCheckinSheet } from "../intel/quick-checkin-sheet";
 import { PhotoModal } from "../intel/photo-modal";
 import { EmojiRatingDisplay } from "../intel/emoji-picker";
@@ -558,10 +559,10 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
                   {/* Timestamp and distance */}
                   <div className="flex items-center gap-2 text-[10px] text-gray-500">
                     <span>{formatTimeAgo(new Date(item.timestamp))}</span>
-                    {item.location && item.location.distanceKm > 0 && (
+                    {item.location && formatDistanceDisplay(item.location.distanceKm * 0.621371, "compact") && (
                       <>
                         <span>·</span>
-                        <span>{Math.round(item.location.distanceKm * 0.621371)} mi away</span>
+                        <span>{formatDistanceDisplay(item.location.distanceKm * 0.621371, "compact")}</span>
                       </>
                     )}
                   </div>

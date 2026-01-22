@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
+import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
 
@@ -72,6 +73,7 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   const { beach, score, window, distanceMiles, conditionBadges } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const photoUrl = beach.photo_url;
+  const formattedDistance = formatDistanceDisplay(distanceMiles, "compact");
   const primaryBadge = conditionBadges?.[0]?.label
     ? getShortBadgeLabel(conditionBadges[0].label)
     : null;
@@ -109,16 +111,6 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       aria-label={`${beach.name}, score ${formattedScore} out of 10`}
       data-testid="compact-spot-card"
     >
-      {/* Favorite Heart Badge */}
-      {recommendation.isFavorite && (
-        <div
-          data-testid="favorite-heart"
-          className="absolute top-2 left-2 z-10 bg-white/90 rounded-full p-1 shadow-sm"
-        >
-          <Heart className="h-3 w-3 text-red-500 fill-red-500" />
-        </div>
-      )}
-
       {/* Background: Photo or Gradient */}
       {photoUrl ? (
         <Image
@@ -139,9 +131,17 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
       <div className="relative z-10 h-full p-2.5 xs:p-3 sm:p-4 flex flex-col">
         {/* Top row: Wave icon and score */}
         <div className="flex items-start justify-between">
-          {/* Wave emoji */}
+          {/* Top-left icon: Heart (if favorite) or Wave emoji */}
           <div className="p-1 xs:p-1.5 rounded-md bg-white/20 backdrop-blur-sm text-sm xs:text-base leading-none">
-            🌊
+            {recommendation.isFavorite ? (
+              <Heart
+                data-testid="favorite-heart"
+                aria-label="Favorited spot"
+                className="h-4 w-4 xs:h-5 xs:w-5 text-red-500 fill-red-500 motion-safe:animate-heartbeat"
+              />
+            ) : (
+              "🌊"
+            )}
           </div>
 
           {/* Score circle */}
@@ -187,12 +187,9 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
           </div>
 
           {/* Distance */}
-          {distanceMiles !== undefined && distanceMiles > 0 && (
+          {formattedDistance && (
             <p className="text-[10px] xs:text-xs text-white/60">
-              {distanceMiles < 10
-                ? distanceMiles.toFixed(1)
-                : Math.round(distanceMiles)}{" "}
-              mi away
+              {formattedDistance}
             </p>
           )}
         </div>

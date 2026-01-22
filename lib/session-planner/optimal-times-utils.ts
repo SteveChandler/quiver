@@ -5,6 +5,8 @@
  * and reusable across the application.
  */
 
+import { confidenceToDecimal, decimalToConfidence } from "@/lib/services/forecast/confidence-scorer";
+
 export interface OptimalTimeSlot {
   // Center time of the block for backwards compatibility with previous UI
   time: string;
@@ -124,8 +126,8 @@ export function scoreForecast(forecast: any, currentTimeHour?: number | null): O
     forecast.swell_period != null ? Number(forecast.swell_period) : null;
   const weatherCondition = forecast.weather_condition || "Unknown";
 
-  let confidence = forecast.confidence_score || 0.5;
-  if (confidence > 1) confidence = confidence / 100;
+  // Use centralized scale conversion (confidence_score is 0-100, we need 0-1 for scoring)
+  const confidence = confidenceToDecimal(forecast.confidence_score ?? 50);
 
   let score = 0;
   const reasons: string[] = [];
@@ -257,7 +259,7 @@ export function scoreForecast(forecast: any, currentTimeHour?: number | null): O
       waveQuality,
       windSpeed,
       windDirection: windDirectionLabel,
-      confidence: Math.min(Math.round(confidence * 100), 100),
+      confidence: decimalToConfidence(confidence),
       weatherCondition,
       tideHeight,
       tideType,

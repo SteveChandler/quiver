@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { formatBeachTimeRange } from "@/lib/utils/date-utils";
+import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
@@ -142,9 +143,9 @@ export function BeachDiscoveryCard({
               <MapPin className="h-5 w-5 text-gray-500" />
               {beach.name}
             </CardTitle>
-            {distanceMiles !== undefined && (
+            {formatDistanceDisplay(distanceMiles, "full") && (
               <p className="text-sm text-gray-600 mt-1">
-                {Math.round(distanceMiles)} miles away
+                {formatDistanceDisplay(distanceMiles, "full")}
               </p>
             )}
           </div>

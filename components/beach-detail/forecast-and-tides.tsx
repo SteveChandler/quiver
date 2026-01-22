@@ -1,10 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
-import { TideChart } from "@/components/forecast/tide-chart-recharts";
+
+// Lazy load TideChart since it uses recharts (heavy library)
+const TideChart = dynamic(
+  () =>
+    import("@/components/forecast/tide-chart-recharts").then((m) => m.TideChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 bg-slate-100 animate-pulse rounded-lg" />
+    ),
+  }
+);
 import {
   SimplifiedForecastTable,
   MultiDayForecastTable,

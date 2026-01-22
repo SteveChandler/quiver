@@ -134,3 +134,47 @@ export function calculateDistanceLegacy(
 export function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
+
+/**
+ * Format distance for display in UI components
+ *
+ * @param distanceMiles Distance in miles (undefined/null/0/negative returns null)
+ * @param variant Display variant:
+ *   - 'compact': "3.5 mi away" or "15 mi away" (decimal for <10, rounded for >=10)
+ *   - 'full': "6 miles away" (always rounded, full word)
+ * @returns Formatted string or null if distance is invalid/zero
+ *
+ * @example
+ * ```ts
+ * formatDistanceDisplay(3.5, 'compact')  // "3.5 mi away"
+ * formatDistanceDisplay(15.7, 'compact') // "16 mi away"
+ * formatDistanceDisplay(3.5, 'full')     // "4 miles away"
+ * formatDistanceDisplay(0, 'compact')    // null
+ * formatDistanceDisplay(undefined)       // null
+ * ```
+ */
+export function formatDistanceDisplay(
+  distanceMiles: number | undefined | null,
+  variant: "compact" | "full" = "compact"
+): string | null {
+  if (
+    distanceMiles === undefined ||
+    distanceMiles === null ||
+    !Number.isFinite(distanceMiles) ||
+    distanceMiles <= 0
+  ) {
+    return null;
+  }
+
+  if (variant === "compact") {
+    // Compact: use decimal for nearby (<10 mi), round for distant
+    const formatted =
+      distanceMiles < 10
+        ? distanceMiles.toFixed(1)
+        : String(Math.round(distanceMiles));
+    return `${formatted} mi away`;
+  }
+
+  // Full: always round, use full word
+  return `${Math.round(distanceMiles)} miles away`;
+}

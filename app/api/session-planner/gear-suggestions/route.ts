@@ -157,7 +157,24 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Analyzes user's session history to recommend boards for given conditions
+ * Analyzes user's session history to recommend boards for given conditions.
+ *
+ * **IMPORTANT: Confidence Type Clarification**
+ *
+ * The `confidence` field in BoardSuggestion represents **recommendation quality**,
+ * NOT forecast data quality. This is fundamentally different from the confidence
+ * scores in `calculateConfidenceScore()` from the ML pipeline.
+ *
+ * Recommendation quality confidence (0-1 scale):
+ * - 0.3: No historical data, based only on board type heuristics
+ * - 0.4-0.6: Some session history but not in similar conditions
+ * - 0.7-0.9: Good session history in similar conditions
+ *
+ * This confidence measures: "How confident are we that THIS BOARD is right
+ * for THESE CONDITIONS based on USER'S HISTORY?"
+ *
+ * It does NOT measure: "How reliable is the underlying forecast data?"
+ * (That's handled by `calculateConfidenceScore()` in confidence-scorer.ts)
  */
 function analyzeGearSuggestions(
   boards: any[],
