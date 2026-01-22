@@ -377,6 +377,22 @@ async function syncObservations(
       }
     }
 
+    // Mark stations that returned "Unrecognized variable" as not having wave data
+    // This cleans up stations that were incorrectly identified during discovery
+    const stationsWithoutWaveData = ioosService.getStationsWithoutWaveData();
+    if (stationsWithoutWaveData.length > 0) {
+      console.log(`📝 Marking ${stationsWithoutWaveData.length} stations as has_wave_data=false`);
+
+      const { error: noWaveError } = await supabase
+        .from("ioos_stations")
+        .update({ has_wave_data: false })
+        .in("station_id", stationsWithoutWaveData);
+
+      if (noWaveError) {
+        result.errors.push(`Failed to update no-wave stations: ${noWaveError.message}`);
+      }
+    }
+
     // Mark stations as inactive if no data for 7+ days
     const staleThreshold = new Date();
     staleThreshold.setDate(staleThreshold.getDate() - IOOS_QUALITY_THRESHOLDS.stationInactiveDays);
