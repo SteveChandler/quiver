@@ -58,7 +58,7 @@ function categorizeSkillLevel(
 
 /**
  * Get metadata for a city including beach counts and names.
- * Returns null if city doesn't exist or has fewer than 3 beaches.
+ * Returns null if city doesn't exist or has no beaches.
  *
  * @param cityName - The city name (e.g., "Santa Cruz")
  * @param state - The state code (e.g., "CA")
@@ -83,8 +83,8 @@ export async function getCityMetadata(
       throw new Error(error.message || "Failed to fetch city beaches");
     }
 
-    // Return null if city doesn't exist or has fewer than 3 beaches
-    if (!beaches || beaches.length < 3) {
+    // Return null if city doesn't exist or has no beaches
+    if (!beaches || beaches.length < 1) {
       return null;
     }
 
@@ -135,7 +135,7 @@ export async function getCityMetadata(
 /**
  * Find a city by its URL slug and return full metadata.
  * Handles both simple slugs ("santa-cruz") and state-suffixed slugs ("newport-ca").
- * Returns null if city not found, ambiguous, or has fewer than 3 beaches.
+ * Returns null if city not found, ambiguous, or has no beaches.
  *
  * @param slug - URL slug like "santa-cruz" or "newport-ca"
  */
@@ -163,9 +163,9 @@ export async function findCityBySlug(
       return null;
     }
 
-    // Filter to cities with 3+ beaches (RPC returns beach_count)
+    // Filter to cities with at least 1 beach (RPC returns beach_count)
     const validCities = matches.filter(
-      (c: { city: string; state: string; beach_count: number }) => c.beach_count >= 3
+      (c: { city: string; state: string; beach_count: number }) => c.beach_count >= 1
     );
 
     if (validCities.length === 0) {
