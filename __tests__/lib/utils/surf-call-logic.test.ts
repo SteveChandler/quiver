@@ -81,7 +81,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '0.5 ft' })];
       const result = computeSurfCall(makeWindow(), forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot');
+      expect(result.whySentence).toBe('Waves too small for this spot.');
     });
 
     it('uses higher minimum for reef breaks', () => {
@@ -89,7 +89,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '1.8 ft' })];
       const result = computeSurfCall(makeWindow(), forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot');
+      expect(result.whySentence).toBe('Waves too small for this spot.');
     });
 
     it('allows reef break when waves are above minimum', () => {
@@ -104,7 +104,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
       const result = computeSurfCall(null, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('No viable surf window today');
+      expect(result.whySentence).toBe('No viable surf window today.');
     });
   });
 
@@ -157,7 +157,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ start, end, score: 90 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Window too short');
+      expect(result.whySentence).toBe('No viable window long enough to surf.');
     });
 
     it('returns NO for window exactly 29 minutes', () => {
@@ -166,7 +166,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ start, end, score: 90 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Window too short');
+      expect(result.whySentence).toBe('No viable window long enough to surf.');
     });
 
     it('caps YES to MAYBE for window between 30-44 minutes', () => {
@@ -266,39 +266,48 @@ describe('computeSurfCall', () => {
       expect(result.windDescription).toBe('glassy');
     });
 
-    it('returns "light offshore" for light wind aligned with offshore', () => {
+    it('returns structured wind for offshore-aligned wind', () => {
       // Beach offshore is 90 deg, wind dir is 90 deg → 0 diff → offshore
-      const forecasts = [makeForecast({ wind_speed: '8', wind_direction_deg: 90 } as any)];
+      const forecasts = [makeForecast({ wind_speed: '8', wind_direction: 'NW', wind_direction_deg: 90 } as any)];
       const beach = makeBeach({ wind_offshore_deg: 90 } as any);
       const window = makeWindow({ score: 80 });
       const result = computeSurfCall(window, forecasts, beach);
-      expect(result.windDescription).toBe('light offshore');
+      expect(result.windDescription).toBe('NW 8 mph (offshore)');
+      expect(result.windSpeed).toBe('8 mph');
+      expect(result.windCompass).toBe('NW');
+      expect(result.windType).toBe('offshore');
     });
 
-    it('returns "light onshore" for wind opposite to offshore', () => {
+    it('returns structured wind for onshore wind', () => {
       // Beach offshore is 90, wind is 270 → 180 diff → onshore
-      const forecasts = [makeForecast({ wind_speed: '8', wind_direction_deg: 270 } as any)];
+      const forecasts = [makeForecast({ wind_speed: '8', wind_direction: 'NW', wind_direction_deg: 270 } as any)];
       const beach = makeBeach({ wind_offshore_deg: 90 } as any);
       const window = makeWindow({ score: 80 });
       const result = computeSurfCall(window, forecasts, beach);
-      expect(result.windDescription).toBe('light onshore');
+      expect(result.windDescription).toBe('NW 8 mph (onshore)');
+      expect(result.windSpeed).toBe('8 mph');
+      expect(result.windType).toBe('onshore');
     });
 
-    it('returns "moderate cross-shore" for perpendicular wind', () => {
+    it('returns structured wind for cross-shore wind', () => {
       // Beach offshore is 0, wind is 90 → 90 diff → cross-shore
-      const forecasts = [makeForecast({ wind_speed: '12', wind_direction_deg: 90 } as any)];
+      const forecasts = [makeForecast({ wind_speed: '12', wind_direction: 'NW', wind_direction_deg: 90 } as any)];
       const beach = makeBeach({ wind_offshore_deg: 0 } as any);
       const window = makeWindow({ score: 80 });
       const result = computeSurfCall(window, forecasts, beach);
-      expect(result.windDescription).toBe('moderate cross-shore');
+      expect(result.windDescription).toBe('NW 12 mph (cross-shore)');
+      expect(result.windSpeed).toBe('12 mph');
+      expect(result.windType).toBe('cross-shore');
     });
 
-    it('returns "strong wind" for high speed with no offshore data', () => {
-      const forecasts = [makeForecast({ wind_speed: '25', wind_direction_deg: null } as any)];
+    it('returns speed without type when no offshore data', () => {
+      const forecasts = [makeForecast({ wind_speed: '25', wind_direction: 'NW', wind_direction_deg: null } as any)];
       const beach = makeBeach({ wind_offshore_deg: null } as any);
       const window = makeWindow({ score: 80 });
       const result = computeSurfCall(window, forecasts, beach);
-      expect(result.windDescription).toBe('strong wind');
+      expect(result.windDescription).toBe('NW 25 mph');
+      expect(result.windSpeed).toBe('25 mph');
+      expect(result.windType).toBeNull();
     });
 
     it('returns "Unknown" when wind speed is missing', () => {
@@ -393,18 +402,22 @@ describe('computeSurfCall', () => {
   describe('why sentence generation', () => {
     const forecasts = [makeForecast()];
 
-    it('generates sentence for YES verdict', () => {
+    it('generates explanatory sentence for YES verdict', () => {
       const window = makeWindow({ score: 85 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('YES');
-      expect(result.whySentence).toContain('sets');
+      // YES sentences explain what makes it good (tide, swell, offshore, etc.)
+      expect(result.whySentence.length).toBeGreaterThan(10);
+      expect(result.whySentence).toMatch(/\./); // ends with period
     });
 
-    it('generates sentence for MAYBE verdict', () => {
+    it('generates explanatory sentence for MAYBE verdict', () => {
       const window = makeWindow({ score: 55 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       expect(result.verdict).toBe('MAYBE');
-      expect(result.whySentence).toContain('surf');
+      // MAYBE sentences explain the limiting factor
+      expect(result.whySentence.length).toBeGreaterThan(10);
+      expect(result.whySentence).toMatch(/\./); // ends with period
     });
 
     it('generates choppy sentence for NO with onshore wind', () => {
@@ -428,7 +441,7 @@ describe('computeSurfCall', () => {
       const forecasts = [makeForecast({ wave_height: '1.4 ft' })];
       const result = computeSurfCall(makeWindow(), forecasts, beach);
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('Waves too small for this spot');
+      expect(result.whySentence).toBe('Waves too small for this spot.');
     });
 
     it('uses 2.0 ft for point break', () => {
@@ -451,7 +464,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ score: 75 });
       const result = computeSurfCall(window, forecasts, beach);
       // 1.6 > 1.5 default, so waves pass
-      expect(result.whySentence).not.toBe('Waves too small for this spot');
+      expect(result.whySentence).not.toBe('Waves too small for this spot.');
     });
   });
 
@@ -491,7 +504,7 @@ describe('computeSurfCall', () => {
       const window = makeWindow({ score: 75 });
       const result = computeSurfCall(window, forecasts, makeBeach());
       // Max wave is 4.0, above 1.5 minimum
-      expect(result.whySentence).not.toBe('Waves too small for this spot');
+      expect(result.whySentence).not.toBe('Waves too small for this spot.');
     });
   });
 });

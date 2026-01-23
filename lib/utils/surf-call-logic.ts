@@ -22,9 +22,16 @@ export interface SurfCallResult {
   bestWindowStart: string | null;
   bestWindowEnd: string | null;
   windowMinutes: number | null;
+  shortWindow: boolean;
   waveHeight: string | null;
   windDescription: string | null;
+  windSpeed: string | null;
+  windCompass: string | null;
+  windType: string | null;
   tideDescription: string | null;
+  tidePhase: string | null;
+  nextTideType: string | null;
+  nextTideAt: string | null;
   whySentence: string;
   forecastConfidence: number;
   lowForecastConfidence: boolean;
@@ -79,13 +86,6 @@ interface BeachWithWindData {
   wind_offshore_deg?: number | null;
 }
 
-interface ForecastWithWindData {
-  wind_direction_deg?: number | null;
-}
-
-interface ForecastWithTideData {
-  tide_status?: string | null;
-}
 
 // ============================================================================
 // Helpers
@@ -108,103 +108,221 @@ function parseMaxWaveHeight(waveHeight: string | null): number | null {
   return Math.max(...numbers.map(Number));
 }
 
+interface WindData {
+  description: string;
+  speed: string | null;
+  compass: string | null;
+  type: string | null;
+}
+
 /**
- * Determine wind quality relative to beach's offshore direction.
+ * Compute window-aggregated wind data across all forecasts in the best window.
+ * Returns min-max speed range, mode compass direction, and offshore/onshore type.
  */
-function getWindDescription(
-  forecast: EnhancedForecastEntity | null,
+function getWindowWind(
+  windowForecasts: EnhancedForecastEntity[],
   beach: Beach
-): string {
-  if (!forecast) return 'Unknown';
-
-  const windSpeedStr = forecast.wind_speed;
-  const forecastWithWind = forecast as EnhancedForecastEntity & ForecastWithWindData;
-  const windDirDeg = forecastWithWind.wind_direction_deg;
-  const speed = windSpeedStr ? parseFloat(windSpeedStr) : null;
-
-  if (speed == null || isNaN(speed)) return 'Unknown';
-  if (speed < WIND_SPEED_GLASSY) return 'glassy';
-
-  const speedLabel =
-    speed < WIND_SPEED_LIGHT_MAX
-      ? 'light'
-      : speed < WIND_SPEED_MODERATE_MAX
-        ? 'moderate'
-        : 'strong';
-
-  const beachWithWind = beach as Beach & BeachWithWindData;
-  const offshoreDeg = beachWithWind.wind_offshore_deg;
-
-  if (offshoreDeg == null || windDirDeg == null) {
-    return `${speedLabel} wind`;
+): WindData {
+  if (windowForecasts.length === 0) {
+    return { description: 'Unknown', speed: null, compass: null, type: null };
   }
 
-  // Compute angular difference (normalized 0-180)
-  let angleDiff = Math.abs(windDirDeg - offshoreDeg) % 360;
-  if (angleDiff > 180) angleDiff = 360 - angleDiff;
+  const speeds: number[] = [];
+  const directions: string[] = [];
+  const dirDegs: number[] = [];
 
-  const directionLabel =
-    angleDiff <= WIND_DIRECTION_OFFSHORE_MAX
+  for (const f of windowForecasts) {
+    const s = f.wind_speed ? parseFloat(f.wind_speed) : NaN;
+    if (!isNaN(s)) speeds.push(s);
+    if (f.wind_direction) directions.push(f.wind_direction);
+    const fwd = f.wind_direction_deg;
+    if (fwd != null) dirDegs.push(fwd);
+  }
+
+  if (speeds.length === 0) {
+    return { description: 'Unknown', speed: null, compass: null, type: null };
+  }
+
+  const minSpeed = Math.round(Math.min(...speeds));
+  const maxSpeed = Math.round(Math.max(...speeds));
+  const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+
+  // Glassy check
+  if (maxSpeed < WIND_SPEED_GLASSY) {
+    return { description: 'glassy', speed: `${maxSpeed} mph`, compass: null, type: 'glassy' };
+  }
+
+  // Speed string: show range if spread > 3 mph
+  const speedStr = (maxSpeed - minSpeed) > 3
+    ? `${minSpeed}–${maxSpeed} mph`
+    : `${Math.round(avgSpeed)} mph`;
+
+  // Compass: mode (most common direction)
+  const compass = directions.length > 0
+    ? modeString(directions)
+    : null;
+
+  // Wind type: use average direction degrees vs beach offshore
+  const beachWithWind = beach as Beach & BeachWithWindData;
+  const offshoreDeg = beachWithWind.wind_offshore_deg;
+  let windType: string | null = null;
+
+  if (offshoreDeg != null && dirDegs.length > 0) {
+    const avgDirDeg = dirDegs.reduce((a, b) => a + b, 0) / dirDegs.length;
+    let angleDiff = Math.abs(avgDirDeg - offshoreDeg) % 360;
+    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+    windType = angleDiff <= WIND_DIRECTION_OFFSHORE_MAX
       ? 'offshore'
       : angleDiff >= WIND_DIRECTION_CROSSSHORE_MIN
         ? 'onshore'
         : 'cross-shore';
+  }
 
-  return `${speedLabel} ${directionLabel}`;
+  // Build description string
+  const desc = windType
+    ? `${compass || ''} ${speedStr} (${windType})`.trim()
+    : `${compass || ''} ${speedStr}`.trim();
+
+  return { description: desc, speed: speedStr, compass, type: windType };
+}
+
+function modeString(arr: string[]): string | null {
+  if (arr.length === 0) return null;
+  const counts: Record<string, number> = {};
+  for (const s of arr) counts[s] = (counts[s] || 0) + 1;
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+interface TideData {
+  description: string;
+  phase: string | null;
+  nextType: string | null;
+  nextAt: string | null;
 }
 
 /**
- * Format tide description from forecast data.
+ * Extract tide data from the forecast closest to window start,
+ * finding the next tide event >= windowStart.
  */
-function getTideDescription(forecast: EnhancedForecastEntity | null): string {
-  if (!forecast) return 'Unknown';
+function getWindowTide(
+  windowForecasts: EnhancedForecastEntity[],
+  windowStartMs: number
+): TideData {
+  if (windowForecasts.length === 0) {
+    return { description: 'Unknown', phase: null, nextType: null, nextAt: null };
+  }
 
-  const forecastWithTide = forecast as EnhancedForecastEntity & ForecastWithTideData;
-  const status = forecastWithTide.tide_status;
+  // Find first forecast with next_tide_at >= windowStart
+  let tideForecast: EnhancedForecastEntity | null = null;
+  for (const f of windowForecasts) {
+    if (f.next_tide_at && new Date(f.next_tide_at).getTime() >= windowStartMs) {
+      tideForecast = f;
+      break;
+    }
+  }
 
-  if (!status) return 'Unknown';
+  // Fallback: use first forecast with tide_status
+  if (!tideForecast) {
+    tideForecast = windowForecasts.find(f => f.tide_status) || null;
+  }
 
-  // Normalize status
-  const lower = status.toLowerCase();
-  if (lower.includes('rising')) return 'rising';
-  if (lower.includes('falling')) return 'falling';
-  if (lower.includes('high')) return 'high slack';
-  if (lower.includes('low')) return 'low slack';
-  return status;
+  if (!tideForecast) {
+    return { description: 'Unknown', phase: null, nextType: null, nextAt: null };
+  }
+
+  const status = tideForecast.tide_status;
+  const nextType = tideForecast.next_tide_type || null;
+  const nextAt = tideForecast.next_tide_at || null;
+
+  // Normalize phase
+  let phase: string | null = null;
+  if (status) {
+    const lower = status.toLowerCase();
+    if (lower.includes('rising')) phase = 'rising';
+    else if (lower.includes('falling')) phase = 'falling';
+    else if (lower.includes('high')) phase = 'high slack';
+    else if (lower.includes('low')) phase = 'low slack';
+    else phase = status;
+  }
+
+  // Build description
+  let desc = phase || 'Unknown';
+  if (phase && nextType && nextAt) {
+    desc = `${capitalize(phase)} → ${capitalize(nextType)}`;
+  }
+
+  return { description: desc, phase, nextType: nextType || null, nextAt: nextAt || null };
 }
 
 /**
- * Build why sentence based on conditions.
+ * Build why sentence explaining the reason for the verdict.
+ * Picks the dominant factor rather than summarizing all conditions.
  */
 function buildWhySentence(
   verdict: SurfCallVerdict,
-  windDesc: string,
+  wind: WindData,
   waveHeight: string | null,
-  tideDesc: string,
+  tide: TideData,
+  shortWindow: boolean,
   noReason?: string
 ): string {
   if (noReason) return noReason;
 
+  const isOffshore = wind.type === 'offshore';
+  const isOnshore = wind.type === 'onshore';
+  const isCross = wind.type === 'cross-shore';
+  const hasGoodTide = tide.phase === 'rising' || tide.phase === 'low slack';
+
   if (verdict === 'YES') {
+    // Highlight the two strongest positives
+    const parts: string[] = [];
+    if (isOffshore || wind.type === 'glassy') {
+      parts.push(wind.type === 'glassy' ? 'Glassy conditions' : 'Clean offshore');
+    }
+    if (hasGoodTide && tide.phase) {
+      parts.push(`${tide.phase} tide`);
+    }
     const wavePart = waveHeight && waveHeight !== 'Unknown'
-      ? `with ${waveHeight} sets`
+      ? `with ${waveHeight} swell energy`
       : 'with solid swell';
-    const tidePart = tideDesc !== 'Unknown' ? ` on the ${tideDesc} tide` : '';
-    return `${capitalize(windDesc)} ${wavePart}${tidePart}`;
+    if (parts.length >= 2) {
+      return `${capitalize(parts[0])} + ${parts[1]} ${wavePart}.`;
+    }
+    if (parts.length === 1) {
+      return `${capitalize(parts[0])} ${wavePart}.`;
+    }
+    return `Good conditions ${wavePart}.`;
   }
 
   if (verdict === 'MAYBE') {
+    // Highlight the biggest limiter
+    if (shortWindow) {
+      if (isOnshore || isCross) {
+        return `Short clean window before wind turns ${wind.type}.`;
+      }
+      return 'Best window is short — conditions change quickly.';
+    }
+    if (isOnshore) {
+      return 'Size is there, but onshore wind hurts shape.';
+    }
+    if (isCross) {
+      return 'Size is there, but cross-shore wind affects quality.';
+    }
+    if (tide.phase === 'falling' || tide.phase === 'high slack') {
+      return 'Good swell, but tide is dropping through the window.';
+    }
     const wavePart = waveHeight && waveHeight !== 'Unknown'
-      ? `with ${waveHeight} surf`
-      : 'with modest swell';
-    return `${capitalize(windDesc)} ${wavePart}`;
+      ? `${waveHeight} surf`
+      : 'modest swell';
+    return `Rideable ${wavePart} — keep an eye on conditions.`;
   }
 
-  // NO
-  if (windDesc.includes('onshore') || windDesc.includes('strong')) {
-    return `${capitalize(windDesc)} making conditions choppy`;
-  }
-  return 'Conditions not favorable for surfing today';
+  // NO — state the primary fail gate
+  if (isOnshore) return 'Onshore wind all day making conditions choppy.';
+  if (wind.description.includes('strong')) return 'Strong wind making conditions unsurfable.';
+  if (shortWindow) return 'No viable window long enough to surf.';
+  return 'Conditions not favorable for surfing.';
 }
 
 function capitalize(s: string): string {
@@ -278,9 +396,16 @@ export function computeSurfCall(
     bestWindowStart: null,
     bestWindowEnd: null,
     windowMinutes: null,
+    shortWindow: false,
     waveHeight: null,
     windDescription: null,
+    windSpeed: null,
+    windCompass: null,
+    windType: null,
     tideDescription: null,
+    tidePhase: null,
+    nextTideType: null,
+    nextTideAt: null,
     whySentence: '',
     forecastConfidence: 0,
     lowForecastConfidence: false,
@@ -307,7 +432,7 @@ export function computeSurfCall(
     return {
       ...baseResult,
       waveHeight: maxWave > 0 ? `${maxWave} ft` : null,
-      whySentence: 'Waves too small for this spot',
+      whySentence: 'Waves too small for this spot.',
     };
   }
 
@@ -315,28 +440,32 @@ export function computeSurfCall(
   if (!window) {
     return {
       ...baseResult,
-      whySentence: 'No viable surf window today',
+      whySentence: 'No viable surf window today.',
     };
   }
 
   // Compute window duration
   const windowMs = new Date(window.end).getTime() - new Date(window.start).getTime();
   const windowMinutes = Math.round(windowMs / 60000);
+  const shortWindow = windowMinutes < SHORT_WINDOW_THRESHOLD_MINUTES;
   const score = Math.max(0, Math.min(100, window.score ?? 0));
   const forecastConfidence = window.confidence ?? 50;
   const lowForecastConfidence = forecastConfidence < LOW_CONFIDENCE_DISPLAY_THRESHOLD;
 
-  // Find the forecast entry closest to window start for condition details
+  // Get forecasts within the window for aggregated conditions
   const windowStartMs = new Date(window.start).getTime();
-  const closestForecast = forecasts.reduce<EnhancedForecastEntity | null>((closest, f) => {
+  const windowEndMs = new Date(window.end).getTime();
+  const windowForecasts = forecasts.filter((f) => {
     const fTime = new Date(f.forecast_date + 'T' + f.forecast_time).getTime();
-    if (!closest) return f;
-    const closestTime = new Date(closest.forecast_date + 'T' + closest.forecast_time).getTime();
-    return Math.abs(fTime - windowStartMs) < Math.abs(closestTime - windowStartMs) ? f : closest;
-  }, null);
+    return fTime >= windowStartMs && fTime <= windowEndMs;
+  });
+  // Fallback: if no forecasts strictly within window, use closest ones
+  const effectiveForecasts = windowForecasts.length > 0
+    ? windowForecasts
+    : forecasts.slice(0, 3);
 
-  const windDescription = getWindDescription(closestForecast, beach);
-  const tideDescription = getTideDescription(closestForecast);
+  const wind = getWindowWind(effectiveForecasts, beach);
+  const tide = getWindowTide(effectiveForecasts, windowStartMs);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
 
   // Short window gate - reject if too short
@@ -346,29 +475,42 @@ export function computeSurfCall(
       bestWindowStart: new Date(window.start).toISOString(),
       bestWindowEnd: new Date(window.end).toISOString(),
       windowMinutes,
+      shortWindow: true,
       waveHeight,
-      windDescription,
-      tideDescription,
+      windDescription: wind.description,
+      windSpeed: wind.speed,
+      windCompass: wind.compass,
+      windType: wind.type,
+      tideDescription: tide.description,
+      tidePhase: tide.phase,
+      nextTideType: tide.nextType,
+      nextTideAt: tide.nextAt,
       forecastConfidence,
       lowForecastConfidence,
       score,
-      whySentence: 'Window too short',
+      whySentence: 'No viable window long enough to surf.',
     };
   }
 
   // Determine verdict based on score, window duration, and confidence
   const verdict = determineVerdict(score, windowMinutes, forecastConfidence);
-
-  const whySentence = buildWhySentence(verdict, windDescription, waveHeight, tideDescription);
+  const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow);
 
   return {
     verdict,
     bestWindowStart: new Date(window.start).toISOString(),
     bestWindowEnd: new Date(window.end).toISOString(),
     windowMinutes,
+    shortWindow,
     waveHeight,
-    windDescription,
-    tideDescription,
+    windDescription: wind.description,
+    windSpeed: wind.speed,
+    windCompass: wind.compass,
+    windType: wind.type,
+    tideDescription: tide.description,
+    tidePhase: tide.phase,
+    nextTideType: tide.nextType,
+    nextTideAt: tide.nextAt,
     whySentence,
     forecastConfidence,
     lowForecastConfidence,

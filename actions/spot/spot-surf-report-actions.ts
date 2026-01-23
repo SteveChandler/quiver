@@ -7,15 +7,21 @@ import { computeSurfCall, type SurfCallResult } from '@/lib/utils/surf-call-logi
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-formatting';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+
+export interface SpotSurfReportResult {
+  report: SurfCallResult;
+  isTomorrow: boolean;
+}
 
 /**
- * Get today's surf report for a beach.
+ * Get today's (or tomorrow's) surf report for a beach.
  *
  * Cached for 15 minutes via unstable_cache to avoid redundant DB hits
  * on a force-dynamic page. Returns null on any error so the UI gracefully
  * degrades (no card rendered).
  */
-export async function getSpotSurfReport(beach: Beach): Promise<SurfCallResult | null> {
+export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportResult | null> {
   if (!beach.id) return null;
 
   try {
@@ -43,42 +49,72 @@ export async function getSpotSurfReport(beach: Beach): Promise<SurfCallResult | 
  *   a session, but long enough to survive traffic spikes on popular spots.
  */
 const getCachedSurfReport = unstable_cache(
-  async (beachId: string, beach: Beach): Promise<SurfCallResult | null> => {
+  async (beachId: string, beach: Beach): Promise<SpotSurfReportResult | null> => {
     // 1. Determine beach timezone
     const beachTz = beach.lat != null && beach.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
       : DEFAULT_TIMEZONE;
 
-    // 2. Determine "today" in beach timezone
-    const todayStr = formatDateInTimezone(new Date(), beachTz);
+    // 2. Determine "today" and "tomorrow" in beach timezone
+    const now = new Date();
+    const todayStr = formatDateInTimezone(now, beachTz);
+    const tomorrow = new Date(now.getTime() + 86_400_000);
+    const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
 
-    // 3. Fetch forecasts (today + tomorrow for window selection)
-    const { getEnhancedBeachForecasts } = await import('@/actions/forecast-actions');
-    const forecastResult = await getEnhancedBeachForecasts(beachId, 2);
-    if (!forecastResult.success || !forecastResult.data) {
-      return computeSurfCall(null, [], beach);
+    // 3. Query enhanced_forecasts directly with timezone-aware dates
+    const supabase = await createSupabaseServiceRoleClient();
+    const { data, error } = await supabase
+      .from('enhanced_forecasts')
+      .select('*')
+      .eq('beach_id', beachId)
+      .gte('forecast_date', todayStr)
+      .lte('forecast_date', tomorrowStr)
+      .order('forecast_date', { ascending: true })
+      .order('forecast_time', { ascending: true })
+      .limit(48);
+
+    if (error) {
+      console.error('[getCachedSurfReport] Database error:', {
+        beachId,
+        message: error.message,
+        code: error.code,
+      });
+      return { report: computeSurfCall(null, [], beach), isTomorrow: false };
     }
 
-    // 4. Filter forecasts to today in beach timezone
-    const todayForecasts = (forecastResult.data as EnhancedForecastEntity[]).filter((f) => {
-      return f.forecast_date === todayStr;
-    });
+    if (!data || data.length === 0) {
+      return { report: computeSurfCall(null, [], beach), isTomorrow: false };
+    }
 
-    if (todayForecasts.length === 0) {
-      return computeSurfCall(null, [], beach);
+    const forecasts = data as EnhancedForecastEntity[];
+
+    // 4. Filter to today first; fall back to tomorrow if no today data
+    const todayForecasts = forecasts.filter(f => f.forecast_date === todayStr);
+    let isTomorrow = false;
+    let selectedForecasts: EnhancedForecastEntity[];
+
+    if (todayForecasts.length > 0) {
+      selectedForecasts = todayForecasts;
+    } else {
+      const tomorrowForecasts = forecasts.filter(f => f.forecast_date === tomorrowStr);
+      if (tomorrowForecasts.length === 0) {
+        return { report: computeSurfCall(null, [], beach), isTomorrow: false };
+      }
+      selectedForecasts = tomorrowForecasts;
+      isTomorrow = true;
     }
 
     // 5. Select best window
     const { selectBestWindow } = await import('@/lib/services/discovery/window-selector');
     const window = selectBestWindow({
-      forecasts: todayForecasts,
+      forecasts: selectedForecasts,
       beach,
       userPrefs: null,
       horizonHours: 24,
     });
 
     // 6. Compute surf call
-    return computeSurfCall(window, todayForecasts, beach);
+    return { report: computeSurfCall(window, selectedForecasts, beach), isTomorrow };
   },
   ['spot-surf-report'],
   { revalidate: 900 } // 15-minute cache

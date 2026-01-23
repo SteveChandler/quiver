@@ -2,7 +2,7 @@
 
 import { BeachDetail } from "@/components/beach-detail";
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, type ReactNode } from "react";
 import { trackPublicPageView } from "@/lib/analytics";
 import type { Beach } from "@/types/database";
 import AuthGate from "@/components/auth/auth-gate";
@@ -13,12 +13,14 @@ interface BeachDetailClientProps {
   beach: Beach;
   slug: string;
   beachTimezone?: string | null;
+  surfReportSlot?: ReactNode;
 }
 
 export function BeachDetailClient({
   beach,
   slug,
   beachTimezone,
+  surfReportSlot,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const [personalizationData, setPersonalizationData] = useState<{
@@ -50,6 +52,7 @@ export function BeachDetailClient({
         publicMode={!user}
         initialBeach={beach}
         beachTimezone={beachTimezone}
+        surfReportSlot={surfReportSlot}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

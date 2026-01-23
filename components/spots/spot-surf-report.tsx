@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import Link from 'next/link';
 import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
@@ -9,15 +10,14 @@ interface SpotSurfReportProps {
   report: SurfCallResult;
   spotName: string;
   timezone?: string;
+  isTomorrow?: boolean;
 }
 
 const VERDICT_STYLES = {
-  YES: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  MAYBE: 'bg-amber-100 text-amber-800 border-amber-200',
-  NO: 'bg-slate-100 text-slate-600 border-slate-200',
+  YES: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+  MAYBE: 'bg-amber-50 text-amber-700 border-amber-200/80',
+  NO: 'bg-slate-50 text-slate-600 border-slate-200/80',
 } as const;
-
-const UNKNOWN_VALUE = 'Unknown';
 
 function formatTime(isoString: string, timezone?: string): string {
   try {
@@ -37,91 +37,115 @@ function isValidVerdict(verdict: string): verdict is keyof typeof VERDICT_STYLES
   return verdict in VERDICT_STYLES;
 }
 
-export function SpotSurfReport({ report, spotName, timezone }: SpotSurfReportProps) {
+export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false }: SpotSurfReportProps) {
   const hasWindow = report.bestWindowStart && report.bestWindowEnd;
   const verdictStyle = isValidVerdict(report.verdict)
     ? VERDICT_STYLES[report.verdict]
     : VERDICT_STYLES.NO;
   const updatedTime = formatTime(report.updatedAt, timezone);
+  const heading = isTomorrow ? "Tomorrow\u2019s Surf Call" : "Today\u2019s Surf Call";
+
+  // Format wind display: "NW 12–16 mph (cross-shore)"
+  const windDisplay = report.windSpeed && report.windSpeed !== 'Unknown'
+    ? [report.windCompass, report.windSpeed, report.windType ? `(${report.windType})` : null]
+        .filter(Boolean).join(' ')
+    : report.windDescription !== 'Unknown' ? report.windDescription : null;
+
+  // Format tide display: "Rising → High @ 1:10 PM"
+  let tideDisplay: string | null = null;
+  if (report.tidePhase) {
+    const phase = report.tidePhase.charAt(0).toUpperCase() + report.tidePhase.slice(1);
+    if (report.nextTideType && report.nextTideAt) {
+      const tideTime = formatTime(report.nextTideAt, timezone);
+      if (tideTime) {
+        tideDisplay = `${phase} \u2192 ${report.nextTideType.charAt(0).toUpperCase() + report.nextTideType.slice(1)} @ ${tideTime}`;
+      } else {
+        tideDisplay = phase;
+      }
+    } else {
+      tideDisplay = phase;
+    }
+  }
 
   return (
     <section
-      aria-label={`Today's surf call for ${spotName}`}
-      className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 lg:px-8"
+      aria-label={`${isTomorrow ? "Tomorrow's" : "Today's"} surf call for ${spotName}`}
+      className="mb-6"
     >
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-3xl border border-blue-100/60 bg-white/95 p-5 shadow-lg backdrop-blur">
         {/* Header row */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <span
-              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-sm font-bold ${verdictStyle}`}
+              className={`inline-flex items-center rounded-xl border px-2.5 py-1 text-sm font-bold ${verdictStyle}`}
             >
               {report.verdict}
             </span>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Today&apos;s Surf Call
-            </h2>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            {report.lowForecastConfidence && (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 border border-amber-200">
-                Low forecast confidence
+            {report.shortWindow && report.verdict !== 'NO' && (
+              <span className="inline-flex items-center rounded-lg border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                Short window
               </span>
             )}
-            {updatedTime && (
-              <span>Updated {updatedTime}</span>
-            )}
+            <h2 className="text-lg font-semibold text-dark-grey">
+              {heading}
+            </h2>
+          </div>
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {report.lowForecastConfidence && (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 border border-amber-200/80">
+                  Low confidence
+                </span>
+              )}
+              {updatedTime && (
+                <span>Updated {updatedTime}</span>
+              )}
+            </div>
+            <Link
+              href="/login"
+              className="text-[11px] text-ocean-blue/70 hover:text-ocean-blue transition-colors"
+            >
+              Sign in for your call (board + level)
+            </Link>
           </div>
         </div>
 
-        {/* Conditions grid */}
+        {/* Conditions row */}
         {hasWindow && (
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              <span className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
                 Best window
-              </dt>
-              <dd className="mt-1 text-sm font-semibold text-slate-900">
+              </span>
+              <span className="ml-2 font-roboto font-semibold text-dark-grey">
                 {formatTime(report.bestWindowStart!, timezone)}–{formatTime(report.bestWindowEnd!, timezone)}
-              </dd>
+              </span>
             </div>
             {report.waveHeight && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Size
-                </dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">
-                  {report.waveHeight}
-                </dd>
-              </div>
+              <>
+                <span className="text-slate-300">&middot;</span>
+                <span className="font-roboto font-semibold text-dark-grey">{report.waveHeight}</span>
+              </>
             )}
-            {report.windDescription && report.windDescription !== UNKNOWN_VALUE && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Wind
-                </dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">
-                  {report.windDescription}
-                </dd>
-              </div>
+            {windDisplay && (
+              <>
+                <span className="text-slate-300">&middot;</span>
+                <span className="font-roboto text-sm text-dark-grey">{windDisplay}</span>
+              </>
             )}
-            {report.tideDescription && report.tideDescription !== UNKNOWN_VALUE && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Tide
-                </dt>
-                <dd className="mt-1 text-sm font-semibold text-slate-900">
-                  {report.tideDescription}
-                </dd>
-              </div>
+            {tideDisplay && (
+              <>
+                <span className="text-slate-300">&middot;</span>
+                <span className="font-roboto text-sm text-dark-grey">{tideDisplay}</span>
+              </>
             )}
-          </dl>
+          </div>
         )}
 
         {/* Why sentence */}
         {report.whySentence && (
-          <p className="mt-3 text-sm italic text-slate-600">
-            &ldquo;{report.whySentence}&rdquo;
+          <p className="mt-3 text-sm text-muted-foreground">
+            {report.whySentence}
           </p>
         )}
       </div>
@@ -133,20 +157,17 @@ function SpotSurfReportSkeleton() {
   return (
     <section
       aria-label="Loading surf call"
-      className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 lg:px-8"
+      className="mb-6"
     >
-      <div className="animate-pulse rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="animate-pulse rounded-3xl border border-blue-100/60 bg-white/95 p-5 shadow-lg backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="h-7 w-16 rounded-md bg-slate-200" />
+          <div className="h-7 w-16 rounded-xl bg-slate-200" />
           <div className="h-6 w-36 rounded bg-slate-200" />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i}>
-              <div className="h-3 w-16 rounded bg-slate-100" />
-              <div className="mt-2 h-5 w-20 rounded bg-slate-200" />
-            </div>
-          ))}
+        <div className="mt-4 flex gap-4">
+          <div className="h-4 w-24 rounded bg-slate-100" />
+          <div className="h-4 w-20 rounded bg-slate-100" />
+          <div className="h-4 w-16 rounded bg-slate-100" />
         </div>
       </div>
     </section>
@@ -158,8 +179,8 @@ interface SpotSurfReportLoaderProps {
 }
 
 async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
-  const surfReport = await getSpotSurfReport(beach);
-  if (!surfReport) return null;
+  const result = await getSpotSurfReport(beach);
+  if (!result) return null;
 
   const timezone = beach.lat != null && beach.lon != null
     ? getTimezoneFromCoords(beach.lat, beach.lon)
@@ -167,9 +188,10 @@ async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
 
   return (
     <SpotSurfReport
-      report={surfReport}
+      report={result.report}
       spotName={beach.name}
       timezone={timezone || undefined}
+      isTomorrow={result.isTomorrow}
     />
   );
 }

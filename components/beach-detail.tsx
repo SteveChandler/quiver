@@ -7,6 +7,7 @@ import {
   useEffect,
   lazy,
   Suspense,
+  type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -150,6 +151,7 @@ interface BeachDetailProps {
   publicMode?: boolean;
   initialBeach?: Beach;
   beachTimezone?: string | null;
+  surfReportSlot?: ReactNode;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -169,6 +171,7 @@ function BeachDetailContent({
   publicMode = false,
   initialBeach,
   beachTimezone,
+  surfReportSlot,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -581,6 +584,9 @@ function BeachDetailContent({
           isLoadingPersonalization={personalizationData?.isLoading}
           className="mb-6"
         />
+
+        {/* Surf Call Card (server-rendered slot) */}
+        {surfReportSlot}
 
         {/* Photo Gallery with Map */}
         <BeachPhotoGallery beach={beach} className="mb-6" />

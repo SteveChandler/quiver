@@ -25,9 +25,9 @@ test.describe('Spot Surf Report', () => {
       const verdictBadge = surfReport.locator('text=/^(YES|MAYBE|NO)$/');
       await expect(verdictBadge).toBeVisible();
 
-      // Verify "Today's Surf Call" heading
-      const heading = surfReport.getByText("Today's Surf Call");
-      await expect(heading).toBeVisible();
+      // Verify surf call heading (today or tomorrow)
+      const heading = surfReport.locator('h2');
+      await expect(heading).toHaveText(/^(Today's|Tomorrow's) Surf Call$/);
 
       // Verify updated timestamp is shown
       const updated = surfReport.getByText(/Updated/);
@@ -88,25 +88,23 @@ test.describe('Spot Surf Report', () => {
     expect(new Date(webPageSchema?.dateModified).getTime()).not.toBeNaN();
   });
 
-  test('surf report card shows conditions grid when window exists', async ({ page }) => {
+  test('surf report card shows best window when conditions exist', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await surfReport.isVisible().catch(() => false);
 
     if (isVisible) {
-      // Check for the conditions definition list
-      const conditionsDl = surfReport.locator('dl');
-      const hasDl = await conditionsDl.isVisible().catch(() => false);
+      // Check for the "Best window" label (inline layout with dot separators)
+      const bestWindowLabel = surfReport.getByText(/best window/i);
+      const hasWindow = await bestWindowLabel.isVisible().catch(() => false);
 
-      if (hasDl) {
-        // At least "Best window" should be shown
-        const bestWindow = conditionsDl.getByText('Best window');
-        await expect(bestWindow).toBeVisible();
+      if (hasWindow) {
+        await expect(bestWindowLabel).toBeVisible();
 
-        // Time format should be visible (e.g., "6:30 AM")
-        const timeText = conditionsDl.locator('dd').first();
-        await expect(timeText).toBeVisible();
+        // Time format should be visible nearby (e.g., "6:30 AM–9:00 AM")
+        const timeText = surfReport.locator('text=/\\d{1,2}:\\d{2}\\s*(AM|PM)/i');
+        await expect(timeText.first()).toBeVisible();
       }
     }
   });
@@ -119,7 +117,7 @@ test.describe('Spot Surf Report', () => {
     const isVisible = await surfReport.isVisible().catch(() => false);
 
     if (isVisible) {
-      // On mobile, the grid should be 2-col (verify card doesn't overflow)
+      // Verify card doesn't overflow viewport on mobile
       const box = await surfReport.boundingBox();
       if (box) {
         expect(box.width).toBeLessThanOrEqual(375);

@@ -176,14 +176,12 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
           }}
         />
 
-        {/* Above-the-fold surf report (streams via Suspense) */}
-        <SpotSurfReportStream beach={beach} />
-
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
           beach={beach}
           slug={beachSlug}
           beachTimezone={beachTimezone}
+          surfReportSlot={<SpotSurfReportStream beach={beach} />}
         />
       </>
     );
