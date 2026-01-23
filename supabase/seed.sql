@@ -228,3 +228,49 @@ SELECT * FROM (VALUES
   )
 ) AS s(profile_id, user_id, beach_id, arrival_time, duration_minutes, status, rating, notes, beach_name, wave_quality, crowd_level, is_public)
 WHERE s.profile_id IS NOT NULL;
+
+-- =============================================================================
+-- 5. FAVORITES & HOME BEACH for Emma Davis (proximity testing)
+-- Simulates a user with favorites both near and far from UTC San Diego (32.87, -117.22)
+-- Emma Davis is a 'south-san-diego' rookie who survives NPC cleanup migration
+-- =============================================================================
+
+-- Set home beach to Ocean Beach (~8 mi from UTC - may be filtered when GPS active with small radius)
+UPDATE public.profiles
+SET home_beach_id = (SELECT id FROM public.beaches WHERE name = 'Ocean Beach' LIMIT 1)
+WHERE full_name = 'Emma Davis';
+
+-- Add favorites: mix of near-UTC and farther beaches
+INSERT INTO public.favorite_beaches (user_id, beach_id, rank)
+SELECT
+  (SELECT id FROM public.profiles WHERE full_name = 'Emma Davis' LIMIT 1),
+  b.id,
+  b.rank_val
+FROM (VALUES
+  -- Farther from UTC (~8-10 mi)
+  ('Ocean Beach', 1),
+  ('Sunset Cliffs', 2),
+  -- Near UTC (~2-5 mi)
+  ('Blacks', 3),
+  ('Scripps Pier', 4),
+  ('La Jolla Shores', 5),
+  ('Tourmaline', 6)
+) AS b(beach_name, rank_val)
+JOIN public.beaches ON beaches.name = b.beach_name
+ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- 6. SUN TIMES for SD beaches (required by discovery orchestrator)
+-- =============================================================================
+INSERT INTO public.sun_times (beach_id, date, sunrise_utc, sunset_utc, source)
+SELECT
+  b.id,
+  d::date,
+  d + INTERVAL '14 hours 45 minutes',
+  d + INTERVAL '25 hours 15 minutes',
+  'open-meteo'
+FROM public.beaches b
+CROSS JOIN generate_series(CURRENT_DATE, CURRENT_DATE + INTERVAL '6 days', INTERVAL '1 day') AS d
+WHERE b.lat IS NOT NULL AND b.lon IS NOT NULL
+  AND b.lat BETWEEN 32.5 AND 33.5
+ON CONFLICT (beach_id, date, source) DO NOTHING;

@@ -278,10 +278,11 @@ function findPeakWithinWindow(
   windowEnd: Date,
   forecasts: Array<{ forecastTime: Date; score: number }>
 ): Date {
-  // Find forecasts within or overlapping the window
-  // Include forecasts slightly before/after for interpolation context
+  // Find forecasts within the window (exclusive end boundary).
+  // The window end may be a hard stop (sunset cap), so forecasts AT
+  // end time shouldn't be considered "surfable" peaks.
   const windowForecasts = forecasts.filter(
-    (f) => f.forecastTime >= windowStart && f.forecastTime <= windowEnd
+    (f) => f.forecastTime >= windowStart && f.forecastTime < windowEnd
   );
 
   if (windowForecasts.length === 0) {

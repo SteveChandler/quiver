@@ -116,7 +116,7 @@ export function HomeScreen() {
     maxResults: 6,
     horizonHours: 24, // Home screen: only consider windows in next 24 hours
     timeSlot, // Pass the selected time slot
-    enabled: !!profile,
+    enabled: !!profile && !geoLoading,
     immediate: true,
     userLocation: seedDiscoveryLocation,
   });
