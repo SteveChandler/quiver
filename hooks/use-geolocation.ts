@@ -9,7 +9,7 @@ const OCEAN_BEACH_COORDS: Coordinates = {
 };
 
 // Safety timeout for iOS/mobile where geolocation can hang
-const SAFETY_TIMEOUT_MS = 10000; // 10 seconds
+const SAFETY_TIMEOUT_MS = 12000; // 12 seconds
 
 // Polling defaults for traveling user detection
 const DEFAULT_POLLING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -186,10 +186,10 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       return;
     }
 
-    const options = {
-      enableHighAccuracy: false,
-      timeout: 8000,
-      maximumAge: 300000, // 5 minutes cache
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0, // Always get fresh position
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -297,7 +297,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           }
         },
         () => {}, // Silent fail on polling errors - don't disrupt UX
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
       );
     };
 

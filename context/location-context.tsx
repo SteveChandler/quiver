@@ -137,7 +137,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 300000, // 5 minutes
+          maximumAge: 0, // Always fresh
         });
       });
 
