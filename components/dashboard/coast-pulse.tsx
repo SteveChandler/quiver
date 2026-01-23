@@ -534,7 +534,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
                     {item.emoji_rating && (
                       <EmojiRatingDisplay rating={item.emoji_rating} />
                     )}
-                    <p className="text-sm text-white leading-snug flex-1">
+                    <p className="text-sm text-white leading-snug flex-1 line-clamp-3">
                       {item.message}
                     </p>
                     {item.trend && getTrendIcon(item.trend)}

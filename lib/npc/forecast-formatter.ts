@@ -71,7 +71,7 @@ export function formatCrowdSentence(level: number): string {
 }
 
 export function formatTimeOfDay(date: Date): string {
-  const hour = date.getHours();
+  const hour = (date.getUTCHours() + 24 - 8) % 24; // Convert to PT
   if (hour < 5) return 'pre-dawn';
   if (hour < 7) return 'dawn patrol';
   if (hour < 11) return 'morning';
