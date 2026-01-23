@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/ioos-sync?phase=stations",
       "schedule": "0 5 * * 0"
+    },
+    {
+      "path": "/api/cron/welcome-email",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

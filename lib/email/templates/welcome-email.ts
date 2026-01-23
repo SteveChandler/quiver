@@ -1,10 +1,8 @@
 /**
  * Welcome Email Template
  *
- * Sent immediately after signup. Captures user preferences via email buttons.
- *
- * Uses the shared HTML generator from welcome-email-html.ts for consistency
- * with the Deno Edge Function.
+ * Sent by the /api/cron/welcome-email cron (delayed conditional send).
+ * Captures user preferences via email buttons.
  */
 
 import { signEmailToken } from '@/lib/utils/email-token';
