@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
+import { formatTimeWindowCompact } from "@/lib/utils/time-formatters";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
 
@@ -77,6 +78,7 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   const primaryBadge = conditionBadges?.[0]?.label
     ? getShortBadgeLabel(conditionBadges[0].label)
     : null;
+  const compactTime = formatTimeWindowCompact(window.start, window.end, window.timezone);
 
   // Track when favorite is shown in carousel
   useEffect(() => {
@@ -168,6 +170,11 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
           >
             {beach.name}
           </h3>
+
+          {/* Time window */}
+          <p className="text-[10px] xs:text-xs text-white/60" data-testid="compact-card-time">
+            {compactTime}
+          </p>
 
           {/* Conditions - stacked for mobile */}
           <div className="space-y-0.5 text-[10px] xs:text-xs text-white/80">

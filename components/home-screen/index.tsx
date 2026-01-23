@@ -299,6 +299,8 @@ export function HomeScreen() {
             <section className="w-full">
               <TopSpotsCarousel
                 spots={topSpots}
+                heroWindow={topRecommendation?.window}
+                timeSlot={timeSlot}
                 loading={discoveryLoading}
                 onPlanSession={handleAtBeach}
                 onViewSpot={handleViewSpot}

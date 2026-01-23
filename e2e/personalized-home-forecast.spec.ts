@@ -275,7 +275,7 @@ test.describe('Home Screen Surf Recommendations', () => {
 
   test("displays top spots carousel with secondary recommendations", async ({ page }) => {
     // Top spots section should be visible
-    const topSpotsRegion = page.getByRole('region', { name: /your top spots/i });
+    const topSpotsRegion = page.getByRole('region', { name: /top spots/i });
     await expect(topSpotsRegion).toBeVisible({ timeout: 30_000 });
 
     // Should display at least one spot card (Windansea from fixture)
