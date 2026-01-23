@@ -27,6 +27,8 @@ import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import { QuickCheckinSheet } from "../intel/quick-checkin-sheet";
 import { PhotoModal } from "../intel/photo-modal";
 import { EmojiRatingDisplay } from "../intel/emoji-picker";
+import { useCoastPulseRealtime } from "@/hooks/use-coast-pulse-realtime";
+import type { IntelPostPayload, SessionPayload } from "@/types/coast-pulse-realtime";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import type { IntelEmojiRating } from "@/types/database";
+import { CACHE, PAGINATION, REALTIME, OBSERVER } from "@/lib/constants/coast-pulse";
 
 /**
  * Source type for Coast Pulse items
@@ -85,6 +88,7 @@ interface CoastPulseResponse {
     summary: CoastPulseSummary;
     hasMore: boolean;
     nextCursor: string | null;
+    nearbyBeachIds?: string[];
   };
 }
 
@@ -214,6 +218,13 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
   const [loadMoreError, setLoadMoreError] = useState(false);
   const [hasPaginated, setHasPaginated] = useState(false); // Track if user has loaded additional pages
 
+  // Realtime state
+  const [nearbyBeachIds, setNearbyBeachIds] = useState<string[]>([]);
+  const [pendingIntelIds, setPendingIntelIds] = useState<string[]>([]);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const isAtTopRef = useRef(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Ref for intersection observer sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -239,8 +250,8 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
     try {
       const url = cursor
-        ? `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=8&before=${encodeURIComponent(cursor)}`
-        : `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=8`;
+        ? `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=${PAGINATION.DEFAULT_LIMIT}&before=${encodeURIComponent(cursor)}`
+        : `/api/coast-pulse?lat=${lat}&lon=${lon}&limit=${PAGINATION.DEFAULT_LIMIT}`;
 
       const response = await fetch(url);
 
@@ -262,6 +273,19 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
         // Replace items (first page or refresh)
         setItems(json.data.items || []);
         setSummary(json.data.summary || null);
+
+        // Capture nearbyBeachIds for realtime subscriptions
+        if (json.data.nearbyBeachIds?.length) {
+          setNearbyBeachIds(json.data.nearbyBeachIds);
+        }
+
+        // Populate seenIds for deduplication
+        const newSeen = new Set<string>();
+        for (const item of json.data.items || []) {
+          newSeen.add(item.id);
+        }
+        seenIdsRef.current = newSeen;
+        setPendingIntelIds([]);
       }
 
       setHasMore(json.data.hasMore ?? false);
@@ -302,16 +326,15 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lon]); // fetchData intentionally excluded to prevent double fetch
 
-  // Live polling - refresh data every 2 minutes
+  // Live polling - refresh data periodically
   useEffect(() => {
     if (lat == null || lon == null) return;
 
-    const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
     const intervalId = setInterval(() => {
       // Only refresh first page (don't reset pagination state)
       // This keeps user's scroll position while updating with new data
       fetchData();
-    }, POLL_INTERVAL_MS);
+    }, CACHE.CLIENT_POLL_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,13 +353,90 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
         }
       },
       {
-        rootMargin: "200px", // Trigger 200px before reaching bottom
+        rootMargin: OBSERVER.INFINITE_SCROLL_MARGIN,
       }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, loadingMore, loading, loadMore]);
+
+  // Scroll listener to detect if user is at top
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      isAtTopRef.current = container.scrollTop < REALTIME.SCROLL_TOP_THRESHOLD_PX;
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Realtime callbacks
+  const handleRealtimeIntel = useCallback((payload: IntelPostPayload) => {
+    const itemId = `intel-${payload.id}`;
+    if (seenIdsRef.current.has(itemId)) return;
+    seenIdsRef.current.add(itemId);
+
+    const newItem: CoastPulseItem = {
+      id: itemId,
+      source: {
+        name: "Surfer",
+        type: "intel",
+        credibility: 50, // Base credibility, actual value computed by API
+      },
+      message: payload.description || "New check-in",
+      timestamp: payload.created_at,
+      location: payload.latitude && payload.longitude
+        ? { lat: payload.latitude, lon: payload.longitude, distanceKm: 0 }
+        : undefined,
+      photoUrl: payload.photo_url || undefined,
+      emoji_rating: (payload.emoji_rating as IntelEmojiRating) || undefined,
+    };
+
+    if (isAtTopRef.current) {
+      // User is at top - prepend immediately
+      setItems(prev => [newItem, ...prev]);
+    } else {
+      // User has scrolled down - show "New posts" pill
+      setPendingIntelIds(prev => [...prev, itemId]);
+    }
+  }, []);
+
+  const handleConditionsChanged = useCallback(() => {
+    if (lat == null || lon == null) return;
+    // Fetch lightweight summary endpoint
+    fetch(`/api/coast-pulse/summary?lat=${lat}&lon=${lon}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && json.summary) {
+          setSummary(json.summary);
+        }
+      })
+      .catch(() => { /* silently fail, polling will catch up */ });
+  }, [lat, lon]);
+
+  const handleSessionEvent = useCallback((payload: SessionPayload) => {
+    const beachName = payload.beach_name || "a nearby beach";
+    toast(`Someone checked in at ${beachName}`);
+  }, []);
+
+  // Realtime subscriptions
+  useCoastPulseRealtime({
+    nearbyBeachIds,
+    onIntelPost: handleRealtimeIntel,
+    onConditionsChanged: handleConditionsChanged,
+    onSessionEvent: handleSessionEvent,
+  });
+
+  // Handle "New posts" pill click - scroll to top and prepend pending items
+  const handleNewPostsPillClick = useCallback(() => {
+    setPendingIntelIds([]);
+    fetchData(); // Refetch first page to get all new posts
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [fetchData]);
 
   const handleReport = useCallback(async (postId: string) => {
     try {
@@ -364,6 +464,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
   return (
     <div
+      ref={containerRef}
       className="relative bg-[#1e1e1e] rounded-2xl p-4 space-y-4 overflow-hidden"
       data-testid="coast-pulse-section"
     >
@@ -431,6 +532,18 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
             </span>
           )}
           {getSummaryTrendIndicator(summary.trend)}
+        </div>
+      )}
+
+      {/* New posts pill */}
+      {pendingIntelIds.length > 0 && (
+        <div className="relative z-10 flex justify-center">
+          <button
+            onClick={handleNewPostsPillClick}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#f97316] rounded-full hover:bg-[#ea580c] transition-colors shadow-lg animate-in fade-in slide-in-from-top-2 duration-300"
+          >
+            {pendingIntelIds.length} new {pendingIntelIds.length === 1 ? "post" : "posts"}
+          </button>
         </div>
       )}
 
