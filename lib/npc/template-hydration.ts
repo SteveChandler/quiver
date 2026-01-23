@@ -198,7 +198,7 @@ export function buildTemplateVariables(
   personalityType: string,
   timestamp: Date
 ): TemplateVariables {
-  const hour = timestamp.getHours();
+  const hour = (timestamp.getUTCHours() + 24 - 8) % 24; // Convert to PT
 
   return {
     beach_name: beachName,

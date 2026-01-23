@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **IOOS Observation Service - QA Bug Fixes:** Addressed 5 critical bugs identified in QA review:
+  - **Bug #1 (Empty String Validation):** Added trim check for empty `variableMap.wave_height` strings in `buildDynamicObservationUrl()` to prevent invalid URLs
+  - **Bug #1 (Station ID Validation):** Added regex validation `/^[a-zA-Z0-9_-]+$/` to prevent URL injection attacks via malicious station IDs
+  - **Bug #2 (Uncaught Promise):** Added error handler `.catch()` for cache write promise in `fetchBuoyObservationWithFallback()` to prevent silent promise rejections
+  - **Bug #3 (CDIP Timeout):** Wrapped CDIP service call in `Promise.race()` with 10-second timeout to prevent indefinite blocking
+  - **Bug #4 (Unbounded Query):** Added `.limit(100)` to `findNearbyStations()` database query to prevent returning thousands of stations
+
 - **IOOS Observation Ingestion:** Fixed empty `ioos_observations` table caused by ISM federated station IDs being incompatible with ERDDAP tabledap API. Station IDs like `ism-secoora-cap2wave-capers-near` were stored but only native IDs like `cap2wave-capers-nearshore-wave` work with the observation API. Solution:
   - Added filter in `lib/services/ioos-service.ts` `discoverStations()` to skip ISM-prefixed IDs during station discovery
   - Added logging to monitor filtered station counts with warning threshold (>50% filtered)

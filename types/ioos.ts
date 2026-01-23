@@ -3,6 +3,8 @@
  * Used for wave buoy observations from ERDDAP API
  */
 
+import type { CanonicalVar } from "@/lib/constants/ioos-config";
+
 /**
  * IOOS station metadata as stored in the database
  */
@@ -20,6 +22,10 @@ export interface IOOSStation {
   last_seen_at: string | null;
   created_at: string;
   updated_at: string;
+  // Capability fields for dynamic variable discovery
+  available_variables?: string[];
+  variable_map?: Partial<Record<CanonicalVar, string>>;
+  variables_last_synced_at?: string | null;
 }
 
 /**
@@ -167,9 +173,11 @@ export const IOOS_NETWORKS_BY_REGION: Record<string, IOOSNetwork[]> = {
  */
 export const PRIORITY_NETWORKS: IOOSNetwork[] = [
   "NDBC",      // National Data Buoy Center - primary source of wave data
+  "CeNCOOS",   // Central/Northern California (includes CDIP stations)
+  "SCCOOS",    // Southern California (includes CDIP stations)
   "PacIOOS",   // Hawaii
   "SECOORA",   // Southeast (FL, GA, SC, NC)
-  "MARACOOS", // Mid-Atlantic (VA, MD, DE, NJ, NY)
-  "NERACOOS", // Northeast (MA, NH, ME)
-  "GCOOS",    // Gulf of Mexico
+  "MARACOOS",  // Mid-Atlantic (VA, MD, DE, NJ, NY)
+  "NERACOOS",  // Northeast (MA, NH, ME)
+  "GCOOS",     // Gulf of Mexico
 ];

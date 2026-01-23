@@ -7,6 +7,8 @@
  * Server-side variants with full access to server actions live in lib/data/server.ts.
  */
 
+import { fetchWithAuthRetry } from "@/lib/fetch-with-auth-retry";
+
 export type ClientBeach = {
   id: string;
   name: string;
@@ -47,7 +49,7 @@ function __setCached<T>(map: Map<string, __CacheEntry<T>>, key: string, value: T
 }
 
 async function getAllBeaches(): Promise<ClientBeach[]> {
-  const response = await fetch("/api/beaches", {
+  const response = await fetchWithAuthRetry("/api/beaches", {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });
@@ -114,7 +116,7 @@ async function getDailyIntel(
 
   const p = (async () => {
     const params = new URLSearchParams({ beachId, forecastDate });
-    const res = await fetch(`/api/beach-daily-intel?${params.toString()}`, {
+    const res = await fetchWithAuthRetry(`/api/beach-daily-intel?${params.toString()}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
@@ -152,7 +154,7 @@ export const data = {
       if (inflight) return inflight;
 
       const p = (async () => {
-        const res = await fetch(`/api/boards`, {
+        const res = await fetchWithAuthRetry(`/api/boards`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
@@ -183,7 +185,7 @@ export const data = {
         if (inflight) return inflight;
 
         const p = (async () => {
-          const res = await fetch(`/api/sessions/${sessionId}/likes`, {
+          const res = await fetchWithAuthRetry(`/api/sessions/${sessionId}/likes`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             cache: "no-store",
@@ -203,7 +205,7 @@ export const data = {
         }
       },
       async toggle(sessionId: string) {
-        const res = await fetch(`/api/sessions/${sessionId}/likes/toggle`, {
+        const res = await fetchWithAuthRetry(`/api/sessions/${sessionId}/likes/toggle`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
@@ -213,7 +215,7 @@ export const data = {
     },
     comments: {
       async listTopLevel(sessionId: string) {
-        const res = await fetch(`/api/sessions/${sessionId}/comments`, {
+        const res = await fetchWithAuthRetry(`/api/sessions/${sessionId}/comments`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
@@ -223,7 +225,7 @@ export const data = {
         return json.data?.comments || [];
       },
       async create(sessionId: string, content: string) {
-        const res = await fetch(`/api/sessions/${sessionId}/comments`, {
+        const res = await fetchWithAuthRetry(`/api/sessions/${sessionId}/comments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
@@ -232,7 +234,7 @@ export const data = {
         return res.json();
       },
       async delete(sessionId: string, commentId: string) {
-        const res = await fetch(`/api/sessions/${sessionId}/comments/${commentId}`, {
+        const res = await fetchWithAuthRetry(`/api/sessions/${sessionId}/comments/${commentId}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
         });
@@ -257,7 +259,7 @@ export const data = {
 
         // Prefer new namespaced route; keep legacy as fallback via server redirect if present
         const p = (async () => {
-          const res = await fetch(`/api/users/${userId}/profile`, {
+          const res = await fetchWithAuthRetry(`/api/users/${userId}/profile`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             cache: "no-store",
@@ -278,7 +280,7 @@ export const data = {
     },
     follow: {
       async getStatusAndCounts(userId: string): Promise<{ following: boolean; followersCount: number; followingCount: number }> {
-        const res = await fetch(`/api/users/${userId}/follow`, {
+        const res = await fetchWithAuthRetry(`/api/users/${userId}/follow`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
@@ -292,7 +294,7 @@ export const data = {
         };
       },
       async toggle(userId: string) {
-        const res = await fetch(`/api/users/${userId}/follow/toggle`, {
+        const res = await fetchWithAuthRetry(`/api/users/${userId}/follow/toggle`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
@@ -310,7 +312,7 @@ export const data = {
     },
     comments: {
       async listByUser(userId: string) {
-        const res = await fetch(`/api/users/${userId}/comments`, {
+        const res = await fetchWithAuthRetry(`/api/users/${userId}/comments`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
@@ -333,7 +335,7 @@ export const data = {
         const params = new URLSearchParams();
         if (limit) params.set("limit", String(limit));
         const p = (async () => {
-          const res = await fetch(`/api/users/${userId}/sessions?${params.toString()}`, {
+          const res = await fetchWithAuthRetry(`/api/users/${userId}/sessions?${params.toString()}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             cache: "no-store",
@@ -356,7 +358,7 @@ export const data = {
   },
   comments: {
     async delete(commentId: string) {
-      const res = await fetch(`/api/comments/${commentId}`, {
+      const res = await fetchWithAuthRetry(`/api/comments/${commentId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
@@ -366,7 +368,7 @@ export const data = {
   },
   auth: {
     async updateEmail(newEmail: string) {
-      const res = await fetch(`/api/auth/email/update`, {
+      const res = await fetchWithAuthRetry(`/api/auth/email/update`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newEmail }),

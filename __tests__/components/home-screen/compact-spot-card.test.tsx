@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { CompactSpotCard } from "@/components/home-screen/compact-spot-card";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
 
 // Mock analytics
 jest.mock("@/lib/analytics", () => ({
@@ -14,13 +15,14 @@ jest.mock("@/lib/analytics", () => ({
 import { track } from "@/lib/analytics";
 
 /**
- * Mock recommendation factory with TypeScript-safe defaults
+ * Mock recommendation factory with TypeScript-safe defaults.
+ * Uses createBeachWithDefaults to avoid duplicating Beach field definitions.
  */
 function createMockRecommendation(
   overrides: Partial<SurfDiscoveryRecommendation> = {}
 ): SurfDiscoveryRecommendation {
   return {
-    beach: {
+    beach: createBeachWithDefaults({
       id: "test-beach-1",
       name: "Ocean Beach",
       city: "San Francisco",
@@ -29,49 +31,9 @@ function createMockRecommendation(
       lat: 37.7749,
       lon: -122.4194,
       timezone: "America/Los_Angeles",
-      photo_url: null,
       created_at: "2024-01-01T00:00:00Z",
-      is_private: false,
-      geog: null,
-      access_tips: null,
-      aspect_deg: null,
-      average_rating: null,
-      best_conditions_prose: null,
-      best_months: null,
-      break_type: null,
-      cdip_station: null,
-      crowd_level: null,
-      crowd_tips: null,
-      deleted_at: null,
-      description: null,
-      features: null,
-      hazards: null,
-      local_etiquette: null,
-      owner_id: null,
-      parking_tips: null,
-      preference_model: null,
-      preferred_tide_direction: null,
-      preferred_tide_ft_max: null,
-      preferred_tide_ft_min: null,
-      real_takeaways: null,
-      region: null,
-      region_id: null,
-      review_count: null,
-      skill_level: null,
-      slug: null,
-      swell_window_center_deg: null,
-      swell_window_halfwidth_deg: null,
-      swell_window_max_deg: null,
-      swell_window_min_deg: null,
-      tide_direction_sensitivity: null,
-      warnings: null,
-      wave_tips: null,
-      wind_cross_shore_ok_kt: null,
-      wind_offshore_deg: null,
-      wind_offshore_tol_deg: null,
-      wind_onshore_bad_kt: null,
       ...overrides.beach,
-    },
+    }),
     window: {
       start: new Date("2024-01-20T08:00:00Z"),
       end: new Date("2024-01-20T11:00:00Z"),

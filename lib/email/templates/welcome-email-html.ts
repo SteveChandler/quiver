@@ -2,13 +2,7 @@
  * Welcome Email HTML Generator
  *
  * CANONICAL SOURCE for welcome email template HTML.
- *
- * This is a pure function with NO external dependencies so it can be:
- * 1. Imported directly in Node.js (lib/email/templates/welcome-email.ts)
- * 2. Copied to Deno Edge Functions (supabase/functions/on-auth-user-created/index.ts)
- *
- * IMPORTANT: If you modify this template, you MUST also update:
- * - supabase/functions/on-auth-user-created/index.ts (copy the generateWelcomeEmailHtml function)
+ * Used by the /api/cron/welcome-email cron job.
  *
  * The template includes:
  * - Surf time preference buttons (dawn, after work, weekends)
@@ -24,7 +18,7 @@ export interface WelcomeEmailParams {
 
 // Inline style constants (no imports to keep this pure)
 const COLORS = {
-  primary: '#3b82f6',
+  primary: '#0077B6',
   text: '#333333',
   textSecondary: '#666666',
   textTertiary: '#999999',

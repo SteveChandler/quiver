@@ -89,7 +89,8 @@ export function buildAuthUrl(basePath: string, returnTo?: string): string {
  */
 export async function initiateOAuthFlow(
   provider: "google",
-  returnTo: string
+  returnTo: string,
+  metadata?: Record<string, any>
 ): Promise<{ error?: string }> {
   try {
     const sb = createSupabaseBrowser();
@@ -98,6 +99,11 @@ export async function initiateOAuthFlow(
     // Store the intended return path in localStorage as a backup
     setAuthRedirect(returnTo);
     console.log("[auth-utils] Storing redirect path for OAuth:", returnTo);
+
+    // Stash signup metadata for post-OAuth processing (if provided)
+    if (metadata && Object.keys(metadata).length > 0) {
+      sessionStorage.setItem("pending_signup_metadata", JSON.stringify(metadata));
+    }
 
     const { error: oauthError } = await sb.auth.signInWithOAuth({
       provider,
@@ -111,6 +117,7 @@ export async function initiateOAuthFlow(
     if (oauthError) {
       console.error("[auth-utils] OAuth error:", oauthError);
       clearAuthRedirect();
+      sessionStorage.removeItem("pending_signup_metadata");
       return {
         error: "Unable to sign in with Google. Please try another method.",
       };
@@ -121,6 +128,7 @@ export async function initiateOAuthFlow(
   } catch (error) {
     console.error("[auth-utils] OAuth exception:", error);
     clearAuthRedirect();
+    sessionStorage.removeItem("pending_signup_metadata");
     return {
       error: "An unexpected error occurred during sign in.",
     };

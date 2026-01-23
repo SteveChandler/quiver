@@ -1509,5 +1509,6 @@ export function selectBestWindow(
     confidence: bestWindow.forecast.confidence_score || 50,
     timezone: beachTz,
     usedTideBoundaries: bestWindow.usedTideBoundaries,
+    score: bestWindow.score,
   };
 }

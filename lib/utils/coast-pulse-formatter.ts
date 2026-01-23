@@ -417,10 +417,9 @@ export function formatIntelMessage(post: {
     }
   }
 
-  // 5. Fall back to description if no structured data
+  // 5. Fall back to description if no structured data (CSS line-clamp handles overflow)
   if (!hasStructuredData && post.description) {
-    const desc = truncateText(post.description, 80);
-    return emoji ? `${emoji} ${desc}` : desc;
+    return emoji ? `${emoji} ${post.description}` : post.description;
   }
 
   return parts.join(" · ");

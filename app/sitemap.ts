@@ -39,10 +39,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === "/" ? 1 : 0.7,
   }));
 
-  // Generate intent routes for ALL cities with 3+ beaches (database-driven)
+  // Generate intent routes for ALL cities with at least 1 beach (database-driven)
   let dynamicIntentRoutes: MetadataRoute.Sitemap = [];
   try {
-    const citiesResult = await getAllCitiesWithBeaches(3);
+    const citiesResult = await getAllCitiesWithBeaches(1);
     if (citiesResult.success && citiesResult.data) {
       const collisionMap = detectCityCollisions(citiesResult.data);
       const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];

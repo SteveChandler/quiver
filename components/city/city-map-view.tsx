@@ -14,6 +14,7 @@ import { ChevronRight, MapPin, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Beach } from "@/types/database";
 import type { SurfSpot } from "@/lib/data/surf-spots";
+import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
 
 // Simple Error Boundary for map component
 interface ErrorBoundaryState {
@@ -80,9 +81,14 @@ interface CityMapViewProps {
   countrySlug?: string;
 }
 
-// Transform SurfSpot to Beach-compatible format for the map
+/**
+ * Transform SurfSpot to Beach-compatible format for the map.
+ *
+ * Uses createBeachWithDefaults to ensure all required Beach fields are present.
+ * Only maps the fields that exist in SurfSpot data.
+ */
 function transformSpotToBeach(spot: SurfSpot): Beach {
-  return {
+  return createBeachWithDefaults({
     id: spot.id || spot.slug, // Use UUID for forecast lookups, fallback to slug
     name: spot.name,
     lat: spot.coordinates.lat,
@@ -93,47 +99,18 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
     country: "USA",
     skill_level: spot.skillLevel,
     description: spot.overview,
-    break_type: null,
     crowd_level: spot.crowdFactor,
-    // Required fields with defaults - use fixed date to prevent hydration mismatch
+    // Use fixed date to prevent hydration mismatch
     created_at: "2023-01-01T00:00:00.000Z",
-    is_private: false,
-    // Nullable fields
+    // Map SurfSpot-specific fields
     access_tips: spot.parking,
-    aspect_deg: null,
-    average_rating: null,
     best_conditions_prose: spot.conditions,
-    best_months: null,
-    cdip_station: null,
-    crowd_tips: null,
-    deleted_at: null,
     features: spot.amenities,
-    geog: null,
     hazards: spot.hazards,
-    local_etiquette: null,
-    owner_id: null,
     parking_tips: spot.parking,
-    preference_model: null,
-    preferred_tide_ft_max: null,
-    preferred_tide_ft_min: null,
-    preferred_tide_direction: null,
-    real_takeaways: null,
     region: spot.region,
-    region_id: null,
-    review_count: null,
-    swell_window_center_deg: null,
-    swell_window_halfwidth_deg: null,
-    swell_window_max_deg: null,
-    swell_window_min_deg: null,
-    tide_direction_sensitivity: null,
-    timezone: null,
-    warnings: null,
     wave_tips: spot.swellAdvice,
-    wind_cross_shore_ok_kt: null,
-    wind_offshore_deg: null,
-    wind_offshore_tol_deg: null,
-    wind_onshore_bad_kt: null,
-  };
+  });
 }
 
 // Beach list item component - uses Link for SEO crawlability

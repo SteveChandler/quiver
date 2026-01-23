@@ -43,8 +43,8 @@ export async function generateStaticParams() {
   const params: Array<{ intent: string; city: string }> = [];
 
   try {
-    // Get all cities with 3+ beaches
-    const citiesResult = await getAllCitiesWithBeaches(3);
+    // Get all cities with at least 1 beach
+    const citiesResult = await getAllCitiesWithBeaches(1);
     if (citiesResult.success && citiesResult.data) {
       // Detect collisions
       const collisionMap = detectCityCollisions(citiesResult.data);
@@ -257,10 +257,10 @@ export default async function IntentPage({ params }: IntentPageParams) {
   // Generate content from templates
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
-  // Fetch beaches from database
+  // Fetch beaches from database using resolved city name (handles accents like Rincón)
   const beachesResult = await getBeachesByIntentAndCity(
     params.intent,
-    params.city,
+    cityMetadata.cityName,
     cityMetadata.state.toLowerCase()
   );
 

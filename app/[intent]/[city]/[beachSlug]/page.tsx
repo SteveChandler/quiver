@@ -1,6 +1,7 @@
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
+import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import {
@@ -14,6 +15,9 @@ import {
 import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { FAQSchema } from "@/components/seo/faq-schema";
+import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
+import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -29,6 +33,7 @@ interface PageProps {
   };
 }
 
+
 function isNextRouterSignal(error: unknown) {
   if (!error || typeof error !== "object" || !("digest" in error)) return false;
   const digest = (error as { digest?: unknown }).digest;
@@ -38,48 +43,6 @@ function isNextRouterSignal(error: unknown) {
   );
 }
 
-function pickBestUsaBeachMatch(params: {
-  stateParam: string;
-  cityParam: string;
-  beaches: Beach[];
-}): Beach | null {
-  const { stateParam, cityParam, beaches } = params;
-
-  if (!Array.isArray(beaches) || beaches.length === 0) return null;
-
-  const stateLower = stateParam.toLowerCase();
-  const cityLower = cityParam.toLowerCase();
-
-  const withStateMatch = beaches.filter(
-    (b) => stateToSlug(b.state)?.toLowerCase() === stateLower
-  );
-
-  const statePool = withStateMatch.length > 0 ? withStateMatch : beaches;
-
-  const withCityMatch = statePool.filter(
-    (b) => cityToSlug(b.city)?.toLowerCase() === cityLower
-  );
-
-  const pool = withCityMatch.length > 0 ? withCityMatch : statePool;
-
-  const sorted = [...pool].sort((a, b) => {
-    const aHasCoords = Number(Boolean(a.lat && a.lon));
-    const bHasCoords = Number(Boolean(b.lat && b.lon));
-    if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
-
-    const aReviews = a.review_count ?? 0;
-    const bReviews = b.review_count ?? 0;
-    if (aReviews !== bReviews) return bReviews - aReviews;
-
-    const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
-    const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
-    if (aCreated !== bCreated) return bCreated - aCreated;
-
-    return String(a.id).localeCompare(String(b.id));
-  });
-
-  return sorted[0] ?? null;
-}
 
 /**
  * Generic Beach Detail Page for all states
@@ -197,6 +160,25 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
           ]}
         />
 
+        {/* FAQ structured data for rich snippets */}
+        <FAQSchema items={generateBeachFAQ(beach)} />
+
+        {/* WebPage structured data with dateModified for freshness signal */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              name: `${beach.name} Surf Report & Forecast`,
+              dateModified: new Date().toISOString(),
+            }),
+          }}
+        />
+
+        {/* Above-the-fold surf report (streams via Suspense) */}
+        <SpotSurfReportStream beach={beach} />
+
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
           beach={beach}
@@ -244,13 +226,7 @@ export async function generateMetadata({
     });
 
     if (beach) {
-
-      // Format review count for title
-      const reviewCount = beach.review_count ?? 0;
-      const reviewText =
-        reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
-
-      // Build location context for title
+      // Build location context for description
       const locationContext =
         beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
@@ -271,19 +247,18 @@ export async function generateMetadata({
       }
 
       return buildPageMetadata({
-        title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
-        description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
+        title: `${beach.name} Surf Report & Forecast (Updated Daily) | Quiver`,
+        description: `Today's surf call, wave height, wind, tide, and best time window for ${beach.name}${locationContext} — plus nearby spots.`,
         path,
         keywords: [
-          beach.name,
+          `${beach.name} surf report`,
+          `${beach.name} surf forecast`,
           beach.city || "",
           beach.state || "",
+          "surf report",
           "surf forecast",
           "surf conditions",
-          "surf report",
-          "beach",
-          "waves",
-          "swell",
+          "wave height",
           "tide",
           "wind",
         ].filter(Boolean),

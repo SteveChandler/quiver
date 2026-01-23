@@ -166,12 +166,17 @@ export function createMockDataFetcherSuccess<T>(
 // =============================================================================
 
 import type { BeachWithMetrics } from "@/types/location";
+import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
 
 /**
- * Creates a mock Beach with required fields
+ * Creates a mock Beach with required fields.
+ *
+ * Uses centralized beach-defaults utility to ensure consistency
+ * and prevent future TypeScript errors when Beach schema changes.
  */
 export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
-  return {
+  // Use centralized defaults - only override what's needed for tests
+  return createBeachWithDefaults({
     id: `beach-${Date.now()}`,
     name: "Test Beach",
     slug: "test-beach",
@@ -198,30 +203,8 @@ export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
     real_takeaways: [],
     average_rating: 4.0,
     review_count: 10,
-    is_private: false,
-    created_at: new Date().toISOString(),
-    deleted_at: null,
-    owner_id: null,
-    region_id: null,
-    geog: null,
-    preference_model: null,
-    preferred_tide_ft_min: null,
-    preferred_tide_ft_max: null,
-    aspect_deg: null,
-    swell_window_min_deg: null,
-    swell_window_max_deg: null,
-    swell_window_center_deg: null,
-    swell_window_halfwidth_deg: null,
-    wind_offshore_deg: null,
-    wind_offshore_tol_deg: null,
-    wind_cross_shore_ok_kt: null,
-    wind_onshore_bad_kt: null,
-    cdip_station: null,
-    preferred_tide_direction: null,
-    tide_direction_sensitivity: null,
-    timezone: null,
     ...overrides,
-  };
+  });
 }
 
 /**
@@ -293,6 +276,10 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     digest_session_invites: false,
     email_session_invites: true,
     inapp_session_invites: true,
+    // Signup metadata
+    signup_context: null,
+    signup_location: null,
+    timezone: null,
     ...restOverrides,
   };
 }

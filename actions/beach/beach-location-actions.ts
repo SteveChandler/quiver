@@ -275,8 +275,8 @@ export async function getTopCitiesInState(
   limit = 8
 ): Promise<TopCityInState[]> {
   try {
-    // Get all cities with at least 3 beaches (threshold for intent pages)
-    const citiesResult = await getAllCitiesWithBeaches(3);
+    // Get all cities with at least 1 beach
+    const citiesResult = await getAllCitiesWithBeaches(1);
     if (!citiesResult.success || !citiesResult.data) return [];
 
     // Normalize the state slug for comparison

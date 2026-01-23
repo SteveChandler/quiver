@@ -153,9 +153,9 @@ describe("City Metadata Actions", () => {
       expect(result.data).toBeNull();
     });
 
-    it("returns null for city with fewer than 3 beaches", async () => {
+    it("returns null for city with no beaches", async () => {
       tableChain.order.mockResolvedValue({
-        data: mockSantaCruzBeaches.slice(0, 2), // Only 2 beaches
+        data: [], // No beaches
         error: null,
       });
 
@@ -408,10 +408,10 @@ describe("City Metadata Actions", () => {
       expect(result.data).toBeNull();
     });
 
-    it("returns null for city with fewer than 3 beaches", async () => {
-      // RPC returns city with only 2 beaches (below threshold)
+    it("returns null for city with no beaches", async () => {
+      // RPC returns city with 0 beaches (below threshold)
       mockSupabaseClient.rpc.mockResolvedValue({
-        data: [{ city: "Tiny Town", state: "CA", beach_count: 2 }],
+        data: [{ city: "Tiny Town", state: "CA", beach_count: 0 }],
         error: null,
       });
 

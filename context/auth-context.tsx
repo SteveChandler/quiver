@@ -27,7 +27,7 @@ import { createClient } from "@/lib/supabase/client";
  * Performance considerations:
  * - Uses refs to prevent race conditions during initialization
  * - Memoized to prevent unnecessary re-renders
- * - 8-second timeout for auth initialization to prevent blocking UI
+ * - 8-second timeout stops loading spinner if initialization is slow
  */
 
 type AuthContextType = {
@@ -35,7 +35,12 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName?: string,
+    metadata?: Record<string, any>
+  ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -48,7 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Use refs to prevent race conditions
   const initializingRef = useRef(false);
@@ -100,11 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await supabase.auth.getSession();
 
       if (error) {
-        // Only log critical errors in development
         if (process.env.NODE_ENV === "development") {
           console.error("AuthContext: Error getting session:", error);
         }
-        updateAuthState(null);
+        // Don't clear auth state — the session in cookies may still be valid
         return;
       }
 
@@ -113,15 +116,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (process.env.NODE_ENV === "development") {
         console.error("AuthContext: Exception during session refresh:", error);
       }
-      updateAuthState(null);
+      // Don't clear auth state on transient errors — leave current state intact
     } finally {
       setIsLoading(false);
       initializingRef.current = false;
-      setIsInitialized(true);
     }
   };
 
-  // Simplified user setup function
   // Initialize auth state on mount - client-side only
   useEffect(() => {
     let mounted = true;
@@ -134,18 +135,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initializingRef.current = true;
       setIsLoading(true);
 
-      // Set a reasonable timeout for better UX - 8 seconds should be sufficient
+      // Timeout: stop loading spinner if initialization is slow.
+      // Auth initialization continues in background; onAuthStateChange will update state.
       timeoutId = setTimeout(() => {
         if (mounted && initializingRef.current) {
           if (process.env.NODE_ENV === "development") {
             console.warn("AuthContext: Auth initialization timed out after 8s");
           }
-          updateAuthState(null);
           setIsLoading(false);
-          setIsInitialized(true);
           initializingRef.current = false;
         }
-      }, 8000); // 8 second timeout for better UX
+      }, 8000);
 
       try {
         const {
@@ -158,15 +158,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Clear timeout since we got a response
         clearTimeout(timeoutId);
 
-        if (error) {
-          if (process.env.NODE_ENV === "development") {
-            console.error("AuthContext: Error during initialization:", error);
-          }
-          // Don't immediately clear auth state on error - session might still be valid
-          updateAuthState(session);
-        } else {
-          updateAuthState(session);
+        if (error && process.env.NODE_ENV === "development") {
+          console.error("AuthContext: Error during initialization:", error);
         }
+
+        // Update auth state regardless of error - session might still be valid
+        updateAuthState(session);
 
         // Set up auth state listener for real-time updates
         const {
@@ -187,6 +184,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 );
                 localStorage.removeItem("auth_redirect_path");
               }
+
+              // Handle pending signup metadata from OAuth flow
+              // Only apply if this is a fresh signup (created within last 60 seconds)
+              const pendingMetadata = sessionStorage.getItem(
+                "pending_signup_metadata"
+              );
+              if (pendingMetadata && session.user.created_at) {
+                const createdAt = new Date(session.user.created_at).getTime();
+                const isNewUser = Date.now() - createdAt < 60_000;
+
+                if (isNewUser) {
+                  try {
+                    const raw = JSON.parse(pendingMetadata);
+
+                    // Validate expected shape — reject unexpected keys
+                    const allowedKeys = new Set(["signup_context", "location_data"]);
+                    const metadata: Record<string, unknown> = {};
+                    for (const key of Object.keys(raw)) {
+                      if (allowedKeys.has(key)) {
+                        metadata[key] = raw[key];
+                      }
+                    }
+
+                    // Reject if payload is too large (16KB limit)
+                    if (JSON.stringify(metadata).length > 16_384) {
+                      throw new Error("Metadata payload exceeds size limit");
+                    }
+
+                    supabase.auth
+                      .updateUser({ data: metadata })
+                      .then(({ error }: { error: unknown }) => {
+                        if (error && process.env.NODE_ENV === "development") {
+                          console.error(
+                            "[AuthContext] Failed to update user metadata:",
+                            error
+                          );
+                        }
+                      });
+                  } catch (e) {
+                    if (process.env.NODE_ENV === "development") {
+                      console.error(
+                        "[AuthContext] Error parsing pending signup metadata:",
+                        e
+                      );
+                    }
+                  }
+                }
+                // Always remove regardless of whether we applied it
+                sessionStorage.removeItem("pending_signup_metadata");
+              }
               // Note: We don't navigate here. The auth state update (below) will cause
               // React components to re-render and show authenticated content.
               // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts
@@ -206,13 +253,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
           }
           clearTimeout(timeoutId);
-          // Only clear auth state on critical exceptions
-          updateAuthState(null);
+          // Don't clear auth state — leave current state intact
         }
       } finally {
         if (mounted) {
           setIsLoading(false);
-          setIsInitialized(true);
           initializingRef.current = false;
         }
       }
@@ -224,7 +269,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       // Server side - set defaults immediately
       setIsLoading(false);
-      setIsInitialized(true);
+    }
+
+    // Listen for auth-expired events from fetchWithAuthRetry
+    const handleAuthExpired = () => {
+      updateAuthState(null);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("quiver:auth-expired", handleAuthExpired);
     }
 
     // Cleanup function to prevent memory leaks
@@ -236,6 +288,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (subscription) {
         subscription.unsubscribe();
       }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("quiver:auth-expired", handleAuthExpired);
+      }
       initializingRef.current = false;
     };
   }, [supabase, updateAuthState]);
@@ -243,7 +298,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (
     email: string,
     password: string,
-    fullName?: string
+    fullName?: string,
+    metadata?: Record<string, any>
   ): Promise<void> => {
     setIsLoading(true);
     try {
@@ -252,11 +308,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ? `${siteUrl.replace(/\/$/, "")}/auth/confirm?next=/`
         : undefined;
 
+      // Merge fullName into metadata if provided
+      const userData = {
+        ...(fullName ? { full_name: fullName } : {}),
+        ...(metadata || {}),
+      };
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          ...(fullName ? { data: { full_name: fullName } } : {}),
+          ...(Object.keys(userData).length > 0 ? { data: userData } : {}),
           ...(emailRedirectTo ? { emailRedirectTo } : {}),
         },
       });
@@ -291,7 +353,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (process.env.NODE_ENV === "development") {
         console.error("AuthContext: Sign in error:", error);
       }
-      updateAuthState(null);
+      // Don't clear existing session — a failed sign-in attempt shouldn't log out a user
       throw error;
     } finally {
       setIsLoading(false);
