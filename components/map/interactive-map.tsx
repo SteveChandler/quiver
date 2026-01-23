@@ -492,7 +492,11 @@ export function InteractiveMap({
             results.forEach((data) => {
               const forecasts = data?.data?.forecasts || {};
               Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
-                localWaveHeightMap.set(beachId, waveHeight as number | undefined);
+                // wave_height may be a string from DB — parse to number
+                const parsed = typeof waveHeight === "number" ? waveHeight : parseFloat(waveHeight as string);
+                if (!isNaN(parsed)) {
+                  localWaveHeightMap.set(beachId, parsed);
+                }
               });
             });
           } catch (error) {
