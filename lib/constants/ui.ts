@@ -1,3 +1,11 @@
+// Bulk API request configuration
+export const API_BATCH_CONFIG = {
+  // Max beach IDs per bulk forecast request.
+  // Each UUID is ~36 chars + comma separator; 50 * 37 = ~1850 chars,
+  // safely below browser URL length limits (~2000 chars).
+  BEACH_ID_BATCH_SIZE: 50,
+} as const;
+
 // Cache TTL values in milliseconds - Updated for NOAA 6-hour cycle
 export const CACHE_TTL = {
   API_CALLS: 30 * 60 * 1000, // 30 minutes - reduced frequency for free APIs

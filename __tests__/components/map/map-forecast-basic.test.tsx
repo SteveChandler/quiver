@@ -84,6 +84,9 @@ jest.mock("@/lib/constants/ui", () => ({
   CACHE_TTL: {
     MAP_NEARBY_BEACHES: 300000,
   },
+  API_BATCH_CONFIG: {
+    BEACH_ID_BATCH_SIZE: 50,
+  },
 }));
 
 jest.mock("lodash", () => ({
