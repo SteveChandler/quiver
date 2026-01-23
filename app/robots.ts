@@ -26,6 +26,7 @@ export default function robots(): MetadataRoute.Robots {
               "/inbox/", // Private: notifications
               "/sessions/", // Private: user sessions
               "/auth/*", // Auth pages
+              "/forecast/", // Deprecated: redirects to beach detail pages
             ],
           },
           {
