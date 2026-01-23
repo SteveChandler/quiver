@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
@@ -298,6 +299,10 @@ export async function middleware(request: NextRequest) {
 
   log(`[Middleware] Processing ${RouteGuard.describeRoute(routeClassification)}: ${pathname}`);
 
+  // Always refresh the session to keep auth cookies fresh, regardless of route type.
+  // This ensures users stay logged in even when browsing public pages.
+  await refreshSession(request, response);
+
   // Public routes don't require authentication
   if (!routeClassification.requiresAuth) {
     return response;
@@ -482,6 +487,46 @@ function captureIPLocation(
     if (isDev) {
       console.warn("[Middleware] IP location capture error:", error);
     }
+  }
+}
+
+/**
+ * Refresh the session on every request to keep auth cookies fresh.
+ * Calls getSession() which will use the refresh token to obtain new
+ * access/refresh tokens if the current access token is expired.
+ * This does NOT make a remote auth call — it only refreshes locally.
+ */
+async function refreshSession(
+  request: NextRequest,
+  response: NextResponse
+): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return;
+  }
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set({ name, value, ...options })
+          );
+        },
+      },
+    });
+
+    await supabase.auth.getUser();
+  } catch (error) {
+    log("[Middleware] Session refresh error", error);
   }
 }
 
