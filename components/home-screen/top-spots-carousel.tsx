@@ -4,7 +4,7 @@ import React from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getWindowDayLabel, formatTimeWindowCompact } from "@/lib/utils/time-formatters";
+import { getWindowDayLabel } from "@/lib/utils/time-formatters";
 import type { SurfDiscoveryRecommendation, PersonalizedForecastWindow, TimeSlot } from "@/types/personalization";
 import {
   CompactSpotCard,
@@ -86,16 +86,7 @@ export const TopSpotsCarousel = React.memo(function TopSpotsCarousel({
   const sectionTitle = dayLabel
     ? `Top spots for ${dayLabel}`
     : "Your Top Spots";
-  const contextChip = heroWindow && dayLabel
-    ? (() => {
-        const dayText = dayLabel === 'today' ? 'Today' : 'Tomorrow';
-        const windowText = formatTimeWindowCompact(heroWindow.start, heroWindow.end, heroWindow.timezone);
-        const slotText = timeSlot ? TIME_SLOT_LABELS[timeSlot] : null;
-        return slotText
-          ? `${dayText} \u00B7 ${windowText} \u00B7 ${slotText}`
-          : `${dayText} \u00B7 ${windowText}`;
-      })()
-    : null;
+  const contextChip = timeSlot ? TIME_SLOT_LABELS[timeSlot] : null;
   // Loading state - show skeleton cards
   if (loading) {
     return (
