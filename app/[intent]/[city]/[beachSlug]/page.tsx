@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -21,6 +22,11 @@ import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
+
+const getCachedBeachCandidates = cache(async (slug: string) => {
+  const { getBeachesBySlug } = await import("@/actions/beach/beach-query-actions");
+  return getBeachesBySlug(slug);
+});
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -69,10 +75,7 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
 
   try {
     // Fetch candidate beach rows by slug; disambiguate by state+city from URL
-    const { getBeachesBySlug } = await import(
-      "@/actions/beach/beach-query-actions"
-    );
-    const candidatesResult = await getBeachesBySlug(beachSlug);
+    const candidatesResult = await getCachedBeachCandidates(beachSlug);
 
     const beach = pickBestUsaBeachMatch({
       stateParam,
@@ -213,10 +216,7 @@ export async function generateMetadata({
   }
 
   try {
-    const { getBeachesBySlug } = await import(
-      "@/actions/beach/beach-query-actions"
-    );
-    const candidatesResult = await getBeachesBySlug(beachSlug);
+    const candidatesResult = await getCachedBeachCandidates(beachSlug);
     const beach = pickBestUsaBeachMatch({
       stateParam,
       cityParam: params.city,
