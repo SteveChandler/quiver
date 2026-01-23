@@ -162,15 +162,11 @@ export async function generateMetadata({
   const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
-    // Format review count for title
-    const reviewCount = beach.review_count ?? 0;
-    const reviewText =
-      reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
-
     return buildPageMetadata({
-      title: `${beach.name}, ${reviewText}, Map`,
-      description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}.`,
+      title: `${beach.name} Surf Forecast | Quiver`,
+      description: `Live surf forecast for ${beach.name}. Wave height, swell, wind, and tide conditions updated daily.`,
       path: `/beach/${params.slug}`,
+      image: `/api/og/beach?slug=${params.slug}`,
     });
   }
 

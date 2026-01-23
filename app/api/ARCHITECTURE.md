@@ -295,6 +295,34 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ---
 
+### 🖼️ `/og` - Open Graph Image Generation
+
+**Access Level**: Public (unauthenticated)
+**Runtime**: Edge
+
+#### `/og/beach/route.tsx`
+
+- **Methods**: `GET`
+- **Function**: Generates dynamic 1200x630 OG images for beach social sharing
+- **Query Parameters**: `slug` (beach slug, lowercase alphanumeric with hyphens)
+- **Features**:
+  - Fetches beach data from Supabase (name, city, state, average_rating, review_count, break_type)
+  - Renders styled PNG with dark gradient, star ratings, break type badge
+  - Falls back to generic Quiver-branded image on any error
+  - Input validation: slug format (`/^[a-z0-9-]+$/`), max length 200
+  - Environment variable validation before Supabase client creation
+- **Caching**: `public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800`
+- **Dependencies**: `next/og` (ImageResponse), `@supabase/supabase-js`
+
+#### `/og/session/route.tsx`
+
+- **Methods**: `GET`
+- **Function**: Generates session share images (1080x1920 portrait)
+- **Query Parameters**: `beach`, `rating`, `stars`, `size`, `board`, `date`, `windLabel`, `windSpeed`, `tagline`, `footer`, `bg`
+- **Features**: Background image with overlay, star ratings, wave/wind info
+
+---
+
 ### 📍 `/intel` - Community Intelligence System
 
 #### `/intel/route.ts`

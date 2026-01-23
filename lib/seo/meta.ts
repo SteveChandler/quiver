@@ -29,8 +29,9 @@ export function buildPageMetadata({
   keywords?: string[];
 }): Metadata {
   const canonical = absoluteUrl(path);
-  const ogImage =
-    image || SEO_CONFIG.openGraph.images?.[0]?.url || "/images/buoy.png";
+  const ogImage = image
+    ? absoluteUrl(image)
+    : (SEO_CONFIG.openGraph.images?.[0]?.url || "/images/buoy.png");
 
   return {
     title,

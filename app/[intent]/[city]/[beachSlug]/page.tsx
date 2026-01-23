@@ -245,9 +245,10 @@ export async function generateMetadata({
       }
 
       return buildPageMetadata({
-        title: `${beach.name} Surf Report & Forecast (Updated Daily) | Quiver`,
-        description: `Today's surf call, wave height, wind, tide, and best time window for ${beach.name}${locationContext} — plus nearby spots.`,
+        title: `${beach.name} Surf Forecast | Quiver`,
+        description: `Live surf forecast for ${beach.name}${locationContext}. Wave height, swell, wind, and tide conditions updated daily.`,
         path,
+        image: `/api/og/beach?slug=${beachSlug}`,
         keywords: [
           `${beach.name} surf report`,
           `${beach.name} surf forecast`,
