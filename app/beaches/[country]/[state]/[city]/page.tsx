@@ -10,7 +10,7 @@
 
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { ChevronLeft, MapPin, Star } from "lucide-react";
 import {
   getLocationPageData,
@@ -49,7 +49,7 @@ const SITE_ORIGIN = (
 ).replace(/\/$/, "");
 
 // Dynamically import LocationMap with no SSR since it uses Mapbox (client-only)
-const LocationMap = dynamic(
+const LocationMap = nextDynamic(
   () =>
     import("@/components/location/location-map").then((mod) => mod.LocationMap),
   {
@@ -575,14 +575,4 @@ export async function generateMetadata({ params }: LocationPageProps) {
   }
 }
 
-/**
- * ISR Configuration: Incremental Static Regeneration
- *
- * Revalidates the page every hour (3600 seconds) to ensure:
- * - Beach rankings stay up-to-date with new reviews
- * - Intel post counts reflect recent activity
- * - Stats update without requiring full deployments
- *
- * This balances performance (static generation) with freshness (hourly updates).
- */
-export const revalidate = 3600; // Revalidate every 1 hour
+export const dynamic = "force-dynamic";

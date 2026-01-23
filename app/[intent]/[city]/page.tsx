@@ -26,7 +26,7 @@ import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/c
 import { PopularCitiesForIntent } from "@/components/intent/popular-cities-for-intent";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 
-export const revalidate = 1800;
+export const dynamic = "force-dynamic";
 
 function formatPacificDateTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {

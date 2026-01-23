@@ -35,8 +35,7 @@ import {
   CREDIBILITY,
 } from "@/lib/constants/coast-pulse";
 
-// Enable ISR with 2-minute revalidation
-export const revalidate = CACHE.ISR_REVALIDATE_SECONDS;
+export const dynamic = "force-dynamic";
 
 // Singleton CDIP service instance
 const cdipService = new CDIPService();
