@@ -19,6 +19,7 @@ import {
   SpotHeroSection,
   SpotLocationMap,
   SpotPhotoGallery,
+  SpotSurfReportStream,
 } from "@/components/spots";
 
 export const revalidate = 3600;
@@ -48,18 +49,11 @@ export async function generateMetadata({
   }
 
   const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
-  const now = new Date();
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    dateStyle: "long",
-  }).format(now);
-
-  const title = `${spot.name} Surf Report, Tides, Water Temp & Forecast (Today)`;
-  const description = `Updated ${formattedDate}. Live ${
-    spot.name
-  } surf report for ${
-    spot.region || "Southern California"
-  }: tides, water temperature, swell tips, wind strategy, and nearby alternatives powered by Quiver.`;
+  const locationContext = spot.city && spot.region
+    ? ` in ${spot.city}, ${spot.region.split(",")[0]}`
+    : spot.region ? ` in ${spot.region}` : '';
+  const title = `${spot.name} Surf Report & Forecast (Updated Daily) | Quiver`;
+  const description = `Today's surf call, wave height, wind, tide, and best time window for ${spot.name}${locationContext} — plus nearby spots.`;
 
   return buildPageMetadata({
     title,
@@ -67,11 +61,11 @@ export async function generateMetadata({
     path: `/spots/${spot.slug}`,
     keywords: [
       `${spot.name} surf report`,
+      `${spot.name} surf forecast`,
       `${spot.name} tides`,
-      `${spot.name} water temperature`,
-      `${spot.name} forecast`,
       `${cityName} surf`,
-      "Quiver surf reports",
+      "surf report",
+      "surf forecast",
     ],
   });
 }
@@ -95,6 +89,18 @@ export default async function SpotPage({ params }: SpotPageParams) {
 
   // Get city name from spot data (database-driven)
   const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
+
+  // Construct minimal Beach object for surf report streaming
+  const beachForReport = spot.id && spot.latitude && spot.longitude
+    ? {
+        id: spot.id,
+        lat: spot.latitude,
+        lon: spot.longitude,
+        name: spot.name,
+        break_type: null,
+        wind_offshore_deg: null,
+      } as any
+    : null;
 
   // Fetch featured photo if we have a beach ID
   const featuredPhoto = spot.id ? await getSpotFeaturedPhoto(spot.id) : null;
@@ -182,6 +188,11 @@ export default async function SpotPage({ params }: SpotPageParams) {
         citySlug={spot.citySlug || undefined}
         baseUrl={baseUrl}
       />
+
+      {/* Above-the-fold surf report (streams via Suspense) */}
+      {beachForReport && (
+        <SpotSurfReportStream beach={beachForReport} />
+      )}
 
       {/* Hero Section with Photo or Map */}
       <SpotHeroSection

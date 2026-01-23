@@ -66,6 +66,8 @@ export interface PersonalizedForecastWindow {
   timezone: string;
   /** Whether tide-driven boundaries were used for this window (vs hourly fallback) */
   usedTideBoundaries?: boolean;
+  /** Composite quality score for this window (0-100) */
+  score?: number;
 }
 
 /** Condition badge shown on recommendations */
