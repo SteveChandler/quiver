@@ -27,6 +27,34 @@ describe("detectCityCollisions", () => {
     expect(collisions.has("santa-cruz")).toBe(false);
   });
 
+  it("detects substring collisions (slug is substring of another city slug)", () => {
+    const cities = [
+      { city: "Newport", state: "OR" },
+      { city: "Newport Beach", state: "CA" },
+      { city: "Newport Coast", state: "CA" },
+      { city: "Koloa", state: "HI" },
+      { city: "Waikoloa", state: "HI" },
+      { city: "Santa Cruz", state: "CA" },
+    ];
+    const collisions = detectCityCollisions(cities);
+
+    // "newport" is substring of "newport-beach" and "newport-coast"
+    expect(collisions.has("newport")).toBe(true);
+
+    // "koloa" is substring of "waikoloa"
+    expect(collisions.has("koloa")).toBe(true);
+
+    // "newport-beach" and "newport-coast" are NOT substrings of anything
+    expect(collisions.has("newport-beach")).toBe(false);
+    expect(collisions.has("newport-coast")).toBe(false);
+
+    // "waikoloa" is NOT a substring of anything
+    expect(collisions.has("waikoloa")).toBe(false);
+
+    // "santa-cruz" has no collision
+    expect(collisions.has("santa-cruz")).toBe(false);
+  });
+
   it("handles case-insensitive city names", () => {
     const cities = [
       { city: "NEWPORT BEACH", state: "CA" },

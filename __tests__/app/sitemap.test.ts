@@ -246,6 +246,54 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/longboard/beginner-town`)).toBeDefined();
     });
 
+    it("should exclude non-US cities from intent routes", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
+          { city: "Rosarito", state: "Baja California", country: "Mexico", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
+          { city: "Puerto Nuevo", state: "Baja California", country: "Mexico", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // US city should be present
+      expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeDefined();
+
+      // Non-US cities should NOT have intent routes
+      expect(result.find((r) => r.url === `${baseUrl}/tide/rosarito`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/puerto-nuevo`)).toBeUndefined();
+    });
+
+    it("should add state suffix for cities whose slug is a substring of another city slug", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Newport", state: "OR", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
+          { city: "Newport Beach", state: "CA", country: "USA", beachCount: 10, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
+          { city: "Koloa", state: "HI", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
+          { city: "Waikoloa", state: "HI", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // "newport" is substring of "newport-beach" → gets state suffix
+      expect(result.find((r) => r.url === `${baseUrl}/tide/newport-or`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/newport`)).toBeUndefined();
+
+      // "newport-beach" is NOT a substring of any other → no suffix needed
+      expect(result.find((r) => r.url === `${baseUrl}/tide/newport-beach`)).toBeDefined();
+
+      // "koloa" is substring of "waikoloa" → gets state suffix
+      expect(result.find((r) => r.url === `${baseUrl}/tide/koloa-hi`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/koloa`)).toBeUndefined();
+
+      // "waikoloa" is NOT a substring of anything else → no suffix needed
+      expect(result.find((r) => r.url === `${baseUrl}/tide/waikoloa`)).toBeDefined();
+    });
+
     it("should still include non-skill intents for all cities regardless of skill flags", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,

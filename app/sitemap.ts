@@ -49,10 +49,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const citiesResult = await getAllCitiesWithBeachSkills(1);
     if (citiesResult.success && citiesResult.data) {
-      const collisionMap = detectCityCollisions(citiesResult.data);
+      // Filter to US-only cities for intent pages (non-US cities lack state codes for disambiguation)
+      const usCities = citiesResult.data.filter(
+        (c) => c.country?.toUpperCase() === "USA" || c.country?.toUpperCase() === "US"
+      );
+      const collisionMap = detectCityCollisions(usCities);
       const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
-      dynamicIntentRoutes = citiesResult.data.flatMap((cityRecord) => {
+      dynamicIntentRoutes = usCities.flatMap((cityRecord) => {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) return [];
 
