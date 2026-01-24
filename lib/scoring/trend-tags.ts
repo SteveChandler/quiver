@@ -1,5 +1,14 @@
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
+/** Valid trend tag labels */
+export type TrendTag =
+  | 'Winds Dropping'
+  | 'Winds Building'
+  | 'Winds Cleaning Up'
+  | 'Tide Filling In'
+  | 'Tide Draining'
+  | 'Clean Swell';
+
 /** Maximum number of trend tags returned */
 const MAX_TAGS = 3;
 
@@ -59,7 +68,7 @@ function variance(values: number[]): number {
 export function computeTrendTags(
   forecasts: EnhancedForecastEntity[],
   beach?: { wind_offshore_deg?: number | null }
-): string[] {
+): TrendTag[] {
   if (forecasts.length < 2) {
     return [];
   }
@@ -100,7 +109,7 @@ export function computeTrendTags(
  */
 function computeWindSpeedTag(
   forecasts: EnhancedForecastEntity[]
-): string | null {
+): TrendTag | null {
   const first = forecasts[0];
   const last = forecasts[forecasts.length - 1];
 
@@ -133,7 +142,7 @@ function computeWindSpeedTag(
 function computeWindDirectionTag(
   forecasts: EnhancedForecastEntity[],
   beach?: { wind_offshore_deg?: number | null }
-): string | null {
+): TrendTag | null {
   if (!beach?.wind_offshore_deg && beach?.wind_offshore_deg !== 0) {
     return null;
   }
@@ -178,7 +187,7 @@ function computeWindDirectionTag(
  * Returns "Tide Filling In" if increase >= 1.0 ft,
  * "Tide Draining" if decrease >= 1.0 ft, or null.
  */
-function computeTideTag(forecasts: EnhancedForecastEntity[]): string | null {
+function computeTideTag(forecasts: EnhancedForecastEntity[]): TrendTag | null {
   const first = forecasts[0];
   const last = forecasts[forecasts.length - 1];
 
@@ -205,7 +214,7 @@ function computeTideTag(forecasts: EnhancedForecastEntity[]): string | null {
  * Checks if wave period is consistently high across all forecasts.
  * Returns "Clean Swell" if average period >= 10s and variance < 4, or null.
  */
-function computeSwellTag(forecasts: EnhancedForecastEntity[]): string | null {
+function computeSwellTag(forecasts: EnhancedForecastEntity[]): TrendTag | null {
   const periods: number[] = [];
 
   for (const f of forecasts) {
