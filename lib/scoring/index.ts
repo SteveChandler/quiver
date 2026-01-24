@@ -13,6 +13,7 @@
  * ```
  */
 
+export { computeTrendTags } from './trend-tags';
 export { scoreConditions } from './surf-conditions-scorer';
 export { calculateOptimalWindow } from './window-calculator';
 export {
