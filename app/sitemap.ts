@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
+import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
 import {
   buildBeachUrl,
   cityToSlug,
@@ -39,10 +39,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === "/" ? 1 : 0.7,
   }));
 
-  // Generate intent routes for ALL cities with at least 1 beach (database-driven)
+  // Generate intent routes for cities with at least 1 beach (database-driven)
+  // Skill-based intents (beginner/longboard/advanced) are only included for cities
+  // that have beaches matching those skill levels, to avoid thin-content URLs.
+  const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
+  const ADVANCED_INTENTS = new Set(["advanced"]);
+
   let dynamicIntentRoutes: MetadataRoute.Sitemap = [];
   try {
-    const citiesResult = await getAllCitiesWithBeaches(1);
+    const citiesResult = await getAllCitiesWithBeachSkills(1);
     if (citiesResult.success && citiesResult.data) {
       const collisionMap = detectCityCollisions(citiesResult.data);
       const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
@@ -51,7 +56,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) return [];
 
-        return intents.map((intent) => ({
+        // Filter skill-based intents to cities with matching beaches
+        const applicableIntents = intents.filter((intent) => {
+          if (BEGINNER_INTENTS.has(intent)) return cityRecord.hasBeginnerBeaches;
+          if (ADVANCED_INTENTS.has(intent)) return cityRecord.hasAdvancedBeaches;
+          return true; // Non-skill intents always included
+        });
+
+        return applicableIntents.map((intent) => ({
           url: `${baseUrl}/${intent}/${citySlug}`,
           lastModified: lastmod,
           changeFrequency: "daily" as const,

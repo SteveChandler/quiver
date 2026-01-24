@@ -168,6 +168,81 @@ export async function getAllCitiesWithBeaches(minBeaches: number = 1) {
   }
 }
 
+export interface CityWithSkillCategories {
+  city: string;
+  state: string;
+  country: string | null;
+  beachCount: number;
+  hasBeginnerBeaches: boolean;
+  hasAdvancedBeaches: boolean;
+}
+
+/**
+ * Get all cities with beach counts AND skill-level flags.
+ * Used by sitemap and generateStaticParams to filter skill-based intent URLs
+ * (beginner/longboard only for cities with beginner beaches, etc.)
+ *
+ * @param minBeaches - Minimum number of beaches required (default: 1)
+ */
+export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase
+      .from("beaches")
+      .select("city, state, country, skill_level")
+      .or("is_private.is.null,is_private.eq.false")
+      .not("city", "is", null)
+      .not("state", "is", null)
+      .is("deleted_at", null);
+
+    if (error) throw error;
+
+    // Aggregate by city/state/country with skill flags
+    const cityMap = new Map<string, CityWithSkillCategories>();
+
+    for (const beach of data || []) {
+      const key = `${beach.city}|${beach.state}|${beach.country || "USA"}`;
+      const existing = cityMap.get(key);
+
+      const skill = (beach.skill_level || "").toLowerCase();
+      const isBeginner = skill.includes("beginner") || skill.includes("longboard");
+      const isAdvanced = skill.includes("advanced") || skill.includes("expert");
+
+      if (existing) {
+        existing.beachCount++;
+        if (isBeginner) existing.hasBeginnerBeaches = true;
+        if (isAdvanced) existing.hasAdvancedBeaches = true;
+      } else {
+        cityMap.set(key, {
+          city: beach.city,
+          state: beach.state,
+          country: beach.country || "USA",
+          beachCount: 1,
+          hasBeginnerBeaches: isBeginner,
+          hasAdvancedBeaches: isAdvanced,
+        });
+      }
+    }
+
+    // Filter by minimum beach count and sort
+    const cities = [...cityMap.values()]
+      .filter((c) => c.beachCount >= minBeaches)
+      .sort((a, b) => a.city.localeCompare(b.city));
+
+    return {
+      success: true,
+      data: cities,
+    };
+  } catch (error) {
+    console.error("Error getting cities with beach skills:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 // ============================================================================
 // City Lookup Functions (for redirect handling)
 // ============================================================================

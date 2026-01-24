@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -21,10 +21,11 @@ import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-trans
 import { StateMapView } from "@/components/state/state-map-view";
 import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
-import { getAllCitiesWithBeaches, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
+import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
 import { PopularCitiesForIntent } from "@/components/intent/popular-cities-for-intent";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
+import { ZeroState } from "@/components/ui/zero-state";
 
 export const dynamic = "force-dynamic";
 
@@ -36,25 +37,75 @@ function formatPacificDateTime(date: Date) {
   }).format(date);
 }
 
+/**
+ * Shared empty state component for intent pages.
+ * Shows when no beaches match the intent criteria for a location.
+ */
+interface IntentEmptyStateProps {
+  intentLabel: string;
+  locationName: string;
+  stateSlug?: string;
+  stateName?: string;
+}
+
+function IntentEmptyState({
+  intentLabel,
+  locationName,
+  stateSlug,
+  stateName
+}: IntentEmptyStateProps) {
+  return (
+    <section className="mb-8">
+      <ZeroState
+        icon={MapPin}
+        title={`No ${intentLabel.toLowerCase()} spots found in ${locationName}`}
+        description={
+          stateSlug && stateName
+            ? "We're expanding our coverage. Explore other regions or browse all surf spots."
+            : `Explore other categories or browse all surf spots in ${locationName}.`
+        }
+        action={{
+          label: "Explore the Map",
+          href: "/map",
+        }}
+        secondaryAction={
+          stateSlug && stateName
+            ? {
+                label: `All ${stateName} Beaches`,
+                href: `/beaches/usa/${stateSlug}`,
+              }
+            : undefined
+        }
+      />
+    </section>
+  );
+}
+
 const INTENT_SLUGS: SurfIntentSlug[] = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 const US_STATES = Object.values(US_STATE_SLUGS);
+
+const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
+const ADVANCED_INTENTS = new Set(["advanced"]);
 
 export async function generateStaticParams() {
   const params: Array<{ intent: string; city: string }> = [];
 
   try {
-    // Get all cities with at least 1 beach
-    const citiesResult = await getAllCitiesWithBeaches(1);
+    // Get all cities with skill-level flags for intent filtering
+    const citiesResult = await getAllCitiesWithBeachSkills(1);
     if (citiesResult.success && citiesResult.data) {
       // Detect collisions
       const collisionMap = detectCityCollisions(citiesResult.data);
 
-      // Generate city × intent combinations
+      // Generate city × intent combinations (filtered by skill availability)
       for (const cityRecord of citiesResult.data) {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) continue;
 
         for (const intent of INTENT_SLUGS) {
+          // Only include skill-based intents if city has matching beaches
+          if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
+          if (ADVANCED_INTENTS.has(intent) && !cityRecord.hasAdvancedBeaches) continue;
           params.push({ intent, city: citySlug });
         }
       }
@@ -114,7 +165,18 @@ export async function generateMetadata({
   const cityMetadata = cityResult.data;
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
-  return buildPageMetadata({
+  // Determine if this skill-intent will produce results based on city skill counts
+  const hasMatchingBeaches = (() => {
+    if (params.intent === "beginner" || params.intent === "longboard") {
+      return cityMetadata.beginnerCount > 0;
+    }
+    if (params.intent === "advanced") {
+      return cityMetadata.advancedCount > 0;
+    }
+    return true; // Non-skill intents always have results
+  })();
+
+  const metadata = buildPageMetadata({
     title: pageContent.title,
     description: pageContent.metaDescription,
     path: `/${params.intent}/${params.city}`,
@@ -124,6 +186,13 @@ export async function generateMetadata({
       `${cityMetadata.stateName} surfing`,
     ],
   });
+
+  // Prevent indexing of empty-state pages (thin content)
+  if (!hasMatchingBeaches) {
+    return { ...metadata, robots: { index: false, follow: true } };
+  }
+
+  return metadata;
 }
 
 export default async function IntentPage({ params }: IntentPageParams) {
@@ -181,24 +250,12 @@ export default async function IntentPage({ params }: IntentPageParams) {
           </header>
 
           {beaches.length === 0 ? (
-            <section className="mb-8">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-                <h2 className="text-xl font-semibold text-slate-900 mb-2">
-                  No {intentDefinition.label.toLowerCase()} spots found in {stateName}
-                </h2>
-                <p className="text-slate-600 mb-4">
-                  We&apos;re expanding our coverage. Explore other regions or browse all surf spots.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Link href="/map" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-ocean-blue text-white rounded-lg hover:bg-ocean-blue/90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ocean-blue transition-colors">
-                    Explore the Map
-                  </Link>
-                  <Link href={`/beaches/usa/${params.city}`} className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
-                    All {stateName} Beaches
-                  </Link>
-                </div>
-              </div>
-            </section>
+            <IntentEmptyState
+              intentLabel={intentDefinition.label}
+              locationName={stateName}
+              stateSlug={params.city}
+              stateName={stateName}
+            />
           ) : (
             <>
               <section className="mb-8">
@@ -265,7 +322,21 @@ export default async function IntentPage({ params }: IntentPageParams) {
   );
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
-    return notFound();
+    return (
+      <div className="bg-white">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <header className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {definition.heading({ cityName: cityMetadata.cityName })}
+            </h1>
+          </header>
+          <IntentEmptyState
+            intentLabel={definition.label}
+            locationName={cityMetadata.cityName}
+          />
+        </div>
+      </div>
+    );
   }
 
   // Transform database results - add metrics fields for transformer compatibility
