@@ -256,6 +256,14 @@ export async function middleware(request: NextRequest) {
         "user",
         "error",
         ".well-known",
+        // Intent slugs - prevent /{intent}/{state}/{city} from being treated as international URLs
+        "beginner",
+        "longboard",
+        "tide",
+        "water-temp",
+        "dawn-patrol",
+        "sunset",
+        "least-crowded",
       ]);
 
       if (!reserved.has(country)) {

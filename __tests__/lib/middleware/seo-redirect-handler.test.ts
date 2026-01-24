@@ -40,10 +40,10 @@ describe("SeoRedirectHandler", () => {
       expect(classifyUrlPattern("/admin/users/settings")).toBe("none");
     });
 
-    it("classifies legacy intent URLs (intent/city without state)", () => {
-      // These are old intent URLs that should be redirected to the new format
-      expect(classifyUrlPattern("/beginner/malibu")).toBe("legacy-intent");
-      expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("legacy-intent");
+    it("does not classify 2-segment intent URLs as redirect candidates (canonical format)", () => {
+      // 2-segment intent URLs are the canonical format handled by app/[intent]/[city]/page.tsx
+      expect(classifyUrlPattern("/beginner/malibu")).toBe("none");
+      expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("none");
     });
 
     it("returns none for invalid patterns", () => {

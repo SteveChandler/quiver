@@ -37,17 +37,21 @@ const HubMapView = dynamic(
 export const revalidate = 3600; // Revalidate every hour
 
 export async function generateStaticParams() {
-  return HUB_REGION_SLUGS.map((slug) => ({
-    region: slug,
+  return HUB_REGION_SLUGS.map((region) => ({
+    slug: `surfing-${region}`,
   }));
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: { region: string };
+  params: { slug: string };
 }): Promise<Metadata> {
-  const region = getHubRegion(params.region);
+  if (!params.slug.startsWith("surfing-")) {
+    return {};
+  }
+  const regionSlug = params.slug.replace(/^surfing-/, "");
+  const region = getHubRegion(regionSlug);
 
   if (!region) {
     return {};
@@ -132,9 +136,13 @@ function calculateRegionStats(beaches: Beach[]) {
 export default async function HubRegionPage({
   params,
 }: {
-  params: { region: string };
+  params: { slug: string };
 }) {
-  const region = getHubRegion(params.region);
+  if (!params.slug.startsWith("surfing-")) {
+    return notFound();
+  }
+  const regionSlug = params.slug.replace(/^surfing-/, "");
+  const region = getHubRegion(regionSlug);
 
   if (!region) {
     return notFound();
