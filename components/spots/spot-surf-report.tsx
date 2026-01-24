@@ -1,18 +1,16 @@
 import React, { Suspense } from 'react';
-import Link from 'next/link';
 import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { SurfCallSignInCTA } from './surf-call-sign-in-cta';
 
 interface SpotSurfReportProps {
   report: SurfCallResult;
   spotName: string;
   timezone?: string;
   isTomorrow?: boolean;
-  isAuthenticated?: boolean;
 }
 
 const VERDICT_STYLES = {
@@ -39,7 +37,7 @@ function isValidVerdict(verdict: string): verdict is keyof typeof VERDICT_STYLES
   return verdict in VERDICT_STYLES;
 }
 
-export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false, isAuthenticated = false }: SpotSurfReportProps) {
+export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false }: SpotSurfReportProps) {
   const hasWindow = report.bestWindowStart && report.bestWindowEnd;
   const showBestWindow = hasWindow && report.verdict !== 'NO';
   const verdictStyle = isValidVerdict(report.verdict)
@@ -104,14 +102,7 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false,
                 <span>Updated {updatedTime}</span>
               )}
             </div>
-            {!isAuthenticated && (
-              <Link
-                href="/login"
-                className="text-[11px] text-ocean-blue/70 hover:text-ocean-blue transition-colors"
-              >
-                Sign in for your call (board + level)
-              </Link>
-            )}
+            <SurfCallSignInCTA />
           </div>
         </div>
 
@@ -183,13 +174,8 @@ interface SpotSurfReportLoaderProps {
 }
 
 async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
-  const [result, supabase] = await Promise.all([
-    getSpotSurfReport(beach),
-    createSupabaseServerClient(),
-  ]);
+  const result = await getSpotSurfReport(beach);
   if (!result) return null;
-
-  const { data: { session } } = await supabase.auth.getSession();
 
   const timezone = beach.lat != null && beach.lon != null
     ? getTimezoneFromCoords(beach.lat, beach.lon)
@@ -201,7 +187,6 @@ async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
       spotName={beach.name}
       timezone={timezone || undefined}
       isTomorrow={result.isTomorrow}
-      isAuthenticated={!!session}
     />
   );
 }

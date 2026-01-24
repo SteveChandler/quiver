@@ -12,6 +12,11 @@ jest.mock("next/link", () => {
   };
 });
 
+const mockUseAuth = jest.fn();
+jest.mock("@/context/auth-context", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
 function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
   return {
     verdict: "YES",
@@ -38,43 +43,37 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
 }
 
 describe("SpotSurfReport", () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: null });
+  });
+
   describe("Auth-aware sign-in link", () => {
     it("shows sign-in link when not authenticated", () => {
+      mockUseAuth.mockReturnValue({ user: null });
       render(
         <SpotSurfReport
           report={makeReport()}
           spotName="Blacks Beach"
-          isAuthenticated={false}
         />
       );
 
-      expect(
-        screen.getByText("Sign in for your call (board + level)")
-      ).toBeInTheDocument();
+      const link = screen.getByText("Sign in for your call (board + level)");
+      expect(link).toBeInTheDocument();
+      expect(link.closest("a")).toHaveAttribute("href", "/auth/sign-in");
     });
 
     it("hides sign-in link when authenticated", () => {
+      mockUseAuth.mockReturnValue({ user: { id: "user-1" } });
       render(
         <SpotSurfReport
           report={makeReport()}
           spotName="Blacks Beach"
-          isAuthenticated={true}
         />
       );
 
       expect(
         screen.queryByText("Sign in for your call (board + level)")
       ).not.toBeInTheDocument();
-    });
-
-    it("shows sign-in link by default (prop not passed)", () => {
-      render(
-        <SpotSurfReport report={makeReport()} spotName="Blacks Beach" />
-      );
-
-      expect(
-        screen.getByText("Sign in for your call (board + level)")
-      ).toBeInTheDocument();
     });
   });
 

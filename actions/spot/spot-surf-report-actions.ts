@@ -88,33 +88,40 @@ const getCachedSurfReport = unstable_cache(
 
     const forecasts = data as EnhancedForecastEntity[];
 
-    // 4. Filter to today first; fall back to tomorrow if no today data
+    // 4. Filter to today first; fall back to tomorrow if no viable window today
     const todayForecasts = forecasts.filter(f => f.forecast_date === todayStr);
-    let isTomorrow = false;
-    let selectedForecasts: EnhancedForecastEntity[];
+    const tomorrowForecasts = forecasts.filter(f => f.forecast_date === tomorrowStr);
 
+    const { selectBestWindow } = await import('@/lib/services/discovery/window-selector');
+
+    // Try today's forecasts first
     if (todayForecasts.length > 0) {
-      selectedForecasts = todayForecasts;
-    } else {
-      const tomorrowForecasts = forecasts.filter(f => f.forecast_date === tomorrowStr);
-      if (tomorrowForecasts.length === 0) {
-        return { report: computeSurfCall(null, [], beach), isTomorrow: false };
+      const window = selectBestWindow({
+        forecasts: todayForecasts,
+        beach,
+        userPrefs: null,
+        horizonHours: 24,
+      });
+
+      if (window) {
+        return { report: computeSurfCall(window, todayForecasts, beach), isTomorrow: false };
       }
-      selectedForecasts = tomorrowForecasts;
-      isTomorrow = true;
     }
 
-    // 5. Select best window
-    const { selectBestWindow } = await import('@/lib/services/discovery/window-selector');
-    const window = selectBestWindow({
-      forecasts: selectedForecasts,
-      beach,
-      userPrefs: null,
-      horizonHours: 24,
-    });
+    // Fall back to tomorrow if today has no viable window (or no data)
+    if (tomorrowForecasts.length > 0) {
+      const window = selectBestWindow({
+        forecasts: tomorrowForecasts,
+        beach,
+        userPrefs: null,
+        horizonHours: 48,
+      });
 
-    // 6. Compute surf call
-    return { report: computeSurfCall(window, selectedForecasts, beach), isTomorrow };
+      return { report: computeSurfCall(window, tomorrowForecasts, beach), isTomorrow: true };
+    }
+
+    // No forecast data for either day
+    return { report: computeSurfCall(null, [], beach), isTomorrow: false };
   },
   ['spot-surf-report'],
   { revalidate: 900 } // 15-minute cache
