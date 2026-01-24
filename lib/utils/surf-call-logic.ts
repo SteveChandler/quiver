@@ -36,6 +36,7 @@ export interface SurfCallResult {
   forecastConfidence: number;
   lowForecastConfidence: boolean;
   score: number;
+  peakTime: string | null;
   updatedAt: string;
 }
 
@@ -410,6 +411,7 @@ export function computeSurfCall(
     forecastConfidence: 0,
     lowForecastConfidence: false,
     score: 0,
+    peakTime: null,
     updatedAt,
   };
 
@@ -495,6 +497,9 @@ export function computeSurfCall(
   // Determine verdict based on score, window duration, and confidence
   const verdict = determineVerdict(score, windowMinutes, forecastConfidence);
   const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow);
+  const peakTime = window.peakTime instanceof Date
+    ? window.peakTime.toISOString()
+    : null;
 
   return {
     verdict,
@@ -515,6 +520,7 @@ export function computeSurfCall(
     forecastConfidence,
     lowForecastConfidence,
     score,
+    peakTime,
     updatedAt,
   };
 }

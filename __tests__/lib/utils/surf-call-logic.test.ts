@@ -468,6 +468,28 @@ describe('computeSurfCall', () => {
     });
   });
 
+  describe('peakTime', () => {
+    const forecasts = [makeForecast()];
+
+    it('returns peakTime as ISO string when window has a peakTime Date', () => {
+      const peakTime = new Date('2026-01-22T09:30:00Z');
+      const window = makeWindow({ score: 80, peakTime });
+      const result = computeSurfCall(window, forecasts, makeBeach());
+      expect(result.peakTime).toBe('2026-01-22T09:30:00.000Z');
+    });
+
+    it('returns peakTime as null when no window exists', () => {
+      const result = computeSurfCall(null, forecasts, makeBeach());
+      expect(result.peakTime).toBeNull();
+    });
+
+    it('returns peakTime as null when window has no peakTime', () => {
+      const window = makeWindow({ score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach());
+      expect(result.peakTime).toBeNull();
+    });
+  });
+
   describe('wave height parsing', () => {
     it('parses range format "3-4 ft"', () => {
       const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
