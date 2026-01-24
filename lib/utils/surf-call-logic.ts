@@ -502,7 +502,7 @@ export function computeSurfCall(
   // Determine verdict based on score, window duration, and confidence
   const verdict = determineVerdict(score, windowMinutes, forecastConfidence);
   const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow);
-  const peakTime = window.peakTime instanceof Date
+  const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
     ? window.peakTime.toISOString()
     : null;
 

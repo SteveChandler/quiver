@@ -151,19 +151,20 @@ function UnifiedSurfCard({
 
         {/* Trend Tags */}
         {surfCall.trendTags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <ul aria-label="Condition trends" className="flex flex-wrap gap-2 list-none p-0 m-0">
             {surfCall.trendTags.map((tag) => {
               const style = TREND_TAG_STYLES[tag];
               return (
-                <span
-                  key={tag}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-full ${style.bg} ${style.text}`}
-                >
-                  {tag}
-                </span>
+                <li key={tag}>
+                  <span
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full ${style.bg} ${style.text}`}
+                  >
+                    {tag}
+                  </span>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
 
         {/* Key Conditions */}
