@@ -77,6 +77,7 @@ export function buildDynamicObservationUrl(
   const constraints = [
     `time>=${isoZulu(minTime)}`,
     `time<=${isoZulu(maxTime)}`,
+    `${variableMap.wave_height}!=NaN`,
     `orderByMax("time")`,
   ].map(c => encodeURIComponent(c));
 

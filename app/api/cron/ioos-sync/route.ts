@@ -435,9 +435,9 @@ async function syncObservations(
         }
       }
 
-      // Update last_seen_at for successful stations
+      // Update last_seen_at only for stations with valid wave data
       const successfulIds = batchResults
-        .filter(r => r.obs !== null)
+        .filter(r => r.obs !== null && r.obs.waveHeightM !== null)
         .map(r => r.stationId);
 
       if (successfulIds.length > 0) {
