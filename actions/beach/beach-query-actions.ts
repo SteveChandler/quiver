@@ -147,6 +147,33 @@ function sortByIntentCrowdPriority(
 }
 
 /**
+ * Shared function to build intent-based beach queries.
+ * Applies skill-based filters for intents that have them.
+ * Crowd-based intents use post-query sorting instead of filtering.
+ *
+ * @param supabase - Supabase client
+ * @param intent - The surf intent
+ * @param baseQuery - Initial query with location filters already applied
+ */
+function applyIntentFilters(
+  baseQuery: any,
+  intent: string
+) {
+  // Apply intent-specific skill filters
+  const skillFilters = INTENT_SKILL_FILTERS[intent];
+  if (skillFilters) {
+    const skillConditions = skillFilters
+      .map((s) => `skill_level.ilike.%${s}%`)
+      .join(",");
+    return baseQuery.or(skillConditions);
+  }
+
+  // NOTE: crowd-based intents (least-crowded) use SORTING not FILTERING
+  // to ensure pages always render content even without crowd_level data
+  return baseQuery;
+}
+
+/**
  * Fetch beaches matching an intent for a specific city.
  * Used for database-driven intent pages.
  *
@@ -166,29 +193,20 @@ export async function getBeachesByIntentAndCity(
       .select(BEACH_DETAIL_FIELDS)
       .or("is_private.is.null,is_private.eq.false");
 
-    // Match city by slug pattern (handles hyphenated city names)
+    // Match city: try both original slug (handles hyphens like "Carmel-by-the-Sea")
+    // and space-replaced form (handles "San Diego" stored as "san-diego" in URL)
+    const escapedCity = escapeLikePattern(citySlug);
     const cityPattern = citySlug.replace(/-/g, " ");
     const escapedCityPattern = escapeLikePattern(cityPattern);
-    query = query.ilike("city", `%${escapedCityPattern}%`);
+    query = query.or(`city.ilike.%${escapedCity}%,city.ilike.%${escapedCityPattern}%`);
 
     // Match state
-    const stateUpper = stateSlug.toUpperCase();
-    query = query.or(`state.eq.${stateUpper},state.ilike.%${stateSlug}%`);
+    query = query.eq("state", stateSlug.toUpperCase());
 
-    // Apply intent-specific filters (skill-based intents)
-    const skillFilters = INTENT_SKILL_FILTERS[intent];
-    if (skillFilters) {
-      const skillConditions = skillFilters
-        .map((s) => `skill_level.ilike.%${s}%`)
-        .join(",");
-      query = query.or(skillConditions);
-    }
-
-    // NOTE: crowd-based intents (least-crowded) now use SORTING not FILTERING
-    // to ensure pages always render content even without crowd_level data
+    // Apply intent filters
+    query = applyIntentFilters(query, intent);
 
     const { data, error } = await query.order("name");
-
     if (error) throw error;
 
     let beaches = (data ?? []) as Beach[];
@@ -200,6 +218,28 @@ export async function getBeachesByIntentAndCity(
     }
 
     return { data: beaches, error: null };
+  });
+}
+
+/**
+ * Fetch all beaches in a state (no intent/skill filtering).
+ * Used for guides pages that need all beaches regardless of skill level.
+ *
+ * @param stateSlug - State slug (e.g., "ca")
+ */
+export async function getBeachesByState(stateSlug: string) {
+  return withDatabaseOperation<Beach[]>(async (supabase) => {
+    const { data, error } = await supabase
+      .from("beaches")
+      .select(BEACH_DETAIL_FIELDS)
+      .or("is_private.is.null,is_private.eq.false")
+      .eq("state", stateSlug.toUpperCase())
+      .order("city")
+      .order("name")
+      .limit(100);
+
+    if (error) throw error;
+    return { data: (data ?? []) as Beach[], error: null };
   });
 }
 
@@ -218,28 +258,16 @@ export async function getBeachesByIntentAndState(
     let query = supabase
       .from("beaches")
       .select(BEACH_DETAIL_FIELDS)
-      .or("is_private.is.null,is_private.eq.false");
+      .or("is_private.is.null,is_private.eq.false")
+      .eq("state", stateSlug.toUpperCase());
 
-    // Match state
-    const stateUpper = stateSlug.toUpperCase();
-    query = query.or(`state.eq.${stateUpper},state.ilike.%${stateSlug}%`);
-
-    // Apply intent-specific filters (skill-based intents only)
-    const skillFilters = INTENT_SKILL_FILTERS[intent];
-    if (skillFilters) {
-      const skillConditions = skillFilters
-        .map((s) => `skill_level.ilike.%${s}%`)
-        .join(",");
-      query = query.or(skillConditions);
-    }
-
-    // NOTE: crowd-based intents (least-crowded) now use SORTING not FILTERING
-    // to ensure pages always render content even without crowd_level data
+    // Apply intent filters
+    query = applyIntentFilters(query, intent);
 
     const { data, error } = await query
       .order("city")
       .order("name")
-      .limit(100); // Limit for performance
+      .limit(100);
 
     if (error) throw error;
 

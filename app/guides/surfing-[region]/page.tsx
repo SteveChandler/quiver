@@ -12,7 +12,7 @@ import {
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
-import { getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
+import { getBeachesByState } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 
 // Dynamic import for HubMapView (client component with Mapbox)
@@ -143,7 +143,7 @@ export default async function HubRegionPage({
   // Fetch all beaches for the region's states
   const allBeaches: Beach[] = [];
   for (const stateSlug of region.states) {
-    const result = await getBeachesByIntentAndState("beginner", stateSlug); // Use beginner to get all beaches
+    const result = await getBeachesByState(stateSlug);
     if (result.success && result.data) {
       allBeaches.push(...result.data);
     }
