@@ -1,9 +1,9 @@
 import React, { Suspense } from 'react';
 import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
-import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { formatTimeInTimezone } from '@/lib/utils/time-formatting';
 import { SurfCallSignInCTA } from './surf-call-sign-in-cta';
 
 interface SpotSurfReportProps {
@@ -20,17 +20,7 @@ const VERDICT_STYLES = {
 } as const;
 
 function formatTime(isoString: string, timezone?: string): string {
-  try {
-    const date = new Date(isoString);
-    return new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: timezone || DEFAULT_TIMEZONE,
-    }).format(date);
-  } catch {
-    return '';
-  }
+  return formatTimeInTimezone(isoString, timezone);
 }
 
 function isValidVerdict(verdict: string): verdict is keyof typeof VERDICT_STYLES {
