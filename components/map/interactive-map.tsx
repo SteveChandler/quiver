@@ -715,7 +715,11 @@ export function InteractiveMap({
       const lngDiff = Math.abs(currentCenter.lng - newLng);
 
       if (latDiff > threshold || lngDiff > threshold) {
-        mapRef.current.setCenter([newLng, newLat]);
+        mapRef.current.flyTo({
+          center: [newLng, newLat],
+          zoom: mapRef.current.getZoom(),
+          duration: 1000,
+        });
 
         // Also populate locations for the new center
         populateLocations(newLat, newLng);

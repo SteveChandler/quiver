@@ -292,10 +292,7 @@ export function useBeachSearch() {
           setState((prev) => ({
             ...prev,
             filteredBeaches: sortedBeaches,
-            selectedBeach:
-              sortedBeaches.length > 0 && !prev.selectedBeach
-                ? sortedBeaches[0]
-                : prev.selectedBeach,
+            selectedBeach: prev.selectedBeach,
           }));
         } else {
           // Handle empty result
