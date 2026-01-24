@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 import { isDataStale, getLatestUpdatedAt } from "@/lib/utils/forecast-client-utils";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
@@ -67,6 +68,7 @@ interface ForecastTabProps {
   currentForecast: EnhancedForecastEntity | null;
   hasCamera: boolean;
   beachTimezone?: string | null;
+  surfCall?: SurfCallResult | null;
 }
 
 export function ForecastTab({
@@ -75,6 +77,7 @@ export function ForecastTab({
   currentForecast,
   hasCamera,
   beachTimezone,
+  surfCall,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -530,6 +533,7 @@ export function ForecastTab({
             beachName={beach.name}
             beachTimezone={beachTimezone}
             forecasts={todaysForecasts}
+            surfCall={surfCall}
           />
 
           {/* 5-Day Outlook */}

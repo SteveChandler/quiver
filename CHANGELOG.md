@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Unified Surf Window UI Integration:** Integrated the unified surf scorer data flow into the forecast card, eliminating the data mismatch between the banner ("Today's Surf Call") and the forecast tab's "Best Time to Surf Today" card. Features include:
+  - Created `UnifiedSurfCard` component in `best-surf-window.tsx` that displays surf window data from the same `SurfCallResult` used by the banner
+  - Window time range displayed with peak time when available
+  - Trend tags rendered as colored chips ('Winds Cleaning Up', 'Tide Filling In', 'Clean Swell', etc.)
+  - Key conditions summary (wave height, wind description, tide phase)
+  - "Why sentence" narrative explaining the surf call verdict
+  - Low confidence badge when forecast reliability is questionable
+  - NO verdict handling with appropriate messaging
+  - Data flow: `page.tsx` calls `getSpotSurfReport()` → passes `SurfCallResult` through `BeachDetailClient` → `BeachDetail` → `ForecastTab` → `BestSurfWindow`
+  - Legacy fallback: When `surfCall` prop is not provided, component renders using existing intel API and Magic Hour system
+  - Comprehensive test suite in `__tests__/components/beach-detail/best-surf-window-unified.test.tsx` validates unified card rendering, trend tags, peak time, NO verdict handling, low confidence badge, and legacy fallback behavior
+  - Completes Tasks 4, 5, and 7 of unified-surf-scorer implementation plan
+
+### Added
+
 - **Dynamic Beach OG Images:** Added `/api/og/beach` edge runtime endpoint that generates personalized 1200x630 Open Graph images for each beach. Features include:
   - Fetches beach data (name, city, state, rating, review count, break type) from Supabase
   - Renders styled image with dark gradient background, star ratings, and break type badge

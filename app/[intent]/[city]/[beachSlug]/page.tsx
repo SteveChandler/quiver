@@ -19,6 +19,7 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
+import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -89,6 +90,10 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
       beach.lat != null && beach.lon != null
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
+
+    // Get surf report for unified surf window card
+    const surfReportResult = await getSpotSurfReport(beach);
+    const surfCallReport = surfReportResult?.report || null;
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -185,6 +190,7 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
           slug={beachSlug}
           beachTimezone={beachTimezone}
           surfReportSlot={<SpotSurfReportStream beach={beach} />}
+          surfCallReport={surfCallReport}
         />
       </>
     );
