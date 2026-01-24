@@ -31,6 +31,7 @@ import type { LucideIcon } from "lucide-react";
 import { ChevronDown, Globe2, Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { BestSurfWindow } from "./best-surf-window";
@@ -40,12 +41,14 @@ interface ForecastAndTidesProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[] | null;
   beachTimezone?: string | null;
+  surfCall?: SurfCallResult | null;
 }
 
 export function ForecastAndTides({
   beach,
   forecasts,
   beachTimezone,
+  surfCall,
 }: ForecastAndTidesProps) {
   // Ensure forecasts is always a stable array reference
   const safeForecasts = useMemo(() => forecasts || [], [forecasts]);
@@ -132,6 +135,7 @@ export function ForecastAndTides({
               beachName={beach.name}
               beachTimezone={beachTimezone}
               forecasts={todaysForecasts}
+              surfCall={surfCall}
             />
 
             {/* Collapsible Detailed Forecast Table */}

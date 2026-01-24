@@ -68,6 +68,8 @@ export interface PersonalizedForecastWindow {
   usedTideBoundaries?: boolean;
   /** Composite quality score for this window (0-100) */
   score?: number;
+  /** Peak time within the window (highest score moment) */
+  peakTime?: Date;
 }
 
 /** Condition badge shown on recommendations */

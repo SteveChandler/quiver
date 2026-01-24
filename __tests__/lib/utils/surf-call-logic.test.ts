@@ -468,6 +468,132 @@ describe('computeSurfCall', () => {
     });
   });
 
+  describe('peakTime', () => {
+    const forecasts = [makeForecast()];
+
+    it('returns peakTime as ISO string when window has a peakTime Date', () => {
+      const peakTime = new Date('2026-01-22T09:30:00Z');
+      const window = makeWindow({ score: 80, peakTime });
+      const result = computeSurfCall(window, forecasts, makeBeach());
+      expect(result.peakTime).toBe('2026-01-22T09:30:00.000Z');
+    });
+
+    it('returns peakTime as null when no window exists', () => {
+      const result = computeSurfCall(null, forecasts, makeBeach());
+      expect(result.peakTime).toBeNull();
+    });
+
+    it('returns peakTime as null when window has no peakTime', () => {
+      const window = makeWindow({ score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach());
+      expect(result.peakTime).toBeNull();
+    });
+  });
+
+  describe('trendTags', () => {
+    it('returns trendTags with expected tags when window forecasts have clear trends', () => {
+      // Wind dropping from 15→5 mph across 4 forecasts within the window
+      const forecasts = [
+        makeForecast({
+          forecast_time: '08:00:00',
+          wind_speed: '15',
+          wind_direction_deg: 90,
+          wave_period: '12s',
+          tide_height: '2.0',
+        } as any),
+        makeForecast({
+          forecast_time: '09:00:00',
+          wind_speed: '12',
+          wind_direction_deg: 90,
+          wave_period: '12s',
+          tide_height: '2.5',
+        } as any),
+        makeForecast({
+          forecast_time: '10:00:00',
+          wind_speed: '8',
+          wind_direction_deg: 90,
+          wave_period: '12s',
+          tide_height: '3.0',
+        } as any),
+        makeForecast({
+          forecast_time: '11:00:00',
+          wind_speed: '5',
+          wind_direction_deg: 90,
+          wave_period: '12s',
+          tide_height: '3.5',
+        } as any),
+      ];
+      const window = makeWindow({ score: 80 });
+      const beach = makeBeach({ wind_offshore_deg: 90 } as any);
+      const result = computeSurfCall(window, forecasts, beach);
+      expect(result.trendTags).toContain('Winds Dropping');
+    });
+
+    it('returns trendTags as empty array when no window exists', () => {
+      const forecasts = [makeForecast({ wave_height: '3-4 ft' })];
+      const result = computeSurfCall(null, forecasts, makeBeach());
+      expect(result.trendTags).toEqual([]);
+    });
+
+    it('returns trendTags as empty array when window is too short', () => {
+      const start = new Date('2026-01-22T08:00:00Z');
+      const end = new Date('2026-01-22T08:25:00Z'); // 25 min - below minimum
+      const forecasts = [
+        makeForecast({
+          forecast_time: '08:00:00',
+          wind_speed: '15',
+          wind_direction_deg: 90,
+        } as any),
+        makeForecast({
+          forecast_time: '08:15:00',
+          wind_speed: '5',
+          wind_direction_deg: 90,
+        } as any),
+      ];
+      const window = makeWindow({ start, end, score: 90 });
+      const result = computeSurfCall(window, forecasts, makeBeach());
+      expect(result.verdict).toBe('NO');
+      expect(result.trendTags).toEqual([]);
+    });
+
+    it('includes Tide Filling In when tide rises >= 1.0 ft across window', () => {
+      const forecasts = [
+        makeForecast({
+          forecast_time: '08:00:00',
+          wind_speed: '8',
+          wind_direction_deg: 90,
+          tide_height: '1.0',
+        } as any),
+        makeForecast({
+          forecast_time: '09:00:00',
+          wind_speed: '8',
+          wind_direction_deg: 90,
+          tide_height: '1.5',
+        } as any),
+        makeForecast({
+          forecast_time: '10:00:00',
+          wind_speed: '8',
+          wind_direction_deg: 90,
+          tide_height: '2.0',
+        } as any),
+        makeForecast({
+          forecast_time: '11:00:00',
+          wind_speed: '8',
+          wind_direction_deg: 90,
+          tide_height: '2.5',
+        } as any),
+      ];
+      const window = makeWindow({ score: 80 });
+      const result = computeSurfCall(window, forecasts, makeBeach());
+      expect(result.trendTags).toContain('Tide Filling In');
+    });
+
+    it('returns trendTags as empty array when no forecasts exist', () => {
+      const result = computeSurfCall(null, [], makeBeach());
+      expect(result.trendTags).toEqual([]);
+    });
+  });
+
   describe('wave height parsing', () => {
     it('parses range format "3-4 ft"', () => {
       const forecasts = [makeForecast({ wave_height: '3-4 ft' })];

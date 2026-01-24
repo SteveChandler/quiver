@@ -100,6 +100,7 @@ import { FullPageLoader } from "@/components/ui/loading-states";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
@@ -152,6 +153,7 @@ interface BeachDetailProps {
   initialBeach?: Beach;
   beachTimezone?: string | null;
   surfReportSlot?: ReactNode;
+  surfCallReport?: SurfCallResult | null;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -172,6 +174,7 @@ function BeachDetailContent({
   initialBeach,
   beachTimezone,
   surfReportSlot,
+  surfCallReport,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -633,6 +636,7 @@ function BeachDetailContent({
                   forecasts={forecasts || []}
                   currentForecast={currentForecast}
                   hasCamera={hasCamera}
+                  surfCall={surfCallReport}
                 />
               </Suspense>
             )}

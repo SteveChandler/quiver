@@ -10,6 +10,7 @@
 import type { Beach } from '@/types/database';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 
 // ============================================================================
 // Types
@@ -36,6 +37,8 @@ export interface SurfCallResult {
   forecastConfidence: number;
   lowForecastConfidence: boolean;
   score: number;
+  peakTime: string | null;
+  trendTags: TrendTag[];
   updatedAt: string;
 }
 
@@ -410,6 +413,8 @@ export function computeSurfCall(
     forecastConfidence: 0,
     lowForecastConfidence: false,
     score: 0,
+    peakTime: null,
+    trendTags: [],
     updatedAt,
   };
 
@@ -464,6 +469,8 @@ export function computeSurfCall(
     ? windowForecasts
     : forecasts.slice(0, 3);
 
+  const trendTags = computeTrendTags(effectiveForecasts, beach);
+
   const wind = getWindowWind(effectiveForecasts, beach);
   const tide = getWindowTide(effectiveForecasts, windowStartMs);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
@@ -495,6 +502,9 @@ export function computeSurfCall(
   // Determine verdict based on score, window duration, and confidence
   const verdict = determineVerdict(score, windowMinutes, forecastConfidence);
   const whySentence = buildWhySentence(verdict, wind, waveHeight, tide, shortWindow);
+  const peakTime = window.peakTime instanceof Date && !isNaN(window.peakTime.getTime())
+    ? window.peakTime.toISOString()
+    : null;
 
   return {
     verdict,
@@ -515,6 +525,8 @@ export function computeSurfCall(
     forecastConfidence,
     lowForecastConfidence,
     score,
+    peakTime,
+    trendTags,
     updatedAt,
   };
 }
