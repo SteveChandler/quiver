@@ -73,7 +73,7 @@ export function computeTrendTags(
     return [];
   }
 
-  const tags: string[] = [];
+  const tags: TrendTag[] = [];
 
   // --- Wind Speed Tags ---
   const windTag = computeWindSpeedTag(forecasts);

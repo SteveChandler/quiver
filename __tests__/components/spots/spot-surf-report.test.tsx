@@ -37,6 +37,8 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
     forecastConfidence: 0.85,
     lowForecastConfidence: false,
     score: 75,
+    peakTime: null,
+    trendTags: [],
     updatedAt: "2025-01-15T10:00:00Z",
     ...overrides,
   };

@@ -10,6 +10,7 @@
 import type { Beach } from '@/types/database';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 
 // ============================================================================
 // Types
@@ -37,6 +38,7 @@ export interface SurfCallResult {
   lowForecastConfidence: boolean;
   score: number;
   peakTime: string | null;
+  trendTags: TrendTag[];
   updatedAt: string;
 }
 
@@ -412,6 +414,7 @@ export function computeSurfCall(
     lowForecastConfidence: false,
     score: 0,
     peakTime: null,
+    trendTags: [],
     updatedAt,
   };
 
@@ -465,6 +468,8 @@ export function computeSurfCall(
   const effectiveForecasts = windowForecasts.length > 0
     ? windowForecasts
     : forecasts.slice(0, 3);
+
+  const trendTags = computeTrendTags(effectiveForecasts, beach);
 
   const wind = getWindowWind(effectiveForecasts, beach);
   const tide = getWindowTide(effectiveForecasts, windowStartMs);
@@ -521,6 +526,7 @@ export function computeSurfCall(
     lowForecastConfidence,
     score,
     peakTime,
+    trendTags,
     updatedAt,
   };
 }
