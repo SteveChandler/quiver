@@ -1,16 +1,18 @@
-import { Suspense } from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 interface SpotSurfReportProps {
   report: SurfCallResult;
   spotName: string;
   timezone?: string;
   isTomorrow?: boolean;
+  isAuthenticated?: boolean;
 }
 
 const VERDICT_STYLES = {
@@ -37,8 +39,9 @@ function isValidVerdict(verdict: string): verdict is keyof typeof VERDICT_STYLES
   return verdict in VERDICT_STYLES;
 }
 
-export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false }: SpotSurfReportProps) {
+export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false, isAuthenticated = false }: SpotSurfReportProps) {
   const hasWindow = report.bestWindowStart && report.bestWindowEnd;
+  const showBestWindow = hasWindow && report.verdict !== 'NO';
   const verdictStyle = isValidVerdict(report.verdict)
     ? VERDICT_STYLES[report.verdict]
     : VERDICT_STYLES.NO;
@@ -101,44 +104,45 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
                 <span>Updated {updatedTime}</span>
               )}
             </div>
-            <Link
-              href="/login"
-              className="text-[11px] text-ocean-blue/70 hover:text-ocean-blue transition-colors"
-            >
-              Sign in for your call (board + level)
-            </Link>
+            {!isAuthenticated && (
+              <Link
+                href="/login"
+                className="text-[11px] text-ocean-blue/70 hover:text-ocean-blue transition-colors"
+              >
+                Sign in for your call (board + level)
+              </Link>
+            )}
           </div>
         </div>
 
         {/* Conditions row */}
-        {hasWindow && (
+        {(showBestWindow || report.waveHeight || windDisplay || tideDisplay) && (
           <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <div>
-              <span className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
-                Best window
-              </span>
-              <span className="ml-2 font-roboto font-semibold text-dark-grey">
-                {formatTime(report.bestWindowStart!, timezone)}–{formatTime(report.bestWindowEnd!, timezone)}
-              </span>
-            </div>
-            {report.waveHeight && (
-              <>
-                <span className="text-slate-300">&middot;</span>
-                <span className="font-roboto font-semibold text-dark-grey">{report.waveHeight}</span>
-              </>
-            )}
-            {windDisplay && (
-              <>
-                <span className="text-slate-300">&middot;</span>
-                <span className="font-roboto text-sm text-dark-grey">{windDisplay}</span>
-              </>
-            )}
-            {tideDisplay && (
-              <>
-                <span className="text-slate-300">&middot;</span>
-                <span className="font-roboto text-sm text-dark-grey">{tideDisplay}</span>
-              </>
-            )}
+            {(() => {
+              const items: React.ReactNode[] = [];
+              if (showBestWindow) {
+                items.push(
+                  <div key="window">
+                    <span className="text-xs uppercase tracking-[0.2em] text-ocean-blue">Best window</span>
+                    <span className="ml-2 font-roboto font-semibold text-dark-grey">
+                      {formatTime(report.bestWindowStart!, timezone)}–{formatTime(report.bestWindowEnd!, timezone)}
+                    </span>
+                  </div>
+                );
+              }
+              if (report.waveHeight) {
+                items.push(<span key="wave" className="font-roboto font-semibold text-dark-grey">{report.waveHeight}</span>);
+              }
+              if (windDisplay) {
+                items.push(<span key="wind" className="font-roboto text-sm text-dark-grey">{windDisplay}</span>);
+              }
+              if (tideDisplay) {
+                items.push(<span key="tide" className="font-roboto text-sm text-dark-grey">{tideDisplay}</span>);
+              }
+              return items.flatMap((item, i) =>
+                i === 0 ? [item] : [<span key={`sep-${i}`} className="text-slate-300">&middot;</span>, item]
+              );
+            })()}
           </div>
         )}
 
@@ -179,8 +183,13 @@ interface SpotSurfReportLoaderProps {
 }
 
 async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
-  const result = await getSpotSurfReport(beach);
+  const [result, supabase] = await Promise.all([
+    getSpotSurfReport(beach),
+    createSupabaseServerClient(),
+  ]);
   if (!result) return null;
+
+  const { data: { session } } = await supabase.auth.getSession();
 
   const timezone = beach.lat != null && beach.lon != null
     ? getTimezoneFromCoords(beach.lat, beach.lon)
@@ -192,6 +201,7 @@ async function SpotSurfReportLoader({ beach }: SpotSurfReportLoaderProps) {
       spotName={beach.name}
       timezone={timezone || undefined}
       isTomorrow={result.isTomorrow}
+      isAuthenticated={!!session}
     />
   );
 }
