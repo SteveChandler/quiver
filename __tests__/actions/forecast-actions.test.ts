@@ -1,0 +1,760 @@
+import { describe, it, expect, beforeEach, vi } from "../setup/vitest-shim";
+import * as ForecastActionsModule from "@/actions/forecast-actions";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+
+// Unwrap server action wrappers to direct functions
+const getBeachForecasts = ForecastActionsModule.getBeachForecasts;
+const getLatestBeachForecast = ForecastActionsModule.getLatestBeachForecast;
+const getEnhancedBeachForecasts = ForecastActionsModule.getEnhancedBeachForecasts;
+const getBeachForecastPreview = ForecastActionsModule.getBeachForecastPreview;
+const getForecastForToday = ForecastActionsModule.getForecastForToday;
+const updateBeachForecasts = ForecastActionsModule.updateBeachForecasts;
+const updateAllBeachForecasts = ForecastActionsModule.updateAllBeachForecasts;
+
+// Mock the Supabase client
+jest.mock("@/lib/supabase/server", () => ({
+  __esModule: true,
+  createSupabaseServiceRoleClient: jest.fn(),
+}));
+
+// Mock the forecast utility modules
+jest.mock("@/lib/utils/forecast-server-utils", () => ({
+  __esModule: true,
+  updateBeachForecast: jest.fn(),
+}));
+
+jest.mock("@/lib/utils/forecast-service-utils", () => ({
+  __esModule: true,
+  updateBeachForecast: jest.fn(),
+  updateAllBeachForecasts: jest.fn(),
+}));
+
+jest.mock("@/lib/utils/current-forecast-utils", () => ({
+  __esModule: true,
+  getCurrentForecast: jest.fn((forecasts) => forecasts[0] || null),
+  formatCurrentTime: jest.fn(() => "12:00:00"),
+}));
+
+jest.mock("@/lib/utils/forecast-client-utils", () => ({
+  __esModule: true,
+  isDataStale: jest.fn(() => false),
+}));
+
+const makeChain = () => {
+  const obj: any = {};
+  obj.select = jest.fn(() => obj);
+  obj.eq = jest.fn(() => obj);
+  obj.in = jest.fn(() => obj);
+  obj.order = jest.fn(() => obj);
+  obj.limit = jest.fn();
+  obj.gte = jest.fn(() => obj);
+  obj.lte = jest.fn(() => obj);
+  return obj;
+};
+
+let forecastsChain: any;
+let enhancedForecastsChain: any;
+let tenDayViewChain: any;
+let mockSupabaseClient: any;
+
+const today = new Date().toISOString().split("T")[0];
+const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  .toISOString()
+  .split("T")[0];
+
+beforeEach(() => {
+  vi.clearAllMocks();
+
+  // Recreate chains fresh for each test
+  forecastsChain = makeChain();
+  enhancedForecastsChain = makeChain();
+  tenDayViewChain = makeChain();
+
+  mockSupabaseClient = {
+    from: jest.fn((table: string) => {
+      if (table === "forecasts") return forecastsChain;
+      if (table === "enhanced_forecasts") return enhancedForecastsChain;
+      if (table === "ten_day_enhanced_forecasts") return tenDayViewChain;
+      return makeChain();
+    }),
+  };
+
+  (createSupabaseServiceRoleClient as unknown as jest.Mock).mockResolvedValue(
+    mockSupabaseClient
+  );
+});
+
+describe("Forecast Actions", () => {
+  describe("getBeachForecasts", () => {
+    it("should fetch forecasts for a specific beach with date filtering", async () => {
+      const mockForecasts = [
+        {
+          id: "forecast-1",
+          beach_id: "beach-123",
+          forecast_date: today,
+          forecast_time: "09:00:00",
+          wave_height: "3-4 ft",
+          wind_speed: "10 mph",
+        },
+        {
+          id: "forecast-2",
+          beach_id: "beach-123",
+          forecast_date: today,
+          forecast_time: "12:00:00",
+          wave_height: "4-5 ft",
+          wind_speed: "12 mph",
+        },
+      ];
+
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: mockForecasts,
+        error: null,
+      });
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockForecasts);
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith("forecasts");
+      expect(forecastsChain.select).toHaveBeenCalledWith("*");
+      expect(forecastsChain.eq).toHaveBeenCalledWith("beach_id", "beach-123");
+      expect(forecastsChain.gte).toHaveBeenCalledWith(
+        "forecast_date",
+        today
+      );
+      expect(forecastsChain.limit).toHaveBeenCalledWith(50);
+    });
+
+    it("should order forecasts by date and time ascending", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: [],
+        error: null,
+      });
+
+      await getBeachForecasts("beach-123");
+
+      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_date", {
+        ascending: true,
+      });
+      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_time", {
+        ascending: true,
+      });
+    });
+
+    it("should handle database errors gracefully", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: null,
+        error: { message: "Database connection failed" },
+      });
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Database connection failed");
+    });
+
+    it("should handle unexpected errors", async () => {
+      forecastsChain.limit.mockRejectedValueOnce(new Error("Network error"));
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Network error");
+    });
+
+    it("should return empty array when no forecasts exist", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: [],
+        error: null,
+      });
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+  });
+
+  describe("getLatestBeachForecast", () => {
+    it("should fetch latest forecasts including past data", async () => {
+      const mockForecasts = [
+        {
+          id: "forecast-1",
+          beach_id: "beach-123",
+          forecast_date: today,
+          forecast_time: "18:00:00",
+          wave_height: "5-6 ft",
+        },
+      ];
+
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: mockForecasts,
+        error: null,
+      });
+
+      const result = await getLatestBeachForecast("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockForecasts);
+      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_date", {
+        ascending: false,
+      });
+      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_time", {
+        ascending: false,
+      });
+      expect(forecastsChain.limit).toHaveBeenCalledWith(5);
+    });
+
+    it("should handle database errors", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: null,
+        error: { message: "Query failed" },
+      });
+
+      const result = await getLatestBeachForecast("beach-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Query failed");
+    });
+  });
+
+  describe("getEnhancedBeachForecasts", () => {
+    it("should fetch enhanced forecasts with metadata from view", async () => {
+      const mockEnhancedForecasts: EnhancedForecastEntity[] = [
+        {
+          id: "enhanced-1",
+          beach_id: "beach-123",
+          forecast_date: today,
+          forecast_time: "12:00:00",
+          wave_height: "3-4 ft",
+          wind_speed: "10 mph",
+          wind_direction: "SW",
+          tide_status: "Rising",
+          confidence_score: 85,
+          data_source: "CDIP",
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          wave_period: "8s",
+          wave_direction: "SW",
+          tide_height: "2.5 ft",
+          next_tide_time: "18:00",
+          next_tide_type: "High",
+          next_tide_height: "5.2 ft",
+          water_temp: "68°F",
+          air_temperature: "72°F",
+          weather_condition: "Sunny",
+          raw_forecast: {
+            data_sources: ["CDIP", "NOAA_NWS"],
+            cdip_data: {
+              stationId: "094",
+              stationName: "Oceanside",
+            },
+          },
+        },
+      ];
+
+      // Mock the view query - setup the second order() to return a promise
+      const mockOrderChain = {
+        then: jest.fn((resolve) => resolve({ data: mockEnhancedForecasts, error: null })),
+      };
+      tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(mockOrderChain);
+
+      const result = await getEnhancedBeachForecasts("beach-123", 12);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data![0]).toHaveProperty("metadata");
+      expect(result.data![0].metadata).toMatchObject({
+        primarySource: "CDIP",
+        allSources: ["CDIP", "NOAA_NWS"],
+        confidenceScore: 85,
+        cdipStation: "094",
+        cdipStationName: "Oceanside",
+        isRealTimeData: true,
+        isStaleData: false,
+      });
+    });
+
+    it("should fallback to enhanced_forecasts table when view fails", async () => {
+      const mockEnhancedForecasts: EnhancedForecastEntity[] = [
+        {
+          id: "enhanced-1",
+          beach_id: "beach-123",
+          forecast_date: today,
+          forecast_time: "12:00:00",
+          wave_height: "3-4 ft",
+          wind_speed: "10 mph",
+          wind_direction: "SW",
+          tide_status: "Rising",
+          confidence_score: 75,
+          data_source: "NOAA_NWS",
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          wave_period: "7s",
+          wave_direction: "W",
+          tide_height: "3.0 ft",
+          next_tide_time: "16:00",
+          next_tide_type: "Low",
+          next_tide_height: "1.0 ft",
+          water_temp: "66°F",
+          air_temperature: "70°F",
+          weather_condition: "Cloudy",
+          raw_forecast: null,
+        },
+      ];
+
+      // View fails
+      const mockViewChain = {
+        then: jest.fn((resolve) => resolve({ data: null, error: { message: "View not found" } })),
+      };
+      tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(mockViewChain);
+
+      // Table succeeds
+      const mockTableChain = {
+        then: jest.fn((resolve) => resolve({ data: mockEnhancedForecasts, error: null })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
+
+      const result = await getEnhancedBeachForecasts("beach-123", 10);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
+        "forecast_date",
+        today
+      );
+    });
+
+    it("should handle database errors", async () => {
+      // View fails
+      const mockViewChain = {
+        then: jest.fn((resolve) => resolve({ data: null, error: { message: "View error" } })),
+      };
+      tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(mockViewChain);
+
+      // Table also fails
+      const mockTableChain = {
+        then: jest.fn((resolve) => resolve({ data: null, error: { message: "Table error" } })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
+
+      const result = await getEnhancedBeachForecasts("beach-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Table error");
+    });
+  });
+
+  describe("getBeachForecastPreview", () => {
+    it("should return enhanced forecast preview with metadata", async () => {
+      const mockEnhancedForecasts = [
+        {
+          forecast_date: today,
+          forecast_time: "12:00:00",
+          wave_height: "4-5 ft",
+          wind_speed: "12 mph",
+          wind_direction: "W",
+          weather_condition: "Sunny",
+          confidence_score: 90,
+          data_source: "CDIP",
+        },
+      ];
+
+      const mockChain = {
+        then: jest.fn((resolve) => resolve({ data: mockEnhancedForecasts, error: null })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.in.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockChain);
+
+      const result = await getBeachForecastPreview("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
+        type: "enhanced",
+        wave_height: "4-5 ft",
+        wind_speed: "12 mph",
+        wind_direction: "W",
+        weather_condition: "Sunny",
+        confidence_score: 90,
+      });
+      expect(result.data!.metadata).toMatchObject({
+        primarySource: "CDIP",
+        confidenceScore: 90,
+        isRealTimeData: true,
+      });
+    });
+
+    it("should fallback to basic forecasts when enhanced not available", async () => {
+      const mockBasicForecasts = [
+        {
+          forecast_date: today,
+          forecast_time: "12:00:00",
+          wave_height: "3-4 ft",
+          wind_speed: "10 mph",
+          wind_direction: "SW",
+          weather_condition: "Cloudy",
+        },
+      ];
+
+      // Enhanced fails
+      const mockEnhancedChain = {
+        then: jest.fn((resolve) => resolve({ data: null, error: { message: "No enhanced data" } })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.in.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockEnhancedChain);
+
+      // Basic succeeds
+      const mockBasicChain = {
+        then: jest.fn((resolve) => resolve({ data: mockBasicForecasts, error: null })),
+      };
+      forecastsChain.select.mockReturnValueOnce(forecastsChain);
+      forecastsChain.eq.mockReturnValueOnce(forecastsChain);
+      forecastsChain.in.mockReturnValueOnce(forecastsChain);
+      forecastsChain.order.mockReturnValueOnce(forecastsChain);
+      forecastsChain.order.mockReturnValueOnce(mockBasicChain);
+
+      const result = await getBeachForecastPreview("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
+        type: "basic",
+        wave_height: "3-4 ft",
+        wind_speed: "10 mph",
+        confidence_score: null,
+      });
+    });
+
+    it("should return null data when no forecasts available", async () => {
+      // Enhanced fails
+      const mockEnhancedChain = {
+        then: jest.fn((resolve) => resolve({ data: [], error: null })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.in.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockEnhancedChain);
+
+      // Basic also fails
+      const mockBasicChain = {
+        then: jest.fn((resolve) => resolve({ data: [], error: null })),
+      };
+      forecastsChain.select.mockReturnValueOnce(forecastsChain);
+      forecastsChain.eq.mockReturnValueOnce(forecastsChain);
+      forecastsChain.in.mockReturnValueOnce(forecastsChain);
+      forecastsChain.order.mockReturnValueOnce(forecastsChain);
+      forecastsChain.order.mockReturnValueOnce(mockBasicChain);
+
+      const result = await getBeachForecastPreview("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeNull();
+    });
+  });
+
+  describe("updateBeachForecasts", () => {
+    it("should update forecasts for a specific beach", async () => {
+      const { updateBeachForecast } = await import(
+        "@/lib/utils/forecast-service-utils"
+      );
+
+      const mockUpdateResult = {
+        success: true,
+        forecastsCreated: 48,
+      };
+
+      (updateBeachForecast as jest.Mock).mockResolvedValueOnce(
+        mockUpdateResult
+      );
+
+      const result = await updateBeachForecasts("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockUpdateResult);
+      expect(updateBeachForecast).toHaveBeenCalledWith("beach-123");
+    });
+
+    it("should handle update errors", async () => {
+      const { updateBeachForecast } = await import(
+        "@/lib/utils/forecast-service-utils"
+      );
+
+      (updateBeachForecast as jest.Mock).mockRejectedValueOnce(
+        new Error("API rate limit exceeded")
+      );
+
+      const result = await updateBeachForecasts("beach-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("API rate limit exceeded");
+    });
+  });
+
+  describe("updateAllBeachForecasts", () => {
+    it("should update forecasts for all beaches", async () => {
+      const { updateAllBeachForecasts: updateAll } = await import(
+        "@/lib/utils/forecast-service-utils"
+      );
+
+      const mockResults = {
+        results: [
+          { beachId: "beach-1", success: true, forecastsCreated: 48 },
+          { beachId: "beach-2", success: true, forecastsCreated: 48 },
+          { beachId: "beach-3", success: false, error: "No data" },
+        ],
+      };
+
+      (updateAll as jest.Mock).mockResolvedValueOnce(mockResults);
+
+      const result = await updateAllBeachForecasts();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
+        total: 3,
+        successful: 2,
+        failed: 1,
+        results: mockResults.results,
+      });
+    });
+
+    it("should handle errors during batch update", async () => {
+      const { updateAllBeachForecasts: updateAll } = await import(
+        "@/lib/utils/forecast-service-utils"
+      );
+
+      (updateAll as jest.Mock).mockRejectedValueOnce(
+        new Error("Batch update failed")
+      );
+
+      const result = await updateAllBeachForecasts();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Batch update failed");
+    });
+
+    it("should handle empty results gracefully", async () => {
+      const { updateAllBeachForecasts: updateAll } = await import(
+        "@/lib/utils/forecast-service-utils"
+      );
+
+      (updateAll as jest.Mock).mockResolvedValueOnce({ results: [] });
+
+      const result = await updateAllBeachForecasts();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
+        total: 0,
+        successful: 0,
+        failed: 0,
+        results: [],
+      });
+    });
+  });
+
+  describe("Edge Cases", () => {
+    it("should handle invalid beach IDs gracefully", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: [],
+        error: null,
+      });
+
+      const result = await getBeachForecasts("invalid-beach-id");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+
+    it("should handle empty strings as beach IDs", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: [],
+        error: null,
+      });
+
+      const result = await getBeachForecasts("");
+
+      expect(result.success).toBe(true);
+      expect(forecastsChain.eq).toHaveBeenCalledWith("beach_id", "");
+    });
+
+    it("should handle missing forecast fields gracefully", async () => {
+      const incompleteForecasts = [
+        {
+          id: "incomplete-1",
+          beach_id: "beach-123",
+          forecast_date: today,
+          // Missing forecast_time, wave_height, etc.
+        },
+      ];
+
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: incompleteForecasts,
+        error: null,
+      });
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(incompleteForecasts);
+    });
+
+    it("should handle network timeouts", async () => {
+      forecastsChain.limit.mockRejectedValueOnce(new Error("Network timeout"));
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Network timeout");
+    });
+  });
+
+  describe("Date Range Logic", () => {
+    it("should filter forecasts to future dates only in getBeachForecasts", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: [],
+        error: null,
+      });
+
+      await getBeachForecasts("beach-123");
+
+      expect(forecastsChain.gte).toHaveBeenCalledWith(
+        "forecast_date",
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+      );
+    });
+
+    it("should calculate correct end date in getEnhancedBeachForecasts", async () => {
+      // View fails, fallback to table
+      const mockViewChain = {
+        then: jest.fn((resolve) => resolve({ data: null, error: { message: "No view" } })),
+      };
+      tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(mockViewChain);
+
+      const mockTableChain = {
+        then: jest.fn((resolve) => resolve({ data: [], error: null })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
+
+      const daysParam = 7;
+      await getEnhancedBeachForecasts("beach-123", daysParam);
+
+      const startDate = today;
+      const expectedEndDate = new Date(
+        new Date().getTime() + daysParam * 86400000
+      )
+        .toISOString()
+        .split("T")[0];
+
+      expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
+        "forecast_date",
+        startDate
+      );
+      expect(enhancedForecastsChain.lte).toHaveBeenCalledWith(
+        "forecast_date",
+        expectedEndDate
+      );
+    });
+  });
+
+  describe("Response Structure Validation", () => {
+    it("should return consistent success/error structure for getBeachForecasts", async () => {
+      forecastsChain.limit.mockResolvedValueOnce({
+        data: [],
+        error: null,
+      });
+
+      const result = await getBeachForecasts("beach-123");
+
+      expect(result).toHaveProperty("success");
+      expect(typeof result.success).toBe("boolean");
+      if (result.success) {
+        expect(result).toHaveProperty("data");
+      } else {
+        expect(result).toHaveProperty("error");
+      }
+    });
+
+    it("should include metadata in enhanced forecasts response", async () => {
+      const mockEnhancedForecasts: EnhancedForecastEntity[] = [
+        {
+          id: "enhanced-1",
+          beach_id: "beach-123",
+          forecast_date: today,
+          forecast_time: "12:00:00",
+          wave_height: "3-4 ft",
+          wind_speed: "10 mph",
+          wind_direction: "SW",
+          tide_status: "Rising",
+          confidence_score: 85,
+          data_source: "NOAA_NWS",
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          wave_period: "8s",
+          wave_direction: "SW",
+          tide_height: "2.5 ft",
+          next_tide_time: "18:00",
+          next_tide_type: "High",
+          next_tide_height: "5.2 ft",
+          water_temp: "68°F",
+          air_temperature: "72°F",
+          weather_condition: "Sunny",
+          raw_forecast: null,
+        },
+      ];
+
+      const mockChain = {
+        then: jest.fn((resolve) => resolve({ data: mockEnhancedForecasts, error: null })),
+      };
+      tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
+      tenDayViewChain.order.mockReturnValueOnce(mockChain);
+
+      const result = await getEnhancedBeachForecasts("beach-123");
+
+      expect(result.success).toBe(true);
+      expect(result.data![0]).toHaveProperty("metadata");
+      expect(result.data![0].metadata).toMatchObject({
+        primarySource: expect.any(String),
+        allSources: expect.any(Array),
+        confidenceScore: expect.any(Number),
+        lastUpdated: expect.any(String),
+        isRealTimeData: expect.any(Boolean),
+        isStaleData: expect.any(Boolean),
+      });
+    });
+  });
+});

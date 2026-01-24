@@ -56,6 +56,11 @@ const profileRequestCache = new Map<
   Promise<{ profile: Profile | null; homeBeach: Beach | null }>
 >();
 
+/** @internal Test-only: clear the request deduplication cache */
+export function _clearProfileRequestCache() {
+  profileRequestCache.clear();
+}
+
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);

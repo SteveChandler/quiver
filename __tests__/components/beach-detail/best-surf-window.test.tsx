@@ -1,0 +1,920 @@
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useMagicHour } from "@/hooks/use-magic-hour";
+import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+
+// Mock dependencies
+jest.mock("@/hooks/use-data-fetcher");
+jest.mock("@/hooks/use-magic-hour");
+jest.mock("@/lib/utils/morning-intel-utils");
+jest.mock("next/navigation", () => ({
+  usePathname: jest.fn(() => "/beach/123"),
+}));
+
+const mockUseDataFetcher = useDataFetcher as jest.Mock;
+const mockUseMagicHour = useMagicHour as jest.Mock;
+const mockFindNextBestWindow = findNextBestWindow as jest.Mock;
+
+describe("BestSurfWindow", () => {
+  const defaultProps = {
+    beachId: "test-beach-123",
+    beachName: "Test Beach",
+    beachTimezone: "America/Los_Angeles",
+  };
+
+  const mockIntel = {
+    id: "intel-1",
+    beach_id: "test-beach-123",
+    forecast_date: "2024-01-15",
+    best_window_start: "06:00:00",
+    best_window_end: "09:00:00",
+    best_window_description: "Clean offshore winds with rising swell",
+    surf_min_ft: 3,
+    surf_max_ft: 5,
+    surf_description: "Chest to head high",
+    wind_speed_mph: 5,
+    wind_direction_text: "NE",
+    wind_quality: "Offshore",
+    tide_height_ft: 2.5,
+    tide_time: "07:30:00",
+    tide_optimal_range: "2-4 ft",
+    next_tide_type: "High",
+    next_tide_time: "13:45",
+    next_tide_height_ft: 5.2,
+    confidence: "High",
+    conditions_score: 8.5,
+    recommendation: "Perfect morning session with offshore winds",
+    generated_at: "2024-01-15T05:00:00Z",
+    raw_intel_data: {},
+  };
+
+  const mockForecasts = [
+    {
+      id: "1",
+      beach_id: "test-beach-123",
+      forecast_date: "2024-01-15",
+      forecast_time: "06:00:00",
+      wind_speed: 5,
+      wind_direction: 45,
+      wave_period: 12,
+      swell_1_period: 14,
+      tide_height: 2.5,
+      created_at: "2024-01-15T00:00:00Z",
+      updated_at: "2024-01-15T00:00:00Z",
+    },
+    {
+      id: "2",
+      beach_id: "test-beach-123",
+      forecast_date: "2024-01-15",
+      forecast_time: "09:00:00",
+      wind_speed: 8,
+      wind_direction: 90,
+      wave_period: 10,
+      swell_1_period: 12,
+      tide_height: 3.5,
+      created_at: "2024-01-15T00:00:00Z",
+      updated_at: "2024-01-15T00:00:00Z",
+    },
+  ] as unknown as EnhancedForecastEntity[];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Default mocks
+    mockUseMagicHour.mockReturnValue({
+      magicHour: null,
+      isLoading: false,
+      error: null,
+    });
+    mockFindNextBestWindow.mockReturnValue(null);
+  });
+
+  describe("Loading state", () => {
+    it("should render loading skeleton when data is loading", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: null,
+        loading: true,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      const { container } = render(<BestSurfWindow {...defaultProps} />);
+
+      // Check for skeleton elements by looking for animate-pulse class
+      const skeletons = container.querySelectorAll('.animate-pulse');
+      expect(skeletons.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Time window rendering", () => {
+    it("should render time window range with start and end times", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Look for time range display
+      expect(screen.getByText(/6:00 AM - 9:00 AM/i)).toBeInTheDocument();
+    });
+
+    it("should format times correctly using toLocaleTimeString", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          best_window_start: "14:30:00",
+          best_window_end: "17:00:00",
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Check for afternoon times
+      expect(screen.getByText(/2:30 PM - 5:00 PM/i)).toBeInTheDocument();
+    });
+
+    it("should handle midnight crossing times", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          best_window_start: "23:00:00",
+          best_window_end: "01:00:00",
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Times should be rendered (crossing midnight)
+      expect(screen.getByText(/11:00 PM/i)).toBeInTheDocument();
+      expect(screen.getByText(/1:00 AM/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Conditions summary rendering", () => {
+    it("should render conditions summary text", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(
+        screen.getByText(/Clean offshore winds with rising swell/i)
+      ).toBeInTheDocument();
+    });
+
+    it("should display surf metrics", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      const { container } = render(<BestSurfWindow {...defaultProps} />);
+
+      // Look for surf metrics in the conditions grid
+      const surfSection = container.querySelector('[class*="font-semibold"]');
+      expect(surfSection).toBeInTheDocument();
+      // Check that surf description is present
+      expect(screen.getByText(/Chest to head high/i)).toBeInTheDocument();
+    });
+
+    it("should display wind metrics", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Check for wind quality in the conditions grid
+      const offshoreText = screen.getAllByText(/offshore/i);
+      expect(offshoreText.length).toBeGreaterThan(0);
+    });
+
+    it("should display tide metrics", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/2.5 ft @ 7:30 AM/i)).toBeInTheDocument();
+      expect(screen.getByText(/Best: 2-4 ft/i)).toBeInTheDocument();
+    });
+
+    it("should display confidence and score", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText('High')).toBeInTheDocument();
+      expect(screen.getByText(/Score: 8.5\/10/i)).toBeInTheDocument();
+    });
+
+    it("should display recommendation text", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(
+        screen.getByText(/Perfect morning session with offshore winds/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("Null/missing window data handling", () => {
+    it("should handle missing intel data gracefully", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+    });
+
+    it("should handle error state gracefully", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: null,
+        loading: false,
+        error: new Error("Failed to fetch"),
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+    });
+
+    it("should show fallback when no best window times exist", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          best_window_start: null,
+          best_window_end: null,
+          best_window_description: "No optimal window found today",
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(
+        screen.getByText(/No optimal window found today/i)
+      ).toBeInTheDocument();
+    });
+
+    it("should show fallback message when intel unavailable and no forecast window", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      // Mock returns null indicating no good window found
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      render(<BestSurfWindow {...defaultProps} forecasts={[]} />);
+
+      // Should show the fallback message
+      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/Intel is generated daily for select beaches/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Window status indicators", () => {
+    it("should show upcoming status when window hasn't started", () => {
+      // Mock current time to be before window start (need to use fixed date)
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T05:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Starts in/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+
+    it("should show current status when in the window", () => {
+      // Mock current time to be during window
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T07:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/SURF NOW!/i)).toBeInTheDocument();
+      expect(screen.getByText(/remaining/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+
+    it("should show passed status when window has ended", () => {
+      // Mock current time to be after window end
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T10:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Window has passed/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+  });
+
+  describe("Magic Hour integration", () => {
+    it("should display Magic Hour when available", () => {
+      // Set time to be before window ends (so Magic Hour is shown)
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T06:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      const mockMagicHour = {
+        found: true,
+        peakTime: new Date("2024-01-15T07:30:00"),
+        windowStart: "7:00 AM",
+        windowEnd: "8:00 AM",
+        confidence: 0.85,
+        windQuality: "perfect" as const,
+        swellMatch: true,
+        tideInRange: true,
+      };
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockUseMagicHour.mockReturnValue({
+        magicHour: mockMagicHour,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Magic Hour/i)).toBeInTheDocument();
+      expect(screen.getByText(/High confidence/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+
+    it("should show Magic Hour loading state", () => {
+      // Set time to be before window ends (so Magic Hour loading is shown)
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T06:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockUseMagicHour.mockReturnValue({
+        magicHour: null,
+        isLoading: true,
+        error: null,
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Calculating peak time/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+
+    it("should display wind quality badges correctly", () => {
+      // Set time to be before window ends (so Magic Hour is shown)
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T06:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      const mockMagicHour = {
+        found: true,
+        peakTime: new Date("2024-01-15T07:30:00"),
+        windowStart: "7:00 AM",
+        windowEnd: "8:00 AM",
+        confidence: 0.9,
+        windQuality: "perfect" as const,
+        swellMatch: true,
+        tideInRange: true,
+      };
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockUseMagicHour.mockReturnValue({
+        magicHour: mockMagicHour,
+        isLoading: false,
+        error: null,
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Check for Magic Hour indicators
+      expect(screen.getByText(/Swell aligned/i)).toBeInTheDocument();
+      expect(screen.getByText(/Optimal tide/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+  });
+
+  describe("Next window display", () => {
+    it("should show next best window when primary has passed", () => {
+      // Mock current time to be after primary window
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T10:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue({
+        startTime: "14:00:00",
+        endTime: "16:00:00",
+        description: "Afternoon session",
+        conditions: "Moderate winds",
+      });
+
+      render(<BestSurfWindow {...defaultProps} forecasts={mockForecasts} />);
+
+      expect(screen.getByText(/Next Best Window Today/i)).toBeInTheDocument();
+      expect(screen.getByText(/2:00.*PM.*4:00.*PM/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+
+    it("should show current conditions when window passed and no next window", () => {
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T10:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Current Conditions/i)).toBeInTheDocument();
+      expect(screen.getByText(/Right now/i)).toBeInTheDocument();
+
+      global.Date = RealDate;
+    });
+  });
+
+  describe("Visual elements", () => {
+    it("should render clock icon for time window", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      const { container } = render(<BestSurfWindow {...defaultProps} />);
+
+      // Check for lucide-react icon presence
+      const icons = container.querySelectorAll("svg");
+      expect(icons.length).toBeGreaterThan(0);
+    });
+
+    it("should render wave icon for surf conditions", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Surf section should be present (case insensitive)
+      const surfLabels = screen.getAllByText(/surf/i);
+      expect(surfLabels.length).toBeGreaterThan(0);
+    });
+
+    it("should render wind icon for wind conditions", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Wind section should be present
+      const windLabels = screen.getAllByText(/wind/i);
+      expect(windLabels.length).toBeGreaterThan(0);
+    });
+
+    it("should render alert icon when intel not available", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      const { container } = render(<BestSurfWindow {...defaultProps} />);
+
+      const alertText = screen.getByText(/Surf intel not available yet/i);
+      expect(alertText).toBeInTheDocument();
+    });
+
+    it("should apply correct styling classes based on window status", () => {
+      const RealDate = Date;
+      const mockDate = new Date("2024-01-15T07:00:00");
+      global.Date = class extends RealDate {
+        constructor(...args: any[]) {
+          if (args.length === 0) {
+            super(mockDate.getTime());
+          } else {
+            super(...(args as ConstructorParameters<typeof Date>));
+          }
+        }
+        static now() {
+          return mockDate.getTime();
+        }
+      } as any;
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      const { container } = render(<BestSurfWindow {...defaultProps} />);
+
+      // Check for green styling when current
+      const greenElements = container.querySelectorAll('[class*="green"]');
+      expect(greenElements.length).toBeGreaterThan(0);
+
+      global.Date = RealDate;
+    });
+  });
+
+  describe("Share functionality", () => {
+    it("should render share button", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      const shareButton = screen.getByTitle(/Share surf intel/i);
+      expect(shareButton).toBeInTheDocument();
+    });
+
+    it("should call navigator.share when share button clicked", async () => {
+      const user = userEvent.setup();
+      const mockShare = jest.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "share", {
+        value: mockShare,
+        writable: true,
+        configurable: true,
+      });
+
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      const shareButton = screen.getByTitle(/Share surf intel/i);
+      await user.click(shareButton);
+
+      expect(mockShare).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.stringContaining("Test Beach"),
+        })
+      );
+    });
+  });
+
+  describe("Next tide information", () => {
+    it("should display next tide information when available", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Look for next tide text pattern
+      expect(screen.getByText(/Next High/i)).toBeInTheDocument();
+    });
+
+    it("should handle missing next tide data", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          next_tide_type: null,
+          next_tide_time: null,
+          next_tide_height_ft: null,
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Should not crash and next tide should not be displayed
+      expect(screen.queryByText(/Next High:/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Timezone handling", () => {
+    it("should use beach timezone for calculations", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(
+        <BestSurfWindow {...defaultProps} beachTimezone="Pacific/Honolulu" />
+      );
+
+      // Component should render without errors
+      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+    });
+
+    it("should handle null timezone gracefully", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} beachTimezone={null} />);
+
+      // Should use default timezone
+      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("Edge cases", () => {
+    it("should handle identical start and end times", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          best_window_start: "08:00:00",
+          best_window_end: "08:00:00",
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Component should render the title without crashing
+      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      // Description should be shown when times are equal (using getAllByText since it might appear multiple times)
+      const descriptions = screen.getAllByText(/Clean offshore winds with rising swell/i);
+      expect(descriptions.length).toBeGreaterThan(0);
+    });
+
+    it("should handle null confidence score", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          conditions_score: null,
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      // Should still render confidence
+      expect(screen.getByText('High')).toBeInTheDocument();
+      // Score should not appear when null
+      expect(screen.queryByText(/Score:/i)).not.toBeInTheDocument();
+    });
+
+    it("should handle empty forecasts array", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+      mockFindNextBestWindow.mockReturnValue(null);
+
+      render(<BestSurfWindow {...defaultProps} forecasts={[]} />);
+
+      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+    });
+
+    it("should handle very long description text", () => {
+      const longDescription =
+        "This is an extremely long description that contains a lot of detail about the surf conditions and might cause layout issues if not properly handled in the component rendering logic and CSS";
+
+      mockUseDataFetcher.mockReturnValue({
+        data: {
+          ...mockIntel,
+          best_window_description: longDescription,
+        },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(longDescription)).toBeInTheDocument();
+    });
+  });
+
+  describe("Generated time display", () => {
+    it("should display when intel was generated", () => {
+      mockUseDataFetcher.mockReturnValue({
+        data: mockIntel,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BestSurfWindow {...defaultProps} />);
+
+      expect(screen.getByText(/Updated at/i)).toBeInTheDocument();
+    });
+  });
+});

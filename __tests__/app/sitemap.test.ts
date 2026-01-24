@@ -8,7 +8,7 @@
 import sitemap from "@/app/sitemap";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { getAllCitiesWithBeaches } from "@/actions/beach/beach-location-actions";
+import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -20,7 +20,7 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
 }));
 
 jest.mock("@/actions/beach/beach-location-actions", () => ({
-  getAllCitiesWithBeaches: jest.fn(),
+  getAllCitiesWithBeachSkills: jest.fn(),
 }));
 
 describe("Sitemap Generation", () => {
@@ -42,12 +42,12 @@ describe("Sitemap Generation", () => {
       data: [],
     });
 
-    // Mock database-driven city resolution
-    (getAllCitiesWithBeaches as jest.Mock).mockResolvedValue({
+    // Mock database-driven city resolution with skill-level flags
+    (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
       success: true,
       data: [
-        { city: "San Diego", state: "CA", beach_count: 15 },
-        { city: "Encinitas", state: "CA", beach_count: 5 },
+        { city: "San Diego", state: "CA", country: "USA", beachCount: 15, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
+        { city: "Encinitas", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
       ],
     });
   });
@@ -116,7 +116,7 @@ describe("Sitemap Generation", () => {
     it("should generate intent routes for cities from database", async () => {
       const result = await sitemap();
 
-      // San Diego should have intent routes (from mocked getAllCitiesWithBeaches)
+      // San Diego should have intent routes (from mocked getAllCitiesWithBeachSkills)
       const sanDiegoIntentRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/san-diego`
       );
@@ -129,10 +129,10 @@ describe("Sitemap Generation", () => {
       expect(encinitasIntentRoute).toBeDefined();
     });
 
-    it("should call getAllCitiesWithBeaches with minimum beach count", async () => {
+    it("should call getAllCitiesWithBeachSkills with minimum beach count", async () => {
       await sitemap();
 
-      expect(getAllCitiesWithBeaches).toHaveBeenCalledWith(3);
+      expect(getAllCitiesWithBeachSkills).toHaveBeenCalledWith(1);
     });
 
     it("should generate all intent types for each city", async () => {
@@ -147,9 +147,9 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("should handle getAllCitiesWithBeaches failure gracefully", async () => {
+    it("should handle getAllCitiesWithBeachSkills failure gracefully", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-      (getAllCitiesWithBeaches as jest.Mock).mockRejectedValue(
+      (getAllCitiesWithBeachSkills as jest.Mock).mockRejectedValue(
         new Error("Database error")
       );
 
@@ -188,8 +188,8 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("should not generate intent routes when getAllCitiesWithBeaches returns empty", async () => {
-      (getAllCitiesWithBeaches as jest.Mock).mockResolvedValue({
+    it("should not generate intent routes when getAllCitiesWithBeachSkills returns empty", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [],
       });
@@ -207,6 +207,65 @@ describe("Sitemap Generation", () => {
         (r) => r.url === `${baseUrl}/beginner/ca`
       );
       expect(stateIntentRoute).toBeDefined();
+    });
+
+    it("should exclude beginner/longboard intents for cities without beginner beaches", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Advanced City", state: "CA", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: true },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Should NOT have beginner or longboard for this city
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/advanced-city`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/advanced-city`)).toBeUndefined();
+
+      // Should still include non-skill intents
+      expect(result.find((r) => r.url === `${baseUrl}/tide/advanced-city`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/advanced-city`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/advanced-city`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/advanced-city`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/sunset/advanced-city`)).toBeDefined();
+    });
+
+    it("should include beginner/longboard intents for cities WITH beginner beaches", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Beginner Town", state: "CA", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Should include beginner and longboard
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/beginner-town`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/beginner-town`)).toBeDefined();
+    });
+
+    it("should still include non-skill intents for all cities regardless of skill flags", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "No Skill Data", state: "FL", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Non-skill intents always included
+      expect(result.find((r) => r.url === `${baseUrl}/tide/no-skill-data`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/no-skill-data`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/no-skill-data`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/no-skill-data`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/sunset/no-skill-data`)).toBeDefined();
+
+      // Skill intents excluded
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/no-skill-data`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/no-skill-data`)).toBeUndefined();
     });
   });
 
