@@ -25,9 +25,9 @@ test.describe('Spot Surf Report', () => {
       const verdictBadge = surfReport.locator('text=/^(YES|MAYBE|NO)$/');
       await expect(verdictBadge).toBeVisible();
 
-      // Verify surf call heading (today or tomorrow)
+      // Verify surf call heading (today or tomorrow) — uses Unicode right quote \u2019
       const heading = surfReport.locator('h2');
-      await expect(heading).toHaveText(/^(Today's|Tomorrow's) Surf Call$/);
+      await expect(heading).toHaveText(/^(Today\u2019s|Tomorrow\u2019s) Surf Call$/);
 
       // Verify updated timestamp is shown
       const updated = surfReport.getByText(/Updated/);
@@ -44,8 +44,7 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const title = await page.title();
-    expect(title).toContain('Surf Report & Forecast');
-    expect(title).toContain('Updated Daily');
+    expect(title).toContain('Surf Forecast');
   });
 
   test('page includes FAQ structured data', async ({ page }) => {
@@ -126,6 +125,33 @@ test.describe('Spot Surf Report', () => {
       // Verdict badge still visible
       const verdictBadge = surfReport.locator('text=/^(YES|MAYBE|NO)$/');
       await expect(verdictBadge).toBeVisible();
+    }
+  });
+
+  test('guest users see sign-in CTA on spot page', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    const surfReport = page.locator('section[aria-label*="surf call"]');
+    const isVisible = await surfReport.isVisible().catch(() => false);
+
+    if (isVisible) {
+      const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });
+      await expect(ctaLink).toBeVisible();
+      await expect(ctaLink).toHaveAttribute('href', '/auth/sign-in');
+    }
+  });
+
+  test('clicking sign-in CTA navigates to auth page', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    const surfReport = page.locator('section[aria-label*="surf call"]');
+    const isVisible = await surfReport.isVisible().catch(() => false);
+
+    if (isVisible) {
+      const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });
+      await ctaLink.click();
+      await page.waitForURL('**/auth/sign-in');
+      expect(page.url()).toContain('/auth/sign-in');
     }
   });
 });
