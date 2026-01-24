@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Unified Surf Window UI Integration:** Integrated the unified surf scorer data flow into the forecast card, eliminating the data mismatch between the banner ("Today's Surf Call") and the forecast tab's "Best Time to Surf Today" card. Features include:
+  - Created `UnifiedSurfCard` component in `best-surf-window.tsx` that displays surf window data from the same `SurfCallResult` used by the banner
+  - Window time range displayed with peak time when available
+  - Trend tags rendered as colored chips ('Winds Cleaning Up', 'Tide Filling In', 'Clean Swell', etc.)
+  - Key conditions summary (wave height, wind description, tide phase)
+  - "Why sentence" narrative explaining the surf call verdict
+  - Low confidence badge when forecast reliability is questionable
+  - NO verdict handling with appropriate messaging
+  - Data flow: `page.tsx` calls `getSpotSurfReport()` → passes `SurfCallResult` through `BeachDetailClient` → `BeachDetail` → `ForecastTab` → `BestSurfWindow`
+  - Legacy fallback: When `surfCall` prop is not provided, component renders using existing intel API and Magic Hour system
+  - Comprehensive test suite in `__tests__/components/beach-detail/best-surf-window-unified.test.tsx` validates unified card rendering, trend tags, peak time, NO verdict handling, low confidence badge, and legacy fallback behavior
+  - Completes Tasks 4, 5, and 7 of unified-surf-scorer implementation plan
+
+### Added
+
+- **Dynamic Beach OG Images:** Added `/api/og/beach` edge runtime endpoint that generates personalized 1200x630 Open Graph images for each beach. Features include:
+  - Fetches beach data (name, city, state, rating, review count, break type) from Supabase
+  - Renders styled image with dark gradient background, star ratings, and break type badge
+  - Falls back to generic Quiver-branded image on errors or missing data
+  - Input validation (slug format, length) and environment variable checks
+  - CDN-friendly caching: `max-age=86400, stale-while-revalidate=604800`
+  - E2E test coverage for image generation, fallback behavior, and meta tag verification
+
+### Changed
+
+- **Beach Page Titles:** Simplified beach page meta titles from verbose format to `{Beach Name} Surf Forecast | Quiver` for better SEO click-through
+- **Beach Page Descriptions:** Updated to `Live surf forecast for {Beach Name}. Wave height, swell, wind, and tide conditions updated daily.`
+- **OG Image URLs:** `buildPageMetadata` now absolutifies image URLs for social media crawler compatibility
+
+### Added
+
 - **Golden Beach Validation:** Created comprehensive validation system for terrain-aware geometry scoring with curated test beaches representing diverse coastal geometries. Features include:
   - `scripts/terrain/golden-beaches.ts` - Dataset of 9 California beaches with known terrain characteristics (Huntington Beach, Ocean Beach SF, Rincon, Malibu First Point, Trestles, Santa Cruz - Cowell Beach, Stinson Beach, San Diego - Tourmaline, Steamer Lane)
   - Each beach includes expected wind exposure patterns, swell access patterns, and detailed notes for validation

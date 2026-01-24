@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
   lookupCityBySlug,
   lookupCityByCityAndStateSlug,
+  getAllCitiesWithBeachSkills,
 } from '@/actions/beach/beach-location-actions';
 
 jest.mock('@/lib/supabase/server');
@@ -90,6 +91,122 @@ describe('city lookup functions', () => {
 
       const result = await lookupCityBySlug('san-diego');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getAllCitiesWithBeachSkills', () => {
+    function makeSkillSupabaseFake(
+      beaches: Array<{ city: string; state: string; country: string | null; skill_level: string | null }>
+    ) {
+      const supabase = {
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            or: jest.fn(() => ({
+              not: jest.fn(() => ({
+                not: jest.fn(() => ({
+                  is: jest.fn(() =>
+                    Promise.resolve({ data: beaches, error: null })
+                  ),
+                })),
+              })),
+            })),
+          })),
+        })),
+      } as any;
+      return supabase;
+    }
+
+    it('should aggregate hasBeginnerBeaches flag correctly', async () => {
+      const beaches = [
+        { city: 'San Diego', state: 'CA', country: 'USA', skill_level: 'beginner' },
+        { city: 'San Diego', state: 'CA', country: 'USA', skill_level: 'advanced' },
+        { city: 'Malibu', state: 'CA', country: 'USA', skill_level: 'advanced' },
+      ];
+      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+
+      const result = await getAllCitiesWithBeachSkills(1);
+      expect(result.success).toBe(true);
+
+      const sanDiego = result.data?.find(c => c.city === 'San Diego');
+      expect(sanDiego?.hasBeginnerBeaches).toBe(true);
+      expect(sanDiego?.hasAdvancedBeaches).toBe(true);
+
+      const malibu = result.data?.find(c => c.city === 'Malibu');
+      expect(malibu?.hasBeginnerBeaches).toBe(false);
+      expect(malibu?.hasAdvancedBeaches).toBe(true);
+    });
+
+    it('should detect longboard skill level as beginner', async () => {
+      const beaches = [
+        { city: 'Waikiki', state: 'HI', country: 'USA', skill_level: 'longboard' },
+      ];
+      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+
+      const result = await getAllCitiesWithBeachSkills(1);
+      const waikiki = result.data?.find(c => c.city === 'Waikiki');
+      expect(waikiki?.hasBeginnerBeaches).toBe(true);
+    });
+
+    it('should detect expert skill level as advanced', async () => {
+      const beaches = [
+        { city: 'Pipeline', state: 'HI', country: 'USA', skill_level: 'expert' },
+      ];
+      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+
+      const result = await getAllCitiesWithBeachSkills(1);
+      const pipeline = result.data?.find(c => c.city === 'Pipeline');
+      expect(pipeline?.hasAdvancedBeaches).toBe(true);
+    });
+
+    it('should handle null skill_level gracefully', async () => {
+      const beaches = [
+        { city: 'Unknown', state: 'CA', country: 'USA', skill_level: null },
+      ];
+      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+
+      const result = await getAllCitiesWithBeachSkills(1);
+      const unknown = result.data?.find(c => c.city === 'Unknown');
+      expect(unknown?.hasBeginnerBeaches).toBe(false);
+      expect(unknown?.hasAdvancedBeaches).toBe(false);
+    });
+
+    it('should filter cities by minBeaches count', async () => {
+      const beaches = [
+        { city: 'Big City', state: 'CA', country: 'USA', skill_level: 'beginner' },
+        { city: 'Big City', state: 'CA', country: 'USA', skill_level: 'advanced' },
+        { city: 'Big City', state: 'CA', country: 'USA', skill_level: null },
+        { city: 'Small Town', state: 'CA', country: 'USA', skill_level: 'beginner' },
+      ];
+      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+
+      const result = await getAllCitiesWithBeachSkills(3);
+      expect(result.data?.length).toBe(1);
+      expect(result.data?.[0].city).toBe('Big City');
+      expect(result.data?.[0].beachCount).toBe(3);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      const supabase = {
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            or: jest.fn(() => ({
+              not: jest.fn(() => ({
+                not: jest.fn(() => ({
+                  is: jest.fn(() =>
+                    Promise.resolve({ data: null, error: new Error('DB error') })
+                  ),
+                })),
+              })),
+            })),
+          })),
+        })),
+      } as any;
+      mockCreate.mockResolvedValue(supabase);
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const result = await getAllCitiesWithBeachSkills(1);
+      expect(result.success).toBe(false);
+      consoleSpy.mockRestore();
     });
   });
 

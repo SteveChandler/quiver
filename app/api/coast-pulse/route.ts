@@ -16,10 +16,7 @@ import {
 import { CDIPService } from "@/lib/services/cdip-service";
 import { CDIP_STATIONS } from "@/lib/constants/cdip-stations";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
-import {
-  CDIP_NDBC_OVERLAPS,
-  isNDBCDuplicateOfCDIP,
-} from "@/lib/constants/buoy-mappings";
+import { CDIP_NDBC_OVERLAPS, isNDBCDuplicateOfCDIP } from "@/lib/constants/buoy-mappings";
 import {
   formatBuoyMessage,
   formatTideMessage,
@@ -27,11 +24,18 @@ import {
   formatIntelSourceName,
   findNearestBeachName,
   formatForecastConditions,
-  truncateText,
 } from "@/lib/utils/coast-pulse-formatter";
+import { computeSummary } from "@/lib/utils/coast-pulse-summary";
+import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
+import {
+  DISTANCE,
+  TIME,
+  CACHE,
+  PAGINATION,
+  CREDIBILITY,
+} from "@/lib/constants/coast-pulse";
 
-// Enable ISR with 2-minute revalidation
-export const revalidate = 120;
+export const dynamic = "force-dynamic";
 
 // Singleton CDIP service instance
 const cdipService = new CDIPService();
@@ -80,6 +84,7 @@ interface CoastPulseResponse {
   summary: CoastPulseSummary;
   hasMore: boolean;
   nextCursor: string | null;
+  nearbyBeachIds: string[];
 }
 
 /**
@@ -100,7 +105,7 @@ async function fetchCoastPulseData(
     .from("beaches")
     .select("id, name, lat, lon, wind_offshore_deg")
     .not("lat", "is", null)
-    .limit(100);
+    .limit(PAGINATION.BEACHES_CACHE_LIMIT);
 
   const beachesCache = (beaches || []).map((b) => ({
     id: b.id,
@@ -139,6 +144,7 @@ async function fetchCoastPulseData(
       },
       hasMore,
       nextCursor,
+      nearbyBeachIds: [],
     };
   }
 
@@ -209,6 +215,20 @@ async function fetchCoastPulseData(
     items.push(...intelResult.value.slice(0, limit));
   }
 
+  // If intel didn't indicate more (< limit in 24h), check if older posts exist
+  if (!intelHasMore) {
+    const twentyFourHoursAgo = new Date(Date.now() - TIME.TWENTY_FOUR_HOURS_MS).toISOString();
+    const { count } = await supabase
+      .from("intel_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .lt("created_at", twentyFourHoursAgo);
+
+    if (count && count > 0) {
+      intelHasMore = true;
+    }
+  }
+
   // Process live CDIP data FIRST (higher credibility than NDBC)
   if (cdipResult.status === "fulfilled" && cdipResult.value.length > 0) {
     items.push(...cdipResult.value);
@@ -248,7 +268,7 @@ async function fetchCoastPulseData(
   const sorted = itemsWithData.sort((a, b) => {
     const timeDiff =
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-    if (Math.abs(timeDiff) < 30 * 60 * 1000) {
+    if (Math.abs(timeDiff) < TIME.CREDIBILITY_GROUPING_MS) {
       // Within 30 min, sort by credibility
       return b.source.credibility - a.source.credibility;
     }
@@ -259,18 +279,17 @@ async function fetchCoastPulseData(
   const summary = computeSummary(sorted);
   const returnItems = sorted.slice(0, limit);
 
-  // Determine nextCursor: use the extra intel item if hasMore, otherwise use last returned item
-  const nextCursor = intelHasMore && intelResult.status === "fulfilled" && intelResult.value.length > limit
-    ? new Date(intelResult.value[limit].timestamp).toISOString() // Use the EXTRA intel item (index = limit)
-    : (returnItems.length > 0
-        ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
-        : null);
+  // Always use last returned item's timestamp as cursor
+  const nextCursor = returnItems.length > 0
+    ? new Date(returnItems[returnItems.length - 1].timestamp).toISOString()
+    : null;
 
   return {
     items: returnItems,
     summary,
     hasMore: intelHasMore,
     nextCursor,
+    nearbyBeachIds: beachesCache.map(b => b.id),
   };
 }
 
@@ -285,7 +304,7 @@ const getCachedCoastPulseData = unstable_cache(
     return fetchCoastPulseData(latitude, longitude, limit);
   },
   ["coast-pulse"],
-  { revalidate: 300, tags: ["coast-pulse"] } // 5-minute cache
+  { revalidate: CACHE.CACHE_REVALIDATE_SECONDS, tags: ["coast-pulse"] }
 );
 
 /**
@@ -317,8 +336,8 @@ async function coastPulseHandler(request: NextRequest) {
     }
 
     const limit = Math.min(
-      Math.max(parseInt(searchParams.get("limit") || "8"), 1),
-      15
+      Math.max(parseInt(searchParams.get("limit") || String(PAGINATION.DEFAULT_LIMIT)), 1),
+      PAGINATION.MAX_LIMIT
     );
     const before = searchParams.get("before") || undefined;
 
@@ -369,12 +388,12 @@ async function fetchLocalBuoys(
   lon: number
 ): Promise<CoastPulseItem[]> {
   try {
-    // Use PostGIS to find buoys within 200km (200000 meters)
+    // Use PostGIS to find buoys within 200km
     const { data: buoys, error } = await supabase.rpc("get_nearby_buoys", {
       target_lat: lat,
       target_lng: lon,
-      max_distance_m: 200000,
-      result_limit: 5,
+      max_distance_m: DISTANCE.BUOY_MAX_METERS,
+      result_limit: PAGINATION.LOCAL_BUOYS_LIMIT,
     });
 
     if (error) {
@@ -385,7 +404,7 @@ async function fetchLocalBuoys(
         .select("*")
         .eq("active", true)
         .not("wave_height", "is", null)
-        .limit(5);
+        .limit(PAGINATION.LOCAL_BUOYS_LIMIT);
 
       if (!fallbackBuoys?.length) return [];
 
@@ -394,7 +413,7 @@ async function fetchLocalBuoys(
         source: {
           name: buoy.buoy_name || `Buoy ${buoy.buoy_uuid}`,
           type: "local" as const,
-          credibility: 85,
+          credibility: CREDIBILITY.LOCAL_BUOY,
         },
         message: buoy.wave_height != null && buoy.wave_period != null
           ? formatBuoyMessage({
@@ -420,7 +439,7 @@ async function fetchLocalBuoys(
       source: {
         name: buoy.buoy_name || `Buoy ${buoy.buoy_uuid}`,
         type: "local" as const,
-        credibility: 85,
+        credibility: CREDIBILITY.LOCAL_BUOY,
       },
       message: buoy.wave_height != null && buoy.wave_period != null
         ? formatBuoyMessage({
@@ -474,7 +493,7 @@ async function fetchEnhancedForecast(
       }
     }
 
-    if (minDist > 100) return []; // Too far, no relevant forecast
+    if (minDist > DISTANCE.FORECAST_MAX_KM) return []; // Too far, no relevant forecast
 
     // Get current forecast for this beach
     const now = new Date();
@@ -496,7 +515,7 @@ async function fetchEnhancedForecast(
             source: {
               name: `${closestBeach.name} (mock)`,
               type: "forecast" as const,
-              credibility: 70,
+              credibility: CREDIBILITY.FORECAST,
             },
             message: "3-4ft @ 12s, 8kt NW",
             timestamp: new Date(),
@@ -518,7 +537,7 @@ async function fetchEnhancedForecast(
         source: {
           name: closestBeach.name,
           type: "forecast" as const,
-          credibility: 70,
+          credibility: CREDIBILITY.FORECAST,
         },
         message: formatForecastConditions(forecast, (closestBeach as any).windOffshoreDeg),
         timestamp: new Date(forecast.updated_at || now),
@@ -564,7 +583,7 @@ async function fetchDailyIntel(
       }
     }
 
-    if (minDist > 100) return null; // Too far, no relevant data
+    if (minDist > DISTANCE.DAILY_INTEL_MAX_KM) return null; // Too far, no relevant data
 
     // Get today's intel for this beach (most recent generation)
     const today = new Date().toISOString().split("T")[0];
@@ -605,7 +624,7 @@ async function fetchDailyIntel(
       source: {
         name: `${closestBeach.name} Daily`,
         type: "daily-intel" as const,
-        credibility: 75, // Pre-computed from multiple sources
+        credibility: CREDIBILITY.DAILY_INTEL,
       },
       message,
       timestamp: new Date(intel.created_at),
@@ -671,7 +690,7 @@ async function fetchRecentIntel(
       query = query.lt("created_at", before);
     } else {
       // First page - fetch recent posts (last 24 hours)
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const twentyFourHoursAgo = new Date(Date.now() - TIME.TWENTY_FOUR_HOURS_MS).toISOString();
       query = query.gte("created_at", twentyFourHoursAgo);
     }
 
@@ -683,7 +702,7 @@ async function fetchRecentIntel(
     const nearbyPosts = posts.filter((post: any) => {
       if (post.latitude == null || post.longitude == null) return false;
       const dist = haversineDistance(lat, lon, post.latitude, post.longitude);
-      return dist <= 50; // Within 50km
+      return dist <= DISTANCE.INTEL_MAX_KM;
     });
 
     return nearbyPosts.slice(0, limit).map((post: any) => {
@@ -699,7 +718,7 @@ async function fetchRecentIntel(
         source: {
           name: formatIntelSourceName(surferName, beachName),
           type: "intel" as const,
-          credibility: 50 + Math.min(post.confirmations_count || 0, 20) * 2,
+          credibility: CREDIBILITY.INTEL_BASE + Math.min(post.confirmations_count || 0, CREDIBILITY.INTEL_CONFIRMATION_MAX) * CREDIBILITY.INTEL_CONFIRMATION_MULTIPLIER,
         },
         message: formatIntelMessage({
           emoji_rating: post.emoji_rating,
@@ -730,8 +749,8 @@ async function fetchLiveNDBCData(
   lon: number
 ): Promise<CoastPulseItem | null> {
   try {
-    // Find nearest NDBC station within 100km
-    const station = await getNearestNDBCStation(lat, lon, 100);
+    // Find nearest NDBC station
+    const station = await getNearestNDBCStation(lat, lon, DISTANCE.BUOY_MAX_KM);
     if (!station) return null;
 
     // Fetch latest observation
@@ -771,7 +790,7 @@ async function fetchLiveNDBCData(
       source: {
         name: station.name,
         type: "ndbc" as const,
-        credibility: 90, // Higher credibility for live data
+        credibility: CREDIBILITY.NDBC,
       },
       message,
       timestamp: new Date(observation.ts),
@@ -799,11 +818,11 @@ async function fetchLiveCDIPData(
   try {
     const items: CoastPulseItem[] = [];
 
-    // Find all CDIP stations within 100km (~62 miles)
+    // Find all CDIP stations within range
     const nearbyStations: Array<{ id: string; distance: number; name: string }> = [];
     for (const [id, station] of Object.entries(CDIP_STATIONS)) {
       const distance = haversineDistance(lat, lon, station.latitude, station.longitude);
-      if (distance <= 100) {
+      if (distance <= DISTANCE.CDIP_MAX_KM) {
         nearbyStations.push({ id, distance, name: station.name });
       }
     }
@@ -814,9 +833,9 @@ async function fetchLiveCDIPData(
         nearbyStations.map(s => `${s.name} (${s.id}) - ${s.distance.toFixed(1)}km`).join(", "));
     }
 
-    // Sort by distance and take up to 2 nearest (avoid duplicate-feeling feed)
+    // Sort by distance and take nearest stations
     nearbyStations.sort((a, b) => a.distance - b.distance);
-    const stationsToFetch = nearbyStations.slice(0, 2);
+    const stationsToFetch = nearbyStations.slice(0, PAGINATION.CDIP_STATIONS_LIMIT);
 
     if (stationsToFetch.length === 0) return [];
 
@@ -858,7 +877,7 @@ async function fetchLiveCDIPData(
           source: {
             name: buoyData.stationName,
             type: "cdip" as const,
-            credibility: 95, // CDIP is highest credibility for wave data
+            credibility: CREDIBILITY.CDIP,
           },
           message,
           timestamp: new Date(latest.timestamp),
@@ -924,7 +943,7 @@ async function fetchTideData(
       source: {
         name: tideData.station_name,
         type: "tide" as const,
-        credibility: 95, // Official NOAA predictions
+        credibility: CREDIBILITY.TIDE,
       },
       message,
       timestamp: new Date(),
@@ -971,168 +990,6 @@ function determineTrend(
   if (forecast.trend_direction === "increasing") return "up";
   if (forecast.trend_direction === "decreasing") return "down";
   return "stable";
-}
-
-/**
- * Calculate confidence score based on data freshness and source credibility
- */
-function calculateConfidence(items: CoastPulseItem[]): number {
-  if (items.length === 0) return 0;
-
-  const now = Date.now();
-  let totalScore = 0;
-  let count = 0;
-
-  for (const item of items.slice(0, 3)) {
-    // Only consider top 3 items
-    const ageMs = now - new Date(item.timestamp).getTime();
-    const ageHours = ageMs / (1000 * 60 * 60);
-
-    // Freshness penalty: -10 points per hour old
-    const freshnessPenalty = Math.min(50, ageHours * 10);
-    const itemScore = Math.max(0, item.source.credibility - freshnessPenalty);
-
-    totalScore += itemScore;
-    count++;
-  }
-
-  return count > 0 ? Math.round(totalScore / count) : 0;
-}
-
-/**
- * Compute summary from available items
- * Priority: Recent Intel (breaking) > Forecast (estimated) > Buoy (offshore)
- */
-function computeSummary(items: CoastPulseItem[]): CoastPulseSummary {
-  let waveHeight: string | null = null;
-  let heightType: "offshore" | "breaking" | "forecast" | null = null;
-
-  // Priority 1: Recent intel (user-reported breaking wave height, <2hrs old)
-  const recentIntel = items.find(
-    (i) =>
-      i.source.type === "intel" &&
-      Date.now() - new Date(i.timestamp).getTime() < 2 * 60 * 60 * 1000
-  );
-
-  if (recentIntel) {
-    const match = recentIntel.message.match(/(\d+\.?\d*(?:-\d+\.?\d*)?)(?:ft|')/i);
-    if (match) {
-      waveHeight = `${match[1]} ft`;
-      heightType = "breaking";
-    }
-  }
-
-  // Priority 2: Daily Intel or Forecast (estimated surf height)
-  if (!waveHeight) {
-    // Prefer daily-intel as it's a pre-computed summary
-    const dailyIntelItem = items.find((i) => i.source.type === "daily-intel");
-    const forecastItem = items.find((i) => i.source.type === "forecast");
-    const summaryItem = dailyIntelItem || forecastItem;
-
-    if (summaryItem) {
-      const match = summaryItem.message.match(/(\d+\.?\d*(?:-\d+\.?\d*)?)ft/);
-      if (match) {
-        waveHeight = `${match[1]} ft`;
-        heightType = "forecast";
-      }
-    }
-  }
-
-  // Priority 3: Buoy data (offshore swell - CDIP > NDBC > local)
-  if (!waveHeight) {
-    const buoyItem =
-      items.find((i) => i.source.type === "cdip") ||
-      items.find((i) => i.source.type === "ndbc") ||
-      items.find((i) => i.source.type === "local");
-    if (buoyItem) {
-      const match = buoyItem.message.match(/(\d+\.?\d*)ft/);
-      if (match) {
-        waveHeight = `${match[1]} ft (offshore)`;
-        heightType = "offshore";
-      }
-    }
-  }
-
-  // Extract wind from any available source (buoy preferred for accuracy)
-  const windSource =
-    items.find((i) => i.source.type === "cdip" || i.source.type === "ndbc") ||
-    items.find((i) => i.source.type === "forecast");
-  const windMatch = windSource?.message.match(/(\d+)kt\s*(\w+)?/);
-  const windSpeed = windMatch
-    ? `${windMatch[1]} kt${windMatch[2] ? ` ${windMatch[2]}` : ""}`
-    : null;
-
-  // Determine overall trend
-  const trends = items.map((i) => i.trend).filter(Boolean);
-  let overallTrend: "improving" | "stable" | "declining" | null = null;
-  if (trends.includes("up")) overallTrend = "improving";
-  else if (trends.includes("down")) overallTrend = "declining";
-  else if (trends.length > 0) overallTrend = "stable";
-
-  // Calculate confidence based on data freshness
-  const confidence = calculateConfidence(items);
-
-  // Extract tide height from tide item
-  const tideItem = items.find((i) => i.source.type === "tide");
-  let tideHeight: string | null = null;
-  if (tideItem) {
-    // Extract "Now: X.Xft Rising/Falling" pattern from message
-    const match = tideItem.message.match(/Now:\s*(\d+\.?\d*)ft\s*(\w+)/);
-    if (match) {
-      tideHeight = `${match[1]}ft ${match[2]}`;
-    }
-  }
-
-  // Extract water temp from NDBC item (format: "XXX°F" in message)
-  const ndbcItem = items.find((i) => i.source.type === "ndbc");
-  let waterTemp: string | null = null;
-  if (ndbcItem) {
-    const match = ndbcItem.message.match(/(\d+)°F/);
-    if (match) {
-      waterTemp = `${match[1]}°F`;
-    }
-  }
-
-  return {
-    waveHeight,
-    heightType,
-    windSpeed,
-    tideHeight,
-    waterTemp,
-    trend: overallTrend,
-    confidence,
-    lastUpdated: new Date().toISOString(),
-  };
-}
-
-/**
- * Haversine distance between two points in km
- */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-/**
- * Convert degrees to cardinal direction
- */
-function degreesToCardinal(degrees: number): string {
-  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const index = Math.round(degrees / 45) % 8;
-  return directions[index];
 }
 
 // Apply rate limiting protection

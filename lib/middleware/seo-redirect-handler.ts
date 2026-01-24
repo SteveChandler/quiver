@@ -71,7 +71,6 @@ export type UrlPatternType =
   | "state-only"           // /ca, /nj, /pr
   | "us-beach"             // /ca/san-diego/blacks
   | "mexico-beach"         // /mexico/baja-california/rosarito/alfonsos
-  | "legacy-intent"        // /beginner/san-diego (old format without state)
   | "intent-city-legacy"   // /beginner/ca/san-diego (3-segment with state)
   | "intent-beach-legacy"  // /beginner/ca/san-diego/blacks (4-segment with beach)
   | "none";                // Not a redirect candidate
@@ -94,17 +93,6 @@ export function classifyUrlPattern(pathname: string): UrlPatternType {
   // Skip reserved paths (except intent slugs which we handle specially)
   if (RESERVED_PATHS.has(firstSegment) && !INTENT_SLUGS.has(firstSegment)) {
     return "none";
-  }
-
-  // 2 segments: /{intent}/{city} - legacy intent URLs without state
-  // Must match: first segment is intent, second is NOT a state slug
-  // (If second segment IS a state slug, let it pass to [intent]/[state] route)
-  if (
-    segments.length === 2 &&
-    INTENT_SLUGS.has(firstSegment) &&
-    !isValidStateSlug(secondSegment)
-  ) {
-    return "legacy-intent";
   }
 
   // 3 segments: /{intent}/{state}/{city} - legacy intent URLs with state
@@ -443,49 +431,6 @@ async function handleUsBeachRedirect(
 }
 
 /**
- * Handle legacy intent URL redirects
- * Example: /beginner/san-diego → /beginner/ca/san-diego
- *
- * These are old URLs from before we added the state segment.
- * We look up the city to find its state and redirect to the new format.
- */
-async function handleLegacyIntentRedirect(
-  pathname: string
-): Promise<SeoRedirectResult> {
-  const segments = pathname.split("/").filter(Boolean);
-
-  if (segments.length !== 2) {
-    return { redirect: false };
-  }
-
-  const intentSlug = segments[0]?.toLowerCase() || "";
-  const citySlug = segments[1]?.toLowerCase() || "";
-
-  if (!INTENT_SLUGS.has(intentSlug) || !citySlug) {
-    return { redirect: false };
-  }
-
-  // Lookup city to find its state
-  const cityData = await lookupCityBySlugForRedirect(citySlug);
-
-  if (!cityData) {
-    // City not found - let request pass through to 404
-    return { redirect: false };
-  }
-
-  // Convert state to slug (e.g., "California" -> "ca")
-  const stateSlug = stateToSlug(cityData.state);
-  if (!stateSlug) {
-    return { redirect: false };
-  }
-
-  // Build new URL: /{intent}/{state}/{city}
-  const redirectUrl = `/${intentSlug}/${stateSlug}/${citySlug}`;
-  console.log(`[SEO Redirect] Legacy intent ${pathname} → ${redirectUrl}`);
-  return { redirect: true, url: redirectUrl };
-}
-
-/**
  * Handle 3-segment intent URL redirects (intent + state + city)
  * Example: /sunset/ca/san-diego → /sunset/san-diego
  *
@@ -549,7 +494,6 @@ function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
  * - State-only: /ca → /beaches/usa/ca
  * - US beach: /ca/orange-county/doheny → /ca/dana-point/doheny
  * - Mexico beach: /mexico/baja-california/rosarito/alfonsos → /spots/alfonsos
- * - Legacy intent: /beginner/san-diego → /beginner/ca/san-diego
  * - Intent city legacy: /sunset/ca/san-diego → /sunset/san-diego
  * - Intent beach legacy: /sunset/ca/san-diego/blacks → /sunset/san-diego
  *
@@ -576,9 +520,6 @@ export async function handleSeoRedirect(
 
       case "mexico-beach":
         return handleMexicoBeachRedirect(pathname);
-
-      case "legacy-intent":
-        return handleLegacyIntentRedirect(pathname);
 
       case "intent-city-legacy":
         return handleIntentCityLegacyRedirect(pathname);

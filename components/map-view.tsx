@@ -208,11 +208,11 @@ export function MapView() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onNearMe={() => {
-          if (userLocation) {
-            loadNearbyBeaches(userLocation.lat, userLocation.lon);
-          } else {
-            getUserLocation();
-          }
+          // Clear selection so map centers on user location
+          setSelectedBeach(null);
+          clearSearch();
+          lastLocationRef.current = null; // Allow reload at same location
+          getUserLocation(true); // Force fresh geolocation
         }}
       />
 

@@ -14,9 +14,24 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { createContextLogger } from '@/lib/logger';
+import { calculateDistance } from '@/lib/utils/distance-utils';
 import type { Beach } from '@/types/database';
 
 const log = createContextLogger('CandidatePoolBuilder');
+
+/**
+ * Checks if a beach is within the given radius from a user location.
+ * Returns false if the beach has no coordinates.
+ */
+function isWithinRadius(
+  beach: Beach,
+  userLocation: { lat: number; lon: number },
+  radiusMiles: number
+): boolean {
+  if (beach.lat == null || beach.lon == null) return false;
+  const distance = calculateDistance(userLocation, { lat: beach.lat, lon: beach.lon }, 'miles');
+  return Number.isFinite(distance) && distance <= radiusMiles;
+}
 
 /**
  * Options for building the candidate pool
@@ -67,6 +82,10 @@ export async function buildCandidatePool(
   const candidates: Beach[] = [];
   let preferredWaveSize: string | null = null;
 
+  // Compute proximity radius once upfront (used for home/favorites filtering)
+  const radiusMiles = Number.isFinite(options.radiusMiles) ? (options.radiusMiles as number) : 25;
+  const cappedRadius = Math.min(Math.max(radiusMiles, 0), 100);
+
   try {
     if (options.includeHome !== false) {
       // Query 1: Get user profile with home beach
@@ -85,8 +104,12 @@ export async function buildCandidatePool(
 
       if (profile?.home_beach) {
         const homeBeach = profile.home_beach as unknown as Beach;
-        candidates.push(homeBeach);
-        log.debug(`Added home beach: ${homeBeach.name}`);
+        if (!options.userLocation || isWithinRadius(homeBeach, options.userLocation, cappedRadius)) {
+          candidates.push(homeBeach);
+          log.debug(`Added home beach: ${homeBeach.name}`);
+        } else {
+          log.debug(`Skipped home beach (out of radius): ${homeBeach.name}`);
+        }
       }
 
       preferredWaveSize =
@@ -107,25 +130,24 @@ export async function buildCandidatePool(
         .order('rank', { ascending: true });
 
       if (favorites) {
+        let addedCount = 0;
         for (const fav of favorites) {
           const beach = fav.beach as unknown as Beach;
           // Avoid duplicates with home beach
           if (!candidates.find((c) => c.id === beach.id)) {
-            candidates.push(beach);
+            if (!options.userLocation || isWithinRadius(beach, options.userLocation, cappedRadius)) {
+              candidates.push(beach);
+              addedCount++;
+            }
           }
         }
-        log.debug(`Added ${favorites.length} favorite beaches`);
+        log.debug(`Added ${addedCount}/${favorites.length} favorite beaches (proximity-filtered)`);
       }
     }
 
     // GPS Phase: Add nearby beaches via PostGIS RPC (explicit location only).
     if (options.userLocation) {
-      const radiusMiles = Number.isFinite(options.radiusMiles)
-        ? (options.radiusMiles as number)
-        : 25;
-
-      const cappedMiles = Math.min(Math.max(radiusMiles, 0), 100);
-      const max_distance_meters = Math.round(cappedMiles * 1609.34);
+      const max_distance_meters = Math.round(cappedRadius * 1609.34);
       const limit_count = 40;
 
       const { data: nearbyRaw, error: nearbyError } = await supabase.rpc(

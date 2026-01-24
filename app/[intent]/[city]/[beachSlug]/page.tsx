@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -18,9 +19,15 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
+import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
+
+const getCachedBeachCandidates = cache(async (slug: string) => {
+  const { getBeachesBySlug } = await import("@/actions/beach/beach-query-actions");
+  return getBeachesBySlug(slug);
+});
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -69,10 +76,7 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
 
   try {
     // Fetch candidate beach rows by slug; disambiguate by state+city from URL
-    const { getBeachesBySlug } = await import(
-      "@/actions/beach/beach-query-actions"
-    );
-    const candidatesResult = await getBeachesBySlug(beachSlug);
+    const candidatesResult = await getCachedBeachCandidates(beachSlug);
 
     const beach = pickBestUsaBeachMatch({
       stateParam,
@@ -86,6 +90,10 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
       beach.lat != null && beach.lon != null
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
+
+    // Get surf report for unified surf window card
+    const surfReportResult = await getSpotSurfReport(beach);
+    const surfCallReport = surfReportResult?.report || null;
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -176,14 +184,13 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
           }}
         />
 
-        {/* Above-the-fold surf report (streams via Suspense) */}
-        <SpotSurfReportStream beach={beach} />
-
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
           beach={beach}
           slug={beachSlug}
           beachTimezone={beachTimezone}
+          surfReportSlot={<SpotSurfReportStream beach={beach} />}
+          surfCallReport={surfCallReport}
         />
       </>
     );
@@ -215,10 +222,7 @@ export async function generateMetadata({
   }
 
   try {
-    const { getBeachesBySlug } = await import(
-      "@/actions/beach/beach-query-actions"
-    );
-    const candidatesResult = await getBeachesBySlug(beachSlug);
+    const candidatesResult = await getCachedBeachCandidates(beachSlug);
     const beach = pickBestUsaBeachMatch({
       stateParam,
       cityParam: params.city,
@@ -247,9 +251,10 @@ export async function generateMetadata({
       }
 
       return buildPageMetadata({
-        title: `${beach.name} Surf Report & Forecast (Updated Daily) | Quiver`,
-        description: `Today's surf call, wave height, wind, tide, and best time window for ${beach.name}${locationContext} — plus nearby spots.`,
+        title: `${beach.name} Surf Forecast | Quiver`,
+        description: `Live surf forecast for ${beach.name}${locationContext}. Wave height, swell, wind, and tide conditions updated daily.`,
         path,
+        image: `/api/og/beach?slug=${beachSlug}`,
         keywords: [
           `${beach.name} surf report`,
           `${beach.name} surf forecast`,

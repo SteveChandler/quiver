@@ -12,7 +12,8 @@ import {
   getWaveHeightValue,
 } from "@/lib/utils/wave-height-formatter";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
-import { CACHE_TTL } from "@/lib/constants/ui";
+import { CACHE_TTL, API_BATCH_CONFIG } from "@/lib/constants/ui";
+import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
@@ -458,43 +459,53 @@ export function InteractiveMap({
           locations = locations.slice(0, 20);
         }
 
-        // Fetch wave heights for all beaches in a single bulk request (performance optimization)
+        // Fetch wave heights for ALL beaches that clustering will use (not just displayed locations)
         const localWaveHeightMap = new Map<string, number | undefined>();
+        const beachesForWaveData = beaches?.length ? beaches : locations;
 
-        // Only call bulk API if we have beaches to fetch
-        if (locations.length > 0) {
+        if (beachesForWaveData.length > 0) {
           try {
-            const beachIds = locations
+            const allBeachIds = beachesForWaveData
               .map((beach) => beach.id)
-              .filter(Boolean) // Remove any undefined/null IDs
-              .join(",");
+              .filter(Boolean) as string[];
 
-            // Skip API call if no valid IDs after filtering
-            if (beachIds) {
-              const response = await fetch(
-                `/api/forecasts/bulk?beachIds=${beachIds}`
-              );
+            const results = await fetchInBatches({
+              items: allBeachIds,
+              batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
+              fetchBatch: async (batchIds) => {
+                const response = await fetch(
+                  `/api/forecasts/bulk?beachIds=${batchIds.join(",")}`
+                );
+                if (!response.ok) {
+                  if (response.status !== 400) {
+                    throw new Error(`Bulk forecast API returned ${response.status}`);
+                  }
+                  return null;
+                }
+                return response.json();
+              },
+              onBatchError: (error, batchIndex) => {
+                console.warn(`Wave height batch ${batchIndex} failed:`, error);
+              },
+            });
 
-              if (response.ok) {
-                const data = await response.json();
-                const forecasts = data?.data?.forecasts || {};
-
-                // Populate wave height map from bulk response
-                Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
-                  localWaveHeightMap.set(beachId, waveHeight as number | undefined);
-                });
-              } else if (response.status !== 400) {
-                // 400 is expected for bad requests, only warn on unexpected errors
-                console.warn(`Bulk forecast API returned ${response.status}`);
-              }
-            }
+            results.forEach((data) => {
+              const forecasts = data?.data?.forecasts || {};
+              Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
+                // wave_height may be a string from DB — parse to number
+                const parsed = typeof waveHeight === "number" ? waveHeight : parseFloat(waveHeight as string);
+                if (!isNaN(parsed)) {
+                  localWaveHeightMap.set(beachId, parsed);
+                }
+              });
+            });
           } catch (error) {
             console.warn("Failed to fetch bulk forecasts:", error);
           }
         }
 
         // Store wave heights for clustering
-        setWaveHeightMap(new Map(localWaveHeightMap));
+        setWaveHeightMap(localWaveHeightMap);
 
         // Marker rendering is now handled by the clusters useEffect
       } catch (e) {
@@ -704,7 +715,11 @@ export function InteractiveMap({
       const lngDiff = Math.abs(currentCenter.lng - newLng);
 
       if (latDiff > threshold || lngDiff > threshold) {
-        mapRef.current.setCenter([newLng, newLat]);
+        mapRef.current.flyTo({
+          center: [newLng, newLat],
+          zoom: mapRef.current.getZoom(),
+          duration: 1000,
+        });
 
         // Also populate locations for the new center
         populateLocations(newLat, newLng);

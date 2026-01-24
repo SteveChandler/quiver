@@ -8,9 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useMagicHour } from "@/hooks/use-magic-hour";
 import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
+import { getWindowStatus } from "@/lib/utils/window-status";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { data } from "@/lib/data/client";
 import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { UnifiedSurfCard } from "./unified-surf-card";
 import {
   Clock,
   Waves,
@@ -27,6 +30,7 @@ interface BestSurfWindowProps {
   beachName: string;
   beachTimezone?: string | null;
   forecasts?: EnhancedForecastEntity[];
+  surfCall?: SurfCallResult | null;
 }
 
 type WindowForecast = {
@@ -39,11 +43,13 @@ type WindowForecast = {
   tide_height: number | null;
 };
 
+
 export function BestSurfWindow({
   beachId,
   beachName,
   beachTimezone,
   forecasts,
+  surfCall,
 }: BestSurfWindowProps) {
   const pathname = usePathname();
 
@@ -151,6 +157,18 @@ export function BestSurfWindow({
 
     return computed;
   }, [mappedForecasts]);
+
+  // When unified scorer data is available, render the unified card
+  // (placed after all hooks to satisfy rules-of-hooks)
+  if (surfCall) {
+    return (
+      <UnifiedSurfCard
+        surfCall={surfCall}
+        beachTimezone={beachTimezone}
+        beachName={beachName}
+      />
+    );
+  }
 
   // Loading state
   if (loading) {
@@ -296,62 +314,11 @@ export function BestSurfWindow({
     );
   }
 
-  // Check if window has passed, is current, or upcoming
-  const getWindowStatus = () => {
-    if (!intel.best_window_start || !intel.best_window_end) {
-      return { status: "unknown", message: "" };
-    }
-
-    const now = new Date();
-    const today = forecastDate;
-
-    const startTime = new Date(`${today}T${intel.best_window_start}`);
-    const endTime = new Date(`${today}T${intel.best_window_end}`);
-
-    if (now < startTime) {
-      // Window hasn't started yet
-      const hoursUntil = Math.round(
-        (startTime.getTime() - now.getTime()) / (1000 * 60 * 60)
-      );
-      const minsUntil = Math.round(
-        (startTime.getTime() - now.getTime()) / (1000 * 60)
-      );
-
-      if (hoursUntil >= 1) {
-        return {
-          status: "upcoming",
-          message: `Starts in ${hoursUntil} hour${hoursUntil > 1 ? "s" : ""}`,
-        };
-      } else {
-        return {
-          status: "upcoming",
-          message: `Starts in ${minsUntil} minutes`,
-        };
-      }
-    } else if (now >= startTime && now <= endTime) {
-      // Currently in the window
-      const minsRemaining = Math.round(
-        (endTime.getTime() - now.getTime()) / (1000 * 60)
-      );
-      return {
-        status: "current",
-        message:
-          minsRemaining > 60
-            ? `${Math.floor(minsRemaining / 60)}h ${
-                minsRemaining % 60
-              }m remaining`
-            : `${minsRemaining} mins remaining`,
-      };
-    } else {
-      // Window has passed
-      return {
-        status: "passed",
-        message: "Window has passed",
-      };
-    }
-  };
-
-  const windowStatus = getWindowStatus();
+  const windowStatus = getWindowStatus(
+    intel.best_window_start,
+    intel.best_window_end,
+    forecastDate
+  );
   const generatedTime = new Date(intel.generated_at).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",

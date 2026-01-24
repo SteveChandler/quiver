@@ -49,7 +49,7 @@ export function HomeScreen() {
     source: geoSource,
     usingDefaultLocation,
   } = useGeolocation({
-    autoRequest: false,
+    autoRequest: true,
     enablePolling: true,
     pollingIntervalMs: 5 * 60 * 1000, // 5 minutes
     minDistanceChangeMeters: 1000, // 1 km
@@ -74,19 +74,22 @@ export function HomeScreen() {
   );
   const profileStrength = strengthResponse?.data || null;
 
-  // Determine coast pulse coordinates (fallback chain: homeBeach > geolocation > San Diego)
-  const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
-  const coastPulseCoords =
-    homeBeach?.lat != null && homeBeach?.lon != null
-      ? { lat: homeBeach.lat, lon: homeBeach.lon }
-      : geoCoords?.lat != null && geoCoords?.lon != null
-        ? { lat: geoCoords.lat, lon: geoCoords.lon }
-        : DEFAULT_LOCATION;
-
-
   // Validate coordinates helper
   const isValidCoordinate = (lat: number, lon: number): boolean =>
     lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+
+  // Determine coast pulse coordinates (fallback chain: GPS > homeBeach > San Diego)
+  const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
+  const coastPulseCoords =
+    geoSource === "browser" &&
+    !usingDefaultLocation &&
+    geoCoords?.lat != null &&
+    geoCoords?.lon != null &&
+    isValidCoordinate(geoCoords.lat, geoCoords.lon)
+      ? { lat: geoCoords.lat, lon: geoCoords.lon }
+      : homeBeach?.lat != null && homeBeach?.lon != null
+        ? { lat: homeBeach.lat, lon: homeBeach.lon }
+        : DEFAULT_LOCATION;
 
   // Determine seed location for discovery (with validation)
   // Fallback chain: browser GPS > home beach > default location (San Diego)
@@ -113,7 +116,7 @@ export function HomeScreen() {
     maxResults: 6,
     horizonHours: 24, // Home screen: only consider windows in next 24 hours
     timeSlot, // Pass the selected time slot
-    enabled: !!profile,
+    enabled: !!profile && !geoLoading,
     immediate: true,
     userLocation: seedDiscoveryLocation,
   });
@@ -296,6 +299,8 @@ export function HomeScreen() {
             <section className="w-full">
               <TopSpotsCarousel
                 spots={topSpots}
+                heroWindow={topRecommendation?.window}
+                timeSlot={timeSlot}
                 loading={discoveryLoading}
                 onPlanSession={handleAtBeach}
                 onViewSpot={handleViewSpot}

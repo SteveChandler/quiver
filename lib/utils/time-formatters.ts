@@ -96,6 +96,83 @@ export function formatDuration(minutes: number): string {
  * @example
  * formatTimeWindow(new Date("2024-01-01T07:00"), new Date("2024-01-01T10:00")) // "7-10am"
  */
+/**
+ * Determine whether a window start time is "today" or "tomorrow" in the given timezone
+ *
+ * @param start - Window start date
+ * @param timezone - IANA timezone identifier (e.g., "America/Los_Angeles")
+ * @returns 'today' or 'tomorrow'
+ */
+export function getWindowDayLabel(start: Date, timezone: string): 'today' | 'tomorrow' {
+  const now = new Date();
+  const dateFormatter = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: timezone,
+  });
+  const todayStr = dateFormatter.format(now);
+  const startDayStr = dateFormatter.format(start);
+
+  if (todayStr === startDayStr) return 'today';
+  return 'tomorrow';
+}
+
+/**
+ * Format a time window with minute precision for compact display
+ *
+ * Produces strings like "10:45am–1:45pm" or "7–10am" (when on the hour and same period).
+ * Uses the beach's timezone for accurate local time display.
+ *
+ * @param start - Window start date
+ * @param end - Window end date
+ * @param timezone - IANA timezone identifier
+ * @returns Compact formatted time window string
+ *
+ * @example
+ * formatTimeWindowCompact(start, end, "America/Los_Angeles") // "10:45am–1:45pm"
+ * formatTimeWindowCompact(start, end, "America/Los_Angeles") // "7–10am"
+ */
+export function formatTimeWindowCompact(start: Date, end: Date, timezone: string): string {
+  const getTimeParts = (date: Date) => {
+    const hourParts = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: timezone,
+    }).formatToParts(date);
+    const hour24 = parseInt(hourParts.find((p) => p.type === "hour")?.value ?? "0", 10);
+
+    const minuteParts = new Intl.DateTimeFormat("en-US", {
+      minute: "numeric",
+      timeZone: timezone,
+    }).formatToParts(date);
+    const minutes = parseInt(minuteParts.find((p) => p.type === "minute")?.value ?? "0", 10);
+
+    const hour12 = hour24 % 12 || 12;
+    const period = hour24 >= 12 ? "pm" : "am";
+
+    return { hour24, hour12, minutes, period };
+  };
+
+  const startParts = getTimeParts(start);
+  const endParts = getTimeParts(end);
+
+  const formatTime = (parts: { hour12: number; minutes: number; period: string }, includePeriod: boolean) => {
+    const timeStr = parts.minutes === 0
+      ? `${parts.hour12}`
+      : `${parts.hour12}:${String(parts.minutes).padStart(2, "0")}`;
+    return includePeriod ? `${timeStr}${parts.period}` : timeStr;
+  };
+
+  // Same AM/PM period: share the suffix (e.g., "7–10am" or "10:45–1:45pm")
+  if (startParts.period === endParts.period) {
+    return `${formatTime(startParts, false)}\u2013${formatTime(endParts, true)}`;
+  }
+
+  // Different periods: show both (e.g., "10:45am–1:45pm")
+  return `${formatTime(startParts, true)}\u2013${formatTime(endParts, true)}`;
+}
+
 export function formatTimeWindow(start: Date, end: Date): string {
   const formatHour = (date: Date): string => {
     const hour = date.getHours();

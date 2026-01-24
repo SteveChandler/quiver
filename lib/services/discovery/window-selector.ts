@@ -278,10 +278,11 @@ function findPeakWithinWindow(
   windowEnd: Date,
   forecasts: Array<{ forecastTime: Date; score: number }>
 ): Date {
-  // Find forecasts within or overlapping the window
-  // Include forecasts slightly before/after for interpolation context
+  // Find forecasts within the window (exclusive end boundary).
+  // The window end may be a hard stop (sunset cap), so forecasts AT
+  // end time shouldn't be considered "surfable" peaks.
   const windowForecasts = forecasts.filter(
-    (f) => f.forecastTime >= windowStart && f.forecastTime <= windowEnd
+    (f) => f.forecastTime >= windowStart && f.forecastTime < windowEnd
   );
 
   if (windowForecasts.length === 0) {
@@ -1497,6 +1498,13 @@ export function selectBestWindow(
     end: refinedTimes.end,
   };
 
+  // Compute peakTime: the timestamp of the highest-scoring forecast within the window
+  const peakTime = findPeakWithinWindow(
+    bestWindow.start,
+    bestWindow.end,
+    filteredForecasts
+  );
+
   // Build the PersonalizedForecastWindow
   return {
     start: bestWindow.start,
@@ -1510,5 +1518,6 @@ export function selectBestWindow(
     timezone: beachTz,
     usedTideBoundaries: bestWindow.usedTideBoundaries,
     score: bestWindow.score,
+    peakTime,
   };
 }

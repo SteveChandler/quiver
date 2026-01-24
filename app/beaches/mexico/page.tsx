@@ -5,7 +5,7 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { generateLocationSlug } from "@/lib/utils/location-slug";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches in Mexico",

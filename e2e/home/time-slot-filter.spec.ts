@@ -560,7 +560,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
     test('should update top spots carousel when filter changes', async ({ page }) => {
       // Wait for initial carousel load - the testid only exists when spots are available
       // First wait for loading to complete by checking for spots section
-      const spotsSection = page.locator('section[aria-label="Your Top Spots"]');
+      const spotsSection = page.getByRole('region', { name: /top spots/i });
       await expect(spotsSection).toBeVisible({ timeout: TIMEOUTS.long });
 
       // Check if carousel with spots is visible (testid only present when spots exist)
@@ -610,7 +610,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       await page.waitForTimeout(1500);
 
       // Wait for spots section to exist first
-      const spotsSection = page.locator('section[aria-label="Your Top Spots"]');
+      const spotsSection = page.getByRole('region', { name: /top spots/i });
       const sectionVisible = await spotsSection.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!sectionVisible) {

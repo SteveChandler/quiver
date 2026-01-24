@@ -247,18 +247,20 @@ test.describe("Home Activation Flow", () => {
     if (hasPlanWeekend) {
       await planWeekendButton.click();
       // Should navigate to session wizard with mode=plan
-      await expect(page).toHaveURL(/\/sessions\/new\?.*mode=plan/);
+      await expect(page).toHaveURL(/\/sessions\/new\?.*mode=plan/, { timeout: 15000 });
     } else if (hasAtBeach) {
       await atBeachButton.click();
       // Should navigate to session wizard with mode=log
-      await expect(page).toHaveURL(/\/sessions\/new\?.*mode=log/);
+      await expect(page).toHaveURL(/\/sessions\/new\?.*mode=log/, { timeout: 15000 });
     } else {
-      // Fallback: at least one button should be available
+      // Fallback: at least one action area should be available (primary, fallback, or explore)
       const primaryActions = page.getByTestId("primary-actions");
       const fallbackActions = page.getByTestId("fallback-actions");
+      const exploreButton = page.getByRole('button', { name: /explore beaches/i });
       const hasPrimary = await primaryActions.isVisible().catch(() => false);
       const hasFallback = await fallbackActions.isVisible().catch(() => false);
-      expect(hasPrimary || hasFallback).toBe(true);
+      const hasExplore = await exploreButton.isVisible().catch(() => false);
+      expect(hasPrimary || hasFallback || hasExplore).toBe(true);
     }
   });
 

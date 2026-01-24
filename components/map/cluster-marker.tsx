@@ -66,24 +66,16 @@ export function createClusterMarkerElement({
     background: ${bgColor};
   `;
 
-  // Wave range text
-  const rangeText = document.createElement("span");
-  rangeText.textContent = waveRange;
-  rangeText.style.fontWeight = "700";
+  // Combined label: "1-2ft - 2x" or just "2x" if no wave data
+  const label = document.createElement("span");
+  label.style.fontWeight = "700";
+  if (waveRange !== "—") {
+    label.textContent = `${waveRange} - ${pointCount}x`;
+  } else {
+    label.textContent = `${pointCount}x`;
+  }
 
-  // Count badge
-  const countBadge = document.createElement("span");
-  countBadge.textContent = `${pointCount}`;
-  countBadge.style.cssText = `
-    background: rgba(255, 255, 255, 0.25);
-    padding: 2px 6px;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 500;
-  `;
-
-  badge.appendChild(rangeText);
-  badge.appendChild(countBadge);
+  badge.appendChild(label);
 
   wrapper.appendChild(badge);
 

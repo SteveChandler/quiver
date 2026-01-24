@@ -18,7 +18,7 @@ import {
 import { StateMapView } from "@/components/state/state-map-view";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = "force-dynamic";
 
 type BeachLocationRow = {
   city: string;

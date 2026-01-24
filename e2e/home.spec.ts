@@ -176,7 +176,7 @@ test.describe('Authenticated Home Screen', () => {
 
     test('should display Your Top Spots section', async ({ page }) => {
       // Look for Top Spots region
-      const topSpotsRegion = page.getByRole('region', { name: /your top spots/i });
+      const topSpotsRegion = page.getByRole('region', { name: /top spots/i });
       await expect(topSpotsRegion).toBeVisible({ timeout: 10000 });
 
       // Should have spot cards OR "No spots found" message
@@ -225,7 +225,7 @@ test.describe('Authenticated Home Screen', () => {
       await expect(timeSlotFilter).toBeVisible();
 
       // Top Spots region should be visible
-      const topSpotsRegion = page.getByRole('region', { name: /your top spots/i });
+      const topSpotsRegion = page.getByRole('region', { name: /top spots/i });
       await expect(topSpotsRegion).toBeVisible();
     });
   });

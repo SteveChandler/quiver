@@ -10,8 +10,7 @@ describe("createClusterMarkerElement", () => {
       onLeave: jest.fn(),
     });
 
-    expect(element.textContent).toContain("1-4ft");
-    expect(element.textContent).toContain("5");
+    expect(element.textContent).toBe("1-4ft - 5x");
   });
 
   it("should show dash when no wave data", () => {
@@ -23,7 +22,7 @@ describe("createClusterMarkerElement", () => {
       onLeave: jest.fn(),
     });
 
-    expect(element.textContent).toContain("—");
+    expect(element.textContent).toBe("3x");
   });
 
   it("should apply blue gradient for favorites", () => {

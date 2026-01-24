@@ -5,7 +5,35 @@ export const runtime = 'edge';
 
 const DEFAULT_BG = 'https://quiversurf.app/images/og-location-default.jpg';
 
+function renderFallback() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(180deg, #1a3a4a 0%, #0d1f2d 100%)',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+        }}
+      >
+        <div style={{ fontSize: 120, fontWeight: 800, color: '#FFFFFF', display: 'flex' }}>
+          Quiver
+        </div>
+        <div style={{ fontSize: 42, fontWeight: 500, color: 'rgba(255,255,255,0.8)', marginTop: 24, display: 'flex' }}>
+          Surf Session
+        </div>
+      </div>
+    ),
+    { width: 1080, height: 1920 }
+  );
+}
+
 export async function GET(request: NextRequest) {
+  try {
   const { searchParams } = new URL(request.url);
 
   const beach = searchParams.get('beach') || 'Unknown Beach';
@@ -130,7 +158,7 @@ export async function GET(request: NextRequest) {
   const showWind = Boolean(windLabel || windSpeed);
   const windText = [windLabel, windSpeed].filter(Boolean).join(' • ');
 
-  return new ImageResponse(
+  const response = new ImageResponse(
     (
       <div
         style={{
@@ -425,4 +453,9 @@ export async function GET(request: NextRequest) {
       height: 1920,
     }
   );
+  response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+  return response;
+  } catch {
+    return renderFallback();
+  }
 }

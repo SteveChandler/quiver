@@ -4,7 +4,8 @@ import React from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { getWindowDayLabel } from "@/lib/utils/time-formatters";
+import type { SurfDiscoveryRecommendation, PersonalizedForecastWindow, TimeSlot } from "@/types/personalization";
 import {
   CompactSpotCard,
   CompactSpotCardSkeleton,
@@ -13,9 +14,21 @@ import {
 /**
  * Props for TopSpotsCarousel component
  */
+/** Labels for time slot filter display */
+const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
+  'any': 'Any time',
+  'dawn-patrol': 'Dawn patrol',
+  'morning': 'Morning',
+  'afternoon': 'Afternoon',
+};
+
 export interface TopSpotsCarouselProps {
   /** Array of surf spot recommendations to display */
   spots: SurfDiscoveryRecommendation[];
+  /** Hero recommendation's forecast window (for time context) */
+  heroWindow?: PersonalizedForecastWindow;
+  /** Currently selected time slot filter */
+  timeSlot?: TimeSlot;
   /** Whether data is currently loading */
   loading?: boolean;
   /** Callback when user wants to plan a session at a spot */
@@ -57,6 +70,8 @@ export interface TopSpotsCarouselProps {
  */
 export const TopSpotsCarousel = React.memo(function TopSpotsCarousel({
   spots,
+  heroWindow,
+  timeSlot,
   loading = false,
   onPlanSession,
   onViewSpot,
@@ -64,6 +79,14 @@ export const TopSpotsCarousel = React.memo(function TopSpotsCarousel({
   showLocationCta = false,
   locationLoading = false,
 }: TopSpotsCarouselProps) {
+  // Derive dynamic header and context from hero window
+  const dayLabel = heroWindow
+    ? getWindowDayLabel(heroWindow.start, heroWindow.timezone)
+    : null;
+  const sectionTitle = dayLabel
+    ? `Top spots for ${dayLabel}`
+    : "Your Top Spots";
+  const contextChip = timeSlot ? TIME_SLOT_LABELS[timeSlot] : null;
   // Loading state - show skeleton cards
   if (loading) {
     return (
@@ -148,12 +171,17 @@ export const TopSpotsCarousel = React.memo(function TopSpotsCarousel({
   return (
     <section
       className="space-y-3"
-      aria-label="Your Top Spots"
+      aria-label={sectionTitle}
       data-testid="top-spots-carousel"
     >
       {/* Section Header */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <h2 className="text-base xs:text-lg sm:text-xl font-bold text-gray-900">Your Top Spots</h2>
+        <h2 className="text-base xs:text-lg sm:text-xl font-bold text-gray-900">{sectionTitle}</h2>
+        {contextChip && (
+          <p className="text-xs text-gray-500 mt-0.5" data-testid="top-spots-context">
+            {contextChip}
+          </p>
+        )}
       </div>
 
       {/* Carousel Container */}
