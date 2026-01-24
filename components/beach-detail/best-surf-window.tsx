@@ -208,17 +208,6 @@ export function BestSurfWindow({
   forecasts,
   surfCall,
 }: BestSurfWindowProps) {
-  // When unified scorer data is available, render the unified card
-  if (surfCall) {
-    return (
-      <UnifiedSurfCard
-        surfCall={surfCall}
-        beachTimezone={beachTimezone}
-        beachName={beachName}
-      />
-    );
-  }
-
   const pathname = usePathname();
 
   // Format time helper
@@ -325,6 +314,18 @@ export function BestSurfWindow({
 
     return computed;
   }, [mappedForecasts]);
+
+  // When unified scorer data is available, render the unified card
+  // (placed after all hooks to satisfy rules-of-hooks)
+  if (surfCall) {
+    return (
+      <UnifiedSurfCard
+        surfCall={surfCall}
+        beachTimezone={beachTimezone}
+        beachName={beachName}
+      />
+    );
+  }
 
   // Loading state
   if (loading) {
