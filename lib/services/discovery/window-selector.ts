@@ -1498,6 +1498,13 @@ export function selectBestWindow(
     end: refinedTimes.end,
   };
 
+  // Compute peakTime: the timestamp of the highest-scoring forecast within the window
+  const peakTime = findPeakWithinWindow(
+    bestWindow.start,
+    bestWindow.end,
+    filteredForecasts
+  );
+
   // Build the PersonalizedForecastWindow
   return {
     start: bestWindow.start,
@@ -1511,5 +1518,6 @@ export function selectBestWindow(
     timezone: beachTz,
     usedTideBoundaries: bestWindow.usedTideBoundaries,
     score: bestWindow.score,
+    peakTime,
   };
 }
