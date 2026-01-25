@@ -468,61 +468,10 @@ function applySubHourRefinement(
     }
   }
 
-  // Step 2: Apply peak-centering for sub-hour precision
-  // This mirrors magic-hour-finder.ts to produce consistent times between
-  // beach detail and discovery/home screens.
-  //
-  // Find the peak time within the refined window and create a ±30min window
-  // around it, clamped to the refined bounds.
-  const PEAK_BUFFER_MS = 30 * 60 * 1000; // 30 minutes
-  const SNAP_MS = 15 * 60 * 1000; // Snap to 15-minute boundaries
-
-  const peakTime = findPeakWithinWindow(
-    refinedStart,
-    refinedEnd,
-    filteredForecasts
-  );
-
-  // Create ±30min window around peak
-  const peakWindowStart = new Date(peakTime.getTime() - PEAK_BUFFER_MS);
-  const peakWindowEnd = new Date(peakTime.getTime() + PEAK_BUFFER_MS);
-
-  // Clamp to the refined window bounds (don't exceed what refinement determined)
-  const clampedStart = new Date(
-    Math.max(peakWindowStart.getTime(), refinedStart.getTime())
-  );
-  const clampedEnd = new Date(
-    Math.min(peakWindowEnd.getTime(), refinedEnd.getTime())
-  );
-
-  // Snap to 15-minute boundaries for user-friendly display
-  // Use ceil for start (don't start before the snapped time)
-  // Use floor for end (don't extend past the snapped time)
-  const snappedStart = new Date(Math.ceil(clampedStart.getTime() / SNAP_MS) * SNAP_MS);
-  const snappedEnd = new Date(Math.floor(clampedEnd.getTime() / SNAP_MS) * SNAP_MS);
-
-  // Validate: ensure we have at least 30 minutes after snapping
-  const MIN_DURATION_MS = 30 * 60 * 1000;
-  if (snappedEnd.getTime() - snappedStart.getTime() < MIN_DURATION_MS) {
-    // If peak-centered window is too short, fall back to refined window
-    return { start: refinedStart, end: refinedEnd };
-  }
-
-  // Log peak-centering telemetry in development
-  if (process.env.NODE_ENV === 'development') {
-    const startDelta = (snappedStart.getTime() - refinedStart.getTime()) / 60000;
-    const endDelta = (refinedEnd.getTime() - snappedEnd.getTime()) / 60000;
-    if (startDelta !== 0 || endDelta !== 0) {
-      console.debug('[window-peak-center]', {
-        beach: beach.name,
-        peakTime: peakTime.toISOString(),
-        startDeltaMin: startDelta,
-        endDeltaMin: endDelta,
-      });
-    }
-  }
-
-  return { start: snappedStart, end: snappedEnd };
+  // Return the full refined window (no peak-centering)
+  // The peakTime is computed separately in selectBestWindow and passed to the UI
+  // so users can see "Best at X" for long windows while still seeing the full duration
+  return { start: refinedStart, end: refinedEnd };
 }
 
 // ============================================================================
