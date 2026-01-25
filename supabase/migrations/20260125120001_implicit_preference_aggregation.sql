@@ -42,6 +42,8 @@ as $$
 declare
   processed_count integer := 0;
 begin
+  raise notice 'compute_implicit_preferences: starting (target_user_id=%)', target_user_id;
+
   -- Upsert computed preferences for each user with sufficient events
   insert into public.user_implicit_preferences (
     user_id,
@@ -57,8 +59,66 @@ begin
     computed_from,
     computed_to
   )
+  with
+    -- CTE 1: Weighted events with recency factors (computed ONCE)
+    -- This eliminates the DRY violation where weight calculation was duplicated 3 times
+    weighted_events as (
+      select
+        e.user_id,
+        e.beach_id,
+        e.event_type,
+        e.created_at,
+        -- Single source of truth for event weights
+        case e.event_type
+          when 'location_update' then 10.0
+          when 'discovery_click' then 3.0
+          when 'forecast_check' then 2.5
+          when 'beach_view' then 0.5
+          when 'discovery_skip' then -1.0
+          else 0
+        end as weight,
+        -- Recency decay: linear from 1.0 to 0 over 90 days
+        greatest(0, 1.0 - extract(epoch from (now() - e.created_at)) / (90 * 86400)) as recency_factor
+      from public.user_events e
+      where e.created_at > now() - interval '90 days'
+        and (target_user_id is null or e.user_id = target_user_id)
+    ),
+
+    -- CTE 2: Aggregated metrics per user (computed from weighted_events in single pass)
+    -- This eliminates multiple table scans - all metrics computed in one pass
+    user_metrics as (
+      select
+        we.user_id,
+
+        -- Event counts and timestamps
+        count(*) as event_count,
+        min(we.created_at) as computed_from,
+        max(we.created_at) as computed_to,
+
+        -- Total absolute weight for confidence calculation
+        sum(abs(we.weight)) as total_abs_weight,
+
+        -- Weighted beach engagement (for centroids and top beaches)
+        -- Only include beaches with known locations
+        array_agg(
+          jsonb_build_object(
+            'beach_id', we.beach_id,
+            'center_lat', b.center_lat,
+            'center_lng', b.center_lng,
+            'break_type', b.break_type,
+            'weighted_engagement', we.weight * we.recency_factor
+          )
+          order by (we.weight * we.recency_factor) desc
+        ) filter (where we.beach_id is not null) as beach_data
+
+      from weighted_events we
+      left join public.beaches b on we.beach_id = b.id
+      group by we.user_id
+      having count(*) >= 3  -- Minimum 3 events required for meaningful inference
+    )
+
   select
-    we.user_id,
+    um.user_id,
 
     -- Inferred wave min: NULL for now (beaches table lacks typical_wave_min column)
     -- TODO: Update when typical_wave_min/max columns added to beaches table
@@ -72,116 +132,71 @@ begin
       select jsonb_object_agg(break_type, round(weight_pct::numeric, 2))
       from (
         select
-          b2.break_type,
-          sum(we2.weight * we2.recency_factor) / nullif(sum(sum(we2.weight * we2.recency_factor)) over (), 0) as weight_pct
-        from (
-          select
-            e.user_id,
-            e.beach_id,
-            case e.event_type
-              when 'location_update' then 10.0
-              when 'discovery_click' then 3.0
-              when 'forecast_check' then 2.5
-              when 'beach_view' then 0.5
-              when 'discovery_skip' then -1.0
-              else 0
-            end as weight,
-            greatest(0, 1.0 - extract(epoch from (now() - e.created_at)) / (90 * 86400)) as recency_factor
-          from public.user_events e
-          where e.created_at > now() - interval '90 days'
-            and e.user_id = we.user_id
-            and e.beach_id is not null
-        ) we2
-        join public.beaches b2 on we2.beach_id = b2.id
-        where b2.break_type is not null
-        group by b2.break_type
-        having sum(we2.weight * we2.recency_factor) > 0
+          (beach_obj->>'break_type')::text as break_type,
+          sum((beach_obj->>'weighted_engagement')::numeric) /
+            nullif(sum(sum((beach_obj->>'weighted_engagement')::numeric)) over (), 0) as weight_pct
+        from unnest(um.beach_data) as beach_obj
+        where beach_obj->>'break_type' is not null
+          and (beach_obj->>'weighted_engagement')::numeric > 0
+        group by (beach_obj->>'break_type')::text
       ) bt
+      where weight_pct > 0
     ),
 
     -- Location centroid lat: weighted average of beach latitudes
     round(
-      sum(b.center_lat * we.weight * we.recency_factor) /
-      nullif(sum(case when b.center_lat is not null then we.weight * we.recency_factor else 0 end), 0),
+      (
+        select sum((beach_obj->>'center_lat')::numeric * (beach_obj->>'weighted_engagement')::numeric) /
+               nullif(sum(case when beach_obj->>'center_lat' is not null
+                               then (beach_obj->>'weighted_engagement')::numeric
+                               else 0 end), 0)
+        from unnest(um.beach_data) as beach_obj
+        where (beach_obj->>'weighted_engagement')::numeric > 0
+      ),
       6
     ),
 
     -- Location centroid lon: weighted average of beach longitudes
     round(
-      sum(b.center_lng * we.weight * we.recency_factor) /
-      nullif(sum(case when b.center_lng is not null then we.weight * we.recency_factor else 0 end), 0),
+      (
+        select sum((beach_obj->>'center_lng')::numeric * (beach_obj->>'weighted_engagement')::numeric) /
+               nullif(sum(case when beach_obj->>'center_lng' is not null
+                               then (beach_obj->>'weighted_engagement')::numeric
+                               else 0 end), 0)
+        from unnest(um.beach_data) as beach_obj
+        where (beach_obj->>'weighted_engagement')::numeric > 0
+      ),
       6
     ),
 
-    -- Top 5 engaged beaches: ordered by weighted engagement score
-    array(
-      select beach_id from (
-        select
-          we3.beach_id,
-          sum(we3.weight * we3.recency_factor) as engagement
-        from (
-          select
-            e.beach_id,
-            case e.event_type
-              when 'location_update' then 10.0
-              when 'discovery_click' then 3.0
-              when 'forecast_check' then 2.5
-              when 'beach_view' then 0.5
-              when 'discovery_skip' then -1.0
-              else 0
-            end as weight,
-            greatest(0, 1.0 - extract(epoch from (now() - e.created_at)) / (90 * 86400)) as recency_factor
-          from public.user_events e
-          where e.created_at > now() - interval '90 days'
-            and e.user_id = we.user_id
-            and e.beach_id is not null
-        ) we3
-        group by we3.beach_id
-        having sum(we3.weight * we3.recency_factor) > 0
-        order by engagement desc
-        limit 5
-      ) top_beaches
+    -- Top 5 engaged beaches: array_agg with ORDER BY guarantees ordering
+    (
+      select array_agg((beach_obj->>'beach_id')::uuid order by (beach_obj->>'weighted_engagement')::numeric desc)
+      from (
+        select beach_obj, row_number() over (order by (beach_obj->>'weighted_engagement')::numeric desc) as rn
+        from unnest(um.beach_data) as beach_obj
+        where (beach_obj->>'weighted_engagement')::numeric > 0
+      ) ranked
+      where rn <= 5
     ),
 
     -- Confidence: sigmoid based on total weighted event volume
     -- Formula: 1 / (1 + exp(-0.05 * (total_weight - 20)))
     -- Interpretation: 0.5 at 20 weighted events, asymptotes to 1.0
     round(
-      (1.0 / (1.0 + exp(-0.05 * (sum(abs(we.weight)) - 20))))::numeric,
+      (1.0 / (1.0 + exp(-0.05 * (um.total_abs_weight - 20))))::numeric,
       2
     ),
 
     -- Event count: total events in window
-    count(*)::int,
+    um.event_count::int,
 
     -- Computation timestamps
     now(),
-    min(we.created_at),
-    max(we.created_at)
+    um.computed_from,
+    um.computed_to
 
-  from (
-    -- Main event stream with weights and recency factors
-    select
-      e.user_id,
-      e.beach_id,
-      e.event_type,
-      e.created_at,
-      case e.event_type
-        when 'location_update' then 10.0
-        when 'discovery_click' then 3.0
-        when 'forecast_check' then 2.5
-        when 'beach_view' then 0.5
-        when 'discovery_skip' then -1.0
-        else 0
-      end as weight,
-      greatest(0, 1.0 - extract(epoch from (now() - e.created_at)) / (90 * 86400)) as recency_factor
-    from public.user_events e
-    where e.created_at > now() - interval '90 days'
-      and (target_user_id is null or e.user_id = target_user_id)
-  ) we
-  left join public.beaches b on we.beach_id = b.id
-  group by we.user_id
-  having count(*) >= 3  -- Minimum 3 events required for meaningful inference
+  from user_metrics um
   on conflict (user_id) do update set
     inferred_wave_min_ft = excluded.inferred_wave_min_ft,
     inferred_wave_max_ft = excluded.inferred_wave_max_ft,
@@ -196,7 +211,14 @@ begin
     computed_to = excluded.computed_to;
 
   get diagnostics processed_count = row_count;
+
+  raise notice 'compute_implicit_preferences: completed (processed_count=%)', processed_count;
+
   return processed_count;
+exception
+  when others then
+    raise notice 'compute_implicit_preferences: error - % (%)', sqlerrm, sqlstate;
+    raise;
 end;
 $$;
 
