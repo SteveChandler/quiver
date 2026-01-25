@@ -199,8 +199,8 @@ as $$
 begin
   -- Security check: user can only purge their own data
   -- Service role bypasses RLS and can purge any user
-  if auth.uid() is not null and auth.uid() != target_user_id then
-    raise exception 'Cannot purge data for other users';
+  if target_user_id != auth.uid() and (auth.jwt() ->> 'role') != 'service_role' then
+    raise exception 'Unauthorized';
   end if;
 
   -- Delete all events for this user
