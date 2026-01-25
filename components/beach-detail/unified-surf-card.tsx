@@ -23,6 +23,7 @@ interface UnifiedSurfCardProps {
   beachTimezone?: string | null;
   beachName: string;
   beachSlug?: string;
+  isTomorrow?: boolean;
 }
 
 export function UnifiedSurfCard({
@@ -30,6 +31,7 @@ export function UnifiedSurfCard({
   beachTimezone,
   beachName,
   beachSlug,
+  isTomorrow,
 }: UnifiedSurfCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -50,7 +52,7 @@ export function UnifiedSurfCard({
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm text-yellow-800 font-medium mb-1">
-              No good surf window today
+              No good surf window {isTomorrow ? "tomorrow" : "today"}
             </p>
             <p className="text-xs text-yellow-700">{surfCall.whySentence}</p>
           </div>
@@ -76,7 +78,7 @@ export function UnifiedSurfCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold text-blue-900">
-              🌊 Best Time to Surf Today
+              {isTomorrow ? "🌊 Best Time to Surf Tomorrow" : "🌊 Best Time to Surf Today"}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               Based on forecast scoring · Updated {updatedTime}

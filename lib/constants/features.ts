@@ -16,81 +16,159 @@ import {
   Baby,
   Heart,
   Mountain,
+  Brain,
+  Star,
+  Smartphone,
 } from "lucide-react";
 
 export const FEATURE_CARDS = [
   {
-    icon: Users,
-    title: "Find Your Surf Crew",
+    icon: Brain,
+    title: "ML Forecasts",
     description:
-      "Connect with surfers in your area, join group sessions, and build lasting friendships. Never surf alone again with our thriving community.",
+      "XGBoost-corrected wave predictions trained on 30,000+ buoy observations deliver forecasts you can actually trust.",
     iconBgColor: "bg-ocean-blue/10",
     iconColor: "text-ocean-blue",
     features: [
       {
-        icon: Users,
-        text: "Find local surf buddies",
+        icon: Waves,
+        text: "3hr correction cycle",
         color: "text-ocean-blue",
       },
       {
-        icon: Calendar,
-        text: "Join group sessions",
+        icon: TrendingUp,
+        text: "90-day training window",
         color: "text-ocean-blue",
       },
       {
-        icon: MapPin,
-        text: "Meet at surf spots",
+        icon: BarChart3,
+        text: "Multi-model ensemble",
         color: "text-ocean-blue",
       },
     ],
   },
   {
-    icon: TrendingUp,
-    title: "Track Epic Sessions",
+    icon: Star,
+    title: "Personalization",
     description:
-      "Log your surf sessions with photos, share your progress, and inspire your community. Build your surf story one session at a time.",
+      "Match scores from 0-100 rank every beach based on your skill level, preferred conditions, and schedule.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
       {
-        icon: BarChart3,
-        text: "Track your progression",
+        icon: Star,
+        text: "Personalized match scores",
         color: "text-sunset-orange",
       },
       {
-        icon: Book,
-        text: "Share session stories",
+        icon: Clock,
+        text: "Time-slot filtering",
         color: "text-sunset-orange",
       },
       {
-        icon: Eye,
-        text: "Inspire others",
+        icon: Users,
+        text: "Skill-based recommendations",
         color: "text-sunset-orange",
       },
     ],
   },
   {
-    icon: MapPin,
-    title: "Discover Epic Spots",
+    icon: Waves,
+    title: "Live Intel",
     description:
-      "Explore new surf breaks with community reviews, local insights, and real-time conditions. Find your next favorite surf spot.",
+      "Real-time buoy feeds, community reports, and coast pulse updates keep you connected to what's happening now.",
     iconBgColor: "bg-green-500/10",
     iconColor: "text-green-600",
     features: [
       {
         icon: Waves,
-        text: "Live surf conditions",
+        text: "Live buoy observations",
         color: "text-green-600",
+      },
+      {
+        icon: Users,
+        text: "Community activity feed",
+        color: "text-green-600",
+      },
+      {
+        icon: Eye,
+        text: "Coast pulse updates",
+        color: "text-green-600",
+      },
+    ],
+  },
+  {
+    icon: MapPin,
+    title: "Spot Discovery",
+    description:
+      "350+ intent-based guide pages help you find the right break for any style, skill level, or time of day.",
+    iconBgColor: "bg-purple-500/10",
+    iconColor: "text-purple-600",
+    features: [
+      {
+        icon: MapPin,
+        text: "Regional hub guides",
+        color: "text-purple-600",
+      },
+      {
+        icon: Book,
+        text: "Intent-based pages",
+        color: "text-purple-600",
       },
       {
         icon: AlertTriangle,
-        text: "Local knowledge & tips",
-        color: "text-green-600",
+        text: "Local insider tips",
+        color: "text-purple-600",
+      },
+    ],
+  },
+  {
+    icon: BarChart3,
+    title: "Session Tracking",
+    description:
+      "Auto-prefilled conditions, equipment logs, and accuracy feedback build a rich history of your surf life.",
+    iconBgColor: "bg-blue-500/10",
+    iconColor: "text-blue-600",
+    features: [
+      {
+        icon: BarChart3,
+        text: "Auto-prefilled conditions",
+        color: "text-blue-600",
       },
       {
-        icon: Clock,
-        text: "Best times to surf",
-        color: "text-green-600",
+        icon: Settings,
+        text: "Equipment tracking",
+        color: "text-blue-600",
+      },
+      {
+        icon: TrendingUp,
+        text: "Progression analytics",
+        color: "text-blue-600",
+      },
+    ],
+  },
+  {
+    icon: Smartphone,
+    title: "Mobile Apps",
+    description:
+      "Native iOS and Android apps with push alerts, camera integration, and location-aware recommendations.",
+    iconBgColor: "bg-teal-500/10",
+    iconColor: "text-teal-600",
+    features: [
+      {
+        icon: AlertTriangle,
+        text: "Push condition alerts",
+        color: "text-teal-600",
+      },
+      {
+        icon: Eye,
+        text: "Native camera integration",
+        color: "text-teal-600",
+      },
+      {
+        icon: MapPin,
+        text: "GPS-based suggestions",
+        color: "text-teal-600",
       },
     ],
   },

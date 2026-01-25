@@ -69,6 +69,7 @@ interface ForecastTabProps {
   hasCamera: boolean;
   beachTimezone?: string | null;
   surfCall?: SurfCallResult | null;
+  surfCallIsTomorrow?: boolean;
 }
 
 export function ForecastTab({
@@ -78,6 +79,7 @@ export function ForecastTab({
   hasCamera,
   beachTimezone,
   surfCall,
+  surfCallIsTomorrow,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -534,6 +536,7 @@ export function ForecastTab({
             beachTimezone={beachTimezone}
             forecasts={todaysForecasts}
             surfCall={surfCall}
+            surfCallIsTomorrow={surfCallIsTomorrow}
           />
 
           {/* 5-Day Outlook */}

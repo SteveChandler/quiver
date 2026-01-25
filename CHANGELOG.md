@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Push Notification Table Mismatch:** Fixed critical bug where mobile app registered device tokens in `push_devices` table but push notification service queried `user_devices` table, causing notifications to never be sent. Changes include:
+  - Updated `actions/mobile-actions.ts` to register tokens directly in `user_devices` table
+  - Mapped `token` field to `device_token` column (matching push service expectations)
+  - Changed conflict resolution to use `user_devices` unique constraint: `(user_id, device_token)`
+  - Removed unused fields: `device`, `app_version`, `last_seen_at` (not in `user_devices` schema)
+  - Created migration `20260124130000_consolidate_push_device_tables.sql` to migrate existing tokens and drop redundant `push_devices` table
+  - Push notifications now flow correctly: mobile registration → `user_devices` → FCM delivery via `lib/services/push-notifications.ts`
+
 ### Added
 
 - **Unified Surf Window UI Integration:** Integrated the unified surf scorer data flow into the forecast card, eliminating the data mismatch between the banner ("Today's Surf Call") and the forecast tab's "Best Time to Surf Today" card. Features include:

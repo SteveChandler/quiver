@@ -507,223 +507,182 @@ export const PRIVACY_CONTENT = {
 
 export const FEATURES_EXTENDED_CONTENT = {
   hero: {
-    title: "Everything You Need to Surf with Friends",
+    title: "Surf Forecasts That Actually Learn What You Love",
     subtitle:
-      "Discover all the features that make Quiver the ultimate surf community platform",
-    description:
-      "From finding surf buddies to tracking epic sessions, Quiver brings surfers together through powerful, easy-to-use features designed by surfers, for surfers.",
+      "Quiver combines real-time buoy data, machine learning, and your personal surf history to recommend the right beach at the right time.",
+    stats: [
+      { value: "96+", label: "Beaches" },
+      { value: "3hr", label: "ML Correction Cycle" },
+      { value: "0-100", label: "Match Scores" },
+      { value: "Live", label: "Buoy Data" },
+    ],
+    cta: { text: "Get Your Personalized Forecast", href: "/auth/sign-up" },
   },
-  categories: [
-    {
-      id: "community",
-      title: "Community & Social",
-      description: "Connect with surfers who share your passion",
-      features: [
-        {
-          title: "Find Local Surf Buddies",
-          description:
-            "Connect with surfers in your area based on skill level, preferred breaks, and availability. Never surf alone again.",
-          benefits: [
-            "Safety in numbers",
-            "Learn from others",
-            "Share the stoke",
-            "Build lasting friendships",
-          ],
-        },
-        {
-          title: "Activity Feed",
-          description:
-            "Stay connected with your surf community through a personalized feed of sessions, photos, and updates from fellow surfers.",
-          benefits: [
-            "See what friends are surfing",
-            "Discover new spots",
-            "Get inspired",
-            "Share your sessions",
-          ],
-        },
-        {
-          title: "Follow System",
-          description:
-            "Follow your favorite surfers and stay updated on their latest sessions and discoveries.",
-          benefits: [
-            "Curated content",
-            "Learn from pros",
-            "Build your network",
-            "Stay motivated",
-          ],
-        },
-        {
-          title: "Session Comments & Likes",
-          description:
-            "Engage with the community by commenting on sessions, sharing tips, and showing appreciation for epic waves.",
-          benefits: [
-            "Share knowledge",
-            "Build connections",
-            "Get feedback",
-            "Celebrate together",
-          ],
-        },
-      ],
-    },
-    {
-      id: "session-tracking",
-      title: "Session Tracking",
-      description: "Log and share your surf journey",
-      features: [
-        {
-          title: "Detailed Session Logging",
-          description:
-            "Record comprehensive details about every surf session including conditions, equipment, feelings, and memorable moments.",
-          benefits: [
-            "Track progression",
-            "Remember great sessions",
-            "Share experiences",
-            "Build your surf story",
-          ],
-        },
-        {
-          title: "Photo Integration",
-          description:
-            "Add photos to your sessions to capture the memories and share the visual story of your surf adventures.",
-          benefits: [
-            "Visual memories",
-            "Inspire others",
-            "Document spots",
-            "Social sharing",
-          ],
-        },
-        {
-          title: "Equipment Tracking",
-          description:
-            "Keep track of which boards and gear work best in different conditions to optimize your equipment choices.",
-          benefits: [
-            "Optimize gear selection",
-            "Track board performance",
-            "Share gear insights",
-            "Equipment planning",
-          ],
-        },
-        {
-          title: "Session Analytics",
-          description:
-            "Visualize your surfing patterns with charts and insights about your session frequency, favorite spots, and progression.",
-          benefits: [
-            "Understand patterns",
-            "Set goals",
-            "Track improvement",
-            "Motivate consistency",
-          ],
-        },
-      ],
-    },
-    {
-      id: "discovery",
-      title: "Spot Discovery",
-      description: "Explore new breaks and get local insights",
-      features: [
-        {
-          title: "Interactive Surf Map",
-          description:
-            "Explore surf spots on an interactive map with real-time conditions, community ratings, and detailed information.",
-          benefits: [
-            "Discover new spots",
-            "Plan surf trips",
-            "Check conditions",
-            "Get directions",
-          ],
-        },
-        {
-          title: "Community Reviews",
-          description:
-            "Read detailed reviews from local surfers covering wave quality, facilities, crowds, and insider tips.",
-          benefits: [
-            "Local knowledge",
-            "Avoid crowds",
-            "Find amenities",
-            "Learn etiquette",
-          ],
-        },
-        {
-          title: "Real-time Conditions",
-          description:
-            "Get accurate, up-to-date surf conditions including wave height, wind, tide, and water temperature.",
-          benefits: [
-            "Plan sessions",
-            "Avoid flat days",
-            "Optimize timing",
-            "Stay informed",
-          ],
-        },
-        {
-          title: "Forecast Integration",
-          description:
-            "Access detailed surf forecasts to plan your sessions and know when the best waves are coming.",
-          benefits: [
-            "Plan ahead",
-            "Never miss good surf",
-            "Optimize schedules",
-            "Increase session success",
-          ],
-        },
-      ],
-    },
-    {
-      id: "planning",
-      title: "Session Planning",
-      description: "Plan the perfect surf session",
-      features: [
-        {
-          title: "Session Planner",
-          description:
-            "Plan future surf sessions with date, location, conditions, and invite friends to join you.",
-          benefits: [
-            "Coordinate with friends",
-            "Never surf alone",
-            "Plan around forecasts",
-            "Build anticipation",
-          ],
-        },
-        {
-          title: "Buddy Invitations",
-          description:
-            "Invite specific surfers to join your planned sessions and build your regular surf crew.",
-          benefits: [
-            "Surf with friends",
-            "Share transport",
-            "Safety in numbers",
-            "More fun",
-          ],
-        },
-        {
-          title: "Calendar Integration",
-          description:
-            "Sync your surf plans with your calendar and get reminders about upcoming sessions.",
-          benefits: [
-            "Stay organized",
-            "Don't miss sessions",
-            "Plan around schedule",
-            "Time management",
-          ],
-        },
-        {
-          title: "Weather Alerts",
-          description:
-            "Get notified when good surf is forecasted at your favorite spots so you never miss the magic.",
-          benefits: [
-            "Never miss good surf",
-            "Spontaneous sessions",
-            "Optimal timing",
-            "Maximize wave count",
-          ],
-        },
-      ],
-    },
-  ],
+  pipeline: {
+    title: "Powered by Real Data, Not Guesswork",
+    subtitle:
+      "Our ML pipeline corrects raw NOAA models with real-time buoy observations to deliver forecasts you can trust.",
+    steps: [
+      {
+        id: "noaa",
+        title: "NOAA Wave Models",
+        description:
+          "Global wave models provide the base forecast with swell height, period, and direction.",
+      },
+      {
+        id: "buoys",
+        title: "Real-Time Buoys",
+        description:
+          "IOOS and CDIP buoy networks deliver live observations from stations along the coast.",
+      },
+      {
+        id: "ml",
+        title: "XGBoost ML Correction",
+        description:
+          "Our ML model learns local biases and corrects predictions using 90 days of training data.",
+      },
+      {
+        id: "forecast",
+        title: "Your Personalized Forecast",
+        description:
+          "Match scores combine corrected conditions with your preferences for tailored recommendations.",
+      },
+    ],
+    stats: [
+      { value: "30,000+", label: "Training Observations" },
+      { value: "3hr", label: "Correction Cadence" },
+      { value: "90-day", label: "Data Window" },
+    ],
+  },
+  personalization: {
+    title: "Forecasts That Know Your Style",
+    subtitle:
+      "Every surfer is different. Quiver learns what matters to you and surfaces the sessions that fit.",
+    features: [
+      {
+        title: "Match Scores 0-100",
+        description:
+          "Every beach gets a personalized score based on how well conditions align with your preferences.",
+      },
+      {
+        title: "Time-Slot Filtering",
+        description:
+          "See forecasts for dawn patrol, midday, or evening sessions based on your availability.",
+      },
+      {
+        title: "Skill-Appropriate Recommendations",
+        description:
+          "Conditions are evaluated relative to your experience level so you always find waves you can handle.",
+      },
+      {
+        title: "Travel Adaptation",
+        description:
+          "Visiting a new coast? Your preferences travel with you for instant local recommendations.",
+      },
+      {
+        title: "Daily Digest Emails",
+        description:
+          "Get a morning summary of your top-scoring beaches delivered to your inbox.",
+      },
+    ],
+  },
+  intelligence: {
+    title: "Know What's Happening Right Now",
+    subtitle:
+      "Live data feeds keep you connected to conditions and the community in real time.",
+    cards: [
+      {
+        id: "coast-pulse",
+        title: "Coast Pulse Feed",
+        description:
+          "Real-time condition updates aggregated across all monitored beaches on your coast.",
+      },
+      {
+        id: "activity",
+        title: "Activity Feed",
+        description:
+          "See who's surfing, what they're riding, and how the waves are performing right now.",
+      },
+      {
+        id: "reviews",
+        title: "Community Reviews",
+        description:
+          "Honest reviews from local surfers covering wave quality, crowds, and insider tips.",
+      },
+      {
+        id: "follow",
+        title: "Follow System",
+        description:
+          "Follow favorite surfers and spots to curate a personalized stream of updates.",
+      },
+    ],
+  },
+  discovery: {
+    title: "The Deepest Surf Guide on the Web",
+    subtitle:
+      "350+ intent-based pages help you find exactly the right break for any style, skill, or scenario.",
+    examples: [
+      { label: "Best Beginner Spots", href: "/discover?level=beginner" },
+      { label: "Longboard-Friendly Waves", href: "/discover?type=longboard" },
+      { label: "Dawn Patrol Picks", href: "/discover?time=dawn" },
+      { label: "Regional Hub Guides", href: "/map" },
+    ],
+  },
+  sessionTracking: {
+    title: "Your Surf Journal, Supercharged",
+    subtitle:
+      "Log sessions with auto-prefilled conditions and build a rich history of your wave-riding life.",
+    features: [
+      {
+        title: "Auto-Prefilled Conditions",
+        description:
+          "Wave height, wind, tide, and temperature are filled in automatically from forecast data.",
+      },
+      {
+        title: "Equipment Tracking",
+        description:
+          "Log which board and wetsuit you used so you can correlate gear with session quality.",
+      },
+      {
+        title: "Forecast Accuracy Feedback",
+        description:
+          "Rate how accurate the forecast was to help our ML model learn and improve.",
+      },
+      {
+        title: "Session Analytics",
+        description:
+          "Visualize frequency, favorite spots, and progression over time with charts and insights.",
+      },
+    ],
+  },
+  mobile: {
+    title: "Native Apps for iOS and Android",
+    subtitle:
+      "Take Quiver everywhere with native mobile apps built for speed and reliability.",
+    features: [
+      {
+        title: "Push Alerts",
+        description:
+          "Get notified when conditions at your favorite spots hit your preferred thresholds.",
+      },
+      {
+        title: "Native Camera",
+        description:
+          "Snap session photos directly in the app and attach them to your log instantly.",
+      },
+      {
+        title: "Location-Aware Recommendations",
+        description:
+          "Automatic nearby beach suggestions based on your current GPS location.",
+      },
+    ],
+  },
   cta: {
-    title: "Ready to Join the Community?",
-    description:
-      "Experience all these features and more. Join thousands of surfers who've found their crew on Quiver.",
-    buttonText: "Get Started Free",
-    note: "Free to join • No credit card required",
+    title: "Stop Guessing. Start Surfing Smarter.",
+    subtitle:
+      "Join surfers who've traded guesswork for data-driven sessions.",
+    primaryCta: { text: "Sign Up Free", href: "/auth/sign-up" },
+    secondaryCta: { text: "Explore the Map", href: "/map" },
+    note: "No credit card required. Works on web, iOS, and Android.",
   },
 } as const;

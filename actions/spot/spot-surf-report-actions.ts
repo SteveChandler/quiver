@@ -8,6 +8,7 @@ import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-formatting';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { getBatchSunTimes } from '@/lib/services/discovery';
 
 export interface SpotSurfReportResult {
   report: SurfCallResult;
@@ -61,6 +62,19 @@ const getCachedSurfReport = unstable_cache(
     const tomorrow = new Date(now.getTime() + 86_400_000);
     const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
 
+    // 2.5. Fetch sun times for sunset capping
+    const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
+
+    // DEBUG: Log sun times
+    const sunData = sunTimesCache.get(beachId);
+    console.log('[getSpotSurfReport] Sun times:', {
+      beachId,
+      todayStr,
+      tomorrowStr,
+      hasSunData: !!sunData,
+      sunsets: sunData?.sunsets.map(s => s.toISOString()),
+    });
+
     // 3. Query enhanced_forecasts directly with timezone-aware dates
     const supabase = await createSupabaseServiceRoleClient();
     const { data, error } = await supabase
@@ -101,6 +115,7 @@ const getCachedSurfReport = unstable_cache(
         beach,
         userPrefs: null,
         horizonHours: 24,
+        sunTimesCache,
       });
 
       if (window) {
@@ -115,6 +130,7 @@ const getCachedSurfReport = unstable_cache(
         beach,
         userPrefs: null,
         horizonHours: 48,
+        sunTimesCache,
       });
 
       return { report: computeSurfCall(window, tomorrowForecasts, beach), isTomorrow: true };

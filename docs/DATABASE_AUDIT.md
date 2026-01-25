@@ -85,7 +85,7 @@ The following 14 tables are created but currently empty, representing features t
 
 | Table | Purpose | Backend Status | Priority |
 |-------|---------|----------------|----------|
-| `push_devices` | Push notification device tokens | Token collection working, sender not implemented | High |
+| `user_devices` | Push notification device tokens | Fully implemented with FCM integration | High |
 | `notifications` | In-app notification inbox | Backend ready, UI not implemented | Medium |
 
 ### Content Management
@@ -240,7 +240,6 @@ Key indexes in place:
 
 | Priority | Action | Owner | Effort |
 |----------|--------|-------|--------|
-| HIGH | Implement push notification sender service | Backend | 1 day |
 | HIGH | Wire `favorite_beaches` to frontend | Frontend | 4 hours |
 | MEDIUM | Add retention policy for `ml_predictions_log` | DB Admin | 1 hour |
 
@@ -291,7 +290,7 @@ Key indexes in place:
                                   +---------------------------+
                                   |     SYSTEM                |
                                   +---------------------------+
-                                  | push_devices (0)          |
+                                  | user_devices (0)          |
                                   | notifications (0)         |
                                   | admin_audit_log (0)       |
                                   +---------------------------+

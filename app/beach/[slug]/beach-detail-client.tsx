@@ -16,6 +16,7 @@ interface BeachDetailClientProps {
   beachTimezone?: string | null;
   surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
+  surfCallIsTomorrow?: boolean;
 }
 
 export function BeachDetailClient({
@@ -24,6 +25,7 @@ export function BeachDetailClient({
   beachTimezone,
   surfReportSlot,
   surfCallReport,
+  surfCallIsTomorrow,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const [personalizationData, setPersonalizationData] = useState<{
@@ -57,6 +59,7 @@ export function BeachDetailClient({
         beachTimezone={beachTimezone}
         surfReportSlot={surfReportSlot}
         surfCallReport={surfCallReport}
+        surfCallIsTomorrow={surfCallIsTomorrow}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

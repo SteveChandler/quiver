@@ -74,6 +74,55 @@ export function buildWaveShareUrl(params: WaveShareParams): string {
 }
 
 /**
+ * Parameters for surf call share card
+ */
+export interface SurfCallShareParams {
+  /** Beach name */
+  beach: string;
+  /** Verdict (YES, MAYBE, NO) */
+  verdict: string;
+  /** Window time range (e.g., "6:30-10:15 AM") */
+  window: string;
+  /** Wave height (e.g., "3-5ft") */
+  waveHeight: string;
+  /** Wind description (e.g., "Light offshore") */
+  wind: string;
+  /** Comma-separated trend tags */
+  tags?: string;
+}
+
+/**
+ * Build a fully qualified URL for surf call share OG image
+ *
+ * @example
+ * buildSurfCallShareUrl({
+ *   beach: "Malibu",
+ *   verdict: "YES",
+ *   window: "6:30-10:15 AM",
+ *   waveHeight: "3-5ft",
+ *   wind: "Light offshore",
+ *   tags: "Clean Swell,Winds Dropping"
+ * })
+ * // => "https://quiversurf.app/api/og/surf-call?beach=Malibu&verdict=YES&..."
+ */
+export function buildSurfCallShareUrl(params: SurfCallShareParams): string {
+  const baseUrl = getBaseUrl();
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('beach', params.beach);
+  searchParams.set('verdict', params.verdict);
+  searchParams.set('window', params.window);
+  searchParams.set('waveHeight', params.waveHeight);
+  searchParams.set('wind', params.wind);
+
+  if (params.tags) {
+    searchParams.set('tags', params.tags);
+  }
+
+  return `${baseUrl}/api/og/surf-call?${searchParams.toString()}`;
+}
+
+/**
  * Build a fully qualified URL for session share OG image
  *
  * @example

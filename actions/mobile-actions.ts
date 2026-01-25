@@ -18,17 +18,15 @@ export const registerPushDevice = makeAuthenticatedAction(
     const supabaseAdmin = await createSupabaseServiceRoleClient();
 
     const { error } = await supabaseAdmin
-      .from("push_devices")
+      .from("user_devices")
       .upsert(
         {
           user_id: user.id,
-          token: data.token,
+          device_token: data.token,
           platform: data.platform,
-          app_version: data.appVersion ?? null,
-          device: data.device ?? null,
-          last_seen_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
-        { onConflict: "token" }
+        { onConflict: "user_id,device_token" }
       );
 
     if (error) {
