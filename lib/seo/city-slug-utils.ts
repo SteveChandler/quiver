@@ -67,6 +67,20 @@ export function detectCityCollisions(
     }
   }
 
+  // Also detect substring collisions: if a slug is a substring of another city's slug,
+  // the RPC's ILIKE '%pattern%' will match both, causing ambiguous lookups → 404.
+  // Flag these so they get a state suffix for disambiguation.
+  const allSlugs = [...cityStateCounts.keys()];
+  for (const slug of allSlugs) {
+    if (collisions.has(slug)) continue; // Already flagged
+    const isSubstringOfAnother = allSlugs.some(
+      (other) => other !== slug && other.includes(slug)
+    );
+    if (isSubstringOfAnother) {
+      collisions.set(slug, 2); // Flag as needing disambiguation
+    }
+  }
+
   return collisions;
 }
 
