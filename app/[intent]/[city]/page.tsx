@@ -23,9 +23,19 @@ import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
-import { PopularCitiesForIntent } from "@/components/intent/popular-cities-for-intent";
+import {
+  PopularCitiesForIntent,
+  TideOverviewSection,
+  WaterTempOverviewSection,
+} from "@/components/intent";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { ZeroState } from "@/components/ui/zero-state";
+import {
+  getCityTideData,
+  getCityWaterTempHistory,
+  type CityTideData,
+  type CityWaterTempData,
+} from "@/actions/forecast/intent-forecast-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -321,6 +331,22 @@ export default async function IntentPage({ params }: IntentPageParams) {
     cityMetadata.state.toLowerCase()
   );
 
+  // Fetch intent-specific live data (tide or water temp)
+  let tideData: CityTideData | null = null;
+  let waterTempData: CityWaterTempData | null = null;
+
+  if (params.intent === "tide") {
+    tideData = await getCityTideData(
+      cityMetadata.cityName,
+      cityMetadata.state
+    );
+  } else if (params.intent === "water-temp") {
+    waterTempData = await getCityWaterTempHistory(
+      cityMetadata.cityName,
+      cityMetadata.state
+    );
+  }
+
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     return (
       <div className="bg-white">
@@ -410,6 +436,12 @@ export default async function IntentPage({ params }: IntentPageParams) {
             </p>
           </div>
         </header>
+
+        {/* Intent-specific live data sections */}
+        {params.intent === "tide" && <TideOverviewSection data={tideData} />}
+        {params.intent === "water-temp" && (
+          <WaterTempOverviewSection data={waterTempData} />
+        )}
 
         <div className="space-y-12">
           {/* Map & List Section */}
