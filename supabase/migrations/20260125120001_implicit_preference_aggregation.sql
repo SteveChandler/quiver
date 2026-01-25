@@ -101,15 +101,15 @@ begin
 
     -- Location centroid lat: weighted average of beach latitudes
     round(
-      sum(b.lat * we.weight * we.recency_factor) /
-      nullif(sum(case when b.lat is not null then we.weight * we.recency_factor else 0 end), 0),
+      sum(b.center_lat * we.weight * we.recency_factor) /
+      nullif(sum(case when b.center_lat is not null then we.weight * we.recency_factor else 0 end), 0),
       6
     ),
 
     -- Location centroid lon: weighted average of beach longitudes
     round(
-      sum(b.lon * we.weight * we.recency_factor) /
-      nullif(sum(case when b.lon is not null then we.weight * we.recency_factor else 0 end), 0),
+      sum(b.center_lng * we.weight * we.recency_factor) /
+      nullif(sum(case when b.center_lng is not null then we.weight * we.recency_factor else 0 end), 0),
       6
     ),
 
