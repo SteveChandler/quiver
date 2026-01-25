@@ -72,7 +72,7 @@ comment on column public.user_events.expires_at is 'Auto-deletion timestamp (90 
 -- TABLE: user_implicit_preferences
 -- ==============================================================================
 -- Aggregated preferences computed from user_events
--- Updated by scheduled aggregation function (see migration 20260125130000)
+-- Updated by scheduled aggregation function (see migration 20260125120001)
 
 create table if not exists public.user_implicit_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -199,7 +199,7 @@ as $$
 begin
   -- Security check: user can only purge their own data
   -- Service role bypasses RLS and can purge any user
-  if target_user_id != auth.uid() and (auth.jwt() ->> 'role') != 'service_role' then
+  if target_user_id != (select auth.uid()) and current_setting('role', true) != 'service_role' then
     raise exception 'Unauthorized';
   end if;
 
@@ -245,10 +245,10 @@ create policy "Users can insert their own events"
   on public.user_events
   for insert
   with check (
-    auth.uid() = user_id and
+    (select auth.uid()) = user_id and
     exists (
       select 1 from public.profiles
-      where id = auth.uid()
+      where id = (select auth.uid())
       and allow_implicit_tracking = true
     )
   );
@@ -257,13 +257,13 @@ create policy "Users can insert their own events"
 create policy "Users can view their own events"
   on public.user_events
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- Users can delete their own events
 create policy "Users can delete their own events"
   on public.user_events
   for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- Service role has full access (for aggregation function)
 create policy "Service role has full access to events"
@@ -282,7 +282,7 @@ create policy "Service role has full access to events"
 create policy "Users can view their own preferences"
   on public.user_implicit_preferences
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- Service role has full access (for aggregation function)
 create policy "Service role has full access to preferences"
