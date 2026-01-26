@@ -18,6 +18,7 @@ import type {
   ImplicitEventType,
   TrackEventRequest,
 } from '@/types/implicit-preferences';
+import { trackingAllowedCache } from '@/lib/services/tracking-cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,20 +29,6 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'forecast_check',
   'location_update',
 ];
-
-// In-memory cache for tracking preference (5-minute TTL)
-const trackingAllowedCache = new Map<
-  string,
-  { allowed: boolean; expires: number }
->();
-
-/**
- * Clear the tracking allowed cache (for testing purposes)
- * @internal
- */
-export function __clearTrackingCache() {
-  trackingAllowedCache.clear();
-}
 
 /**
  * Check if implicit tracking is allowed for a user

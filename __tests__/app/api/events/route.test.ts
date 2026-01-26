@@ -7,7 +7,8 @@
  * It respects user privacy settings (allow_implicit_tracking).
  */
 
-import { POST, __clearTrackingCache } from '@/app/api/events/route';
+import { POST } from '@/app/api/events/route';
+import { __clearTrackingCache } from '@/lib/services/tracking-cache';
 import { createAPIServerClient } from '@/lib/supabase/server';
 
 // Mock Supabase client
