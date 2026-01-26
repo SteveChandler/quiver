@@ -161,7 +161,7 @@ const config: Config = {
         "scale-in": "scaleIn 0.8s ease-out",
         "scale-in-large": "scaleInLarge 0.9s ease-out",
         shimmer: "shimmer 1.5s infinite linear",
-        "ocean-swell": "oceanSwell 4s ease-in-out infinite",
+        "ocean-swell": "oceanSwell 2s ease-in-out infinite",
         heartbeat: "heartbeat 1.2s ease-in-out infinite",
       },
     },
