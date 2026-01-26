@@ -19,7 +19,7 @@ const mockSupabase = {
   auth: {
     getUser: jest.fn(),
   },
-  from: jest.fn(() => ({
+  from: jest.fn((_table: string) => ({
     select: jest.fn(() => ({
       eq: jest.fn(() => ({
         single: jest.fn(),
@@ -69,6 +69,7 @@ describe('POST /api/events', () => {
           }),
         })),
       })),
+      insert: jest.fn(() => ({ error: null })),
     });
 
     const request = new Request('http://localhost/api/events', {
@@ -100,9 +101,10 @@ describe('POST /api/events', () => {
               }),
             })),
           })),
+          insert: jest.fn(() => ({ error: null })),
         };
       }
-      return { insert: mockInsert };
+      return { insert: mockInsert, select: jest.fn() };
     });
 
     const request = new Request('http://localhost/api/events', {
@@ -137,9 +139,10 @@ describe('POST /api/events', () => {
               }),
             })),
           })),
+          insert: jest.fn(() => ({ error: null })),
         };
       }
-      return { insert: mockInsert };
+      return { insert: mockInsert, select: jest.fn() };
     });
 
     const request = new Request('http://localhost/api/events', {
@@ -178,6 +181,7 @@ describe('POST /api/events', () => {
           }),
         })),
       })),
+      insert: jest.fn(() => ({ error: null })),
     });
 
     const request = new Request('http://localhost/api/events', {
@@ -205,6 +209,7 @@ describe('POST /api/events', () => {
           }),
         })),
       })),
+      insert: jest.fn(() => ({ error: null })),
     });
 
     const request = new Request('http://localhost/api/events', {
@@ -237,9 +242,10 @@ describe('POST /api/events', () => {
               }),
             })),
           })),
+          insert: jest.fn(() => ({ error: null })),
         };
       }
-      return { insert: mockInsert };
+      return { insert: mockInsert, select: jest.fn() };
     });
 
     const request = new Request('http://localhost/api/events', {
@@ -272,9 +278,10 @@ describe('POST /api/events', () => {
               }),
             })),
           })),
+          insert: jest.fn(() => ({ error: null })),
         };
       }
-      return { insert: mockInsert };
+      return { insert: mockInsert, select: jest.fn() };
     });
 
     const validEvents = [
@@ -314,9 +321,10 @@ describe('POST /api/events', () => {
               }),
             })),
           })),
+          insert: jest.fn(() => ({ error: null })),
         };
       }
-      return { insert: mockInsert };
+      return { insert: mockInsert, select: jest.fn() };
     });
 
     const request = new Request('http://localhost/api/events', {

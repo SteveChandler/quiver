@@ -42,7 +42,7 @@ jest.mock("@/lib/services/discovery/window-selector", () => ({
 }));
 
 describe("spot-surf-report-actions", () => {
-  const mockBeach: Beach = {
+  const mockBeach = {
     id: "beach-123",
     slug: "test-beach",
     name: "Test Beach",
@@ -50,11 +50,8 @@ describe("spot-surf-report-actions", () => {
     lon: -118.4,
     state: "California",
     city: "Los Angeles",
-    center_lat: 33.8,
-    center_lng: -118.4,
     description: "A test beach",
-    base_score: 75,
-  } as Beach;
+  } as unknown as Beach;
 
   const mockForecasts: Partial<EnhancedForecastEntity>[] = [
     {
@@ -145,7 +142,7 @@ describe("spot-surf-report-actions", () => {
         "@/actions/spot/spot-surf-report-actions"
       );
 
-      const beachWithoutId = { ...mockBeach, id: undefined } as Beach;
+      const beachWithoutId = { ...mockBeach, id: undefined } as unknown as Beach;
       const result = await getSpotSurfReport(beachWithoutId);
 
       expect(result).toBeNull();
