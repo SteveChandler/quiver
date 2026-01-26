@@ -54,7 +54,7 @@
     },
     {
       "path": "/api/cron/forecast-digest-email",
-      "schedule": "0 9 * * *"
+      "schedule": "0 14 * * *"
     },
     {
       "path": "/api/cron/update-buoy-conditions",
