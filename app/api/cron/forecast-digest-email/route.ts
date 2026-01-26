@@ -1,18 +1,18 @@
 /**
  * GET /api/cron/forecast-digest-email
  *
- * Daily cron job: sends personalized forecast emails to ALL eligible users.
+ * Daily cron job: sends personalized forecast emails to eligible users
+ * ONLY when conditions match their preferences.
+ *
  * Runs daily at 14:00 UTC (6 AM Pacific).
  *
- * Two email variants:
- * - Good day (match): Full digest with conditions, window, and why-text
- * - Bad day (no match): Short "not worth it" email with look-ahead tease
- *
- * Multi-gate matching determines which variant to send:
+ * Multi-gate matching determines eligibility:
  * 1. Skill Gate - User skill vs beach requirement
  * 2. Swell Window Gate - Swell direction alignment
  * 3. Wind Gate - Wind conditions assessment
  * 4. Magic Hour Finder - Optimal window within 48h
+ *
+ * Users with no match are skipped (no "bad day" emails).
  *
  * Auth:
  * - Vercel Cron header (`x-vercel-cron`)
@@ -28,7 +28,6 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { ForecastDigestEmail } from "@/lib/mailer/templates/ForecastDigestEmail";
-import { ForecastQuickEmail } from "@/lib/mailer/templates/ForecastQuickEmail";
 import {
   evaluateDigestMatch,
   type UserSurfPreferences,
@@ -48,7 +47,6 @@ export const dynamic = "force-dynamic";
 
 const DEDUPE_WINDOW_HOURS = 20; // Not 24, prevents edge cases
 const LOOKAHEAD_HOURS = 48;
-const LOOKAHEAD_EXTENDED_HOURS = 168; // 7 days for "look-ahead" in bad-day emails
 const ALERT_TYPE = "daily_digest_email";
 
 // Push notification failure thresholds for alerting
@@ -93,7 +91,6 @@ interface EligibleUser {
 interface DigestRunSummary {
   eligibleUsers: number;
   sent: number;
-  sentQuick: number;
   pushSent: number;
   durationMs: number;
   skipped: {
@@ -107,6 +104,7 @@ interface DigestRunSummary {
     staleOrMissingForecast: number;
     pushFailed: number;
     noPushDeviceTokens: number;
+    noMatch: number;
   };
 }
 
@@ -280,48 +278,6 @@ function getForecastDate(): string {
 }
 
 /**
- * Scan forecast data for the next good surf window within the lookahead period (up to 7 days).
- * Returns a teaser string like "A solid swell is showing for Thursday" or null.
- * Criteria: wave_height >= 3ft AND wind_speed <= 12mph
- */
-function findNextGoodWindow(forecasts: EnhancedForecastEntity[]): string | null {
-  // Skip the first ~12 hours (today), look at upcoming windows
-  const now = new Date();
-  const twelveHoursFromNow = new Date(now.getTime() + 12 * 60 * 60 * 1000);
-
-  for (const forecast of forecasts) {
-    const forecastTime = new Date(forecast.forecast_time || forecast.created_at);
-    if (forecastTime <= twelveHoursFromNow) continue;
-
-    const waveHeight = parseFloat(String(forecast.wave_height || "0"));
-    const windSpeed = parseFloat(String(forecast.wind_speed || "99"));
-
-    if (waveHeight >= 3 && windSpeed <= 12) {
-      // Found a good window - format the day
-      const dayName = forecastTime.toLocaleDateString("en-US", {
-        weekday: "long",
-        timeZone: "America/Los_Angeles",
-      });
-
-      const isNextDay =
-        forecastTime.getTime() - now.getTime() < 36 * 60 * 60 * 1000;
-      const dayLabel = isNextDay ? "tomorrow" : dayName;
-
-      const heightLabel =
-        waveHeight >= 5
-          ? "A solid swell"
-          : waveHeight >= 4
-            ? "A nice pulse"
-            : "Some rideable waves";
-
-      return `${heightLabel} is showing for ${dayLabel}. We'll let you know.`;
-    }
-  }
-
-  return null;
-}
-
-/**
  * Capitalize the first letter of a string
  */
 function capitalizeFirst(str: string): string {
@@ -346,7 +302,7 @@ async function persistRunStats(
       status,
       eligible_users: summary.eligibleUsers,
       emails_sent: summary.sent,
-      emails_sent_quick: summary.sentQuick,
+      emails_sent_quick: 0, // Deprecated: bad day emails removed
       push_sent: summary.pushSent,
       push_failed: summary.skipped.pushFailed,
       push_no_tokens: summary.skipped.noPushDeviceTokens,
@@ -452,7 +408,6 @@ export async function GET(request: Request) {
     const summary: DigestRunSummary = {
       eligibleUsers: 0,
       sent: 0,
-      sentQuick: 0,
       pushSent: 0,
       durationMs: 0,
       skipped: {
@@ -466,6 +421,7 @@ export async function GET(request: Request) {
         staleOrMissingForecast: 0,
         pushFailed: 0,
         noPushDeviceTokens: 0,
+        noMatch: 0,
       },
     };
 
@@ -671,74 +627,12 @@ export async function GET(request: Request) {
             summary.skipped.sendFailed++;
           }
         } else {
-          // BAD DAY: Send short "not worth it" email with look-ahead
-          const forecastData = formatForecastForEmail(forecasts);
-
-          // Fetch extended 7-day forecast for look-ahead teaser
-          const { forecasts: extendedForecasts } = await getFreshForecastFromCache(
-            user.home_beach_id,
-            LOOKAHEAD_EXTENDED_HOURS
+          // NO MATCH: Skip entirely - no more "bad day" emails
+          console.log(
+            `⏭️ [forecast-digest-email] Skipping ${user.email} for ${beach.name} - no match`
           );
-          const lookAheadText = findNextGoodWindow(
-            extendedForecasts.length > 0 ? extendedForecasts : forecasts
-          );
-
-          const quickEmailProps = {
-            displayName: user.display_name,
-            beachName: beach.name,
-            beachSlug: beach.slug,
-            forecastDate,
-            waveHeight: forecastData.waveHeight,
-            windSpeed: forecastData.windSpeed,
-            windDirection: forecastData.windDirection,
-            lookAheadText,
-            ctaUrl,
-            unsubscribeUrl,
-          };
-
-          const emailSubject = `${beach.name}: Not worth it today`;
-
-          try {
-            await resend.emails.send({
-              from: MAIL_FROM,
-              replyTo: MAIL_REPLY_TO,
-              to: user.email,
-              subject: emailSubject,
-              react: ForecastQuickEmail(quickEmailProps),
-            });
-
-            console.log(
-              `✅ [forecast-digest-email] Sent quick digest to ${user.email} for ${beach.name} (no match)`
-            );
-            await trackDelivery(user.id, user.home_beach_id);
-            summary.sentQuick++;
-
-            // Send push notification
-            const pushBody = lookAheadText
-              ? `Not worth it today. ${lookAheadText.split(".")[0]}.`
-              : `Not worth it today at ${beach.name}.`;
-
-            await sendDigestPush(
-              user.id,
-              user.email,
-              beach.name,
-              pushBody,
-              {
-                type: "daily_digest",
-                beach_id: user.home_beach_id,
-                beach_slug: beach.slug,
-                match_quality: "no_match",
-                url: `/beaches/${beach.slug}`,
-              },
-              summary
-            );
-          } catch (sendError) {
-            console.error(
-              `❌ [forecast-digest-email] Failed to send quick email to ${user.email}:`,
-              sendError
-            );
-            summary.skipped.sendFailed++;
-          }
+          summary.skipped.noMatch++;
+          continue;
         }
       } catch (userError) {
         console.error(
@@ -752,7 +646,7 @@ export async function GET(request: Request) {
     summary.durationMs = Date.now() - startTime;
 
     console.log(
-      `🎉 [forecast-digest-email] Completed: ${summary.sent} full + ${summary.sentQuick} quick emails, ${summary.pushSent} push notifications, ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
+      `🎉 [forecast-digest-email] Completed: ${summary.sent} emails sent, ${summary.skipped.noMatch} skipped (no match), ${summary.pushSent} push notifications, ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
 
