@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, LogIn, Mail, AlertCircle } from "lucide-react";
 import {
   initiateOAuthFlow,
@@ -88,6 +89,52 @@ type AuthView =
   | "success"; // Success confirmation
 
 /**
+ * Terms and Privacy consent checkbox
+ */
+interface TermsCheckboxProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+}
+
+function TermsCheckbox({ checked, onCheckedChange, disabled }: TermsCheckboxProps) {
+  return (
+    <div className="flex items-start space-x-2">
+      <Checkbox
+        id="terms-consent"
+        checked={checked}
+        onCheckedChange={(checked) => onCheckedChange(checked === true)}
+        disabled={disabled}
+        className="mt-1"
+      />
+      <label
+        htmlFor="terms-consent"
+        className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
+      >
+        I agree to the{" "}
+        <a
+          href="/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          Terms of Service
+        </a>{" "}
+        and{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+        >
+          Privacy Policy
+        </a>
+      </label>
+    </div>
+  );
+}
+
+/**
  * Unified authentication modal component
  * Handles login, signup, and auto-detection modes with multiple auth methods
  */
@@ -119,6 +166,7 @@ export function UnifiedAuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -135,6 +183,8 @@ export function UnifiedAuthModal({
    * Build rich metadata payload for signup
    */
   const buildSignupMetadata = (method: "email" | "google") => {
+    const now = new Date().toISOString();
+    const termsVersion = "2026-01-25";
     const attribution = getAttributionFromCookies();
     const ipLocation = locationContext?.ipLocation;
 
@@ -164,6 +214,7 @@ export function UnifiedAuthModal({
         method,
         entrypoint: source,
         landing_path:
+          // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
           typeof window !== "undefined" ? window.location.pathname : "/",
         referrer,
         utm: {
@@ -193,6 +244,11 @@ export function UnifiedAuthModal({
             longitude: ipLocation.longitude,
           }
         : null,
+      legal_consent: {
+        terms_accepted_at: now,
+        terms_version: termsVersion,
+        privacy_accepted_at: now,
+      },
     };
   };
 
@@ -236,6 +292,7 @@ export function UnifiedAuthModal({
       setEmail("");
       setPassword("");
       setDisplayName("");
+      setTermsAccepted(false);
       setError(null);
       setLoading(false);
     }
@@ -417,6 +474,8 @@ export function UnifiedAuthModal({
             enablePassword={enablePassword}
             enableMagicLink={enableMagicLink}
             loading={loading}
+            termsAccepted={termsAccepted}
+            onTermsAcceptedChange={setTermsAccepted}
             onGoogleClick={handleGoogleOAuth}
             onEmailPasswordClick={() => setView("email-password")}
             onMagicLinkClick={() => setView("magic-link")}
@@ -430,11 +489,13 @@ export function UnifiedAuthModal({
             email={email}
             password={password}
             displayName={displayName}
+            termsAccepted={termsAccepted}
             loading={loading}
             emailInputRef={emailInputRef}
             onEmailChange={setEmail}
             onPasswordChange={setPassword}
             onDisplayNameChange={setDisplayName}
+            onTermsAcceptedChange={setTermsAccepted}
             onSubmit={handleEmailPassword}
             onBack={handleBack}
           />
@@ -544,6 +605,8 @@ interface AuthProvidersProps {
   enablePassword: boolean;
   enableMagicLink: boolean;
   loading: boolean;
+  termsAccepted: boolean;
+  onTermsAcceptedChange: (accepted: boolean) => void;
   onGoogleClick: () => void;
   onEmailPasswordClick: () => void;
   onMagicLinkClick: () => void;
@@ -555,19 +618,28 @@ function AuthProviders({
   enablePassword,
   enableMagicLink,
   loading,
+  termsAccepted,
+  onTermsAcceptedChange,
   onGoogleClick,
   onEmailPasswordClick,
   onMagicLinkClick,
 }: AuthProvidersProps) {
   return (
     <div className="grid gap-3 pt-2">
+      {mode === "signup" && (
+        <TermsCheckbox
+          checked={termsAccepted}
+          onCheckedChange={onTermsAcceptedChange}
+          disabled={loading}
+        />
+      )}
       {enableOAuth && (
         <Button
           onClick={onGoogleClick}
           className="w-full"
           size="lg"
           variant="default"
-          disabled={loading}
+          disabled={loading || (mode === "signup" && !termsAccepted)}
         >
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -626,11 +698,13 @@ interface EmailPasswordFormProps {
   email: string;
   password: string;
   displayName: string;
+  termsAccepted: boolean;
   loading: boolean;
   emailInputRef: React.RefObject<HTMLInputElement>;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
   onDisplayNameChange: (name: string) => void;
+  onTermsAcceptedChange: (accepted: boolean) => void;
   onSubmit: () => void;
   onBack: () => void;
 }
@@ -640,11 +714,13 @@ function EmailPasswordForm({
   email,
   password,
   displayName,
+  termsAccepted,
   loading,
   emailInputRef,
   onEmailChange,
   onPasswordChange,
   onDisplayNameChange,
+  onTermsAcceptedChange,
   onSubmit,
   onBack,
 }: EmailPasswordFormProps) {
@@ -693,11 +769,19 @@ function EmailPasswordForm({
         />
       </div>
 
+      {mode === "signup" && (
+        <TermsCheckbox
+          checked={termsAccepted}
+          onCheckedChange={onTermsAcceptedChange}
+          disabled={loading}
+        />
+      )}
+
       <Button
         onClick={onSubmit}
         className="w-full"
         size="lg"
-        disabled={loading}
+        disabled={loading || (mode === "signup" && !termsAccepted)}
       >
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {mode === "signup" ? "Sign up" : "Log in"}

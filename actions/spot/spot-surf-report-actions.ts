@@ -7,11 +7,23 @@ import { computeSurfCall, type SurfCallResult } from '@/lib/utils/surf-call-logi
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-formatting';
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { getBatchSunTimes } from '@/lib/services/discovery';
+import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services/preference-learning-service';
 
 export interface SpotSurfReportResult {
   report: SurfCallResult;
   isTomorrow: boolean;
+}
+
+/**
+ * Generate a stable cache key segment from user preferences.
+ * This ensures consistent serialization for cache key generation.
+ */
+function getPrefsKey(prefs: UserSurfPreferences | null): string {
+  if (!prefs) return 'default';
+  // Include wave range and confidence - the key factors affecting surf verdicts
+  return `${prefs.wave_min_ft ?? 0}-${prefs.wave_max_ft ?? 99}-${prefs.max_wind_mph ?? 99}-${Math.round((prefs.confidence ?? 0) * 100)}`;
 }
 
 /**
@@ -20,12 +32,42 @@ export interface SpotSurfReportResult {
  * Cached for 15 minutes via unstable_cache to avoid redundant DB hits
  * on a force-dynamic page. Returns null on any error so the UI gracefully
  * degrades (no card rendered).
+ *
+ * Cache is keyed per-user so authenticated users get personalized verdicts
+ * based on their learned surf preferences.
  */
 export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportResult | null> {
   if (!beach.id) return null;
 
   try {
-    return await getCachedSurfReport(beach.id, beach);
+    // Get current user (if logged in)
+    // Note: Auth check happens before cache lookup to enable per-user caching.
+    // This adds ~50-80ms latency but enables personalized verdicts.
+    const supabase = createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 'anonymous' key allows sharing cache across unauthenticated users
+    const userId = user?.id ?? 'anonymous';
+
+    // Fetch user preferences (null for anonymous users)
+    // Gracefully degrade to default scoring if preference fetch fails
+    let userPrefs: UserSurfPreferences | null = null;
+    if (user) {
+      try {
+        userPrefs = await getUserSurfPreferences(user.id);
+      } catch (prefError) {
+        console.warn('[getSpotSurfReport] Preference fetch failed, using defaults:', {
+          userId: user.id,
+          message: prefError instanceof Error ? prefError.message : 'Unknown error',
+        });
+        // Continue with null prefs - user still gets a report, just not personalized
+      }
+    }
+
+    // Generate stable preference key for cache (avoids object serialization issues)
+    const prefsKey = getPrefsKey(userPrefs);
+
+    return await getCachedSurfReport(beach.id, beach, userId, prefsKey, userPrefs);
   } catch (error) {
     console.error('[getSpotSurfReport] Error:', {
       beachId: beach.id,
@@ -47,9 +89,19 @@ export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportRes
  *   serve time, so users see how recent the call actually is.
  * - 15 min is short enough that a surf report won't feel stale before/during
  *   a session, but long enough to survive traffic spikes on popular spots.
+ *
+ * Cache is keyed by (beachId, userId, prefsKey) so each user gets personalized
+ * results based on their surf preferences. The prefsKey is a stable string
+ * derived from preference values to ensure consistent cache key generation.
  */
 const getCachedSurfReport = unstable_cache(
-  async (beachId: string, beach: Beach): Promise<SpotSurfReportResult | null> => {
+  async (
+    beachId: string,
+    beach: Beach,
+    userId: string,
+    prefsKey: string,
+    userPrefs: UserSurfPreferences | null
+  ): Promise<SpotSurfReportResult | null> => {
     // 1. Determine beach timezone
     const beachTz = beach.lat != null && beach.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
@@ -60,6 +112,9 @@ const getCachedSurfReport = unstable_cache(
     const todayStr = formatDateInTimezone(now, beachTz);
     const tomorrow = new Date(now.getTime() + 86_400_000);
     const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
+
+    // 2.5. Fetch sun times for sunset capping
+    const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
 
     // 3. Query enhanced_forecasts directly with timezone-aware dates
     const supabase = await createSupabaseServiceRoleClient();
@@ -99,8 +154,9 @@ const getCachedSurfReport = unstable_cache(
       const window = selectBestWindow({
         forecasts: todayForecasts,
         beach,
-        userPrefs: null,
+        userPrefs,
         horizonHours: 24,
+        sunTimesCache,
       });
 
       if (window) {
@@ -113,8 +169,9 @@ const getCachedSurfReport = unstable_cache(
       const window = selectBestWindow({
         forecasts: tomorrowForecasts,
         beach,
-        userPrefs: null,
+        userPrefs,
         horizonHours: 48,
+        sunTimesCache,
       });
 
       return { report: computeSurfCall(window, tomorrowForecasts, beach), isTomorrow: true };

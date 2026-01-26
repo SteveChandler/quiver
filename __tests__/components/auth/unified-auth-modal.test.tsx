@@ -289,7 +289,8 @@ describe("UnifiedAuthModal", () => {
       await waitFor(() => {
         expect(authUtils.initiateOAuthFlow).toHaveBeenCalledWith(
           "google",
-          "/beach/123"
+          "/beach/123",
+          undefined // Optional metadata parameter
         );
       });
 
@@ -421,6 +422,10 @@ describe("UnifiedAuthModal", () => {
       );
       await userEvent.type(screen.getByLabelText("Password"), "password123");
 
+      // Accept terms (required for signup)
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox);
+
       // Submit
       fireEvent.click(screen.getByText("Sign up"));
 
@@ -428,7 +433,10 @@ describe("UnifiedAuthModal", () => {
         expect(mockSignUp).toHaveBeenCalledWith(
           "test@example.com",
           "password123",
-          "John Doe"
+          "John Doe",
+          expect.objectContaining({
+            signup_context: expect.any(Object),
+          })
         );
       });
 
@@ -519,6 +527,10 @@ describe("UnifiedAuthModal", () => {
       );
       await userEvent.type(screen.getByLabelText("Password"), "password123");
       // Don't fill in name
+
+      // Accept terms (required for signup)
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox);
 
       fireEvent.click(screen.getByText("Sign up"));
 

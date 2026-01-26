@@ -9,6 +9,7 @@ import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import { formatTimeWindowCompact } from "@/lib/utils/time-formatters";
+import { formatTimeCasual } from "@/lib/utils/time-formatting";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
 
@@ -79,6 +80,11 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
     ? getShortBadgeLabel(conditionBadges[0].label)
     : null;
   const compactTime = formatTimeWindowCompact(window.start, window.end, window.timezone);
+
+  // Calculate window duration and show "Best at X" for windows > 3 hours
+  const windowMinutes = (window.end.getTime() - window.start.getTime()) / (1000 * 60);
+  const peakTimeCasual = window.peakTime ? formatTimeCasual(window.peakTime, window.timezone) : null;
+  const showBestAtTag = windowMinutes > 180 && peakTimeCasual;
 
   // Track when favorite is shown in carousel
   useEffect(() => {
@@ -174,6 +180,9 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
           {/* Time window */}
           <p className="text-[10px] xs:text-xs text-white/60" data-testid="compact-card-time">
             {compactTime}
+            {showBestAtTag && (
+              <span className="ml-1 text-white/80">· Best at {peakTimeCasual}</span>
+            )}
           </p>
 
           {/* Conditions - stacked for mobile */}

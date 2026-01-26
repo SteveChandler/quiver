@@ -1,14 +1,18 @@
 /**
  * GET /api/cron/forecast-digest-email
  *
- * Daily cron job: evaluates forecast digest matches and sends personalized email alerts.
+ * Daily cron job: sends personalized forecast emails to eligible users
+ * ONLY when conditions match their preferences.
+ *
  * Runs daily at 14:00 UTC (6 AM Pacific).
  *
- * Multi-gate matching logic:
- * 1. Skill Gate (STRICT) - User skill must meet beach requirement
- * 2. Swell Window Gate - Swell direction must be in optimal window
- * 3. Wind Gate (WARNING) - Assessed but doesn't block
- * 4. Magic Hour Finder - Finds optimal window within 48h
+ * Multi-gate matching determines eligibility:
+ * 1. Skill Gate - User skill vs beach requirement
+ * 2. Swell Window Gate - Swell direction alignment
+ * 3. Wind Gate - Wind conditions assessment
+ * 4. Magic Hour Finder - Optimal window within 48h
+ *
+ * Users with no match are skipped (no "bad day" emails).
  *
  * Auth:
  * - Vercel Cron header (`x-vercel-cron`)
@@ -30,6 +34,7 @@ import {
   type MatchQuality,
 } from "@/lib/services/forecast-digest-service";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
+import { sendPushNotification } from "@/lib/services/push-notifications";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 export const revalidate = 0;
@@ -43,6 +48,11 @@ export const dynamic = "force-dynamic";
 const DEDUPE_WINDOW_HOURS = 20; // Not 24, prevents edge cases
 const LOOKAHEAD_HOURS = 48;
 const ALERT_TYPE = "daily_digest_email";
+
+// Push notification failure thresholds for alerting
+// Alert on high push failure rates to detect infrastructure issues early
+const PUSH_FAILURE_RATE_THRESHOLD = 0.5; // 50% - alert if half or more pushes fail
+const PUSH_FAILURE_MIN_USERS = 10; // Minimum users to evaluate failure rate (avoid false alarms on low volumes)
 
 // Match quality to emoji mapping
 const MATCH_EMOJI: Record<MatchQuality, string> = {
@@ -81,6 +91,7 @@ interface EligibleUser {
 interface DigestRunSummary {
   eligibleUsers: number;
   sent: number;
+  pushSent: number;
   durationMs: number;
   skipped: {
     emailDisabled: number;
@@ -88,10 +99,12 @@ interface DigestRunSummary {
     missingHomeBeach: number;
     missingEmail: number;
     mockUser: number;
-    noMatch: number;
     alreadySentToday: number;
     sendFailed: number;
     staleOrMissingForecast: number;
+    pushFailed: number;
+    noPushDeviceTokens: number;
+    noMatch: number;
   };
 }
 
@@ -264,12 +277,122 @@ function getForecastDate(): string {
   });
 }
 
+/**
+ * Capitalize the first letter of a string
+ */
+function capitalizeFirst(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Persist digest run statistics to the database
+ */
+async function persistRunStats(
+  runStartedAt: Date,
+  summary: DigestRunSummary,
+  status: 'completed' | 'failed'
+): Promise<void> {
+  try {
+    const supabase = await createSupabaseServiceRoleClient();
+
+    await supabase.from("digest_run_stats").insert({
+      run_started_at: runStartedAt.toISOString(),
+      run_completed_at: new Date().toISOString(),
+      status,
+      eligible_users: summary.eligibleUsers,
+      emails_sent: summary.sent,
+      emails_sent_quick: 0, // Deprecated: bad day emails removed
+      push_sent: summary.pushSent,
+      push_failed: summary.skipped.pushFailed,
+      push_no_tokens: summary.skipped.noPushDeviceTokens,
+      skipped: summary.skipped,
+      duration_ms: summary.durationMs,
+    });
+  } catch (error) {
+    console.error("❌ [forecast-digest-email] Failed to persist run stats:", error);
+    // Don't throw - stats persistence failure shouldn't fail the cron
+  }
+}
+
+/**
+ * Send a push notification for digest email and track the result in summary.
+ * Handles errors gracefully, updates push metrics, and logs to push_notification_log.
+ */
+async function sendDigestPush(
+  userId: string,
+  userEmail: string,
+  title: string,
+  body: string,
+  data: Record<string, string>,
+  summary: DigestRunSummary
+): Promise<void> {
+  const supabase = await createSupabaseServiceRoleClient();
+  let pushResult = { success: 0, failed: 0 };
+  let status: 'sent' | 'failed' | 'no_token' = 'sent';
+  let errorMessage: string | null = null;
+
+  try {
+    pushResult = await sendPushNotification({
+      userIds: [userId],
+      title,
+      body,
+      data,
+    });
+
+    // Determine status based on result
+    if (pushResult.success > 0) {
+      status = 'sent';
+    } else if (pushResult.failed > 0) {
+      status = 'failed';
+      errorMessage = 'FCM send failed';
+    } else {
+      status = 'no_token';
+    }
+  } catch (pushError) {
+    console.error(
+      `❌ [forecast-digest-email] Push notification failed for ${userEmail}:`,
+      pushError
+    );
+    pushResult = { success: 0, failed: 1 };
+    status = 'failed';
+    errorMessage = pushError instanceof Error ? pushError.message : 'Unknown error';
+  }
+
+  // Log to push_notification_log table
+  try {
+    await supabase.from('push_notification_log').insert({
+      user_id: userId,
+      notification_type: 'daily_digest',
+      title,
+      body,
+      status,
+      beach_id: data.beach_id || null,
+      data,
+      error_message: errorMessage,
+    });
+  } catch (logError) {
+    console.error('❌ [forecast-digest-email] Failed to log push notification:', logError);
+    // Don't fail the push send because logging failed
+  }
+
+  // Track push result in summary
+  if (pushResult.success > 0) {
+    summary.pushSent++;
+  } else if (pushResult.failed > 0) {
+    summary.skipped.pushFailed++;
+  } else {
+    summary.skipped.noPushDeviceTokens++;
+  }
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
 
 export async function GET(request: Request) {
-  const startTime = Date.now();
+  const runStartedAt = new Date();
+  const startTime = runStartedAt.getTime();
 
   try {
     // 1. Validate cron auth
@@ -285,6 +408,7 @@ export async function GET(request: Request) {
     const summary: DigestRunSummary = {
       eligibleUsers: 0,
       sent: 0,
+      pushSent: 0,
       durationMs: 0,
       skipped: {
         emailDisabled: 0,
@@ -292,10 +416,12 @@ export async function GET(request: Request) {
         missingHomeBeach: 0,
         missingEmail: 0,
         mockUser: 0,
-        noMatch: 0,
         alreadySentToday: 0,
         sendFailed: 0,
         staleOrMissingForecast: 0,
+        pushFailed: 0,
+        noPushDeviceTokens: 0,
+        noMatch: 0,
       },
     };
 
@@ -413,12 +539,6 @@ export async function GET(request: Request) {
           userPrefs
         );
 
-        // ⚠️ CRITICAL: If isMatch is false, skip user SILENTLY
-        if (!matchResult.isMatch) {
-          summary.skipped.noMatch++;
-          continue;
-        }
-
         // 6. DEDUPLICATION CHECK (CRITICAL)
         const alreadySent = await checkAlreadySent(user.id, user.home_beach_id);
         if (alreadySent) {
@@ -426,65 +546,93 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // 7. Query crowd intel from last 24 hours
-        const crowdIntel = await fetchCrowdIntel(user.home_beach_id);
-        const crowdWarning = crowdIntel || matchResult.crowdWarning;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+        const ctaUrl = `${baseUrl}/beaches/${beach.slug}`;
+        const unsubscribeUrl = `${baseUrl}/settings`;
+        const forecastDate = getForecastDate();
 
-        // 8. Format forecast data for email
-        const forecastData = formatForecastForEmail(forecasts);
+        // 7. Branch: good day (match) vs bad day (no match)
+        if (matchResult.isMatch) {
+          // GOOD DAY: Send full digest email
+          const crowdIntel = await fetchCrowdIntel(user.home_beach_id);
+          const crowdWarning = crowdIntel || matchResult.crowdWarning;
+          const forecastData = formatForecastForEmail(forecasts);
 
-        // Build email props
-        const matchQualityEmoji = MATCH_EMOJI[matchResult.matchQuality];
-        const emailProps = {
-          displayName: user.display_name,
-          beachName: beach.name,
-          beachSlug: beach.slug,
-          forecastDate: getForecastDate(),
-          matchQuality: matchResult.matchQuality as "perfect" | "excellent" | "good" | "fair",
-          waveHeight: forecastData.waveHeight,
-          wavePeriod: forecastData.wavePeriod,
-          windSpeed: forecastData.windSpeed,
-          windDirection: forecastData.windDirection,
-          tideStatus: forecastData.tideStatus,
-          whyText: matchResult.whyText,
-          crowdWarning,
-          bestWindow: matchResult.bestWindow
-            ? {
-                // windowStart and windowEnd are already formatted strings (e.g., "8:30 AM")
-                startTime: matchResult.bestWindow.windowStart,
-                endTime: matchResult.bestWindow.windowEnd,
-              }
-            : null,
-          ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi"}/beaches/${beach.slug}`,
-          unsubscribeUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi"}/settings`,
-        };
+          const matchQualityEmoji = MATCH_EMOJI[matchResult.matchQuality];
+          const emailProps = {
+            displayName: user.display_name,
+            beachName: beach.name,
+            beachSlug: beach.slug,
+            forecastDate,
+            matchQuality: matchResult.matchQuality as "perfect" | "excellent" | "good" | "fair",
+            waveHeight: forecastData.waveHeight,
+            wavePeriod: forecastData.wavePeriod,
+            windSpeed: forecastData.windSpeed,
+            windDirection: forecastData.windDirection,
+            tideStatus: forecastData.tideStatus,
+            whyText: matchResult.whyText,
+            crowdWarning,
+            bestWindow: matchResult.bestWindow
+              ? {
+                  startTime: matchResult.bestWindow.windowStart,
+                  endTime: matchResult.bestWindow.windowEnd,
+                }
+              : null,
+            ctaUrl,
+            unsubscribeUrl,
+          };
 
-        const emailSubject = `${matchQualityEmoji} ${beach.name}: ${matchResult.matchQuality.charAt(0).toUpperCase() + matchResult.matchQuality.slice(1)} Conditions Today`;
+          const emailSubject = `${matchQualityEmoji} ${beach.name}: ${capitalizeFirst(matchResult.matchQuality)} Conditions Today`;
 
-        // 9. Send email via Resend
-        try {
-          await resend.emails.send({
-            from: MAIL_FROM,
-            replyTo: MAIL_REPLY_TO,
-            to: user.email,
-            subject: emailSubject,
-            react: ForecastDigestEmail(emailProps),
-          });
+          try {
+            await resend.emails.send({
+              from: MAIL_FROM,
+              replyTo: MAIL_REPLY_TO,
+              to: user.email,
+              subject: emailSubject,
+              react: ForecastDigestEmail(emailProps),
+            });
 
+            console.log(
+              `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
+            );
+            await trackDelivery(user.id, user.home_beach_id);
+            summary.sent++;
+
+            // Send push notification
+            const matchQualityCapitalized = capitalizeFirst(matchResult.matchQuality);
+            const pushBody = matchResult.bestWindow
+              ? `${matchQualityCapitalized} conditions ${matchResult.bestWindow.windowStart}-${matchResult.bestWindow.windowEnd}`
+              : `${matchQualityCapitalized} conditions today`;
+
+            await sendDigestPush(
+              user.id,
+              user.email,
+              `${matchQualityEmoji} ${beach.name}`,
+              pushBody,
+              {
+                type: "daily_digest",
+                beach_id: user.home_beach_id,
+                beach_slug: beach.slug,
+                match_quality: matchResult.matchQuality,
+                url: `/beaches/${beach.slug}`,
+              },
+              summary
+            );
+          } catch (sendError) {
+            console.error(
+              `❌ [forecast-digest-email] Failed to send email to ${user.email}:`,
+              sendError
+            );
+            summary.skipped.sendFailed++;
+          }
+        } else {
+          // NO MATCH: Skip entirely - no more "bad day" emails
           console.log(
-            `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
+            `⏭️ [forecast-digest-email] Skipping ${user.email} for ${beach.name} - no match`
           );
-
-          // 10. Track delivery
-          await trackDelivery(user.id, user.home_beach_id);
-
-          summary.sent++;
-        } catch (sendError) {
-          console.error(
-            `❌ [forecast-digest-email] Failed to send email to ${user.email}:`,
-            sendError
-          );
-          summary.skipped.sendFailed++;
+          summary.skipped.noMatch++;
+          continue;
         }
       } catch (userError) {
         console.error(
@@ -498,9 +646,23 @@ export async function GET(request: Request) {
     summary.durationMs = Date.now() - startTime;
 
     console.log(
-      `🎉 [forecast-digest-email] Completed: ${summary.sent} sent, ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
+      `🎉 [forecast-digest-email] Completed: ${summary.sent} emails sent, ${summary.skipped.noMatch} skipped (no match), ${summary.pushSent} push notifications, ${summary.eligibleUsers} eligible, ${summary.durationMs}ms`
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
+
+    // Alert on high push failure rate
+    const totalPushAttempts = summary.pushSent + summary.skipped.pushFailed;
+    if (totalPushAttempts > 0) {
+      const pushFailureRate = summary.skipped.pushFailed / totalPushAttempts;
+      if (pushFailureRate > PUSH_FAILURE_RATE_THRESHOLD && summary.eligibleUsers > PUSH_FAILURE_MIN_USERS) {
+        console.error(
+          `🚨 [forecast-digest-email] HIGH PUSH FAILURE RATE: ${(pushFailureRate * 100).toFixed(1)}% (${summary.skipped.pushFailed}/${totalPushAttempts})`
+        );
+      }
+    }
+
+    // Persist run stats to database
+    await persistRunStats(runStartedAt, summary, 'completed');
 
     return createSuccessResponse({ summary });
   } catch (error) {

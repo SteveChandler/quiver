@@ -1,0 +1,187 @@
+/**
+ * Data processors for NOAA and Open-Meteo wave forecasts
+ *
+ * Transforms raw API responses into standardized wave forecast data.
+ *
+ * @module noaa-wavewatch/data-processors
+ */
+
+import { createContextLogger } from "@/lib/logger";
+import { FORECAST_CONFIG } from "./constants";
+import {
+  getBaseWaveHeight,
+  getPrevailingWaveDirection,
+  getTimestampForIndex,
+  getValueAtIndex,
+} from "./wave-analysis";
+import type { NOAAGridData, OpenMeteoMarineResponse, WaveWatchData } from "./types";
+
+const log = createContextLogger("NOAAWaveWatch:DataProcessors");
+
+/**
+ * Process NOAA NWS grid data into wave forecasts
+ *
+ * Extracts and transforms NOAA grid forecast data into standardized wave forecast format.
+ *
+ * @param gridData - NOAA grid data response
+ * @param days - Number of forecast days
+ * @param latitude - Latitude of forecast location
+ * @param longitude - Longitude of forecast location
+ * @returns Array of processed wave forecast data
+ */
+export function processNOAAGridData(
+  gridData: NOAAGridData,
+  days: number,
+  latitude: number,
+  longitude: number
+): WaveWatchData[] {
+  const forecasts: WaveWatchData[] = [];
+  const props = gridData.properties;
+
+  // Get the minimum number of available forecasts across all parameters
+  const waveHeightCount = props.waveHeight?.values.length || 0;
+  const wavePeriodCount = props.wavePeriod?.values.length || 0;
+  const waveDirectionCount = props.waveDirection?.values.length || 0;
+
+  const maxForecasts = Math.min(
+    days * FORECAST_CONFIG.FORECASTS_PER_DAY,
+    Math.max(waveHeightCount, wavePeriodCount, waveDirectionCount)
+  );
+
+  log.debug(`Processing ${maxForecasts} NOAA grid forecasts`);
+
+  for (let i = 0; i < maxForecasts; i++) {
+    const timestamp = getTimestampForIndex(i);
+
+    // Extract wave height (convert from feet to meters if needed)
+    const waveHeight = getValueAtIndex(props.waveHeight?.values, i);
+    const significantWaveHeight = waveHeight
+      ? props.waveHeight?.uom === "wmoUnit:ft"
+        ? waveHeight * 0.3048
+        : waveHeight
+      : getBaseWaveHeight(latitude, longitude);
+
+    // Extract wave period
+    const wavePeriod = getValueAtIndex(props.wavePeriod?.values, i);
+    const peakWavePeriod =
+      wavePeriod || Math.max(4, 6 + significantWaveHeight * 1.5);
+
+    // Extract wave direction
+    const waveDirection = getValueAtIndex(props.waveDirection?.values, i);
+    const peakWaveDirection =
+      waveDirection || getPrevailingWaveDirection(latitude, longitude);
+
+    // Extract swell data (if available)
+    const swellHeight = getValueAtIndex(props.swellHeight?.values, i);
+    const swellPeriod = getValueAtIndex(props.swellPeriod?.values, i);
+    const swellDirection = getValueAtIndex(props.swellDirection?.values, i);
+
+    // Generate swell components based on available data
+    const swell1Height = swellHeight || significantWaveHeight * 0.7;
+    const swell1Period = swellPeriod || peakWavePeriod * 1.3;
+    const swell1Direction = swellDirection || peakWaveDirection;
+
+    const swell2Height = significantWaveHeight * 0.4;
+    const swell2Period = swell1Period * 1.1;
+    const swell2Direction = (swell1Direction + 30) % 360;
+
+    // Generate wind wave component
+    const windWaveHeight = significantWaveHeight * 0.5;
+    const windWavePeriod = peakWavePeriod * 0.7;
+    const windWaveDirection = peakWaveDirection;
+
+    forecasts.push({
+      timestamp: timestamp,
+      significant_wave_height: Math.round(significantWaveHeight * 100) / 100,
+      peak_wave_period: Math.round(peakWavePeriod * 10) / 10,
+      peak_wave_direction: Math.round(peakWaveDirection),
+      swell_1_height: Math.round(swell1Height * 100) / 100,
+      swell_1_period: Math.round(swell1Period * 10) / 10,
+      swell_1_direction: Math.round(swell1Direction),
+      swell_2_height: Math.round(swell2Height * 100) / 100,
+      swell_2_period: Math.round(swell2Period * 10) / 10,
+      swell_2_direction: Math.round(swell2Direction),
+      wind_wave_height: Math.round(windWaveHeight * 100) / 100,
+      wind_wave_period: Math.round(windWavePeriod * 10) / 10,
+      wind_wave_direction: Math.round(windWaveDirection),
+      data_source: "NOAA_NWS" as const,
+    });
+  }
+
+  log.debug(`Processed ${forecasts.length} NOAA NWS wave forecasts`);
+  return forecasts;
+}
+
+/**
+ * Process Open-Meteo marine forecast data into wave forecasts
+ *
+ * Transforms Open-Meteo API response into standardized wave forecast format.
+ *
+ * @param data - Open-Meteo marine API response
+ * @param days - Number of forecast days
+ * @returns Array of processed wave forecast data
+ */
+export function processOpenMeteoData(
+  data: OpenMeteoMarineResponse,
+  days: number
+): WaveWatchData[] {
+  const forecasts: WaveWatchData[] = [];
+
+  if (!data.hourly || !data.hourly.time) {
+    log.debug("Open-Meteo data missing hourly forecasts");
+    return forecasts;
+  }
+
+  const maxForecasts = Math.min(
+    days * FORECAST_CONFIG.FORECASTS_PER_DAY,
+    data.hourly.time.length
+  );
+
+  log.debug(`Processing ${maxForecasts} Open-Meteo forecasts`);
+
+  for (let i = 0; i < maxForecasts; i++) {
+    const timestamp = new Date(data.hourly.time[i]);
+
+    // Extract wave data (already in meters from Open-Meteo)
+    const significantWaveHeight = data.hourly.wave_height?.[i] || 0.8;
+    const peakWavePeriod = data.hourly.wave_period?.[i] || 8;
+    const peakWaveDirection = data.hourly.wave_direction?.[i] || 225; // SW default for CA
+
+    // Extract swell data
+    const swell1Height =
+      data.hourly.swell_wave_height?.[i] || significantWaveHeight * 0.7;
+    const swell1Period = data.hourly.swell_wave_period?.[i] || peakWavePeriod;
+    const swell1Direction =
+      data.hourly.swell_wave_direction?.[i] || peakWaveDirection;
+
+    // Extract wind wave data (if available)
+    const windWaveHeight =
+      data.hourly.wind_wave_height?.[i] || significantWaveHeight * 0.3;
+    const windWavePeriod =
+      data.hourly.wind_wave_period?.[i] || Math.max(4, peakWavePeriod * 0.6);
+    const windWaveDirection =
+      data.hourly.wind_wave_direction?.[i] || peakWaveDirection;
+
+    const forecast: WaveWatchData = {
+      timestamp: timestamp.toISOString(),
+      significant_wave_height: significantWaveHeight,
+      peak_wave_period: peakWavePeriod,
+      peak_wave_direction: peakWaveDirection,
+      swell_1_height: swell1Height,
+      swell_1_period: swell1Period,
+      swell_1_direction: swell1Direction,
+      swell_2_height: swell1Height * 0.6, // Secondary swell estimate
+      swell_2_period: swell1Period * 1.2,
+      swell_2_direction: (swell1Direction + 45) % 360,
+      wind_wave_height: windWaveHeight,
+      wind_wave_period: windWavePeriod,
+      wind_wave_direction: windWaveDirection,
+      data_source: "NOAA_NWS", // Use NOAA_NWS for compatibility
+    };
+
+    forecasts.push(forecast);
+  }
+
+  log.debug(`Processed ${forecasts.length} Open-Meteo wave forecasts`);
+  return forecasts;
+}

@@ -50,6 +50,8 @@ const profileUpdateSchema = z.object({
   digest_session_invites: z.boolean().optional(),
   inapp_session_invites: z.boolean().optional(),
   email_session_invites: z.boolean().optional(),
+  // Privacy preferences (implicit preference learning)
+  allow_implicit_tracking: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
 
 // Return types for profile functions

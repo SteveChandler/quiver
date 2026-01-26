@@ -50,25 +50,47 @@ describe("lib/constants/content invariants", () => {
     expect(email).toMatch(/@/);
   });
 
-  test("FEATURES_EXTENDED_CONTENT categories have ids and at least one feature", () => {
-    const ids = FEATURES_EXTENDED_CONTENT.categories.map((c) => c.id);
-    expect(new Set(ids).size).toBe(ids.length);
+  test("FEATURES_EXTENDED_CONTENT has required sections with non-empty content", () => {
+    // Hero
+    expect(typeof FEATURES_EXTENDED_CONTENT.hero.title).toBe("string");
+    expect(FEATURES_EXTENDED_CONTENT.hero.title.length).toBeGreaterThan(0);
+    expect(typeof FEATURES_EXTENDED_CONTENT.hero.subtitle).toBe("string");
+    expect(FEATURES_EXTENDED_CONTENT.hero.subtitle.length).toBeGreaterThan(0);
+    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.hero.stats)).toBe(true);
+    expect(FEATURES_EXTENDED_CONTENT.hero.stats.length).toBeGreaterThan(0);
 
-    for (const category of FEATURES_EXTENDED_CONTENT.categories) {
-      expect(typeof category.title).toBe("string");
-      expect(category.title.length).toBeGreaterThan(0);
-      expect(Array.isArray(category.features)).toBe(true);
-      expect(category.features.length).toBeGreaterThan(0);
-
-      for (const f of category.features) {
-        expect(typeof f.title).toBe("string");
-        expect(f.title.length).toBeGreaterThan(0);
-        expect(typeof f.description).toBe("string");
-        expect(f.description.length).toBeGreaterThan(0);
-        expect(Array.isArray(f.benefits)).toBe(true);
-        expect(f.benefits.length).toBeGreaterThan(0);
-      }
+    // Pipeline
+    expect(typeof FEATURES_EXTENDED_CONTENT.pipeline.title).toBe("string");
+    expect(FEATURES_EXTENDED_CONTENT.pipeline.title.length).toBeGreaterThan(0);
+    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.pipeline.steps)).toBe(true);
+    expect(FEATURES_EXTENDED_CONTENT.pipeline.steps.length).toBe(4);
+    for (const step of FEATURES_EXTENDED_CONTENT.pipeline.steps) {
+      expect(typeof step.id).toBe("string");
+      expect(typeof step.title).toBe("string");
+      expect(step.title.length).toBeGreaterThan(0);
+      expect(typeof step.description).toBe("string");
+      expect(step.description.length).toBeGreaterThan(0);
     }
+
+    // Personalization
+    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.personalization.features)).toBe(true);
+    expect(FEATURES_EXTENDED_CONTENT.personalization.features.length).toBeGreaterThan(0);
+    for (const f of FEATURES_EXTENDED_CONTENT.personalization.features) {
+      expect(typeof f.title).toBe("string");
+      expect(f.title.length).toBeGreaterThan(0);
+      expect(typeof f.description).toBe("string");
+      expect(f.description.length).toBeGreaterThan(0);
+    }
+
+    // Intelligence
+    expect(Array.isArray(FEATURES_EXTENDED_CONTENT.intelligence.cards)).toBe(true);
+    expect(FEATURES_EXTENDED_CONTENT.intelligence.cards.length).toBeGreaterThan(0);
+
+    // CTA
+    expect(typeof FEATURES_EXTENDED_CONTENT.cta.title).toBe("string");
+    expect(FEATURES_EXTENDED_CONTENT.cta.title.length).toBeGreaterThan(0);
+    expect(typeof FEATURES_EXTENDED_CONTENT.cta.primaryCta.text).toBe("string");
+    expect(typeof FEATURES_EXTENDED_CONTENT.cta.primaryCta.href).toBe("string");
   });
 });
 

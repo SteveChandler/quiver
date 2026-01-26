@@ -45,6 +45,14 @@ jest.mock('@/lib/services/preference-learning-service', () => ({
   getUserSurfPreferences: jest.fn(() => Promise.resolve(mockUserPreferences)),
 }));
 
+// Mock implicit-preferences-service
+let mockImplicitPreferences: any = null;
+jest.mock('@/lib/services/implicit-preferences-service', () => ({
+  getImplicitPreferences: jest.fn(() => Promise.resolve(mockImplicitPreferences)),
+  calculateImplicitBonus: jest.fn(() => ({ total: 0, breakdown: { waveRange: 0, breakType: 0, topEngaged: 0 } })),
+  isTopEngagedBeach: jest.fn(() => false),
+}));
+
 // Mock forecast data
 const createMockForecast = (
   waveHeight: string,
@@ -92,6 +100,7 @@ describe('personalized-scoring-service', () => {
     mockQueryResults = [];
     mockQueryIndex = 0;
     mockUserPreferences = null;
+    mockImplicitPreferences = null;
     console.error = jest.fn();
     console.log = jest.fn();
   });
@@ -563,6 +572,311 @@ describe('personalized-scoring-service', () => {
       const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
 
       expect(result.breakdown.affinity).toBe(0); // No bonus for low affinity
+    });
+  });
+
+  // ============================================================================
+  // Implicit Preference Integration Tests
+  // ============================================================================
+
+  describe('implicit preference integration', () => {
+    it('applies implicit bonus when explicit confidence is low', async () => {
+      // Setup: low explicit confidence (0.2), high implicit confidence (0.8)
+      // Expected: implicitWeight = 0.8 * (1 - 0.2) = 0.64
+
+      // Low explicit confidence
+      mockUserPreferences = {
+        wave_min_ft: 3.0,
+        wave_max_ft: 5.0,
+        wave_period_min_s: null,
+        wave_period_max_s: null,
+        max_wind_mph: null,
+        preferred_wind_directions: null,
+        preferred_tide_statuses: null,
+        confidence: 0.2, // LOW confidence
+        sample_size: 5,
+      };
+
+      // High implicit confidence
+      mockImplicitPreferences = {
+        user_id: 'user-123',
+        confidence: 0.8, // HIGH confidence
+        inferred_wave_min_ft: 3.0,
+        inferred_wave_max_ft: 5.5,
+        break_type_weights: { beach: 0.6, reef: 0.3, point: 0.1 },
+        location_centroid_lat: 32.7157,
+        location_centroid_lon: -117.2566,
+        typical_travel_radius_miles: 30,
+        top_engaged_beach_ids: [],
+        sample_session_count: 25,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-25T00:00:00Z',
+      };
+
+      // Import and mock the function
+      const implicitService = jest.requireMock('@/lib/services/implicit-preferences-service');
+      implicitService.calculateImplicitBonus.mockReturnValueOnce({
+        total: 11.52,
+        breakdown: { waveRange: 6.4, breakType: 5.12, topEngaged: 0 },
+      });
+
+      // Set up queries: Profile, Affinity, Beach break type
+      mockQueryResults = [
+        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
+        { data: null, error: null }, // Affinity
+        { data: { break_type: 'beach' }, error: null }, // Beach query for break type
+      ];
+
+      const forecast = createMockForecast('4.0', '10', '180', 'rising'); // Matches implicit wave range
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      // With implicitWeight = 0.8 * (1 - 0.2) = 0.64
+      // Wave range match: 10 * 0.64 = 6.4
+      // Break type match: 8 * 0.64 = 5.12
+      // Total: 11.52
+      expect(result.breakdown.implicitPrefs).toBeGreaterThan(0);
+      expect(result.personalized).toBe(true);
+    });
+
+    it('reduces implicit bonus when explicit confidence is high', async () => {
+      // Setup: high explicit confidence (0.9), high implicit confidence (0.8)
+      // Expected: implicitWeight = 0.8 * (1 - 0.9) = 0.08 (below 0.1 threshold)
+      mockQueryResults = [
+        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
+        { data: null, error: null }, // Affinity
+      ];
+
+      // High explicit confidence
+      mockUserPreferences = {
+        wave_min_ft: 3.0,
+        wave_max_ft: 5.0,
+        wave_period_min_s: null,
+        wave_period_max_s: null,
+        max_wind_mph: 15,
+        preferred_wind_directions: [180],
+        preferred_tide_statuses: ['rising'],
+        confidence: 0.9, // HIGH confidence
+        sample_size: 30,
+      };
+
+      // High implicit confidence (but will be reduced by high explicit)
+      mockImplicitPreferences = {
+        user_id: 'user-123',
+        confidence: 0.8, // HIGH confidence
+        inferred_wave_min_ft: 3.0,
+        inferred_wave_max_ft: 5.5,
+        break_type_weights: { beach: 0.6, reef: 0.3, point: 0.1 },
+        location_centroid_lat: 32.7157,
+        location_centroid_lon: -117.2566,
+        typical_travel_radius_miles: 30,
+        top_engaged_beach_ids: [],
+        sample_session_count: 25,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-25T00:00:00Z',
+      };
+
+      const forecast = createMockForecast('4.0', '10', '180', 'rising');
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      // implicitWeight = 0.8 * (1 - 0.9) = 0.08 < 0.1 threshold
+      // No implicit bonus should be applied
+      expect(result.breakdown.implicitPrefs).toBe(0);
+    });
+
+    it('skips implicit bonus when implicit confidence is too low', async () => {
+      // Setup: implicit confidence = 0.05 (< 0.1 threshold)
+      mockQueryResults = [
+        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
+        { data: null, error: null }, // Affinity
+      ];
+
+      // Low explicit confidence
+      mockUserPreferences = {
+        wave_min_ft: 3.0,
+        wave_max_ft: 5.0,
+        wave_period_min_s: null,
+        wave_period_max_s: null,
+        max_wind_mph: null,
+        preferred_wind_directions: null,
+        preferred_tide_statuses: null,
+        confidence: 0.2, // Low
+        sample_size: 5,
+      };
+
+      // Very low implicit confidence
+      mockImplicitPreferences = {
+        user_id: 'user-123',
+        confidence: 0.05, // VERY LOW confidence (< 0.1 threshold)
+        inferred_wave_min_ft: 3.0,
+        inferred_wave_max_ft: 5.5,
+        break_type_weights: { beach: 0.6, reef: 0.3, point: 0.1 },
+        location_centroid_lat: 32.7157,
+        location_centroid_lon: -117.2566,
+        typical_travel_radius_miles: 30,
+        top_engaged_beach_ids: [],
+        sample_session_count: 25,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-25T00:00:00Z',
+      };
+
+      const forecast = createMockForecast('4.0', '10', '180', 'rising');
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      // Implicit confidence is below 0.1 threshold, should not apply
+      expect(result.breakdown.implicitPrefs).toBe(0);
+      expect(result.personalized).toBe(false);
+    });
+
+    it('blends implicit and explicit preferences correctly', async () => {
+      // Setup: medium explicit confidence (0.6), medium implicit confidence (0.5)
+      // Expected: implicitWeight = 0.5 * (1 - 0.6) = 0.2
+
+      // Medium explicit confidence
+      mockUserPreferences = {
+        wave_min_ft: 2.5,
+        wave_max_ft: 6.0,
+        wave_period_min_s: 10,
+        wave_period_max_s: 14,
+        max_wind_mph: 15,
+        preferred_wind_directions: [180],
+        preferred_tide_statuses: ['rising'],
+        confidence: 0.6, // MEDIUM confidence
+        sample_size: 15,
+      };
+
+      // Medium implicit confidence
+      mockImplicitPreferences = {
+        user_id: 'user-123',
+        confidence: 0.5, // MEDIUM confidence
+        inferred_wave_min_ft: 3.0,
+        inferred_wave_max_ft: 5.5,
+        break_type_weights: { beach: 0.8, reef: 0.15, point: 0.05 },
+        location_centroid_lat: 32.7157,
+        location_centroid_lon: -117.2566,
+        typical_travel_radius_miles: 30,
+        top_engaged_beach_ids: ['beach-456'], // This beach is top engaged!
+        sample_session_count: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-25T00:00:00Z',
+      };
+
+      // Import and mock the function
+      const implicitService = jest.requireMock('@/lib/services/implicit-preferences-service');
+      implicitService.calculateImplicitBonus.mockReturnValueOnce({
+        total: 5.6,
+        breakdown: { waveRange: 2, breakType: 1.6, topEngaged: 2 },
+      });
+
+      mockQueryResults = [
+        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
+        { data: null, error: null }, // Affinity
+        { data: { break_type: 'beach' }, error: null }, // Beach query for break type
+      ];
+
+      const forecast = createMockForecast('4.0', '10', '180', 'rising');
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      // implicitWeight = 0.5 * (1 - 0.6) = 0.2 > 0.1 threshold
+      // Wave range bonus: 10 * 0.2 = 2
+      // Break type bonus: 8 * 0.2 = 1.6
+      // Top engaged bonus: 2 (flat)
+      // Total implicit: 5.6
+      expect(result.breakdown.implicitPrefs).toBeCloseTo(5.6, 0);
+      expect(result.personalized).toBe(true);
+
+      // Learned prefs should also apply
+      expect(result.breakdown.learnedPrefs).toBeGreaterThan(0);
+
+      // Total should be base + learned + implicit
+      expect(result.score).toBeGreaterThan(75);
+    });
+
+    it('does not apply implicit bonus when implicit prefs is null', async () => {
+      // Setup: no implicit preferences data
+
+      // Medium confidence with all preferences defined (threshold is 0.5)
+      mockUserPreferences = {
+        wave_min_ft: 3.0,
+        wave_max_ft: 5.0,
+        wave_period_min_s: 10,
+        wave_period_max_s: 14,
+        max_wind_mph: 15,
+        preferred_wind_directions: [180],
+        preferred_tide_statuses: ['rising'],
+        confidence: 0.6, // Above 0.5 threshold for learned prefs
+        sample_size: 15,
+      };
+
+      // No implicit preferences
+      mockImplicitPreferences = null;
+
+      mockQueryResults = [
+        { data: { preferred_wave_size: 'any' }, error: null }, // Profile
+        { data: null, error: null }, // Affinity
+      ];
+
+      const forecast = createMockForecast('4.0', '10', '180', 'rising'); // Matches learned prefs
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      expect(result.breakdown.implicitPrefs).toBe(0);
+      // Should still apply learned prefs if conditions match
+      // Wave: 15*0.6=9, Wind: 10*0.6=6, Tide: 8*0.6=4.8 = 19.8 total
+      expect(result.breakdown.learnedPrefs).toBeCloseTo(19.8, 0);
+    });
+
+    it('prioritizes explicit preferences over implicit when both available', async () => {
+      // Setup: both explicit and implicit available with good matches
+      // Explicit should be weighted more heavily
+      mockQueryResults = [
+        { data: { preferred_wave_size: 'medium', preferred_break_type: 'beach' }, error: null }, // Profile
+        { data: { break_type: 'beach' }, error: null }, // Beach query
+        { data: { affinity_score: 50, session_count: 10 }, error: null }, // Affinity
+      ];
+
+      // High explicit confidence
+      mockUserPreferences = {
+        wave_min_ft: 3.0,
+        wave_max_ft: 6.0,
+        wave_period_min_s: 10,
+        wave_period_max_s: 14,
+        max_wind_mph: 15,
+        preferred_wind_directions: [180],
+        preferred_tide_statuses: ['rising'],
+        confidence: 0.95, // VERY HIGH confidence
+        sample_size: 50,
+      };
+
+      // High implicit confidence (but should be downweighted)
+      mockImplicitPreferences = {
+        user_id: 'user-123',
+        confidence: 0.9,
+        inferred_wave_min_ft: 2.0,
+        inferred_wave_max_ft: 7.0,
+        break_type_weights: { beach: 0.9, reef: 0.08, point: 0.02 },
+        location_centroid_lat: 32.7157,
+        location_centroid_lon: -117.2566,
+        typical_travel_radius_miles: 30,
+        top_engaged_beach_ids: [],
+        sample_session_count: 100,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-25T00:00:00Z',
+      };
+
+      const forecast = createMockForecast('4.5', '10', '180', 'rising');
+      const result = await scoreBeachForUser('user-123', 'beach-456', forecast, 75);
+
+      // Learned prefs should dominate (high confidence: 0.95)
+      // implicitWeight = 0.9 * (1 - 0.95) = 0.045 < 0.1 threshold
+      // So minimal/no implicit bonus
+      expect(result.breakdown.learnedPrefs).toBeGreaterThan(0);
+      expect(result.breakdown.implicitPrefs).toBe(0); // Should be below threshold
+
+      // Onboarding prefs also apply
+      expect(result.breakdown.onboardingPrefs).toBe(18); // 10 (wave) + 8 (break type)
+
+      // Total should be high
+      const totalBonus = result.breakdown.onboardingPrefs + result.breakdown.learnedPrefs + result.breakdown.implicitPrefs + result.breakdown.affinity;
+      expect(result.score).toBe(Math.min(100, Math.round(75 + totalBonus)));
     });
   });
 });

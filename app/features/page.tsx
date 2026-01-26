@@ -3,18 +3,19 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import FeaturesPageClient from "./features-client";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Features - Surf Tracking, Forecasts & Community",
+  title: "Features - AI Surf Forecasts, Personalized Recommendations & Community",
   description:
-    "Discover Quiver's powerful features: track surf sessions, get accurate forecasts, find surf buddies, share photos, and connect with the surf community. Free surf app for iOS, Android, and web.",
+    "Quiver uses machine learning to correct NOAA wave models with real-time buoy data, delivering personalized surf forecasts with 0-100 match scores. Free for iOS, Android, and web.",
   path: "/features",
   keywords: [
-    "surf app features",
-    "surf tracking app",
-    "surf forecast app",
-    "surf community features",
-    "track surf sessions",
-    "surf social network",
-    "surf journal features",
+    "ai surf forecast",
+    "personalized surf recommendations",
+    "ml wave prediction",
+    "real-time buoy data",
+    "surf forecast accuracy",
+    "surf session tracking",
+    "ios surf app",
+    "android surf app",
   ],
 });
 

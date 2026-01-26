@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { logSession } from './actions';
 
 type Rating = 'skip' | 'good' | 'fired';
@@ -73,12 +74,12 @@ export default function SessionLogPage() {
           <p className="text-gray-600 mb-6">
             Thanks for the feedback. This helps us get smarter.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-block bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors"
           >
             Open Quiver
-          </a>
+          </Link>
         </div>
       </div>
     );

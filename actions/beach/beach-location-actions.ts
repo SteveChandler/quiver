@@ -182,9 +182,60 @@ export interface CityWithSkillCategories {
  * Used by sitemap and generateStaticParams to filter skill-based intent URLs
  * (beginner/longboard only for cities with beginner beaches, etc.)
  *
+ * Uses database-side aggregation via RPC for better performance.
+ *
  * @param minBeaches - Minimum number of beaches required (default: 1)
  */
 export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    // Use RPC for database-side aggregation (much faster than full table scan)
+    const { data, error } = await supabase.rpc("get_cities_with_beach_skills", {
+      min_beaches: minBeaches,
+    });
+
+    if (error) {
+      // Fallback to client-side aggregation if RPC fails (e.g., not deployed yet)
+      console.warn("RPC get_cities_with_beach_skills failed, using fallback:", error.message);
+      return getAllCitiesWithBeachSkillsFallback(minBeaches);
+    }
+
+    // Transform RPC response to expected format
+    const cities: CityWithSkillCategories[] = (data || []).map((row: {
+      city: string;
+      state: string;
+      country: string | null;
+      beach_count: number;
+      has_beginner: boolean;
+      has_advanced: boolean;
+    }) => ({
+      city: row.city,
+      state: row.state,
+      country: row.country,
+      beachCount: Number(row.beach_count),
+      hasBeginnerBeaches: row.has_beginner,
+      hasAdvancedBeaches: row.has_advanced,
+    }));
+
+    return {
+      success: true,
+      data: cities,
+    };
+  } catch (error) {
+    console.error("Error getting cities with beach skills:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Fallback implementation using client-side aggregation.
+ * Used when RPC is not available (e.g., during migrations).
+ */
+async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -235,7 +286,7 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       data: cities,
     };
   } catch (error) {
-    console.error("Error getting cities with beach skills:", error);
+    console.error("Error in fallback getAllCitiesWithBeachSkills:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

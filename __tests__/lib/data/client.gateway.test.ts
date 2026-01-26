@@ -1,5 +1,14 @@
 import { data } from "@/lib/data/client";
 
+// Mock supabase client for auth retry functionality
+jest.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    auth: {
+      refreshSession: jest.fn().mockResolvedValue({ error: new Error("Session expired") }),
+    },
+  }),
+}));
+
 describe("lib/data/client gateway", () => {
   const originalFetch = global.fetch as unknown as jest.Mock;
 

@@ -118,7 +118,8 @@ describe("SEO Meta Builder", () => {
           image: customImage,
         });
         const images = result.openGraph?.images as Array<{ url: string }>;
-        expect(images?.[0]?.url).toBe(customImage);
+        // Images are absolutified for social media crawlers
+        expect(images?.[0]?.url).toBe("http://localhost:3000/custom-og-image.png");
       });
 
       it("should include alt text in images", () => {
@@ -167,7 +168,8 @@ describe("SEO Meta Builder", () => {
           image: customImage,
         });
         const images = result.twitter?.images as string[];
-        expect(images?.[0]).toBe(customImage);
+        // Images are absolutified for social media crawlers
+        expect(images?.[0]).toBe("http://localhost:3000/custom-twitter-image.png");
       });
     });
 

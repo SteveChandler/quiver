@@ -31,6 +31,7 @@ interface BestSurfWindowProps {
   beachTimezone?: string | null;
   forecasts?: EnhancedForecastEntity[];
   surfCall?: SurfCallResult | null;
+  surfCallIsTomorrow?: boolean;
 }
 
 type WindowForecast = {
@@ -50,6 +51,7 @@ export function BestSurfWindow({
   beachTimezone,
   forecasts,
   surfCall,
+  surfCallIsTomorrow,
 }: BestSurfWindowProps) {
   const pathname = usePathname();
 
@@ -166,6 +168,8 @@ export function BestSurfWindow({
         surfCall={surfCall}
         beachTimezone={beachTimezone}
         beachName={beachName}
+        beachSlug={pathname?.split("/").pop() || undefined}
+        isTomorrow={surfCallIsTomorrow}
       />
     );
   }

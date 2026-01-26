@@ -3,7 +3,7 @@ import type { SurfCallResult } from '@/lib/utils/surf-call-logic';
 import type { Beach } from '@/types/database';
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
-import { formatTimeInTimezone } from '@/lib/utils/time-formatting';
+import { formatTimeInTimezone, formatTimeCasual } from '@/lib/utils/time-formatting';
 import { SurfCallSignInCTA } from './surf-call-sign-in-cta';
 
 interface SpotSurfReportProps {
@@ -58,6 +58,10 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
     }
   }
 
+  // Show "Best at X" for windows > 3 hours (180 minutes)
+  const peakTimeCasual = report.peakTime ? formatTimeCasual(report.peakTime, timezone) : null;
+  const showBestAtTag = report.windowMinutes != null && report.windowMinutes > 180 && peakTimeCasual;
+
   return (
     <section
       aria-label={`${isTomorrow ? "Tomorrow's" : "Today's"} surf call for ${spotName}`}
@@ -75,6 +79,11 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
             {report.shortWindow && report.verdict !== 'NO' && (
               <span className="inline-flex items-center rounded-lg border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                 Short window
+              </span>
+            )}
+            {showBestAtTag && report.verdict !== 'NO' && (
+              <span className="inline-flex items-center rounded-lg border border-blue-200/80 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                Best at {peakTimeCasual}
               </span>
             )}
             <h2 className="text-lg font-semibold text-dark-grey">

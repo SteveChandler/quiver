@@ -199,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const raw = JSON.parse(pendingMetadata);
 
                     // Validate expected shape — reject unexpected keys
-                    const allowedKeys = new Set(["signup_context", "location_data"]);
+                    const allowedKeys = new Set(["signup_context", "location_data", "legal_consent"]);
                     const metadata: Record<string, unknown> = {};
                     for (const key of Object.keys(raw)) {
                       if (allowedKeys.has(key)) {

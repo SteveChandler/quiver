@@ -505,225 +505,446 @@ export const PRIVACY_CONTENT = {
   },
 } as const;
 
-export const FEATURES_EXTENDED_CONTENT = {
+export const TERMS_CONTENT = {
   hero: {
-    title: "Everything You Need to Surf with Friends",
-    subtitle:
-      "Discover all the features that make Quiver the ultimate surf community platform",
-    description:
-      "From finding surf buddies to tracking epic sessions, Quiver brings surfers together through powerful, easy-to-use features designed by surfers, for surfers.",
+    title: "Terms of Service",
+    subtitle: "Rules and guidelines for using Quiver",
+    lastUpdated: "January 25, 2026",
+    effectiveDate:
+      "This policy is effective as of January 25, 2026. We will notify you of any material changes by email or through our app.",
   },
-  categories: [
+  overview: {
+    title: "Welcome to Quiver",
+    description:
+      'These Terms of Service ("Terms") govern your use of the Quiver application, website, and services (collectively, the "Service"). By accessing or using Quiver, you agree to be bound by these Terms and our Privacy Policy.',
+  },
+  sections: [
     {
-      id: "community",
-      title: "Community & Social",
-      description: "Connect with surfers who share your passion",
-      features: [
+      id: "acceptance",
+      icon: UserCheck,
+      title: "1. Acceptance of Terms",
+      content: [
         {
-          title: "Find Local Surf Buddies",
-          description:
-            "Connect with surfers in your area based on skill level, preferred breaks, and availability. Never surf alone again.",
-          benefits: [
-            "Safety in numbers",
-            "Learn from others",
-            "Share the stoke",
-            "Build lasting friendships",
-          ],
-        },
-        {
-          title: "Activity Feed",
-          description:
-            "Stay connected with your surf community through a personalized feed of sessions, photos, and updates from fellow surfers.",
-          benefits: [
-            "See what friends are surfing",
-            "Discover new spots",
-            "Get inspired",
-            "Share your sessions",
-          ],
-        },
-        {
-          title: "Follow System",
-          description:
-            "Follow your favorite surfers and stay updated on their latest sessions and discoveries.",
-          benefits: [
-            "Curated content",
-            "Learn from pros",
-            "Build your network",
-            "Stay motivated",
-          ],
-        },
-        {
-          title: "Session Comments & Likes",
-          description:
-            "Engage with the community by commenting on sessions, sharing tips, and showing appreciation for epic waves.",
-          benefits: [
-            "Share knowledge",
-            "Build connections",
-            "Get feedback",
-            "Celebrate together",
-          ],
+          subtitle: "Agreement to Terms",
+          details:
+            "By creating an account or using Quiver, you confirm that you are at least 13 years old and agree to these Terms. If you are under 18, you represent that your parent or guardian has reviewed and agreed to these Terms on your behalf. If you do not agree, do not use the Service.",
         },
       ],
     },
     {
-      id: "session-tracking",
-      title: "Session Tracking",
-      description: "Log and share your surf journey",
-      features: [
+      id: "service-description",
+      icon: Waves,
+      title: "2. Description of Service",
+      content: [
         {
-          title: "Detailed Session Logging",
-          description:
-            "Record comprehensive details about every surf session including conditions, equipment, feelings, and memorable moments.",
-          benefits: [
-            "Track progression",
-            "Remember great sessions",
-            "Share experiences",
-            "Build your surf story",
-          ],
-        },
-        {
-          title: "Photo Integration",
-          description:
-            "Add photos to your sessions to capture the memories and share the visual story of your surf adventures.",
-          benefits: [
-            "Visual memories",
-            "Inspire others",
-            "Document spots",
-            "Social sharing",
-          ],
-        },
-        {
-          title: "Equipment Tracking",
-          description:
-            "Keep track of which boards and gear work best in different conditions to optimize your equipment choices.",
-          benefits: [
-            "Optimize gear selection",
-            "Track board performance",
-            "Share gear insights",
-            "Equipment planning",
-          ],
-        },
-        {
-          title: "Session Analytics",
-          description:
-            "Visualize your surfing patterns with charts and insights about your session frequency, favorite spots, and progression.",
-          benefits: [
-            "Understand patterns",
-            "Set goals",
-            "Track improvement",
-            "Motivate consistency",
-          ],
+          subtitle: "What Quiver Provides",
+          details:
+            "Quiver provides surf forecasting, beach condition information, session tracking, and community features for surfers. Our Service includes: surf condition forecasts and predictions, real-time weather and ocean data, beach and surf spot information, personal session logging and statistics, and community features including reviews and local intel.",
         },
       ],
     },
     {
-      id: "discovery",
-      title: "Spot Discovery",
-      description: "Explore new breaks and get local insights",
-      features: [
+      id: "user-accounts",
+      icon: Users,
+      title: "3. User Accounts",
+      content: [
         {
-          title: "Interactive Surf Map",
-          description:
-            "Explore surf spots on an interactive map with real-time conditions, community ratings, and detailed information.",
-          benefits: [
-            "Discover new spots",
-            "Plan surf trips",
-            "Check conditions",
-            "Get directions",
-          ],
-        },
-        {
-          title: "Community Reviews",
-          description:
-            "Read detailed reviews from local surfers covering wave quality, facilities, crowds, and insider tips.",
-          benefits: [
-            "Local knowledge",
-            "Avoid crowds",
-            "Find amenities",
-            "Learn etiquette",
-          ],
-        },
-        {
-          title: "Real-time Conditions",
-          description:
-            "Get accurate, up-to-date surf conditions including wave height, wind, tide, and water temperature.",
-          benefits: [
-            "Plan sessions",
-            "Avoid flat days",
-            "Optimize timing",
-            "Stay informed",
-          ],
-        },
-        {
-          title: "Forecast Integration",
-          description:
-            "Access detailed surf forecasts to plan your sessions and know when the best waves are coming.",
-          benefits: [
-            "Plan ahead",
-            "Never miss good surf",
-            "Optimize schedules",
-            "Increase session success",
-          ],
+          subtitle: "Account Responsibilities",
+          details:
+            "To access certain features, you must create an account. You agree to: provide accurate, current information during registration; maintain the security of your password and account; notify us immediately of any unauthorized access; and accept responsibility for all activity under your account. We reserve the right to suspend or terminate accounts that violate these Terms or remain inactive for extended periods.",
         },
       ],
     },
     {
-      id: "planning",
-      title: "Session Planning",
-      description: "Plan the perfect surf session",
-      features: [
+      id: "user-content",
+      icon: Database,
+      title: "4. User Content",
+      content: [
         {
-          title: "Session Planner",
-          description:
-            "Plan future surf sessions with date, location, conditions, and invite friends to join you.",
-          benefits: [
-            "Coordinate with friends",
-            "Never surf alone",
-            "Plan around forecasts",
-            "Build anticipation",
-          ],
+          subtitle: "Your Content Rights",
+          details:
+            "You retain ownership of content you submit (session logs, reviews, photos, comments). By posting content, you grant Quiver a worldwide, non-exclusive, royalty-free license to use, display, reproduce, and distribute your content in connection with the Service.",
         },
         {
-          title: "Buddy Invitations",
-          description:
-            "Invite specific surfers to join your planned sessions and build your regular surf crew.",
-          benefits: [
-            "Surf with friends",
-            "Share transport",
-            "Safety in numbers",
-            "More fun",
-          ],
+          subtitle: "Content Restrictions",
+          details:
+            "You agree not to post content that: is false, misleading, or defamatory; infringes intellectual property rights; contains harassment, hate speech, or threats; is spam or commercial solicitation; or violates any applicable law. We may remove content that violates these Terms without notice.",
+        },
+      ],
+    },
+    {
+      id: "forecast-disclaimer",
+      icon: Waves,
+      title: "5. Surf Forecast Disclaimer",
+      content: [
+        {
+          subtitle: "IMPORTANT NOTICE",
+          details:
+            "QUIVER PROVIDES SURF FORECASTS, WAVE PREDICTIONS, AND OCEAN CONDITION INFORMATION FOR GENERAL INFORMATIONAL PURPOSES ONLY. THIS INFORMATION IS NOT A SUBSTITUTE FOR YOUR OWN JUDGMENT, LOCAL KNOWLEDGE, OR PROFESSIONAL INSTRUCTION.",
         },
         {
-          title: "Calendar Integration",
-          description:
-            "Sync your surf plans with your calendar and get reminders about upcoming sessions.",
-          benefits: [
-            "Stay organized",
-            "Don't miss sessions",
-            "Plan around schedule",
-            "Time management",
-          ],
+          subtitle: "Your Acknowledgment",
+          details:
+            "You acknowledge and agree that: ocean conditions are inherently unpredictable and can change rapidly; forecasts are predictions based on available data and may be inaccurate; local conditions may differ significantly from forecasted conditions; you are solely responsible for assessing conditions before entering the water; and Quiver does not guarantee the accuracy, completeness, or timeliness of any forecast.",
+        },
+      ],
+    },
+    {
+      id: "assumption-of-risk",
+      icon: Shield,
+      title: "6. Assumption of Risk",
+      content: [
+        {
+          subtitle: "INHERENT DANGERS",
+          details:
+            "SURFING AND OCEAN ACTIVITIES ARE INHERENTLY DANGEROUS AND CAN RESULT IN SERIOUS INJURY OR DEATH. By using Quiver, you acknowledge that you understand these risks and voluntarily assume full responsibility for any injury, loss, or damage that may occur.",
         },
         {
-          title: "Weather Alerts",
-          description:
-            "Get notified when good surf is forecasted at your favorite spots so you never miss the magic.",
-          benefits: [
-            "Never miss good surf",
-            "Spontaneous sessions",
-            "Optimal timing",
-            "Maximize wave count",
-          ],
+          subtitle: "Specific Risks",
+          details:
+            "Risks include but are not limited to: drowning; collisions with other surfers, watercraft, or marine life; impact with the ocean floor, rocks, or reef; dangerous currents, rip tides, and shore break; hypothermia and sun exposure; and equipment failure. Quiver does not assess your skill level, physical condition, or ability to handle specific conditions. You are solely responsible for making safe decisions.",
+        },
+      ],
+    },
+    {
+      id: "limitation-of-liability",
+      icon: Lock,
+      title: "7. Limitation of Liability",
+      content: [
+        {
+          subtitle: "Liability Cap",
+          details:
+            "TO THE MAXIMUM EXTENT PERMITTED BY LAW, QUIVER AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO PERSONAL INJURY, DEATH, PROPERTY DAMAGE, LOSS OF DATA, OR LOSS OF PROFITS, ARISING FROM YOUR USE OF THE SERVICE.",
+        },
+        {
+          subtitle: "Maximum Damages",
+          details:
+            "IN NO EVENT SHALL QUIVER'S TOTAL LIABILITY EXCEED THE AMOUNT YOU PAID TO QUIVER IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM, OR ONE HUNDRED DOLLARS ($100), WHICHEVER IS GREATER. Some jurisdictions do not allow limitation of liability for personal injury or death. In such jurisdictions, our liability is limited to the maximum extent permitted by law.",
+        },
+      ],
+    },
+    {
+      id: "indemnification",
+      icon: Shield,
+      title: "8. Indemnification",
+      content: [
+        {
+          subtitle: "Your Agreement to Indemnify",
+          details:
+            "You agree to indemnify and hold harmless Quiver and its affiliates from any claims, damages, losses, or expenses (including legal fees) arising from your use of the Service, your content, or your violation of these Terms.",
+        },
+      ],
+    },
+    {
+      id: "acceptable-use",
+      icon: Target,
+      title: "9. Acceptable Use",
+      content: [
+        {
+          subtitle: "Prohibited Activities",
+          details:
+            "You agree not to: use the Service for any illegal purpose; attempt to gain unauthorized access to any part of the Service; interfere with or disrupt the Service or servers; scrape, crawl, or collect data without permission; impersonate others or misrepresent your affiliation; use automated systems to access the Service without permission; or reverse engineer or attempt to extract source code.",
+        },
+      ],
+    },
+    {
+      id: "intellectual-property",
+      icon: Globe,
+      title: "10. Intellectual Property",
+      content: [
+        {
+          subtitle: "Ownership",
+          details:
+            "The Service, including its design, features, content, and trademarks, is owned by Quiver and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our written permission.",
+        },
+      ],
+    },
+    {
+      id: "third-party-services",
+      icon: Globe,
+      title: "11. Third-Party Services",
+      content: [
+        {
+          subtitle: "External Services",
+          details:
+            "Quiver integrates with third-party services for maps, weather data, and other features. Your use of these services is subject to their respective terms and privacy policies. Quiver is not responsible for third-party content or services.",
+        },
+      ],
+    },
+    {
+      id: "termination",
+      icon: Trash2,
+      title: "12. Termination",
+      content: [
+        {
+          subtitle: "Account Termination",
+          details:
+            "We may suspend or terminate your access to the Service at any time, with or without cause, with or without notice. Upon termination, your right to use the Service ceases immediately. Provisions that by their nature should survive termination (including disclaimers, limitations of liability, and indemnification) shall survive.",
+        },
+      ],
+    },
+    {
+      id: "arbitration",
+      icon: Settings,
+      title: "13. Dispute Resolution and Arbitration",
+      content: [
+        {
+          subtitle: "PLEASE READ CAREFULLY",
+          details:
+            "THIS SECTION AFFECTS YOUR LEGAL RIGHTS, INCLUDING YOUR RIGHT TO FILE A LAWSUIT IN COURT.",
+        },
+        {
+          subtitle: "Agreement to Arbitrate",
+          details:
+            'You and Quiver agree that any dispute, claim, or controversy arising out of or relating to these Terms or the Service (collectively, "Disputes") will be resolved by binding individual arbitration rather than in court, except that either party may bring individual claims in small claims court if they qualify.',
+        },
+        {
+          subtitle: "Class Action Waiver",
+          details:
+            "YOU AND QUIVER AGREE THAT EACH MAY BRING CLAIMS AGAINST THE OTHER ONLY IN YOUR OR ITS INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS, COLLECTIVE, OR REPRESENTATIVE PROCEEDING. Unless both you and Quiver agree otherwise, the arbitrator may not consolidate or join more than one person's claims and may not preside over any form of a representative, class, or collective proceeding.",
+        },
+        {
+          subtitle: "Arbitration Rules",
+          details:
+            "The arbitration will be administered by JAMS under its Streamlined Arbitration Rules and Procedures, or as otherwise agreed by the parties. The arbitration will be conducted in the English language in the county where you reside or another mutually agreed location.",
+        },
+        {
+          subtitle: "Opt-Out Right",
+          details:
+            "You may opt out of this arbitration agreement by sending written notice to legal@quiversurf.com within 30 days of creating your account. If you opt out, you and Quiver may still resolve Disputes in small claims court or through litigation in accordance with Section 14.",
+        },
+        {
+          subtitle: "Severability",
+          details:
+            "If any part of this arbitration agreement is found unenforceable, the remaining portions shall remain in effect. If the class action waiver is found unenforceable for a particular claim, then the entire arbitration agreement shall be null and void for that claim only, and the Dispute shall proceed in court.",
+        },
+      ],
+    },
+    {
+      id: "governing-law",
+      icon: Globe,
+      title: "14. Governing Law",
+      content: [
+        {
+          subtitle: "Applicable Law",
+          details:
+            "These Terms are governed by the laws of the State of California, United States, without regard to conflict of law principles. For any Disputes not subject to arbitration, you agree to submit to the personal and exclusive jurisdiction of the state and federal courts located in California.",
+        },
+      ],
+    },
+    {
+      id: "changes",
+      icon: Settings,
+      title: "15. Changes to Terms",
+      content: [
+        {
+          subtitle: "Updates",
+          details:
+            'We may update these Terms from time to time. We will notify you of material changes by posting the new Terms and updating the "Last Updated" date. Your continued use after changes constitutes acceptance of the revised Terms.',
         },
       ],
     },
   ],
-  cta: {
-    title: "Ready to Join the Community?",
+  contact: {
+    title: "Contact Information",
     description:
-      "Experience all these features and more. Join thousands of surfers who've found their crew on Quiver.",
-    buttonText: "Get Started Free",
-    note: "Free to join • No credit card required",
+      "If you have any questions about these Terms, please contact us:",
+    methods: [
+      {
+        type: "Email",
+        value: "legal@quiversurf.com",
+      },
+      {
+        type: "Website",
+        value: "quiversurf.com",
+      },
+      {
+        type: "Postal Address",
+        value:
+          "Quiver Surf Technologies, 2261 Market Street STE 10852, San Francisco, CA 94114, Attn: Legal",
+      },
+    ],
+  },
+} as const;
+
+export const FEATURES_EXTENDED_CONTENT = {
+  hero: {
+    title: "Surf Forecasts That Actually Learn What You Love",
+    subtitle:
+      "Quiver combines real-time buoy data, machine learning, and your personal surf history to recommend the right beach at the right time.",
+    stats: [
+      { value: "96+", label: "Beaches" },
+      { value: "3hr", label: "ML Correction Cycle" },
+      { value: "0-100", label: "Match Scores" },
+      { value: "Live", label: "Buoy Data" },
+    ],
+    cta: { text: "Get Your Personalized Forecast", href: "/auth/sign-up" },
+  },
+  pipeline: {
+    title: "Powered by Real Data, Not Guesswork",
+    subtitle:
+      "Our ML pipeline corrects raw NOAA models with real-time buoy observations to deliver forecasts you can trust.",
+    steps: [
+      {
+        id: "noaa",
+        title: "NOAA Wave Models",
+        description:
+          "Global wave models provide the base forecast with swell height, period, and direction.",
+      },
+      {
+        id: "buoys",
+        title: "Real-Time Buoys",
+        description:
+          "IOOS and CDIP buoy networks deliver live observations from stations along the coast.",
+      },
+      {
+        id: "ml",
+        title: "XGBoost ML Correction",
+        description:
+          "Our ML model learns local biases and corrects predictions using 90 days of training data.",
+      },
+      {
+        id: "forecast",
+        title: "Your Personalized Forecast",
+        description:
+          "Match scores combine corrected conditions with your preferences for tailored recommendations.",
+      },
+    ],
+    stats: [
+      { value: "30,000+", label: "Training Observations" },
+      { value: "3hr", label: "Correction Cadence" },
+      { value: "90-day", label: "Data Window" },
+    ],
+  },
+  personalization: {
+    title: "Forecasts That Know Your Style",
+    subtitle:
+      "Every surfer is different. Quiver learns what matters to you and surfaces the sessions that fit.",
+    features: [
+      {
+        title: "Match Scores 0-100",
+        description:
+          "Every beach gets a personalized score based on how well conditions align with your preferences.",
+      },
+      {
+        title: "Time-Slot Filtering",
+        description:
+          "See forecasts for dawn patrol, midday, or evening sessions based on your availability.",
+      },
+      {
+        title: "Skill-Appropriate Recommendations",
+        description:
+          "Conditions are evaluated relative to your experience level so you always find waves you can handle.",
+      },
+      {
+        title: "Travel Adaptation",
+        description:
+          "Visiting a new coast? Your preferences travel with you for instant local recommendations.",
+      },
+      {
+        title: "Daily Digest Emails",
+        description:
+          "Get a morning summary of your top-scoring beaches delivered to your inbox.",
+      },
+    ],
+  },
+  intelligence: {
+    title: "Know What's Happening Right Now",
+    subtitle:
+      "Live data feeds keep you connected to conditions and the community in real time.",
+    cards: [
+      {
+        id: "coast-pulse",
+        title: "Coast Pulse Feed",
+        description:
+          "Real-time condition updates aggregated across all monitored beaches on your coast.",
+      },
+      {
+        id: "activity",
+        title: "Activity Feed",
+        description:
+          "See who's surfing, what they're riding, and how the waves are performing right now.",
+      },
+      {
+        id: "reviews",
+        title: "Community Reviews",
+        description:
+          "Honest reviews from local surfers covering wave quality, crowds, and insider tips.",
+      },
+      {
+        id: "follow",
+        title: "Follow System",
+        description:
+          "Follow favorite surfers and spots to curate a personalized stream of updates.",
+      },
+    ],
+  },
+  discovery: {
+    title: "The Deepest Surf Guide on the Web",
+    subtitle:
+      "350+ intent-based pages help you find exactly the right break for any style, skill, or scenario.",
+    examples: [
+      { label: "Best Beginner Spots", href: "/discover?level=beginner" },
+      { label: "Longboard-Friendly Waves", href: "/discover?type=longboard" },
+      { label: "Dawn Patrol Picks", href: "/discover?time=dawn" },
+      { label: "Regional Hub Guides", href: "/map" },
+    ],
+  },
+  sessionTracking: {
+    title: "Your Surf Journal, Supercharged",
+    subtitle:
+      "Log sessions with auto-prefilled conditions and build a rich history of your wave-riding life.",
+    features: [
+      {
+        title: "Auto-Prefilled Conditions",
+        description:
+          "Wave height, wind, tide, and temperature are filled in automatically from forecast data.",
+      },
+      {
+        title: "Equipment Tracking",
+        description:
+          "Log which board and wetsuit you used so you can correlate gear with session quality.",
+      },
+      {
+        title: "Forecast Accuracy Feedback",
+        description:
+          "Rate how accurate the forecast was to help our ML model learn and improve.",
+      },
+      {
+        title: "Session Analytics",
+        description:
+          "Visualize frequency, favorite spots, and progression over time with charts and insights.",
+      },
+    ],
+  },
+  mobile: {
+    title: "Native Apps for iOS and Android",
+    subtitle:
+      "Take Quiver everywhere with native mobile apps built for speed and reliability.",
+    features: [
+      {
+        title: "Push Alerts",
+        description:
+          "Get notified when conditions at your favorite spots hit your preferred thresholds.",
+      },
+      {
+        title: "Native Camera",
+        description:
+          "Snap session photos directly in the app and attach them to your log instantly.",
+      },
+      {
+        title: "Location-Aware Recommendations",
+        description:
+          "Automatic nearby beach suggestions based on your current GPS location.",
+      },
+    ],
+  },
+  cta: {
+    title: "Stop Guessing. Start Surfing Smarter.",
+    subtitle:
+      "Join surfers who've traded guesswork for data-driven sessions.",
+    primaryCta: { text: "Sign Up Free", href: "/auth/sign-up" },
+    secondaryCta: { text: "Explore the Map", href: "/map" },
+    note: "No credit card required. Works on web, iOS, and Android.",
   },
 } as const;

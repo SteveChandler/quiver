@@ -3,7 +3,7 @@ import { FEATURE_CARDS, CONTENT } from "@/lib/constants/features";
 describe("Features Constants", () => {
   describe("FEATURE_CARDS", () => {
     it("has the correct number of feature cards", () => {
-      expect(FEATURE_CARDS).toHaveLength(3);
+      expect(FEATURE_CARDS).toHaveLength(6);
     });
 
     it("has all required properties for each feature card", () => {
@@ -34,9 +34,12 @@ describe("Features Constants", () => {
 
     it("has correct titles for feature cards", () => {
       const expectedTitles = [
-        "Find Your Surf Crew",
-        "Track Epic Sessions",
-        "Discover Epic Spots",
+        "ML Forecasts",
+        "Personalization",
+        "Live Intel",
+        "Spot Discovery",
+        "Session Tracking",
+        "Mobile Apps",
       ];
       const actualTitles = FEATURE_CARDS.map((card) => card.title);
       expect(actualTitles).toEqual(expectedTitles);

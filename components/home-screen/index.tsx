@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { useTimeSlotPrefetch } from "@/hooks/use-time-slot-prefetch";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useReminderHandler } from "@/hooks/use-reminder-handler";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -121,6 +122,16 @@ export function HomeScreen() {
     userLocation: seedDiscoveryLocation,
   });
 
+  // Pre-fetch other time slots for instant filter switching
+  useTimeSlotPrefetch({
+    userLocation: seedDiscoveryLocation,
+    horizonHours: 24,
+    maxResults: 6,
+    includeHome: true,
+    currentSlot: timeSlot,
+    enabled: !!profile && !geoLoading && !discoveryLoading,
+  });
+
   // Extract top recommendation and remaining spots (show all, no limit)
   const topRecommendation = discovery?.recommendations[0] || null;
   const topSpots = discovery?.recommendations.slice(1) || [];
@@ -196,7 +207,10 @@ export function HomeScreen() {
       <main className="flex-1 home-container pb-20 md:pb-0 overflow-auto">
         {/* Dark gradient header section */}
         <motion.div
-          className="bg-gradient-to-b from-header-start to-header-end pt-8 sm:pt-10 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8"
+          className={`${reducedMotion
+            ? "bg-gradient-to-b from-header-start to-header-end"
+            : "bg-[linear-gradient(135deg,#0f172a_0%,#334155_50%,#0f172a_100%)] bg-[length:200%_200%] animate-ocean-swell"
+          } pt-8 sm:pt-10 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8`}
           initial={reducedMotion ? false : "hidden"}
           animate="visible"
           variants={reducedMotion ? {

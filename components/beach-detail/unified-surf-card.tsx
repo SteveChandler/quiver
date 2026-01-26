@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, AlertCircle } from "lucide-react";
+import { Clock, AlertCircle, Share2 } from "lucide-react";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { TrendTag } from "@/lib/scoring";
-import { formatTimeInTimezone } from "@/lib/utils/time-formatting";
+import { formatTimeInTimezone, formatTimeCasual } from "@/lib/utils/time-formatting";
+import { ShareSheet } from "@/components/share/share-sheet";
+import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 
 const TREND_TAG_STYLES: Record<TrendTag, { bg: string; text: string }> = {
   "Winds Dropping": { bg: "bg-green-100", text: "text-green-700" },
@@ -20,13 +22,19 @@ interface UnifiedSurfCardProps {
   surfCall: SurfCallResult;
   beachTimezone?: string | null;
   beachName: string;
+  beachSlug?: string;
+  isTomorrow?: boolean;
 }
 
 export function UnifiedSurfCard({
   surfCall,
   beachTimezone,
   beachName,
+  beachSlug,
+  isTomorrow,
 }: UnifiedSurfCardProps) {
+  const [shareOpen, setShareOpen] = useState(false);
+
   const updatedTime = useMemo(
     () => formatTimeInTimezone(surfCall.updatedAt, beachTimezone),
     [surfCall.updatedAt, beachTimezone]
@@ -44,7 +52,7 @@ export function UnifiedSurfCard({
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm text-yellow-800 font-medium mb-1">
-              No good surf window today
+              No good surf window {isTomorrow ? "tomorrow" : "today"}
             </p>
             <p className="text-xs text-yellow-700">{surfCall.whySentence}</p>
           </div>
@@ -59,7 +67,10 @@ export function UnifiedSurfCard({
     beachTimezone
   );
   const windowEnd = formatTimeInTimezone(surfCall.bestWindowEnd, beachTimezone);
-  const peakTime = formatTimeInTimezone(surfCall.peakTime, beachTimezone);
+  const peakTimeCasual = formatTimeCasual(surfCall.peakTime, beachTimezone);
+
+  // Show "Best at X" only for windows > 3 hours (180 minutes)
+  const showBestAtTag = surfCall.windowMinutes != null && surfCall.windowMinutes > 180 && peakTimeCasual;
 
   return (
     <Card className="rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">
@@ -67,12 +78,19 @@ export function UnifiedSurfCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <CardTitle className="text-xl font-bold text-blue-900">
-              🌊 Best Time to Surf Today
+              {isTomorrow ? "🌊 Best Time to Surf Tomorrow" : "🌊 Best Time to Surf Today"}
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               Based on forecast scoring · Updated {updatedTime}
             </p>
           </div>
+          <button
+            onClick={() => setShareOpen(true)}
+            className="p-2 -m-1 rounded-full text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            aria-label="Share surf call"
+          >
+            <Share2 className="h-5 w-5" />
+          </button>
         </div>
       </CardHeader>
 
@@ -82,12 +100,17 @@ export function UnifiedSurfCard({
           <div className="flex items-center gap-2 mb-2">
             <Clock className="h-5 w-5 text-blue-600" />
             <h4 className="font-semibold text-blue-900">Window</h4>
+            {surfCall.shortWindow && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                Short window
+              </span>
+            )}
           </div>
           <p className="text-2xl font-bold text-blue-600 mb-1">
             {windowStart} - {windowEnd}
           </p>
-          {peakTime && (
-            <p className="text-sm text-blue-700">Peak: {peakTime}</p>
+          {showBestAtTag && (
+            <p className="text-sm text-blue-700">Best at {peakTimeCasual}</p>
           )}
         </div>
 
@@ -143,6 +166,23 @@ export function UnifiedSurfCard({
           </div>
         )}
       </CardContent>
+
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        imageUrl={buildSurfCallShareUrl({
+          beach: beachName,
+          verdict: surfCall.verdict,
+          window: `${windowStart} - ${windowEnd}`,
+          waveHeight: surfCall.waveHeight || "",
+          wind: surfCall.windDescription || "",
+          tags: surfCall.trendTags.length > 0 ? surfCall.trendTags.join(",") : undefined,
+        })}
+        type="wave"
+        filename={`quiver-surf-call-${beachSlug || "beach"}`}
+        title={`🌊 ${beachName}: ${windowStart} - ${windowEnd}`}
+        text={surfCall.whySentence}
+      />
     </Card>
   );
 }

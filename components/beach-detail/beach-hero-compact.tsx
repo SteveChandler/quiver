@@ -3,8 +3,11 @@
 import { Star, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
+import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import type { Beach } from "@/types/database";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachHeroCompactProps {
@@ -16,6 +19,8 @@ interface BeachHeroCompactProps {
   affinityData?: { sessionCount: number; lastSurfed: Date } | null;
   baseScore?: number;
   isLoadingPersonalization?: boolean;
+  /** Current forecast data for board recommendations */
+  currentForecast?: EnhancedForecastEntity | null;
   className?: string;
 }
 
@@ -25,12 +30,29 @@ export function BeachHeroCompact({
   affinityData,
   baseScore,
   isLoadingPersonalization,
+  currentForecast,
   className
 }: BeachHeroCompactProps) {
   const rating = beach.average_rating || 0;
   const reviewCount = beach.review_count || 0;
   const breakType = beach.break_type || "Beach Break";
   const location = getBeachLocation(beach);
+
+  // Board recommendation based on current conditions
+  // Parse wave_height and wind_speed from strings to numbers
+  const waveHeightNum = currentForecast?.wave_height
+    ? parseFloat(String(currentForecast.wave_height))
+    : null;
+  const windSpeedNum = currentForecast?.wind_speed
+    ? parseFloat(String(currentForecast.wind_speed))
+    : null;
+
+  const { recommendation: boardRecommendation } = useBoardRecommendation({
+    waveHeight: Number.isFinite(waveHeightNum) ? waveHeightNum : null,
+    windSpeed: Number.isFinite(windSpeedNum) ? windSpeedNum : null,
+    beachId: beach.id,
+    enabled: !!currentForecast,
+  });
 
   // Phase 4 Spec: Determine difficulty/skill level badge styling
   // Easy/Beginner: blue-50/ocean-blue, Moderate: orange-50/orange-600, Hard: red-50/red-600
@@ -74,6 +96,17 @@ export function BeachHeroCompact({
             size="lg"
             showDelta={baseScore !== undefined}
             baseScore={baseScore}
+          />
+        </div>
+      )}
+
+      {/* Board Recommendation Badge - only show when confident */}
+      {boardRecommendation && (
+        <div className="mb-3">
+          <BoardRecommendationBadge
+            boardName={boardRecommendation.boardName}
+            boardType={boardRecommendation.boardType}
+            size="md"
           />
         </div>
       )}

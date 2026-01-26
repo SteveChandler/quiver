@@ -1,0 +1,492 @@
+import { renderHook, waitFor } from "@testing-library/react";
+import { act } from "react";
+import { useTrackEvent } from "@/hooks/use-track-event";
+
+// Mock auth context
+jest.mock("@/context/auth-context", () => ({
+  useAuth: jest.fn(),
+}));
+
+// Mock fetch
+global.fetch = jest.fn();
+
+import { useAuth } from "@/context/auth-context";
+
+describe("useTrackEvent", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (global.fetch as jest.Mock).mockClear();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  describe("basic tracking", () => {
+    it("calls /api/events with correct payload for authenticated user", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          metadata: { duration_ms: 5000 },
+        });
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventType: "beach_view",
+            beachId: "beach-456",
+            metadata: { duration_ms: 5000 },
+          }),
+          keepalive: true,
+        })
+      );
+    });
+
+    it("includes keepalive: true in fetch options", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("discovery_click", {
+          beachId: "beach-789",
+          metadata: { position: 0, score_shown: 95, alternatives_count: 5 },
+        });
+      });
+
+      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchOptions = fetchCall[1];
+
+      expect(fetchOptions.keepalive).toBe(true);
+    });
+
+    it("tracks event without beachId", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("location_update", {
+          metadata: { lat: 33.0, lon: -117.0, accuracy_m: 10 },
+        });
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          body: JSON.stringify({
+            eventType: "location_update",
+            beachId: undefined,
+            metadata: { lat: 33.0, lon: -117.0, accuracy_m: 10 },
+          }),
+        })
+      );
+    });
+
+    it("tracks event with empty metadata", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+        });
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          body: JSON.stringify({
+            eventType: "beach_view",
+            beachId: "beach-456",
+            metadata: {},
+          }),
+        })
+      );
+    });
+  });
+
+  describe("guest users", () => {
+    it("does not track for guests (no user)", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: null });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          metadata: { duration_ms: 5000 },
+        });
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("does not track when user is undefined", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: undefined });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+        });
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("does not track when user.id is missing", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: {} });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+        });
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("debouncing", () => {
+    it("debounces duplicate events (same event+beach within debounceMs)", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Fire same event twice within 1000ms
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          metadata: { duration_ms: 5000 },
+        });
+      });
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          metadata: { duration_ms: 6000 },
+        });
+      });
+
+      // Should only call fetch once (second call debounced)
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not debounce after debounceMs has passed", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Fire first event
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          metadata: { duration_ms: 5000 },
+          debounceMs: 1000,
+        });
+      });
+
+      // Advance time by 1001ms
+      act(() => {
+        jest.advanceTimersByTime(1001);
+      });
+
+      // Fire second event (after debounce period)
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          metadata: { duration_ms: 6000 },
+          debounceMs: 1000,
+        });
+      });
+
+      // Should call fetch twice
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not debounce different event types", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+        });
+      });
+
+      await act(async () => {
+        await result.current.track("forecast_check", {
+          beachId: "beach-456",
+        });
+      });
+
+      // Should call fetch twice (different event types)
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not debounce different beaches", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+        });
+      });
+
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-789",
+        });
+      });
+
+      // Should call fetch twice (different beaches)
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("respects custom debounceMs value", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Fire first event with 500ms debounce
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          debounceMs: 500,
+        });
+      });
+
+      // Advance time by 400ms (still within debounce)
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+
+      // Fire second event (should be debounced)
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          debounceMs: 500,
+        });
+      });
+
+      // Should only call fetch once
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+
+      // Advance time by 200ms more (total 600ms > 500ms debounce)
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+
+      // Fire third event (should not be debounced)
+      await act(async () => {
+        await result.current.track("beach_view", {
+          beachId: "beach-456",
+          debounceMs: 500,
+        });
+      });
+
+      // Should call fetch twice now
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("error handling", () => {
+    it("swallows fetch errors (tracking should never break the app)", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockRejectedValueOnce(
+        new Error("Network error")
+      );
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Should not throw
+      await act(async () => {
+        await expect(
+          result.current.track("beach_view", {
+            beachId: "beach-456",
+          })
+        ).resolves.not.toThrow();
+      });
+    });
+
+    it("swallows JSON parsing errors", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          throw new Error("Invalid JSON");
+        },
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Should not throw
+      await act(async () => {
+        await expect(
+          result.current.track("beach_view", {
+            beachId: "beach-456",
+          })
+        ).resolves.not.toThrow();
+      });
+    });
+
+    it("swallows HTTP errors", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: "Server error" }),
+      });
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Should not throw
+      await act(async () => {
+        await expect(
+          result.current.track("beach_view", {
+            beachId: "beach-456",
+          })
+        ).resolves.not.toThrow();
+      });
+    });
+  });
+
+  describe("fire and forget behavior", () => {
+    it("does not wait for fetch to complete", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+
+      // Create a promise that resolves after a delay
+      let resolveFetch: (value: any) => void;
+      const fetchPromise = new Promise<any>((resolve) => {
+        resolveFetch = resolve;
+        // Simulate slow network - resolve after 100ms
+        setTimeout(() => {
+          resolve({
+            ok: true,
+            json: async () => ({ ok: true }),
+          });
+        }, 100);
+      });
+
+      (global.fetch as jest.Mock).mockReturnValueOnce(fetchPromise);
+
+      const { result } = renderHook(() => useTrackEvent());
+
+      // Track should return immediately (fire and forget)
+      // The track function doesn't await the fetch internally
+      act(() => {
+        // Don't await - just call it
+        result.current.track("beach_view", {
+          beachId: "beach-456",
+        });
+      });
+
+      // Should call fetch immediately
+      expect(global.fetch).toHaveBeenCalled();
+    });
+  });
+
+  describe("hook stability", () => {
+    it("track function reference is stable across re-renders", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+
+      const { result, rerender } = renderHook(() => useTrackEvent());
+
+      await waitFor(() => {
+        expect(result.current).toBeTruthy();
+      });
+
+      const firstTrack = result.current.track;
+
+      rerender();
+
+      await waitFor(() => {
+        expect(result.current).toBeTruthy();
+      });
+
+      const secondTrack = result.current.track;
+
+      expect(firstTrack).toBe(secondTrack);
+    });
+
+    it("track function updates when user changes", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+
+      const { result, rerender } = renderHook(() => useTrackEvent());
+
+      await waitFor(() => {
+        expect(result.current).toBeTruthy();
+      });
+
+      const firstTrack = result.current.track;
+
+      // Change user
+      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-456" } });
+
+      rerender();
+
+      await waitFor(() => {
+        expect(result.current).toBeTruthy();
+      });
+
+      const secondTrack = result.current.track;
+
+      // Track function should be different (because it depends on user.id)
+      expect(firstTrack).not.toBe(secondTrack);
+    });
+  });
+});

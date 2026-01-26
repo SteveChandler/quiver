@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Implicit Preference Learning:** Solves cold-start personalization problem by capturing behavioral signals before users log explicit sessions. Features include:
+  - Captures behavioral signals: beach views, discovery clicks, forecast checks, location updates
+  - Weighted aggregation algorithm (location 10x > discovery click 3x > forecast check 2.5x > beach view 0.5x > discovery skip -1x)
+  - Time decay with 14-day half-life preserves recent engagement
+  - Sigmoid confidence function based on total weighted events
+  - Confidence-blended scoring: `implicitWeight = implicitConf * (1 - explicitConf)`
+  - Bonus points: wave range match (+10 × implicitWeight), break type match (+8 × implicitWeight), top engaged beach (+2 flat)
+  - Privacy controls: opt-out toggle and "Clear browsing data" in Settings
+  - 90-day data retention with automatic cleanup via pg_cron
+  - Database: `user_events` table, `user_implicit_preferences` table, `compute_implicit_preferences()` aggregation function
+  - TypeScript types in `types/implicit-preferences.ts`
+  - Service layer: `lib/services/implicit-preferences-service.ts`
+  - Events API: `POST /api/events` with privacy gatekeeper and 5-minute cache
+  - React hook: `useTrackEvent` with debouncing for client-side event capture
+  - UI instrumentation in BeachDetailClient component
+  - Integrated into `scoreBeachForUser` and `scoreBeachesForUser` functions
+
+### Fixed
+
+- **Push Notification Table Mismatch:** Fixed critical bug where mobile app registered device tokens in `push_devices` table but push notification service queried `user_devices` table, causing notifications to never be sent. Changes include:
+  - Updated `actions/mobile-actions.ts` to register tokens directly in `user_devices` table
+  - Mapped `token` field to `device_token` column (matching push service expectations)
+  - Changed conflict resolution to use `user_devices` unique constraint: `(user_id, device_token)`
+  - Removed unused fields: `device`, `app_version`, `last_seen_at` (not in `user_devices` schema)
+  - Created migration `20260124130000_consolidate_push_device_tables.sql` to migrate existing tokens and drop redundant `push_devices` table
+  - Push notifications now flow correctly: mobile registration → `user_devices` → FCM delivery via `lib/services/push-notifications.ts`
+
+### Added
+
 - **Unified Surf Window UI Integration:** Integrated the unified surf scorer data flow into the forecast card, eliminating the data mismatch between the banner ("Today's Surf Call") and the forecast tab's "Best Time to Surf Today" card. Features include:
   - Created `UnifiedSurfCard` component in `best-surf-window.tsx` that displays surf window data from the same `SurfCallResult` used by the banner
   - Window time range displayed with peak time when available

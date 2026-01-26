@@ -7,7 +7,13 @@
  *
  * SEO: Beach links are server-rendered in layout.tsx via LandingPageSSRSection,
  * ensuring they appear in view-source for crawlers regardless of JS loading.
+ *
+ * Performance: ISR with 10-minute revalidation prevents full re-render on every request.
+ * Featured beaches already have a 10-minute cache, so this aligns with that strategy.
  */
+
+// ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
+export const revalidate = 600;
 
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 

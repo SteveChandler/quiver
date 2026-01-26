@@ -39,6 +39,8 @@ import { useSunTimes } from "@/hooks/use-sun-times";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
+import { HorizonStrip } from "@/components/forecast/horizon-strip";
+import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 
 const CamsSection = dynamic(
   () =>
@@ -69,6 +71,7 @@ interface ForecastTabProps {
   hasCamera: boolean;
   beachTimezone?: string | null;
   surfCall?: SurfCallResult | null;
+  surfCallIsTomorrow?: boolean;
 }
 
 export function ForecastTab({
@@ -78,6 +81,7 @@ export function ForecastTab({
   hasCamera,
   beachTimezone,
   surfCall,
+  surfCallIsTomorrow,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -86,6 +90,11 @@ export function ForecastTab({
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >("today");
+
+  // Horizon Strip: selected date for filtering (defaults to today)
+  const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
+    return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
+  });
 
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
@@ -135,6 +144,20 @@ export function ForecastTab({
       forecast: EnhancedForecastEntity;
     }[];
   }, [sortedDates, forecastsByDate]);
+
+  // Horizon Strip: aggregated day summaries (12 days)
+  const horizonDaySummaries = useMemo(() => {
+    return aggregateDayForecasts(forecasts, beach, {
+      maxDays: 12,
+      timezone: beachTimezone || undefined,
+    });
+  }, [forecasts, beach, beachTimezone]);
+
+  // Forecasts filtered by horizon strip selection
+  const selectedDateForecasts = useMemo(() => {
+    if (!horizonSelectedDate) return forecasts;
+    return forecasts.filter((f) => f.forecast_date === horizonSelectedDate);
+  }, [forecasts, horizonSelectedDate]);
 
   const todayStr = useMemo(() => {
     return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
@@ -322,6 +345,26 @@ export function ForecastTab({
 
   return (
     <div className="space-y-6 py-6">
+      {/* 12-Day Horizon Strip */}
+      {forecasts.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-4 sm:px-6">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              12-Day Outlook
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              Tap a day to view details
+            </span>
+          </div>
+          <HorizonStrip
+            days={horizonDaySummaries}
+            selectedDate={horizonSelectedDate}
+            onSelectDate={setHorizonSelectedDate}
+            beachSlug={slugify(beach.name)}
+          />
+        </section>
+      )}
+
       {/* Forecast Transparency Section */}
       {currentForecast && forecastMetadata && (
         <section className="rounded-2xl bg-blue-50/50 border border-blue-100 p-4 space-y-3">
@@ -534,6 +577,7 @@ export function ForecastTab({
             beachTimezone={beachTimezone}
             forecasts={todaysForecasts}
             surfCall={surfCall}
+            surfCallIsTomorrow={surfCallIsTomorrow}
           />
 
           {/* 5-Day Outlook */}
@@ -654,7 +698,7 @@ export function ForecastTab({
         {/* Conditions Tab */}
         <TabsContent value="conditions" className="mt-6">
           <div className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg p-6">
-            <SimplifiedForecastTable forecasts={forecasts} />
+            <SimplifiedForecastTable forecasts={selectedDateForecasts} />
           </div>
         </TabsContent>
       </Tabs>

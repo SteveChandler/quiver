@@ -324,28 +324,23 @@ export default async function IntentPage({ params }: IntentPageParams) {
   // Generate content from templates
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
-  // Fetch beaches from database using resolved city name (handles accents like Rincón)
-  const beachesResult = await getBeachesByIntentAndCity(
-    params.intent,
-    cityMetadata.cityName,
-    cityMetadata.state.toLowerCase()
-  );
-
-  // Fetch intent-specific live data (tide or water temp)
-  let tideData: CityTideData | null = null;
-  let waterTempData: CityWaterTempData | null = null;
-
-  if (params.intent === "tide") {
-    tideData = await getCityTideData(
+  // Parallelize data fetching: beaches + intent-specific data run concurrently
+  const [beachesResult, intentData] = await Promise.all([
+    getBeachesByIntentAndCity(
+      params.intent,
       cityMetadata.cityName,
-      cityMetadata.state
-    );
-  } else if (params.intent === "water-temp") {
-    waterTempData = await getCityWaterTempHistory(
-      cityMetadata.cityName,
-      cityMetadata.state
-    );
-  }
+      cityMetadata.state.toLowerCase()
+    ),
+    params.intent === "tide"
+      ? getCityTideData(cityMetadata.cityName, cityMetadata.state)
+      : params.intent === "water-temp"
+        ? getCityWaterTempHistory(cityMetadata.cityName, cityMetadata.state)
+        : Promise.resolve(null),
+  ]);
+
+  // Extract intent-specific data from Promise.all result
+  const tideData: CityTideData | null = params.intent === "tide" ? intentData as CityTideData | null : null;
+  const waterTempData: CityWaterTempData | null = params.intent === "water-temp" ? intentData as CityWaterTempData | null : null;
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     return (

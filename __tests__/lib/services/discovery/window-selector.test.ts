@@ -1898,17 +1898,14 @@ describe('sub-hour window refinement with peak centering', () => {
 
     expect(result).not.toBeNull();
 
-    // The window should be centered around the peak (9am PST = 17:00 UTC)
-    // with ±30 minutes, producing sub-hour times like 8:30am-9:30am
-    // After 15-minute snapping: start should be 8:30 or 8:45, end should be 9:15 or 9:30
-
-    // Key assertion: window is NOT the full 4-hour hourly window (7am-11am)
-    // Instead it should be a ~1 hour window centered around the peak
+    // The window now shows the full surfable duration (not peak-centered)
+    // peakTime is computed separately and displayed as "Best at X" in the UI
     const durationHours =
       (result!.end.getTime() - result!.start.getTime()) / (1000 * 60 * 60);
 
-    // Duration should be around 1 hour (±30min centered on peak), not 4 hours
-    expect(durationHours).toBeLessThanOrEqual(1.5);
+    // Duration should be the full window (up to MAX_WINDOW_HOURS = 4)
+    expect(durationHours).toBeGreaterThanOrEqual(1);
+    expect(durationHours).toBeLessThanOrEqual(4);
 
     // Both times should be on 15-minute boundaries
     expect(result!.start.getMinutes() % 15).toBe(0);
@@ -1991,18 +1988,20 @@ describe('sub-hour window refinement with peak centering', () => {
 
     expect(result).not.toBeNull();
 
-    // Verify the window is a focused sub-hour window (not the full 4-hour span)
-    // Peak centering should produce a ~1 hour window
+    // Window now shows full surfable duration (not peak-centered)
+    // Peak time is tracked separately via result.peakTime
     const durationHours =
       (result!.end.getTime() - result!.start.getTime()) / (1000 * 60 * 60);
-    expect(durationHours).toBeLessThanOrEqual(1.5);
+    expect(durationHours).toBeGreaterThanOrEqual(1);
+    expect(durationHours).toBeLessThanOrEqual(4);
 
-    // Window should have 15-minute boundary times (sub-hour precision)
-    expect(result!.start.getMinutes() % 15).toBe(0);
-    expect(result!.end.getMinutes() % 15).toBe(0);
+    // peakTime should be set within the window
+    expect(result!.peakTime).toBeDefined();
+    expect(result!.peakTime!.getTime()).toBeGreaterThanOrEqual(result!.start.getTime());
+    expect(result!.peakTime!.getTime()).toBeLessThanOrEqual(result!.end.getTime());
   });
 
-  it('respects original window bounds when peak centering', () => {
+  it('returns full window duration with peakTime tracked separately', () => {
     // Test that peak centering produces windows within the refined bounds
     // (not extending beyond what the original refinement determined)
 
@@ -2068,23 +2067,27 @@ describe('sub-hour window refinement with peak centering', () => {
 
     expect(result).not.toBeNull();
 
-    // Window should be a focused ~1 hour window centered around the peak
+    // Window now shows full surfable duration
     const durationHours =
       (result!.end.getTime() - result!.start.getTime()) / (1000 * 60 * 60);
-    expect(durationHours).toBeLessThanOrEqual(1.5);
+    expect(durationHours).toBeGreaterThanOrEqual(1);
+    expect(durationHours).toBeLessThanOrEqual(4);
 
     // Window start should not be before the first forecast time
     expect(result!.start.getTime()).toBeGreaterThanOrEqual(
       new Date('2024-01-15T16:00:00Z').getTime()
     );
+
+    // peakTime should be tracked
+    expect(result!.peakTime).toBeDefined();
   });
 
-  it('falls back to refined window when peak window would be too short', () => {
-    // Test that if peak centering produces a window < 30 min, we fall back
+  it('maintains minimum window duration of 1 hour', () => {
+    // Test that windows with limited forecast data still produce valid results
 
     jest.setSystemTime(new Date('2024-01-15T16:00:00Z')); // 8am PST
 
-    // Create a narrow window where peak centering might collapse
+    // Create a narrow set of forecasts
     const forecasts = [
       createForecast({
         id: 'forecast-0800',

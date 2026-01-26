@@ -7,6 +7,12 @@ import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 import { notFound } from "next/navigation";
 
+// Mock React's cache function for server components
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (fn: Function) => fn, // cache is just a pass-through for testing
+}));
+
 jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeachesBySlug: jest.fn(),
 }));
@@ -17,6 +23,43 @@ jest.mock("next/navigation", () => ({
     (err as any).digest = "NEXT_NOT_FOUND";
     throw err;
   }),
+}));
+
+// Mock dependencies used during page rendering
+jest.mock("@/actions/spot/spot-surf-report-actions", () => ({
+  getSpotSurfReport: jest.fn().mockResolvedValue({
+    report: null,
+    isTomorrow: false,
+  }),
+}));
+
+jest.mock("@/lib/utils/timezone-utils.server", () => ({
+  getTimezoneFromCoords: jest.fn().mockReturnValue("America/Los_Angeles"),
+}));
+
+// Mock the child components to avoid rendering issues in node environment
+jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
+  BeachDetailClient: () => null,
+}));
+
+jest.mock("@/components/spots/spot-surf-report", () => ({
+  SpotSurfReportStream: () => null,
+}));
+
+jest.mock("@/components/seo/structured-data", () => ({
+  BeachPageStructuredData: () => null,
+}));
+
+jest.mock("@/components/seo/breadcrumb-schema", () => ({
+  BreadcrumbStructuredData: () => null,
+}));
+
+jest.mock("@/components/seo/faq-schema", () => ({
+  FAQSchema: () => null,
+}));
+
+jest.mock("@/lib/utils/beach-faq-utils", () => ({
+  generateBeachFAQ: jest.fn().mockReturnValue([]),
 }));
 
 function makeBeach(overrides: Partial<Beach>) {

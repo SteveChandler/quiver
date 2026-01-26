@@ -85,6 +85,9 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      scale: {
+        "102": "1.02",
+      },
       keyframes: {
         "accordion-down": {
           from: {
@@ -135,6 +138,10 @@ const config: Config = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        oceanSwell: {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
         heartbeat: {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.15)" },
@@ -154,6 +161,7 @@ const config: Config = {
         "scale-in": "scaleIn 0.8s ease-out",
         "scale-in-large": "scaleInLarge 0.9s ease-out",
         shimmer: "shimmer 1.5s infinite linear",
+        "ocean-swell": "oceanSwell 2s ease-in-out infinite",
         heartbeat: "heartbeat 1.2s ease-in-out infinite",
       },
     },

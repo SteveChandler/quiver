@@ -154,6 +154,7 @@ interface BeachDetailProps {
   beachTimezone?: string | null;
   surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
+  surfCallIsTomorrow?: boolean;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -175,6 +176,7 @@ function BeachDetailContent({
   beachTimezone,
   surfReportSlot,
   surfCallReport,
+  surfCallIsTomorrow,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -585,6 +587,7 @@ function BeachDetailContent({
           affinityData={personalizationData?.affinityData}
           baseScore={beach.base_score}
           isLoadingPersonalization={personalizationData?.isLoading}
+          currentForecast={currentForecast}
           className="mb-6"
         />
 
@@ -637,6 +640,7 @@ function BeachDetailContent({
                   currentForecast={currentForecast}
                   hasCamera={hasCamera}
                   surfCall={surfCallReport}
+                  surfCallIsTomorrow={surfCallIsTomorrow}
                 />
               </Suspense>
             )}

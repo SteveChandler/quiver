@@ -94,6 +94,7 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
     // Get surf report for unified surf window card
     const surfReportResult = await getSpotSurfReport(beach);
     const surfCallReport = surfReportResult?.report || null;
+    const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -191,6 +192,7 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
           beachTimezone={beachTimezone}
           surfReportSlot={<SpotSurfReportStream beach={beach} />}
           surfCallReport={surfCallReport}
+          surfCallIsTomorrow={surfCallIsTomorrow}
         />
       </>
     );

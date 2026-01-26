@@ -401,12 +401,41 @@ export default async function SpotPage({ params }: SpotPageParams) {
                     two hours around your target session.
                   </li>
                   <li>
-                    Refresh water-temp trends before dawn patrol to dial wetsuit
-                    choice.
+                    Check{" "}
+                    <a
+                      href={`/water-temp/${getIntentSlug(spot.citySlug, spot.state)}`}
+                      className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+                    >
+                      water temps
+                    </a>{" "}
+                    to dial wetsuit choice.
                   </li>
                   <li>
-                    Log waves in Quiver after each session to build a personal
-                    spot encyclopedia.
+                    Plan a{" "}
+                    <a
+                      href={`/dawn-patrol/${getIntentSlug(spot.citySlug, spot.state)}`}
+                      className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+                    >
+                      dawn patrol
+                    </a>{" "}
+                    or{" "}
+                    <a
+                      href={`/sunset/${getIntentSlug(spot.citySlug, spot.state)}`}
+                      className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+                    >
+                      sunset session
+                    </a>{" "}
+                    for glassier conditions.
+                  </li>
+                  <li>
+                    Looking for mellow waves? Find{" "}
+                    <a
+                      href={`/longboard/${getIntentSlug(spot.citySlug, spot.state)}`}
+                      className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+                    >
+                      longboard spots
+                    </a>{" "}
+                    nearby.
                   </li>
                 </ul>
               </div>

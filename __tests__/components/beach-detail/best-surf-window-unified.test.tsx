@@ -91,7 +91,8 @@ describe('BestSurfWindow - Unified Card Integration', () => {
         />
       );
 
-      expect(screen.getByText(/Peak:/i)).toBeInTheDocument();
+      // For windows > 3 hours, shows "Best at X" with peak time
+      expect(screen.getByText(/Best at/i)).toBeInTheDocument();
     });
 
     it('should show the why sentence as the narrative', () => {
