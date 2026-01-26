@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { useTimeSlotPrefetch } from "@/hooks/use-time-slot-prefetch";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useReminderHandler } from "@/hooks/use-reminder-handler";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -119,6 +120,16 @@ export function HomeScreen() {
     enabled: !!profile && !geoLoading,
     immediate: true,
     userLocation: seedDiscoveryLocation,
+  });
+
+  // Pre-fetch other time slots for instant filter switching
+  useTimeSlotPrefetch({
+    userLocation: seedDiscoveryLocation,
+    horizonHours: 24,
+    maxResults: 6,
+    includeHome: true,
+    currentSlot: timeSlot,
+    enabled: !!profile && !geoLoading && !discoveryLoading,
   });
 
   // Extract top recommendation and remaining spots (show all, no limit)

@@ -3,42 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { CACHE_TTL } from "@/lib/constants/ui";
+import {
+  CACHE_KEY_PREFIX,
+  hashDiscoveryOptions,
+  readFromCache,
+  writeToCache,
+  type CachedDiscoveryData,
+} from "@/lib/utils/discovery-cache-utils";
 import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
-
-/**
- * Cached discovery data structure for localStorage
- */
-interface CachedDiscoveryData {
-  discovery: SurfDiscoveryResponse;
-  timestamp: number;
-  /** Hash of options used to generate this cache entry */
-  optionsHash: string;
-}
-
-const CACHE_KEY_PREFIX = "quiver_discovery_";
-
-/**
- * Generate a hash string from options to use as part of cache key.
- * Uses explicit string concatenation to ensure critical fields (especially timeSlot)
- * are always captured regardless of JSON property ordering or truncation.
- */
-function hashOptions(options: UseSurfDiscoveryOptions): string {
-  // Explicit concatenation ensures timeSlot is always included and order is deterministic
-  const parts = [
-    `ts:${options.timeSlot || 'any'}`, // Critical for cache differentiation
-    `lat:${options.userLocation?.lat?.toFixed(2) || 'none'}`,
-    `lon:${options.userLocation?.lon?.toFixed(2) || 'none'}`,
-    `r:${options.radiusMiles || 'def'}`,
-    `h:${options.horizonHours || 'def'}`,
-    `m:${options.maxResults || 'def'}`,
-    `home:${options.includeHome || 'false'}`,
-  ];
-  const key = parts.join('|');
-
-  // Use base64 encoding for compactness, but take longer slice to reduce collision risk
-  return btoa(key).slice(0, 24);
-}
 
 /**
  * Options for useSurfDiscovery hook
@@ -154,7 +126,7 @@ export function useSurfDiscovery(
 
   // Compute a stable options hash from primitive values (avoid using `options` object identity).
   const optionsHash = useMemo(() => {
-    return hashOptions({
+    return hashDiscoveryOptions({
       userLocation:
         userLat !== undefined && userLon !== undefined
           ? { lat: userLat, lon: userLon }
@@ -198,45 +170,15 @@ export function useSurfDiscovery(
     }
   }, [cacheKey]);
 
-  // Load cached data on mount
+  // Load cached data on mount (uses shared utility that handles Date restoration)
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id || !enabled) return;
-
     if (!cacheKey) return;
 
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsedData: CachedDiscoveryData = JSON.parse(cached);
-        // NOTE: Use API_CALLS TTL (30m) for discovery cache to avoid relying on
-        // an optional constant in older builds.
-        const isExpired =
-          Date.now() - parsedData.timestamp > CACHE_TTL.API_CALLS;
-
-        if (!isExpired) {
-          // Restore Date objects from JSON
-          if (parsedData.discovery?.recommendations) {
-            parsedData.discovery.recommendations = parsedData.discovery.recommendations.map(
-              (rec: any) => ({
-                ...rec,
-                window: {
-                  ...rec.window,
-                  start: new Date(rec.window.start),
-                  end: new Date(rec.window.end),
-                },
-              })
-            );
-          }
-          setCachedData(parsedData);
-          setIsCached(true);
-        } else {
-          // Cache expired, remove it
-          localStorage.removeItem(cacheKey);
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to load cached discovery data:", error);
-      if (cacheKey) localStorage.removeItem(cacheKey);
+    const cached = readFromCache(cacheKey);
+    if (cached) {
+      setCachedData(cached);
+      setIsCached(true);
     }
   }, [user?.id, enabled, cacheKey]);
 
@@ -309,18 +251,9 @@ export function useSurfDiscovery(
 
     const discoveryData = result.data as SurfDiscoveryResponse;
 
-    // Save to localStorage cache
+    // Save to localStorage cache using shared utility
     if (cacheKey) {
-      try {
-        const cacheEntry: CachedDiscoveryData = {
-          discovery: discoveryData,
-          timestamp: Date.now(),
-          optionsHash,
-        };
-        localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
-      } catch (error) {
-        console.warn("Failed to cache discovery data:", error);
-      }
+      writeToCache(cacheKey, discoveryData, optionsHash);
     }
 
     setIsCached(false);
