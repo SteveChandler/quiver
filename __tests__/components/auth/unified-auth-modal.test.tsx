@@ -422,6 +422,10 @@ describe("UnifiedAuthModal", () => {
       );
       await userEvent.type(screen.getByLabelText("Password"), "password123");
 
+      // Accept terms (required for signup)
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox);
+
       // Submit
       fireEvent.click(screen.getByText("Sign up"));
 
@@ -523,6 +527,10 @@ describe("UnifiedAuthModal", () => {
       );
       await userEvent.type(screen.getByLabelText("Password"), "password123");
       // Don't fill in name
+
+      // Accept terms (required for signup)
+      const checkbox = screen.getByRole("checkbox");
+      fireEvent.click(checkbox);
 
       fireEvent.click(screen.getByText("Sign up"));
 
