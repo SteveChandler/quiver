@@ -19,7 +19,7 @@ const FOOTER_LINKS = {
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy" },
-    { name: "Terms of Service", href: "#" },
+    { name: "Terms of Service", href: "/terms" },
     { name: "Cookie Policy", href: "#" },
   ],
 } as const;
