@@ -4,9 +4,12 @@ import React from "react";
 import { Clock, AlertCircle } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { formatBeachDateTime } from "@/lib/utils/date-utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
+import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
+import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
@@ -332,6 +335,23 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
 }: HeroRecommendationProps) {
   const shouldReduceMotion = useReducedMotion();
 
+  // Board recommendation based on current conditions
+  // Hook must be called unconditionally before any early returns
+  // Parse wave_height and wind_speed from strings to numbers
+  const waveHeightNum = recommendation?.forecast?.wave_height
+    ? parseFloat(String(recommendation.forecast.wave_height))
+    : null;
+  const windSpeedNum = recommendation?.forecast?.wind_speed
+    ? parseFloat(String(recommendation.forecast.wind_speed))
+    : null;
+
+  const { recommendation: boardRecommendation } = useBoardRecommendation({
+    waveHeight: Number.isFinite(waveHeightNum) ? waveHeightNum : null,
+    windSpeed: Number.isFinite(windSpeedNum) ? windSpeedNum : null,
+    beachId: recommendation?.beach?.id ?? null,
+    enabled: !!recommendation?.forecast,
+  });
+
   // Handle loading state
   if (loading) {
     return <HeroRecommendationSkeleton />;
@@ -390,7 +410,10 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
         </button>{" "}
         {headline.connector}{" "}
         <motion.span
-          className={scoreColorClass}
+          className={cn(
+            scoreColorClass,
+            score >= 85 && "motion-safe:animate-heartbeat inline-block"
+          )}
           data-testid="hero-score"
           animate={shouldReduceMotion ? undefined : {
             textShadow: [...HOME_HEADER_MOTION.hero.scoreGlow.textShadow],
@@ -477,6 +500,21 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
             </Badge>
           </motion.div>
         ))}
+
+        {/* Board Recommendation Badge - only show when confident */}
+        {boardRecommendation && (
+          <motion.div
+            variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge}
+            className="flex-shrink-0"
+          >
+            <BoardRecommendationBadge
+              boardName={boardRecommendation.boardName}
+              boardType={boardRecommendation.boardType}
+              size="sm"
+              className="bg-amber-500/20 text-amber-200 border-amber-400/30"
+            />
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );

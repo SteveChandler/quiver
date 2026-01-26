@@ -587,6 +587,7 @@ function BeachDetailContent({
           affinityData={personalizationData?.affinityData}
           baseScore={beach.base_score}
           isLoadingPersonalization={personalizationData?.isLoading}
+          currentForecast={currentForecast}
           className="mb-6"
         />
 
