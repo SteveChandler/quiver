@@ -11,13 +11,14 @@ lib/services/
 ├── cdip-service.ts                           # CDIP buoy data integration
 ├── enhanced-forecast-service.ts              # Comprehensive forecast generation
 ├── forecast-alerts.ts                        # Forecast threshold push alerts (home beach)
+├── implicit-preferences-service.ts           # Implicit preference learning (behavioral)
 ├── inactive-buoy-cleanup.ts                  # Buoy maintenance and cleanup
 ├── noaa-conditions-sync.ts                   # NOAA buoy conditions synchronization
 ├── noaa-coops-service.ts                     # NOAA CO-OPS tide data service
 ├── noaa-sync.ts                              # NOAA buoy station synchronization
 ├── noaa-wavewatch-service.ts                 # NOAA WaveWatch III wave data
 ├── personalized-scoring-service.ts           # User preference scoring
-├── preference-learning-service.ts            # User preference learning
+├── preference-learning-service.ts            # User preference learning (explicit)
 └── surf-discovery-service.ts                 # Beach discovery and recommendations
 ```
 
@@ -41,7 +42,8 @@ ExternalServices
 ├── Personalization Services
 │   ├── Surf Discovery Service (Beach recommendations)
 │   ├── Personalized Scoring (Preference-based scoring)
-│   └── Preference Learning (Session history analysis)
+│   ├── Preference Learning (Session history analysis)
+│   └── Implicit Preferences (Behavioral signal learning)
 ├── Maintenance Services
 │   ├── Buoy Station Synchronization
 │   ├── Inactive Buoy Cleanup
@@ -547,7 +549,63 @@ Tests should verify:
 - Learned wind preferences: +10 pts * confidence
 - Learned tide preferences: +8 pts * confidence
 - Beach affinity: +affinity_score * 0.15 (max 15 pts)
+- Implicit preferences: See ImplicitPreferencesService below
 - Final score capped at 100
+
+### **ImplicitPreferencesService** (Behavioral Preference Learning)
+
+- **Purpose**: Solves cold-start personalization problem by inferring preferences from behavioral signals before users log explicit sessions
+- **Status**: Active (January 2026)
+- **Features**:
+  - Event capture: beach views, discovery clicks, forecast checks, location updates
+  - Weighted aggregation with time decay (14-day half-life)
+  - Confidence-blended scoring integration
+  - Privacy controls: opt-out toggle and data purge
+
+**Service Location:** `lib/services/implicit-preferences-service.ts`
+
+**Event Weights:**
+| Event Type | Weight | Rationale |
+|------------|--------|-----------|
+| location_update | 10.0 | Strong signal of interest in nearby beaches |
+| discovery_click | 3.0 | Active engagement with specific beach |
+| forecast_check | 2.5 | Planning intent for session |
+| beach_view | 0.5 | Passive browsing (low signal) |
+| discovery_skip | -1.0 | Negative signal |
+
+**Confidence Blend Formula:**
+```typescript
+implicitWeight = implicitPrefs.confidence * (1 - explicitConf)
+```
+
+This ensures graceful handoff from implicit (new users) to explicit (power users). When explicit confidence is high (user has logged sessions), implicit preferences have minimal impact. When explicit confidence is zero (new user), implicit preferences carry full weight.
+
+**Scoring Bonus (when implicitWeight > 0.1):**
+- Wave range match: +10 pts × implicitWeight
+- Break type match: +8 pts × implicitWeight
+- Top engaged beach: +2 pts (flat bonus)
+
+**Key Functions:**
+- `getImplicitPreferences(userId)` - Fetch computed preferences from database
+- `matchesInferredWaveRange(forecast, prefs)` - Check if forecast matches inferred wave preference
+- `matchesInferredBreakType(breakType, prefs)` - Check if break type weight >= 0.2 threshold
+- `isWithinTravelRadius(beachLat, beachLon, prefs)` - Haversine distance check
+- `isTopEngagedBeach(beachId, prefs)` - Check if beach in top engaged list
+- `calculateImplicitBonus(...)` - Compute total scoring bonus
+
+**Database Tables:**
+- `user_events` - Raw behavioral events with 90-day retention
+- `user_implicit_preferences` - Aggregated preferences per user
+
+**Dependencies:**
+- `profiles.allow_implicit_tracking` column controls opt-in/out
+- `compute_implicit_preferences()` PostgreSQL function for aggregation
+- `purge_implicit_history()` for GDPR-compliant data deletion
+
+**Integration:**
+- Events captured via `POST /api/events` with privacy gatekeeper
+- `useTrackEvent` React hook provides debounced client-side capture
+- Integrated into `scoreBeachForUser` and `scoreBeachesForUser` functions
 
 ### **SimilarityInsightsService** (ML-Powered Session Matching)
 

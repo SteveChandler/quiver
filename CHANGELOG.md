@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Implicit Preference Learning:** Solves cold-start personalization problem by capturing behavioral signals before users log explicit sessions. Features include:
+  - Captures behavioral signals: beach views, discovery clicks, forecast checks, location updates
+  - Weighted aggregation algorithm (location 10x > discovery click 3x > forecast check 2.5x > beach view 0.5x > discovery skip -1x)
+  - Time decay with 14-day half-life preserves recent engagement
+  - Sigmoid confidence function based on total weighted events
+  - Confidence-blended scoring: `implicitWeight = implicitConf * (1 - explicitConf)`
+  - Bonus points: wave range match (+10 × implicitWeight), break type match (+8 × implicitWeight), top engaged beach (+2 flat)
+  - Privacy controls: opt-out toggle and "Clear browsing data" in Settings
+  - 90-day data retention with automatic cleanup via pg_cron
+  - Database: `user_events` table, `user_implicit_preferences` table, `compute_implicit_preferences()` aggregation function
+  - TypeScript types in `types/implicit-preferences.ts`
+  - Service layer: `lib/services/implicit-preferences-service.ts`
+  - Events API: `POST /api/events` with privacy gatekeeper and 5-minute cache
+  - React hook: `useTrackEvent` with debouncing for client-side event capture
+  - UI instrumentation in BeachDetailClient component
+  - Integrated into `scoreBeachForUser` and `scoreBeachesForUser` functions
+
 ### Fixed
 
 - **Push Notification Table Mismatch:** Fixed critical bug where mobile app registered device tokens in `push_devices` table but push notification service queried `user_devices` table, causing notifications to never be sent. Changes include:
