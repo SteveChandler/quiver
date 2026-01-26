@@ -207,7 +207,10 @@ export function HomeScreen() {
       <main className="flex-1 home-container pb-20 md:pb-0 overflow-auto">
         {/* Dark gradient header section */}
         <motion.div
-          className="bg-gradient-to-b from-header-start to-header-end pt-8 sm:pt-10 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8"
+          className={`${reducedMotion
+            ? "bg-gradient-to-b from-header-start to-header-end"
+            : "bg-[linear-gradient(135deg,theme(colors.header.start)_0%,theme(colors.header.end)_50%,theme(colors.header.start)_100%)] bg-[length:200%_200%] animate-ocean-swell"
+          } pt-8 sm:pt-10 pb-8 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 space-y-6 xs:space-y-8`}
           initial={reducedMotion ? false : "hidden"}
           animate="visible"
           variants={reducedMotion ? {
