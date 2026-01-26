@@ -7,11 +7,16 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // Mock server modules
 jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: jest.fn(),
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
 jest.mock("@/lib/services/discovery", () => ({
   getBatchSunTimes: jest.fn(),
+}));
+
+jest.mock("@/lib/services/preference-learning-service", () => ({
+  getUserSurfPreferences: jest.fn(),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
@@ -73,10 +78,19 @@ describe("spot-surf-report-actions", () => {
 
   describe("getSpotSurfReport", () => {
     it("fetches sun times and passes them to selectBestWindow", async () => {
-      const { createSupabaseServiceRoleClient } = await import(
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
         "@/lib/supabase/server"
       );
       const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+
+      // Setup mock auth - anonymous user
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+        },
+      });
+      (getUserSurfPreferences as jest.Mock).mockResolvedValue(null);
 
       // Setup mock sun times cache
       const mockSunTimesCache = new Map([
@@ -90,8 +104,8 @@ describe("spot-surf-report-actions", () => {
       ]);
       (getBatchSunTimes as jest.Mock).mockResolvedValue(mockSunTimesCache);
 
-      // Setup mock Supabase response
-      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+      // Setup mock Supabase response (for service role client - database queries)
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
         from: jest.fn(() => ({
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
@@ -149,10 +163,19 @@ describe("spot-surf-report-actions", () => {
     });
 
     it("returns isTomorrow: true when falling back to tomorrow forecast", async () => {
-      const { createSupabaseServiceRoleClient } = await import(
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
         "@/lib/supabase/server"
       );
       const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+
+      // Setup mock auth - anonymous user
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+        },
+      });
+      (getUserSurfPreferences as jest.Mock).mockResolvedValue(null);
 
       // Setup mock sun times cache
       const mockSunTimesCache = new Map([
@@ -173,7 +196,7 @@ describe("spot-surf-report-actions", () => {
           forecast_date: "2024-01-16",
         },
       ];
-      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
         from: jest.fn(() => ({
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
@@ -210,6 +233,161 @@ describe("spot-surf-report-actions", () => {
       const result = await getSpotSurfReport(mockBeach);
 
       expect(result?.isTomorrow).toBe(true);
+    });
+
+    it("passes user preferences to selectBestWindow when user is logged in", async () => {
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
+        "@/lib/supabase/server"
+      );
+      const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+
+      // Setup mock auth - logged in user
+      const mockUserId = "user-123";
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: { id: mockUserId } } }),
+        },
+      });
+
+      // Setup mock user preferences (user prefers 3-6 ft waves)
+      const mockUserPrefs = {
+        wave_min_ft: 3,
+        wave_max_ft: 6,
+        wave_period_min_s: 10,
+        wave_period_max_s: 16,
+        max_wind_mph: 15,
+        preferred_wind_directions: [0, 315],
+        preferred_tide_statuses: ["rising", "high"],
+        confidence: 0.85,
+        sample_size: 15,
+      };
+      (getUserSurfPreferences as jest.Mock).mockResolvedValue(mockUserPrefs);
+
+      // Setup mock sun times cache
+      const mockSunTimesCache = new Map([
+        [
+          "beach-123",
+          {
+            sunrises: [new Date("2024-01-15T14:47:00Z")],
+            sunsets: [new Date("2024-01-16T01:00:00Z")],
+          },
+        ],
+      ]);
+      (getBatchSunTimes as jest.Mock).mockResolvedValue(mockSunTimesCache);
+
+      // Setup mock Supabase response (for service role client - database queries)
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                lte: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    order: jest.fn(() => ({
+                      limit: jest.fn(async () => ({
+                        data: mockForecasts,
+                        error: null,
+                      })),
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+        })),
+      });
+
+      // Setup mock selectBestWindow to return a valid window
+      mockSelectBestWindow.mockReturnValue({
+        start: new Date("2024-01-15T22:00:00Z"),
+        end: new Date("2024-01-16T01:00:00Z"),
+        score: 80,
+        peakTime: new Date("2024-01-15T23:00:00Z"),
+      });
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      await getSpotSurfReport(mockBeach);
+
+      // Verify getUserSurfPreferences was called with the user's ID
+      expect(getUserSurfPreferences).toHaveBeenCalledWith(mockUserId);
+
+      // Verify selectBestWindow was called with the user's preferences
+      expect(mockSelectBestWindow).toHaveBeenCalled();
+      const callArgs = mockSelectBestWindow.mock.calls[0][0];
+      expect(callArgs.userPrefs).toEqual(mockUserPrefs);
+    });
+
+    it("passes null userPrefs for anonymous users", async () => {
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
+        "@/lib/supabase/server"
+      );
+      const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+
+      // Setup mock auth - anonymous user
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+        },
+      });
+
+      // Setup mock sun times cache
+      const mockSunTimesCache = new Map([
+        [
+          "beach-123",
+          {
+            sunrises: [new Date("2024-01-15T14:47:00Z")],
+            sunsets: [new Date("2024-01-16T01:00:00Z")],
+          },
+        ],
+      ]);
+      (getBatchSunTimes as jest.Mock).mockResolvedValue(mockSunTimesCache);
+
+      // Setup mock Supabase response (for service role client - database queries)
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                lte: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    order: jest.fn(() => ({
+                      limit: jest.fn(async () => ({
+                        data: mockForecasts,
+                        error: null,
+                      })),
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+        })),
+      });
+
+      // Setup mock selectBestWindow to return a valid window
+      mockSelectBestWindow.mockReturnValue({
+        start: new Date("2024-01-15T22:00:00Z"),
+        end: new Date("2024-01-16T01:00:00Z"),
+        score: 80,
+        peakTime: new Date("2024-01-15T23:00:00Z"),
+      });
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      await getSpotSurfReport(mockBeach);
+
+      // Verify getUserSurfPreferences was NOT called for anonymous users
+      expect(getUserSurfPreferences).not.toHaveBeenCalled();
+
+      // Verify selectBestWindow was called with null userPrefs
+      expect(mockSelectBestWindow).toHaveBeenCalled();
+      const callArgs = mockSelectBestWindow.mock.calls[0][0];
+      expect(callArgs.userPrefs).toBeNull();
     });
   });
 });
