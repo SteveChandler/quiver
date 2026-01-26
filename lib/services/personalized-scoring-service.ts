@@ -5,7 +5,8 @@
  * 1. Base algorithmic score (from coach picks)
  * 2. Onboarding preferences (explicit user choices)
  * 3. Learned preferences (implicit from session history)
- * 4. Beach affinity (familiarity from past sessions)
+ * 4. Implicit preferences (inferred from engagement patterns)
+ * 5. Beach affinity (familiarity from past sessions)
  *
  * Scoring breakdown:
  * - Base score: From existing coach picks algorithm
@@ -14,16 +15,25 @@
  * - Learned wave range match: +15 pts * confidence
  * - Learned wind preferences match: +10 pts * confidence
  * - Learned tide preferences match: +8 pts * confidence
+ * - Implicit wave range match: +10 pts * implicitWeight
+ * - Implicit break type match: +8 pts * implicitWeight
+ * - Implicit top engaged beach: +2 pts (flat)
  * - Beach affinity: +affinity_score * 0.15 (max 15 pts)
  * - Final score capped at 100
  *
  * @see supabase/migrations/20251103000002_beach_affinity.sql
  * @see supabase/migrations/20251103000003_user_surf_preferences.sql
  * @see docs/features/PERSONALIZATION_FORECAST_IMPLEMENTATION.md Phase 6
+ * @see docs/IMPLICIT_PREFERENCE_LEARNING.md
  */
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences, type UserSurfPreferences } from './preference-learning-service';
+import {
+  getImplicitPreferences,
+  calculateImplicitBonus,
+  isTopEngagedBeach,
+} from './implicit-preferences-service';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 
 /**
@@ -42,6 +52,8 @@ export interface PersonalizedScore {
     onboardingPrefs: number;
     /** Bonus from learned preferences */
     learnedPrefs: number;
+    /** Bonus from implicit preferences */
+    implicitPrefs: number;
     /** Bonus from beach affinity */
     affinity: number;
   };
@@ -79,6 +91,7 @@ export async function scoreBeachForUser(
     base: baseScore,
     onboardingPrefs: 0,
     learnedPrefs: 0,
+    implicitPrefs: 0,
     affinity: 0,
   };
 
@@ -145,7 +158,46 @@ export async function scoreBeachForUser(
       }
     }
 
-    // 3. Beach affinity bonus
+    // 3. Get implicit preferences and calculate blend weight
+    const implicitPrefs = await getImplicitPreferences(userId);
+
+    if (implicitPrefs && implicitPrefs.confidence > 0.1) {
+      // Confidence blend: implicit fills the gap left by explicit
+      const explicitConf = learnedPrefs?.confidence ?? 0;
+      const implicitWeight = implicitPrefs.confidence * (1 - explicitConf);
+
+      if (implicitWeight > 0.1) {
+        // Get beach break type
+        const { data: beach } = await supabase
+          .from('beaches')
+          .select('break_type')
+          .eq('id', beachId)
+          .single();
+
+        const beachType = beach?.break_type ?? null;
+        const isTopEngaged = isTopEngagedBeach(beachId, implicitPrefs);
+
+        const implicitBonus = calculateImplicitBonus(
+          {
+            wave_height_ft: parseFloat(forecast.wave_height || '0') || null,
+            wave_period_s: parseFloat(forecast.wave_period || '0'),
+            wind_speed_mph: parseFloat(forecast.wind_speed || '0'),
+          },
+          beachType,
+          isTopEngaged,
+          implicitPrefs,
+          implicitWeight
+        );
+
+        if (implicitBonus.total > 0) {
+          score += implicitBonus.total;
+          breakdown.implicitPrefs = implicitBonus.total;
+          personalized = true;
+        }
+      }
+    }
+
+    // 4. Beach affinity bonus
     const { data: affinity } = await supabase
       .from('user_beach_affinity')
       .select('affinity_score, session_count')
@@ -238,6 +290,9 @@ export async function scoreBeachesForUser(
     // BATCH QUERY 3: Get learned preferences - single query
     const learnedPrefs = await getUserSurfPreferences(userId);
 
+    // BATCH QUERY 4: Get implicit preferences - single query
+    const implicitPrefs = await getImplicitPreferences(userId);
+
     // Now process each beach in memory (no more DB queries)
     for (const { beachId, forecast, baseScore } of beaches) {
       let score = baseScore;
@@ -246,6 +301,7 @@ export async function scoreBeachesForUser(
         base: baseScore,
         onboardingPrefs: 0,
         learnedPrefs: 0,
+        implicitPrefs: 0,
         affinity: 0,
       };
 
@@ -298,7 +354,37 @@ export async function scoreBeachesForUser(
         }
       }
 
-      // 3. Apply beach affinity (from pre-loaded map)
+      // 3. Apply implicit preferences
+      if (implicitPrefs && implicitPrefs.confidence > 0.1) {
+        // Confidence blend: implicit fills the gap left by explicit
+        const explicitConf = learnedPrefs?.confidence ?? 0;
+        const implicitWeight = implicitPrefs.confidence * (1 - explicitConf);
+
+        if (implicitWeight > 0.1) {
+          const beachType = beachTypeMap.get(beachId);
+          const isTopEngaged = isTopEngagedBeach(beachId, implicitPrefs);
+
+          const implicitBonus = calculateImplicitBonus(
+            {
+              wave_height_ft: parseFloat(forecast.wave_height || '0') || null,
+              wave_period_s: parseFloat(forecast.wave_period || '0'),
+              wind_speed_mph: parseFloat(forecast.wind_speed || '0'),
+            },
+            beachType ?? null,
+            isTopEngaged,
+            implicitPrefs,
+            implicitWeight
+          );
+
+          if (implicitBonus.total > 0) {
+            score += implicitBonus.total;
+            breakdown.implicitPrefs = implicitBonus.total;
+            personalized = true;
+          }
+        }
+      }
+
+      // 4. Apply beach affinity (from pre-loaded map)
       const affinity = affinityMap.get(beachId);
       if (affinity && affinity.affinity_score > 10) {
         const affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
@@ -324,6 +410,7 @@ export async function scoreBeachesForUser(
           base: baseScore,
           onboardingPrefs: 0,
           learnedPrefs: 0,
+          implicitPrefs: 0,
           affinity: 0,
         },
       });

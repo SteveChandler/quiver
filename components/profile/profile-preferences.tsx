@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +34,7 @@ import {
   PreferredBreakTypeField,
   CrowdPreferenceField,
 } from "@/components/profile/shared/preference-fields";
+import { createClient } from "@/lib/supabase/client";
 import type { Beach, Profile } from "@/types/database";
 
 const preferencesFormSchema = z.object({
@@ -62,6 +63,8 @@ const preferencesFormSchema = z.object({
   digest_session_invites: z.boolean().default(false),
   inapp_session_invites: z.boolean().default(true),
   email_session_invites: z.boolean().default(true),
+  // Privacy preferences
+  allow_implicit_tracking: z.boolean().default(true),
 });
 
 type PreferencesFormValues = z.infer<typeof preferencesFormSchema>;
@@ -81,6 +84,7 @@ export function ProfilePreferences({
 }: ProfilePreferencesProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const form = useForm<PreferencesFormValues>({
     resolver: zodResolver(preferencesFormSchema) as any,
@@ -121,8 +125,41 @@ export function ProfilePreferences({
       digest_session_invites: profile?.digest_session_invites || false,
       inapp_session_invites: profile?.inapp_session_invites ?? true,
       email_session_invites: profile?.email_session_invites ?? true,
+      // Privacy preferences
+      allow_implicit_tracking: (profile as any)?.allow_implicit_tracking ?? true,
     },
   });
+
+  // Watch the allow_implicit_tracking value for conditional rendering
+  const allowImplicitTracking = useWatch({
+    control: form.control,
+    name: "allow_implicit_tracking",
+    defaultValue: true,
+  });
+
+  async function handleClearBrowsingData() {
+    setIsClearing(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.rpc('purge_implicit_history', {
+        target_user_id: userId,
+      });
+      if (error) throw error;
+      toast({
+        title: 'Browsing data cleared',
+        description: 'Your activity history has been deleted.',
+      });
+    } catch (err) {
+      console.error('Error clearing browsing data:', err);
+      toast({
+        title: 'Failed to clear data',
+        description: 'Please try again later.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClearing(false);
+    }
+  }
 
   async function onSubmit(data: PreferencesFormValues) {
     if (!userId) return;
@@ -143,7 +180,9 @@ export function ProfilePreferences({
         digest_session_invites: data.digest_session_invites,
         inapp_session_invites: data.inapp_session_invites,
         email_session_invites: data.email_session_invites,
-      });
+        // Privacy preferences (new column from implicit-preference-learning migration)
+        allow_implicit_tracking: data.allow_implicit_tracking,
+      } as any);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update preferences");
@@ -287,6 +326,46 @@ export function ProfilePreferences({
                 description="Receive email when someone invites you to a surf session"
                 disabled={isSubmitting}
               />
+            </div>
+
+            {/* Privacy Settings */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-medium">Privacy</h3>
+              </div>
+
+              <FormSwitch
+                control={form.control as any}
+                name="allow_implicit_tracking"
+                label="Improve recommendations with my activity"
+                description="Uses your browsing behavior to personalize surf spot recommendations"
+                disabled={isSubmitting}
+              />
+
+              {!allowImplicitTracking && (
+                <div className="pl-4 border-l-2 border-muted">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Tracking is disabled. You can also clear your existing browsing history.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearBrowsingData}
+                    disabled={isClearing || isSubmitting}
+                  >
+                    {isClearing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Clearing...
+                      </>
+                    ) : (
+                      'Clear browsing data'
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
           <CardFooter>
