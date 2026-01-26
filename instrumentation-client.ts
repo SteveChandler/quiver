@@ -17,6 +17,7 @@ function detectEnvironment(): string {
     return process.env.NODE_ENV || "development";
   }
 
+  // eslint-disable-next-line no-restricted-properties -- Reading hostname for environment detection, not navigation
   const hostname = window.location.hostname;
 
   // Localhost patterns - always "development" regardless of NODE_ENV

@@ -5,6 +5,8 @@
  * This module is a singleton shared across all gamification services.
  */
 
+import type { UserXPStatus } from "./types";
+
 /**
  * Cache entry with expiration timestamp
  */
@@ -23,6 +25,40 @@ export const CACHE_TTL = {
 } as const;
 
 /**
+ * Badge definition fields returned in joins
+ */
+interface BadgeDefinitionFields {
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  xp_reward: number;
+}
+
+/**
+ * User badge with joined badge definition (from Supabase join query)
+ * Note: Supabase join can return array or object depending on query/relation
+ */
+export interface CachedUserBadge {
+  badge_slug: string;
+  unlocked_at: string;
+  context: Record<string, unknown>;
+  badge_definitions: BadgeDefinitionFields | BadgeDefinitionFields[] | null;
+}
+
+/**
+ * Badge definition as stored in the database
+ */
+export interface CachedBadgeDefinition {
+  badge_slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  xp_reward: number;
+}
+
+/**
  * Get current timestamp
  */
 function now(): number {
@@ -31,11 +67,15 @@ function now(): number {
 
 /**
  * The singleton cache instance
+ *
+ * Note: inflight cache uses `any` because it holds heterogeneous promise types
+ * that are returned directly to callers expecting specific types.
  */
 const cache = {
-  xpStatusByUserId: new Map<string, CacheEntry<any>>(),
-  userBadgesByUserId: new Map<string, CacheEntry<any[]>>(),
-  badgeDefinitions: new Map<string, CacheEntry<any[]>>(),
+  xpStatusByUserId: new Map<string, CacheEntry<UserXPStatus>>(),
+  userBadgesByUserId: new Map<string, CacheEntry<CachedUserBadge[]>>(),
+  badgeDefinitions: new Map<string, CacheEntry<CachedBadgeDefinition[]>>(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   inflight: new Map<string, Promise<any>>(),
 };
 
@@ -89,27 +129,31 @@ export function invalidateUserCaches(userId: string): void {
 /**
  * Get the XP status cache map
  */
-export function getXPStatusCache(): Map<string, CacheEntry<any>> {
+export function getXPStatusCache(): Map<string, CacheEntry<UserXPStatus>> {
   return cache.xpStatusByUserId;
 }
 
 /**
  * Get the user badges cache map
  */
-export function getUserBadgesCache(): Map<string, CacheEntry<any[]>> {
+export function getUserBadgesCache(): Map<string, CacheEntry<CachedUserBadge[]>> {
   return cache.userBadgesByUserId;
 }
 
 /**
  * Get the badge definitions cache map
  */
-export function getBadgeDefinitionsCache(): Map<string, CacheEntry<any[]>> {
+export function getBadgeDefinitionsCache(): Map<string, CacheEntry<CachedBadgeDefinition[]>> {
   return cache.badgeDefinitions;
 }
 
 /**
  * Get the inflight requests map
+ *
+ * Uses `any` because it holds heterogeneous promise types that callers
+ * use polymorphically based on the cache key pattern.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getInflightCache(): Map<string, Promise<any>> {
   return cache.inflight;
 }

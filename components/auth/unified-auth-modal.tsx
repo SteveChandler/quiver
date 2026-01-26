@@ -214,6 +214,7 @@ export function UnifiedAuthModal({
         method,
         entrypoint: source,
         landing_path:
+          // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
           typeof window !== "undefined" ? window.location.pathname : "/",
         referrer,
         utm: {

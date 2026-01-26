@@ -64,6 +64,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validate physical measurements are non-negative
+    if (waveHeight < 0 || windSpeed < 0) {
+      return createErrorResponse(
+        "Wave height and wind speed must be non-negative values",
+        null,
+        400
+      );
+    }
+
     // Use API-specific Supabase client to ensure cookies are correctly read in API routes
     const { supabase, user, error: authError } = await getAuthenticatedAPIClient();
     if (authError || !supabase || !user) {

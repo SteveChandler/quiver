@@ -41,11 +41,40 @@ export interface UseBoardRecommendationResult {
 
 // Cache for board recommendations to avoid duplicate requests
 // Key format: "waveHeight|windSpeed|beachId"
+const MAX_CACHE_SIZE = 100;
+const cacheOrder: string[] = [];
 const recommendationCache = new Map<
   string,
   { data: BoardRecommendation | null; timestamp: number }
 >();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// 30 minute TTL to align with other API caches (CACHE_TTL.API_CALLS)
+const CACHE_TTL = 30 * 60 * 1000;
+
+/**
+ * Add entry to cache with LRU eviction
+ */
+function setCacheEntry(
+  key: string,
+  value: { data: BoardRecommendation | null; timestamp: number }
+): void {
+  // Remove key from order if it exists (will be re-added at end)
+  const existingIndex = cacheOrder.indexOf(key);
+  if (existingIndex !== -1) {
+    cacheOrder.splice(existingIndex, 1);
+  }
+
+  // Evict oldest entry if at capacity
+  if (recommendationCache.size >= MAX_CACHE_SIZE && !recommendationCache.has(key)) {
+    const oldest = cacheOrder.shift();
+    if (oldest) {
+      recommendationCache.delete(oldest);
+    }
+  }
+
+  // Add to cache and track order
+  cacheOrder.push(key);
+  recommendationCache.set(key, value);
+}
 
 /**
  * Confidence thresholds for showing recommendations
@@ -199,8 +228,8 @@ export function useBoardRecommendation({
             }
           : null;
 
-        // Cache the result
-        recommendationCache.set(cacheKey, {
+        // Cache the result with LRU eviction
+        setCacheEntry(cacheKey, {
           data: result,
           timestamp: Date.now(),
         });

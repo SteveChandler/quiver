@@ -123,11 +123,12 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
     // Schedule prefetch during idle time
     const scheduleIdleCallback = (callback: () => void): number => {
       // Use requestIdleCallback if available (Chrome, Firefox, Edge)
-      // Fall back to setTimeout for Safari and older browsers
       if (typeof requestIdleCallback === "function") {
         return requestIdleCallback(callback, { timeout: 3000 });
       } else {
-        return setTimeout(callback, 500) as unknown as number;
+        // Safari and older browsers don't support requestIdleCallback
+        // Use 1000ms timeout to ensure main content loads first
+        return setTimeout(callback, 1000) as unknown as number;
       }
     };
 
