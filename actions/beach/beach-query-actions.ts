@@ -1,6 +1,8 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { withDatabaseOperation } from "@/lib/server-action-utils";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Beach } from "@/types/database";
 
 // Selective field query for beach list - only fetch commonly needed fields
@@ -174,8 +176,66 @@ function applyIntentFilters(
 }
 
 /**
+ * Internal function to fetch beaches by intent and city - used by cached wrapper.
+ */
+async function _getBeachesByIntentAndCityInternal(
+  intent: string,
+  citySlug: string,
+  stateSlug: string
+): Promise<Beach[]> {
+  const supabase = await createSupabaseServerClient();
+
+  // Start with base query for city
+  let query = supabase
+    .from("beaches")
+    .select(BEACH_DETAIL_FIELDS)
+    .or("is_private.is.null,is_private.eq.false");
+
+  // Match city: try both original slug (handles hyphens like "Carmel-by-the-Sea")
+  // and space-replaced form (handles "San Diego" stored as "san-diego" in URL)
+  const escapedCity = escapeLikePattern(citySlug);
+  const cityPattern = citySlug.replace(/-/g, " ");
+  const escapedCityPattern = escapeLikePattern(cityPattern);
+  query = query.or(`city.ilike.%${escapedCity}%,city.ilike.%${escapedCityPattern}%`);
+
+  // Match state
+  query = query.eq("state", stateSlug.toUpperCase());
+
+  // Apply intent filters
+  query = applyIntentFilters(query, intent);
+
+  const { data, error } = await query.order("name");
+  if (error) throw error;
+
+  let beaches = (data ?? []) as Beach[];
+
+  // Apply post-query sorting for crowd-based intents
+  const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
+  if (crowdSortPriority) {
+    beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
+  }
+
+  return beaches;
+}
+
+/**
+ * Cached version of beaches by intent and city - revalidates every 15 minutes.
+ * Used by intent pages to reduce database queries for repeated lookups.
+ */
+const getCachedBeachesByIntentAndCity = unstable_cache(
+  _getBeachesByIntentAndCityInternal,
+  ["beaches-by-intent-city"],
+  {
+    revalidate: 900, // 15 minutes
+    tags: ["beaches"],
+  }
+);
+
+/**
  * Fetch beaches matching an intent for a specific city.
  * Used for database-driven intent pages.
+ *
+ * Uses cross-request caching (15 minutes) for better performance on intent pages.
  *
  * @param intent - The surf intent (beginner, least-crowded, tide, water-temp)
  * @param citySlug - City slug (e.g., "san-diego")
@@ -186,38 +246,16 @@ export async function getBeachesByIntentAndCity(
   citySlug: string,
   stateSlug: string
 ) {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    // Start with base query for city
-    let query = supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .or("is_private.is.null,is_private.eq.false");
-
-    // Match city: try both original slug (handles hyphens like "Carmel-by-the-Sea")
-    // and space-replaced form (handles "San Diego" stored as "san-diego" in URL)
-    const escapedCity = escapeLikePattern(citySlug);
-    const cityPattern = citySlug.replace(/-/g, " ");
-    const escapedCityPattern = escapeLikePattern(cityPattern);
-    query = query.or(`city.ilike.%${escapedCity}%,city.ilike.%${escapedCityPattern}%`);
-
-    // Match state
-    query = query.eq("state", stateSlug.toUpperCase());
-
-    // Apply intent filters
-    query = applyIntentFilters(query, intent);
-
-    const { data, error } = await query.order("name");
-    if (error) throw error;
-
-    let beaches = (data ?? []) as Beach[];
-
-    // Apply post-query sorting for crowd-based intents
-    const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
-    if (crowdSortPriority) {
-      beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
+  return withDatabaseOperation<Beach[]>(async () => {
+    try {
+      // Use cached version for cross-request performance
+      const beaches = await getCachedBeachesByIntentAndCity(intent, citySlug, stateSlug);
+      return { data: beaches, error: null };
+    } catch {
+      // Fallback to uncached on cache infrastructure error
+      const beaches = await _getBeachesByIntentAndCityInternal(intent, citySlug, stateSlug);
+      return { data: beaches, error: null };
     }
-
-    return { data: beaches, error: null };
   });
 }
 
@@ -244,8 +282,59 @@ export async function getBeachesByState(stateSlug: string) {
 }
 
 /**
+ * Internal function to fetch beaches by intent and state - used by cached wrapper.
+ */
+async function _getBeachesByIntentAndStateInternal(
+  intent: string,
+  stateSlug: string
+): Promise<Beach[]> {
+  const supabase = await createSupabaseServerClient();
+
+  let query = supabase
+    .from("beaches")
+    .select(BEACH_DETAIL_FIELDS)
+    .or("is_private.is.null,is_private.eq.false")
+    .eq("state", stateSlug.toUpperCase());
+
+  // Apply intent filters
+  query = applyIntentFilters(query, intent);
+
+  const { data, error } = await query
+    .order("city")
+    .order("name")
+    .limit(100);
+
+  if (error) throw error;
+
+  let beaches = (data ?? []) as Beach[];
+
+  // Apply post-query sorting for crowd-based intents
+  const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
+  if (crowdSortPriority) {
+    beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
+  }
+
+  return beaches;
+}
+
+/**
+ * Cached version of beaches by intent and state - revalidates every 15 minutes.
+ * Used by state-level intent pages to reduce database queries.
+ */
+const getCachedBeachesByIntentAndState = unstable_cache(
+  _getBeachesByIntentAndStateInternal,
+  ["beaches-by-intent-state"],
+  {
+    revalidate: 900, // 15 minutes
+    tags: ["beaches"],
+  }
+);
+
+/**
  * Fetch beaches matching an intent for an entire state.
  * Used for state-level SEO pages like /beginner/ca.
+ *
+ * Uses cross-request caching (15 minutes) for better performance on intent pages.
  *
  * @param intent - The surf intent
  * @param stateSlug - State slug (e.g., "ca")
@@ -254,31 +343,15 @@ export async function getBeachesByIntentAndState(
   intent: string,
   stateSlug: string
 ) {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    let query = supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .or("is_private.is.null,is_private.eq.false")
-      .eq("state", stateSlug.toUpperCase());
-
-    // Apply intent filters
-    query = applyIntentFilters(query, intent);
-
-    const { data, error } = await query
-      .order("city")
-      .order("name")
-      .limit(100);
-
-    if (error) throw error;
-
-    let beaches = (data ?? []) as Beach[];
-
-    // Apply post-query sorting for crowd-based intents
-    const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
-    if (crowdSortPriority) {
-      beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
+  return withDatabaseOperation<Beach[]>(async () => {
+    try {
+      // Use cached version for cross-request performance
+      const beaches = await getCachedBeachesByIntentAndState(intent, stateSlug);
+      return { data: beaches, error: null };
+    } catch {
+      // Fallback to uncached on cache infrastructure error
+      const beaches = await _getBeachesByIntentAndStateInternal(intent, stateSlug);
+      return { data: beaches, error: null };
     }
-
-    return { data: beaches, error: null };
   });
 }

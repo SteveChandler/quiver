@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import AboutPageClient from "./about-client";
 
+// ISR: Revalidate every 1 hour (static content, rarely changes)
+export const revalidate = 3600;
+
 export const metadata: Metadata = buildPageMetadata({
   title: "About Quiver - The Surf Community Story | Our Mission",
   description:

@@ -1,11 +1,7 @@
-import { Suspense, lazy } from "react";
+import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-
-// Lazy load heavy map component
-const MapView = lazy(() =>
-  import("@/components/map-view").then((m) => ({ default: m.MapView }))
-);
 
 // Loading skeleton for map
 function MapSkeleton() {
@@ -33,6 +29,16 @@ function MapSkeleton() {
     </div>
   );
 }
+
+// Dynamic import with SSR disabled - map requires client-side geolocation and Mapbox GL
+// This skips server-side rendering entirely, improving TTFB significantly
+const MapView = dynamic(
+  () => import("@/components/map-view").then((m) => m.MapView),
+  {
+    ssr: false,
+    loading: () => <MapSkeleton />,
+  }
+);
 
 export default function MapPage() {
   return (
