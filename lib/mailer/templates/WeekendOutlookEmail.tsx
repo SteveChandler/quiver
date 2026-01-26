@@ -88,35 +88,38 @@ export function WeekendOutlookEmail({
                 padding: "20px 0",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 12,
-                }}
-              >
-                <span style={{ fontSize: 18, fontWeight: "bold", color: "#333" }}>
-                  {day.dayName}{" "}
-                  <span style={{ fontSize: 14, fontWeight: "normal", color: "#8898aa" }}>
-                    {day.date}
-                  </span>
-                </span>
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "bold",
-                    color: conditionColor[day.condition] || "#8898aa",
-                  }}
-                >
-                  {day.condition}
-                </span>
-              </div>
+              {/* Day Header - using table for email client compatibility */}
+              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}>
+                <tbody>
+                  <tr>
+                    <td style={{ textAlign: "left" as const }}>
+                      <span style={{ fontSize: 18, fontWeight: "bold", color: "#333" }}>
+                        {day.dayName}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: "normal", color: "#8898aa", marginLeft: 8 }}>
+                        {day.date}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" as const }}>
+                      <span
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "bold",
+                          color: conditionColor[day.condition] || "#8898aa",
+                        }}
+                      >
+                        {day.condition}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
 
+              {/* Stats Row */}
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
-                    <td style={{ width: "33%", verticalAlign: "top" }}>
+                    <td style={{ width: "33%", verticalAlign: "top", paddingRight: 10 }}>
                       <div
                         style={{
                           fontSize: 12,
@@ -132,7 +135,7 @@ export function WeekendOutlookEmail({
                         {day.waveHeight}
                       </div>
                     </td>
-                    <td style={{ width: "33%", verticalAlign: "top" }}>
+                    <td style={{ width: "33%", verticalAlign: "top", paddingRight: 10 }}>
                       <div
                         style={{
                           fontSize: 12,
