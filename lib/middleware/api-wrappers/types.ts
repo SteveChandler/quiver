@@ -1,0 +1,149 @@
+/**
+ * API Route Wrapper Types
+ *
+ * Type definitions for API route handlers and their contexts.
+ * Used by all wrapper functions in the api-wrappers module.
+ */
+
+import type { NextRequest, NextResponse } from "next/server";
+import type { User, SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
+import type { RateLimitKey } from "@/lib/api/rate-limit-config";
+
+// =============================================================================
+// CORE HANDLER TYPES
+// =============================================================================
+
+/**
+ * Standard Next.js route handler signature
+ */
+export type RouteHandler = (
+  request: NextRequest,
+  context?: RouteContext
+) => Promise<NextResponse>;
+
+/**
+ * Route context with typed params
+ */
+export interface RouteContext {
+  params: Record<string, string>;
+}
+
+/**
+ * Extended context provided to authenticated handlers
+ */
+export interface AuthenticatedContext extends RouteContext {
+  user: User;
+  supabase: SupabaseClient<Database>;
+}
+
+/**
+ * Handler that receives authenticated context
+ */
+export type AuthenticatedHandler = (
+  request: NextRequest,
+  context: AuthenticatedContext
+) => Promise<NextResponse>;
+
+/**
+ * Handler that receives optional auth (user may be null)
+ */
+export type OptionalAuthHandler = (
+  request: NextRequest,
+  context: RouteContext & {
+    user: User | null;
+    supabase: SupabaseClient<Database>;
+  }
+) => Promise<NextResponse>;
+
+// =============================================================================
+// OPTIONS INTERFACES
+// =============================================================================
+
+/**
+ * Options for withAuth wrapper
+ */
+export interface WithAuthOptions {
+  /** Custom error message for failed authentication */
+  authErrorMessage?: string;
+  /** Custom error message for caught exceptions */
+  errorMessage?: string;
+  /** Allow unauthenticated access (user will be null) */
+  optional?: boolean;
+}
+
+/**
+ * Options for withErrorHandler wrapper
+ */
+export interface WithErrorHandlerOptions {
+  /** Custom error message for caught exceptions */
+  errorMessage?: string;
+  /** Include original error details in response (dev only) */
+  includeDetails?: boolean;
+}
+
+/**
+ * Options for createApiHandler
+ */
+export interface CreateApiHandlerOptions {
+  /** Require authentication (default: true) */
+  auth?: boolean;
+  /** Custom error message */
+  errorMessage?: string;
+  /** Allow unauthenticated access with optional user */
+  optionalAuth?: boolean;
+}
+
+/**
+ * Options for withRateLimit wrapper
+ */
+export interface WithRateLimitOptions {
+  /** Rate limit key from rate-limit-config.ts */
+  key?: RateLimitKey;
+  /**
+   * Auth-aware rate limiting (adaptive keys).
+   *
+   * NOTE: This requires checking auth status (Supabase `getUser()`) to choose
+   * the correct key, which adds overhead and partially defeats the "rate limit
+   * before auth" latency optimization. Use sparingly.
+   */
+  authAware?: {
+    publicLimitKey: RateLimitKey;
+    authenticatedLimitKey: RateLimitKey;
+  };
+}
+
+/**
+ * Options for withBotBlocking wrapper
+ */
+export interface WithBotBlockingOptions {
+  /** Custom error message for blocked bots */
+  errorMessage?: string;
+}
+
+/**
+ * Options for withProtection unified wrapper
+ */
+export interface ProtectionOptions {
+  /** Authentication configuration */
+  auth?: {
+    /** Require authentication (default: false if omitted) */
+    required: boolean;
+    /** Custom error message for failed authentication */
+    errorMessage?: string;
+  };
+
+  /** Rate limiting configuration */
+  rateLimit?: WithRateLimitOptions;
+
+  /** Bot blocking configuration */
+  botBlocking?: {
+    /** Enable bot blocking (default: false) */
+    enabled: boolean;
+    /** Custom error message */
+    errorMessage?: string;
+  };
+
+  /** Error handling configuration */
+  errorHandling?: WithErrorHandlerOptions;
+}
