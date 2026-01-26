@@ -183,6 +183,8 @@ export function UnifiedAuthModal({
    * Build rich metadata payload for signup
    */
   const buildSignupMetadata = (method: "email" | "google") => {
+    const now = new Date().toISOString();
+    const termsVersion = "2026-01-25";
     const attribution = getAttributionFromCookies();
     const ipLocation = locationContext?.ipLocation;
 
@@ -241,6 +243,11 @@ export function UnifiedAuthModal({
             longitude: ipLocation.longitude,
           }
         : null,
+      legal_consent: {
+        terms_accepted_at: now,
+        terms_version: termsVersion,
+        privacy_accepted_at: now,
+      },
     };
   };
 
