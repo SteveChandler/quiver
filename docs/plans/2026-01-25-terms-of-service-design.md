@@ -164,15 +164,29 @@ Quiver integrates with third-party services for maps, weather data, and other fe
 
 We may suspend or terminate your access to the Service at any time, with or without cause, with or without notice. Upon termination, your right to use the Service ceases immediately. Provisions that by their nature should survive termination (including disclaimers, limitations of liability, and indemnification) shall survive.
 
-### 13. Governing Law
+### 13. Dispute Resolution and Arbitration
 
-These Terms are governed by the laws of the State of California, United States, without regard to conflict of law principles. Any disputes shall be resolved in the courts of California.
+**PLEASE READ THIS SECTION CAREFULLY. IT AFFECTS YOUR LEGAL RIGHTS, INCLUDING YOUR RIGHT TO FILE A LAWSUIT IN COURT.**
 
-### 14. Changes to Terms
+**Agreement to Arbitrate:** You and Quiver agree that any dispute, claim, or controversy arising out of or relating to these Terms or the Service (collectively, "Disputes") will be resolved by binding individual arbitration rather than in court, except that either party may bring individual claims in small claims court if they qualify.
+
+**Class Action Waiver:** YOU AND QUIVER AGREE THAT EACH MAY BRING CLAIMS AGAINST THE OTHER ONLY IN YOUR OR ITS INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS, COLLECTIVE, OR REPRESENTATIVE PROCEEDING. Unless both you and Quiver agree otherwise, the arbitrator may not consolidate or join more than one person's claims and may not preside over any form of a representative, class, or collective proceeding.
+
+**Arbitration Rules:** The arbitration will be administered by JAMS under its Streamlined Arbitration Rules and Procedures, or as otherwise agreed by the parties. The arbitration will be conducted in the English language in the county where you reside or another mutually agreed location.
+
+**Opt-Out:** You may opt out of this arbitration agreement by sending written notice to legal@quiversurf.com within 30 days of creating your account. If you opt out, you and Quiver may still resolve Disputes in small claims court or through litigation in accordance with Section 14.
+
+**Severability:** If any part of this arbitration agreement is found unenforceable, the remaining portions shall remain in effect. If the class action waiver is found unenforceable for a particular claim, then the entire arbitration agreement shall be null and void for that claim only, and the Dispute shall proceed in court.
+
+### 14. Governing Law
+
+These Terms are governed by the laws of the State of California, United States, without regard to conflict of law principles. For any Disputes not subject to arbitration, you agree to submit to the personal and exclusive jurisdiction of the state and federal courts located in California.
+
+### 15. Changes to Terms
 
 We may update these Terms from time to time. We will notify you of material changes by posting the new Terms and updating the "Last Updated" date. Your continued use after changes constitutes acceptance of the revised Terms.
 
-### 15. Contact
+### 16. Contact
 
 Questions about these Terms? Contact us at:
 - Email: legal@quiversurf.com
@@ -192,6 +206,8 @@ Questions about these Terms? Contact us at:
 
 ## Notes
 
-- Have a lawyer review before going live
+- Have a lawyer review before going live (especially arbitration clause)
 - Consider adding Terms link to app store listings
 - Current date used as `terms_version` for tracking
+- Arbitration clause modeled after Surfline's approach - includes 30-day opt-out window
+- JAMS specified as arbitration administrator (industry standard)
