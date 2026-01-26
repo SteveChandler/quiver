@@ -289,7 +289,8 @@ describe("UnifiedAuthModal", () => {
       await waitFor(() => {
         expect(authUtils.initiateOAuthFlow).toHaveBeenCalledWith(
           "google",
-          "/beach/123"
+          "/beach/123",
+          undefined // Optional metadata parameter
         );
       });
 
@@ -428,7 +429,10 @@ describe("UnifiedAuthModal", () => {
         expect(mockSignUp).toHaveBeenCalledWith(
           "test@example.com",
           "password123",
-          "John Doe"
+          "John Doe",
+          expect.objectContaining({
+            signup_context: expect.any(Object),
+          })
         );
       });
 

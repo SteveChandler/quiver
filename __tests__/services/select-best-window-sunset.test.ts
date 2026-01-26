@@ -175,9 +175,9 @@ describe('selectBestWindow with sunset', () => {
   });
 
   it('uses interpolation when conditions degrade', () => {
-    // Set time to 2pm PT (22:00 UTC) to avoid morning threshold
-    // This ensures standard threshold (50) is used for interpolation
-    jest.setSystemTime(new Date('2026-01-13T22:00:00Z'));
+    // Set time to 11am PT (19:00 UTC) - before the window starts
+    // This ensures the 12pm forecast is in the future and standard threshold (50) is used
+    jest.setSystemTime(new Date('2026-01-13T19:00:00Z'));
 
     // Multiple good forecasts followed by a poor one
     // The window should end when conditions degrade

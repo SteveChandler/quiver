@@ -36,7 +36,7 @@ describe("optimal-times analysis helpers", () => {
       tide_height: 2.4,
       tide_type: "rising",
       swell_period: 12,
-      confidence_score: 0.85,
+      confidence_score: 85, // 0-100 scale, not 0-1
     } as any;
 
     const scored = scoreForecast(row);

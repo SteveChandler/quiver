@@ -15,6 +15,7 @@ jest.mock("mapbox-gl", () => ({
     getCenter: jest.fn(() => ({ lat: 32.7493, lng: -117.2511 })),
     getZoom: jest.fn(() => 13),
     setCenter: jest.fn(),
+    flyTo: jest.fn(),
     getBounds: jest.fn(() => ({
       getWest: () => -117.3,
       getSouth: () => 32.7,

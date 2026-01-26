@@ -79,14 +79,15 @@ describe("formatIntelMessage", () => {
     }
   });
 
-  it("truncates long descriptions", () => {
+  it("passes through long descriptions (CSS handles truncation)", () => {
     const longDesc = "A".repeat(100);
     const result = formatIntelMessage({
       emoji_rating: null,
       surf_conditions: null,
       description: longDesc,
     });
-    expect(result.length).toBeLessThanOrEqual(80);
+    // CSS line-clamp handles overflow in UI, function passes through full text
+    expect(result).toBe(longDesc);
   });
 });
 

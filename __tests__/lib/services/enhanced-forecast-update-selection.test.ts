@@ -110,11 +110,12 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
   });
 
   it("selects only stale CDIP beaches for updateCdipEnhancedForecasts()", async () => {
-    const beaches = [
-      makeBeach("b1", "CDIP stale old"),
-      makeBeach("b2", "CDIP stale newer"),
-      makeBeach("b3", "NOAA stale"),
-      makeBeach("b4", "CDIP fresh"),
+    // Beaches with cdip_eligible flag - the service now filters by cdip_eligible=true
+    const allBeaches = [
+      { ...makeBeach("b1", "CDIP stale old"), cdip_eligible: true },
+      { ...makeBeach("b2", "CDIP stale newer"), cdip_eligible: true },
+      { ...makeBeach("b3", "NOAA stale"), cdip_eligible: false }, // Not CDIP eligible
+      { ...makeBeach("b4", "CDIP fresh"), cdip_eligible: true },
     ];
 
     // System time is 2025-12-11T12:00:00Z from beforeEach()
@@ -129,7 +130,18 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
       from: (table: string) => {
         if (table === "beaches") {
           return {
-            select: () => Promise.resolve({ data: beaches, error: null }),
+            select: () => ({
+              eq: (column: string, value: boolean) => {
+                // Filter beaches by cdip_eligible when called
+                if (column === "cdip_eligible" && value === true) {
+                  return Promise.resolve({
+                    data: allBeaches.filter((b) => b.cdip_eligible),
+                    error: null,
+                  });
+                }
+                return Promise.resolve({ data: allBeaches, error: null });
+              },
+            }),
           };
         }
 
