@@ -2,8 +2,9 @@
 
 import { BeachDetail } from "@/components/beach-detail";
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useState, Suspense, type ReactNode } from "react";
+import { useEffect, useState, useRef, Suspense, type ReactNode } from "react";
 import { trackPublicPageView } from "@/lib/analytics";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import type { Beach } from "@/types/database";
 import AuthGate from "@/components/auth/auth-gate";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
@@ -28,6 +29,8 @@ export function BeachDetailClient({
   surfCallIsTomorrow,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
+  const { track } = useTrackEvent();
+  const mountTime = useRef(Date.now());
   const [personalizationData, setPersonalizationData] = useState<{
     score: PersonalizedScore | null;
     affinityData: { sessionCount: number; lastSurfed: Date } | null;
@@ -45,7 +48,35 @@ export function BeachDetailClient({
     if (!user) {
       trackPublicPageView("beach-detail", { slug });
     }
-  }, [slug, user]);
+
+    // Track beach view for implicit preferences
+    if (user && beach?.id) {
+      track('beach_view', {
+        beachId: beach.id,
+        metadata: { referrer: document.referrer },
+      });
+    }
+
+    // Capture mount time for cleanup function
+    const startTime = mountTime.current;
+
+    // Track duration on unmount
+    return () => {
+      if (user && beach?.id) {
+        const duration = Date.now() - startTime;
+        if (duration > 3000) {
+          track('beach_view', {
+            beachId: beach.id,
+            metadata: {
+              duration_ms: duration,
+              forecast_viewed: true
+            },
+            debounceMs: 0, // Force fire on unmount
+          });
+        }
+      }
+    };
+  }, [slug, user, beach?.id, track]);
 
   return (
     <>
