@@ -95,6 +95,10 @@
     {
       "path": "/api/cron/weekend-outlook-email",
       "schedule": "0 21 * * 4"
+    },
+    {
+      "path": "/api/cron/weekly-recap-email",
+      "schedule": "0 2 * * 1"
     }
   ]
 }
