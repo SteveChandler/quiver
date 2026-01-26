@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, LogIn, Mail, AlertCircle } from "lucide-react";
 import {
   initiateOAuthFlow,
@@ -119,6 +120,7 @@ export function UnifiedAuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -236,6 +238,7 @@ export function UnifiedAuthModal({
       setEmail("");
       setPassword("");
       setDisplayName("");
+      setTermsAccepted(false);
       setError(null);
       setLoading(false);
     }
