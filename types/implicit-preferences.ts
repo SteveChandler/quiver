@@ -3,6 +3,8 @@
  *
  * This module defines types for tracking user behavior and learning
  * implicit preferences from those interactions.
+ *
+ * @see docs/plans/2026-01-25-implicit-preference-learning-design.md
  */
 
 // =============================================================================
@@ -24,11 +26,11 @@ export type ImplicitEventType =
  * each interaction contributes to learned preferences
  */
 export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
-  beach_view: 1.0,
-  discovery_click: 2.0,
-  discovery_skip: -0.5,
-  forecast_check: 1.5,
-  location_update: 0.5,
+  location_update: 10.0,
+  discovery_click: 3.0,
+  forecast_check: 2.5,
+  beach_view: 0.5,
+  discovery_skip: -1.0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -111,7 +113,7 @@ export interface UserEvent {
   user_id: string;
   event_type: ImplicitEventType;
   beach_id: string | null;
-  metadata: EventMetadata | null;
+  metadata: EventMetadata;
   created_at: string;
   expires_at: string;
 }
@@ -147,14 +149,19 @@ export interface TimeSlotWeights {
  */
 export interface UserImplicitPreferences {
   user_id: string;
-  preferred_beaches: string[];
+  inferred_wave_min_ft: number | null;
+  inferred_wave_max_ft: number | null;
   break_type_weights: BreakTypeWeights;
   time_slot_weights: TimeSlotWeights;
-  avg_session_distance_km: number | null;
+  location_centroid_lat: number | null;
+  location_centroid_lon: number | null;
+  typical_travel_radius_miles: number | null;
+  top_engaged_beach_ids: string[];
+  confidence: number;
   event_count: number;
   last_computed_at: string;
-  created_at: string;
-  updated_at: string;
+  computed_from: string | null;
+  computed_to: string | null;
 }
 
 // =============================================================================
@@ -188,17 +195,11 @@ export interface TrackEventResponse {
  */
 export interface MatchReason {
   /** Category of the match reason */
-  type:
-    | 'break_type'
-    | 'time_preference'
-    | 'distance'
-    | 'conditions'
-    | 'history'
-    | 'onboarding';
+  type: 'learned' | 'implicit' | 'onboarding' | 'affinity';
   /** Human-readable label */
   label: string;
-  /** Confidence level (0-1) */
-  confidence: number;
+  /** Confidence level */
+  confidence: 'high' | 'medium' | 'low';
 }
 
 /**
@@ -220,12 +221,7 @@ export interface ExtendedScoringBreakdown {
 /**
  * Source of personalization data used in scoring
  */
-export type PersonalizationSource =
-  | 'none'
-  | 'onboarding_only'
-  | 'explicit_preferences'
-  | 'implicit_learning'
-  | 'hybrid';
+export type PersonalizationSource = 'explicit' | 'implicit' | 'blended' | 'none';
 
 // =============================================================================
 // Type Guards
