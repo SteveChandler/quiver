@@ -12,6 +12,12 @@ const FOOTER_LINKS = {
     { name: "United States", href: "/beaches/usa" },
     { name: "Mexico", href: "/beaches/mexico" },
   ],
+  guides: [
+    { name: "Beginner Spots", href: "/beginner/ca" },
+    { name: "Tide Charts", href: "/tide/san-diego" },
+    { name: "Dawn Patrol", href: "/dawn-patrol/ca" },
+    { name: "Sunset Sessions", href: "/sunset/ca" },
+  ],
   support: [
     { name: "Help Center", href: "#" },
     { name: "Contact Us", href: "#" },
@@ -31,7 +37,7 @@ export function FooterSection() {
     <footer className="bg-dark-grey text-white py-12 md:py-16 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-8 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-8 mb-10">
           {/* Brand Section */}
           <div className="md:col-span-2">
             <h3 className="text-3xl font-roboto font-bold mb-3">Quiver</h3>
@@ -90,6 +96,25 @@ export function FooterSection() {
             </h4>
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.beaches.map((link) => (
+                <li key={link.name}>
+                  <a
+                    href={link.href}
+                    className="hover:text-white transition-colors"
+                  >
+                    {link.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Surf Guides */}
+          <div>
+            <h4 className="font-roboto font-semibold mb-4 text-lg">
+              Surf Guides
+            </h4>
+            <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
+              {FOOTER_LINKS.guides.map((link) => (
                 <li key={link.name}>
                   <a
                     href={link.href}
