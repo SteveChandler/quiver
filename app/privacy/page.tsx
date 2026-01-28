@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PRIVACY_CONTENT } from "@/lib/constants/content";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Quiver - Surf Community Platform",
+  title: "Privacy Policy",
   description:
     "Learn how Quiver protects your privacy and handles your personal data. Our comprehensive privacy policy explains our data practices in clear terms.",
   keywords: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "user data",
   ],
   openGraph: {
-    title: "Privacy Policy | Quiver - Surf Community Platform",
+    title: "Privacy Policy",
     description:
       "Transparent privacy practices for the surf community. Learn how we protect and handle your personal information.",
     type: "website",
@@ -443,7 +443,7 @@ export default function PrivacyPage() {
           </div>
           <div className="border-t border-gray-600 pt-8 text-center">
             <p className="font-open-sans text-gray-300 text-sm">
-              © 2025 Quiver. All rights reserved.
+              © {new Date().getFullYear()} Quiver. All rights reserved.
             </p>
           </div>
         </div>

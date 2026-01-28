@@ -159,7 +159,7 @@ export async function generateMetadata({
   if (isValidStateSlug(params.intent)) {
     const cityName = parseLocationFromSlug(params.city);
     return buildPageMetadata({
-      title: `Surf spots in ${cityName} | Quiver`,
+      title: `Surf spots in ${cityName}`,
       description: `Open the surf map filtered to ${cityName}.`,
       path: `/${params.intent}/${params.city}`,
     });

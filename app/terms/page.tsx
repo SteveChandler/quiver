@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { TERMS_CONTENT } from "@/lib/constants/content";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Quiver - Surf Community Platform",
+  title: "Terms of Service",
   description:
     "Review Quiver's Terms of Service. Understand your rights and responsibilities when using our surf forecasting and community platform.",
   keywords: [
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "legal terms",
   ],
   openGraph: {
-    title: "Terms of Service | Quiver - Surf Community Platform",
+    title: "Terms of Service",
     description:
       "Review the terms and conditions for using Quiver, the surf community platform.",
     type: "website",
@@ -255,7 +255,7 @@ export default function TermsPage() {
           </div>
           <div className="border-t border-gray-600 pt-8 text-center">
             <p className="font-open-sans text-gray-300 text-sm">
-              © 2025 Quiver. All rights reserved.
+              © {new Date().getFullYear()} Quiver. All rights reserved.
             </p>
           </div>
         </div>

@@ -6,7 +6,7 @@ import AboutPageClient from "./about-client";
 export const revalidate = 3600;
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "About Quiver - The Surf Community Story | Our Mission",
+  title: "About - The Surf Community Story | Our Mission",
   description:
     "Learn about Quiver's mission to connect surfers worldwide. Built by surfers, for surfers. Join 1,200+ surfers tracking sessions, finding buddies, and sharing the stoke. Our story, values, and vision for the future of surf community.",
   path: "/about",
