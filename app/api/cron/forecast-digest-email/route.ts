@@ -26,6 +26,7 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { ForecastDigestEmail } from "@/lib/mailer/templates/ForecastDigestEmail";
 import {
@@ -116,10 +117,9 @@ interface DigestRunSummary {
  * Fetch crowd intel from the last 24 hours
  */
 async function fetchCrowdIntel(
+  supabase: SupabaseClient,
   beachId: string
 ): Promise<string | null> {
-  const supabase = await createSupabaseServiceRoleClient();
-
   const { data, error } = await supabase
     .from("intel_posts")
     .select("description")
@@ -142,11 +142,10 @@ async function fetchCrowdIntel(
  * Check if user already received digest today (within DEDUPE_WINDOW_HOURS)
  */
 async function checkAlreadySent(
+  supabase: SupabaseClient,
   userId: string,
   beachId: string
 ): Promise<boolean> {
-  const supabase = await createSupabaseServiceRoleClient();
-
   const dedupeThreshold = new Date(
     Date.now() - DEDUPE_WINDOW_HOURS * 60 * 60 * 1000
   );
@@ -171,9 +170,11 @@ async function checkAlreadySent(
 /**
  * Track delivery in forecast_alert_deliveries (UPSERT)
  */
-async function trackDelivery(userId: string, beachId: string): Promise<void> {
-  const supabase = await createSupabaseServiceRoleClient();
-
+async function trackDelivery(
+  supabase: SupabaseClient,
+  userId: string,
+  beachId: string
+): Promise<void> {
   const { error } = await supabase
     .from("forecast_alert_deliveries")
     .upsert(
@@ -289,13 +290,12 @@ function capitalizeFirst(str: string): string {
  * Persist digest run statistics to the database
  */
 async function persistRunStats(
+  supabase: SupabaseClient,
   runStartedAt: Date,
   summary: DigestRunSummary,
   status: 'completed' | 'failed'
 ): Promise<void> {
   try {
-    const supabase = await createSupabaseServiceRoleClient();
-
     await supabase.from("digest_run_stats").insert({
       run_started_at: runStartedAt.toISOString(),
       run_completed_at: new Date().toISOString(),
@@ -320,6 +320,7 @@ async function persistRunStats(
  * Handles errors gracefully, updates push metrics, and logs to push_notification_log.
  */
 async function sendDigestPush(
+  supabase: SupabaseClient,
   userId: string,
   userEmail: string,
   title: string,
@@ -327,7 +328,6 @@ async function sendDigestPush(
   data: Record<string, string>,
   summary: DigestRunSummary
 ): Promise<void> {
-  const supabase = await createSupabaseServiceRoleClient();
   let pushResult = { success: 0, failed: 0 };
   let status: 'sent' | 'failed' | 'no_token' = 'sent';
   let errorMessage: string | null = null;
@@ -540,7 +540,7 @@ export async function GET(request: Request) {
         );
 
         // 6. DEDUPLICATION CHECK (CRITICAL)
-        const alreadySent = await checkAlreadySent(user.id, user.home_beach_id);
+        const alreadySent = await checkAlreadySent(supabase, user.id, user.home_beach_id);
         if (alreadySent) {
           summary.skipped.alreadySentToday++;
           continue;
@@ -554,7 +554,7 @@ export async function GET(request: Request) {
         // 7. Branch: good day (match) vs bad day (no match)
         if (matchResult.isMatch) {
           // GOOD DAY: Send full digest email
-          const crowdIntel = await fetchCrowdIntel(user.home_beach_id);
+          const crowdIntel = await fetchCrowdIntel(supabase, user.home_beach_id);
           const crowdWarning = crowdIntel || matchResult.crowdWarning;
           const forecastData = formatForecastForEmail(forecasts);
 
@@ -585,6 +585,10 @@ export async function GET(request: Request) {
           const emailSubject = `${matchQualityEmoji} ${beach.name}: ${capitalizeFirst(matchResult.matchQuality)} Conditions Today`;
 
           try {
+            // Respect Resend rate limit (2 req/s)
+            if (summary.sent > 0) {
+              await new Promise((resolve) => setTimeout(resolve, 600));
+            }
             await resend.emails.send({
               from: MAIL_FROM,
               replyTo: MAIL_REPLY_TO,
@@ -596,7 +600,7 @@ export async function GET(request: Request) {
             console.log(
               `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
             );
-            await trackDelivery(user.id, user.home_beach_id);
+            await trackDelivery(supabase, user.id, user.home_beach_id);
             summary.sent++;
 
             // Send push notification
@@ -606,6 +610,7 @@ export async function GET(request: Request) {
               : `${matchQualityCapitalized} conditions today`;
 
             await sendDigestPush(
+              supabase,
               user.id,
               user.email,
               `${matchQualityEmoji} ${beach.name}`,
@@ -662,7 +667,7 @@ export async function GET(request: Request) {
     }
 
     // Persist run stats to database
-    await persistRunStats(runStartedAt, summary, 'completed');
+    await persistRunStats(supabase, runStartedAt, summary, 'completed');
 
     return createSuccessResponse({ summary });
   } catch (error) {
