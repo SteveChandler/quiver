@@ -14,6 +14,34 @@ import {
 } from "react";
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { z } from "zod";
+
+/**
+ * Zod schema for validating signup metadata from OAuth flows.
+ * This ensures nested objects have proper structure and prevents
+ * arbitrary data injection into user metadata.
+ */
+const signupMetadataSchema = z.object({
+  signup_context: z.object({
+    source: z.string().optional(),
+    referrer: z.string().optional(),
+    campaign: z.string().optional(),
+    landing_page: z.string().optional(),
+  }).strict().optional(),
+  location_data: z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+    accuracy_m: z.number().optional(),
+    city: z.string().optional(),
+    region: z.string().optional(),
+  }).strict().optional(),
+  legal_consent: z.object({
+    terms_accepted: z.boolean(),
+    privacy_accepted: z.boolean(),
+    timestamp: z.string(),
+    version: z.string().optional(),
+  }).strict().optional(),
+}).strict();
 
 /**
  * AuthContext provides authentication state and methods throughout the application.
@@ -198,14 +226,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   try {
                     const raw = JSON.parse(pendingMetadata);
 
-                    // Validate expected shape — reject unexpected keys
-                    const allowedKeys = new Set(["signup_context", "location_data", "legal_consent"]);
-                    const metadata: Record<string, unknown> = {};
-                    for (const key of Object.keys(raw)) {
-                      if (allowedKeys.has(key)) {
-                        metadata[key] = raw[key];
+                    // Validate metadata structure using Zod schema
+                    // This ensures all nested objects have proper shape
+                    const parseResult = signupMetadataSchema.safeParse(raw);
+
+                    if (!parseResult.success) {
+                      if (process.env.NODE_ENV === "development") {
+                        console.warn(
+                          "[AuthContext] Invalid signup metadata structure:",
+                          parseResult.error.flatten()
+                        );
                       }
+                      // Skip updating with invalid metadata
+                      sessionStorage.removeItem("pending_signup_metadata");
+                      return;
                     }
+
+                    const metadata = parseResult.data;
 
                     // Reject if payload is too large (16KB limit)
                     if (JSON.stringify(metadata).length > 16_384) {
@@ -279,6 +316,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.addEventListener("quiver:auth-expired", handleAuthExpired);
     }
 
+    // Proactively refresh session when app becomes visible after being hidden
+    // This ensures users stay logged in after closing/reopening the browser tab
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === "visible" && !initializingRef.current) {
+        try {
+          // Use getSession which triggers automatic token refresh if needed
+          const {
+            data: { session: refreshedSession },
+            error,
+          } = await supabase.auth.getSession();
+
+          if (error) {
+            if (process.env.NODE_ENV === "development") {
+              console.error(
+                "AuthContext: Error refreshing session on visibility change:",
+                error
+              );
+            }
+            return; // Don't update state on error - leave current state intact
+          }
+
+          if (mounted) {
+            updateAuthState(refreshedSession);
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === "development") {
+            console.error(
+              "AuthContext: Exception refreshing session on visibility change:",
+              error
+            );
+          }
+        }
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
+    // For Capacitor native apps - handle app resume from background
+    // This is critical for Android/iOS where the app may be suspended for hours
+    let appStateListener: { remove: () => Promise<void> } | null = null;
+    if (
+      typeof window !== "undefined" &&
+      (window as any).Capacitor?.isNativePlatform?.()
+    ) {
+      import("@capacitor/app").then(({ App }) => {
+        if (!mounted) return; // Component unmounted during import
+        App.addListener("appStateChange", async ({ isActive }) => {
+          if (isActive && !initializingRef.current && mounted) {
+            try {
+              const {
+                data: { session: resumedSession },
+                error,
+              } = await supabase.auth.getSession();
+
+              if (error) {
+                if (process.env.NODE_ENV === "development") {
+                  console.error(
+                    "AuthContext: Error refreshing session on app resume:",
+                    error
+                  );
+                }
+                return;
+              }
+
+              if (mounted) {
+                updateAuthState(resumedSession);
+              }
+            } catch (error) {
+              if (process.env.NODE_ENV === "development") {
+                console.error(
+                  "AuthContext: Exception refreshing session on app resume:",
+                  error
+                );
+              }
+            }
+          }
+        }).then((listener) => {
+          if (mounted) {
+            appStateListener = listener;
+          } else {
+            // Clean up if component unmounted during listener setup
+            listener.remove();
+          }
+        });
+      });
+    }
+
     // Cleanup function to prevent memory leaks
     return () => {
       mounted = false;
@@ -290,6 +416,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("quiver:auth-expired", handleAuthExpired);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
+      if (appStateListener) {
+        appStateListener.remove();
       }
       initializingRef.current = false;
     };
