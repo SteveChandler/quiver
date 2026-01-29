@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Clock, AlertCircle } from "lucide-react";
+import React, { useState } from "react";
+import { Clock, AlertCircle, Share2 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
+import { ShareSheet } from "@/components/share/share-sheet";
+import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
@@ -334,6 +336,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   timeSlot,
 }: HeroRecommendationProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Board recommendation based on current conditions
   // Hook must be called unconditionally before any early returns
@@ -378,6 +381,16 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   // Calculate tier and score color
   const tier = getConditionTier(score);
   const scoreColorClass = getScoreColorClass(tier);
+
+  // Build share URL for ShareSheet
+  const shareImageUrl = buildSurfCallShareUrl({
+    beach: beach.name,
+    verdict: tier === "great" || tier === "good" ? "YES" : tier === "fair" ? "MAYBE" : "NO",
+    window: timeWindow,
+    waveHeight: waveHeightBadge || "",
+    wind: "",
+    tags: conditionBadges?.slice(0, 3).map(b => b.label).join(",") || "",
+  });
 
   // Determine if showing tomorrow's forecast
   const timezone = window.timezone || beach.timezone || "America/Los_Angeles";
@@ -515,7 +528,28 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
             />
           </motion.div>
         )}
+
+        {/* Share button */}
+        <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge} className="flex-shrink-0">
+          <button
+            onClick={() => setShareOpen(true)}
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium py-1.5 px-2.5 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors"
+            aria-label="Share forecast"
+          >
+            <Share2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            Share
+          </button>
+        </motion.div>
       </motion.div>
+
+      <ShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        imageUrl={shareImageUrl}
+        type="wave"
+        title={`Check out ${beach.name}!`}
+        text={`${headline.prefix}${beach.name} ${headline.connector} ${formattedScore}/10`}
+      />
     </div>
   );
 });
