@@ -10,10 +10,10 @@
 import { NextRequest } from 'next/server';
 import { signEmailToken } from '@/lib/utils/email-token';
 
-// Mock Supabase
+// Mock Supabase - using service role client since email links are clicked without auth session
 const mockInsert = jest.fn().mockResolvedValue({ error: null });
 jest.mock('@/lib/supabase/server', () => ({
-  createSupabaseServerClient: jest.fn(() => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
     from: jest.fn(() => ({
       insert: mockInsert,
     })),

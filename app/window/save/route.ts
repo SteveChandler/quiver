@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Save to database
-  const supabase = await createSupabaseServerClient();
+  // Save to database - use service role client since email links are clicked without auth session
+  const supabase = createSupabaseServiceRoleClient();
   const { error } = await supabase.from('saved_windows').insert({
     user_id: userId,
     beach_id: beachId,
