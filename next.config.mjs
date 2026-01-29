@@ -167,6 +167,14 @@ const nextConfig = {
     formats: ["image/webp", "image/avif"],
     minimumCacheTTL: 86400, // 24 hours
 
+    // Allow image proxy with query strings (Next.js 16+ requirement)
+    localPatterns: [
+      {
+        pathname: "/api/image-proxy",
+        search: "", // Empty string = allow any query string
+      },
+    ],
+
     remotePatterns: [
       {
         protocol: "https",

@@ -260,24 +260,56 @@ export async function getBeachesByIntentAndCity(
 }
 
 /**
+ * Internal function to fetch all beaches in a state - used by cached wrapper.
+ */
+async function _getBeachesByStateInternal(stateSlug: string): Promise<Beach[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("beaches")
+    .select(BEACH_DETAIL_FIELDS)
+    .or("is_private.is.null,is_private.eq.false")
+    .eq("state", stateSlug.toUpperCase())
+    .order("city")
+    .order("name")
+    .limit(100);
+
+  if (error) throw error;
+  return (data ?? []) as Beach[];
+}
+
+/**
+ * Cached version of beaches by state - revalidates every hour.
+ * Used by guides pages that need all beaches regardless of skill level.
+ */
+const getCachedBeachesByState = unstable_cache(
+  _getBeachesByStateInternal,
+  ["beaches-by-state"],
+  {
+    revalidate: 3600, // 1 hour - matches guides page revalidate
+    tags: ["beaches"],
+  }
+);
+
+/**
  * Fetch all beaches in a state (no intent/skill filtering).
  * Used for guides pages that need all beaches regardless of skill level.
+ *
+ * Uses cross-request caching (1 hour) for better performance on guides pages.
  *
  * @param stateSlug - State slug (e.g., "ca")
  */
 export async function getBeachesByState(stateSlug: string) {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    const { data, error } = await supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .or("is_private.is.null,is_private.eq.false")
-      .eq("state", stateSlug.toUpperCase())
-      .order("city")
-      .order("name")
-      .limit(100);
-
-    if (error) throw error;
-    return { data: (data ?? []) as Beach[], error: null };
+  return withDatabaseOperation<Beach[]>(async () => {
+    try {
+      // Use cached version for cross-request performance
+      const beaches = await getCachedBeachesByState(stateSlug);
+      return { data: beaches, error: null };
+    } catch {
+      // Fallback to uncached on cache infrastructure error
+      const beaches = await _getBeachesByStateInternal(stateSlug);
+      return { data: beaches, error: null };
+    }
   });
 }
 
