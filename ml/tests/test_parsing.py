@@ -1,6 +1,6 @@
 # ml/tests/test_parsing.py
 import pytest
-from ml.parsing import parse_wave_height, parse_wind_speed
+from parsing import parse_wave_height, parse_wind_speed
 
 class TestParseWaveHeight:
     def test_range_format(self):
