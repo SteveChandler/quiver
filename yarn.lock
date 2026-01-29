@@ -939,15 +939,15 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@capacitor/android@^7.4.3":
-  version "7.4.4"
-  resolved "https://registry.yarnpkg.com/@capacitor/android/-/android-7.4.4.tgz#a14a1e844bd5079982427e247fdd17555b5fbedd"
-  integrity sha512-y8knfV1JXNrd6XZZLZireGT+EBCN0lvOo+HZ/s7L8LkrPBu4nY5UZn0Wxz4yOezItEII9rqYJSHsS5fMJG9gdw==
+"@capacitor/android@^8.0.0":
+  version "8.0.2"
+  resolved "https://registry.yarnpkg.com/@capacitor/android/-/android-8.0.2.tgz#874eccbc24db2bb6036838d8853760d964568508"
+  integrity sha512-0D7j0YvzjnfCMKLvFkAbx8b3Vwx+QfHFG5NzoXpI9sAl3zWiLsfa+NX4x92Fy+k4MGjLSMAfLThCqILYGDDsgw==
 
-"@capacitor/app@^7.0.0":
-  version "7.1.1"
-  resolved "https://registry.yarnpkg.com/@capacitor/app/-/app-7.1.1.tgz#37c1f2e378cc00529a01fe41d12a6d4242c7d912"
-  integrity sha512-H4rmMXlL6GEDs2Yds5JvYqZxz4mdp7R4XdGJ7p+oGV+YapuQ2kW38UabuhdP6qSrKfIeLde6qx+8FEX02krypA==
+"@capacitor/app@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/app/-/app-8.0.0.tgz#47c2a90302919d71cef8a7297fb1d6ee439d1250"
+  integrity sha512-OwzIkUs4w433Bu9WWAEbEYngXEfJXZ9Wmdb8eoaqzYBgB0W9/3Ed/mh6sAYPNBAZlpyarmewgP7Nb+d3Vrh+xA==
 
 "@capacitor/assets@^3.0.5":
   version "3.0.5"
@@ -990,10 +990,10 @@
     tslib "^2.4.0"
     xml2js "^0.5.0"
 
-"@capacitor/cli@^7.4.3":
-  version "7.4.4"
-  resolved "https://registry.yarnpkg.com/@capacitor/cli/-/cli-7.4.4.tgz#bfce7db8b15d6f44c9d58dc338a5e3d662fecfbb"
-  integrity sha512-J7ciBE7GlJ70sr2s8oz1+H4ZdNk4MGG41fsakUlDHWva5UWgFIZYMiEdDvGbYazAYTaxN3lVZpH9zil9FfZj+Q==
+"@capacitor/cli@^8.0.0":
+  version "8.0.2"
+  resolved "https://registry.yarnpkg.com/@capacitor/cli/-/cli-8.0.2.tgz#f3d0e6374cc986cfd9caff1aee87151183093be2"
+  integrity sha512-/8qLYxhytMyUKTHK8i6YU+DMD3AuFiQgSuJCyMltcg9MN3W9En7zqQZSo/WN4eC7qif/oyZACzm7OkAZKani7g==
   dependencies:
     "@ionic/cli-framework-output" "^2.2.8"
     "@ionic/utils-subprocess" "^3.0.1"
@@ -1003,51 +1003,51 @@
     env-paths "^2.2.0"
     fs-extra "^11.2.0"
     kleur "^4.1.5"
-    native-run "^2.0.1"
+    native-run "^2.0.3"
     open "^8.4.0"
     plist "^3.1.0"
     prompts "^2.4.2"
     rimraf "^6.0.1"
     semver "^7.6.3"
-    tar "^6.1.11"
+    tar "^7.5.3"
     tslib "^2.8.1"
     xml2js "^0.6.2"
 
-"@capacitor/core@^7.4.3":
-  version "7.4.4"
-  resolved "https://registry.yarnpkg.com/@capacitor/core/-/core-7.4.4.tgz#b752dd7a12141e40d1c8ce2e37a79571d9f83518"
-  integrity sha512-xzjxpr+d2zwTpCaN0k+C6wKSZzWFAb9OVEUtmO72ihjr/NEDoLvsGl4WLfjWPcCO2zOy0b2X52tfRWjECFUjtw==
+"@capacitor/core@^8.0.0":
+  version "8.0.2"
+  resolved "https://registry.yarnpkg.com/@capacitor/core/-/core-8.0.2.tgz#2b05838c2729522803e30534d6d7f5d3296424bf"
+  integrity sha512-EXZfxkL6GFJS2cb7TIBR7RiHA5iz6ufDcl1VmUpI2pga3lJ5Ck2+iqbx7N+osL3XYem9ad4XCidJEMm64DX6UQ==
   dependencies:
     tslib "^2.1.0"
 
-"@capacitor/filesystem@^7.0.1":
-  version "7.1.6"
-  resolved "https://registry.yarnpkg.com/@capacitor/filesystem/-/filesystem-7.1.6.tgz#0c95533f9e4d34642cb2e04e52a4e99fabab265e"
-  integrity sha512-7NGrmp9v/ejR2C2QKr66na5IJMCBH78TEX2AwqQyq2MCR3yM2PsWvFPAnNOYlBHPgBzzxEC+sjPRBk1bDsXJvg==
+"@capacitor/filesystem@^8.0.0":
+  version "8.1.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/filesystem/-/filesystem-8.1.0.tgz#12d322d0404c9c326f5505e27da8cc924e492f6d"
+  integrity sha512-AfawIxQ8xBmKsEn/vEpgurGQB9+hFXRtwEiCXR+SSS0MkTw4bJrvLGnloZ/PblegYefvnay1q079Yz3PQ6y1dA==
   dependencies:
-    "@capacitor/synapse" "^1.0.3"
+    "@capacitor/synapse" "^1.0.4"
 
-"@capacitor/ios@^7.4.3":
-  version "7.4.4"
-  resolved "https://registry.yarnpkg.com/@capacitor/ios/-/ios-7.4.4.tgz#051c37df4ffa878bd757b3849ce61668ac174083"
-  integrity sha512-Xp3bGWlSQAwsZGngRMWTdoD2agdMV12Whnm+/xsYPxfQSj+Tksbr7r/8Mso7VWkpnTKO4iMlx762g3PjW+wi4w==
+"@capacitor/ios@^8.0.0":
+  version "8.0.2"
+  resolved "https://registry.yarnpkg.com/@capacitor/ios/-/ios-8.0.2.tgz#9c9c48ed478099eed0573df085c3888f9dfe5758"
+  integrity sha512-7EM7vBxXI3Ku49aYCJcS9su5Y3i6UmXpx7e0y+oQV9PzCnZ6l5B0ACJ+gXAU0bM3q7/f+kGBsOtXMid84rU6MQ==
 
-"@capacitor/push-notifications@^7.0.3":
-  version "7.0.3"
-  resolved "https://registry.yarnpkg.com/@capacitor/push-notifications/-/push-notifications-7.0.3.tgz#b053f5c8db8cc8ceddda8dd9a1c744a72113e202"
-  integrity sha512-4qt5dRVBkHzq202NEoj3JC+S+zQCrZ1FJh7sjkICy/i1iEos+VaoB3bie8eWDQ2LTARktB4+k2xkdpu8pcVo/g==
+"@capacitor/push-notifications@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/push-notifications/-/push-notifications-8.0.0.tgz#031c25e4a61d0fc79ea3a557ceaf520fbc0fffae"
+  integrity sha512-xJWQLqAfC8b2ETqAPmwDnkKB4t/lVrbYc2D8VpA2fSu10JFSL/R722Vk0Lfl9Lo9WusmyIiQbVfILNQ3iFNGKw==
 
-"@capacitor/share@^7.0.2":
-  version "7.0.2"
-  resolved "https://registry.yarnpkg.com/@capacitor/share/-/share-7.0.2.tgz#74aab38dde1eae6d6889b71f1d09c02fe358da47"
-  integrity sha512-VyNPo/9831xnL17IMDeft5yNdBjoKNb451P95sRcr69hulRDqHc+kndqOVaMXnaA6IyBdWnnFv/n1HUf4cXpGw==
+"@capacitor/share@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/share/-/share-8.0.0.tgz#8f8151bfad8f33804d9fed0f0cca9ee78b02e0c5"
+  integrity sha512-VU+xT4LFwr4keIC0UKDqGQVAiNlAHwoTMQg8wVVSxtn/k32VOvvtqFfu63qnXr40WKytZWrxJfVESvRjd761yg==
 
-"@capacitor/status-bar@^7.0.0":
-  version "7.0.4"
-  resolved "https://registry.yarnpkg.com/@capacitor/status-bar/-/status-bar-7.0.4.tgz#ba74289edf0fea7e1e6844f171faf9473da9177f"
-  integrity sha512-2BszlCqIlBZxHLjRyQbumKyuuisutkeJH+5eSKAEJKaDVJcfmAzr2v3MXWsRLrAHJFteLzRXkOlce5msSy28tQ==
+"@capacitor/status-bar@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/status-bar/-/status-bar-8.0.0.tgz#07ad5a765d2aa9a201a7472f6fd5cb44b25d25a5"
+  integrity sha512-aIj3bc7z8lfPgOen8HlrBrkfnxpFnh21OCx6jCUx4Mvv+B6eEkUQ49b32DOddgVfr+igRHLX2SYi7duqIsNDXg==
 
-"@capacitor/synapse@^1.0.3":
+"@capacitor/synapse@^1.0.4":
   version "1.0.4"
   resolved "https://registry.yarnpkg.com/@capacitor/synapse/-/synapse-1.0.4.tgz#c6beb33119d9656b1f04cb7783989fb78933ef6d"
   integrity sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==
@@ -2076,6 +2076,13 @@
     strip-ansi-cjs "npm:strip-ansi@^6.0.1"
     wrap-ansi "^8.1.0"
     wrap-ansi-cjs "npm:wrap-ansi@^7.0.0"
+
+"@isaacs/fs-minipass@^4.0.0":
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/@isaacs/fs-minipass/-/fs-minipass-4.0.1.tgz#2d59ae3ab4b38fb4270bfa23d30f8e2e86c7fe32"
+  integrity sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==
+  dependencies:
+    minipass "^7.0.4"
 
 "@istanbuljs/load-nyc-config@^1.0.0":
   version "1.1.0"
@@ -6186,10 +6193,10 @@ chownr@^1.1.1:
   resolved "https://registry.yarnpkg.com/chownr/-/chownr-1.1.4.tgz#6fc9d7b42d32a583596337666e7d08084da2cc6b"
   integrity sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==
 
-chownr@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/chownr/-/chownr-2.0.0.tgz#15bfbe53d2eab4cf70f18a8cd68ebe5b3cb1dece"
-  integrity sha512-bIomtDF5KGpdogkLd9VspvFzk9KfpyyGlS8YFVZl7TGPBHL5snIOnxeshwVgPteQ9b4Eydl+pVbIyE1DcvCWgQ==
+chownr@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/chownr/-/chownr-3.0.0.tgz#9855e64ecd240a9cc4267ce8a4aa5d24a1da15e4"
+  integrity sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==
 
 chrome-launcher@^0.13.4:
   version "0.13.4"
@@ -8415,13 +8422,6 @@ fs-extra@^9.0.0, fs-extra@^9.0.1:
     graceful-fs "^4.2.0"
     jsonfile "^6.0.1"
     universalify "^2.0.0"
-
-fs-minipass@^2.0.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/fs-minipass/-/fs-minipass-2.1.0.tgz#7f5036fdbf12c63c169190cbe4199c852271f9fb"
-  integrity sha512-V/JgOLFCS+R6Vcq0slCuaeWEdNC3ouDlJMNIsacH2VtALiu9mV4LPrHc5cDl8k5aw6J8jwgWWpiTo5RYhmIzvg==
-  dependencies:
-    minipass "^3.0.0"
 
 fsevents@2.3.2:
   version "2.3.2"
@@ -10828,30 +10828,17 @@ minimist@^1.2.0, minimist@^1.2.3, minimist@^1.2.5, minimist@^1.2.6, minimist@^1.
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.8.tgz#c1a464e7693302e082a075cee0c057741ac4772c"
   integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
 
-minipass@^3.0.0:
-  version "3.3.6"
-  resolved "https://registry.yarnpkg.com/minipass/-/minipass-3.3.6.tgz#7bba384db3a1520d18c9c0e5251c3444e95dd94a"
-  integrity sha512-DxiNidxSEK+tHG6zOIklvNOwm3hvCrbUrdtzY74U6HKTJxvIDfOUL5W5P2Ghd3DTkhhKPYGqeNUIh5qcM4YBfw==
-  dependencies:
-    yallist "^4.0.0"
-
-minipass@^5.0.0:
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/minipass/-/minipass-5.0.0.tgz#3e9788ffb90b694a5d0ec94479a45b5d8738133d"
-  integrity sha512-3FnjYuehv9k6ovOEbyOswadCDPX1piCfhV8ncmYtHOjuPwylVWsghTLo7rabjC3Rx5xD4HDx8Wm1xnMF7S5qFQ==
-
-minipass@^7.1.2:
+minipass@^7.0.4, minipass@^7.1.2:
   version "7.1.2"
   resolved "https://registry.yarnpkg.com/minipass/-/minipass-7.1.2.tgz#93a9626ce5e5e66bd4db86849e7515e92340a707"
   integrity sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==
 
-minizlib@^2.1.1:
-  version "2.1.2"
-  resolved "https://registry.yarnpkg.com/minizlib/-/minizlib-2.1.2.tgz#e90d3466ba209b932451508a11ce3d3632145931"
-  integrity sha512-bAxsR8BVfj60DWXHE3u30oHzfl4G7khkSuPW+qvpd7jFRHm7dLxOjUk1EHACJ/hxLY8phGJ0YhYHZo7jil7Qdg==
+minizlib@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/minizlib/-/minizlib-3.1.0.tgz#6ad76c3a8f10227c9b51d1c9ac8e30b27f5a251c"
+  integrity sha512-KZxYo1BUkWD2TVFLr0MQoM8vUUigWD3LlD83a/75BqC+4qE0Hb1Vo5v1FgcfaNXvfXzr+5EhQ6ing/CaBijTlw==
   dependencies:
-    minipass "^3.0.0"
-    yallist "^4.0.0"
+    minipass "^7.1.2"
 
 mitt@^3.0.1:
   version "3.0.1"
@@ -10870,7 +10857,7 @@ mkdirp@^0.5.3:
   dependencies:
     minimist "^1.2.6"
 
-mkdirp@^1.0.3, mkdirp@^1.0.4:
+mkdirp@^1.0.4:
   version "1.0.4"
   resolved "https://registry.yarnpkg.com/mkdirp/-/mkdirp-1.0.4.tgz#3eb5ed62622756d79a5f0e2a221dfebad75c2f7e"
   integrity sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==
@@ -10962,10 +10949,27 @@ napi-postinstall@^0.3.0:
   resolved "https://registry.yarnpkg.com/napi-postinstall/-/napi-postinstall-0.3.4.tgz#7af256d6588b5f8e952b9190965d6b019653bbb9"
   integrity sha512-PHI5f1O0EP5xJ9gQmFGMS6IZcrVvTjpXjz7Na41gTE7eE2hK11lg04CECCYEEjdc17EV4DO+fkGEtt7TpTaTiQ==
 
-native-run@^2.0.0, native-run@^2.0.1:
+native-run@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/native-run/-/native-run-2.0.1.tgz#a9b213c32824b007cbdd0279e0edd3c24bcc2f7a"
   integrity sha512-XfG1FBZLM50J10xH9361whJRC9SHZ0Bub4iNRhhI61C8Jv0e1ud19muex6sNKB51ibQNUJNuYn25MuYET/rE6w==
+  dependencies:
+    "@ionic/utils-fs" "^3.1.7"
+    "@ionic/utils-terminal" "^2.3.4"
+    bplist-parser "^0.3.2"
+    debug "^4.3.4"
+    elementtree "^0.1.7"
+    ini "^4.1.1"
+    plist "^3.1.0"
+    split2 "^4.2.0"
+    through2 "^4.0.2"
+    tslib "^2.6.2"
+    yauzl "^2.10.0"
+
+native-run@^2.0.3:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/native-run/-/native-run-2.0.3.tgz#b1ceb39c8d24abf4916c07ae9aad5a9fbcd31a02"
+  integrity sha512-U1PllBuzW5d1gfan+88L+Hky2eZx+9gv3Pf6rNBxKbORxi7boHzqiA6QFGSnqMem4j0A9tZ08NMIs5+0m/VS1Q==
   dependencies:
     "@ionic/utils-fs" "^3.1.7"
     "@ionic/utils-terminal" "^2.3.4"
@@ -13396,17 +13400,16 @@ tar-stream@^3.1.5:
     fast-fifo "^1.2.0"
     streamx "^2.15.0"
 
-tar@^6.1.11, tar@^6.2.1:
-  version "6.2.1"
-  resolved "https://registry.yarnpkg.com/tar/-/tar-6.2.1.tgz#717549c541bc3c2af15751bea94b1dd068d4b03a"
-  integrity sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==
+tar@^6.1.11, tar@^7.5.3:
+  version "7.5.7"
+  resolved "https://registry.yarnpkg.com/tar/-/tar-7.5.7.tgz#adf99774008ba1c89819f15dbd6019c630539405"
+  integrity sha512-fov56fJiRuThVFXD6o6/Q354S7pnWMJIVlDBYijsTNx6jKSE4pvrDTs6lUnmGvNyfJwFQQwWy3owKz1ucIhveQ==
   dependencies:
-    chownr "^2.0.0"
-    fs-minipass "^2.0.0"
-    minipass "^5.0.0"
-    minizlib "^2.1.1"
-    mkdirp "^1.0.3"
-    yallist "^4.0.0"
+    "@isaacs/fs-minipass" "^4.0.0"
+    chownr "^3.0.0"
+    minipass "^7.1.2"
+    minizlib "^3.1.0"
+    yallist "^5.0.0"
 
 teeny-request@^9.0.0:
   version "9.0.0"
@@ -14743,6 +14746,11 @@ yallist@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/yallist/-/yallist-4.0.0.tgz#9bb92790d9c0effec63be73519e11a35019a3a72"
   integrity sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==
+
+yallist@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/yallist/-/yallist-5.0.0.tgz#00e2de443639ed0d78fd87de0d27469fbcffb533"
+  integrity sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==
 
 yaml@^1.10.0:
   version "1.10.2"
