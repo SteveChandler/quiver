@@ -84,6 +84,23 @@ export const DIRECTION_FACTOR_MIN = 0.6;
  */
 export const DIRECTION_FACTOR_RANGE = 0.4;
 
+/**
+ * Set wave variance multiplier
+ * Set waves are typically 50% larger than average waves
+ * Used to display wave height ranges like "3-5ft"
+ */
+export const SET_WAVE_VARIANCE = 1.5;
+
+/**
+ * Wave height range representing average to set waves
+ */
+export interface WaveHeightRange {
+  /** Average wave face height */
+  low: number;
+  /** Set wave face height (low × 1.5) */
+  high: number;
+}
+
 // ===================================================
 // TRANSFORMATION FUNCTIONS
 // ===================================================
@@ -217,4 +234,24 @@ export function getTransformationFactors(params: TransformParams): {
     directionFactor,
     faceHeightFt,
   };
+}
+
+/**
+ * Transform raw buoy significant wave height to face height range
+ *
+ * Returns a range representing average waves (low) to set waves (high).
+ * Set waves are typically 50% larger than average waves.
+ *
+ * @param params Transformation parameters
+ * @returns Wave height range with low (average) and high (set) values
+ *
+ * @example
+ * // 2ft @ 10s = 3.2ft average, 4.8ft sets
+ * transformToFaceHeightRange({ rawHeightFt: 2.0, periodS: 10, swellDirectionDeg: null })
+ * // Returns { low: 3.2, high: 4.8 }
+ */
+export function transformToFaceHeightRange(params: TransformParams): WaveHeightRange {
+  const low = transformToFaceHeight(params);
+  const high = Math.round(low * SET_WAVE_VARIANCE * 10) / 10;
+  return { low, high };
 }

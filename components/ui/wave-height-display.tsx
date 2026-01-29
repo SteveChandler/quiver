@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { InfoIcon } from "lucide-react";
 import {
   Tooltip,
@@ -7,6 +8,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
+import {
+  formatWaveHeightRangeString,
+  extractNumericWaveHeight,
+} from "@/lib/utils/wave-height-formatter";
 
 interface WaveHeightDisplayProps {
   height: string | null | undefined;
@@ -26,7 +32,19 @@ export function WaveHeightDisplay({
   confidenceScore = null,
   isMlCalibrated = false,
 }: WaveHeightDisplayProps) {
-  if (!height) {
+  // Compute wave height range (average to set waves)
+  const displayHeight = useMemo(() => {
+    if (!height) return null;
+
+    // Extract numeric value using shared utility
+    const low = extractNumericWaveHeight(height);
+    if (low === null) return height;
+
+    // Format as range: average to set waves (1.5x)
+    return formatWaveHeightRangeString(low, low * SET_WAVE_VARIANCE);
+  }, [height]);
+
+  if (!displayHeight) {
     return <span className={className}>--</span>;
   }
 
@@ -39,7 +57,7 @@ export function WaveHeightDisplay({
 
   const content = (
     <span className={`${className} flex items-center`}>
-      {height}
+      {displayHeight}
       {mlBadge}
     </span>
   );
@@ -100,7 +118,7 @@ export function WaveHeightDisplay({
       <Tooltip>
         <TooltipTrigger asChild>
           <span className={`${className} cursor-help flex items-center gap-1`}>
-            {height}
+            {displayHeight}
             {mlBadge}
             <InfoIcon className="w-3 h-3 text-muted-foreground" />
           </span>
@@ -108,20 +126,20 @@ export function WaveHeightDisplay({
         <TooltipContent side="top" className="max-w-xs">
           <div className="space-y-2 text-xs">
             <div className="font-medium">
-              Face Height {isMlCalibrated ? "(ML-Calibrated)" : "(Calibrated)"}
+              Wave Height Range {isMlCalibrated ? "(ML-Calibrated)" : "(Calibrated)"}
             </div>
             <div>
               {isMlCalibrated ? (
                 <>
-                  This wave height has been refined by our machine learning model,
-                  trained on historical surf conditions at this beach for more
-                  accurate predictions.
+                  The lower number is the average wave face height, refined by
+                  our ML model. The higher number represents set waves (larger
+                  waves that come in groups).
                 </>
               ) : (
                 <>
-                  This wave height represents the &quot;face height&quot; that
-                  surfers typically experience, calibrated from scientific
-                  measurements to match real-world surf conditions.
+                  The lower number is the average wave face height. The higher
+                  number represents set waves - the bigger waves that come
+                  through periodically (typically 50% larger than average).
                 </>
               )}
             </div>

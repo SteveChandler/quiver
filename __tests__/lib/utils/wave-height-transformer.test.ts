@@ -1,5 +1,6 @@
 import {
   transformToFaceHeight,
+  transformToFaceHeightRange,
   calculatePeriodFactor,
   calculateDirectionFactor,
   getTransformationFactors,
@@ -10,10 +11,15 @@ import {
   PERIOD_FACTOR_MAX,
   DIRECTION_FACTOR_MIN,
   DIRECTION_FACTOR_RANGE,
+  SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
   type TransformParams,
 } from '@/lib/utils/wave-height-transformer';
 import { TERRAIN_BINS } from '@/types/terrain';
+import {
+  createMockBeach,
+  createAccessArray,
+} from './test-helpers/wave-height-test-utils';
 
 describe('Wave Height Transformer', () => {
   describe('Constants', () => {
@@ -25,6 +31,7 @@ describe('Wave Height Transformer', () => {
       expect(PERIOD_FACTOR_MAX).toBe(1.4);
       expect(DIRECTION_FACTOR_MIN).toBe(0.6);
       expect(DIRECTION_FACTOR_RANGE).toBe(0.4);
+      expect(SET_WAVE_VARIANCE).toBe(1.5);
     });
   });
 
@@ -71,25 +78,8 @@ describe('Wave Height Transformer', () => {
   });
 
   describe('calculateDirectionFactor', () => {
-    // Create a mock beach with terrain enabled
-    const createMockBeach = (accessFactors: number[]): BeachTerrainConfig => ({
-      terrain_enabled: true,
-      swell_access_factors: accessFactors,
-    });
-
-    // Create a 72-element array with default value
-    const createAccessArray = (defaultValue: number): number[] =>
-      Array(TERRAIN_BINS).fill(defaultValue);
-
-    // Create a 72-element array with specific bin set to a value
-    const createAccessArrayWithBin = (bin: number, value: number): number[] => {
-      const arr = createAccessArray(0.5);
-      arr[bin] = value;
-      return arr;
-    };
-
     it('should return 1.0 when direction is null', () => {
-      const beach = createMockBeach(createAccessArray(1.0));
+      const beach = createMockBeach(1.0);
       expect(calculateDirectionFactor(null, beach)).toBe(1.0);
     });
 
@@ -122,19 +112,19 @@ describe('Wave Height Transformer', () => {
     });
 
     it('should calculate 1.0 for full access (access = 1.0)', () => {
-      const beach = createMockBeach(createAccessArray(1.0));
+      const beach = createMockBeach(1.0);
       // 0.6 + 1.0 * 0.4 = 1.0
       expect(calculateDirectionFactor(180, beach)).toBe(1.0);
     });
 
     it('should calculate 0.6 for no access (access = 0.0)', () => {
-      const beach = createMockBeach(createAccessArray(0.0));
+      const beach = createMockBeach(0.0);
       // 0.6 + 0.0 * 0.4 = 0.6
       expect(calculateDirectionFactor(180, beach)).toBe(0.6);
     });
 
     it('should calculate 0.8 for half access (access = 0.5)', () => {
-      const beach = createMockBeach(createAccessArray(0.5));
+      const beach = createMockBeach(0.5);
       // 0.6 + 0.5 * 0.4 = 0.8
       expect(calculateDirectionFactor(180, beach)).toBe(0.8);
     });
@@ -148,7 +138,10 @@ describe('Wave Height Transformer', () => {
       // Set bin 36 (180 degrees) to have full access
       const accessArray = createAccessArray(0.0);
       accessArray[36] = 1.0;
-      const beach = createMockBeach(accessArray);
+      const beach: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: accessArray,
+      };
 
       expect(calculateDirectionFactor(0, beach)).toBe(0.6); // bin 0 = 0
       expect(calculateDirectionFactor(180, beach)).toBe(1.0); // bin 36 = 1.0
@@ -160,7 +153,10 @@ describe('Wave Height Transformer', () => {
       const accessArray = createAccessArray(0.5);
       accessArray[36] = 1.5; // Out of range high
       accessArray[0] = -0.5; // Out of range low
-      const beach = createMockBeach(accessArray);
+      const beach: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: accessArray,
+      };
 
       // Clamped 1.5 -> 1.0: 0.6 + 1.0 * 0.4 = 1.0
       expect(calculateDirectionFactor(180, beach)).toBe(1.0);
@@ -231,11 +227,6 @@ describe('Wave Height Transformer', () => {
     });
 
     describe('Direction factor with terrain', () => {
-      const createMockBeach = (accessValue: number): BeachTerrainConfig => ({
-        terrain_enabled: true,
-        swell_access_factors: Array(TERRAIN_BINS).fill(accessValue),
-      });
-
       it('should apply full direction factor for good access', () => {
         // 2.0ft @ 10s, direction factor 1.0: 2.0 * 1.6 * 1.0 * 1.0 = 3.2
         const result = transformToFaceHeight({
@@ -275,11 +266,6 @@ describe('Wave Height Transformer', () => {
     });
 
     describe('Combined factors - realistic scenarios', () => {
-      const createMockBeach = (accessValue: number): BeachTerrainConfig => ({
-        terrain_enabled: true,
-        swell_access_factors: Array(TERRAIN_BINS).fill(accessValue),
-      });
-
       it('should calculate example from plan: 1.9ft @ 16s with good SW access', () => {
         // 1.9ft @ 16s, good access (1.0):
         // 1.9 * 1.6 * 1.3 * 1.0 = 3.952, rounded to 4.0
@@ -431,6 +417,97 @@ describe('Wave Height Transformer', () => {
       expect(factors.directionFactor).toBe(0.8); // 0.6 + 0.5 * 0.4
       // 2.0 * 1.6 * 1.0 * 0.8 = 2.56, rounded to 2.6
       expect(factors.faceHeightFt).toBe(2.6);
+    });
+  });
+
+  describe('transformToFaceHeightRange', () => {
+    it('should return low and high values', () => {
+      const result = transformToFaceHeightRange({
+        rawHeightFt: 2.0,
+        periodS: 10,
+        swellDirectionDeg: null,
+        beach: null,
+      });
+
+      // 2.0 * 1.6 = 3.2ft average
+      // 3.2 * 1.5 = 4.8ft sets
+      expect(result.low).toBe(3.2);
+      expect(result.high).toBe(4.8);
+    });
+
+    it('should calculate set waves at 1.5x average', () => {
+      const result = transformToFaceHeightRange({
+        rawHeightFt: 1.0,
+        periodS: 10,
+        swellDirectionDeg: null,
+        beach: null,
+      });
+
+      // 1.0 * 1.6 = 1.6ft average
+      // 1.6 * 1.5 = 2.4ft sets
+      expect(result.low).toBe(1.6);
+      expect(result.high).toBe(2.4);
+    });
+
+    it('should apply period factor to range', () => {
+      const result = transformToFaceHeightRange({
+        rawHeightFt: 2.0,
+        periodS: 16, // Long period = 1.3x
+        swellDirectionDeg: null,
+        beach: null,
+      });
+
+      // 2.0 * 1.6 * 1.3 = 4.16, rounded to 4.2ft average
+      // 4.2 * 1.5 = 6.3ft sets
+      expect(result.low).toBeCloseTo(4.2, 1);
+      expect(result.high).toBeCloseTo(6.3, 1);
+    });
+
+    it('should apply direction factor to range', () => {
+      const beach: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: Array(TERRAIN_BINS).fill(0.5),
+      };
+
+      const result = transformToFaceHeightRange({
+        rawHeightFt: 2.0,
+        periodS: 10,
+        swellDirectionDeg: 180,
+        beach,
+      });
+
+      // Direction factor = 0.6 + 0.5 * 0.4 = 0.8
+      // 2.0 * 1.6 * 1.0 * 0.8 = 2.56, rounded to 2.6ft average
+      // 2.6 * 1.5 = 3.9ft sets
+      expect(result.low).toBeCloseTo(2.6, 1);
+      expect(result.high).toBeCloseTo(3.9, 1);
+    });
+
+    it('should handle zero height', () => {
+      const result = transformToFaceHeightRange({
+        rawHeightFt: 0,
+        periodS: 10,
+        swellDirectionDeg: null,
+        beach: null,
+      });
+
+      expect(result.low).toBe(0);
+      expect(result.high).toBe(0);
+    });
+
+    it('should round high value to 1 decimal place', () => {
+      // Create a scenario where high would have many decimal places
+      const result = transformToFaceHeightRange({
+        rawHeightFt: 1.55,
+        periodS: 10,
+        swellDirectionDeg: null,
+        beach: null,
+      });
+
+      // 1.55 * 1.6 = 2.48, rounded to 2.5ft average
+      // 2.5 * 1.5 = 3.75, rounded to 3.8ft sets
+      expect(result.low).toBe(2.5);
+      expect(result.high).toBe(3.8);
     });
   });
 });

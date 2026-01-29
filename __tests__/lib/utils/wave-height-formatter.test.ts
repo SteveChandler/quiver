@@ -3,6 +3,13 @@ import {
   formatWaveHeight,
   getWaveHeightValue,
   toFaceHeightFeet,
+  formatWaveHeightRangeString,
+  toFaceHeightRangeFeet,
+  extractNumericWaveHeight,
+  selectWaveHeightSource,
+  roundWaveHeight,
+  clampWaveHeight,
+  WAVE_HEIGHT_NUMBER_PATTERN,
 } from "@/lib/utils/wave-height-formatter";
 import { TERRAIN_BINS } from "@/types/terrain";
 
@@ -246,6 +253,284 @@ describe("Wave Height Formatter", () => {
         // Should fall back to model swell (Infinity fails isFinite check)
         expect(result).toMatch(/\d+\.?\d* ft/);
       });
+    });
+  });
+
+  describe("formatWaveHeightRangeString", () => {
+    it("should format typical wave ranges with integers", () => {
+      // 3.2ft avg, 4.8ft sets -> "3-5ft"
+      expect(formatWaveHeightRangeString(3.2, 4.8)).toBe("3-5ft");
+      // 2.0ft avg, 3.0ft sets -> "2-3ft"
+      expect(formatWaveHeightRangeString(2.0, 3.0)).toBe("2-3ft");
+      // 4.5ft avg, 6.75ft sets -> "5-7ft"
+      expect(formatWaveHeightRangeString(4.5, 6.75)).toBe("5-7ft");
+    });
+
+    it("should use half-foot precision for small ranges", () => {
+      // When range < 1ft, use half-foot precision
+      // 1.2 rounds to 1, 1.8 rounds to 2
+      expect(formatWaveHeightRangeString(1.2, 1.8)).toBe("1-2ft");
+      // 0.8 and 1.2 both round to 1, so single value
+      expect(formatWaveHeightRangeString(0.8, 1.2)).toBe("1ft");
+    });
+
+    it("should return single value when low and high round to same", () => {
+      // Both are exactly 2
+      expect(formatWaveHeightRangeString(2.0, 2.0)).toBe("2ft");
+      // 1.8 rounds to 2, 2.2 rounds to 2
+      expect(formatWaveHeightRangeString(1.8, 2.2)).toBe("2ft");
+    });
+
+    it("should handle small waves with half-foot precision", () => {
+      // 0.5 stays 0.5, 0.75 rounds to 1
+      expect(formatWaveHeightRangeString(0.5, 0.75)).toBe("0.5-1ft");
+      // 1.0 stays 1, 1.5 stays 1.5
+      expect(formatWaveHeightRangeString(1.0, 1.5)).toBe("1-1.5ft");
+    });
+
+    it("should handle large waves with integers", () => {
+      // 8ft avg, 12ft sets -> "8-12ft"
+      expect(formatWaveHeightRangeString(8, 12)).toBe("8-12ft");
+      // 10ft avg, 15ft sets -> "10-15ft"
+      expect(formatWaveHeightRangeString(10, 15)).toBe("10-15ft");
+    });
+
+    it("should handle realistic Surfline-style ranges", () => {
+      // Real example: 3.2ft average × 1.5 = 4.8ft sets
+      expect(formatWaveHeightRangeString(3.2, 3.2 * 1.5)).toBe("3-5ft");
+      // 2.5ft average × 1.5 = 3.75ft sets
+      expect(formatWaveHeightRangeString(2.5, 2.5 * 1.5)).toBe("3-4ft");
+      // 5ft average × 1.5 = 7.5ft sets
+      expect(formatWaveHeightRangeString(5, 5 * 1.5)).toBe("5-8ft");
+    });
+  });
+
+  describe("extractNumericWaveHeight", () => {
+    it("should extract integers from strings", () => {
+      expect(extractNumericWaveHeight("4")).toBe(4);
+      expect(extractNumericWaveHeight("10ft")).toBe(10);
+      expect(extractNumericWaveHeight("5 ft")).toBe(5);
+    });
+
+    it("should extract decimals from strings", () => {
+      expect(extractNumericWaveHeight("3.5")).toBe(3.5);
+      expect(extractNumericWaveHeight("2.75 ft")).toBe(2.75);
+      expect(extractNumericWaveHeight("0.5ft")).toBe(0.5);
+    });
+
+    it("should extract first number from range strings", () => {
+      expect(extractNumericWaveHeight("3-5ft")).toBe(3);
+      expect(extractNumericWaveHeight("2.5-4ft")).toBe(2.5);
+    });
+
+    it("should return null for strings without numbers", () => {
+      expect(extractNumericWaveHeight("abc")).toBeNull();
+      expect(extractNumericWaveHeight("ft")).toBeNull();
+      expect(extractNumericWaveHeight("")).toBeNull();
+    });
+
+    it("should handle edge cases", () => {
+      expect(extractNumericWaveHeight("  4.5  ")).toBe(4.5);
+      expect(extractNumericWaveHeight("test 3.2 value")).toBe(3.2);
+    });
+  });
+
+  describe("roundWaveHeight", () => {
+    it("should round to 1 decimal place", () => {
+      expect(roundWaveHeight(3.24)).toBe(3.2);
+      expect(roundWaveHeight(3.25)).toBe(3.3);
+      expect(roundWaveHeight(3.26)).toBe(3.3);
+    });
+
+    it("should handle whole numbers", () => {
+      expect(roundWaveHeight(5.0)).toBe(5);
+      expect(roundWaveHeight(10)).toBe(10);
+    });
+
+    it("should handle small values", () => {
+      expect(roundWaveHeight(0.14)).toBe(0.1);
+      expect(roundWaveHeight(0.15)).toBe(0.2);
+      expect(roundWaveHeight(0.16)).toBe(0.2);
+    });
+  });
+
+  describe("clampWaveHeight", () => {
+    it("should clamp values below minimum (0.5ft)", () => {
+      expect(clampWaveHeight(0.1)).toBe(0.5);
+      expect(clampWaveHeight(0.3)).toBe(0.5);
+      expect(clampWaveHeight(0)).toBe(0.5);
+      expect(clampWaveHeight(-1)).toBe(0.5);
+    });
+
+    it("should clamp values above maximum (15ft)", () => {
+      expect(clampWaveHeight(16)).toBe(15);
+      expect(clampWaveHeight(20)).toBe(15);
+      expect(clampWaveHeight(100)).toBe(15);
+    });
+
+    it("should not clamp values within range", () => {
+      expect(clampWaveHeight(0.5)).toBe(0.5);
+      expect(clampWaveHeight(5)).toBe(5);
+      expect(clampWaveHeight(15)).toBe(15);
+    });
+  });
+
+  describe("selectWaveHeightSource", () => {
+    it("should prefer CDIP significant height", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: 3.0,
+        cdipSwellFt: 2.0,
+        modelSwellM: 1.0,
+        modelHsM: 0.5,
+      });
+      expect(result).toEqual({ heightFt: 3.0, source: "cdip_sig" });
+    });
+
+    it("should fall back to model swell when CDIP unavailable", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: 1.0, // 3.28ft
+      });
+      expect(result?.source).toBe("model_swell");
+      expect(result?.heightFt).toBeCloseTo(3.28, 1);
+    });
+
+    it("should use model swell when CDIP is outlier", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: 10.0, // > 1.8 * 3.28 = 5.9
+        modelSwellM: 1.0,
+      });
+      expect(result?.source).toBe("model_swell");
+    });
+
+    it("should reject untrusted high CDIP values", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: 12.0, // > 10ft threshold
+        modelSwellM: 2.0,
+      });
+      expect(result?.source).toBe("model_swell");
+    });
+
+    it("should fall back to CDIP swell when model unavailable", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: 2.5,
+      });
+      expect(result).toEqual({ heightFt: 2.5, source: "cdip_swell" });
+    });
+
+    it("should fall back to model Hs as last resort", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: null,
+        modelHsM: 0.5, // 1.64ft
+      });
+      expect(result?.source).toBe("model_hs");
+      expect(result?.heightFt).toBeCloseTo(1.64, 1);
+    });
+
+    it("should return null when no sources available", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: null,
+        modelHsM: null,
+      });
+      expect(result).toBeNull();
+    });
+
+    it("should handle NaN and invalid values", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: NaN,
+        modelSwellM: 1.0,
+      });
+      expect(result?.source).toBe("model_swell");
+    });
+  });
+
+  describe("WAVE_HEIGHT_NUMBER_PATTERN", () => {
+    it("should match integers", () => {
+      expect("4".match(WAVE_HEIGHT_NUMBER_PATTERN)?.[1]).toBe("4");
+      expect("10ft".match(WAVE_HEIGHT_NUMBER_PATTERN)?.[1]).toBe("10");
+    });
+
+    it("should match decimals", () => {
+      expect("3.5".match(WAVE_HEIGHT_NUMBER_PATTERN)?.[1]).toBe("3.5");
+      expect("2.75 ft".match(WAVE_HEIGHT_NUMBER_PATTERN)?.[1]).toBe("2.75");
+    });
+
+    it("should not match non-numeric strings", () => {
+      expect("abc".match(WAVE_HEIGHT_NUMBER_PATTERN)).toBeNull();
+      expect("ft".match(WAVE_HEIGHT_NUMBER_PATTERN)).toBeNull();
+    });
+  });
+
+  describe("toFaceHeightRangeFeet", () => {
+    it("should return range string for valid input", () => {
+      const result = toFaceHeightRangeFeet({
+        cdipSigFt: 2.0,
+        periodS: 10,
+      });
+      // 2.0 * 1.6 = 3.2ft average, × 1.5 = 4.8ft sets -> "3-5ft"
+      expect(result).toBe("3-5ft");
+    });
+
+    it("should return null when no data available", () => {
+      const result = toFaceHeightRangeFeet({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: null,
+        modelHsM: null,
+      });
+      expect(result).toBeNull();
+    });
+
+    it("should apply period amplification to range", () => {
+      const shortPeriod = toFaceHeightRangeFeet({
+        cdipSigFt: 2.0,
+        periodS: 8,
+      });
+      const longPeriod = toFaceHeightRangeFeet({
+        cdipSigFt: 2.0,
+        periodS: 16,
+      });
+      // Long period should produce larger range
+      expect(shortPeriod).not.toBe(longPeriod);
+    });
+
+    it("should use model swell when CDIP unavailable", () => {
+      const result = toFaceHeightRangeFeet({
+        cdipSigFt: null,
+        modelSwellM: 1.0, // 3.28ft raw
+        periodS: 10,
+      });
+      // 3.28 * 1.6 = 5.25ft, × 1.5 = 7.87ft -> "5-8ft"
+      expect(result).toMatch(/\d+-\d+ft/);
+    });
+
+    it("should apply beach terrain direction factor", () => {
+      const fullAccess = toFaceHeightRangeFeet({
+        cdipSigFt: 2.0,
+        periodS: 10,
+        swellDirectionDeg: 180,
+        beach: {
+          terrain_enabled: true,
+          swell_access_factors: Array(72).fill(1.0),
+        },
+      });
+      const noAccess = toFaceHeightRangeFeet({
+        cdipSigFt: 2.0,
+        periodS: 10,
+        swellDirectionDeg: 180,
+        beach: {
+          terrain_enabled: true,
+          swell_access_factors: Array(72).fill(0.0),
+        },
+      });
+      // Full access should produce larger range
+      expect(fullAccess).not.toBe(noAccess);
     });
   });
 });

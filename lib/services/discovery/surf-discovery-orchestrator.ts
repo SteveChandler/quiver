@@ -33,6 +33,8 @@ import {
   scoreBeachWithEngine,
   type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
+import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
+import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
@@ -62,23 +64,15 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 
 /**
  * Format wave height as a range string for badge display.
+ * Shows average waves (input) to set waves (1.5x input).
  * Returns null for flat conditions (< 0.5ft).
  *
- * @param waveHeight - Wave height in feet
- * @returns Range string like "2-3ft" or null if flat
+ * @param waveHeight - Average wave height in feet
+ * @returns Range string like "3-5ft" or null if flat
  */
 export function formatWaveHeightRange(waveHeight: number): string | null {
   if (waveHeight < 0.5) return null;
-
-  // Round down to nearest 0.5
-  const lower = Math.floor(waveHeight * 2) / 2;
-  // Add ~1ft for upper range
-  const upper = lower + 1;
-
-  // Format without unnecessary decimals
-  const formatNum = (n: number) => n % 1 === 0 ? n.toString() : n.toFixed(1);
-
-  return `${formatNum(lower)}-${formatNum(upper)}ft`;
+  return formatWaveHeightRangeString(waveHeight, waveHeight * SET_WAVE_VARIANCE);
 }
 
 /**
