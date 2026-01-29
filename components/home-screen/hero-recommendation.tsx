@@ -240,6 +240,21 @@ function formatTimeWindowCompact(
 }
 
 /**
+ * Format peak time for "Best at" badge display (e.g., "7am", "7:30am")
+ * @param peakTime Peak time Date object
+ * @param timezone IANA timezone
+ * @returns Formatted time string
+ */
+function formatPeakTime(peakTime: Date, timezone: string): string {
+  const minutesStr = formatBeachDateTime(peakTime, timezone, "m");
+  const minutes = parseInt(minutesStr, 10);
+  if (minutes === 0) {
+    return formatBeachDateTime(peakTime, timezone, "ha").toLowerCase();
+  }
+  return formatBeachDateTime(peakTime, timezone, "h:mma").toLowerCase();
+}
+
+/**
  * Loading skeleton for HeroRecommendation
  * Matches the structure of the main component for smooth transitions
  */
@@ -469,6 +484,18 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
             {timeWindow}
           </Badge>
         </motion.div>
+
+        {/* Peak time badge */}
+        {window.peakTime && (
+          <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge} className="flex-shrink-0">
+            <Badge
+              variant="outline"
+              className="text-xs sm:text-sm font-medium bg-white/10 text-white border-white/20 py-1.5 px-2.5"
+            >
+              Best at {formatPeakTime(window.peakTime, window.timezone)}
+            </Badge>
+          </motion.div>
+        )}
 
         {/* Wave height badge */}
         {waveHeightBadge && (
