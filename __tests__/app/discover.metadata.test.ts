@@ -17,7 +17,7 @@ describe("/discover metadata", () => {
   });
 
   it("keeps /discover indexable", async () => {
-    const meta = await generateMetadata({ searchParams: {} });
+    const meta = await generateMetadata({ searchParams: Promise.resolve({}) });
 
     expect(typeof meta.alternates?.canonical).toBe("string");
     expect(String(meta.alternates?.canonical)).toContain("/discover");
@@ -28,7 +28,7 @@ describe("/discover metadata", () => {
   });
 
   it("noindexes /discover query variants but canonicalizes to /discover", async () => {
-    const meta = await generateMetadata({ searchParams: { level: "beginner" } });
+    const meta = await generateMetadata({ searchParams: Promise.resolve({ level: "beginner" }) });
 
     expect(typeof meta.alternates?.canonical).toBe("string");
     expect(String(meta.alternates?.canonical)).toContain("/discover");

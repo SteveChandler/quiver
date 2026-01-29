@@ -13,7 +13,7 @@ import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 
 export async function GET(
   _request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -26,7 +26,7 @@ export async function GET(
       return createAuthError();
     }
 
-    const { id: targetUserId } = context.params;
+    const { id: targetUserId } = (await context.params);
     if (!targetUserId || !isValidUuid(targetUserId)) {
       return createValidationError("Invalid user id format");
     }

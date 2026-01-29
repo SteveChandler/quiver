@@ -94,7 +94,7 @@ const VALID_EVENTS: ImplicitEventType[] = [
  * Uses 5-minute in-memory cache to reduce database queries
  */
 async function isTrackingAllowed(
-  supabase: ReturnType<typeof createAPIServerClient>,
+  supabase: Awaited<ReturnType<typeof createAPIServerClient>>,
   userId: string
 ): Promise<boolean> {
   // Check cache first (using LRU-aware getter)
@@ -123,7 +123,7 @@ async function isTrackingAllowed(
 }
 
 export async function POST(request: Request) {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   // 1. Auth check
   const {

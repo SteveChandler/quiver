@@ -56,7 +56,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(401);
@@ -80,7 +80,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: invalidSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: invalidSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(400);
@@ -134,7 +134,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -184,7 +184,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -221,7 +221,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(403);
@@ -254,7 +254,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(404);
@@ -295,7 +295,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -350,7 +350,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -399,7 +399,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -434,7 +434,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -476,7 +476,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -500,7 +500,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: longButInvalidId } });
+      const response = await GET(request, { params: Promise.resolve({ id: longButInvalidId }) });
       const data = await response.json();
 
       expect(response.status).toBe(400);
@@ -536,7 +536,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       // Should treat null as false (private)
@@ -572,7 +572,7 @@ describe("GET /api/sessions/[id]/photos", () => {
         { method: "GET" }
       );
 
-      const response = await GET(request, { params: { id: validSessionId } });
+      const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
       // Should handle gracefully (likely 403 or error)

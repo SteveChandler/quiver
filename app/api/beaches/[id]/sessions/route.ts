@@ -4,10 +4,8 @@ import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 
 // GET /api/beaches/[id]/sessions?limit=5 - fetch recent completed sessions for beach
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);

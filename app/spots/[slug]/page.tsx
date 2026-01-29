@@ -37,12 +37,11 @@ export async function generateStaticParams() {
 }
 
 interface SpotPageParams {
-  params: { slug: SurfSpotSlug };
+  params: Promise<{ slug: SurfSpotSlug }>;
 }
 
-export async function generateMetadata({
-  params,
-}: SpotPageParams): Promise<Metadata> {
+export async function generateMetadata(props: SpotPageParams): Promise<Metadata> {
+  const params = await props.params;
   const spot = await getSpotDataBySlug(params.slug);
   if (!spot) {
     return {};
@@ -70,7 +69,8 @@ export async function generateMetadata({
   });
 }
 
-export default async function SpotPage({ params }: SpotPageParams) {
+export default async function SpotPage(props: SpotPageParams) {
+  const params = await props.params;
   const spot = await getSpotDataBySlug(params.slug);
   if (!spot) {
     return notFound();

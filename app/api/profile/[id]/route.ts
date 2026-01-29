@@ -51,7 +51,7 @@ async function fetchProfileById(userId: string): Promise<NextResponse> {
       );
     }
 
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
 
     // Get current user for authentication (optional for public profiles)
     const { data: { user } } = await supabase.auth.getUser();

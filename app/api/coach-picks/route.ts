@@ -15,7 +15,7 @@ async function coachPicksHandler(request: NextRequest) {
       return createSuccessResponse({ picks: [] });
     }
 
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
     const { data, error } = await supabase.rpc("get_coach_picks", {
       _beach_id: beachId,
       _radius_km: radiusKm,

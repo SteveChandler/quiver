@@ -8,11 +8,12 @@ import { format } from "date-fns";
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-export default function SessionDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function SessionDetailPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   return (
     <div className="flex flex-col min-h-screen">
       {/* Breadcrumb Structured Data for SEO */}
@@ -29,11 +30,12 @@ export default function SessionDetailPage({
   );
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { id: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   // Fetch session metadata for enhanced SEO
   try {
     const result = await getSessionMetadata(params.id);

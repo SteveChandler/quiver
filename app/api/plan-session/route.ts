@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const validatedData = validationResult.data;
 
     // Get the cookie store from Next.js
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     // Create a Supabase client
     const supabase = createServerClient(

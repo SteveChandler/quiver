@@ -45,7 +45,7 @@ async function recommendationsHandler(request: NextRequest) {
       process.env.NEXT_PUBLIC_DEBUG_PERF === "true";
 
     const apiStartTime = Date.now();
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
     const url = new URL(request.url);
 
     const rawLat =

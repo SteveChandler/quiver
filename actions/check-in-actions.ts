@@ -235,7 +235,7 @@ export async function getRecentCheckIns(
   hoursBack: number = 24,
   limitCount: number = 10
 ): Promise<CheckInWithUser[]> {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   // Use the database function for optimized query
   const { data, error } = await supabase.rpc("get_recent_check_ins", {
@@ -259,7 +259,7 @@ export async function getForecastAccuracyStats(
   beachId: string,
   daysBack: number = 7
 ): Promise<ForecastAccuracyStats> {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   // Use the database function for optimized query
   const { data, error } = await supabase.rpc("get_forecast_accuracy_stats", {
@@ -354,7 +354,7 @@ export async function getUserCheckIns(
   limit: number = 20,
   offset: number = 0
 ): Promise<CheckIn[]> {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   const { data, error } = await supabase
     .from("check_ins")
@@ -387,7 +387,7 @@ export async function getBeachCheckIns(
   limit: number = 20,
   offset: number = 0
 ): Promise<CheckInWithUser[]> {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   const { data, error } = await supabase
     .from("check_ins")

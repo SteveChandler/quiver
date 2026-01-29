@@ -37,11 +37,12 @@ export async function generateStaticParams() {
   return [...stateSlugs].map((state) => ({ state }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { state: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ state: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const stateSlug = (params.state || "").toLowerCase();
 
   // Try to find the display name from data
@@ -71,11 +72,12 @@ type CityEntry = {
   cityName: string;
 };
 
-export default async function MexicoStatePage({
-  params,
-}: {
-  params: { state: string };
-}) {
+export default async function MexicoStatePage(
+  props: {
+    params: Promise<{ state: string }>;
+  }
+) {
+  const params = await props.params;
   const stateSlug = (params.state || "").toLowerCase();
 
   const response = await getAllBeachLocations();

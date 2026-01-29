@@ -4,10 +4,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function DELETE(
   _request: NextRequest,
-  context: { params: { commentId: string } }
+  context: { params: Promise<{ commentId: string }> }
 ) {
   try {
-    const { commentId } = context.params;
+    const { commentId } = (await context.params);
     if (!commentId || !isValidUuid(commentId)) {
       return createValidationError("Invalid comment id format");
     }

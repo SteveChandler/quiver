@@ -77,9 +77,6 @@ const isProd = process.env.NODE_ENV === "production";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -87,8 +84,8 @@ const nextConfig = {
   // Enable compression for better performance
   compress: true,
 
-  // Performance optimizations
-  swcMinify: true,
+  // External packages for server components (moved from experimental)
+  serverExternalPackages: ["@supabase/supabase-js"],
 
   // Power pack optimizations
   poweredByHeader: false, // Remove X-Powered-By header
@@ -251,16 +248,6 @@ const nextConfig = {
         pathname: "/storage/v1/object/**",
       },
     ],
-    // Some environments require explicit domains allowlist in addition to remotePatterns
-    domains: [
-      "images.unsplash.com",
-      "live.staticflickr.com",
-      "upload.wikimedia.org",
-      "i0.wp.com",
-      "i1.wp.com",
-      "i2.wp.com",
-      ...(supabaseHostname ? [supabaseHostname] : []),
-    ],
     // Security for SVGs
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
@@ -275,9 +262,6 @@ const nextConfig = {
       "zod",
       "react-hook-form",
     ],
-
-    // Enable server components optimizations
-    serverComponentsExternalPackages: ["@supabase/supabase-js"],
 
     // Enable external directory support
     externalDir: true,

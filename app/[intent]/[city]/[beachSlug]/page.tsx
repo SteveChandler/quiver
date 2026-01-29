@@ -33,11 +33,11 @@ const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     intent: string; // This is actually a state slug for beach URLs (e.g., "or", "wa", "hi")
     city: string;
     beachSlug: string;
-  };
+  }>;
 }
 
 
@@ -65,7 +65,8 @@ function isNextRouterSignal(error: unknown) {
  * The "intent" param is named for consistency with the parent route,
  * but in this 3-segment context it represents a state slug.
  */
-export default async function GenericBeachDetailPage({ params }: PageProps) {
+export default async function GenericBeachDetailPage(props: PageProps) {
+  const params = await props.params;
   const { intent: stateParam, city, beachSlug } = params;
 
   // Only handle requests where the first param is a valid state slug
@@ -209,9 +210,8 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
   }
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const { intent: stateParam, beachSlug } = params;
 
   // Skip metadata generation for invalid state slugs (intent slugs)

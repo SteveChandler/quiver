@@ -18,7 +18,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
  *   - personalized: Whether personalization was applied
  */
 export async function POST(request: NextRequest) {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   // Authenticate user
   const { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -10,12 +10,12 @@ import { NextRequest, NextResponse } from "next/server";
  * import { createAPIServerClient } from "@/lib/supabase/api-server-client";
  *
  * export async function POST(request: NextRequest) {
- *   const supabase = createAPIServerClient();
+ *   const supabase = await createAPIServerClient();
  *   // ... rest of your API logic
  * }
  */
-export function createAPIServerClient() {
-  const cookieStore = cookies();
+export async function createAPIServerClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,7 +93,7 @@ export function createAPIServerClientWithResponse(
  */
 export async function getAuthenticatedAPIClient() {
   try {
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
 
     const {
       data: { user },

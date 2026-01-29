@@ -8,7 +8,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
   if (level) updates.skill_level = level;
   if (frequency) updates.email_frequency = frequency;
 
-  // Update database
-  const supabase = createSupabaseServerClient();
+  // Update database - use service role client since email links are clicked without auth session
+  const supabase = createSupabaseServiceRoleClient();
   const { error } = await supabase
     .from('user_email_prefs')
     .upsert(updates, { onConflict: 'user_id' });

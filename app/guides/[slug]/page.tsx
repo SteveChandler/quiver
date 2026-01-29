@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MapPin, Users, TrendingUp, Waves } from "lucide-react";
-import dynamic from "next/dynamic";
 
 import {
   HUB_REGION_SLUGS,
@@ -14,25 +13,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { getBeachesByState } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
-
-// Dynamic import for HubMapView (client component with Mapbox)
-const HubMapView = dynamic(
-  () =>
-    import("@/components/hub/hub-map-view").then((mod) => ({
-      default: mod.HubMapView,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-96 items-center justify-center bg-slate-100 rounded-lg">
-        <div className="text-center">
-          <div className="mb-2 h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-sky-600 mx-auto" />
-          <p className="text-sm text-slate-500">Loading map...</p>
-        </div>
-      </div>
-    ),
-  }
-);
+import { HubMapClient } from "./hub-map-client";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -42,11 +23,12 @@ export async function generateStaticParams() {
   }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { slug: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ slug: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   if (!params.slug.startsWith("surfing-")) {
     return {};
   }
@@ -133,11 +115,12 @@ function calculateRegionStats(beaches: Beach[]) {
   };
 }
 
-export default async function HubRegionPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
+export default async function HubRegionPage(
+  props: {
+    params: Promise<{ slug: string }>;
+  }
+) {
+  const params = await props.params;
   if (!params.slug.startsWith("surfing-")) {
     return notFound();
   }
@@ -257,7 +240,7 @@ export default async function HubRegionPage({
             advanced.
           </p>
           <div className="h-96 rounded-lg overflow-hidden border border-gray-200 shadow-lg">
-            <HubMapView
+            <HubMapClient
               beaches={allBeaches}
               centerLatitude={region.centerLat}
               centerLongitude={region.centerLon}

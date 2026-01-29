@@ -39,7 +39,7 @@ describe("legacy /beach/[slug] route", () => {
 
   it("returns a true 404 (NEXT_NOT_FOUND) when a beach cannot be resolved", async () => {
     await expect(
-      BeachDetailBySlugPage({ params: { slug: "does-not-exist" } })
+      BeachDetailBySlugPage({ params: Promise.resolve({ slug: "does-not-exist" }) })
     ).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
 
     expect(notFound).toHaveBeenCalled();

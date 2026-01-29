@@ -27,7 +27,7 @@ async function fetchUserSessions(request: NextRequest, targetUserId: string): Pr
     }
 
     const url = new URL(request.url);
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

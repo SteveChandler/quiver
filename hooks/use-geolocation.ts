@@ -108,7 +108,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   });
 
   const hasAttemptedRef = useRef(false);
-  const safetyTimeoutRef = useRef<NodeJS.Timeout>();
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const isRequestInFlightRef = useRef(false); // Track active geolocation requests
 
   const useDefaultLocation = useCallback(() => {

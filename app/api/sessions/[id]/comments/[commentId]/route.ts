@@ -15,7 +15,7 @@ export const DELETE = withAuth(
     const commentResult = validateUuidParam(params.commentId, "comment");
     if ("error" in commentResult) return commentResult.error;
 
-    return deleteComment(request, { params: { commentId: commentResult.value } });
+    return deleteComment(request, { params: Promise.resolve({ commentId: commentResult.value }) });
   },
   { errorMessage: "Failed to delete comment" }
 );
