@@ -12,7 +12,15 @@ import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
-import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Mail } from "lucide-react";
 
 const HomeScreenDynamic = dynamic(
   () => import("@/components/home-screen").then((m) => m.HomeScreen),
@@ -34,8 +42,8 @@ const HomeScreenDynamic = dynamic(
  *
  * Special Cases:
  * - Signup Confirmation (`?signup=confirm-email`): Bypasses auth loading screen
- *   to show landing page with success toast, even while auth is initializing.
- *   This improves UX by providing immediate feedback after signup.
+ *   to show landing page with confirmation modal, even while auth is initializing.
+ *   Modal requires user action ("Got it" button) to dismiss, ensuring visibility.
  * - Standalone/PWA Mode: Redirects to `/auth/sign-in` immediately unless showing
  *   signup confirmation, preventing unauthenticated access to PWA shell.
  *
@@ -52,8 +60,9 @@ export function AuthAwareLandingWrapper() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectedRef = useRef(false);
-  const didShowSignupToastRef = useRef(false);
+  const didShowSignupModalRef = useRef(false);
   const [hasAuthCookie, setHasAuthCookie] = useState(false);
+  const [showEmailConfirmModal, setShowEmailConfirmModal] = useState(false);
 
   // Reactive: updates when URL parameters change via soft navigation
   const isConfirmEmailSignup = searchParams.get("signup") === "confirm-email";
@@ -75,23 +84,25 @@ export function AuthAwareLandingWrapper() {
     router.replace("/auth/sign-in");
   }, [user, router, isConfirmEmailSignup]);
 
-  // Show post-signup confirm-email toast on landing, then clean the URL.
+  // Show post-signup confirm-email modal on landing.
   useEffect(() => {
     if (searchParams.get("signup") !== "confirm-email") return;
-    if (didShowSignupToastRef.current) return;
+    if (didShowSignupModalRef.current) return;
 
-    didShowSignupToastRef.current = true;
-    toast.success("Confirm your signup in your email", {
-      description:
-        "We sent you a confirmation link. Open your inbox to finish creating your account.",
-    });
+    didShowSignupModalRef.current = true;
+    setShowEmailConfirmModal(true);
+  }, [searchParams]);
+
+  // Handle modal dismissal: clean the URL
+  const handleEmailConfirmModalDismiss = () => {
+    setShowEmailConfirmModal(false);
 
     // Remove the signup param while preserving other query params (e.g., UTM tracking)
     const params = new URLSearchParams(searchParams.toString());
     params.delete("signup");
     const cleanUrl = params.toString() ? `/?${params.toString()}` : "/";
     router.replace(cleanUrl);
-  }, [searchParams, router]);
+  };
 
   // Initialize performance monitoring
   useEffect(() => {
@@ -143,6 +154,32 @@ export function AuthAwareLandingWrapper() {
 
         <LandingInteractiveSections />
       </main>
+
+      {/* Email confirmation modal - requires user action to dismiss */}
+      <Dialog open={showEmailConfirmModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md [&>button]:hidden"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="text-center sm:text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Mail className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle className="text-xl">Check your email</DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              We sent a confirmation link to your email. Click the link to
+              finish creating your account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center pt-4">
+            <Button onClick={handleEmailConfirmModalDismiss} size="lg">
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

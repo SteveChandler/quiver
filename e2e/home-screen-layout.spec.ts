@@ -235,16 +235,16 @@ test.describe('Home Screen Layout - Single Vertical Feed', () => {
       }
     });
 
-    test('should navigate to weekend planner when clicking "Plan Weekend"', async ({ page }) => {
+    test('should navigate to beach forecast tab when clicking "Plan Weekend"', async ({ page }) => {
       const planWeekendButton = page.getByTestId('plan-weekend-button');
       const buttonVisible = await planWeekendButton.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (buttonVisible) {
         await planWeekendButton.click();
 
-        // Should navigate to session creation with mode=plan
-        await page.waitForURL(/\/sessions\/new\?.*mode=plan/, { timeout: TIMEOUTS.medium });
-        expect(page.url()).toMatch(/\/sessions\/new\?.*mode=plan/);
+        // Should navigate to beach page with forecast tab
+        await page.waitForURL(/\?tab=forecast/, { timeout: TIMEOUTS.medium });
+        expect(page.url()).toMatch(/\?tab=forecast/);
       }
     });
 

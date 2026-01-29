@@ -246,8 +246,8 @@ test.describe("Home Activation Flow", () => {
 
     if (hasPlanWeekend) {
       await planWeekendButton.click();
-      // Should navigate to session wizard with mode=plan
-      await expect(page).toHaveURL(/\/sessions\/new\?.*mode=plan/, { timeout: 15000 });
+      // Should navigate to beach page with forecast tab
+      await expect(page).toHaveURL(/\?tab=forecast/, { timeout: 15000 });
     } else if (hasAtBeach) {
       await atBeachButton.click();
       // Should navigate to session wizard with mode=log

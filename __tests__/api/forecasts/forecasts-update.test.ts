@@ -13,6 +13,27 @@ import {
   mockAuthenticatedUser,
 } from "@/test-utils/api-test-helpers";
 
+/** Type for the bulk forecasts update API response */
+interface ForecastsUpdateResponse {
+  total?: number;
+  successful?: number;
+  failed?: number;
+  results?: Array<{
+    beachId: string;
+    success: boolean;
+    forecastsGenerated?: number;
+    error?: string;
+  }>;
+  message?: string;
+}
+
+/** Type for single beach forecast update API response */
+interface SingleForecastUpdateResponse {
+  beach: string;
+  forecastsGenerated: number;
+  message: string;
+}
+
 // Mock the Supabase server client
 const mockSupabaseClient = createMockSupabaseClient();
 
@@ -140,7 +161,7 @@ describe("POST /api/forecasts/update", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/forecasts/update");
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsUpdateResponse>(response, 200);
 
       expect(mockUpdateAllBeachForecasts).toHaveBeenCalled();
       expect(result.data.total).toBe(3);
@@ -164,7 +185,7 @@ describe("POST /api/forecasts/update", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/forecasts/update");
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsUpdateResponse>(response, 200);
 
       expect(result.data.total).toBe(4);
       expect(result.data.successful).toBe(2);
@@ -180,7 +201,7 @@ describe("POST /api/forecasts/update", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/forecasts/update");
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsUpdateResponse>(response, 200);
 
       expect(result.data.total).toBe(0);
       expect(result.data.successful).toBe(0);
@@ -195,7 +216,7 @@ describe("POST /api/forecasts/update", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/forecasts/update");
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsUpdateResponse>(response, 200);
 
       expect(result.data.total).toBe(0);
       expect(result.data.successful).toBe(0);
@@ -225,7 +246,7 @@ describe("POST /api/forecasts/update", () => {
       );
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<SingleForecastUpdateResponse>(response, 200);
 
       expect(mockUpdateBeachForecast).toHaveBeenCalledWith(beachId);
       expect(result.data.beach).toBe("Pipeline");
@@ -401,7 +422,7 @@ describe("POST /api/forecasts/update", () => {
       );
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<SingleForecastUpdateResponse>(response, 200);
       expect(result.data.message).toContain("Enhanced forecasts updated for beach");
     });
 
@@ -413,7 +434,7 @@ describe("POST /api/forecasts/update", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/forecasts/update");
       const response = await POST(request);
 
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsUpdateResponse>(response, 200);
       expect(result.data.message).toContain("Enhanced forecasts updated for all beaches");
     });
   });

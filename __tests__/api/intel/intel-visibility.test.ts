@@ -14,6 +14,18 @@ import {
   type MockSupabaseClient,
 } from "@/test-utils/api-test-helpers";
 
+/** Type for intel posts list API response */
+interface IntelPostsResponse {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  posts: any[];
+}
+
+/** Type for intel post create API response */
+interface IntelPostCreateResponse {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  post: any;
+}
+
 /**
  * Tests for intel posts RLS visibility and authorization
  *
@@ -171,7 +183,7 @@ function setupGetIntelMock(mockClient: MockSupabaseClient, posts: any[], profile
 
   mockChain.select.mockReturnValue(mockChain);
   mockChain.eq.mockReturnValue(mockChain);
-  mockClient.from.mockReturnValue(mockChain);
+  (mockClient.from as jest.Mock).mockReturnValue(mockChain);
 }
 
 // =============================================================================
@@ -193,7 +205,7 @@ describe("GET /api/intel - Public Visibility", () => {
       const request = createMockRequest("GET", "http://localhost/api/intel?lat=32.715&lon=-117.161");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelPostsResponse>(response, 200);
       expect(data.data.posts).toBeDefined();
     });
 
@@ -210,7 +222,7 @@ describe("GET /api/intel - Public Visibility", () => {
       const request = createMockRequest("GET", "http://localhost/api/intel?lat=32.715&lon=-117.161");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelPostsResponse>(response, 200);
       expect(data.data.posts.length).toBe(2);
       expect(data.data.posts.every((p: any) => p.is_active)).toBe(true);
     });
@@ -226,7 +238,7 @@ describe("GET /api/intel - Public Visibility", () => {
       const request = createMockRequest("GET", "http://localhost/api/intel?lat=32.715&lon=-117.161");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelPostsResponse>(response, 200);
       expect(data.data.posts.length).toBe(1);
       expect(data.data.posts.every((p: any) => p.is_active)).toBe(true);
     });
@@ -244,7 +256,7 @@ describe("GET /api/intel - Public Visibility", () => {
       const request = createMockRequest("GET", "http://localhost/api/intel?lat=32.715&lon=-117.161");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelPostsResponse>(response, 200);
       expect(data.data.posts.length).toBe(1);
     });
   });
@@ -259,7 +271,7 @@ describe("GET /api/intel - Public Visibility", () => {
       const request = createMockRequest("GET", "http://localhost/api/intel?lat=32.715&lon=-117.161");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelPostsResponse>(response, 200);
       expect(data.data.posts).toBeDefined();
     });
 
@@ -272,7 +284,7 @@ describe("GET /api/intel - Public Visibility", () => {
       const request = createMockRequest("GET", "http://localhost/api/intel?lat=32.715&lon=-117.161");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelPostsResponse>(response, 200);
       expect(data.data.posts[0].user_confirmed).toBe(true);
     });
   });
@@ -311,7 +323,7 @@ describe("POST /api/intel - Authentication Requirement", () => {
     it("should allow authenticated users to create posts", async () => {
       mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: VALID_USER_ID }));
 
-      mockSupabaseClient.from.mockImplementation(() => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           insert: jest.fn().mockReturnThis(),
@@ -343,7 +355,7 @@ describe("POST /api/intel - Authentication Requirement", () => {
 
       const response = await POST(request);
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelPostsResponse>(response, 200);
     });
 
     it("should automatically set user_id from auth context", async () => {
@@ -351,7 +363,7 @@ describe("POST /api/intel - Authentication Requirement", () => {
 
       let capturedInsertData: any = null;
 
-      mockSupabaseClient.from.mockImplementation(() => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           insert: jest.fn((data: any) => {
@@ -450,7 +462,7 @@ describe("POST /api/intel/[id]/confirm - Authorization", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/confirm");
       const response = await CONFIRM_POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelPostsResponse>(response, 200);
     });
   });
 });
@@ -505,7 +517,7 @@ describe("POST /api/intel/[id]/report - Authorization", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await REPORT_POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelPostsResponse>(response, 200);
     });
   });
 });

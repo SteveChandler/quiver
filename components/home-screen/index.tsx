@@ -176,7 +176,8 @@ export function HomeScreen() {
   // Handler for "Plan Weekend" button - navigate to beach forecast tab
   const handlePlanWeekend = useCallback(() => {
     if (!topRecommendation?.beach) {
-      toast.error("No beach recommendation available. Try adjusting your time filter.");
+      track("home_plan_weekend_no_recommendation", { time_slot: timeSlot });
+      toast.error("No beach recommendation available. Try selecting 'Any time' in the filter above.");
       return;
     }
 
@@ -187,7 +188,7 @@ export function HomeScreen() {
 
     const forecastUrl = buildBeachUrlWithTab(topRecommendation.beach, "forecast");
     router.push(forecastUrl);
-  }, [topRecommendation, router]);
+  }, [topRecommendation, router, timeSlot]);
 
   // Handler for viewing beach details from hero
   const handleViewBeach = useCallback(

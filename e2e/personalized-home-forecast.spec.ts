@@ -245,14 +245,14 @@ test.describe('Home Screen Surf Recommendations', () => {
     await expect(page).toHaveURL(/mode=log/);
   });
 
-  test('"Plan Weekend" button navigates to session planner', async ({ page }) => {
+  test('"Plan Weekend" button navigates to beach forecast tab', async ({ page }) => {
     const planWeekendButton = page.getByTestId("plan-weekend-button");
     await expect(planWeekendButton).toBeVisible({ timeout: 30_000 });
     await planWeekendButton.click();
 
-    // Should navigate to session creation with mode=plan
-    await page.waitForURL(/\/sessions\/new\?/, { timeout: 20_000 });
-    await expect(page).toHaveURL(/mode=plan/);
+    // Should navigate to beach page with forecast tab
+    await page.waitForURL(/\?tab=forecast/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\?tab=forecast/);
   });
 
   test("clicking beach name navigates to beach detail page", async ({ page }) => {

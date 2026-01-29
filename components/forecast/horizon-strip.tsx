@@ -147,7 +147,6 @@ export function HorizonStrip({
   beachSlug,
 }: HorizonStripProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const selectedCardRef = useRef<HTMLDivElement>(null);
 
   // Scroll selected card into view on mount and when selection changes
   useEffect(() => {
