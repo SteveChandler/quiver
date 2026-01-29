@@ -124,7 +124,8 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         .delete()
         .eq("user_id", testUserId);
 
-      await supabaseAdmin
+      // user_implicit_preferences table types not yet generated - cast to any
+      await (supabaseAdmin as any)
         .from("user_implicit_preferences")
         .delete()
         .eq("user_id", testUserId);
@@ -143,7 +144,8 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         .delete()
         .eq("user_id", testUserId);
 
-      await supabaseAdmin
+      // user_implicit_preferences table types not yet generated - cast to any
+      await (supabaseAdmin as any)
         .from("user_implicit_preferences")
         .delete()
         .eq("user_id", testUserId);
@@ -347,7 +349,8 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         });
 
         // Create implicit preferences (weaker signal)
-        await supabaseAdmin.from("user_implicit_preferences").insert({
+        // user_implicit_preferences table types not yet generated - cast to any
+        await (supabaseAdmin as any).from("user_implicit_preferences").insert({
           user_id: testUserId,
           inferred_wave_min_ft: 2.0,
           inferred_wave_max_ft: 5.0,
@@ -362,15 +365,16 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .eq("user_id", testUserId)
           .single();
 
-        const { data: implicit } = await supabaseAdmin
+        // user_implicit_preferences table types not yet generated - cast to any
+        const { data: implicit } = await (supabaseAdmin as any)
           .from("user_implicit_preferences")
           .select("*")
           .eq("user_id", testUserId)
           .single();
 
         // Explicit should have higher confidence
-        expect(explicit?.confidence).toBeGreaterThan(implicit?.confidence || 0);
-        expect(explicit?.sample_size).toBeGreaterThan(implicit?.event_count || 0);
+        expect(explicit?.confidence).toBeGreaterThan((implicit as any)?.confidence || 0);
+        expect(explicit?.sample_size).toBeGreaterThan((implicit as any)?.event_count || 0);
       });
 
       it("implicit preferences fill gaps when explicit not set", async () => {
@@ -386,7 +390,8 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         });
 
         // Try to create implicit preferences (table may not exist yet)
-        const { error: implicitError } = await supabaseAdmin
+        // user_implicit_preferences table types not yet generated - cast to any
+        const { error: implicitError } = await (supabaseAdmin as any)
           .from("user_implicit_preferences")
           .insert({
             user_id: testUserId,
@@ -409,14 +414,15 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
 
         // If implicit table exists, verify data
         if (!implicitError) {
-          const { data: implicit } = await supabaseAdmin
+          // user_implicit_preferences table types not yet generated - cast to any
+          const { data: implicit } = await (supabaseAdmin as any)
             .from("user_implicit_preferences")
             .select("*")
             .eq("user_id", testUserId)
             .single();
 
           if (implicit) {
-            expect(implicit.break_type_weights).toBeTruthy();
+            expect((implicit as any).break_type_weights).toBeTruthy();
           }
         }
 
@@ -425,7 +431,8 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
 
       it("updating explicit preferences overrides implicit learning", async () => {
         // Start with implicit preferences
-        await supabaseAdmin.from("user_implicit_preferences").insert({
+        // user_implicit_preferences table types not yet generated - cast to any
+        await (supabaseAdmin as any).from("user_implicit_preferences").insert({
           user_id: testUserId,
           inferred_wave_min_ft: 2.0,
           inferred_wave_max_ft: 5.0,
