@@ -1,3 +1,8 @@
+import {
+  transformToFaceHeight,
+  type BeachTerrainConfig,
+} from './wave-height-transformer';
+
 /**
  * Parse wave height from various formats to get numeric value
  * @param waveHeight Wave height as number, string, or null/undefined
@@ -61,58 +66,84 @@ export function getWaveHeightValue(
 
 /**
  * Convert various swell/height inputs to a display face height in feet.
- * Rules (tuned for San Diego beaches):
- * - If CDIP significant height is modest (<= 8ft), trust CDIP directly
- * - If CDIP looks like an outlier vs model primary swell (cdip > 1.8x model),
- *   prefer model primary swell scaled to face (≈1.2x)
- * - Otherwise prefer model primary swell face if available; fallback to model Hs
- * - Clamp to reasonable local range [0.5ft, 8ft] to avoid obvious spikes
+ *
+ * Applies beach-specific wave transformation including:
+ * - Base shoaling factor (1.6x) - waves steepen approaching shore
+ * - Period amplification - longer periods = bigger faces
+ * - Direction factor from terrain swell_access_factors
+ *
+ * Rules for source selection:
+ * - Prefer CDIP significant height when available and reasonable
+ * - Fall back to model primary swell, then CDIP swell, then model Hs
+ * - Clamp to reasonable local range [0.5ft, 15ft] to avoid obvious spikes
  */
 export function toFaceHeightFeet(params: {
   cdipSigFt?: number | null;
   cdipSwellFt?: number | null;
   modelSwellM?: number | null;
   modelHsM?: number | null;
+  // Beach terrain configuration for direction factor
+  beach?: BeachTerrainConfig | null;
+  // Wave period in seconds for period amplification
+  periodS?: number | null;
+  // Swell direction in degrees for terrain-based direction factor
+  swellDirectionDeg?: number | null;
 }): string | null {
   const mToFt = (m?: number | null) =>
     m == null || !isFinite(m) ? undefined : m * 3.28084;
   const roundFt = (ft: number) => Math.round(ft * 10) / 10;
-  const clamp = (ft: number) => Math.min(8, Math.max(0.5, ft));
+  // Clamp increased to 15ft to allow for larger transformed swells
+  const clamp = (ft: number) => Math.min(15, Math.max(0.5, ft));
 
   const cdipSig = params.cdipSigFt != null && isFinite(params.cdipSigFt)
-    ? (params.cdipSigFt as number)
+    ? params.cdipSigFt
     : undefined;
   const cdipSwell = params.cdipSwellFt != null && isFinite(params.cdipSwellFt)
-    ? (params.cdipSwellFt as number)
+    ? params.cdipSwellFt
     : undefined;
   const modelSwell = mToFt(params.modelSwellM);
   const modelHs = mToFt(params.modelHsM);
 
-  // Trust CDIP when it's within typical SD range
-  if (cdipSig !== undefined && cdipSig <= 8) {
-    // If we also have model swell and CDIP is a large outlier vs model, defer to model face
+  /**
+   * Helper to transform raw height to face height using beach-specific factors
+   */
+  const toFace = (rawFt: number): number => {
+    return transformToFaceHeight({
+      rawHeightFt: rawFt,
+      periodS: params.periodS ?? null,
+      swellDirectionDeg: params.swellDirectionDeg ?? null,
+      beach: params.beach ?? null,
+    });
+  };
+
+  // Prefer CDIP significant height when available and within reasonable range
+  if (cdipSig !== undefined && cdipSig <= 10) {
+    // If we also have model swell and CDIP is a large outlier vs model, defer to model
     if (modelSwell !== undefined && cdipSig > modelSwell * 1.8) {
-      const face = clamp(modelSwell * 1.2);
+      const face = clamp(toFace(modelSwell));
       return `${roundFt(face)} ft`;
     }
-    return `${roundFt(clamp(cdipSig))} ft`;
-  }
-
-  // Prefer model primary swell → face
-  if (modelSwell !== undefined) {
-    const face = clamp(modelSwell * 1.2);
+    const face = clamp(toFace(cdipSig));
     return `${roundFt(face)} ft`;
   }
 
-  // CDIP swell face as fallback
+  // Prefer model primary swell
+  if (modelSwell !== undefined) {
+    const face = clamp(toFace(modelSwell));
+    return `${roundFt(face)} ft`;
+  }
+
+  // CDIP swell as fallback
   if (cdipSwell !== undefined) {
-    return `${roundFt(clamp(cdipSwell * 1.1))} ft`;
+    const face = clamp(toFace(cdipSwell));
+    return `${roundFt(face)} ft`;
   }
 
   // Model Hs as last resort
   if (modelHs !== undefined) {
-    return `${roundFt(clamp(modelHs * 1.1))} ft`;
-    }
+    const face = clamp(toFace(modelHs));
+    return `${roundFt(face)} ft`;
+  }
 
   return null;
 }
