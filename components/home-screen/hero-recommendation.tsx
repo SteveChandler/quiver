@@ -1,138 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
-import { Clock, AlertCircle, Share2 } from "lucide-react";
+import React from "react";
+import { Clock, AlertCircle } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatBeachDateTime } from "@/lib/utils/date-utils";
 import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
+import { formatTimeWindowCompact } from "@/lib/utils/time-formatters";
+import {
+  type ConditionTier,
+  getConditionTier,
+  getScoreColorClass,
+  getConditionBadge,
+  buildHeadlineText,
+  isTomorrowInTimezone,
+} from "@/lib/utils/condition-tier-utils";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
-import { ShareSheet } from "@/components/share/share-sheet";
-import { buildSurfCallShareUrl } from "@/lib/share/build-share-card-url";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
   TimeSlot,
 } from "@/types/personalization";
 
-/**
- * Condition tier based on score thresholds
- */
-export type ConditionTier = "great" | "good" | "fair" | "marginal";
-
-/**
- * Get condition tier based on score thresholds
- * @param score Score value (0-100)
- * @returns ConditionTier - 'great' (80+), 'good' (60-79), 'fair' (40-59), 'marginal' (<40)
- */
-export function getConditionTier(score: number): ConditionTier {
-  if (score >= 80) return "great";
-  if (score >= 60) return "good";
-  if (score >= 40) return "fair";
-  return "marginal";
-}
-
-/**
- * Get Tailwind color class for score display based on condition tier
- * @param tier Condition tier
- * @returns Tailwind color class
- */
-export function getScoreColorClass(tier: ConditionTier): string {
-  switch (tier) {
-    case "great":
-    case "good":
-      return "text-accent-orange";
-    case "fair":
-      return "text-amber-400";
-    case "marginal":
-      return "text-white/60";
-  }
-}
-
-/**
- * Get condition badge configuration based on tier
- * @param tier Condition tier
- * @returns Badge config with label and className, or null for 'good' tier
- */
-export function getConditionBadge(
-  tier: ConditionTier
-): { label: string; className: string } | null {
-  switch (tier) {
-    case "great":
-      return {
-        label: "Great Conditions",
-        className: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
-      };
-    case "good":
-      return null;
-    case "fair":
-      return {
-        label: "Fair Conditions",
-        className: "bg-amber-500/20 text-amber-300 border-amber-400/30",
-      };
-    case "marginal":
-      return {
-        label: "Marginal",
-        className: "bg-white/10 text-white/60 border-white/20",
-      };
-  }
-}
-
-/**
- * Build headline parts based on condition tier and time context
- * @param beachName Name of the beach
- * @param tier Condition tier
- * @param isTomorrow Whether the forecast is for tomorrow
- * @param timeSlot Optional time slot for tomorrow prefix
- * @returns Object with prefix, beachPart, and connector strings
- */
-export function buildHeadlineText(
-  beachName: string,
-  tier: ConditionTier,
-  isTomorrow: boolean,
-  timeSlot?: TimeSlot
-): { prefix: string; beachPart: string; connector: string } {
-  // Build tomorrow prefix based on time slot
-  let prefix = "";
-  if (isTomorrow) {
-    switch (timeSlot) {
-      case "dawn-patrol":
-        prefix = "Tomorrow's dawn patrol at ";
-        break;
-      case "morning":
-        prefix = "Tomorrow morning at ";
-        break;
-      case "afternoon":
-        prefix = "Tomorrow afternoon at ";
-        break;
-      default:
-        prefix = "Tomorrow at ";
-    }
-  }
-
-  // Build main headline based on tier
-  switch (tier) {
-    case "great":
-      return { prefix, beachPart: beachName, connector: "is your best bet at" };
-    case "good":
-      return { prefix, beachPart: beachName, connector: "is a good option at" };
-    case "fair":
-      return {
-        prefix: prefix || "Conditions are fair at ",
-        beachPart: beachName,
-        connector: prefix ? "— conditions are fair at" : "—",
-      };
-    case "marginal":
-      return {
-        prefix: prefix || "Conditions are marginal at ",
-        beachPart: beachName,
-        connector: prefix ? "— conditions are marginal at" : "—",
-      };
-  }
-}
+// Re-export for backwards compatibility with consumers
+export {
+  type ConditionTier,
+  getConditionTier,
+  getScoreColorClass,
+  getConditionBadge,
+  buildHeadlineText,
+  formatTimeWindowCompact,
+};
 
 /**
  * Props for HeroRecommendation component
@@ -161,85 +62,6 @@ export interface HeroRecommendationProps {
 }
 
 /**
- * Format time range compactly for badge display (e.g., "7-10am", "7am-1pm")
- * @param start Start date
- * @param end End date
- * @param timezone IANA timezone
- * @returns Compact time range string
- */
-function formatTimeWindowCompact(
-  start: Date,
-  end: Date,
-  timezone: string
-): string {
-  // Check if tomorrow
-  const now = new Date();
-
-  // Create date objects in the beach timezone to compare "days" accurately
-  // (Using simple string comparison of YYYY-MM-DD in the target timezone)
-  const todayStr = formatBeachDateTime(now, timezone, "EEE, MMM d");
-  const startDayStr = formatBeachDateTime(start, timezone, "EEE, MMM d");
-
-  // Calculate day difference roughly to determine "Tomorrow"
-  // (Or just use the strings if todayStr != startDayStr)
-  // A more robust way using timestamps:
-  const isTomorrow = (() => {
-    // Get "Midnight tonight" in the beach timezone
-    // check if start is > midnight tonight and < midnight tomorrow+1
-    // Simplest proxy: if the day string is different, valid for "Tomorrow"
-    // (assuming we don't recommend 2 days out in this specific component context)
-    if (todayStr === startDayStr) return false;
-
-    // Verify it's not simply "later today" (covered by equality check) or "yesterday"
-    // Since recommendations are future-only, inequality + future = Tomorrow (or later)
-    return start > now;
-  })();
-
-  const prefix = isTomorrow ? "Tomorrow " : "";
-
-  // Get hours to determine AM/PM
-  const startHourStr = formatBeachDateTime(start, timezone, "H");
-  const endHourStr = formatBeachDateTime(end, timezone, "H");
-  const startHour = parseInt(startHourStr, 10);
-  const endHour = parseInt(endHourStr, 10);
-  const startIsPM = startHour >= 12;
-  const endIsPM = endHour >= 12;
-
-  // Format individual times
-  const formatTimeCompact = (date: Date): string => {
-    const minutesStr = formatBeachDateTime(date, timezone, "m");
-    const minutes = parseInt(minutesStr, 10);
-    if (minutes === 0) {
-      return formatBeachDateTime(date, timezone, "ha").toLowerCase();
-    }
-    return formatBeachDateTime(date, timezone, "h:mm a")
-      .replace(/ /g, "")
-      .toLowerCase();
-  };
-
-  // If both in same period (AM or PM), share the suffix
-  if (startIsPM === endIsPM) {
-    const startMinutesStr = formatBeachDateTime(start, timezone, "m");
-    const startMinutes = parseInt(startMinutesStr, 10);
-
-    // Format start without am/pm
-    const startFullTime = formatBeachDateTime(start, timezone, "h:mm a");
-    const startParts = startFullTime.split(" ");
-    const startTimeOnly = startParts[0];
-    const startStr =
-      startMinutes === 0 ? startTimeOnly.split(":")[0] : startTimeOnly;
-
-    // Format end with am/pm
-    const endStr = formatTimeCompact(end);
-
-    return `${prefix}${startStr}-${endStr}`;
-  }
-
-  // Different periods, show both
-  return `${prefix}${formatTimeCompact(start)}-${formatTimeCompact(end)}`;
-}
-
-/**
  * Format peak time for "Best at" badge display (e.g., "7am", "7:30am")
  * @param peakTime Peak time Date object
  * @param timezone IANA timezone
@@ -251,7 +73,8 @@ function formatPeakTime(peakTime: Date, timezone: string): string {
   if (minutes === 0) {
     return formatBeachDateTime(peakTime, timezone, "ha").toLowerCase();
   }
-  return formatBeachDateTime(peakTime, timezone, "h:mma").toLowerCase();
+  // Use "h:mm a" format and remove space for compact display (e.g., "7:30am")
+  return formatBeachDateTime(peakTime, timezone, "h:mm a").replace(/ /g, "").toLowerCase();
 }
 
 /**
@@ -351,7 +174,6 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   timeSlot,
 }: HeroRecommendationProps) {
   const shouldReduceMotion = useReducedMotion();
-  const [shareOpen, setShareOpen] = useState(false);
 
   // Board recommendation based on current conditions
   // Hook must be called unconditionally before any early returns
@@ -396,16 +218,6 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   // Calculate tier and score color
   const tier = getConditionTier(score);
   const scoreColorClass = getScoreColorClass(tier);
-
-  // Build share URL for ShareSheet
-  const shareImageUrl = buildSurfCallShareUrl({
-    beach: beach.name,
-    verdict: tier === "great" || tier === "good" ? "YES" : tier === "fair" ? "MAYBE" : "NO",
-    window: timeWindow,
-    waveHeight: waveHeightBadge || "",
-    wind: "",
-    tags: conditionBadges?.slice(0, 3).map(b => b.label).join(",") || "",
-  });
 
   // Determine if showing tomorrow's forecast
   const timezone = window.timezone || beach.timezone || "America/Los_Angeles";
@@ -555,28 +367,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
             />
           </motion.div>
         )}
-
-        {/* Share button */}
-        <motion.div variants={shouldReduceMotion ? {} : HOME_HEADER_MOTION.hero.badge} className="flex-shrink-0">
-          <button
-            onClick={() => setShareOpen(true)}
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium py-1.5 px-2.5 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors"
-            aria-label="Share forecast"
-          >
-            <Share2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-            Share
-          </button>
-        </motion.div>
       </motion.div>
-
-      <ShareSheet
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        imageUrl={shareImageUrl}
-        type="wave"
-        title={`Check out ${beach.name}!`}
-        text={`${headline.prefix}${beach.name} ${headline.connector} ${formattedScore}/10`}
-      />
     </div>
   );
 });

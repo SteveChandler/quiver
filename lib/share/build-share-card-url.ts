@@ -89,6 +89,16 @@ export interface SurfCallShareParams {
   wind: string;
   /** Comma-separated trend tags */
   tags?: string;
+  /** Score as integer (0-100), e.g., 81 for 8.1/10 */
+  score?: number;
+  /** Headline text (e.g., "Tomorrow at Big Jetty") */
+  headline?: string;
+  /** Condition label (e.g., "Great Conditions", "Good Conditions") */
+  conditionLabel?: string;
+  /** Tide badge (e.g., "Falling Tide", "Rising Tide") */
+  tideBadge?: string;
+  /** Natural language message about conditions */
+  message?: string;
 }
 
 /**
@@ -117,6 +127,26 @@ export function buildSurfCallShareUrl(params: SurfCallShareParams): string {
 
   if (params.tags) {
     searchParams.set('tags', params.tags);
+  }
+
+  if (params.score !== undefined) {
+    searchParams.set('score', params.score.toString());
+  }
+
+  if (params.headline) {
+    searchParams.set('headline', params.headline);
+  }
+
+  if (params.conditionLabel) {
+    searchParams.set('conditionLabel', params.conditionLabel);
+  }
+
+  if (params.tideBadge) {
+    searchParams.set('tideBadge', params.tideBadge);
+  }
+
+  if (params.message) {
+    searchParams.set('message', params.message);
   }
 
   return `${baseUrl}/api/og/surf-call?${searchParams.toString()}`;
