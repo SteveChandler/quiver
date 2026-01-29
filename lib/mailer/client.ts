@@ -21,5 +21,5 @@ export const resend: any = new Proxy(
   }
 );
 
-export const MAIL_FROM = process.env.MAIL_FROM || "Quiver <invites@quiver.fyi>";
+export const MAIL_FROM = process.env.MAIL_FROM || "Quiver <invites@quiversurf.app>";
 export const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || MAIL_FROM;

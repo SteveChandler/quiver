@@ -7,7 +7,7 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "./beach-detail-client";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -162,9 +162,12 @@ export async function generateMetadata({
   const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
+    const locationContext =
+      beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+
     return buildPageMetadata({
-      title: `${beach.name} Surf Forecast | Quiver`,
-      description: `Live surf forecast for ${beach.name}. Wave height, swell, wind, and tide conditions updated daily.`,
+      title: `${beach.name} Surf Report & Forecast (Updated Daily)`,
+      description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
       path: `/beach/${params.slug}`,
       image: `/api/og/beach?slug=${params.slug}`,
     });

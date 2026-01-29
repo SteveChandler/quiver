@@ -183,7 +183,7 @@ export class ForecastBuilder {
       forecast_time: getNormalizedTimeString(forecastTime),
 
       // Wave data
-      wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData),
+      wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach),
       wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
       wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
@@ -392,7 +392,8 @@ export class ForecastBuilder {
     cdipPoint: any,
     wavePoint: any,
     buoyData: any,
-    useCDIPData: boolean
+    useCDIPData: boolean,
+    beach: Beach
   ): string | null {
     const formatWaveFeet = (meters: number | null | undefined): string | null => {
       if (meters == null) return null;
@@ -409,16 +410,42 @@ export class ForecastBuilder {
       return `${rounded} ft`;
     };
 
-    // Try toFaceHeightFeet first
+    // Extract period: prefer CDIP peak period, then model swell period
+    const periodS =
+      cdipPoint?.peakWavePeriod ??
+      cdipPoint?.swellPeriod ??
+      wavePoint?.swell_1_period ??
+      wavePoint?.peak_wave_period ??
+      null;
+
+    // Extract swell direction: prefer CDIP peak direction, then model swell direction
+    // CDIP provides degrees, model may provide degrees or cardinal (handled by cardinalToDegrees)
+    const swellDirectionDeg =
+      cdipPoint?.peakWaveDirection ??
+      cdipPoint?.swellDirection ??
+      cardinalToDegrees(wavePoint?.swell_1_direction) ??
+      cardinalToDegrees(wavePoint?.peak_wave_direction) ??
+      null;
+
+    // Build beach terrain config for transformation
+    const beachTerrain = {
+      swell_access_factors: beach.swell_access_factors ?? null,
+      terrain_enabled: beach.terrain_enabled ?? false,
+    };
+
+    // Try toFaceHeightFeet with beach-specific transformation
     const face = toFaceHeightFeet({
       cdipSigFt: cdipPoint?.significantWaveHeight ?? undefined,
       cdipSwellFt: cdipPoint?.swellHeight ?? undefined,
       modelSwellM: wavePoint?.swell_1_height ?? undefined,
       modelHsM: wavePoint?.significant_wave_height ?? undefined,
+      beach: beachTerrain,
+      periodS,
+      swellDirectionDeg,
     });
     if (face) return face;
 
-    // Fallback logic
+    // Fallback logic (without transformation for edge cases)
     if (useCDIPData && cdipPoint?.significantWaveHeight != null)
       return formatFeet(cdipPoint.significantWaveHeight);
     if (useCDIPData && cdipPoint?.swellHeight != null) return formatFeet(cdipPoint.swellHeight);

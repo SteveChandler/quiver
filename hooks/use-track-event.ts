@@ -71,7 +71,7 @@ export function useTrackEvent() {
 
       // Fire and forget - don't block UI
       try {
-        await fetch("/api/events", {
+        const response = await fetch("/api/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -81,8 +81,18 @@ export function useTrackEvent() {
           }),
           keepalive: true, // Survives page navigation
         });
-      } catch {
-        // Swallow errors - tracking should never break the app
+
+        // Log non-OK responses in development for debugging
+        if (!response.ok && process.env.NODE_ENV === "development") {
+          console.warn(
+            `[useTrackEvent] Failed to track ${eventType}: HTTP ${response.status}`
+          );
+        }
+      } catch (error) {
+        // Log errors in development for debugging, but never break the app
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[useTrackEvent] Network error:", error);
+        }
       }
     },
     [user?.id]

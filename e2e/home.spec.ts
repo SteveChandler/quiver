@@ -65,11 +65,11 @@ test.describe('Authenticated Home Screen', () => {
       expect(hasPlanWeekend || hasPlanSession || hasExplore || hasLocation || hasAtBeach).toBe(true);
     });
 
-    test('should navigate to planning when clicking Plan Weekend', async ({ page }) => {
+    test('should navigate to beach forecast when clicking Plan Weekend', async ({ page }) => {
       // Wait for page content to load
       await page.waitForTimeout(3000);
 
-      // Try Plan Weekend button first, then fallback to other options
+      // Try Plan Weekend button first, then fallback to Plan Session
       const planWeekendButton = page.getByRole('button', { name: /plan weekend/i });
       const planSessionButton = page.getByRole('button', { name: /plan session/i }).first();
 
@@ -78,16 +78,18 @@ test.describe('Authenticated Home Screen', () => {
       if (await planWeekendButton.isVisible().catch(() => false)) {
         await planWeekendButton.click();
         clicked = true;
+        // Plan Weekend navigates to beach forecast tab
+        await page.waitForURL(/\?tab=forecast/, { timeout: 10000 });
+        expect(page.url()).toContain('?tab=forecast');
       } else if (await planSessionButton.isVisible().catch(() => false)) {
         await planSessionButton.click();
         clicked = true;
-      }
-
-      if (clicked) {
-        // Should navigate to session planner
+        // Plan Session may navigate to session planner
         await page.waitForURL('**/sessions/**', { timeout: 10000 });
         expect(page.url()).toContain('/sessions/');
-      } else {
+      }
+
+      if (!clicked) {
         // Skip if no planning button available (rate limited state)
         test.skip();
       }

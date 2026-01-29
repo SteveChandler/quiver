@@ -9,13 +9,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Share Button on Hero Recommendation:** Users can now share surf forecasts directly from the hero recommendation card on the home screen. Features include:
+  - Share button integrated into primary actions row alongside "I'm at the beach" and "Plan Weekend" buttons
+  - Shares via iMessage, WhatsApp, and Messenger using existing ShareSheet infrastructure
+  - Generates OG share card images with centered layout: Quiver logo, headline, large orange score, conditions line, and ocean-gradient background
+  - Maps recommendation data (beach name, verdict, window, wave height, condition tags) to share content
+
+- **"Best at" Peak Time Badge:** Hero recommendation card now displays the optimal surf time within the recommended window as a badge (e.g., "Best at 7:30am"). Badge appears after the time window badge using consistent neutral styling (white/translucent on dark background).
+
+- **Beach-Specific Wave Height Transformation:** Enhanced wave height forecasts to transform raw buoy significant wave height (Hs) into estimated face heights that match surfer expectations from services like Surfline. The transformation applies:
+  - Base shoaling factor (1.6x) - waves steepen approaching shore
+  - Period amplification (0.8x-1.4x) - longer periods = bigger faces
+  - Beach-specific direction factor (0.6x-1.0x) using terrain `swell_access_factors`
+  - Example: 1.9ft Hs @ 16s with good SW access transforms to 4.0ft face height
+  - New utility: `lib/utils/wave-height-transformer.ts` with `transformToFaceHeight()`, `calculatePeriodFactor()`, `calculateDirectionFactor()`, and `transformToFaceHeightRange()` functions
+  - Full test coverage with 61+ unit tests
+
+### Refactored
+
+- **Condition Tier Utilities (DRY):** Consolidated condition tier logic from multiple components into centralized `lib/utils/condition-tier-utils.ts`. Extracted utilities include:
+  - `ConditionTier` type and `CONDITION_TIER_THRESHOLDS` constant (great: 80+, good: 60-79, fair: 40-59, marginal: <40)
+  - `getConditionTier()` - score-based tier calculation
+  - `getScoreColorClass()` - Tailwind color class for score display
+  - `getConditionBadge()` - badge config with label and className
+  - `buildHeadlineText()` - headline parts based on tier and time context
+  - `isTomorrowInTimezone()` - timezone-aware tomorrow detection
+  - Used by: HeroRecommendation, HorizonStrip, CompactSpotCard, share data builder
+  - Full test coverage with 188+ tests
+
+- **Share Data Builder (DRY):** Extracted share computation logic from `components/home-screen/index.tsx` into `lib/share/share-data-builder.ts`:
+  - `buildSurfCallShareData()` function consolidates ~54 lines of share logic into 4 lines at call site
+  - Integrates with condition tier utilities for consistent tier calculation
+  - Builds OG image URLs with all required parameters
+  - Error handling with graceful null return on failure
+  - Full test coverage with 255+ tests
+
+- **Wave Height Utilities (DRY):** Enhanced `lib/utils/wave-height-formatter.ts` with shared utilities and improved DRY compliance:
+  - Added `WAVE_HEIGHT_NUMBER_PATTERN` constant and `extractNumericWaveHeight()` utility
+  - Added `roundWaveHeight()` and `clampWaveHeight()` utility functions
+  - Extracted `selectWaveHeightSource()` with proper interfaces for source priority logic
+  - Added data-driven `WAVE_HEIGHT_RANGES` for `formatWaveHeight()` function
+  - Created shared test utilities in `wave-height-test-utils.ts`
+  - Updated `wave-height-display.tsx` to use shared `extractNumericWaveHeight`
+  - Full test coverage with 114+ tests
+
+### Changed
+
+- **Share Button Location:** Moved share button from within hero-recommendation component to primary-actions row, appearing alongside "I'm at the beach" and "Plan Weekend" buttons with secondary button styling (transparent with border)
+
+- **OG Share Card Design:** Redesigned share card image with centered layout featuring Quiver logo, headline text, large orange score, conditions line, message text, and ocean-gradient background
+
 - **Implicit Preference Learning:** Solves cold-start personalization problem by capturing behavioral signals before users log explicit sessions. Features include:
   - Captures behavioral signals: beach views, discovery clicks, forecast checks, location updates
   - Weighted aggregation algorithm (location 10x > discovery click 3x > forecast check 2.5x > beach view 0.5x > discovery skip -1x)
   - Time decay with 14-day half-life preserves recent engagement
   - Sigmoid confidence function based on total weighted events
   - Confidence-blended scoring: `implicitWeight = implicitConf * (1 - explicitConf)`
-  - Bonus points: wave range match (+10 × implicitWeight), break type match (+8 × implicitWeight), top engaged beach (+2 flat)
+  - Bonus points: wave range match (+10 x implicitWeight), break type match (+8 x implicitWeight), top engaged beach (+2 flat)
   - Privacy controls: opt-out toggle and "Clear browsing data" in Settings
   - 90-day data retention with automatic cleanup via pg_cron
   - Database: `user_events` table, `user_implicit_preferences` table, `compute_implicit_preferences()` aggregation function
@@ -34,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed conflict resolution to use `user_devices` unique constraint: `(user_id, device_token)`
   - Removed unused fields: `device`, `app_version`, `last_seen_at` (not in `user_devices` schema)
   - Created migration `20260124130000_consolidate_push_device_tables.sql` to migrate existing tokens and drop redundant `push_devices` table
-  - Push notifications now flow correctly: mobile registration → `user_devices` → FCM delivery via `lib/services/push-notifications.ts`
+  - Push notifications now flow correctly: mobile registration -> `user_devices` -> FCM delivery via `lib/services/push-notifications.ts`
 
 ### Added
 
@@ -46,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - "Why sentence" narrative explaining the surf call verdict
   - Low confidence badge when forecast reliability is questionable
   - NO verdict handling with appropriate messaging
-  - Data flow: `page.tsx` calls `getSpotSurfReport()` → passes `SurfCallResult` through `BeachDetailClient` → `BeachDetail` → `ForecastTab` → `BestSurfWindow`
+  - Data flow: `page.tsx` calls `getSpotSurfReport()` -> passes `SurfCallResult` through `BeachDetailClient` -> `BeachDetail` -> `ForecastTab` -> `BestSurfWindow`
   - Legacy fallback: When `surfCall` prop is not provided, component renders using existing intel API and Magic Hour system
   - Comprehensive test suite in `__tests__/components/beach-detail/best-surf-window-unified.test.tsx` validates unified card rendering, trend tags, peak time, NO verdict handling, low confidence badge, and legacy fallback behavior
   - Completes Tasks 4, 5, and 7 of unified-surf-scorer implementation plan
@@ -82,9 +132,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ready for real terrain validation once DEM/landmask integration is complete
 
 - **Swell Access Algorithm:** Implemented complete swell access algorithm for terrain-aware geometry scoring. Added `scripts/terrain/swell-access.ts` with directional swell access factor computation that determines how terrain blocks swell from reaching beaches. Features include:
-  - Directional ray casting (72 bins, 5° resolution) to detect land blockage up to 3.5km
+  - Directional ray casting (72 bins, 5 degree resolution) to detect land blockage up to 3.5km
   - Smooth access factor calculation with distance-based falloff (power 1.5)
-  - Wave wrap-around effects: Adjacent open directions contribute via exponential decay (lambda=0.04, max angle=45°)
+  - Wave wrap-around effects: Adjacent open directions contribute via exponential decay (lambda=0.04, max angle=45 degrees)
   - Circular smoothing with kernel [0.25, 0.5, 0.25] for realistic transitions
   - Mock landmask implementation returns uniform access (1.0) for open water testing
   - Comprehensive test suite validates 72-element output, [0,1] range, wrapping, and directional consistency

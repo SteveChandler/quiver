@@ -3,9 +3,10 @@
  *
  * Records a user behavioral event for implicit preference learning.
  * Respects user privacy settings (allow_implicit_tracking).
+ * Includes per-user rate limiting to prevent abuse.
  *
  * Request body: { eventType: ImplicitEventType, beachId?: string, metadata?: EventMetadata }
- * Response: { ok: boolean, status?: 'tracking_disabled' }
+ * Response: { ok: boolean, status?: 'tracking_disabled' | 'rate_limited' }
  */
 
 import { createAPIServerClient } from '@/lib/supabase/server';
@@ -18,9 +19,67 @@ import type {
   ImplicitEventType,
   TrackEventRequest,
 } from '@/types/implicit-preferences';
-import { trackingAllowedCache } from '@/lib/services/tracking-cache';
+import { getTrackingCache, setTrackingCache } from '@/lib/services/tracking-cache';
 
 export const dynamic = 'force-dynamic';
+
+// =============================================================================
+// Rate Limiting Configuration
+// =============================================================================
+
+const RATE_LIMIT = 60; // Max events per window
+const RATE_WINDOW_MS = 60_000; // 1 minute window
+const MAX_RATE_LIMIT_ENTRIES = 10000; // LRU eviction threshold
+
+// Per-user rate limit tracking with LRU eviction
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const rateLimitOrder: string[] = [];
+
+/**
+ * Check and update rate limit for a user
+ * Returns true if within limits, false if rate limited
+ */
+function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  // Reset if window expired
+  if (entry && entry.resetAt <= now) {
+    rateLimitMap.delete(userId);
+    const idx = rateLimitOrder.indexOf(userId);
+    if (idx !== -1) rateLimitOrder.splice(idx, 1);
+  }
+
+  const current = rateLimitMap.get(userId);
+  const resetAt = current?.resetAt ?? now + RATE_WINDOW_MS;
+
+  if (current) {
+    // Check if over limit
+    if (current.count >= RATE_LIMIT) {
+      return { allowed: false, remaining: 0, resetAt };
+    }
+
+    // Increment count
+    current.count++;
+    return { allowed: true, remaining: RATE_LIMIT - current.count, resetAt };
+  }
+
+  // New entry - apply LRU eviction if at capacity
+  if (rateLimitMap.size >= MAX_RATE_LIMIT_ENTRIES) {
+    const oldest = rateLimitOrder.shift();
+    if (oldest) rateLimitMap.delete(oldest);
+  }
+
+  // Create new entry
+  rateLimitOrder.push(userId);
+  rateLimitMap.set(userId, { count: 1, resetAt });
+
+  return { allowed: true, remaining: RATE_LIMIT - 1, resetAt };
+}
+
+// =============================================================================
+// Event Configuration
+// =============================================================================
 
 const VALID_EVENTS: ImplicitEventType[] = [
   'beach_view',
@@ -38,8 +97,8 @@ async function isTrackingAllowed(
   supabase: ReturnType<typeof createAPIServerClient>,
   userId: string
 ): Promise<boolean> {
-  // Check cache first
-  const cached = trackingAllowedCache.get(userId);
+  // Check cache first (using LRU-aware getter)
+  const cached = getTrackingCache(userId);
   if (cached && cached.expires > Date.now()) {
     return cached.allowed;
   }
@@ -54,8 +113,8 @@ async function isTrackingAllowed(
   // Default to true if no preference set
   const allowed = data?.allow_implicit_tracking !== false;
 
-  // Cache for 5 minutes
-  trackingAllowedCache.set(userId, {
+  // Cache for 5 minutes (using LRU-aware setter)
+  setTrackingCache(userId, {
     allowed,
     expires: Date.now() + 5 * 60 * 1000,
   });
@@ -75,14 +134,36 @@ export async function POST(request: Request) {
     return createAuthError('Unauthorized');
   }
 
-  // 2. Privacy gatekeeper
+  // 2. Rate limiting check
+  const rateLimit = checkRateLimit(user.id);
+  if (!rateLimit.allowed) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        status: 'rate_limited',
+        error: 'Too many requests. Please try again later.',
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': RATE_LIMIT.toString(),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': Math.ceil(rateLimit.resetAt / 1000).toString(),
+          'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000).toString(),
+        },
+      }
+    );
+  }
+
+  // 3. Privacy gatekeeper
   const allowed = await isTrackingAllowed(supabase, user.id);
   if (!allowed) {
     // Return success to client (don't retry) but don't write data
     return createSuccessResponse({ ok: true, status: 'tracking_disabled' });
   }
 
-  // 3. Parse and validate request
+  // 4. Parse and validate request
   let body: TrackEventRequest;
   try {
     body = await request.json();
@@ -100,7 +181,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Insert event
+  // 5. Insert event
   const { error: insertError } = await supabase.from('user_events').insert({
     user_id: user.id,
     event_type: eventType,

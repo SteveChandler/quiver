@@ -17,12 +17,14 @@ import {
   type BeachWithThresholds,
 } from '@/lib/scoring/types';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-utils';
+import {
+  type ConditionTier,
+  CONDITION_TIER_THRESHOLDS,
+  getConditionTier,
+} from '@/lib/utils/condition-tier-utils';
 
-/**
- * Condition tier for visual representation
- * Matches existing codebase convention from hero-recommendation.tsx
- */
-export type ConditionTier = 'great' | 'good' | 'fair' | 'marginal';
+// Re-export for backwards compatibility
+export { type ConditionTier, getConditionTier };
 
 /**
  * Summary of a single day's forecast for the Horizon Strip
@@ -48,26 +50,6 @@ export interface DaySummary {
   bestTime: string | null;
   /** Primary swell period for display */
   period: number | null;
-}
-
-/**
- * Tier thresholds matching hero-recommendation.tsx conventions
- */
-const TIER_THRESHOLDS = {
-  great: 80,   // ≥80 score
-  good: 60,    // 60-79 score
-  fair: 40,    // 40-59 score
-  marginal: 0, // <40 score
-} as const;
-
-/**
- * Determine condition tier from numeric score
- */
-export function getConditionTier(score: number): ConditionTier {
-  if (score >= TIER_THRESHOLDS.great) return 'great';
-  if (score >= TIER_THRESHOLDS.good) return 'good';
-  if (score >= TIER_THRESHOLDS.fair) return 'fair';
-  return 'marginal';
 }
 
 /**

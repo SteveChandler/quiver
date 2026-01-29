@@ -15,7 +15,7 @@
  */
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import type { UserImplicitPreferences } from "@/types/implicit-preferences";
+import type { UserImplicitPreferences, ValidBreakType } from "@/types/implicit-preferences";
 
 /**
  * Forecast data for matching
@@ -117,6 +117,18 @@ export function matchesInferredWaveRange(
 }
 
 /**
+ * Valid break types for type narrowing
+ */
+const VALID_BREAK_TYPES: ValidBreakType[] = ['beach', 'point', 'reef'];
+
+/**
+ * Type guard to check if a string is a valid break type
+ */
+function isValidBreakType(breakType: string): breakType is ValidBreakType {
+  return VALID_BREAK_TYPES.includes(breakType as ValidBreakType);
+}
+
+/**
  * Checks if a break type matches the user's learned preferences
  *
  * A break type matches if its weight is >= 0.2 threshold
@@ -129,8 +141,8 @@ export function matchesInferredBreakType(
   breakType: string | null | undefined,
   preferences: UserImplicitPreferences
 ): boolean {
-  // Validate break type exists
-  if (!breakType) {
+  // Validate break type exists and is a valid type
+  if (!breakType || !isValidBreakType(breakType)) {
     return false;
   }
 

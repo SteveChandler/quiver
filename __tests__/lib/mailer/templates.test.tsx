@@ -28,8 +28,8 @@ describe("Email Templates", () => {
         startTime: "8:30 AM",
         endTime: "9:30 AM",
       },
-      ctaUrl: "https://quiver.fyi/beaches/ocean-beach",
-      unsubscribeUrl: "https://quiver.fyi/settings/notifications",
+      ctaUrl: "https://quiversurf.app/beaches/ocean-beach",
+      unsubscribeUrl: "https://quiversurf.app/settings/notifications",
     };
 
     describe("Component Rendering", () => {
@@ -190,7 +190,7 @@ describe("Email Templates", () => {
       it("should include CTA link with correct URL", () => {
         const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
         const ctaLink = Array.from(container.querySelectorAll("a")).find(
-          (link) => link.href === "https://quiver.fyi/beaches/ocean-beach"
+          (link) => link.href === "https://quiversurf.app/beaches/ocean-beach"
         );
         expect(ctaLink).toBeInTheDocument();
         expect(ctaLink?.textContent).toContain("Check Full Forecast");
@@ -200,7 +200,7 @@ describe("Email Templates", () => {
         const { container } = render(<ForecastDigestEmail {...baseMockProps} />);
         const unsubLink = Array.from(container.querySelectorAll("a")).find(
           (link) =>
-            link.href === "https://quiver.fyi/settings/notifications"
+            link.href === "https://quiversurf.app/settings/notifications"
         );
         expect(unsubLink).toBeInTheDocument();
         expect(unsubLink?.textContent).toContain("Unsubscribe");
@@ -353,7 +353,7 @@ describe("Email Templates", () => {
             inviterName="Alex"
             beachName="Ocean Beach"
             whenIso="2025-08-10T08:00:00Z"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
             note="Let's catch some waves!"
           />
         );
@@ -364,7 +364,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Sarah"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain("Sarah");
@@ -375,7 +375,7 @@ describe("Email Templates", () => {
           <SessionInviteEmail
             inviterName="Alex"
             beachName="Pacific Beach"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain("Pacific Beach");
@@ -385,7 +385,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
             note="Don't forget your wetsuit!"
           />
         );
@@ -399,7 +399,7 @@ describe("Email Templates", () => {
           <SessionInviteEmail
             inviterName="Alex"
             whenIso="2025-08-10T08:00:00Z"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         // Date should be formatted (exact format depends on locale)
@@ -410,7 +410,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain("soon");
@@ -422,13 +422,13 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/456"
+            ctaUrl="https://quiversurf.app/sessions/456"
           />
         );
         const ctaLink = container.querySelector("a");
         expect(ctaLink).toHaveAttribute(
           "href",
-          "https://quiver.fyi/sessions/456"
+          "https://quiversurf.app/sessions/456"
         );
         expect(ctaLink?.textContent).toContain("View & respond");
       });
@@ -437,7 +437,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         const ctaLink = container.querySelector("a");
@@ -451,7 +451,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="François O'Brien"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain("François O'Brien");
@@ -462,7 +462,7 @@ describe("Email Templates", () => {
           <SessionInviteEmail
             inviterName="Alex"
             beachName="Côte d'Azur & Beach's Point"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain(
@@ -476,7 +476,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
             note={longNote}
           />
         );
@@ -488,7 +488,7 @@ describe("Email Templates", () => {
           <SessionInviteEmail
             inviterName="Alex"
             beachName="Super Long Beach Name That Might Cause Layout Issues"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain(
@@ -502,7 +502,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         const rootDiv = container.firstChild as HTMLElement;
@@ -514,7 +514,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
             note="Test note"
           />
         );
@@ -527,7 +527,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container.textContent).toContain("Manage notifications");
@@ -542,7 +542,7 @@ describe("Email Templates", () => {
             inviterName="Alex"
             beachName="Ocean Beach"
             whenIso="2025-08-10T08:00:00Z"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
             note="Let's go surfing!"
           />
         );
@@ -553,7 +553,7 @@ describe("Email Templates", () => {
         const { container } = render(
           <SessionInviteEmail
             inviterName="Alex"
-            ctaUrl="https://quiver.fyi/sessions/123"
+            ctaUrl="https://quiversurf.app/sessions/123"
           />
         );
         expect(container).toMatchSnapshot();
@@ -565,7 +565,7 @@ describe("Email Templates", () => {
             inviterName="Sarah"
             beachName="Pacific Beach"
             whenIso="2025-08-10T14:30:00Z"
-            ctaUrl="https://quiver.fyi/sessions/456"
+            ctaUrl="https://quiversurf.app/sessions/456"
           />
         );
         expect(container).toMatchSnapshot();
@@ -576,7 +576,7 @@ describe("Email Templates", () => {
           <SessionInviteEmail
             inviterName="Mike"
             whenIso="2025-08-15T09:00:00Z"
-            ctaUrl="https://quiver.fyi/sessions/789"
+            ctaUrl="https://quiversurf.app/sessions/789"
             note="Bring your longboard"
           />
         );

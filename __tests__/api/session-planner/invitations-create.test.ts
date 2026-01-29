@@ -140,7 +140,7 @@ describe("/api/session-planner/invitations - POST", () => {
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
       // Mock session query
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -288,7 +288,7 @@ describe("/api/session-planner/invitations - POST", () => {
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
       // Mock session and invitation queries
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         console.log("MOCK from() called with table:", table);
         if (table === "sessions") {
           return {
@@ -388,7 +388,7 @@ describe("/api/session-planner/invitations - POST", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -484,7 +484,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should reject invitation to non-existent session", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -525,7 +525,7 @@ describe("/api/session-planner/invitations - POST", () => {
       const mockUser = createMockUser({ id: "test-user-123" });
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -566,7 +566,7 @@ describe("/api/session-planner/invitations - POST", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -612,7 +612,7 @@ describe("/api/session-planner/invitations - POST", () => {
       const mockUser = createMockUser();
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -712,7 +712,7 @@ describe("/api/session-planner/invitations - POST", () => {
       mockAuthenticatedUser(mockSupabaseClient, mockUser);
 
       // Mock valid session
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -734,7 +734,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should prevent duplicate invitations to same user", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -790,7 +790,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should prevent invitations sent within 7 days", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -855,7 +855,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should allow invitation if no recent invitation exists", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -953,7 +953,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should create invitation to follower successfully", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -1061,7 +1061,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should create multiple invitations successfully", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -1161,7 +1161,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should include custom message in invitation", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -1265,7 +1265,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should resolve email to existing user", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -1358,7 +1358,7 @@ describe("/api/session-planner/invitations - POST", () => {
     });
 
     it("should create invitation with email for non-existing user", async () => {
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -1456,7 +1456,7 @@ describe("/api/session-planner/invitations - POST", () => {
     it("should use idempotency key if provided", async () => {
       let insertedData: any = null;
 
-      mockSupabaseClient.from.mockImplementation((table: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({

@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     console.log("[welcome-email] Starting welcome email cron run");
 
     const supabase = createSupabaseServiceRoleClient();
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi").trim();
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app").trim();
     const secret = getEmailTokenSecret();
 
     const summary: RunSummary = {
@@ -106,7 +106,14 @@ export async function GET(request: Request) {
     // 2. Process each candidate
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD for local_date
 
-    for (const candidate of candidates as WelcomeCandidate[]) {
+    for (let i = 0; i < (candidates as WelcomeCandidate[]).length; i++) {
+      const candidate = (candidates as WelcomeCandidate[])[i];
+
+      // Respect Resend rate limit (2 req/s) — pause 600ms between sends
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+
       try {
         // Generate welcome email
         const { subject, html, text } = await generateWelcomeEmail(

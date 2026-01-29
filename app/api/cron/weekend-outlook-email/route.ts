@@ -23,6 +23,7 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { WeekendOutlookEmail } from "@/lib/mailer/templates/WeekendOutlookEmail";
 import {
@@ -99,11 +100,10 @@ interface RunSummary {
  * Check if user already received weekend outlook this week
  */
 async function checkAlreadySent(
+  supabase: SupabaseClient,
   userId: string,
   beachId: string
 ): Promise<boolean> {
-  const supabase = await createSupabaseServiceRoleClient();
-
   const dedupeThreshold = new Date(
     Date.now() - DEDUPE_WINDOW_HOURS * 60 * 60 * 1000
   );
@@ -128,9 +128,11 @@ async function checkAlreadySent(
 /**
  * Track delivery in forecast_alert_deliveries
  */
-async function trackDelivery(userId: string, beachId: string): Promise<void> {
-  const supabase = await createSupabaseServiceRoleClient();
-
+async function trackDelivery(
+  supabase: SupabaseClient,
+  userId: string,
+  beachId: string
+): Promise<void> {
   const { error } = await supabase
     .from("forecast_alert_deliveries")
     .upsert(
@@ -361,7 +363,7 @@ export async function GET(request: Request) {
     const saturday = addDays(friday, 1);
     const sunday = addDays(friday, 2);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
 
     // 3. Process each user
     for (const user of users) {
@@ -383,7 +385,7 @@ export async function GET(request: Request) {
         }
 
         // Check deduplication
-        const alreadySent = await checkAlreadySent(user.id, user.home_beach_id);
+        const alreadySent = await checkAlreadySent(supabase, user.id, user.home_beach_id);
         if (alreadySent) {
           summary.skipped.alreadySentThisWeek++;
           continue;
@@ -459,6 +461,10 @@ export async function GET(request: Request) {
         const emailSubject = `${subjectEmoji} Weekend Outlook: ${beach.name}`;
 
         try {
+          // Respect Resend rate limit (2 req/s)
+          if (summary.sent > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+          }
           await resend.emails.send({
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
@@ -474,7 +480,7 @@ export async function GET(request: Request) {
           });
 
           console.log(`✅ [weekend-outlook] Sent to ${user.email} for ${beach.name}`);
-          await trackDelivery(user.id, user.home_beach_id);
+          await trackDelivery(supabase, user.id, user.home_beach_id);
           summary.sent++;
         } catch (sendError) {
           console.error(`❌ [weekend-outlook] Failed to send to ${user.email}:`, sendError);

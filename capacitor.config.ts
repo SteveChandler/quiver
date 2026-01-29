@@ -6,11 +6,14 @@ const config: CapacitorConfig = {
   webDir: "out",
   server: {
     androidScheme: "https",
-    url: "https://www.quiversurf.app",
+    url: "https://dev.quiversurf.app",
     cleartext: false,
     allowNavigation: ['*']
   },
   plugins: {
+    StatusBar: {
+      overlay: true,
+    },
     SplashScreen: {
       launchShowDuration: 0,
     },

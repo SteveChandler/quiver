@@ -2,7 +2,7 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
 import {
   buildBeachUrl,
   buildInternationalBeachUrl,
@@ -247,11 +247,6 @@ export async function generateMetadata({
     });
 
     if (beach) {
-
-      const reviewCount = beach.review_count ?? 0;
-      const reviewText =
-        reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
-
       const locationContext =
         beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
@@ -263,8 +258,8 @@ export async function generateMetadata({
       );
 
       return buildPageMetadata({
-        title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
-        description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
+        title: `${beach.name} Surf Report & Forecast${locationContext}`,
+        description: `${beach.name} surf report for ${formatMetaDate()}. Tides, wind, swell, cams, and community intel${locationContext}.`,
         path: path || `/beach/${intlBeachSlug}`,
         keywords: [
           beach.name,
@@ -296,14 +291,3 @@ export async function generateMetadata({
     path: `/beach/${intlBeachSlug}`,
   });
 }
-
-
-
-
-
-
-
-
-
-
-

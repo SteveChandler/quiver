@@ -1,7 +1,7 @@
 // Mock the mailer client wrapper to avoid importing the real 'resend' package
 jest.mock("@/lib/mailer/client", () => ({
   resend: { emails: { send: jest.fn() } },
-  MAIL_FROM: "Quiver <invites@quiver.fyi>",
+  MAIL_FROM: "Quiver <invites@quiversurf.app>",
 }));
 import * as client from "@/lib/mailer/client";
 import { sendSessionInviteEmail } from "@/lib/mailer/sessionInviteEmail";

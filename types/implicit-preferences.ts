@@ -123,25 +123,34 @@ export interface UserEvent {
 // =============================================================================
 
 /**
+ * Valid break types for implicit preference learning
+ */
+export type ValidBreakType = 'beach' | 'point' | 'reef';
+
+/**
+ * Valid time slots for implicit preference learning
+ */
+export type ValidTimeSlot = 'dawn-patrol' | 'morning' | 'afternoon' | 'evening';
+
+/**
  * Learned weights for different break types
+ * Strict type definition - only valid break types allowed
  */
 export interface BreakTypeWeights {
   beach?: number;
   point?: number;
   reef?: number;
-  /** Allow additional break types */
-  [key: string]: number | undefined;
 }
 
 /**
  * Learned weights for different time slots
+ * Strict type definition - only valid time slots allowed
  */
 export interface TimeSlotWeights {
   'dawn-patrol'?: number;
   morning?: number;
   afternoon?: number;
-  /** Allow additional time slots */
-  [key: string]: number | undefined;
+  evening?: number;
 }
 
 /**

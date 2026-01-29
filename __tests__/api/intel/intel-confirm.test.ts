@@ -13,6 +13,13 @@ import {
   type MockSupabaseClient,
 } from "@/test-utils/api-test-helpers";
 
+/** Type for intel confirm API response */
+interface IntelConfirmResponse {
+  confirmed: boolean;
+  confirmations_count: number;
+  confirmation_id?: string;
+}
+
 /**
  * Tests for /api/intel/[id]/confirm route
  *
@@ -144,7 +151,7 @@ describe("POST /api/intel/[id]/confirm", () => {
       const request = createMockRequest("POST", `http://localhost/api/intel/${validPostId}/confirm`);
       const response = await POST(request, { params: { id: validPostId } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelConfirmResponse>(response, 200);
       expect(data.data.confirmed).toBe(true);
       expect(data.data.confirmations_count).toBe(1);
       expect(data.data.confirmation_id).toBe(VALID_CONFIRMATION_ID);
@@ -169,7 +176,7 @@ describe("POST /api/intel/[id]/confirm", () => {
       const request = createMockRequest("POST", `http://localhost/api/intel/${VALID_INTEL_POST_ID}/confirm`);
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelConfirmResponse>(response, 200);
       expect(data.data.confirmations_count).toBe(5);
     });
 
@@ -191,7 +198,7 @@ describe("POST /api/intel/[id]/confirm", () => {
       const request = createMockRequest("POST", `http://localhost/api/intel/${VALID_INTEL_POST_ID}/confirm`);
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelConfirmResponse>(response, 200);
       expect(data.data.confirmed).toBe(true);
       expect(data.data.confirmations_count).toBe(0); // Default to 0 on error
     });
@@ -262,7 +269,7 @@ describe("POST /api/intel/[id]/confirm", () => {
       const request = createMockRequest("POST", `http://localhost/api/intel/${VALID_INTEL_POST_ID}/confirm`);
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelConfirmResponse>(response, 200);
     });
   });
 
@@ -363,7 +370,7 @@ describe("DELETE /api/intel/[id]/confirm", () => {
       const request = createMockRequest("DELETE", `http://localhost/api/intel/${VALID_INTEL_POST_ID}/confirm`);
       const response = await DELETE(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelConfirmResponse>(response, 200);
       expect(data.data.confirmed).toBe(false);
       expect(data.data.confirmations_count).toBe(0);
       expect(data.data.confirmation_id).toBe(VALID_CONFIRMATION_ID);
@@ -387,7 +394,7 @@ describe("DELETE /api/intel/[id]/confirm", () => {
       const request = createMockRequest("DELETE", `http://localhost/api/intel/${VALID_INTEL_POST_ID}/confirm`);
       const response = await DELETE(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelConfirmResponse>(response, 200);
       expect(data.data.confirmations_count).toBe(4);
     });
 
@@ -408,7 +415,7 @@ describe("DELETE /api/intel/[id]/confirm", () => {
       const request = createMockRequest("DELETE", `http://localhost/api/intel/${VALID_INTEL_POST_ID}/confirm`);
       const response = await DELETE(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelConfirmResponse>(response, 200);
       expect(data.data.confirmed).toBe(false);
       expect(data.data.confirmations_count).toBe(0); // Default to 0 on error
     });

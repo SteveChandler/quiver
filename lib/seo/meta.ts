@@ -73,6 +73,14 @@ export function buildPageMetadata({
   } satisfies Metadata;
 }
 
+export function formatMetaDate(date = new Date()): string {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function shouldIndex(): boolean {
   return process.env.DISALLOW_ROBOTS !== "true";
 }

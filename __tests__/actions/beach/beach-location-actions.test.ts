@@ -95,10 +95,49 @@ describe('city lookup functions', () => {
   });
 
   describe('getAllCitiesWithBeachSkills', () => {
+    /**
+     * Create mock for RPC-based implementation (primary path)
+     * The function now uses supabase.rpc('get_cities_with_beach_skills') first
+     */
+    function makeSkillRpcSupabaseFake(
+      cities: Array<{
+        city: string;
+        state: string;
+        country: string | null;
+        beach_count: number;
+        has_beginner: boolean;
+        has_advanced: boolean;
+      }>
+    ) {
+      const supabase = {
+        rpc: jest.fn(() => Promise.resolve({ data: cities, error: null })),
+        // Fallback path (if RPC fails)
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            or: jest.fn(() => ({
+              not: jest.fn(() => ({
+                not: jest.fn(() => ({
+                  is: jest.fn(() =>
+                    Promise.resolve({ data: [], error: null })
+                  ),
+                })),
+              })),
+            })),
+          })),
+        })),
+      } as any;
+      return supabase;
+    }
+
+    /**
+     * Legacy mock for fallback path testing (client-side aggregation)
+     */
     function makeSkillSupabaseFake(
       beaches: Array<{ city: string; state: string; country: string | null; skill_level: string | null }>
     ) {
       const supabase = {
+        // Make RPC fail to trigger fallback
+        rpc: jest.fn(() => Promise.resolve({ data: null, error: { message: 'RPC not available' } })),
         from: jest.fn(() => ({
           select: jest.fn(() => ({
             or: jest.fn(() => ({
@@ -117,12 +156,12 @@ describe('city lookup functions', () => {
     }
 
     it('should aggregate hasBeginnerBeaches flag correctly', async () => {
-      const beaches = [
-        { city: 'San Diego', state: 'CA', country: 'USA', skill_level: 'beginner' },
-        { city: 'San Diego', state: 'CA', country: 'USA', skill_level: 'advanced' },
-        { city: 'Malibu', state: 'CA', country: 'USA', skill_level: 'advanced' },
+      // RPC returns pre-aggregated data with has_beginner/has_advanced flags
+      const cities = [
+        { city: 'San Diego', state: 'CA', country: 'USA', beach_count: 2, has_beginner: true, has_advanced: true },
+        { city: 'Malibu', state: 'CA', country: 'USA', beach_count: 1, has_beginner: false, has_advanced: true },
       ];
-      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       expect(result.success).toBe(true);
@@ -137,10 +176,11 @@ describe('city lookup functions', () => {
     });
 
     it('should detect longboard skill level as beginner', async () => {
-      const beaches = [
-        { city: 'Waikiki', state: 'HI', country: 'USA', skill_level: 'longboard' },
+      // RPC handles the logic - just return the pre-computed flag
+      const cities = [
+        { city: 'Waikiki', state: 'HI', country: 'USA', beach_count: 1, has_beginner: true, has_advanced: false },
       ];
-      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       const waikiki = result.data?.find(c => c.city === 'Waikiki');
@@ -148,10 +188,10 @@ describe('city lookup functions', () => {
     });
 
     it('should detect expert skill level as advanced', async () => {
-      const beaches = [
-        { city: 'Pipeline', state: 'HI', country: 'USA', skill_level: 'expert' },
+      const cities = [
+        { city: 'Pipeline', state: 'HI', country: 'USA', beach_count: 1, has_beginner: false, has_advanced: true },
       ];
-      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       const pipeline = result.data?.find(c => c.city === 'Pipeline');
@@ -159,10 +199,10 @@ describe('city lookup functions', () => {
     });
 
     it('should handle null skill_level gracefully', async () => {
-      const beaches = [
-        { city: 'Unknown', state: 'CA', country: 'USA', skill_level: null },
+      const cities = [
+        { city: 'Unknown', state: 'CA', country: 'USA', beach_count: 1, has_beginner: false, has_advanced: false },
       ];
-      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(1);
       const unknown = result.data?.find(c => c.city === 'Unknown');
@@ -171,13 +211,11 @@ describe('city lookup functions', () => {
     });
 
     it('should filter cities by minBeaches count', async () => {
-      const beaches = [
-        { city: 'Big City', state: 'CA', country: 'USA', skill_level: 'beginner' },
-        { city: 'Big City', state: 'CA', country: 'USA', skill_level: 'advanced' },
-        { city: 'Big City', state: 'CA', country: 'USA', skill_level: null },
-        { city: 'Small Town', state: 'CA', country: 'USA', skill_level: 'beginner' },
+      // RPC handles minBeaches filtering - only returns cities meeting threshold
+      const cities = [
+        { city: 'Big City', state: 'CA', country: 'USA', beach_count: 3, has_beginner: true, has_advanced: true },
       ];
-      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+      mockCreate.mockResolvedValue(makeSkillRpcSupabaseFake(cities));
 
       const result = await getAllCitiesWithBeachSkills(3);
       expect(result.data?.length).toBe(1);
@@ -187,6 +225,9 @@ describe('city lookup functions', () => {
 
     it('should handle database errors gracefully', async () => {
       const supabase = {
+        // RPC fails
+        rpc: jest.fn(() => Promise.resolve({ data: null, error: { message: 'RPC failed' } })),
+        // Fallback also fails
         from: jest.fn(() => ({
           select: jest.fn(() => ({
             or: jest.fn(() => ({
@@ -204,9 +245,29 @@ describe('city lookup functions', () => {
       mockCreate.mockResolvedValue(supabase);
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       const result = await getAllCitiesWithBeachSkills(1);
       expect(result.success).toBe(false);
       consoleSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
+    it('should use fallback when RPC fails', async () => {
+      // Test the fallback path with client-side aggregation
+      const beaches = [
+        { city: 'Fallback City', state: 'CA', country: 'USA', skill_level: 'beginner' },
+        { city: 'Fallback City', state: 'CA', country: 'USA', skill_level: 'advanced' },
+      ];
+      mockCreate.mockResolvedValue(makeSkillSupabaseFake(beaches));
+
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const result = await getAllCitiesWithBeachSkills(1);
+      expect(result.success).toBe(true);
+      expect(result.data?.length).toBe(1);
+      expect(result.data?.[0].city).toBe('Fallback City');
+      expect(result.data?.[0].hasBeginnerBeaches).toBe(true);
+      expect(result.data?.[0].hasAdvancedBeaches).toBe(true);
+      warnSpy.mockRestore();
     });
   });
 

@@ -5,7 +5,12 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error
 import joblib
 import os
+import logging
 from typing import Dict, Any, Optional, Tuple
+
+from config import LARGE_SWELL_TAPER_START, LARGE_SWELL_TAPER_END
+
+logger = logging.getLogger(__name__)
 
 class QuiverBiasModel:
     """
@@ -41,9 +46,9 @@ class QuiverBiasModel:
         
         fold_scores = []
         
-        # We only really need to train the final model on all data, 
+        # We only really need to train the final model on all data,
         # but CV helps us estimate performance and prevent overfitting during dev.
-        print(f"Starting TimeSeries Cross-Validation with {n_splits} splits...")
+        logger.info(f"Starting TimeSeries Cross-Validation with {n_splits} splits...")
         
         for fold, (train_index, val_index) in enumerate(tscv.split(X)):
             X_train, X_val = X.iloc[train_index], X.iloc[val_index]
@@ -56,10 +61,10 @@ class QuiverBiasModel:
             preds = reg.predict(X_val)
             rmse = np.sqrt(mean_squared_error(y_val, preds))
             fold_scores.append(rmse)
-            print(f"Fold {fold+1} RMSE: {rmse:.4f} meters")
+            logger.info(f"Fold {fold+1} RMSE: {rmse:.4f} meters")
             
         # Refit on ALL data for the final production model
-        print("Training final model on full dataset...")
+        logger.info("Training final model on full dataset...")
         self.model = xgb.XGBRegressor(**self.params)
         self.model.fit(X, y, verbose=False)
         
@@ -85,7 +90,22 @@ class QuiverBiasModel:
         # Predict the residual (bias)
         predicted_bias = pd.Series(self.model.predict(X), index=physics_forecast.index)
 
-        # --- v2 Guardrails ---
+        # --- v2.1 Guardrails ---
+
+        # 0. Large swell scaling: taper corrections for waves outside training distribution
+        # The model was trained primarily on small waves during a flat spell, making it
+        # less reliable for large swells. We apply a linear taper:
+        #   - Below TAPER_START (1.5m default): 100% of predicted correction applied
+        #   - Between TAPER_START and TAPER_END: linear interpolation
+        #   - Above TAPER_END (2.5m default): 0% correction (use raw physics forecast)
+        # Thresholds are configurable via LARGE_SWELL_TAPER_START/END env vars.
+        scale_factor = np.clip(
+            (LARGE_SWELL_TAPER_END - physics_forecast) / (LARGE_SWELL_TAPER_END - LARGE_SWELL_TAPER_START),
+            0.0,  # No correction for very large swells
+            1.0   # Full correction for small swells
+        )
+        predicted_bias = predicted_bias * scale_factor
+
         # 1. Clip bias to +/- 50% of raw forecast (min 0.3m floor for small waves)
         max_bias = np.maximum(physics_forecast.abs() * 0.5, 0.3)
         predicted_bias = predicted_bias.clip(lower=-max_bias, upper=max_bias)
@@ -114,10 +134,10 @@ class QuiverBiasModel:
         if dir_name:
             os.makedirs(dir_name, exist_ok=True)
         self.model.save_model(filepath)
-        print(f"Model saved to {filepath}")
+        logger.info(f"Model saved to {filepath}")
 
     def load(self, filepath: str):
         """Loads the model from a JSON file."""
         self.model = xgb.XGBRegressor()
         self.model.load_model(filepath)
-        print(f"Model loaded from {filepath}")
+        logger.info(f"Model loaded from {filepath}")

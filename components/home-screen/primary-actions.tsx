@@ -2,11 +2,26 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
+import { ShareSheet } from "@/components/share/share-sheet";
+
+/**
+ * Share data for the Share button
+ */
+export interface ShareData {
+  /** URL to the OG image */
+  imageUrl: string;
+  /** Beach name */
+  beachName: string;
+  /** Share title text */
+  title: string;
+  /** Share description text */
+  text: string;
+}
 
 /**
  * Props for PrimaryActions component
@@ -20,6 +35,8 @@ export interface PrimaryActionsProps {
   onPlanWeekend: () => void;
   /** Whether buttons should be disabled */
   disabled?: boolean;
+  /** Share data for the share button */
+  shareData?: ShareData | null;
 }
 
 /**
@@ -31,6 +48,7 @@ export function PrimaryActionsSkeleton() {
       className="flex flex-col xs:flex-row gap-3 px-4 sm:px-1"
       data-testid="primary-actions-loading"
     >
+      <div className="flex-1 h-12 sm:h-14 bg-white/20 rounded-full animate-pulse" />
       <div className="flex-1 h-12 sm:h-14 bg-white/20 rounded-full animate-pulse" />
       <div className="flex-1 h-12 sm:h-14 bg-white/20 rounded-full animate-pulse" />
     </div>
@@ -65,10 +83,13 @@ export const PrimaryActions = React.memo(function PrimaryActions({
   onAtBeach,
   onPlanWeekend,
   disabled = false,
+  shareData,
 }: PrimaryActionsProps) {
   const reducedMotion = useReducedMotion();
   const [isPrimaryHovered, setIsPrimaryHovered] = useState(false);
   const [isSecondaryHovered, setIsSecondaryHovered] = useState(false);
+  const [isShareHovered, setIsShareHovered] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   return (
     <div
@@ -145,6 +166,54 @@ export const PrimaryActions = React.memo(function PrimaryActions({
         </motion.span>
         <span className="truncate">Plan Weekend</span>
       </motion.button>
+
+      {/* Share action button */}
+      {shareData && (
+        <motion.button
+          onClick={() => setShareOpen(true)}
+          disabled={disabled}
+          onMouseEnter={() => setIsShareHovered(true)}
+          onMouseLeave={() => setIsShareHovered(false)}
+          whileTap={reducedMotion ? undefined : HOME_HEADER_MOTION.button.tap}
+          whileHover={reducedMotion ? undefined : HOME_HEADER_MOTION.button.hover}
+          transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.button.spring}
+          className={cn(
+            "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
+            "bg-transparent hover:bg-white/10 active:bg-white/15",
+            "text-white/80 hover:text-white font-medium text-sm sm:text-base",
+            "border border-white/30 hover:border-white/40",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end",
+            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent",
+            "flex items-center justify-center gap-1 sm:gap-1.5",
+            "transition-colors duration-200"
+          )}
+          aria-label="Share forecast"
+          data-testid="share-button"
+        >
+          <motion.span
+            animate={
+              !reducedMotion && isShareHovered
+                ? { scale: 1.1 }
+                : {}
+            }
+            className="shrink-0"
+          >
+            <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
+          </motion.span>
+          <span className="truncate">Share</span>
+        </motion.button>
+      )}
+
+      {shareData && (
+        <ShareSheet
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          imageUrl={shareData.imageUrl}
+          type="wave"
+          title={shareData.title}
+          text={shareData.text}
+        />
+      )}
     </div>
   );
 });

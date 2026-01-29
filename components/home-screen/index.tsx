@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
@@ -12,6 +12,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useReminderHandler } from "@/hooks/use-reminder-handler";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { track } from "@/lib/analytics";
+import { toast } from "sonner";
 import { getUserBoards, getProfileStrength } from "@/actions/dashboard-actions";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import type { TimeSlot } from "@/types/personalization";
@@ -21,6 +22,8 @@ import { GreetingSection } from "./greeting-section";
 import { useTimeOfDay } from "./use-time-of-day";
 import { HeroRecommendation } from "./hero-recommendation";
 import { PrimaryActions } from "./primary-actions";
+import { buildSurfCallShareData } from "@/lib/share/share-data-builder";
+import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import { TopSpotsCarousel } from "./top-spots-carousel";
 import { TimeSlotSelector } from "./time-slot-selector";
 import { CoastPulse } from "../dashboard/coast-pulse";
@@ -136,6 +139,12 @@ export function HomeScreen() {
   const topRecommendation = discovery?.recommendations[0] || null;
   const topSpots = discovery?.recommendations.slice(1) || [];
 
+  // Compute share data for the Share button in PrimaryActions
+  const shareData = useMemo(() => {
+    if (!topRecommendation) return null;
+    return buildSurfCallShareData({ recommendation: topRecommendation, timeSlot });
+  }, [topRecommendation, timeSlot]);
+
   // Handler for enabling forecast reminders (delegates to useReminderHandler)
   const handleEnableReminder = useCallback(
     async (beachId: string, beachName: string): Promise<ReminderResult> => {
@@ -164,18 +173,22 @@ export function HomeScreen() {
     router.push(`/sessions/new?${params.toString()}`);
   }, [topRecommendation, router]);
 
-  // Handler for "Plan Weekend" button
+  // Handler for "Plan Weekend" button - navigate to beach forecast tab
   const handlePlanWeekend = useCallback(() => {
-    // Navigate to session creation with mode=plan
-    const params = new URLSearchParams({ mode: "plan" });
+    if (!topRecommendation?.beach) {
+      track("home_plan_weekend_no_recommendation", { time_slot: timeSlot });
+      toast.error("No beach recommendation available. Try selecting 'Any time' in the filter above.");
+      return;
+    }
 
     track("home_plan_weekend_click", {
-      beach_id: topRecommendation?.beach.id,
-      beach_name: topRecommendation?.beach.name,
+      beach_id: topRecommendation.beach.id,
+      beach_name: topRecommendation.beach.name,
     });
 
-    router.push(`/sessions/new?${params.toString()}`);
-  }, [topRecommendation, router]);
+    const forecastUrl = buildBeachUrlWithTab(topRecommendation.beach, "forecast");
+    router.push(forecastUrl);
+  }, [topRecommendation, router, timeSlot]);
 
   // Handler for viewing beach details from hero
   const handleViewBeach = useCallback(
@@ -279,6 +292,7 @@ export function HomeScreen() {
                   onAtBeach={handleAtBeach}
                   onPlanWeekend={handlePlanWeekend}
                   disabled={discoveryLoading}
+                  shareData={shareData}
                 />
               ) : !discoveryLoading && discovery?.recommendations.length === 0 && timeSlot !== 'any' ? (
                 <div className="text-center py-8 px-4" data-testid="time-slot-empty-state">

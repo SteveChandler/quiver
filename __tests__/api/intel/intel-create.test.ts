@@ -101,7 +101,7 @@ function mockIntelPost(overrides: any = {}) {
 }
 
 function setupSuccessfulCreation(mockClient: MockSupabaseClient, post: any = mockIntelPost()) {
-  mockClient.from.mockImplementation(() => {
+  (mockClient.from as jest.Mock).mockImplementation(() => {
     return {
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),

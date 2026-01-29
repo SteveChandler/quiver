@@ -199,7 +199,7 @@ export function AppHeader() {
     >
       <div
         className="flex w-full items-center md:h-16 gap-4"
-        style={{ minHeight: "calc(var(--app-safe-area-top) + 3.5rem)" }}
+        style={{ minHeight: "3.5rem" }}
       >
         {/* Left side with logo - uses container padding */}
         <div className="flex items-center pl-2 md:pl-4 shrink-0">

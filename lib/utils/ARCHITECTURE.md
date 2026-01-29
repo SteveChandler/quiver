@@ -1,15 +1,16 @@
 # Utilities Library Architecture
 
-## 🎯 **PURPOSE**
+## PURPOSE
 
 The `/lib/utils` directory provides a comprehensive collection of utility functions and helpers that support core functionality across the Quiver surf community platform, offering reusable solutions for common operations.
 
-## 📁 **DIRECTORY STRUCTURE**
+## DIRECTORY STRUCTURE
 
 ```
 lib/utils/
 ├── beach-card-utils.ts         # Beach card data preparation and formatting
 ├── beach-search-utils.ts       # Beach search and area detection
+├── condition-tier-utils.ts     # Condition tier calculations and badge configs (NEW)
 ├── coordinate-parser.ts        # Geographic coordinate parsing and validation
 ├── current-forecast-utils.ts   # Current forecast time calculations
 ├── date-utils.ts               # Date manipulation and formatting
@@ -18,6 +19,7 @@ lib/utils/
 ├── forecast-freshness.ts       # Forecast data recency + freshness/confidence helpers
 ├── forecast-service-utils.ts   # Forecast service orchestration
 ├── forecast-ui-utils.tsx       # Forecast UI formatting and components
+├── horizon-strip-utils.ts      # Horizon strip formatting (uses condition-tier-utils)
 ├── loading-utils.tsx           # Loading state management utilities
 ├── map-utilities.ts            # Map positioning and viewport utilities
 ├── performance-utils.ts        # Performance monitoring and optimization
@@ -26,13 +28,14 @@ lib/utils/
 ├── request-cache.ts            # Request caching implementation
 ├── session-utils.ts            # Session data formatting
 ├── toast-utils.ts              # Toast notification helpers
-├── wave-height-formatter.ts    # Wave height parsing and formatting
+├── wave-height-formatter.ts    # Wave height parsing, formatting, and source selection
+├── wave-height-transformer.ts  # Beach-specific wave height transformation (NEW)
 └── wind-direction.ts           # Wind direction utilities
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## ARCHITECTURE PATTERNS
 
-### **Utility Classification System**
+### Utility Classification System
 
 ```typescript
 UtilityCategories
@@ -40,7 +43,8 @@ UtilityCategories
 │   ├── Geographic (coordinate-parser, distance-utils, map-utilities)
 │   ├── Temporal (date-utils, current-forecast-utils)
 │   ├── Formatting (wave-height-formatter, wind-direction)
-│   └── Transformation (beach-card-utils, posts-utils)
+│   ├── Transformation (beach-card-utils, posts-utils, wave-height-transformer)
+│   └── Scoring (condition-tier-utils)
 ├── Search and Discovery
 │   ├── Search Logic (beach-search-utils)
 │   ├── Area Detection (coverage validation)
@@ -57,10 +61,11 @@ UtilityCategories
 └── UI and User Experience
     ├── Toast Notifications (toast-utils)
     ├── Forecast UI (forecast-ui-utils)
+    ├── Horizon Strip (horizon-strip-utils)
     └── Session Display (session-utils)
 ```
 
-### **Pure Function Design Pattern**
+### Pure Function Design Pattern
 
 ```typescript
 // All utilities follow pure function principles
@@ -72,9 +77,171 @@ type AsyncUtilityFunction<T, R> = (input: T) => Promise<R>;
 // Testable and composable
 ```
 
-## 📊 **COMPONENT RESPONSIBILITIES**
+## COMPONENT RESPONSIBILITIES
 
-### **Geographic and Spatial Utilities**
+### Condition Tier Utilities (NEW)
+
+#### **condition-tier-utils.ts** (Condition Scoring)
+
+- **Purpose**: Centralized utilities for condition tier calculations, badge configurations, and headline text generation based on surf condition scores
+- **Used by**: HeroRecommendation, HorizonStrip, CompactSpotCard, share data builder
+- **Features**:
+  - Score-based tier calculation
+  - Tailwind color class mapping
+  - Badge configuration with labels and styles
+  - Headline text generation with time context
+  - Timezone-aware tomorrow detection
+
+```typescript
+/**
+ * Condition tier based on score thresholds
+ * - great: Score >= 80
+ * - good: Score 60-79
+ * - fair: Score 40-59
+ * - marginal: Score < 40
+ */
+export type ConditionTier = "great" | "good" | "fair" | "marginal";
+
+export const CONDITION_TIER_THRESHOLDS = {
+  great: 80,
+  good: 60,
+  fair: 40,
+  marginal: 0,
+} as const;
+
+// Get condition tier based on score
+export function getConditionTier(score: number): ConditionTier {
+  if (score >= CONDITION_TIER_THRESHOLDS.great) return "great";
+  if (score >= CONDITION_TIER_THRESHOLDS.good) return "good";
+  if (score >= CONDITION_TIER_THRESHOLDS.fair) return "fair";
+  return "marginal";
+}
+
+// Get Tailwind color class for score display
+export function getScoreColorClass(tier: ConditionTier): string {
+  switch (tier) {
+    case "great":
+    case "good":
+      return "text-accent-orange";
+    case "fair":
+      return "text-amber-400";
+    case "marginal":
+      return "text-white/60";
+  }
+}
+
+// Get condition badge configuration
+export function getConditionBadge(tier: ConditionTier): ConditionBadgeConfig | null;
+
+// Build headline text parts based on tier and time context
+export function buildHeadlineText(
+  beachName: string,
+  tier: ConditionTier,
+  isTomorrow: boolean,
+  timeSlot?: TimeSlot
+): HeadlineText;
+
+// Check if a date is tomorrow in a given timezone
+export function isTomorrowInTimezone(date: Date, timezone: string): boolean;
+```
+
+### Wave Height Transformation (NEW)
+
+#### **wave-height-transformer.ts** (Beach-Specific Wave Transformation)
+
+- **Purpose**: Transform raw buoy significant wave height (Hs) into estimated face heights that match surfer expectations
+- **Features**:
+  - Base shoaling factor (1.6x) - waves steepen approaching shore
+  - Period amplification (0.8x-1.4x) - longer periods = bigger faces
+  - Beach-specific direction factor (0.6x-1.0x) using terrain swell_access_factors
+  - Wave height range calculation for average to set waves
+
+```typescript
+// Transformation constants
+export const BASE_SHOALING = 1.6;
+export const PERIOD_REF = 10;
+export const PERIOD_MULT = 0.05;
+export const PERIOD_FACTOR_MIN = 0.8;
+export const PERIOD_FACTOR_MAX = 1.4;
+export const DIRECTION_FACTOR_MIN = 0.6;
+export const DIRECTION_FACTOR_RANGE = 0.4;
+export const SET_WAVE_VARIANCE = 1.5;
+
+// Calculate period amplification factor
+export function calculatePeriodFactor(periodS: number | null): number;
+
+// Calculate direction factor based on beach terrain
+export function calculateDirectionFactor(
+  swellDirectionDeg: number | null,
+  beach?: BeachTerrainConfig | null
+): number;
+
+// Transform raw Hs to face height
+export function transformToFaceHeight(params: TransformParams): number;
+
+// Get all transformation factors for debugging
+export function getTransformationFactors(params: TransformParams): {
+  rawHeightFt: number;
+  baseShoaling: number;
+  periodFactor: number;
+  directionFactor: number;
+  faceHeightFt: number;
+};
+
+// Transform to face height range (average to set waves)
+export function transformToFaceHeightRange(params: TransformParams): WaveHeightRange;
+```
+
+**Example transformation:**
+```typescript
+// 1.9ft Hs @ 16s with good SW access
+// = 1.9 x 1.6 (shoaling) x 1.3 (period) x 1.0 (direction)
+// = 4.0ft face height
+transformToFaceHeight({
+  rawHeightFt: 1.9,
+  periodS: 16,
+  swellDirectionDeg: 225,
+  beach: { terrain_enabled: true, swell_access_factors: [...] }
+});
+```
+
+#### **wave-height-formatter.ts** (Wave Height Utilities)
+
+- **Purpose**: Comprehensive wave height parsing, formatting, and source selection
+- **Features**:
+  - Numeric extraction from wave height strings
+  - Source priority selection (CDIP sig > model swell > CDIP swell > model Hs)
+  - Range formatting with appropriate precision
+  - Integration with wave-height-transformer
+
+```typescript
+// Pattern for extracting numeric values
+export const WAVE_HEIGHT_NUMBER_PATTERN = /(\d+(?:\.\d+)?)/;
+
+// Extract numeric value from wave height string
+export function extractNumericWaveHeight(heightString: string): number | null;
+
+// Round and clamp utilities
+export function roundWaveHeight(ft: number): number;
+export function clampWaveHeight(ft: number): number;
+
+// Source selection with priority rules
+export function selectWaveHeightSource(
+  params: WaveHeightSourceParams
+): WaveHeightSource | null;
+
+// Format wave height for display
+export function formatWaveHeight(waveHeight?: number | string | null): string;
+
+// Format wave height range
+export function formatWaveHeightRangeString(low: number, high: number): string;
+
+// Convert to face height with beach-specific transformation
+export function toFaceHeightFeet(params: FaceHeightParams): string | null;
+export function toFaceHeightRangeFeet(params: FaceHeightParams): string | null;
+```
+
+### Geographic and Spatial Utilities
 
 #### **coordinate-parser.ts** (Coordinate Processing)
 
@@ -166,21 +333,9 @@ export function calculateDistance(
 
   return Math.round(R * c * 100) / 100;
 }
-
-export function calculateDistanceFormatted(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-  unit: "miles" | "km" = "miles"
-): string {
-  const distance = calculateDistance(lat1, lng1, lat2, lng2, unit);
-  const unitLabel = unit === "miles" ? "mi" : "km";
-  return `${distance} ${unitLabel}`;
-}
 ```
 
-### **Search and Discovery Utilities**
+### Search and Discovery Utilities
 
 #### **beach-search-utils.ts** (Search Logic)
 
@@ -201,56 +356,10 @@ export interface SearchResult {
 
 export async function searchBeachesWithAreaDetection(
   searchText: string
-): Promise<SearchResult> {
-  // First try direct beach search
-  const beach = await searchBeachesByName(searchText);
-
-  if (beach) {
-    return {
-      beach,
-      isOutOfAreaSearch: false,
-    };
-  }
-
-  // Check if this might be an out-of-area search
-  const isOutOfArea = isLikelyOutOfAreaSearch(searchText);
-
-  if (isOutOfArea) {
-    return {
-      beach: null,
-      isOutOfAreaSearch: true,
-      detectedLocation: searchText,
-      suggestedMessage: `We currently focus on San Diego County beaches. "${searchText}" might be outside our coverage area. Try searching for beaches like "La Jolla Shores", "Windansea", or "Ocean Beach".`,
-    };
-  }
-
-  return {
-    beach: null,
-    isOutOfAreaSearch: false,
-    suggestedMessage: `No beaches found matching "${searchText}". Try searching for popular spots like "La Jolla Shores", "Windansea", or "Ocean Beach".`,
-  };
-}
-
-export async function searchBeachWithForecast(beachName: string) {
-  const searchResult = await searchBeachesWithAreaDetection(beachName);
-
-  if (!searchResult.beach) {
-    return {
-      ...searchResult,
-      currentForecast: null,
-    };
-  }
-
-  const currentForecast = await getBeachCurrentForecast(searchResult.beach.id);
-
-  return {
-    ...searchResult,
-    currentForecast,
-  };
-}
+): Promise<SearchResult>;
 ```
 
-### **Performance and Caching Utilities**
+### Performance and Caching Utilities
 
 #### **rate-limiter.ts** (API Rate Limiting)
 
@@ -259,150 +368,14 @@ export async function searchBeachWithForecast(beachName: string) {
   - Configurable rate limits
   - Request history tracking
   - Automatic cleanup
-  - Service-specific limiters
-
-```typescript
-export class RateLimiter {
-  private requestHistory: RequestRecord[] = [];
-  private readonly config: RateLimiterConfig;
-  private readonly name: string;
-  private cleanupInterval?: NodeJS.Timeout;
-
-  constructor(name: string, config: RateLimiterConfig) {
-    this.name = name;
-    this.config = this.validateConfig(config);
-    this.startCleanupInterval();
-  }
-
-  canMakeRequest(): boolean {
-    this.cleanupOldRequests();
-
-    // Check burst limit
-    const recentRequests = this.requestHistory.filter(
-      (record) => Date.now() - record.timestamp <= this.config.burstWindow
-    );
-
-    if (recentRequests.length >= this.config.burstLimit) {
-      return false;
-    }
-
-    // Check sustained limit
-    const windowRequests = this.requestHistory.filter(
-      (record) => Date.now() - record.timestamp <= this.config.windowMs
-    );
-
-    return windowRequests.length < this.config.maxRequests;
-  }
-
-  recordRequest(endpoint?: string): void {
-    const now = Date.now();
-    this.requestHistory.push({
-      timestamp: now,
-      endpoint,
-    });
-  }
-
-  getTimeUntilReset(): number {
-    if (this.requestHistory.length === 0) return 0;
-
-    const oldestRequest = Math.min(
-      ...this.requestHistory.map((r) => r.timestamp)
-    );
-
-    const timeUntilOldestExpires =
-      oldestRequest + this.config.windowMs - Date.now();
-
-    return Math.max(0, timeUntilOldestExpires);
-  }
-
-  getStatus(): RateLimitStatus {
-    this.cleanupOldRequests();
-
-    const windowRequests = this.requestHistory.filter(
-      (record) => Date.now() - record.timestamp <= this.config.windowMs
-    );
-
-    return {
-      requestsRemaining: Math.max(
-        0,
-        this.config.maxRequests - windowRequests.length
-      ),
-      resetTime: this.getTimeUntilReset(),
-      canMakeRequest: this.canMakeRequest(),
-      totalRequests: windowRequests.length,
-      windowMs: this.config.windowMs,
-    };
-  }
-}
-
-// Service-specific rate limiters
-export const CDIPRateLimiter = {
-  canMakeRequest: () => CDIPRateLimiterSingleton.canMakeRequest(),
-  recordRequest: (endpoint?: string) =>
-    CDIPRateLimiterSingleton.recordRequest(endpoint),
-  getTimeUntilReset: () => CDIPRateLimiterSingleton.getTimeUntilReset(),
-  getStatus: () => CDIPRateLimiterSingleton.getStatus(),
-};
-
-export const NOAARateLimiter = {
-  canMakeRequest: () => NOAARateLimiterSingleton.canMakeRequest(),
-  recordRequest: (endpoint?: string) =>
-    NOAARateLimiterSingleton.recordRequest(endpoint),
-  getTimeUntilReset: () => NOAARateLimiterSingleton.getTimeUntilReset(),
-  getStatus: () => NOAARateLimiterSingleton.getStatus(),
-};
-```
+  - Service-specific limiters (CDIP, NOAA)
 
 #### **request-cache.ts** (Request Caching)
 
 - **Purpose**: Intelligent request caching with TTL and size management
 - **Features**: TTL-based expiration, LRU eviction, cache statistics
 
-```typescript
-class RequestCache {
-  private cache: Map<string, CacheEntry<any>> = new Map();
-  private readonly defaultTTL: number = 5 * 60 * 1000; // 5 minutes
-  private readonly maxSize: number = 100;
-
-  get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    // Check if expired
-    if (Date.now() - entry.timestamp > entry.ttl) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.data;
-  }
-
-  set<T>(key: string, data: T, ttl?: number): void {
-    // Remove oldest entries if at capacity
-    if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
-    }
-
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL,
-    });
-  }
-
-  static createKey(
-    ...parts: (string | number | boolean | undefined | null)[]
-  ): string {
-    return parts
-      .filter((part) => part !== undefined && part !== null)
-      .map((part) => String(part))
-      .join("|");
-  }
-}
-```
-
-### **Analytics and Analysis Utilities**
+### Analytics and Analysis Utilities
 
 #### **forecast-analytics.ts** (Forecast Analysis)
 
@@ -413,128 +386,7 @@ class RequestCache {
   - Data quality assessment
   - Trend analysis over time
 
-```typescript
-export function analyzeSessionAccuracy(
-  snapshot: SessionForecastSnapshot
-): AccuracyAnalysis {
-  const metrics: AccuracyMetric[] = [];
-
-  // Wave height accuracy
-  if (snapshot.forecast_wave_height && snapshot.actual_wave_height) {
-    const forecastHeight = extractNumericValue(snapshot.forecast_wave_height);
-    const actualHeight = extractNumericValue(snapshot.actual_wave_height);
-
-    if (forecastHeight > 0 && actualHeight > 0) {
-      const delta = Math.abs(forecastHeight - actualHeight);
-      const relativeError = (delta / actualHeight) * 100;
-      const accuracy = calculateAccuracyScore(
-        forecastHeight,
-        actualHeight,
-        1.0
-      );
-
-      metrics.push({
-        name: "Wave Height",
-        forecast: forecastHeight,
-        actual: actualHeight,
-        delta,
-        relativeError,
-        accuracy,
-      });
-    }
-  }
-
-  // Calculate overall accuracy
-  const overallAccuracy =
-    metrics.length > 0
-      ? metrics.reduce((sum, metric) => sum + metric.accuracy, 0) /
-        metrics.length
-      : 0;
-
-  // Confidence correlation
-  const confidenceCorrelation = calculateConfidenceCorrelation(
-    snapshot.confidence_score || 0,
-    overallAccuracy
-  );
-
-  // Data quality assessment
-  const dataQuality = assessDataQuality(metrics, snapshot);
-
-  // Generate recommendations
-  const recommendations = generateRecommendations(
-    metrics,
-    overallAccuracy,
-    snapshot.confidence_score || 0
-  );
-
-  return {
-    overallAccuracy,
-    metrics,
-    confidenceCorrelation,
-    dataQuality,
-    recommendations,
-  };
-}
-
-export function calculateAccuracyTrends(
-  snapshots: SessionForecastSnapshot[]
-): TrendPoint[] {
-  const trendData = new Map<
-    string,
-    {
-      accuracy: number[];
-      sessionCount: number;
-      avgConfidence: number[];
-      avgWaveHeight: number[];
-    }
-  >();
-
-  // Group by date
-  snapshots.forEach((snapshot) => {
-    const date = snapshot.session_date;
-    if (!trendData.has(date)) {
-      trendData.set(date, {
-        accuracy: [],
-        sessionCount: 0,
-        avgConfidence: [],
-        avgWaveHeight: [],
-      });
-    }
-
-    const analysis = analyzeSessionAccuracy(snapshot);
-    const dayData = trendData.get(date)!;
-
-    dayData.accuracy.push(analysis.overallAccuracy);
-    dayData.sessionCount++;
-    dayData.avgConfidence.push(snapshot.confidence_score || 0);
-
-    const waveHeight = extractNumericValue(snapshot.actual_wave_height);
-    if (waveHeight > 0) {
-      dayData.avgWaveHeight.push(waveHeight);
-    }
-  });
-
-  // Convert to trend points
-  return Array.from(trendData.entries())
-    .map(([date, data]) => ({
-      date,
-      accuracy:
-        data.accuracy.reduce((sum, acc) => sum + acc, 0) / data.accuracy.length,
-      sessionCount: data.sessionCount,
-      avgConfidence:
-        data.avgConfidence.reduce((sum, conf) => sum + conf, 0) /
-        data.avgConfidence.length,
-      avgWaveHeight:
-        data.avgWaveHeight.length > 0
-          ? data.avgWaveHeight.reduce((sum, height) => sum + height, 0) /
-            data.avgWaveHeight.length
-          : 0,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-}
-```
-
-### **UI and Formatting Utilities**
+### UI and Formatting Utilities
 
 #### **forecast-ui-utils.tsx** (Forecast Display)
 
@@ -545,98 +397,9 @@ export function calculateAccuracyTrends(
   - Forecast grouping and organization
   - Loading and error components
 
-```typescript
-export function formatForecastTime(timeString: string): string {
-  try {
-    const [hours, minutes] = timeString.split(":").map(Number);
-    const period = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
-  } catch (error) {
-    return timeString;
-  }
-}
+## PERFORMANCE OPTIMIZATIONS
 
-export function formatForecastDate(dateString: string): string {
-  const date = createDateFromString(dateString);
-
-  if (isDateToday(dateString)) {
-    return "Today";
-  }
-
-  if (isDateTomorrow(dateString)) {
-    return "Tomorrow";
-  }
-
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-export function getConfidenceColor(score: number): string {
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  if (score >= 40) return "text-orange-600";
-  return "text-red-600";
-}
-
-export function groupForecastsByWindDirection<
-  T extends {
-    wind_direction: string;
-    forecast_time: string;
-    [key: string]: any;
-  }
->(
-  forecasts: T[]
-): Array<{
-  direction: string;
-  forecasts: T[];
-  representative: T;
-  timeRange: string;
-  count: number;
-}> {
-  const groups = new Map<string, T[]>();
-
-  // Group by wind direction
-  forecasts.forEach((forecast) => {
-    const direction = forecast.wind_direction || "Unknown";
-    if (!groups.has(direction)) {
-      groups.set(direction, []);
-    }
-    groups.get(direction)!.push(forecast);
-  });
-
-  // Convert to result format
-  return Array.from(groups.entries()).map(([direction, groupForecasts]) => {
-    const sortedForecasts = groupForecasts.sort((a, b) =>
-      a.forecast_time.localeCompare(b.forecast_time)
-    );
-
-    const representative =
-      sortedForecasts[Math.floor(sortedForecasts.length / 2)];
-    const firstTime = formatForecastTime(sortedForecasts[0].forecast_time);
-    const lastTime = formatForecastTime(
-      sortedForecasts[sortedForecasts.length - 1].forecast_time
-    );
-    const timeRange =
-      firstTime === lastTime ? firstTime : `${firstTime} - ${lastTime}`;
-
-    return {
-      direction,
-      forecasts: sortedForecasts,
-      representative,
-      timeRange,
-      count: groupForecasts.length,
-    };
-  });
-}
-```
-
-## 🚀 **PERFORMANCE OPTIMIZATIONS**
-
-### **Memoization and Caching**
+### Memoization and Caching
 
 ```typescript
 // Memoized expensive calculations
@@ -651,87 +414,49 @@ const memoizedDistanceCalculation = useMemo(() => {
     ),
   }));
 }, [beaches, userLat, userLng]);
-
-// Cached API responses
-const cachedForecastData = useCallback(async (beachId: string) => {
-  const cacheKey = `forecast-${beachId}-${new Date().toDateString()}`;
-  const cached = cache.get(cacheKey);
-  if (cached) return cached;
-
-  const data = await fetchForecastData(beachId);
-  cache.set(cacheKey, data, 30 * 60 * 1000); // 30 minutes
-  return data;
-}, []);
 ```
 
-### **Debouncing and Throttling**
+### Debouncing and Throttling
 
 ```typescript
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
+): (...args: Parameters<T>) => void;
 
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean;
-
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-    }
-  };
-}
+): (...args: Parameters<T>) => void;
 ```
 
-## 🧪 **TESTING STRATEGIES**
+## TESTING STRATEGIES
 
-### **Pure Function Testing**
+### Pure Function Testing
 
 - Test all input/output combinations
 - Verify edge cases and error conditions
 - Test performance with large datasets
 - Validate type safety and null handling
 
-### **Integration Testing**
+### Test Coverage
+
+| Utility | Tests | Coverage |
+|---------|-------|----------|
+| condition-tier-utils | 188+ | 100% |
+| wave-height-transformer | 61+ | 100% |
+| wave-height-formatter | 114+ | 100% |
+
+### Integration Testing
 
 - Test utility composition
 - Verify cache behavior
 - Test rate limiting scenarios
 - Validate error propagation
 
-## 🔮 **FUTURE ENHANCEMENTS**
+## BEST PRACTICES
 
-### **Planned Features**
-
-- Machine learning accuracy predictions
-- Advanced caching strategies
-- Real-time performance monitoring
-- Automated optimization suggestions
-- Cross-platform utility packages
-
-### **Performance Improvements**
-
-- Web Worker integration for heavy calculations
-- Streaming data processing
-- Advanced memoization strategies
-- Memory usage optimization
-- Bundle size reduction
-
-## 🏆 **BEST PRACTICES**
-
-### **Utility Design Guidelines**
+### Utility Design Guidelines
 
 1. **Pure Functions**: Avoid side effects, ensure predictable outputs
 2. **Type Safety**: Comprehensive TypeScript coverage
@@ -739,7 +464,7 @@ export function throttle<T extends (...args: any[]) => any>(
 4. **Performance**: Optimize for common use cases
 5. **Documentation**: Clear JSDoc comments and examples
 
-### **Code Organization Guidelines**
+### Code Organization Guidelines
 
 1. **Single Responsibility**: Each utility has a focused purpose
 2. **Composability**: Utilities can be combined effectively
@@ -747,8 +472,20 @@ export function throttle<T extends (...args: any[]) => any>(
 4. **Reusability**: Generic implementations where possible
 5. **Maintainability**: Clear naming and logical organization
 
+### DRY Compliance
+
+When adding new utilities:
+1. Check if similar logic exists in other utilities
+2. Extract shared patterns into dedicated utility files
+3. Use existing utilities (e.g., `condition-tier-utils`) rather than duplicating logic
+4. Add comprehensive tests to prevent regression
+
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive utility library  
-**Next Review**: After machine learning integration and performance optimization
+**Last Updated**: January 2026
+**Status**: Production-ready with comprehensive utility library
+**Recent Changes**:
+- Added `condition-tier-utils.ts` for centralized condition tier logic
+- Added `wave-height-transformer.ts` for beach-specific wave height transformation
+- Enhanced `wave-height-formatter.ts` with shared utilities and source selection
+- Updated horizon-strip-utils to use condition-tier-utils

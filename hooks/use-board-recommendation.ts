@@ -39,8 +39,15 @@ export interface UseBoardRecommendationResult {
   refetch: () => void;
 }
 
-// Cache for board recommendations to avoid duplicate requests
-// Key format: "waveHeight|windSpeed|beachId"
+/**
+ * Module-level cache for board recommendations.
+ *
+ * This is intentionally a singleton shared across all component instances to avoid
+ * redundant API calls when multiple components request the same recommendation.
+ * Uses LRU eviction (via cacheOrder array) to bound memory usage at MAX_CACHE_SIZE entries.
+ *
+ * Key format: "waveHeight|windSpeed|beachId"
+ */
 const MAX_CACHE_SIZE = 100;
 const cacheOrder: string[] = [];
 const recommendationCache = new Map<

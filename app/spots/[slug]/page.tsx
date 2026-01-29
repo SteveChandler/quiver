@@ -7,7 +7,7 @@ import {
   type SurfSpotSlug,
   type SurfCitySlug,
 } from "@/lib/data/surf-spots";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import { SpotStructuredData } from "@/components/seo/spot-structured-data";
@@ -52,8 +52,8 @@ export async function generateMetadata({
   const locationContext = spot.city && spot.region
     ? ` in ${spot.city}, ${spot.region.split(",")[0]}`
     : spot.region ? ` in ${spot.region}` : '';
-  const title = `${spot.name} Surf Report & Forecast (Updated Daily) | Quiver`;
-  const description = `Today's surf call, wave height, wind, tide, and best time window for ${spot.name}${locationContext} — plus nearby spots.`;
+  const title = `${spot.name} Surf Report & Forecast (Updated Daily)`;
+  const description = `${spot.name} surf report for ${formatMetaDate()}. Wave height, wind, tide, and best time window${locationContext} — plus nearby spots.`;
 
   return buildPageMetadata({
     title,

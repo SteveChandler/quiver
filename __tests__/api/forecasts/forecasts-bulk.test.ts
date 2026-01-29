@@ -9,6 +9,11 @@ import {
   setupApiTestEnvironment,
 } from "@/test-utils/api-test-helpers";
 
+/** Type for the forecasts bulk API response */
+interface ForecastsBulkResponse {
+  forecasts: Record<string, number>;
+}
+
 // Mock the Supabase server client
 const mockSupabaseClient = createMockSupabaseClient();
 
@@ -129,7 +134,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       expect(result.data).toHaveProperty("forecasts");
       expect(result.data.forecasts).toHaveProperty(beach1Id, 4.5);
@@ -141,7 +146,7 @@ describe("GET /api/forecasts/bulk", () => {
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk");
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       expect(result.data).toHaveProperty("forecasts");
       expect(result.data.forecasts).toEqual({});
@@ -155,7 +160,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       expect(result.data).toHaveProperty("forecasts");
       expect(result.data.forecasts).toEqual({});
@@ -169,7 +174,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       expect(result.data).toHaveProperty("forecasts");
       expect(result.data.forecasts).toEqual({});
@@ -208,7 +213,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       expect(result.data.forecasts).toHaveProperty(beach1Id, 4.5);
       expect(result.data.forecasts).not.toHaveProperty(beach2Id);
@@ -227,7 +232,8 @@ describe("GET /api/forecasts/bulk", () => {
       let queriedBeachIds: string[] = [];
 
       (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
-        const chain = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chain: any = {
           select: jest.fn().mockReturnThis(),
           in: jest.fn((column: string, ids: string[]) => {
             queriedBeachIds = ids;
@@ -301,7 +307,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       // Should return forecasts for beaches that succeeded
       expect(result.data.forecasts).toHaveProperty(beach1Id);
@@ -330,7 +336,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       // Should return empty forecasts instead of throwing
       expect(result.data.forecasts).toEqual({});
@@ -348,7 +354,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       // Should return empty forecasts instead of throwing
       expect(result.data.forecasts).toEqual({});
@@ -391,7 +397,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       // Beach should not have a forecast entry if wave_height is undefined
       expect(result.data.forecasts).not.toHaveProperty(beach1Id);
@@ -556,7 +562,7 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse(response, 200);
+      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
       // Should use the forecast selected by getCurrentForecast
       expect(mockGetCurrentForecast).toHaveBeenCalled();

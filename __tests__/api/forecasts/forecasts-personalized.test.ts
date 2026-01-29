@@ -42,6 +42,7 @@ describe("POST /api/beach/personalized-score", () => {
   let cleanup: () => void;
 
   const mockForecast: EnhancedForecastEntity = {
+    id: "forecast-123",
     beach_id: "beach-123",
     forecast_date: "2024-01-15",
     forecast_time: "12:00",
@@ -52,7 +53,10 @@ describe("POST /api/beach/personalized-score", () => {
     wind_direction: "N",
     tide_status: "rising",
     water_temp: "68 F",
-    data_source: "NOAA",
+    data_source: "NOAA_NWS",
+    confidence_score: 0.85,
+    created_at: "2024-01-15T00:00:00Z",
+    updated_at: "2024-01-15T00:00:00Z",
   };
 
   beforeEach(() => {

@@ -447,7 +447,7 @@ const DEFAULT_MOCK_RESPONSES: Record<ExternalService, any> = {
     id: "resend-email-123",
     object: "email",
     to: ["test@example.com"],
-    from: "noreply@quiver.fyi",
+    from: "noreply@quiversurf.app",
   },
   openai: {
     id: "chatcmpl-123",
@@ -804,9 +804,13 @@ export function createMockForecastSyncResult(overrides: Partial<{
   results: any[];
   summary: {
     total: number;
+    attempted: number;
     successful: number;
     failed: number;
     duration: string;
+    stoppedEarly: boolean;
+    stopReason?: string;
+    remainingMs?: number;
   };
 }> = {}) {
   return {
@@ -814,9 +818,11 @@ export function createMockForecastSyncResult(overrides: Partial<{
     results: [],
     summary: {
       total: 10,
+      attempted: 10,
       successful: 10,
       failed: 0,
       duration: "1.5s",
+      stoppedEarly: false,
     },
     ...overrides,
   };

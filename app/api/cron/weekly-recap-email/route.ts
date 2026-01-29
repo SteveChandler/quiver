@@ -23,6 +23,7 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { WeeklyRecapEmail } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { subDays, format, startOfDay, endOfDay } from "date-fns";
@@ -102,11 +103,10 @@ function calculateStats(
  * Log email delivery to email_send_log
  */
 async function logDelivery(
+  supabase: SupabaseClient,
   userId: string,
   sessionCount: number
 ): Promise<void> {
-  const supabase = await createSupabaseServiceRoleClient();
-
   const { error } = await supabase.from("email_send_log").insert({
     user_id: userId,
     email_type: EMAIL_TYPE,
@@ -219,7 +219,7 @@ export async function GET(request: Request) {
 
     summary.activeUsers = profiles.length;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
 
     // 5. Process each active user
     for (const profile of profiles) {
@@ -243,6 +243,10 @@ export async function GET(request: Request) {
         const emailSubject = `Your Week in the Water: ${stats.totalSessions} Session${stats.totalSessions === 1 ? "" : "s"}`;
 
         try {
+          // Respect Resend rate limit (2 req/s)
+          if (summary.sent > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+          }
           await resend.emails.send({
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
@@ -261,7 +265,7 @@ export async function GET(request: Request) {
           console.log(
             `✅ [weekly-recap] Sent to ${profile.email}: ${stats.totalSessions} sessions, ${stats.totalHours}h`
           );
-          await logDelivery(profile.id, stats.totalSessions);
+          await logDelivery(supabase, profile.id, stats.totalSessions);
           summary.sent++;
         } catch (sendError) {
           console.error(`❌ [weekly-recap] Failed to send to ${profile.email}:`, sendError);

@@ -13,6 +13,12 @@ import {
   type MockSupabaseClient,
 } from "@/test-utils/api-test-helpers";
 
+/** Type for intel report API response */
+interface IntelReportResponse {
+  reported: boolean;
+  message: string;
+}
+
 /**
  * Tests for /api/intel/[id]/report route
  *
@@ -134,7 +140,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<IntelReportResponse>(response, 200);
       expect(data.data.reported).toBe(true);
       expect(data.data.message).toContain("Thank you");
     });
@@ -153,7 +159,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
     it("should accept report with empty body", async () => {
@@ -168,7 +174,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
     it("should trim whitespace from reason", async () => {
@@ -185,7 +191,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
     it("should reject reason exceeding 500 characters", async () => {
@@ -205,7 +211,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       // Should still succeed but with truncated/ignored reason (validation happens in schema)
       // The route handles parsing failures gracefully
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
   });
 
@@ -314,7 +320,7 @@ describe("POST /api/intel/[id]/report", () => {
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
       // Should still succeed without reason (route catches parsing errors)
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
   });
 
@@ -335,7 +341,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
 
       // Note: In production, the DB trigger would update report_count
       // and set is_active = false when report_count >= 3
@@ -358,7 +364,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
     it("should accept report with harassment reason", async () => {
@@ -375,7 +381,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
     it("should accept report with misinformation reason", async () => {
@@ -392,7 +398,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
     it("should accept report with other reason", async () => {
@@ -409,7 +415,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
-      await expectSuccessResponse(response, 200);
+      await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
   });
 });

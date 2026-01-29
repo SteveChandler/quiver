@@ -4,7 +4,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -253,8 +253,8 @@ export async function generateMetadata({
       }
 
       return buildPageMetadata({
-        title: `${beach.name} Surf Forecast | Quiver`,
-        description: `Live surf forecast for ${beach.name}${locationContext}. Wave height, swell, wind, and tide conditions updated daily.`,
+        title: `${beach.name} Surf Report & Forecast (Updated Daily)`,
+        description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
         path,
         image: `/api/og/beach?slug=${beachSlug}`,
         keywords: [
