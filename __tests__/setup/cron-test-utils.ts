@@ -447,7 +447,7 @@ const DEFAULT_MOCK_RESPONSES: Record<ExternalService, any> = {
     id: "resend-email-123",
     object: "email",
     to: ["test@example.com"],
-    from: "noreply@quiver.fyi",
+    from: "noreply@quiversurf.app",
   },
   openai: {
     id: "chatcmpl-123",

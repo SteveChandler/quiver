@@ -363,7 +363,7 @@ export async function GET(request: Request) {
     const saturday = addDays(friday, 1);
     const sunday = addDays(friday, 2);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
 
     // 3. Process each user
     for (const user of users) {

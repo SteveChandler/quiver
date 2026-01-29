@@ -12,7 +12,7 @@ import { ForecastQuickEmail } from "../lib/mailer/templates/ForecastQuickEmail";
 const TEST_EMAIL = "stcha0004@gmail.com";
 
 async function main() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
 
   console.log("Sending test emails to:", TEST_EMAIL);
 

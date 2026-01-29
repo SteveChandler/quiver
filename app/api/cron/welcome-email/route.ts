@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     console.log("[welcome-email] Starting welcome email cron run");
 
     const supabase = createSupabaseServiceRoleClient();
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi").trim();
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app").trim();
     const secret = getEmailTokenSecret();
 
     const summary: RunSummary = {

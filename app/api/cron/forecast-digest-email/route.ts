@@ -546,7 +546,7 @@ export async function GET(request: Request) {
           continue;
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
         const ctaUrl = `${baseUrl}/beaches/${beach.slug}`;
         const unsubscribeUrl = `${baseUrl}/settings`;
         const forecastDate = getForecastDate();

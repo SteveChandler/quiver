@@ -58,8 +58,8 @@ jest.mock("@/lib/mailer/client", () => ({
       send: jest.fn((...args) => mockEmailSend(...args)),
     },
   },
-  MAIL_FROM: "Quiver <test@quiver.fyi>",
-  MAIL_REPLY_TO: "Quiver <test@quiver.fyi>",
+  MAIL_FROM: "Quiver <test@quiversurf.app>",
+  MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
 }));
 
 // Mock the welcome email template generator
@@ -86,7 +86,7 @@ describe("Cron: welcome-email", () => {
   beforeEach(() => {
     cronEnv = setupCronTestEnvironment({
       additionalEnvVars: {
-        NEXT_PUBLIC_APP_URL: "https://quiver.fyi",
+        NEXT_PUBLIC_APP_URL: "https://quiversurf.app",
         RESEND_API_KEY: "test-resend-key",
       },
     });

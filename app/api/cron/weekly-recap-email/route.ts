@@ -219,7 +219,7 @@ export async function GET(request: Request) {
 
     summary.activeUsers = profiles.length;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiver.fyi";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
 
     // 5. Process each active user
     for (const profile of profiles) {

@@ -88,17 +88,17 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
 
   <div style="margin-bottom: 24px;">
     <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">When do you usually surf?</h2>
-    ${TIME_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?time=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
+    ${TIME_BUTTONS.map(b => `<a href="${baseUrl}/api/prefs/set?time=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
     <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">What's your level?</h2>
-    ${LEVEL_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?level=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
+    ${LEVEL_BUTTONS.map(b => `<a href="${baseUrl}/api/prefs/set?level=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
     <h2 style="font-size: 14px; color: ${COLORS.text}; margin-bottom: 12px;">How often should I email?</h2>
-    ${FREQUENCY_BUTTONS.map(b => `<a href="${baseUrl}/prefs/set?frequency=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
+    ${FREQUENCY_BUTTONS.map(b => `<a href="${baseUrl}/api/prefs/set?frequency=${b.value}&token=${token}" style="${BUTTON_STYLE}">${b.label}</a>`).join('')}
   </div>
 
   <div style="margin-bottom: 24px;">
@@ -133,18 +133,18 @@ Quiver just tells you. Yes or no. Best window. That's it.
 To dial it in, I just need a few things:
 
 When do you usually surf?
-- Dawn patrol: ${baseUrl}/prefs/set?time=dawn&token=${token}
-- After work: ${baseUrl}/prefs/set?time=after_work&token=${token}
-- Weekends: ${baseUrl}/prefs/set?time=weekends&token=${token}
+- Dawn patrol: ${baseUrl}/api/prefs/set?time=dawn&token=${token}
+- After work: ${baseUrl}/api/prefs/set?time=after_work&token=${token}
+- Weekends: ${baseUrl}/api/prefs/set?time=weekends&token=${token}
 
 What's your level?
-- Beginner: ${baseUrl}/prefs/set?level=beginner&token=${token}
-- Intermediate: ${baseUrl}/prefs/set?level=intermediate&token=${token}
-- Advanced: ${baseUrl}/prefs/set?level=advanced&token=${token}
+- Beginner: ${baseUrl}/api/prefs/set?level=beginner&token=${token}
+- Intermediate: ${baseUrl}/api/prefs/set?level=intermediate&token=${token}
+- Advanced: ${baseUrl}/api/prefs/set?level=advanced&token=${token}
 
 How often should I email?
-- Daily: ${baseUrl}/prefs/set?frequency=daily&token=${token}
-- Only when it's good: ${baseUrl}/prefs/set?frequency=only_good&token=${token}
+- Daily: ${baseUrl}/api/prefs/set?frequency=daily&token=${token}
+- Only when it's good: ${baseUrl}/api/prefs/set?frequency=only_good&token=${token}
 
 Home break?
 ${baseUrl}/prefs/home-beach?token=${token}

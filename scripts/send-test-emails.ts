@@ -60,8 +60,8 @@ async function sendTestEmails(toEmail: string) {
             bestWindow: "Skip it",
           },
         ],
-        ctaUrl: "https://quiver.fyi/beaches/blacks-beach",
-        unsubscribeUrl: "https://quiver.fyi/settings",
+        ctaUrl: "https://quiversurf.app/beaches/blacks-beach",
+        unsubscribeUrl: "https://quiversurf.app/settings",
       })
     );
     const weekendResult = await resend.emails.send({
@@ -88,8 +88,8 @@ async function sendTestEmails(toEmail: string) {
           totalHours: "6.5",
           topSpot: "Blacks Beach",
         },
-        ctaUrl: "https://quiver.fyi/profile/analytics",
-        unsubscribeUrl: "https://quiver.fyi/settings",
+        ctaUrl: "https://quiversurf.app/profile/analytics",
+        unsubscribeUrl: "https://quiversurf.app/settings",
       })
     );
     const recapResult = await resend.emails.send({
