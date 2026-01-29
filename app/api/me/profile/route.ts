@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, deps?: GetDeps) {
     const getUser = deps?.getUserFn
       ? deps.getUserFn
       : async () => {
-          const supabase = createSupabaseServerClient();
+          const supabase = await createSupabaseServerClient();
           const { data: { user }, error } = await supabase.auth.getUser();
           return { user, error } as any;
         };

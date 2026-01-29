@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Parse pagination parameters (default: page=1, limit=4, max=20)
     const { searchParams } = new URL(request.url);

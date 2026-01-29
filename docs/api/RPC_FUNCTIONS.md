@@ -15,9 +15,10 @@ Quiver uses Supabase RPC functions for:
 ### From TypeScript
 
 ```typescript
-import { createServerClient } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-const supabase = createServerClient();
+// Note: createSupabaseServerClient is async (Next.js 15+ compatibility)
+const supabase = await createSupabaseServerClient();
 
 // Call RPC function
 const { data, error } = await supabase.rpc('function_name', {

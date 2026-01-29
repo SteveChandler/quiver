@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   
   // Create Supabase client - the SSR helper automatically handles
   // exchanging the auth code/hash from the URL for a session
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   
   // The session exchange happens automatically when we create the client
   // with the auth code in the URL. We just need to redirect the user back.

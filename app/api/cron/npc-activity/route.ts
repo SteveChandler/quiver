@@ -14,6 +14,7 @@ import {
   validateCronRequest,
 } from '@/lib/api-utils';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import type { SupabaseServiceClient } from '@/types/supabase';
 import {
   fetchEligibleNPCs,
   selectNPCsForCurrentHour,
@@ -213,7 +214,7 @@ function selectContentType(): 'intel' | 'session_note' | 'review' {
  * Create an NPC post of the specified type
  */
 async function createNpcPost(
-  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  supabase: SupabaseServiceClient,
   npc: { id: string; full_name: string; personality_type: string },
   beach: { id: string; name: string; lat: number | null; lon: number | null },
   contentType: 'intel' | 'session_note' | 'review',

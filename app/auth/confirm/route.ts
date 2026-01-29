@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     redirect("/error?reason=invalid_or_expired_link");
   }
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     const { error } = await supabase.auth.verifyOtp({

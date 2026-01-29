@@ -221,10 +221,11 @@ touch actions/user-stats-actions.ts
 ```typescript
 'use server';
 
-import { createServerClient } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function getUserStats(userId: string) {
-  const supabase = createServerClient();
+  // Note: createSupabaseServerClient is async (Next.js 15+ compatibility)
+  const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('user_stats')
@@ -240,7 +241,7 @@ export async function getUserStats(userId: string) {
 }
 
 export async function updateUserStats(userId: string, stats: any) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get authenticated user
   const { data: { user } } = await supabase.auth.getUser();

@@ -7,6 +7,7 @@ import {
 } from "@/lib/api-utils";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { SupabaseServerClient } from "@/types/supabase";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { Database } from "@/types/database.generated";
 import {
@@ -376,14 +377,11 @@ async function coastPulseHandler(request: NextRequest) {
   }
 }
 
-// Type for Supabase client
-type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
-
 /**
  * Fetch nearby buoys from local database with their conditions
  */
 async function fetchLocalBuoys(
-  supabase: SupabaseClient,
+  supabase: SupabaseServerClient,
   lat: number,
   lon: number
 ): Promise<CoastPulseItem[]> {
@@ -471,7 +469,7 @@ async function fetchLocalBuoys(
  * Fetch current enhanced forecast for nearby beaches
  */
 async function fetchEnhancedForecast(
-  supabase: SupabaseClient,
+  supabase: SupabaseServerClient,
   lat: number,
   lon: number,
   beachesCache: Array<{ id: string; name: string; lat: number; lon: number; windOffshoreDeg?: number | null }> = []
@@ -561,7 +559,7 @@ async function fetchEnhancedForecast(
  * summarized surf conditions without hitting external APIs
  */
 async function fetchDailyIntel(
-  supabase: SupabaseClient,
+  supabase: SupabaseServerClient,
   lat: number,
   lon: number,
   beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = []
@@ -646,7 +644,7 @@ async function fetchDailyIntel(
  * Fetch recent user intel posts with optional pagination
  */
 async function fetchRecentIntel(
-  supabase: SupabaseClient,
+  supabase: SupabaseServerClient,
   lat: number,
   lon: number,
   beachesCache: Array<{ id: string; name: string; lat: number; lon: number }> = [],

@@ -43,7 +43,7 @@ export async function getSpotSurfReport(beach: Beach): Promise<SpotSurfReportRes
     // Get current user (if logged in)
     // Note: Auth check happens before cache lookup to enable per-user caching.
     // This adds ~50-80ms latency but enables personalized verdicts.
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     // 'anonymous' key allows sharing cache across unauthenticated users

@@ -68,10 +68,10 @@ const { data } = await supabase
 
 **Server-side (API routes):**
 ```typescript
-import { createServerClient } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -84,10 +84,10 @@ export async function GET(request: Request) {
 **Server Actions:**
 ```typescript
 'use server';
-import { createServerClient } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function myAction() {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   // ... continue
 }
@@ -264,9 +264,10 @@ async function BeachPage({ beachId }: { beachId: string }) {
 ### Calling RPC Functions
 
 ```typescript
-import { createServerClient } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-const supabase = createServerClient();
+// Note: createSupabaseServerClient is async (Next.js 15+ compatibility)
+const supabase = await createSupabaseServerClient();
 
 // Call RPC function
 const { data, error } = await supabase.rpc('get_city_editorial', {
