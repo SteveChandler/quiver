@@ -54,7 +54,7 @@ async function bulkForecastHandler(request: NextRequest) {
     const maxBeaches = 50;
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
 
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
 
     // Get current date for SQL filtering
     const now = new Date();

@@ -311,7 +311,7 @@ export async function updateProfile(
     }
 
     // Use tag-based cache revalidation for better cache management
-    revalidateTag("profile");
+    revalidateTag("profile", "max");
     
     // Clear specific paths that use profile data
     revalidatePath("/profile");

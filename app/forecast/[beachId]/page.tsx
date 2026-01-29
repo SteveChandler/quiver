@@ -11,11 +11,12 @@ import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
  * Old: /forecast/{beachId}
  * New: /{state}/{city}/{beachSlug}?tab=forecast
  */
-export default async function ForecastPage({
-  params,
-}: {
-  params: { beachId: string };
-}) {
+export default async function ForecastPage(
+  props: {
+    params: Promise<{ beachId: string }>;
+  }
+) {
+  const params = await props.params;
   // Fetch beach data first (may throw on error)
   const result = await getBeachById(params.beachId);
 

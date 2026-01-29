@@ -17,7 +17,7 @@ describe("legacy state/city URLs", () => {
   test("redirects /ca/:city to map with search filter", async () => {
     const { redirect } = require("next/navigation") as { redirect: jest.Mock };
 
-    await IntentPage({ params: { intent: "ca", city: "encinitas" } });
+    await IntentPage({ params: Promise.resolve({ intent: "ca", city: "encinitas" }) });
 
     expect(redirect).toHaveBeenCalledWith("/map?search=Encinitas");
   });
@@ -28,7 +28,7 @@ describe("legacy state/city URLs", () => {
       notFound: jest.Mock;
     };
 
-    await IntentPage({ params: { intent: "surf-forecast", city: "encinitas" } });
+    await IntentPage({ params: Promise.resolve({ intent: "surf-forecast", city: "encinitas" }) });
 
     expect(redirect).not.toHaveBeenCalled();
     // We don't assert rendering details here; for unknown intent/city combos this route may 404.

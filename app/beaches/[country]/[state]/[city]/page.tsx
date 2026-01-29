@@ -10,7 +10,6 @@
 
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import nextDynamic from "next/dynamic";
 import { ChevronLeft, MapPin, Star } from "lucide-react";
 import {
   getLocationPageData,
@@ -43,27 +42,11 @@ import { AboutAccordion } from "@/components/city/about-accordion";
 import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
+import { LocationMapClient } from "./location-map-client";
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
-
-// Dynamically import LocationMap with no SSR since it uses Mapbox (client-only)
-const LocationMap = nextDynamic(
-  () =>
-    import("@/components/location/location-map").then((mod) => mod.LocationMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[500px] w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-2 h-8 w-8 mx-auto animate-spin rounded-full border-4 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">Loading map...</p>
-        </div>
-      </div>
-    ),
-  }
-);
 
 interface LocationPageParams {
   country: string;
@@ -72,10 +55,11 @@ interface LocationPageParams {
 }
 
 interface LocationPageProps {
-  params: LocationPageParams;
+  params: Promise<LocationPageParams>;
 }
 
-export default async function LocationPage({ params }: LocationPageProps) {
+export default async function LocationPage(props: LocationPageProps) {
+  const params = await props.params;
   // Validate country parameter - reject non-country values like "beginner", "sunset", etc.
   // This prevents intent slugs from being treated as countries, stopping broken URLs
   if (!isValidCountrySlug(params.country)) {
@@ -417,7 +401,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
           {/* Map Sidebar (1/3 width on desktop, sticky) */}
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-4">
-              <LocationMap
+              <LocationMapClient
                 beaches={beaches}
                 city={location.city}
                 state={location.state}
@@ -473,7 +457,8 @@ export async function generateStaticParams() {
 /**
  * Configure page metadata
  */
-export async function generateMetadata({ params }: LocationPageProps) {
+export async function generateMetadata(props: LocationPageProps) {
+  const params = await props.params;
   // Validate country parameter - return not found metadata for invalid countries
   if (!isValidCountrySlug(params.country)) {
     return {

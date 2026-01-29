@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: "out",
   server: {
     androidScheme: "https",
-    url: "https://dev.quiversurf.app",
+    url: "https://www.quiversurf.app",
     cleartext: false,
     allowNavigation: ['*']
   },

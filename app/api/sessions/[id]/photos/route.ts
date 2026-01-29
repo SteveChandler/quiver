@@ -13,10 +13,10 @@ import { getSessionPhotos } from "@/lib/supabase/storage";
 
 export async function GET(
   _request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: sessionId } = context.params;
+    const { id: sessionId } = (await context.params);
     if (!sessionId || !isValidUuid(sessionId)) {
       return createValidationError("Invalid session id format");
     }

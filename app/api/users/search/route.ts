@@ -22,7 +22,7 @@ async function userSearchHandler(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
 
     // Get current user to exclude from search results
     const { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -4,7 +4,7 @@ import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createAPIServerClient();
+    const supabase = await createAPIServerClient();
     const body = await request.json();
     const { spotId, accurate, reasons, note } = body || {};
     if (!spotId || typeof accurate !== "boolean") {

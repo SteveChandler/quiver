@@ -36,11 +36,12 @@ export async function generateStaticParams() {
   return stateSlugs.map((state) => ({ state }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { state: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ state: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const stateSlug = (params.state || "").toLowerCase();
   if (!isValidStateSlug(stateSlug)) {
     return buildPageMetadata({
@@ -74,11 +75,12 @@ function getStateValuesFromSlug(stateSlug: string): string[] {
   return [upper, displayName, stateSlug];
 }
 
-export default async function UsaStatePage({
-  params,
-}: {
-  params: { state: string };
-}) {
+export default async function UsaStatePage(
+  props: {
+    params: Promise<{ state: string }>;
+  }
+) {
+  const params = await props.params;
   const stateSlug = (params.state || "").toLowerCase();
   if (!isValidStateSlug(stateSlug)) notFound();
 

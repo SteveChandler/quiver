@@ -3,10 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase

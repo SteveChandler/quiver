@@ -23,12 +23,12 @@ const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     intent: string; // In this 4-segment context, this represents a country slug (e.g., "mexico")
     city: string; // In this 4-segment context, this represents a region/state slug (e.g., "baja-california")
     beachSlug: string; // In this 4-segment context, this represents a city slug (e.g., "rosarito")
     intlBeachSlug: string; // Actual beach slug (e.g., "teresas")
-  };
+  }>;
 }
 
 function isNextRouterSignal(error: unknown) {
@@ -99,9 +99,8 @@ function pickBestInternationalBeachMatch(params: {
  * NOTE: This is implemented under the existing [intent] route tree to avoid
  * Next.js root dynamic segment conflicts.
  */
-export default async function InternationalBeachDetailPage({
-  params,
-}: PageProps) {
+export default async function InternationalBeachDetailPage(props: PageProps) {
+  const params = await props.params;
   const {
     intent: countryParam,
     city: regionParam,
@@ -220,9 +219,8 @@ export default async function InternationalBeachDetailPage({
   }
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const { intlBeachSlug } = params;
 
   // Skip metadata generation for any state-slug first segment (not international)

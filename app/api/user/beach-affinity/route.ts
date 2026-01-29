@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  *   - affinityScore: Calculated affinity score
  */
 export async function GET(request: NextRequest) {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   // Authenticate user
   const { data: { user }, error: authError } = await supabase.auth.getUser();

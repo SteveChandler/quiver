@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import DiscoverPageClient from "./discover-client";
 
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  }
+): Promise<Metadata> {
+  const searchParams = await props.searchParams;
   const base = buildPageMetadata({
     title: "Discover Surfers - Find Surf Buddies",
     description:

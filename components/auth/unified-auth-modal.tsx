@@ -700,7 +700,7 @@ interface EmailPasswordFormProps {
   displayName: string;
   termsAccepted: boolean;
   loading: boolean;
-  emailInputRef: React.RefObject<HTMLInputElement>;
+  emailInputRef: React.RefObject<HTMLInputElement | null>;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
   onDisplayNameChange: (name: string) => void;
@@ -805,7 +805,7 @@ function EmailPasswordForm({
 interface MagicLinkFormProps {
   email: string;
   loading: boolean;
-  emailInputRef: React.RefObject<HTMLInputElement>;
+  emailInputRef: React.RefObject<HTMLInputElement | null>;
   onEmailChange: (email: string) => void;
   onSubmit: () => void;
   onBack: () => void;

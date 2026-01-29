@@ -91,7 +91,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
 
     await expect(
       GenericBeachDetailPage({
-        params: { intent: "ca", city: "orange-county", beachSlug: "nope" },
+        params: Promise.resolve({ intent: "ca", city: "orange-county", beachSlug: "nope" }),
       })
     ).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
 
@@ -121,7 +121,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     // We don't assert on JSX output here; we just assert it does NOT trigger `notFound()`.
     await expect(
       GenericBeachDetailPage({
-        params: { intent: "ca", city: "orange-county", beachSlug: "lowers-trestles" },
+        params: Promise.resolve({ intent: "ca", city: "orange-county", beachSlug: "lowers-trestles" }),
       })
     ).resolves.toBeTruthy();
 

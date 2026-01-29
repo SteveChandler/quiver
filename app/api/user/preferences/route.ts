@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
  *   - (or null if no preferences exist yet)
  */
 export async function GET() {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   // Authenticate user
   const {

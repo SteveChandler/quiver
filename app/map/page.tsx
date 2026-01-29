@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
+import { MapPageClient } from "./map-page-client";
 
 // Loading skeleton for map
 function MapSkeleton() {
@@ -30,31 +30,22 @@ function MapSkeleton() {
   );
 }
 
-// Dynamic import with SSR disabled - map requires client-side geolocation and Mapbox GL
-// This skips server-side rendering entirely, improving TTFB significantly
-const MapView = dynamic(
-  () => import("@/components/map-view").then((m) => m.MapView),
-  {
-    ssr: false,
-    loading: () => <MapSkeleton />,
-  }
-);
-
 export default function MapPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Suspense fallback={<MapSkeleton />}>
-        <MapView />
+        <MapPageClient />
       </Suspense>
     </div>
   );
 }
 
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  }
+): Promise<Metadata> {
+  const searchParams = await props.searchParams;
   // Important: Keep `/map` indexable, but prevent indexing of parameterized
   // variants like `/map?search=Capitola` or `/map?city=san-diego`
   // (canonicalize to `/map`).

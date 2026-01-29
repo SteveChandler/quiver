@@ -17,7 +17,7 @@ describe("/map metadata", () => {
   });
 
   it("keeps /map indexable", async () => {
-    const meta = await generateMetadata({ searchParams: {} });
+    const meta = await generateMetadata({ searchParams: Promise.resolve({}) });
 
     expect(typeof meta.alternates?.canonical).toBe("string");
     expect(String(meta.alternates?.canonical)).toContain("/map");
@@ -29,7 +29,7 @@ describe("/map metadata", () => {
   });
 
   it("noindexes /map?search=* variants but canonicalizes to /map", async () => {
-    const meta = await generateMetadata({ searchParams: { search: "Capitola" } });
+    const meta = await generateMetadata({ searchParams: Promise.resolve({ search: "Capitola" }) });
 
     expect(typeof meta.alternates?.canonical).toBe("string");
     expect(String(meta.alternates?.canonical)).toContain("/map");
@@ -44,7 +44,7 @@ describe("/map metadata", () => {
   });
 
   it("noindexes /map?city=* variants but canonicalizes to /map", async () => {
-    const meta = await generateMetadata({ searchParams: { city: "san-diego" } });
+    const meta = await generateMetadata({ searchParams: Promise.resolve({ city: "san-diego" }) });
 
     expect(typeof meta.alternates?.canonical).toBe("string");
     expect(String(meta.alternates?.canonical)).toContain("/map");
