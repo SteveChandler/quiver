@@ -21,6 +21,18 @@ export interface CityMetadata {
   centerLon: number;
 }
 
+/**
+ * Result from find_cities_by_pattern RPC function.
+ * Used for city slug resolution with exact match preference.
+ */
+interface CityPatternMatch {
+  city: string;
+  state: string;
+  beach_count: number;
+  /** True if city name exactly matches search pattern (not substring) */
+  is_exact_match?: boolean;
+}
+
 const STATE_NAMES: Record<string, string> = {
   CA: "California",
   HI: "Hawaii",
@@ -164,17 +176,37 @@ export async function findCityBySlug(
     }
 
     // Filter to cities with at least 1 beach (RPC returns beach_count)
-    const validCities = matches.filter(
-      (c: { city: string; state: string; beach_count: number }) => c.beach_count >= 1
+    const validCities = (matches as CityPatternMatch[]).filter(
+      (c) => c.beach_count >= 1
     );
 
     if (validCities.length === 0) {
       return null;
     }
 
-    // If multiple valid cities and no state filter, ambiguous
-    if (validCities.length > 1 && !stateFilter) {
-      return null;
+    // Handle multiple matches by preferring exact matches
+    // This prevents substring collisions like "koloa" matching "waikoloa"
+    if (validCities.length > 1) {
+      const exactMatches = validCities.filter(
+        (c) => c.is_exact_match === true
+      );
+
+      // If exactly one exact match, use it (even without state filter)
+      if (exactMatches.length === 1) {
+        const { city, state } = exactMatches[0];
+        const metadataResult = await getCityMetadata(city, state);
+        return metadataResult.success ? metadataResult.data : null;
+      }
+
+      // If no state filter and multiple (or zero) exact matches, ambiguous
+      if (!stateFilter) {
+        return null;
+      }
+
+      // With state filter, prefer exact matches if available
+      if (exactMatches.length > 0) {
+        validCities.splice(0, validCities.length, ...exactMatches);
+      }
     }
 
     // Use first valid city (or only match with state filter)

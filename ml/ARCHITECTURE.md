@@ -332,43 +332,51 @@ Ground truth matching is the process of pairing ML predictions with actual buoy 
    - Filters to only process beaches with observation sources (96 beaches)
    - Logs predictions to `ml_predictions_log` table with `observed_m = NULL`
 
-2. **Observation Backfill** (pg_cron: `backfill_ml_observations`)
+2. **Observation Backfill** (pg_cron: `ml-backfill-observations`)
    - Runs every 10 minutes via Supabase pg_cron
-   - Processes up to 1000 predictions per run
-   - For each prediction, searches `marine_forecasts` for observations within +/- 1 hour
-   - Updates `ml_predictions_log` with `observed_m`, `raw_error_m`, and `corrected_error_m`
+   - Processes up to **10,000** predictions per run (increased from 5,000 in Jan 2026)
+   - Uses JOIN-based matching for efficiency
+   - Three-step pipeline: match, sentinel, cleanup
 
 3. **Matching Window**
    - Predictions are eligible for matching after 2 hours (observation delay)
+   - Predictions use +/- 2 hour window for observation matching
    - Predictions older than 7 days are excluded (observation data retention)
    - Observations must have non-null `wave_height_m` to match
 
-### Backfill Function
+### Backfill Function (Updated Jan 30, 2026)
 
-The `backfill_ml_observations(batch_size INT)` function runs directly in PostgreSQL:
+The `backfill_ml_observations_batch(batch_size INT)` function runs directly in PostgreSQL with a three-step pipeline:
 
 ```sql
 -- Manual execution
-SELECT * FROM backfill_ml_observations(1000);
+SELECT * FROM backfill_ml_observations_batch(10000);
 
 -- Returns:
--- processed | matched | no_match | elapsed_ms
--- ----------+---------+----------+-----------
---      1000 |     847 |      153 |       1234
+-- processed | matched | sentinel_marked | expired_deleted | elapsed_ms
+-- ----------+---------+-----------------+-----------------+-----------
+--     10000 |    1847 |            8100 |              53 |    1234.56
 ```
 
-**Function behavior:**
-- Selects oldest unmatched predictions (up to `batch_size`)
-- Joins with `observable_beaches` materialized view for efficiency
-- Finds closest observation within +/- 1 hour window
-- Updates prediction record with ground truth and error metrics
-- Returns processing statistics
+**Function behavior (3-step pipeline):**
+
+| Step | Action | Threshold | Description |
+|------|--------|-----------|-------------|
+| 1 | **Match** | +/- 2 hours | Join predictions with observations, update ground truth |
+| 2 | **Sentinel** | > 24 hours | Mark old predictions as unmatchable (`observed_m = -1`) |
+| 3 | **Cleanup** | > 72 hours | DELETE pending predictions that will never match (TTL) |
+
+**Key improvements (Jan 30, 2026 optimization):**
+- Sentinel threshold reduced: 48h to 24h (IOOS data arrives within hours)
+- Added 72h TTL cleanup to prevent unbounded table growth
+- Batch size increased: 5,000 to 10,000
+- Result: 49% reduction in pending queue, 53% reduction in oldest pending age
 
 **pg_cron Schedule:**
 
 | Job Name | Schedule | Command |
 |----------|----------|---------|
-| `ml-backfill-observations` | `*/10 * * * *` | `SELECT * FROM backfill_ml_observations(1000)` |
+| `ml-backfill-observations` | `*/10 * * * *` | `SELECT * FROM backfill_ml_observations_batch(10000)` |
 
 ### Observable Beaches View
 
@@ -405,24 +413,33 @@ Returns ML pipeline health for monitoring and alerting:
 SELECT * FROM get_ml_health_metrics();
 ```
 
-**Columns returned:**
+**Columns returned (Updated Jan 30, 2026):**
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `pending_count` | INT | Predictions awaiting ground truth match |
-| `matched_last_24h` | INT | Predictions matched in last 24 hours |
-| `total_last_24h` | INT | Total predictions in last 24 hours |
+| `total_predictions` | BIGINT | Total predictions in last 30 days |
+| `pending_observations` | BIGINT | Predictions awaiting ground truth match |
+| `pending_12_24h` | BIGINT | **NEW:** Early warning - predictions 12-24h old |
+| `pending_gt_24h` | BIGINT | **NEW:** Should be 0 after optimization |
+| `sentinel_marked` | BIGINT | Predictions marked as unmatchable (-1) |
+| `matched_last_24h` | BIGINT | Predictions matched in last 24 hours |
+| `total_observable_24h` | BIGINT | Total observable predictions in last 24 hours |
 | `match_rate_24h` | NUMERIC | Percentage of predictions matched |
-| `current_model_version` | TEXT | Active model version |
-| `needs_alert` | BOOLEAN | True when match rate < 1% |
+| `avg_raw_error_24h` | NUMERIC | Mean raw forecast error |
+| `avg_corrected_error_24h` | NUMERIC | Mean corrected forecast error |
+| `improvement_pct_24h` | NUMERIC | Percentage improvement from ML |
+| `oldest_pending_age_hours` | NUMERIC | Age of oldest pending prediction |
+| `observable_beaches_count` | BIGINT | Count of beaches with observations |
 
 **Alert Thresholds:**
 
 | Metric | Healthy | Warning | Critical |
 |--------|---------|---------|----------|
 | `match_rate_24h` | > 50% | 20-50% | < 20% |
-| `pending_count` | < 5,000 | 5,000-20,000 | > 20,000 |
-| `needs_alert` | false | - | true |
+| `pending_observations` | < 10,000 | 10,000-50,000 | > 50,000 |
+| `pending_12_24h` | < 5,000 | 5,000-15,000 | > 15,000 |
+| `pending_gt_24h` | 0 | 1-100 | > 100 |
+| `oldest_pending_age_hours` | < 12h | 12-20h | > 20h |
 
 #### Legacy Health Check: `check_ml_ground_truth_health()`
 
@@ -450,6 +467,14 @@ backlog_size            | 15234  | ok      | 15234 predictions waiting for groun
 improvement_rate_7d     | 63.0   | ok      | ML corrections improved 63.0% of forecasts
 observable_beaches      | 96     | ok      | 96 beaches have observation sources
 ```
+
+### Sentinel Values
+
+| `observed_m` Value | Meaning |
+|--------------------|---------|
+| `NULL` | Pending - awaiting observation match |
+| `-1` | Sentinel - no observation will ever arrive (>24h old) |
+| `> 0` | Matched - ground truth observation recorded |
 
 ### pg_cron Job Monitoring
 
@@ -512,7 +537,7 @@ GROUP BY status;
 2. Consider temporarily increasing batch size:
    ```sql
    -- Run larger batch manually
-   SELECT * FROM backfill_ml_observations(5000);
+   SELECT * FROM backfill_ml_observations_batch(20000);
    ```
 
 3. Temporarily increase job frequency:
@@ -522,6 +547,18 @@ GROUP BY status;
      schedule := '*/5 * * * *'
    );
    ```
+
+**Non-zero pending_gt_24h**
+
+This should always be 0 after the Jan 30, 2026 optimization. Non-zero values indicate sentinel marking failed:
+
+```sql
+-- Manual sentinel marking
+UPDATE ml_predictions_log
+SET observed_m = -1
+WHERE observed_m IS NULL
+  AND predicted_at < NOW() - INTERVAL '24 hours';
+```
 
 **NDBC Observations Missing Wave Heights**
 

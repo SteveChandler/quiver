@@ -1,10 +1,10 @@
 # Supabase Migrations Architecture Documentation
 
-## 📋 **Overview**
+## Overview
 
 The `supabase/` directory contains all database migrations and schema management for the Quiver surf app. This directory represents the complete database evolution history, including performance optimizations, security enhancements, and feature additions that support the app's growth from 0 to 1,000+ users.
 
-## 🏗️ **Architecture Structure**
+## Architecture Structure
 
 ```
 supabase/
@@ -24,13 +24,14 @@ supabase/
 │   ├── 20251203000001_normalize_state_codes.sql
 │   ├── 20251204030000_create_city_editorial_content.sql
 │   ├── 20251204120000_case_insensitive_location_search.sql
-│   └── 20251204120001_update_session_log_template_link.sql
+│   ├── 20251204120001_update_session_log_template_link.sql
 │   ├── 20260113200001_add_npc_profile_fields.sql
 │   ├── 20260113200002_create_npc_templates_table.sql
+│   └── 20260130071552_optimize_ml_backlog_processing.sql
 └── ARCHITECTURE.md                       # This documentation file
 ```
 
-## 🎯 **Migration Categories**
+## Migration Categories
 
 ### **1. Performance Optimizations**
 
@@ -106,6 +107,94 @@ get_location_stats(p_city, p_state, p_country)
 - Reliable location searches regardless of URL casing
 - Improved robustness for city and state landing pages
 - Prevents 404s caused by case mismatches
+
+#### **ML Pipeline Backlog Optimization (20260130071552)**
+
+**Purpose**: Optimize ML predictions backlog processing to reduce queue size and improve observation matching efficiency.
+
+**Problem Statement**:
+- 117K pending observations with oldest at 45.1h (approaching 48h threshold)
+- Backlog growing faster than processing capacity
+- Match rate only 19% (81% of predictions never match)
+- IOOS data actually arrives within hours, so 48h threshold was unnecessarily generous
+
+**Key Changes**:
+
+1. **Sentinel Threshold Reduced**: 48h to 24h
+   - IOOS observations arrive within 1-6 hours
+   - Predictions unmatchable after 24h are marked with sentinel value (`observed_m = -1`)
+
+2. **72h TTL Cleanup Added**:
+   - DELETE pending predictions older than 72 hours
+   - Prevents unbounded table growth from predictions that will never match
+
+3. **Batch Size Increased**: 5,000 to 10,000
+   - Faster processing of backlog
+   - pg_cron job updated to use new batch size
+
+4. **Enhanced Monitoring Columns**:
+   - `pending_12_24h`: Early warning bucket for predictions approaching threshold
+   - `pending_gt_24h`: Should always be 0 (indicates threshold is working)
+
+**Function Changes**:
+
+```sql
+-- Updated backfill function with 3-step pipeline
+CREATE OR REPLACE FUNCTION backfill_ml_observations_batch(batch_size INT DEFAULT 10000)
+RETURNS TABLE(
+  processed INT,        -- Total rows affected
+  matched INT,          -- Predictions matched with observations
+  sentinel_marked INT,  -- Predictions marked as unmatchable (>24h)
+  expired_deleted INT,  -- Predictions deleted (>72h TTL)
+  elapsed_ms NUMERIC
+);
+
+-- Updated health metrics with early warning buckets
+CREATE OR REPLACE FUNCTION get_ml_health_metrics()
+RETURNS TABLE(
+  ...
+  pending_12_24h BIGINT,    -- NEW: early warning bucket
+  pending_gt_24h BIGINT,    -- NEW: should always be 0
+  ...
+);
+```
+
+**Performance Impact**:
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| `pending_observations` | 116,935 | 59,245 | -49% |
+| `oldest_pending_age_hours` | 45.3h | 21.4h | -53% |
+
+**Monitoring**:
+
+```sql
+-- Check pipeline health with new columns
+SELECT
+  pending_observations,
+  pending_12_24h,      -- Early warning: approaching threshold
+  pending_gt_24h,      -- Should be 0
+  oldest_pending_age_hours
+FROM get_ml_health_metrics();
+```
+
+**Alert Thresholds**:
+
+| Metric | Healthy | Warning | Critical |
+|--------|---------|---------|----------|
+| `pending_observations` | < 10,000 | 10,000-50,000 | > 50,000 |
+| `pending_12_24h` | < 5,000 | 5,000-15,000 | > 15,000 |
+| `pending_gt_24h` | 0 | 1-100 | > 100 |
+| `oldest_pending_age_hours` | < 12h | 12-20h | > 20h |
+
+**Rollback**:
+
+```sql
+-- Restore 48h sentinel threshold, remove TTL cleanup, restore 5000 batch size
+-- See migration file for complete rollback SQL
+```
+
+**Documentation**: See [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md) for operational procedures.
 
 ### **2. Feature Additions**
 
@@ -433,7 +522,7 @@ California → CA
 - Ensures users reach the correct features page
 - Maintains consistency with current application routing structure
 
-## 🔧 **Migration Management Strategy**
+## Migration Management Strategy
 
 ### **Naming Convention**
 
@@ -483,7 +572,7 @@ EXPLAIN ANALYZE query_examples;
 - RLS policy testing
 - Data integrity checks
 
-## 📊 **Performance Impact Analysis**
+## Performance Impact Analysis
 
 ### **Before Optimizations**
 
@@ -512,7 +601,7 @@ SELECT * FROM pg_stat_statements ORDER BY total_time DESC;
 EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM intel_posts;
 ```
 
-## 🚀 **Growth-Focused Database Architecture**
+## Growth-Focused Database Architecture
 
 ### **Scalability Preparations**
 
@@ -532,13 +621,13 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM intel_posts;
 
 ### **User Growth Support**
 
-**0 → 100 Users**:
+**0 - 100 Users**:
 
 - Current optimizations handle this scale efficiently
 - Local Intel feature populated with mock data
 - Forecast transparency builds user trust
 
-**100 → 1,000 Users**:
+**100 - 1,000 Users**:
 
 - Geospatial indexes support location queries
 - Confirmation system scales with community size
@@ -550,7 +639,7 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM intel_posts;
 - Quality scoring system maintains data integrity
 - Partitioning strategies ready for implementation
 
-## 🔒 **Security Architecture**
+## Security Architecture
 
 ### **Row Level Security (RLS)**
 
@@ -626,7 +715,7 @@ CREATE POLICY "public_read" ON table
 - Data validation on INSERT/UPDATE
 - Cleanup procedures for expired data
 
-## 📱 **Mobile-First Database Design**
+## Mobile-First Database Design
 
 ### **Efficient Queries**
 
@@ -640,7 +729,7 @@ CREATE POLICY "public_read" ON table
 - Timestamp-based sync mechanisms
 - Conflict resolution data structures
 
-## 🧪 **Testing Integration**
+## Testing Integration
 
 ### **Migration Testing**
 
@@ -656,7 +745,7 @@ CREATE POLICY "public_read" ON table
 - Edge case coverage in test scenarios
 - Performance testing with mock load
 
-## 📊 **Analytics & Monitoring**
+## Analytics & Monitoring
 
 ### **Database Health Monitoring**
 
@@ -860,7 +949,7 @@ CREATE POLICY npc_templates_select_all ON npc_content_templates
 ```sql
 -- Updated prune_forecasts_retention function defaults
 CREATE OR REPLACE FUNCTION prune_forecasts_retention(
-  keep_days_raw integer DEFAULT 90,      -- Changed from 7 → 90
+  keep_days_raw integer DEFAULT 90,      -- Changed from 7 to 90
   keep_days_enhanced integer DEFAULT 14, -- Unchanged
   batch_size integer DEFAULT 25000
 ) RETURNS TABLE(marine_deleted bigint, tide_deleted bigint, enhanced_deleted bigint);
@@ -897,7 +986,7 @@ SELECT cron.schedule(
 **Documentation**: See [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md) and [ML README](/ml/README.md) for training data requirements.
 
 
-## 🔄 **Future Migration Strategy**
+## Future Migration Strategy
 
 ### **Planned Enhancements**
 
@@ -914,7 +1003,7 @@ SELECT cron.schedule(
 3. **Caching Layer**: Redis integration for hot data
 4. **Event Sourcing**: Event-driven architecture for real-time features
 
-## 📋 **Quality Checklist**
+## Quality Checklist
 
 Before any new migration:
 
@@ -937,7 +1026,7 @@ Before any new migration:
 
 ---
 
-## 🧩 Utility SQL Functions
+## Utility SQL Functions
 
 - `public.cardinal_to_deg(text)`
   - Converts compass cardinal/ordinal directions (e.g., `N`, `ENE`, `SSW`) to degrees.
@@ -945,27 +1034,27 @@ Before any new migration:
   - Introduced by migration `20250812160000_add_cardinal_to_deg_function.sql` with rollback `20250812160001_rollback_cardinal_to_deg_function.sql`.
   - Intended for use in views, reports, and data normalization queries where directional text must be mapped to numeric bearings.
 
-## 🪟 Utility Views
+## Utility Views
 
 - `public.v_beach_hourly_scores`
-  - Computes per-hour surf suitability scores (0–100) for each beach using wind direction vs. offshore bearing, tide preference band, and swell window inclusion with fade.
+  - Computes per-hour surf suitability scores (0-100) for each beach using wind direction vs. offshore bearing, tide preference band, and swell window inclusion with fade.
   - Inputs: `marine_forecasts(beach_id, ts, wind_direction_deg, wind_speed_ms, wave_direction_deg)` and `tide_forecasts(beach_id, ts, tide_height_m)`; preferences from `beaches` (`wind_offshore_deg`, `wind_cross_shore_ok_kt`, `preferred_tide_ft_min/max`, `swell_window_min/max`).
   - Current weights: wind 0.4, swell 0.4, tide 0.2. Period/height scoring reserved for later when calibrated fields exist.
   - Introduced by migration `20250812160500_create_v_beach_hourly_scores.sql` with rollback `20250812160501_rollback_v_beach_hourly_scores.sql`.
   - Security: `WITH (security_invoker = true)` so underlying table RLS is enforced for the querying role. `GRANT SELECT` provided to `anon` and `authenticated` only.
 
-## 🧮 Utility RPCs
+## Utility RPCs
 
 - `public.get_best_times(p_beach uuid, p_start timestamptz, p_end timestamptz, p_limit int default 6)`
   - Returns top-scoring 2-hour windows within the range using `v_beach_hourly_scores` rolling averages, labelled `epic/good/fair/poor`.
   - Read-only (`stable`), executable by `anon`, `authenticated`, and `service_role`.
   - Introduced by migration `20250812161000_create_get_best_times.sql` with rollback `20250812161001_rollback_get_best_times.sql`.
 
-## ⚖️ Scoring Weights (per beach)
+## Scoring Weights (per beach)
 
-## 🚀 Best Times Performance
+## Best Times Performance
 
-⚠️ **Status: Infrastructure Present, No Active Consumers (Planned Feature)**
+**Status: Infrastructure Present, No Active Consumers (Planned Feature)**
 
 - `public.mv_best_times` (materialized view)
 
@@ -1004,7 +1093,7 @@ All weights are in [0, 1]. The view `public.v_beach_hourly_scores` reads these t
 
 ---
 
-## 📍 Coordinate Naming Conventions
+## Coordinate Naming Conventions
 
 ### Database Schema Standards
 
@@ -1037,7 +1126,7 @@ CREATE OR REPLACE FUNCTION get_nearby_intel_posts(
 
 ### Application Layer Mapping
 
-**Database → TypeScript Mapping**:
+**Database to TypeScript Mapping**:
 
 ```typescript
 // Database type (matches schema exactly)
@@ -1054,8 +1143,8 @@ interface ComponentProps {
 
 // Explicit mapping required
 <Component
-  latitude={beach.center_lat} // Map: center_lat → latitude
-  longitude={beach.center_lng} // Map: center_lng → longitude
+  latitude={beach.center_lat} // Map: center_lat to latitude
+  longitude={beach.center_lng} // Map: center_lng to longitude
 />;
 ```
 
@@ -1105,14 +1194,14 @@ interface ComponentProps {
    - Filter: `WHERE status = 'completed' AND rating IS NOT NULL AND rating >= 3`
    - Purpose: Optimize queries for personalized insights service
    - Benefits:
-     - Fast lookup of user's high-rated sessions (≥3 stars)
+     - Fast lookup of user's high-rated sessions (3+ stars)
      - Efficient ordering by rating and recency
      - Reduced index size by filtering to only completed, rated sessions
      - Supports 12-month lookback queries with single index scan
 
 **Performance Impact**:
 
-- Similarity insights queries: 95% faster (full table scan → index scan)
+- Similarity insights queries: 95% faster (full table scan to index scan)
 - Index size: ~15% of full sessions table (only rated, completed sessions)
 - Write overhead: Minimal (most sessions don't have ratings)
 
@@ -1126,7 +1215,7 @@ interface ComponentProps {
 
 - Used by `lib/services/similarity-insights-service.ts`
 - Queried via composite index for optimal performance
-- Supports board tip generation (≥60% same board threshold)
+- Supports board tip generation (60%+ same board threshold)
 
 **Rollback**:
 

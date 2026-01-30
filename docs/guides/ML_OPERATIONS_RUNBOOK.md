@@ -2,7 +2,7 @@
 
 > Operational procedures for the Quiver ML bias correction pipeline.
 
-**Last Updated:** January 2026
+**Last Updated:** January 30, 2026
 
 ## Table of Contents
 
@@ -57,6 +57,15 @@ The ML pipeline consists of three main components:
                                +------------------+
 ```
 
+### Processing Thresholds (Updated Jan 30, 2026)
+
+| Threshold | Value | Purpose |
+|-----------|-------|---------|
+| Match Window | +/- 2 hours | Time window for matching predictions to observations |
+| Sentinel Threshold | **24 hours** | Mark predictions as unmatchable (was 48h) |
+| TTL Cleanup | **72 hours** | Delete pending predictions that will never match |
+| Batch Size | **10,000** | Predictions processed per pg_cron run (was 5,000) |
+
 ---
 
 ## Daily Operations
@@ -66,10 +75,13 @@ The ML pipeline consists of three main components:
 Run these queries in Supabase SQL Editor:
 
 ```sql
--- 1. Check pipeline health
+-- 1. Check pipeline health (NEW: includes early warning buckets)
 SELECT * FROM get_ml_health_metrics();
 
--- Expected: match_rate_24h > 50%, needs_alert = false
+-- Expected:
+--   match_rate_24h > 50%
+--   pending_gt_24h = 0 (indicates threshold working)
+--   pending_12_24h < 5000 (early warning)
 
 -- 2. Check pg_cron job status (last 24 hours)
 SELECT
@@ -97,9 +109,11 @@ SELECT * FROM get_ml_weekly_metrics();
 | Metric | Healthy | Warning | Critical |
 |--------|---------|---------|----------|
 | `match_rate_24h` | > 50% | 20-50% | < 20% |
-| `pending_count` | < 5,000 | 5,000-20,000 | > 20,000 |
+| `pending_observations` | < 10,000 | 10,000-50,000 | > 50,000 |
+| `pending_12_24h` | < 5,000 | 5,000-15,000 | > 15,000 |
+| `pending_gt_24h` | 0 | 1-100 | > 100 |
+| `oldest_pending_age_hours` | < 12h | 12-20h | > 20h |
 | `pct_improved` | > 50% | 40-50% | < 40% |
-| `needs_alert` | false | - | true |
 
 ---
 
@@ -110,20 +124,27 @@ SELECT * FROM get_ml_weekly_metrics();
 #### Pipeline Health Dashboard
 
 ```sql
--- Comprehensive health check
+-- Comprehensive health check with early warning metrics
 SELECT
-  h.pending_count,
+  h.pending_observations,
+  h.pending_12_24h,         -- Early warning: approaching threshold
+  h.pending_gt_24h,         -- Should be 0
   h.matched_last_24h,
-  h.total_last_24h,
+  h.total_observable_24h,
   h.match_rate_24h,
-  h.current_model_version,
-  h.needs_alert,
+  h.oldest_pending_age_hours,
+  h.sentinel_marked,
+  h.observable_beaches_count,
   w.pct_improved,
   w.avg_raw_error_m,
   w.avg_corrected_error_m
 FROM get_ml_health_metrics() h
 CROSS JOIN get_ml_weekly_metrics() w
-WHERE w.model_version = h.current_model_version;
+WHERE w.model_version = (
+  SELECT model_version FROM ml_predictions_log
+  WHERE predicted_at > NOW() - INTERVAL '24 hours'
+  GROUP BY model_version ORDER BY COUNT(*) DESC LIMIT 1
+);
 ```
 
 #### Recent Predictions by Model Version
@@ -132,8 +153,9 @@ WHERE w.model_version = h.current_model_version;
 SELECT
   model_version,
   COUNT(*) as total,
-  COUNT(observed_m) as matched,
-  ROUND(100.0 * COUNT(observed_m) / COUNT(*), 1) as match_rate,
+  COUNT(observed_m) FILTER (WHERE observed_m > 0) as matched,
+  COUNT(observed_m) FILTER (WHERE observed_m = -1) as sentinel_marked,
+  ROUND(100.0 * COUNT(observed_m) FILTER (WHERE observed_m > 0) / NULLIF(COUNT(*), 0), 1) as match_rate,
   ROUND(AVG(raw_error_m)::numeric, 3) as avg_raw_error,
   ROUND(AVG(corrected_error_m)::numeric, 3) as avg_corrected_error
 FROM ml_predictions_log
@@ -145,7 +167,7 @@ ORDER BY total DESC;
 #### pg_cron Job Performance
 
 ```sql
--- Job execution history with timing
+-- Job execution history with timing and results
 SELECT
   start_time,
   EXTRACT(EPOCH FROM (end_time - start_time)) as duration_seconds,
@@ -177,10 +199,12 @@ Configure alerts based on `get_ml_health_metrics()`:
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
-| `needs_alert = true` | Critical | Check backfill job, buoy data |
+| `pending_gt_24h > 0` | Warning | Check if backfill job running |
+| `pending_gt_24h > 100` | Critical | Sentinel marking may have failed |
+| `pending_12_24h > 15000` | Warning | Backlog approaching threshold |
 | `match_rate_24h < 20%` | Critical | Investigate observation sources |
-| `pending_count > 50000` | Warning | Increase batch size or frequency |
-| `current_model_version` changed | Info | Verify deployment was intentional |
+| `pending_observations > 50000` | Warning | Consider temporary batch increase |
+| `oldest_pending_age_hours > 20` | Warning | Check job execution |
 
 ---
 
@@ -195,6 +219,16 @@ As of January 2026, forecast data retention was extended to support ML model tra
 | `marine_forecasts` | 90 days | 7 days | Jan 2026 |
 | `tide_forecasts` | 90 days | 7 days | Jan 2026 |
 | `enhanced_forecasts` | 14 days | 14 days | No change |
+
+### ML Predictions Log Cleanup (New: Jan 30, 2026)
+
+The `backfill_ml_observations_batch()` function now automatically deletes pending predictions older than 72 hours. This prevents unbounded table growth from predictions that will never match observations.
+
+| Cleanup Type | Threshold | Triggered By |
+|--------------|-----------|--------------|
+| Sentinel Marking | > 24 hours | `backfill_ml_observations_batch()` |
+| TTL Deletion | > 72 hours | `backfill_ml_observations_batch()` |
+| Historical Cleanup | > 90 days | Manual (monthly task) |
 
 ### Why 90 Days?
 
@@ -238,7 +272,7 @@ SELECT
   pg_size_pretty(pg_total_relation_size(relid)) as total_size,
   n_live_tup as row_count
 FROM pg_stat_user_tables
-WHERE relname IN ('marine_forecasts', 'tide_forecasts', 'enhanced_forecasts')
+WHERE relname IN ('marine_forecasts', 'tide_forecasts', 'enhanced_forecasts', 'ml_predictions_log')
 ORDER BY pg_total_relation_size(relid) DESC;
 ```
 
@@ -285,18 +319,21 @@ WHERE ts < NOW() - INTERVAL '60 days'
 If the pg_cron job is failing or you need to clear a backlog:
 
 ```sql
--- Process 1000 predictions (default batch)
-SELECT * FROM backfill_ml_observations(1000);
+-- Process batch with new function signature (returns 5 columns)
+SELECT * FROM backfill_ml_observations_batch(10000);
 
--- Process larger batch to clear backlog
-SELECT * FROM backfill_ml_observations(5000);
+-- Returns:
+-- processed | matched | sentinel_marked | expired_deleted | elapsed_ms
+-- ----------+---------+-----------------+-----------------+-----------
+--     10000 |    1847 |            8100 |              53 |    1234.56
 
 -- Repeat until backlog is cleared
 -- Check progress
-SELECT COUNT(*) as pending
+SELECT
+  COUNT(*) FILTER (WHERE observed_m IS NULL AND predicted_at < NOW() - INTERVAL '2 hours') as pending,
+  COUNT(*) FILTER (WHERE observed_m IS NULL AND predicted_at < NOW() - INTERVAL '24 hours') as should_be_zero
 FROM ml_predictions_log
-WHERE observed_m IS NULL
-  AND predicted_at < NOW() - INTERVAL '2 hours';
+WHERE predicted_at > NOW() - INTERVAL '7 days';
 ```
 
 ### Force Refresh Observable Beaches
@@ -382,9 +419,9 @@ GROUP BY source;
 2. If wave_height_m is NULL: NDBC station may have sensor issues
 3. If no observations: Refresh `observable_beaches` view
 
-### Problem: Growing Backlog (> 20,000 pending)
+### Problem: Growing Backlog (> 50,000 pending)
 
-**Symptoms:** `pending_count` increasing over time
+**Symptoms:** `pending_observations` increasing over time
 
 **Diagnosis:**
 
@@ -398,6 +435,18 @@ LIMIT 5;
 
 -- Check if job is registered
 SELECT * FROM cron.job WHERE jobname = 'ml-backfill-observations';
+
+-- Check batch processing rate
+SELECT
+  DATE_TRUNC('hour', start_time) as hour,
+  COUNT(*) as runs,
+  SUM((return_message::json->>'matched')::int) as total_matched,
+  SUM((return_message::json->>'sentinel_marked')::int) as total_sentinel
+FROM cron.job_run_details
+WHERE jobname = 'ml-backfill-observations'
+  AND start_time > NOW() - INTERVAL '24 hours'
+GROUP BY 1
+ORDER BY 1 DESC;
 ```
 
 **Solutions:**
@@ -405,6 +454,35 @@ SELECT * FROM cron.job WHERE jobname = 'ml-backfill-observations';
 1. If job not running: Re-register the pg_cron job
 2. If job timing out: Reduce batch size
 3. Temporary fix: Run manual backfill with larger batch size
+
+### Problem: pending_gt_24h > 0
+
+**Symptoms:** `get_ml_health_metrics()` shows non-zero `pending_gt_24h`
+
+**Diagnosis:**
+
+This should always be 0 after the Jan 30, 2026 optimization. Non-zero values indicate sentinel marking failed.
+
+```sql
+-- Check for stuck predictions
+SELECT
+  COUNT(*) as count,
+  MIN(predicted_at) as oldest,
+  MAX(predicted_at) as newest
+FROM ml_predictions_log
+WHERE observed_m IS NULL
+  AND predicted_at < NOW() - INTERVAL '24 hours';
+```
+
+**Solutions:**
+
+```sql
+-- Manual sentinel marking
+UPDATE ml_predictions_log
+SET observed_m = -1
+WHERE observed_m IS NULL
+  AND predicted_at < NOW() - INTERVAL '24 hours';
+```
 
 ### Problem: Model Regression (pct_improved < 40%)
 
@@ -419,10 +497,11 @@ SELECT
   COUNT(*) as predictions,
   ROUND(AVG(raw_error_m - corrected_error_m)::numeric, 3) as avg_improvement,
   ROUND(100.0 * COUNT(*) FILTER (WHERE corrected_error_m < raw_error_m) /
-        NULLIF(COUNT(observed_m), 0), 1) as pct_improved
+        NULLIF(COUNT(observed_m) FILTER (WHERE observed_m > 0), 0), 1) as pct_improved
 FROM ml_predictions_log
 WHERE predicted_at > NOW() - INTERVAL '7 days'
   AND observed_m IS NOT NULL
+  AND observed_m > 0
 GROUP BY model_version;
 ```
 
@@ -455,7 +534,7 @@ If job is missing, recreate it:
 SELECT cron.schedule(
   'ml-backfill-observations',
   '*/10 * * * *',
-  $$SELECT * FROM backfill_ml_observations(1000)$$
+  $$SELECT * FROM backfill_ml_observations_batch(10000)$$
 );
 ```
 
@@ -540,6 +619,24 @@ SELECT jobname, active FROM cron.job
 WHERE jobname = 'ml-backfill-observations';
 ```
 
+### Rollback Jan 30, 2026 Optimization
+
+If the new thresholds cause issues:
+
+```sql
+-- Restore old sentinel threshold (48h instead of 24h)
+-- Restore old batch size (5000 instead of 10000)
+-- Remove TTL cleanup (72h deletion)
+-- See migration file for full rollback SQL:
+-- supabase/migrations/20260130071552_optimize_ml_backlog_processing.sql
+
+-- Quick rollback of pg_cron batch size only:
+SELECT cron.alter_job(
+  job_id := (SELECT jobid FROM cron.job WHERE jobname = 'ml-backfill-observations'),
+  command := $$SELECT * FROM backfill_ml_observations_batch(5000)$$
+);
+```
+
 ---
 
 ## Scheduled Maintenance
@@ -576,6 +673,12 @@ WHERE jobname = 'ml-backfill-observations';
    FROM marine_forecasts
    WHERE is_observed = true AND wave_height_m IS NOT NULL
    GROUP BY source;
+   ```
+
+5. **Check early warning metrics:**
+   ```sql
+   SELECT pending_12_24h, pending_gt_24h FROM get_ml_health_metrics();
+   -- pending_gt_24h should always be 0
    ```
 
 ### Monthly Tasks
@@ -615,12 +718,63 @@ WHERE jobname = 'ml-backfill-observations';
 
 | Function | Purpose | Schedule |
 |----------|---------|----------|
-| `backfill_ml_observations(batch_size)` | Match predictions with observations | pg_cron: `*/10 * * * *` |
-| `get_ml_health_metrics()` | Return pipeline health metrics | On-demand |
+| `backfill_ml_observations_batch(batch_size)` | Match predictions, mark sentinels, delete expired | pg_cron: `*/10 * * * *` |
+| `get_ml_health_metrics()` | Return pipeline health metrics with early warning | On-demand |
 | `get_ml_weekly_metrics()` | Return model performance metrics | On-demand |
 | `check_ml_ground_truth_health()` | Legacy health check | On-demand |
 | `refresh_observable_beaches()` | Refresh beach coverage view | pg_cron: daily 6am UTC |
 | `prune_forecasts_retention(90, 14, 25000)` | Clean up old forecast data | pg_cron: daily 5am UTC |
+
+### Function Signatures (Updated Jan 30, 2026)
+
+#### `backfill_ml_observations_batch(batch_size INT DEFAULT 10000)`
+
+Processes ML predictions with three-step pipeline:
+1. **Match**: Join predictions with observations (+-2h window)
+2. **Sentinel**: Mark predictions >24h old as unmatchable (`observed_m = -1`)
+3. **Cleanup**: Delete pending predictions >72h old (TTL)
+
+**Returns:**
+```sql
+TABLE(
+  processed INT,        -- Total rows affected (matched + sentinel + expired)
+  matched INT,          -- Predictions matched with observations
+  sentinel_marked INT,  -- Predictions marked as unmatchable
+  expired_deleted INT,  -- Predictions deleted (TTL cleanup)
+  elapsed_ms NUMERIC    -- Execution time in milliseconds
+)
+```
+
+**Example:**
+```sql
+SELECT * FROM backfill_ml_observations_batch(10000);
+-- processed | matched | sentinel_marked | expired_deleted | elapsed_ms
+-- ----------+---------+-----------------+-----------------+-----------
+--     10000 |    1847 |            8100 |              53 |    1234.56
+```
+
+#### `get_ml_health_metrics()`
+
+Returns comprehensive pipeline health metrics.
+
+**Returns:**
+```sql
+TABLE(
+  total_predictions BIGINT,
+  pending_observations BIGINT,      -- Predictions awaiting ground truth
+  pending_12_24h BIGINT,            -- Early warning: predictions 12-24h old
+  pending_gt_24h BIGINT,            -- Should be 0 (indicates threshold working)
+  sentinel_marked BIGINT,           -- Predictions marked as unmatchable
+  matched_last_24h BIGINT,
+  total_observable_24h BIGINT,
+  match_rate_24h NUMERIC,
+  avg_raw_error_24h NUMERIC,
+  avg_corrected_error_24h NUMERIC,
+  improvement_pct_24h NUMERIC,
+  oldest_pending_age_hours NUMERIC,
+  observable_beaches_count BIGINT
+)
+```
 
 ### Key Tables
 
@@ -630,6 +784,14 @@ WHERE jobname = 'ml-backfill-observations';
 | `corrected_forecasts` | Latest corrected forecasts for app |
 | `marine_forecasts` | Buoy observations (is_observed=true) |
 | `observable_beaches` | Materialized view of beaches with observations |
+
+### Sentinel Values
+
+| `observed_m` Value | Meaning |
+|--------------------|---------|
+| `NULL` | Pending - awaiting observation match |
+| `-1` | Sentinel - no observation will ever arrive (>24h old) |
+| `> 0` | Matched - ground truth observation recorded |
 
 ### Related Documentation
 

@@ -40,6 +40,10 @@ const KNOWN_CARDINALS = new Set(Object.keys(CARDINAL_DIRECTIONS));
  * @returns Direction in degrees (0-360), defaults to 0 for unknown directions
  */
 export function parseWaveDirection(dir: string): number {
+  // Defensive: ensure we have a string before calling .toUpperCase()
+  if (typeof dir !== 'string' || !dir) {
+    return 0;
+  }
   const v = CARDINAL_DIRECTIONS[dir.toUpperCase()];
   return v ?? 0;
 }
@@ -69,7 +73,8 @@ export function getDirectionDegrees(
   }
 
   // Fall back to text parsing
-  if (!windDirectionText) return null;
+  // Defensive: ensure we have a string before calling .trim()
+  if (!windDirectionText || typeof windDirectionText !== 'string') return null;
   const trimmed = windDirectionText.trim();
   if (!trimmed) return null;
 

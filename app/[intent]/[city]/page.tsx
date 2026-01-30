@@ -14,7 +14,7 @@ import { FAQSchema } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
-import { isValidStateSlug, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES } from "@/lib/utils/beach-url-utils";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
@@ -184,10 +184,26 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   }
 
   const cityResult = await findCityBySlug(params.city);
+  let cityMetadata = cityResult.success ? cityResult.data : null;
+  let canonicalCitySlug = params.city;
+
+  // If city lookup failed, check if a state-suffixed version exists
+  // This handles cases like "/tide/belmar" resolving to Belmar, NJ
+  if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
+    for (const stateSuffix of COASTAL_STATE_SUFFIXES) {
+      const suffixedSlug = `${params.city}-${stateSuffix}`;
+      const suffixedResult = await findCityBySlug(suffixedSlug);
+      if (suffixedResult.success && suffixedResult.data) {
+        cityMetadata = suffixedResult.data;
+        canonicalCitySlug = suffixedSlug; // Use suffixed version for canonical
+        break;
+      }
+    }
+  }
 
   // City lookup failed: return 404-safe metadata with self-referential canonical
   // CRITICAL: Without this, Google picks an arbitrary canonical (e.g., /tide/hull for /beginner/nags-head)
-  if (!cityResult.success || !cityResult.data) {
+  if (!cityMetadata) {
     return {
       title: `${definition.label} Spots | Quiver`,
       description: `Find ${definition.label.toLowerCase()} surf spots. AI-powered recommendations for every skill level.`,
@@ -197,8 +213,6 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       robots: { index: false, follow: true },
     };
   }
-
-  const cityMetadata = cityResult.data;
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
   // Determine if this skill-intent will produce results based on city skill counts
@@ -215,7 +229,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   const metadata = buildPageMetadata({
     title: pageContent.title,
     description: pageContent.metaDescription,
-    path: `/${params.intent}/${params.city}`,
+    path: `/${params.intent}/${canonicalCitySlug}`,
     keywords: [
       `${cityMetadata.cityName} ${definition.label}`,
       `${cityMetadata.cityName} surf`,
@@ -346,15 +360,17 @@ export default async function IntentPage(props: IntentPageParams) {
 
   // If city lookup failed, check if a state-suffixed version exists
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
+  // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
   if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
     // Try common coastal states (prioritize by surfing popularity)
-    const stateSuffixes = ["ca", "fl", "hi", "nc", "sc", "nj", "ny", "or", "wa", "tx", "ma", "me", "ri"];
-    for (const stateSuffix of stateSuffixes) {
+    for (const stateSuffix of COASTAL_STATE_SUFFIXES) {
       const suffixedSlug = `${params.city}-${stateSuffix}`;
       const suffixedResult = await findCityBySlug(suffixedSlug);
       if (suffixedResult.success && suffixedResult.data) {
-        // Found a match with state suffix - redirect to canonical URL
-        redirect(`/${params.intent}/${suffixedSlug}`);
+        // Found a match with state suffix - use metadata directly (no redirect)
+        // The canonical URL in generateMetadata will point to the suffixed version
+        cityMetadata = suffixedResult.data;
+        break;
       }
     }
   }

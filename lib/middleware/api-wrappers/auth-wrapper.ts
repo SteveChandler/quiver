@@ -6,16 +6,15 @@
  */
 
 import type { NextRequest } from "next/server";
-import type { User, SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { handleApiError, createAuthError } from "@/lib/api-utils";
-import type { Database } from "@/types/supabase";
 import type {
   RouteHandler,
   RouteContext,
   AuthenticatedContext,
   AuthenticatedHandler,
   OptionalAuthHandler,
+  OptionalAuthContext,
   WithAuthOptions,
   CreateApiHandlerOptions,
 } from "./types";
@@ -85,6 +84,13 @@ export function withAuth(
     try {
       const supabase = await createSupabaseServerClient();
 
+      // In Next.js 15+, params is a Promise that must be awaited
+      const resolvedParams = context?.params
+        ? typeof context.params === "object" && "then" in context.params
+          ? await context.params
+          : (context.params as Record<string, string>)
+        : {};
+
       const {
         data: { user },
         error: userError,
@@ -97,7 +103,7 @@ export function withAuth(
         }
 
         const authContext: AuthenticatedContext = {
-          params: context?.params ?? {},
+          params: resolvedParams,
           user,
           supabase,
         };
@@ -106,11 +112,8 @@ export function withAuth(
       }
 
       // Optional auth
-      const optionalContext: RouteContext & {
-        user: User | null;
-        supabase: SupabaseClient<Database>;
-      } = {
-        params: context?.params ?? {},
+      const optionalContext: OptionalAuthContext = {
+        params: resolvedParams,
         user: userError ? null : user,
         supabase,
       };
@@ -171,8 +174,16 @@ export function createApiHandler(
   return withErrorHandler(
     async (request, context) => {
       const supabase = await createSupabaseServerClient();
+
+      // In Next.js 15+, params is a Promise that must be awaited
+      const resolvedParams = context?.params
+        ? typeof context.params === "object" && "then" in context.params
+          ? await context.params
+          : (context.params as Record<string, string>)
+        : {};
+
       return await (handler as OptionalAuthHandler)(request, {
-        params: context?.params ?? {},
+        params: resolvedParams,
         user: null,
         supabase,
       });
