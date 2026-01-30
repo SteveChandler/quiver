@@ -71,6 +71,8 @@ Pure functions for wave direction parsing:
 - `parseWaveDirection()` - Parse direction string to degrees
 - `getDirectionDegrees()` - Convert cardinal to degrees
 
+**Defensive Type Guards (January 2026):** Both functions include defensive type guards that check `typeof value !== 'string'` before calling string methods like `.toUpperCase()` or `.trim()`. This prevents runtime errors when external API responses contain unexpected types (objects, arrays, numbers). See `lib/services/ARCHITECTURE.md` section "DEFENSIVE PARSING OF EXTERNAL API DATA" for the full pattern.
+
 ### `time-slot-utils.ts`
 Timezone-aware time calculations:
 - `getLocalDateStr()` - Format date in beach timezone
@@ -146,6 +148,24 @@ import { selectBestWindow } from '@/lib/services/discovery/window-selector';
 import { selectBestWindow } from '@/lib/services/discovery/window-selector/window-selector-core';
 ```
 
+## Defensive Parsing Pattern
+
+**Critical (January 2026):** Direction parsing functions in this module must validate input types before calling string methods. External API responses from NOAA/CDIP/NWS can return unexpected types.
+
+```typescript
+// CORRECT - direction-utils.ts pattern
+export function parseWaveDirection(dir: string): number {
+  // Defensive: ensure we have a string before calling .toUpperCase()
+  if (typeof dir !== 'string' || !dir) {
+    return 0;
+  }
+  const v = CARDINAL_DIRECTIONS[dir.toUpperCase()];
+  return v ?? 0;
+}
+```
+
+This pattern prevents "X.trim is not a function" errors that can cause 100% forecast sync failure.
+
 ## Testing
 
 Tests are located at `__tests__/lib/services/discovery/window-selector.test.ts` and cover:
@@ -155,6 +175,17 @@ Tests are located at `__tests__/lib/services/discovery/window-selector.test.ts` 
 - Peak finding interpolation
 - Window scoring
 - Full algorithm integration
+
+**Required test cases for direction parsing:**
+```typescript
+// Include tests for unexpected input types
+it('returns 0 for object input', () => {
+  expect(parseWaveDirection({} as any)).toBe(0);
+});
+it('returns 0 for array input', () => {
+  expect(parseWaveDirection([] as any)).toBe(0);
+});
+```
 
 Run tests:
 ```bash

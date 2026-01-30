@@ -63,6 +63,107 @@ DataFlow
 └── Rate Limiting → Queue Management → Retry Logic
 ```
 
+## **DEFENSIVE PARSING OF EXTERNAL API DATA**
+
+### **Critical Pattern: Type Guards Before String Methods**
+
+**Background (January 2026 Bug):** A critical bug caused 100% forecast sync failure across all beaches due to direction parsing functions calling `.trim()` or `.toUpperCase()` on values that were not strings. External API responses sometimes return unexpected types (objects, arrays, numbers) instead of expected string values.
+
+**Lesson Learned:** NEVER call string methods (`.trim()`, `.toUpperCase()`, `.toLowerCase()`, `.split()`, etc.) on external API data without first verifying the value is a string.
+
+### **Required Pattern**
+
+```typescript
+// WRONG - Will throw "X.trim is not a function" if dir is not a string
+function parseDirection(dir: string | null | undefined): number | null {
+  if (!dir) return null;
+  const trimmed = dir.trim(); // CRASH if dir is object/array/number
+  // ...
+}
+
+// CORRECT - Defensive type guard before string methods
+function parseDirection(dir: string | null | undefined): number | null {
+  // Guard 1: Check for null/undefined
+  if (!dir) return null;
+
+  // Guard 2: Verify it's actually a string before calling string methods
+  if (typeof dir !== 'string') {
+    return null; // Silently return null for unexpected types
+  }
+
+  const trimmed = dir.trim(); // Safe - dir is guaranteed to be a string
+  // ...
+}
+```
+
+### **Files Implementing This Pattern**
+
+The following files have been updated with defensive type guards (January 2026):
+
+| File | Function(s) | Guard Added |
+|------|-------------|-------------|
+| `lib/services/forecast/forecast-transformer.ts` | `cardinalToDegrees()` | `typeof dir !== 'string'` check before `.trim()` |
+| `lib/services/discovery/window-selector/direction-utils.ts` | `parseWaveDirection()` | `typeof dir !== 'string'` check before `.toUpperCase()` |
+| `lib/services/discovery/window-selector/direction-utils.ts` | `getDirectionDegrees()` | `typeof windDirectionText !== 'string'` check before `.trim()` |
+| `lib/services/nws-wind-service.ts` | `parseNwsWindDirectionDeg()` | `typeof dir !== 'string'` check before `.trim()` |
+| `lib/services/nws-wind-service.ts` | `parseNwsWindSpeedMs()` | `typeof windSpeed !== 'string'` check before `.trim()` |
+
+### **When to Apply This Pattern**
+
+Apply defensive type guards when:
+
+1. **Parsing external API responses** - NOAA, CDIP, NWS, weather services
+2. **Processing user input** - Form data, query parameters
+3. **Reading from database JSONB columns** - Untyped JSON data
+4. **Deserializing cached data** - Redis, localStorage, session storage
+5. **Processing webhook payloads** - Third-party integrations
+
+### **Error Handling Strategy**
+
+For parsing functions, prefer **silent degradation** over throwing errors:
+
+```typescript
+// Preferred: Return null/default for invalid input
+if (typeof value !== 'string') {
+  return null; // Caller handles null case
+}
+
+// Alternative: Return sensible default
+if (typeof value !== 'string') {
+  return 0; // Default value (e.g., 0 degrees for direction)
+}
+
+// Avoid: Throwing errors (breaks batch processing)
+if (typeof value !== 'string') {
+  throw new Error('Invalid type'); // Stops entire forecast sync
+}
+```
+
+### **Testing Considerations**
+
+When writing tests for parsing functions, include test cases for:
+
+```typescript
+describe('parseDirection', () => {
+  // Standard cases
+  it('parses cardinal directions', () => { /* ... */ });
+  it('returns null for null/undefined', () => { /* ... */ });
+
+  // Defensive type guard cases (CRITICAL)
+  it('returns null for object input', () => {
+    expect(parseDirection({} as any)).toBeNull();
+  });
+  it('returns null for array input', () => {
+    expect(parseDirection([] as any)).toBeNull();
+  });
+  it('returns null for number input', () => {
+    expect(parseDirection(123 as any)).toBeNull();
+  });
+});
+```
+
+---
+
 ## **SERVICE RESPONSIBILITIES**
 
 ### **CDIPService** (Buoy Data Integration)
