@@ -23,16 +23,26 @@ export type RouteHandler = (
 ) => Promise<NextResponse>;
 
 /**
- * Route context with typed params
+ * Route context with typed params as received from Next.js
+ *
+ * Note: In Next.js 15+, params is a Promise that must be awaited.
+ * We accept both for compatibility with the Next.js handler signature.
  */
 export interface RouteContext {
-  params: Record<string, string>;
+  params: Record<string, string> | Promise<Record<string, string>>;
 }
 
 /**
- * Extended context provided to authenticated handlers
+ * Resolved params type (after awaiting the Promise)
  */
-export interface AuthenticatedContext extends RouteContext {
+export type ResolvedParams = Record<string, string>;
+
+/**
+ * Extended context provided to authenticated handlers.
+ * Params are always resolved (not a Promise) at this point.
+ */
+export interface AuthenticatedContext {
+  params: ResolvedParams;
   user: User;
   supabase: SupabaseClient<Database>;
 }
@@ -46,14 +56,21 @@ export type AuthenticatedHandler = (
 ) => Promise<NextResponse>;
 
 /**
+ * Context for optional auth handlers (user may be null).
+ * Params are always resolved (not a Promise) at this point.
+ */
+export interface OptionalAuthContext {
+  params: ResolvedParams;
+  user: User | null;
+  supabase: SupabaseClient<Database>;
+}
+
+/**
  * Handler that receives optional auth (user may be null)
  */
 export type OptionalAuthHandler = (
   request: NextRequest,
-  context: RouteContext & {
-    user: User | null;
-    supabase: SupabaseClient<Database>;
-  }
+  context: OptionalAuthContext
 ) => Promise<NextResponse>;
 
 // =============================================================================

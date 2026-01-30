@@ -44,8 +44,10 @@
 export type {
   RouteHandler,
   RouteContext,
+  ResolvedParams,
   AuthenticatedContext,
   AuthenticatedHandler,
+  OptionalAuthContext,
   OptionalAuthHandler,
   WithAuthOptions,
   WithErrorHandlerOptions,
