@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Forecast Sync "A.trim is not a function" Error:** Fixed a critical bug causing the enhanced forecast sync cron job to fail for all beaches with "A.trim is not a function" error. Added defensive type guards to direction parsing functions:
+  - `cardinalToDegrees()` in `forecast-transformer.ts` - now validates input is a string before calling `.trim()`
+  - `parseWaveDirection()` in `direction-utils.ts` - now validates input is a string before calling `.toUpperCase()`
+  - `getDirectionDegrees()` in `direction-utils.ts` - now validates windDirectionText is a string before calling `.trim()`
+  - `parseNwsWindDirectionDeg()` and `parseNwsWindSpeedMs()` in `nws-wind-service.ts` - added type guards before `.trim()` calls
+  - This fix restores forecast updates, which in turn restores surf recommendations on the home screen for logged-in users
+
 ### Added
 
 - **Share Button on Hero Recommendation:** Users can now share surf forecasts directly from the hero recommendation card on the home screen. Features include:
@@ -77,6 +86,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Integrated into `scoreBeachForUser` and `scoreBeachesForUser` functions
 
 ### Fixed
+
+- **[API Middleware] Next.js 15+ Route Params Handling:** Fixed critical production bug where session API routes (`/api/sessions/{id}/likes`, `/api/sessions/{id}/comments`) were returning 500 errors. Root cause: In Next.js 15+, route `params` is a Promise that must be awaited before accessing properties like `params.id`. The `withAuth` and `createApiHandler` wrappers were passing `context?.params` directly without awaiting, causing `params.id` to be undefined at runtime. Solution:
+  - Updated `lib/middleware/api-wrappers/types.ts` to define `RouteContext.params` as `Record<string, string> | Promise<Record<string, string>>` for Next.js compatibility
+  - Added `ResolvedParams` type alias for resolved params
+  - Updated `AuthenticatedContext` and `OptionalAuthContext` to use `ResolvedParams` (handler functions receive already-resolved params)
+  - Added params resolution logic in `withAuth` and `createApiHandler` that detects Promise params and awaits them before passing to handlers
+  - Exported new types from `lib/middleware/api-wrappers/index.ts`
+  - All API routes using `withAuth` or `createApiHandler` are now automatically protected from this issue
+  - Updated architecture documentation in `app/api/ARCHITECTURE.md` and `docs/API_MIDDLEWARE_REFERENCE.md`
 
 - **Push Notification Table Mismatch:** Fixed critical bug where mobile app registered device tokens in `push_devices` table but push notification service queried `user_devices` table, causing notifications to never be sent. Changes include:
   - Updated `actions/mobile-actions.ts` to register tokens directly in `user_devices` table
@@ -535,6 +553,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `lib/ml/ARCHITECTURE.md` - TypeScript parsing utilities, API reference, unit tests
   - `app/api/cron/ml/ARCHITECTURE.md` - Vercel cron configuration, cold start handling, monitoring
   - Updated `docs/ARCHITECTURE.md` - Added ML System section with component overview and documentation links
+- **[API Middleware] Next.js 15+ Params Documentation:** Updated API middleware documentation to explain the breaking change in Next.js 15+ where route params are Promises. Added new sections to `app/api/ARCHITECTURE.md` and `docs/API_MIDDLEWARE_REFERENCE.md` documenting the fix, correct usage patterns, and type definitions.
 
 ### Changed
 

@@ -24,7 +24,8 @@ function clampDegrees(deg: number): number {
  * Returns null for unknown/unparseable directions (including "VRB").
  */
 export function parseNwsWindDirectionDeg(dir: string | null | undefined): number | null {
-  if (!dir) return null;
+  // Defensive: ensure we have a string before calling .trim()
+  if (!dir || typeof dir !== 'string') return null;
   const upper = dir.trim().toUpperCase();
   if (!upper) return null;
   if (upper === "VRB" || upper === "VARIABLE") return null;
@@ -61,7 +62,8 @@ export function parseNwsWindDirectionDeg(dir: string | null | undefined): number
  * Returns null when unknown/unparseable.
  */
 export function parseNwsWindSpeedMs(windSpeed: string | null | undefined): number | null {
-  if (!windSpeed) return null;
+  // Defensive: ensure we have a string before calling .trim()
+  if (!windSpeed || typeof windSpeed !== 'string') return null;
   const raw = windSpeed.trim();
   if (!raw) return null;
   if (/^calm$/i.test(raw)) return 0;

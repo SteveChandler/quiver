@@ -41,6 +41,12 @@ export function cardinalToDegrees(dir: string | number | null | undefined): numb
     return ((dir % 360) + 360) % 360;
   }
 
+  // Defensive: coerce to string to prevent ".trim is not a function" errors
+  // This handles cases where unexpected types (objects, arrays) are passed
+  if (typeof dir !== 'string') {
+    return null;
+  }
+
   const trimmed = dir.trim();
   if (!trimmed) return null;
 
