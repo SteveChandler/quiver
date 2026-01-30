@@ -42,11 +42,12 @@ export async function generateStaticParams() {
   }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { region: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ region: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const region = getHubRegion(params.region);
 
   if (!region) {
@@ -129,11 +130,12 @@ function calculateRegionStats(beaches: Beach[]) {
   };
 }
 
-export default async function HubRegionPage({
-  params,
-}: {
-  params: { region: string };
-}) {
+export default async function HubRegionPage(
+  props: {
+    params: Promise<{ region: string }>;
+  }
+) {
+  const params = await props.params;
   const region = getHubRegion(params.region);
 
   if (!region) {

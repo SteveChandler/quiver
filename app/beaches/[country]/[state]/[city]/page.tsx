@@ -72,10 +72,11 @@ interface LocationPageParams {
 }
 
 interface LocationPageProps {
-  params: LocationPageParams;
+  params: Promise<LocationPageParams>;
 }
 
-export default async function LocationPage({ params }: LocationPageProps) {
+export default async function LocationPage(props: LocationPageProps) {
+  const params = await props.params;
   // Validate country parameter - reject non-country values like "beginner", "sunset", etc.
   // This prevents intent slugs from being treated as countries, stopping broken URLs
   if (!isValidCountrySlug(params.country)) {
@@ -473,7 +474,8 @@ export async function generateStaticParams() {
 /**
  * Configure page metadata
  */
-export async function generateMetadata({ params }: LocationPageProps) {
+export async function generateMetadata(props: LocationPageProps) {
+  const params = await props.params;
   // Validate country parameter - return not found metadata for invalid countries
   if (!isValidCountrySlug(params.country)) {
     return {

@@ -61,11 +61,12 @@ const getBeachBySlugOrId = cache(async (slug: string): Promise<Beach | null> => 
   return null;
 });
 
-export default async function BeachDetailBySlugPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
+export default async function BeachDetailBySlugPage(
+  props: {
+    params: Promise<{ slug: string }>;
+  }
+) {
+  const params = await props.params;
   // Fetch beach data server-side using cached function
   try {
     const beach = await getBeachBySlugOrId(params.slug);
@@ -152,11 +153,12 @@ export default async function BeachDetailBySlugPage({
   }
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { slug: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ slug: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   // Keep metadata generation side-effect free; don't depend on auth/session
   // Uses cached function - deduped with page component in same render pass
   const beach = await getBeachBySlugOrId(params.slug);

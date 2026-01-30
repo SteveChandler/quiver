@@ -44,11 +44,12 @@ export default function MapPage() {
   );
 }
 
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  }
+): Promise<Metadata> {
+  const searchParams = await props.searchParams;
   // Important: Keep `/map` indexable, but prevent indexing of parameterized
   // variants like `/map?search=Capitola` or `/map?city=san-diego`
   // (canonicalize to `/map`).

@@ -15,10 +15,11 @@ import {
 export const revalidate = 60 * 60 * 24; // 24h (best-effort; may be treated as dynamic if cookies are read)
 
 type StateRootPageProps = {
-  params: { intent: string };
+  params: Promise<{ intent: string }>;
 };
 
-export async function generateMetadata({ params }: StateRootPageProps) {
+export async function generateMetadata(props: StateRootPageProps) {
+  const params = await props.params;
   const stateSlug = normalizeState(params.intent);
   if (!isValidStateSlug(stateSlug)) {
     return buildPageMetadata({
@@ -44,7 +45,8 @@ export async function generateMetadata({ params }: StateRootPageProps) {
  * Note: We implement this as `/[intent]` to avoid route collisions with the existing
  * `/[intent]/[city]` and `/[intent]/[city]/[beachSlug]` hierarchy.
  */
-export default async function StateRootPage({ params }: StateRootPageProps) {
+export default async function StateRootPage(props: StateRootPageProps) {
+  const params = await props.params;
   const normalized = normalizeState(params.intent);
 
   // Prevent collisions with one-segment routes (even though static routes win).

@@ -127,12 +127,11 @@ export async function generateStaticParams() {
 interface IntentPageParams {
   // NOTE: although this page is primarily for surf intents, this route also
   // receives legacy 2-segment state/city URLs (e.g. /ca/encinitas).
-  params: { intent: string; city: string };
+  params: Promise<{ intent: string; city: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: IntentPageParams): Promise<Metadata> {
+export async function generateMetadata(props: IntentPageParams): Promise<Metadata> {
+  const params = await props.params;
   // Check if this is a state-level intent page like /beginner/ca
   if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
     const stateName = getUsStateDisplayNameFromSlug(params.city);
@@ -195,7 +194,8 @@ export async function generateMetadata({
   return metadata;
 }
 
-export default async function IntentPage({ params }: IntentPageParams) {
+export default async function IntentPage(props: IntentPageParams) {
+  const params = await props.params;
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
 
   // Legacy 2-segment state/city route: redirect to map filtered by city
