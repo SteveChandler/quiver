@@ -9,7 +9,10 @@ import {
   mergeSpotData,
   type SpotPageData,
 } from "@/lib/utils/spot-data-transformer";
+import { createContextLogger } from "@/lib/logger";
 import type { Beach } from "@/types/database";
+
+const log = createContextLogger("SpotDataActions");
 
 /**
  * Featured photo data structure
@@ -41,25 +44,47 @@ async function getBeachBySlugSafe(slug: string): Promise<Beach | null> {
 
     return data[0] as Beach;
   } catch (error) {
-    console.log(`[getBeachBySlugSafe] Error fetching beach: ${error}`);
+    log.warn("Error fetching beach by slug", { slug, error });
     return null;
   }
+}
+
+/**
+ * Return type for getSpotDataBySlug including DB location status
+ */
+export interface SpotDataResult {
+  data: SpotPageData | null;
+  /** True when DB record has both city AND state (determines redirect/canonical logic) */
+  dbHasLocation: boolean;
 }
 
 /**
  * Fetches spot data by slug, trying database first with static fallback.
  * Returns merged data combining database info (id, coordinates) with
  * static content (history, advice, FAQs) for the richest result.
+ *
+ * The `dbHasLocation` flag indicates whether the DB record has complete
+ * location data (city AND state), which determines whether the page should
+ * redirect to hierarchical URLs and how canonical URLs are set.
  */
 export async function getSpotDataBySlug(
   slug: string
-): Promise<SpotPageData | null> {
+): Promise<SpotDataResult> {
   // Normalize slug
   const normalizedSlug = slug.trim().toLowerCase();
 
   // Try database first using our safe version that doesn't throw
   let dbData: SpotPageData | null = null;
   const beach = await getBeachBySlugSafe(normalizedSlug);
+
+  // Check if DB has complete location data (both city AND state must be present and non-empty)
+  const dbHasLocation = !!(
+    beach?.city &&
+    beach?.state &&
+    beach.city.trim() !== '' &&
+    beach.state.trim() !== ''
+  );
+
   if (beach) {
     dbData = transformBeachToSpotData(beach);
   }
@@ -71,7 +96,10 @@ export async function getSpotDataBySlug(
     : null;
 
   // Merge both sources for the richest data
-  return mergeSpotData(dbData, staticData);
+  return {
+    data: mergeSpotData(dbData, staticData),
+    dbHasLocation,
+  };
 }
 
 /**

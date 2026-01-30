@@ -42,7 +42,7 @@ interface SpotPageParams {
 
 export async function generateMetadata(props: SpotPageParams): Promise<Metadata> {
   const params = await props.params;
-  const spot = await getSpotDataBySlug(params.slug);
+  const { data: spot, dbHasLocation } = await getSpotDataBySlug(params.slug);
   if (!spot) {
     return {};
   }
@@ -54,10 +54,18 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
   const title = `${spot.name} Surf Report & Forecast (Updated Daily)`;
   const description = `${spot.name} surf report for ${formatMetaDate()}. Wave height, wind, tide, and best time window${locationContext} — plus nearby spots.`;
 
+  // Canonical path matches sitemap logic:
+  // - Use hierarchical URL when DB has complete location data
+  // - Fall back to /spots/{slug} when location data is incomplete
+  // Note: dbHasLocation guarantees non-empty city and state in the DB record
+  const canonicalPath = dbHasLocation && spot.slug
+    ? buildBeachUrl({ slug: spot.slug, city: spot.city!, state: spot.state! })
+    : `/spots/${spot.slug}`;
+
   return buildPageMetadata({
     title,
     description,
-    path: `/spots/${spot.slug}`,
+    path: canonicalPath,
     keywords: [
       `${spot.name} surf report`,
       `${spot.name} surf forecast`,
@@ -71,18 +79,22 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
 
 export default async function SpotPage(props: SpotPageParams) {
   const params = await props.params;
-  const spot = await getSpotDataBySlug(params.slug);
+  const { data: spot, dbHasLocation } = await getSpotDataBySlug(params.slug);
   if (!spot) {
     return notFound();
   }
 
-  // 301 Redirect to canonical URL if possible
-  // This consolidates legacy /spots/[slug] URLs to the new hierarchical structure
-  if (spot.slug && spot.city && spot.state) {
+  // 301 Redirect to canonical URL ONLY when DB has complete location data
+  // This ensures redirect behavior matches sitemap URL generation:
+  // - Sitemap uses getBeaches() which only has DB data
+  // - If DB lacks city/state, sitemap emits /spots/{slug} and page should NOT redirect
+  // - If DB has city/state, sitemap emits hierarchical URL and page should redirect
+  // Note: dbHasLocation guarantees non-empty city and state in the DB record
+  if (dbHasLocation && spot.slug) {
     const canonicalUrl = buildBeachUrl({
       slug: spot.slug,
-      city: spot.city,
-      state: spot.state,
+      city: spot.city!,
+      state: spot.state!,
     });
     permanentRedirect(canonicalUrl);
   }
@@ -147,7 +159,7 @@ export default async function SpotPage(props: SpotPageParams) {
   const nearbySpotData = spot.nearby
     ? await Promise.all(
         spot.nearby.map(async (slug) => {
-          const nearbySpot = await getSpotDataBySlug(slug);
+          const { data: nearbySpot } = await getSpotDataBySlug(slug);
           return nearbySpot;
         })
       )
