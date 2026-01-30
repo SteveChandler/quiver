@@ -84,7 +84,7 @@ export const getClientBrowserClient = () => {
 };
 
 // Create a server client for server components and server actions
-export const createServerClient = () => {
+export const createServerClient = async () => {
   // Prefer NEXT_PUBLIC_ for client-side, fallback to server-only vars
   const supabaseUrl = (
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -113,7 +113,7 @@ export const createServerClient = () => {
     if (typeof window === "undefined") {
       // This will only execute on the server
       const { cookies } = require("next/headers");
-      cookieStore = cookies();
+      cookieStore = await cookies();
     }
   } catch (error) {
     // Running outside of Next.js middleware/route handler context

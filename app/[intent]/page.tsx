@@ -58,7 +58,7 @@ export default async function StateRootPage(props: StateRootPageProps) {
   // Only support known 2-letter state slugs at the root.
   if (!isValidStateSlug(normalized)) notFound();
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const stateName = getStateDisplayNameFromSlug(normalized);
   const candidates = getDbStateCandidatesForStateSlug(normalized);
 

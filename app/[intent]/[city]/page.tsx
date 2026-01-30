@@ -37,7 +37,9 @@ import {
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
 
-export const dynamic = "force-dynamic";
+// ISR: Revalidate intent pages periodically for updated city/beach data
+// Note: generateStaticParams() pre-generates most routes at build time
+export const revalidate = 3600; // 1 hour
 
 function formatPacificDateTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -166,10 +168,35 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
 
   // Database-driven city metadata
   const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
-  if (!definition) return {};
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+  // Unknown intent: return 404-safe metadata with self-referential canonical
+  // This prevents Google from selecting an arbitrary canonical URL
+  if (!definition) {
+    return {
+      title: "Page Not Found | Quiver",
+      description: "This page could not be found.",
+      alternates: {
+        canonical: `${baseUrl}/${params.intent}/${params.city}`,
+      },
+      robots: { index: false, follow: true },
+    };
+  }
 
   const cityResult = await findCityBySlug(params.city);
-  if (!cityResult.success || !cityResult.data) return {};
+
+  // City lookup failed: return 404-safe metadata with self-referential canonical
+  // CRITICAL: Without this, Google picks an arbitrary canonical (e.g., /tide/hull for /beginner/nags-head)
+  if (!cityResult.success || !cityResult.data) {
+    return {
+      title: `${definition.label} Spots | Quiver`,
+      description: `Find ${definition.label.toLowerCase()} surf spots. AI-powered recommendations for every skill level.`,
+      alternates: {
+        canonical: `${baseUrl}/${params.intent}/${params.city}`,
+      },
+      robots: { index: false, follow: true },
+    };
+  }
 
   const cityMetadata = cityResult.data;
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
@@ -315,7 +342,22 @@ export default async function IntentPage(props: IntentPageParams) {
 
   // Database-driven city resolution (replaces hardcoded SURF_CITIES)
   const cityResult = await findCityBySlug(params.city);
-  const cityMetadata = cityResult.success ? cityResult.data : null;
+  let cityMetadata = cityResult.success ? cityResult.data : null;
+
+  // If city lookup failed, check if a state-suffixed version exists
+  // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
+  if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
+    // Try common coastal states (prioritize by surfing popularity)
+    const stateSuffixes = ["ca", "fl", "hi", "nc", "sc", "nj", "ny", "or", "wa", "tx", "ma", "me", "ri"];
+    for (const stateSuffix of stateSuffixes) {
+      const suffixedSlug = `${params.city}-${stateSuffix}`;
+      const suffixedResult = await findCityBySlug(suffixedSlug);
+      if (suffixedResult.success && suffixedResult.data) {
+        // Found a match with state suffix - redirect to canonical URL
+        redirect(`/${params.intent}/${suffixedSlug}`);
+      }
+    }
+  }
 
   if (!cityMetadata || !definition) {
     return notFound();

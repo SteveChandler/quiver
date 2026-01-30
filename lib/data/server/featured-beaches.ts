@@ -219,7 +219,7 @@ function sortFeaturedBeaches(beaches: EnrichedBeach[]): EnrichedBeach[] {
  */
 async function _getFeaturedBeaches(): Promise<EnrichedBeach[]> {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     if (!supabase) {
       console.error("Failed to initialize Supabase client");

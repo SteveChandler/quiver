@@ -29,7 +29,7 @@ export async function saveHomeBeach(
   const userId = verification.userId;
 
   // Update database
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from('user_email_prefs')
     .upsert(
@@ -50,7 +50,7 @@ export async function saveHomeBeach(
 }
 
 export async function searchBeaches(query: string, limit: number = 10): Promise<Beach[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('beaches')
@@ -67,7 +67,7 @@ export async function searchBeaches(query: string, limit: number = 10): Promise<
 }
 
 export async function getNearbyBeaches(lat: number, lon: number, limit: number = 5): Promise<Beach[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Use PostGIS RPC to find nearby beaches
   const { data, error } = await supabase.rpc('get_nearby_beaches', {
@@ -100,7 +100,7 @@ export async function getNearbyBeaches(lat: number, lon: number, limit: number =
 }
 
 export async function getPopularBeaches(limit: number = 5): Promise<Beach[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get popular San Diego beaches as defaults
   const { data, error } = await supabase

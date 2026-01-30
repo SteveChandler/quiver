@@ -3,6 +3,7 @@
 // server actions and returned functions include "use server" where required.
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { SupabaseServerClient } from "@/types/supabase";
 import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
 
@@ -46,7 +47,7 @@ export async function withServerAction<T>(
 export async function withAuthenticatedAction<T>(
   action: (
     user: User,
-    supabase: ReturnType<typeof createSupabaseServerClient>
+    supabase: SupabaseServerClient
   ) => Promise<T>
 ): Promise<ServerActionResponse<T>> {
   return withServerAction(async () => {
@@ -80,7 +81,7 @@ export function makeAuthenticatedAction<
 >(
   action: (
     user: User,
-    supabase: ReturnType<typeof createSupabaseServerClient>,
+    supabase: SupabaseServerClient,
     ...args: TArgs
   ) => Promise<T>
 ) {
@@ -161,7 +162,7 @@ export interface CreateServerActionOptions<TInput, TOutput> {
   handler: (context: {
     input: TInput;
     user: User | null;
-    supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+    supabase: SupabaseServerClient;
   }) => Promise<TOutput>;
 }
 
@@ -216,7 +217,7 @@ export function createServerAction<TInput, TOutput>(
 // Database operation with consistent error handling
 export async function withDatabaseOperation<T>(
   operation: (
-    supabase: ReturnType<typeof createSupabaseServerClient>
+    supabase: SupabaseServerClient
   ) => Promise<{ data: T | null; error: any }>
 ): Promise<ServerActionResponse<T>> {
   return withServerAction(async () => {

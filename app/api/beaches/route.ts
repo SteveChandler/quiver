@@ -19,7 +19,7 @@ import {
 // GET method to retrieve all beaches with optimized caching
 async function beachesHandler(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     if (!supabase) {
       return handleApiError(new Error("Supabase client not initialized"), "Failed to fetch beaches");

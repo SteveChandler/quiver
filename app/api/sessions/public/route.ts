@@ -29,7 +29,7 @@ export const dynamic = "force-dynamic";
  * - Paginated list of public sessions with beach info, ratings, and author details
  */
 async function publicSessionsHandler(request: NextRequest): Promise<NextResponse> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { searchParams } = new URL(request.url);
   const { page, limit } = parsePaginationParams(searchParams, 10, 50);
   const offset = (page - 1) * limit;
