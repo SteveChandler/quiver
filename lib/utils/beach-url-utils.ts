@@ -479,6 +479,19 @@ export function isValidStateSlug(slug: string): boolean {
   return getValidStateSlugs().includes(slug.toLowerCase());
 }
 
+/**
+ * Coastal US state slugs prioritized by surfing popularity.
+ * Used for state-suffix city resolution (e.g., finding "belmar-nj" from "belmar").
+ *
+ * This list is intentionally ordered by surfing popularity to optimize
+ * the search process when trying state suffixes.
+ */
+export const COASTAL_STATE_SUFFIXES = [
+  "ca", "fl", "hi", "nc", "sc", "nj", "ny", "or", "wa", "tx", "ma", "me", "ri"
+] as const;
+
+export type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
+
 // ============================================================================
 // Country Validation
 // ============================================================================

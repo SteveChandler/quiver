@@ -306,8 +306,9 @@ describe("NearbySpots", () => {
 
       const { container } = render(<NearbySpots beach={mockBeach} />);
 
+      // Wait for loading to complete and component to update
       await waitFor(() => {
-        expect(getNearbyBeaches).toHaveBeenCalled();
+        expect(screen.queryByTestId("loader-icon")).not.toBeInTheDocument();
       });
 
       // Component should not render anything for empty state
@@ -322,8 +323,9 @@ describe("NearbySpots", () => {
 
       const { container } = render(<NearbySpots beach={mockBeach} />);
 
+      // Wait for loading to complete and component to update
       await waitFor(() => {
-        expect(getNearbyBeaches).toHaveBeenCalled();
+        expect(screen.queryByTestId("loader-icon")).not.toBeInTheDocument();
       });
 
       expect(container.firstChild).toBeNull();
@@ -339,8 +341,9 @@ describe("NearbySpots", () => {
 
       const { container } = render(<NearbySpots beach={mockBeach} />);
 
+      // Wait for loading to complete and component to update
       await waitFor(() => {
-        expect(getNearbyBeaches).toHaveBeenCalled();
+        expect(screen.queryByTestId("loader-icon")).not.toBeInTheDocument();
       });
 
       expect(container.firstChild).toBeNull();
@@ -356,8 +359,9 @@ describe("NearbySpots", () => {
         .mockImplementation(() => {});
       const { container } = render(<NearbySpots beach={mockBeach} />);
 
+      // Wait for loading to complete and component to update
       await waitFor(() => {
-        expect(getNearbyBeaches).toHaveBeenCalled();
+        expect(screen.queryByTestId("loader-icon")).not.toBeInTheDocument();
       });
 
       expect(container.firstChild).toBeNull();

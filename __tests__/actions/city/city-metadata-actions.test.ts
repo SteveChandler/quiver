@@ -526,5 +526,171 @@ describe("City Metadata Actions", () => {
         state_filter: null,
       });
     });
+
+    describe("Exact Match Collision Handling", () => {
+      it("prefers exact match over substring match (koloa vs waikoloa)", async () => {
+        // RPC returns both Koloa (exact match) and Waikoloa (substring match)
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: [
+            { city: "Koloa", state: "HI", beach_count: 2, is_exact_match: true },
+            { city: "Waikoloa", state: "HI", beach_count: 3, is_exact_match: false },
+          ],
+          error: null,
+        });
+
+        // getCityMetadata query returns Koloa beaches
+        tableChain.order.mockResolvedValue({
+          data: [
+            {
+              id: "beach-koloa-1",
+              name: "Poipu Beach",
+              slug: "poipu-beach",
+              skill_level: "Beginner-friendly",
+              lat: 21.8755,
+              lon: -159.4503,
+            },
+            {
+              id: "beach-koloa-2",
+              name: "Brennecke's Beach",
+              slug: "brenneckes-beach",
+              skill_level: "Intermediate",
+              lat: 21.8750,
+              lon: -159.4520,
+            },
+          ],
+          error: null,
+        });
+
+        const result = await findCityBySlug("koloa-hi");
+
+        expect(result.success).toBe(true);
+        expect(result.data?.cityName).toBe("Koloa");
+        expect(result.data?.state).toBe("HI");
+        // Verify getCityMetadata was called with Koloa, not Waikoloa
+        expect(tableChain.ilike).toHaveBeenCalledWith("city", "Koloa");
+      });
+
+      it("selects only exact match when single exact match exists among multiple results", async () => {
+        // RPC returns one exact match and multiple substring matches
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: [
+            { city: "Hull", state: "MA", beach_count: 5, is_exact_match: true },
+            { city: "Hull Gut Reservation", state: "MA", beach_count: 1, is_exact_match: false },
+            { city: "Scituate Hull", state: "MA", beach_count: 2, is_exact_match: false },
+          ],
+          error: null,
+        });
+
+        tableChain.order.mockResolvedValue({
+          data: [
+            {
+              id: "beach-hull-1",
+              name: "Nantasket Beach",
+              slug: "nantasket-beach",
+              skill_level: "Intermediate",
+              lat: 42.2648,
+              lon: -70.8590,
+            },
+          ],
+          error: null,
+        });
+
+        const result = await findCityBySlug("hull");
+
+        expect(result.success).toBe(true);
+        expect(result.data?.cityName).toBe("Hull");
+        expect(tableChain.ilike).toHaveBeenCalledWith("city", "Hull");
+      });
+
+      it("returns null when multiple exact matches exist without state filter", async () => {
+        // Two different cities that both exactly match "Newport"
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: [
+            { city: "Newport", state: "CA", beach_count: 5, is_exact_match: true },
+            { city: "Newport", state: "OR", beach_count: 3, is_exact_match: true },
+          ],
+          error: null,
+        });
+
+        const result = await findCityBySlug("newport");
+
+        expect(result.success).toBe(true);
+        expect(result.data).toBeNull(); // Ambiguous - multiple exact matches
+      });
+
+      it("resolves multiple exact matches when state filter provided", async () => {
+        // With state filter, only one city should be returned
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: [{ city: "Newport", state: "OR", beach_count: 3, is_exact_match: true }],
+          error: null,
+        });
+
+        tableChain.order.mockResolvedValue({
+          data: [
+            {
+              id: "beach-np-1",
+              name: "South Beach",
+              slug: "south-beach",
+              skill_level: "Intermediate",
+              lat: 44.6200,
+              lon: -124.0600,
+            },
+          ],
+          error: null,
+        });
+
+        const result = await findCityBySlug("newport-or");
+
+        expect(result.success).toBe(true);
+        expect(result.data?.cityName).toBe("Newport");
+        expect(result.data?.state).toBe("OR");
+      });
+
+      it("handles case when no exact matches exist but multiple substring matches", async () => {
+        // This would happen if searching for partial city name
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: [
+            { city: "South Beach", state: "FL", beach_count: 2, is_exact_match: false },
+            { city: "South Beach", state: "OR", beach_count: 1, is_exact_match: false },
+          ],
+          error: null,
+        });
+
+        const result = await findCityBySlug("south");
+
+        expect(result.success).toBe(true);
+        expect(result.data).toBeNull(); // Ambiguous - multiple matches, none exact
+      });
+
+      it("prefers exact matches even when substring match has more beaches", async () => {
+        // Exact match should win regardless of beach count
+        mockSupabaseClient.rpc.mockResolvedValue({
+          data: [
+            { city: "Koloa", state: "HI", beach_count: 2, is_exact_match: true },
+            { city: "Waikoloa Resort", state: "HI", beach_count: 10, is_exact_match: false },
+          ],
+          error: null,
+        });
+
+        tableChain.order.mockResolvedValue({
+          data: [
+            {
+              id: "beach-k-1",
+              name: "Koloa Beach",
+              slug: "koloa-beach",
+              skill_level: "Beginner-friendly",
+              lat: 21.8750,
+              lon: -159.4500,
+            },
+          ],
+          error: null,
+        });
+
+        const result = await findCityBySlug("koloa");
+
+        expect(result.success).toBe(true);
+        expect(result.data?.cityName).toBe("Koloa");
+      });
+    });
   });
 });

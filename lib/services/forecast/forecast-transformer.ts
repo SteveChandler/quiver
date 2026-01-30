@@ -20,7 +20,7 @@
  * - Secondary intercardinal (NNE, ENE, ESE, etc.)
  * - Numeric strings (already in degrees)
  * 
- * @param dir - Direction as string (cardinal or numeric)
+ * @param dir - Direction as string (cardinal or numeric) or number (degrees)
  * @returns Direction in degrees (0-359) or null if unparseable
  * 
  * @example
@@ -28,11 +28,19 @@
  * cardinalToDegrees("SW");  // Returns: 225
  * cardinalToDegrees("180"); // Returns: 180
  * cardinalToDegrees("N");   // Returns: 0
+ * cardinalToDegrees(180);   // Returns: 180 (numeric input)
  * cardinalToDegrees(null);  // Returns: null
  * ```
  */
-export function cardinalToDegrees(dir: string | null | undefined): number | null {
-  if (!dir) return null;
+export function cardinalToDegrees(dir: string | number | null | undefined): number | null {
+  if (dir == null) return null;
+
+  // Handle numeric input directly
+  if (typeof dir === 'number') {
+    if (!Number.isFinite(dir)) return null;
+    return ((dir % 360) + 360) % 360;
+  }
+
   const trimmed = dir.trim();
   if (!trimmed) return null;
 
@@ -76,7 +84,7 @@ export class ForecastTransformer {
   /**
    * Convert cardinal direction to degrees
    */
-  cardinalToDegrees(dir: string | null | undefined): number | null {
+  cardinalToDegrees(dir: string | number | null | undefined): number | null {
     return cardinalToDegrees(dir);
   }
 

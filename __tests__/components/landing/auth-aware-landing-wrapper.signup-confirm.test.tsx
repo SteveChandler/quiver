@@ -1,9 +1,8 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import { isStandaloneApp } from "@/lib/isStandaloneApp";
 
 jest.mock("next/navigation", () => ({
@@ -24,12 +23,6 @@ jest.mock("@/lib/utils/performance-utils", () => ({
     trackWebVitals: jest.fn(() => undefined),
     preloadCriticalResources: jest.fn(() => undefined),
     monitorMemoryUsage: jest.fn(() => undefined),
-  },
-}));
-
-jest.mock("sonner", () => ({
-  toast: {
-    success: jest.fn(),
   },
 }));
 
@@ -80,7 +73,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     (window as any).location = originalLocation;
   });
 
-  it("bypasses auth loading screen, shows toast, and cleans URL when signup=confirm-email", async () => {
+  it("bypasses auth loading screen, shows modal, and cleans URL when signup=confirm-email", async () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: true });
     // The component uses useSearchParams() to reactively detect URL changes
     const mockSearchParams = new URLSearchParams("?signup=confirm-email");
@@ -97,19 +90,19 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(screen.getByTestId("navbar")).toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
 
+    // Should show the email confirmation modal
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(
-        "Confirm your signup in your email",
-        expect.objectContaining({
-          description: expect.stringMatching(/confirmation link/i),
-        })
-      );
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
+    expect(screen.getByText(/confirmation link/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Got it" })).toBeInTheDocument();
 
+    // Click "Got it" to dismiss modal and clean URL
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(replace).toHaveBeenCalledWith("/");
   });
 
-  it("shows toast when signup param is added via soft navigation after mount", async () => {
+  it("shows modal when signup param is added via soft navigation after mount", async () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
 
     // Start with no query params
@@ -118,8 +111,8 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     const { rerender } = render(<AuthAwareLandingWrapper />);
 
-    // Toast should not be called yet
-    expect(toast.success).not.toHaveBeenCalled();
+    // Modal should not be visible yet
+    expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
 
     // Simulate soft navigation adding query param (like after modal signup)
     const updatedParams = new URLSearchParams("?signup=confirm-email");
@@ -127,11 +120,11 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     rerender(<AuthAwareLandingWrapper />);
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
   });
 
-  it("does not show toast twice on component re-render", async () => {
+  it("shows modal only once on component re-render", async () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     const mockSearchParams = new URLSearchParams("?signup=confirm-email");
     (useSearchParams as jest.Mock).mockReturnValue(mockSearchParams);
@@ -139,14 +132,15 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     const { rerender } = render(<AuthAwareLandingWrapper />);
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
 
     // Re-render the component (simulating state change or parent re-render)
     rerender(<AuthAwareLandingWrapper />);
 
-    // Should still only have been called once
-    expect(toast.success).toHaveBeenCalledTimes(1);
+    // Modal should still be visible (only one instance)
+    expect(screen.getByText("Check your email")).toBeInTheDocument();
+    expect(screen.getAllByText("Check your email")).toHaveLength(1);
   });
 
   it("preserves other query parameters when cleaning signup param", async () => {
@@ -159,8 +153,11 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     render(<AuthAwareLandingWrapper />);
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalled();
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
+
+    // Click "Got it" to dismiss and trigger URL cleanup
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
 
     // URL should preserve UTM params but remove signup param
     expect(replace).toHaveBeenCalledWith(
@@ -177,7 +174,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     );
   });
 
-  it("shows toast before redirecting in PWA standalone mode", async () => {
+  it("shows modal before redirecting in PWA standalone mode", async () => {
     (isStandaloneApp as jest.Mock).mockReturnValue(true);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     const mockSearchParams = new URLSearchParams("?signup=confirm-email");
@@ -185,17 +182,20 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     render(<AuthAwareLandingWrapper />);
 
-    // Should show toast
+    // Should show modal (not redirect to /auth/sign-in because signup confirmation takes priority)
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalled();
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
 
-    // Should clean URL (not redirect to /auth/sign-in because signup confirmation takes priority)
-    expect(replace).toHaveBeenCalledWith("/");
+    // URL should NOT be cleaned yet (modal is still open)
     expect(replace).not.toHaveBeenCalledWith("/auth/sign-in");
+
+    // Click "Got it" to dismiss modal and clean URL
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
-  it("handles auth state change while showing signup confirmation", async () => {
+  it("handles auth state change while showing signup confirmation modal", async () => {
     const mockSearchParams = new URLSearchParams("?signup=confirm-email");
     (useSearchParams as jest.Mock).mockReturnValue(mockSearchParams);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: true });
@@ -203,16 +203,13 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     const { rerender } = render(<AuthAwareLandingWrapper />);
 
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalled();
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
 
     // Simulate auth completing and user becoming authenticated
     const mockUser = { id: "123", email: "test@example.com" };
     (useAuth as jest.Mock).mockReturnValue({ user: mockUser, isLoading: false });
     rerender(<AuthAwareLandingWrapper />);
-
-    // Should NOT show duplicate toast
-    expect(toast.success).toHaveBeenCalledTimes(1);
 
     // Should transition to HomeScreen (wait for dynamic import to resolve)
     await waitFor(() => {
@@ -222,7 +219,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
   // --- Regression Tests ---
 
-  it("renders landing page without toast when no signup param is present", () => {
+  it("renders landing page without modal when no signup param is present", () => {
     (isStandaloneApp as jest.Mock).mockReturnValue(false);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
@@ -233,8 +230,8 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(screen.getByTestId("navbar")).toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
 
-    // Should NOT show toast
-    expect(toast.success).not.toHaveBeenCalled();
+    // Should NOT show modal
+    expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
 
     // Should NOT call replace (no URL cleanup needed)
     expect(replace).not.toHaveBeenCalled();
@@ -256,8 +253,8 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(screen.queryByTestId("navbar")).not.toBeInTheDocument();
     expect(screen.queryByTestId("hero-section")).not.toBeInTheDocument();
 
-    // Should NOT show toast
-    expect(toast.success).not.toHaveBeenCalled();
+    // Should NOT show modal
+    expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
   });
 
   it("redirects to sign-in in PWA mode when unauthenticated without signup param", () => {
@@ -270,13 +267,13 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     // Should redirect to sign-in page
     expect(replace).toHaveBeenCalledWith("/auth/sign-in");
 
-    // Should NOT show toast
-    expect(toast.success).not.toHaveBeenCalled();
+    // Should NOT show modal
+    expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
   });
 
   // --- Edge Case Tests ---
 
-  it("does not show toast for invalid signup param values", () => {
+  it("does not show modal for invalid signup param values", () => {
     (isStandaloneApp as jest.Mock).mockReturnValue(false);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     // Use a different value than "confirm-email"
@@ -288,14 +285,14 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     // Should render landing page
     expect(screen.getByTestId("navbar")).toBeInTheDocument();
 
-    // Should NOT show toast
-    expect(toast.success).not.toHaveBeenCalled();
+    // Should NOT show modal
+    expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
 
     // Should NOT clean URL
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("shows toast even when auth resolves quickly (no loading state)", async () => {
+  it("shows modal even when auth resolves quickly (no loading state)", async () => {
     // Auth already resolved (isLoading: false) but signup param present
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     const mockSearchParams = new URLSearchParams("?signup=confirm-email");
@@ -303,17 +300,14 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     render(<AuthAwareLandingWrapper />);
 
-    // Should still show toast even though auth resolved immediately
+    // Should still show modal even though auth resolved immediately
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(
-        "Confirm your signup in your email",
-        expect.objectContaining({
-          description: expect.stringMatching(/confirmation link/i),
-        })
-      );
+      expect(screen.getByText("Check your email")).toBeInTheDocument();
     });
+    expect(screen.getByText(/confirmation link/i)).toBeInTheDocument();
 
-    // Should clean URL
+    // Click "Got it" to clean URL
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(replace).toHaveBeenCalledWith("/");
   });
 });

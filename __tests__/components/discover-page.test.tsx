@@ -262,15 +262,15 @@ describe("DiscoverPage", () => {
       await user.click(searchButton);
 
       await waitFor(() => {
-        expect(MockFollowButton).toHaveBeenCalledWith(
-          expect.objectContaining({
-            userId: "user-2",
-            initialFollowersCount: 5,
-            variant: "default",
-            size: "sm",
-          }),
-          expect.any(Object)
-        );
+        // Verify the mock was called with expected props
+        expect(MockFollowButton).toHaveBeenCalled();
+        const callArgs = MockFollowButton.mock.calls[0][0];
+        expect(callArgs).toMatchObject({
+          userId: "user-2",
+          initialFollowersCount: 5,
+          variant: "default",
+          size: "sm",
+        });
       });
     });
 
@@ -305,12 +305,12 @@ describe("DiscoverPage", () => {
 
       await waitFor(() => {
         expect(screen.getByText("0 followers")).toBeInTheDocument();
-        expect(MockFollowButton).toHaveBeenCalledWith(
-          expect.objectContaining({
-            initialFollowersCount: 0,
-          }),
-          expect.any(Object)
-        );
+        // Verify the mock was called with expected props
+        expect(MockFollowButton).toHaveBeenCalled();
+        const callArgs = MockFollowButton.mock.calls[0][0];
+        expect(callArgs).toMatchObject({
+          initialFollowersCount: 0,
+        });
       });
     });
 

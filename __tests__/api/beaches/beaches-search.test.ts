@@ -375,22 +375,22 @@ describe("GET /api/beaches/search", () => {
       );
 
       const response = await GET(request);
-      const result = await expectSuccessResponse<BeachSearchResponse>(response, 200);
+      const result = await response.json();
 
       // Should return first 10 results
-      expect(result.data.data).toHaveLength(10);
-      expect(result.data.data[0].name).toBe("Beach 0");
-      expect(result.data.data[9].name).toBe("Beach 9");
+      expect(result.data).toHaveLength(10);
+      expect(result.data[0].name).toBe("Beach 0");
+      expect(result.data[9].name).toBe("Beach 9");
 
       // Should include pagination metadata
-      expect(result.data).toHaveProperty("meta");
-      if (result.data.meta) {
-        expect(result.data.meta.page).toBe(1);
-        expect(result.data.meta.limit).toBe(10);
-        expect(result.data.meta.total).toBe(25);
-        expect(result.data.meta.totalPages).toBe(3);
-        expect(result.data.meta.hasNextPage).toBe(true);
-        expect(result.data.meta.hasPreviousPage).toBe(false);
+      expect(result).toHaveProperty("meta");
+      if (result.meta) {
+        expect(result.meta.page).toBe(1);
+        expect(result.meta.limit).toBe(10);
+        expect(result.meta.total).toBe(25);
+        expect(result.meta.totalPages).toBe(3);
+        expect(result.meta.hasNextPage).toBe(true);
+        expect(result.meta.hasPreviousPage).toBe(false);
       }
     });
 

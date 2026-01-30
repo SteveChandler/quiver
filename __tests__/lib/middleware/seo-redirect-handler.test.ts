@@ -520,24 +520,24 @@ describe("SeoRedirectHandler", () => {
     });
 
     describe("handleSeoRedirect - Intent City Legacy (3-segment)", () => {
-      it("redirects 3-segment intent URL to 2-segment format", async () => {
+      it("redirects 3-segment intent URL to 2-segment format with state suffix", async () => {
         const result = await handleSeoRedirect("/sunset/ca/san-diego");
 
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
-      it("redirects all valid intent slugs correctly", async () => {
+      it("redirects all valid intent slugs correctly with state suffix", async () => {
         const testCases = [
-          ["/beginner/ca/san-diego", "/beginner/san-diego"],
-          ["/longboard/nj/asbury-park", "/longboard/asbury-park"],
-          ["/tide/hi/honolulu", "/tide/honolulu"],
-          ["/water-temp/ca/malibu", "/water-temp/malibu"],
-          ["/dawn-patrol/ca/huntington", "/dawn-patrol/huntington"],
-          ["/sunset/fl/miami", "/sunset/miami"],
-          ["/least-crowded/nc/outer-banks", "/least-crowded/outer-banks"],
+          ["/beginner/ca/san-diego", "/beginner/san-diego-ca"],
+          ["/longboard/nj/asbury-park", "/longboard/asbury-park-nj"],
+          ["/tide/hi/honolulu", "/tide/honolulu-hi"],
+          ["/water-temp/ca/malibu", "/water-temp/malibu-ca"],
+          ["/dawn-patrol/ca/huntington", "/dawn-patrol/huntington-ca"],
+          ["/sunset/fl/miami", "/sunset/miami-fl"],
+          ["/least-crowded/nc/outer-banks", "/least-crowded/outer-banks-nc"],
         ];
 
         for (const [input, expected] of testCases) {
@@ -549,31 +549,31 @@ describe("SeoRedirectHandler", () => {
         }
       });
 
-      it("handles different state slugs", async () => {
+      it("handles different state slugs with state suffix", async () => {
         const states = ["ca", "ny", "fl", "tx", "hi", "nj", "nc", "sc", "or", "wa", "pr"];
 
         for (const state of states) {
           const result = await handleSeoRedirect(`/sunset/${state}/test-city`);
           expect(result).toEqual({
             redirect: true,
-            url: "/sunset/test-city"
+            url: `/sunset/test-city-${state}`
           });
         }
       });
 
-      it("normalizes URL casing to lowercase", async () => {
+      it("normalizes URL casing to lowercase with state suffix", async () => {
         const result = await handleSeoRedirect("/Sunset/CA/San-Diego");
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
-      it("handles cities with hyphens", async () => {
+      it("handles cities with hyphens and includes state suffix", async () => {
         const result = await handleSeoRedirect("/sunset/ca/cardiff-by-the-sea");
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/cardiff-by-the-sea"
+          url: "/sunset/cardiff-by-the-sea-ca"
         });
       });
 
@@ -589,24 +589,24 @@ describe("SeoRedirectHandler", () => {
     });
 
     describe("handleSeoRedirect - Intent Beach Legacy (4-segment)", () => {
-      it("redirects 4-segment intent URL to 2-segment city format", async () => {
+      it("redirects 4-segment intent URL to 2-segment city format with state suffix", async () => {
         const result = await handleSeoRedirect("/sunset/ca/san-diego/blacks");
 
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
-      it("strips beach slug for all valid intents", async () => {
+      it("strips beach slug for all valid intents and includes state suffix", async () => {
         const testCases = [
-          ["/beginner/ca/san-diego/mission-beach", "/beginner/san-diego"],
-          ["/longboard/ca/huntington-beach/pier", "/longboard/huntington-beach"],
-          ["/tide/nj/asbury-park/convention-hall", "/tide/asbury-park"],
-          ["/water-temp/hi/oahu/waikiki", "/water-temp/oahu"],
-          ["/dawn-patrol/ca/encinitas/swamis", "/dawn-patrol/encinitas"],
-          ["/sunset/ca/santa-cruz/pleasure-point", "/sunset/santa-cruz"],
-          ["/least-crowded/nc/outer-banks/rodanthe", "/least-crowded/outer-banks"],
+          ["/beginner/ca/san-diego/mission-beach", "/beginner/san-diego-ca"],
+          ["/longboard/ca/huntington-beach/pier", "/longboard/huntington-beach-ca"],
+          ["/tide/nj/asbury-park/convention-hall", "/tide/asbury-park-nj"],
+          ["/water-temp/hi/oahu/waikiki", "/water-temp/oahu-hi"],
+          ["/dawn-patrol/ca/encinitas/swamis", "/dawn-patrol/encinitas-ca"],
+          ["/sunset/ca/santa-cruz/pleasure-point", "/sunset/santa-cruz-ca"],
+          ["/least-crowded/nc/outer-banks/rodanthe", "/least-crowded/outer-banks-nc"],
         ];
 
         for (const [input, expected] of testCases) {
@@ -618,31 +618,31 @@ describe("SeoRedirectHandler", () => {
         }
       });
 
-      it("handles different state slugs", async () => {
+      it("handles different state slugs with state suffix", async () => {
         const states = ["ca", "ny", "fl", "tx", "hi", "nj", "nc", "sc", "or", "wa", "pr"];
 
         for (const state of states) {
           const result = await handleSeoRedirect(`/sunset/${state}/test-city/test-beach`);
           expect(result).toEqual({
             redirect: true,
-            url: "/sunset/test-city"
+            url: `/sunset/test-city-${state}`
           });
         }
       });
 
-      it("normalizes URL casing to lowercase", async () => {
+      it("normalizes URL casing to lowercase with state suffix", async () => {
         const result = await handleSeoRedirect("/SUNSET/CA/SAN-DIEGO/BLACKS");
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
-      it("handles beach slugs with complex names", async () => {
+      it("handles beach slugs with complex names and includes state suffix", async () => {
         const result = await handleSeoRedirect("/sunset/ca/san-diego/torrey-pines-state-beach");
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
@@ -659,21 +659,21 @@ describe("SeoRedirectHandler", () => {
 
     describe("Edge Cases and Integration", () => {
       it("does not create redirect loops - target URL should not redirect", async () => {
-        // The 2-segment target URL should NOT redirect again
-        const result = await handleSeoRedirect("/sunset/san-diego");
+        // The 2-segment target URL with state suffix should NOT redirect again
+        const result = await handleSeoRedirect("/sunset/san-diego-ca");
         expect(result).toEqual({ redirect: false });
       });
 
       it("handles trailing slashes on 3-segment URLs", async () => {
         const result = await handleSeoRedirect("/sunset/ca/san-diego/");
         expect(result.redirect).toBe(true);
-        expect(result.url).toBe("/sunset/san-diego");
+        expect(result.url).toBe("/sunset/san-diego-ca");
       });
 
       it("handles trailing slashes on 4-segment URLs", async () => {
         const result = await handleSeoRedirect("/sunset/ca/san-diego/blacks/");
         expect(result.redirect).toBe(true);
-        expect(result.url).toBe("/sunset/san-diego");
+        expect(result.url).toBe("/sunset/san-diego-ca");
       });
 
       it("does not interfere with state-only redirects", async () => {
@@ -692,25 +692,25 @@ describe("SeoRedirectHandler", () => {
         expect(classifyUrlPattern("/ca/san-diego/blacks")).toBe("us-beach");
       });
 
-      it("handles all-uppercase URLs", async () => {
+      it("handles all-uppercase URLs with state suffix", async () => {
         const result3 = await handleSeoRedirect("/SUNSET/CA/SAN-DIEGO");
         expect(result3).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
 
         const result4 = await handleSeoRedirect("/SUNSET/CA/SAN-DIEGO/BLACKS");
         expect(result4).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
-      it("handles mixed case URLs", async () => {
+      it("handles mixed case URLs with state suffix", async () => {
         const result = await handleSeoRedirect("/Sunset/Ca/San-Diego/Blacks");
         expect(result).toEqual({
           redirect: true,
-          url: "/sunset/san-diego"
+          url: "/sunset/san-diego-ca"
         });
       });
 
@@ -729,8 +729,8 @@ describe("SeoRedirectHandler", () => {
         const result3 = await handleSeoRedirect("/sunset/ca/san-diego");
         const result4 = await handleSeoRedirect("/sunset/ca/san-diego/blacks");
 
-        expect(result3).toEqual({ redirect: true, url: "/sunset/san-diego" });
-        expect(result4).toEqual({ redirect: true, url: "/sunset/san-diego" });
+        expect(result3).toEqual({ redirect: true, url: "/sunset/san-diego-ca" });
+        expect(result4).toEqual({ redirect: true, url: "/sunset/san-diego-ca" });
 
         // Restore env vars
         process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;

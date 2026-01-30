@@ -445,15 +445,16 @@ function handleIntentCityLegacyRedirect(pathname: string): SeoRedirectResult {
   }
 
   const intentSlug = segments[0]?.toLowerCase() || "";
-  // segments[1] is the state slug - we skip it
+  const stateSlug = segments[1]?.toLowerCase() || "";
   const citySlug = segments[2]?.toLowerCase() || "";
 
-  if (!INTENT_SLUGS.has(intentSlug) || !citySlug) {
+  if (!INTENT_SLUGS.has(intentSlug) || !citySlug || !stateSlug) {
     return { redirect: false };
   }
 
-  // Redirect to 2-segment format: /{intent}/{city}
-  const redirectUrl = `/${intentSlug}/${citySlug}`;
+  // Redirect to 2-segment format with state suffix: /{intent}/{city}-{state}
+  // This avoids double redirect chains (e.g., /tide/or/seaside → /tide/seaside-or)
+  const redirectUrl = `/${intentSlug}/${citySlug}-${stateSlug}`;
   console.log(`[SEO Redirect] Intent city legacy ${pathname} → ${redirectUrl}`);
   return { redirect: true, url: redirectUrl };
 }
@@ -473,16 +474,17 @@ function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
   }
 
   const intentSlug = segments[0]?.toLowerCase() || "";
-  // segments[1] is the state slug - we skip it
+  const stateSlug = segments[1]?.toLowerCase() || "";
   const citySlug = segments[2]?.toLowerCase() || "";
   // segments[3] is the beach slug - we skip it (redirect to city intent page)
 
-  if (!INTENT_SLUGS.has(intentSlug) || !citySlug) {
+  if (!INTENT_SLUGS.has(intentSlug) || !citySlug || !stateSlug) {
     return { redirect: false };
   }
 
-  // Redirect to 2-segment format: /{intent}/{city}
-  const redirectUrl = `/${intentSlug}/${citySlug}`;
+  // Redirect to 2-segment format with state suffix: /{intent}/{city}-{state}
+  // This avoids double redirect chains (e.g., /tide/or/seaside/beach → /tide/seaside-or)
+  const redirectUrl = `/${intentSlug}/${citySlug}-${stateSlug}`;
   console.log(`[SEO Redirect] Intent beach legacy ${pathname} → ${redirectUrl}`);
   return { redirect: true, url: redirectUrl };
 }
