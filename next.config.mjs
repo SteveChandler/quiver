@@ -173,6 +173,9 @@ const nextConfig = {
         pathname: "/api/image-proxy",
         search: "", // Empty string = allow any query string
       },
+      {
+        pathname: "/**", // Allow all static images from /public
+      },
     ],
 
     remotePatterns: [

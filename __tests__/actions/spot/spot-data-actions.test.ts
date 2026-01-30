@@ -127,7 +127,7 @@ describe("spot-data-actions", () => {
       });
 
       const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
-      const result = await getSpotDataBySlug("blacks-beach");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("blacks-beach");
 
       expect(result).toBeTruthy();
       expect(result?.id).toBe("beach-db-1"); // DB id wins
@@ -140,6 +140,9 @@ describe("spot-data-actions", () => {
 
       // Static description (overview) wins over DB description
       expect(result?.description).not.toBe("DB description");
+
+      // dbHasLocation should be true since DB record has city and state
+      expect(dbHasLocation).toBe(true);
     });
 
     test("returns static-only data when DB miss", async () => {
@@ -154,13 +157,16 @@ describe("spot-data-actions", () => {
       });
 
       const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
-      const result = await getSpotDataBySlug("blacks-beach");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("blacks-beach");
 
       expect(result).toBeTruthy();
       expect(result?.id).toBeNull(); // static entry has no id
       expect(result?.slug).toBe("blacks-beach");
       expect(result?.history).toBeTruthy();
       expect(result?.latitude).toBeCloseTo(32.8851, 4);
+
+      // dbHasLocation should be false since no DB record
+      expect(dbHasLocation).toBe(false);
     });
 
     test("returns null when both DB + static miss", async () => {
@@ -175,9 +181,130 @@ describe("spot-data-actions", () => {
       });
 
       const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
-      const result = await getSpotDataBySlug("definitely-not-a-spot");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("definitely-not-a-spot");
 
       expect(result).toBeNull();
+      expect(dbHasLocation).toBe(false);
+    });
+
+    test("dbHasLocation is false when city is whitespace-only", async () => {
+      const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+
+      const beachRow = {
+        id: "beach-whitespace-city",
+        slug: "test-beach",
+        name: "Test Beach",
+        lat: 32.0,
+        lon: -117.0,
+        city: "   ", // whitespace only
+        state: "CA",
+      } as unknown as Beach;
+
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue({
+        from: jest.fn((_table: string) =>
+          createBeachesQueryMock({
+            response: { data: [beachRow], error: null },
+          })
+        ),
+      });
+
+      const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("test-beach");
+
+      expect(result).toBeTruthy();
+      expect(result?.id).toBe("beach-whitespace-city");
+      // dbHasLocation should be false because city is whitespace-only
+      expect(dbHasLocation).toBe(false);
+    });
+
+    test("dbHasLocation is false when state is empty string", async () => {
+      const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+
+      const beachRow = {
+        id: "beach-empty-state",
+        slug: "test-beach-2",
+        name: "Test Beach 2",
+        lat: 32.0,
+        lon: -117.0,
+        city: "San Diego",
+        state: "", // empty string
+      } as unknown as Beach;
+
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue({
+        from: jest.fn((_table: string) =>
+          createBeachesQueryMock({
+            response: { data: [beachRow], error: null },
+          })
+        ),
+      });
+
+      const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("test-beach-2");
+
+      expect(result).toBeTruthy();
+      expect(result?.id).toBe("beach-empty-state");
+      // dbHasLocation should be false because state is empty
+      expect(dbHasLocation).toBe(false);
+    });
+
+    test("dbHasLocation is false when city is null but state exists", async () => {
+      const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+
+      const beachRow = {
+        id: "beach-null-city",
+        slug: "test-beach-3",
+        name: "Test Beach 3",
+        lat: 32.0,
+        lon: -117.0,
+        city: null, // null
+        state: "CA",
+      } as unknown as Beach;
+
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue({
+        from: jest.fn((_table: string) =>
+          createBeachesQueryMock({
+            response: { data: [beachRow], error: null },
+          })
+        ),
+      });
+
+      const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("test-beach-3");
+
+      expect(result).toBeTruthy();
+      expect(result?.id).toBe("beach-null-city");
+      // dbHasLocation should be false because city is null
+      expect(dbHasLocation).toBe(false);
+    });
+
+    test("dbHasLocation is false when both city and state are missing", async () => {
+      const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+
+      const beachRow = {
+        id: "beach-no-location",
+        slug: "test-beach-4",
+        name: "Test Beach 4",
+        lat: 32.0,
+        lon: -117.0,
+        city: null,
+        state: null,
+      } as unknown as Beach;
+
+      (createSupabaseServerClient as jest.Mock).mockResolvedValue({
+        from: jest.fn((_table: string) =>
+          createBeachesQueryMock({
+            response: { data: [beachRow], error: null },
+          })
+        ),
+      });
+
+      const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("test-beach-4");
+
+      expect(result).toBeTruthy();
+      expect(result?.id).toBe("beach-no-location");
+      // dbHasLocation should be false because both are missing
+      expect(dbHasLocation).toBe(false);
     });
   });
 
