@@ -195,7 +195,7 @@ export async function findCityBySlug(
       if (exactMatches.length === 1) {
         const { city, state } = exactMatches[0];
         const metadataResult = await getCityMetadata(city, state);
-        return metadataResult.success ? metadataResult.data : null;
+        return metadataResult.success && metadataResult.data ? metadataResult.data : null;
       }
 
       // If no state filter and multiple (or zero) exact matches, ambiguous

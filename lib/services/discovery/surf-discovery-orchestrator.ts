@@ -497,9 +497,12 @@ export async function discoverSurfSpots(
       loadBeachAffinity(userId, finalCandidates.map((b) => b.id)),
     ]);
 
+    const beachesWithNoWindow: string[] = [];
     for (const { beach, forecasts } of beachForecasts) {
       const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow) {
+        beachesWithNoWindow.push(beach.name);
+        log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
         continue;
       }
 
@@ -551,6 +554,11 @@ export async function discoverSurfSpots(
         drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
         generated_at: new Date().toISOString(),
       });
+    }
+
+    // Log beaches that had no window selected
+    if (beachesWithNoWindow.length > 0) {
+      log.warn(`[discoverSurfSpots] ${beachesWithNoWindow.length} beaches had no viable window: ${beachesWithNoWindow.join(', ')}`);
     }
 
     // 4. Fetch and merge favorites

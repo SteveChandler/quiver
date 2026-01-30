@@ -358,7 +358,7 @@ export function SessionForm({
               formData
             );
 
-            if (uploadResult.success) {
+            if (uploadResult.success && uploadResult.data) {
               toast.success(
                 `Session completed with ${uploadResult.data.uploaded} photo(s)!`
               );
@@ -542,7 +542,7 @@ export function SessionForm({
               formData
             );
 
-            if (uploadResult.success) {
+            if (uploadResult.success && uploadResult.data) {
               toast.success(
                 `Session logged with ${uploadResult.data.uploaded} photo(s)!`
               );
