@@ -87,7 +87,6 @@ SELECT
   state,
   country,
   created_at,
-  updated_at,
   CASE
     WHEN (city IS NULL OR TRIM(city) = '') AND (state IS NULL OR TRIM(state) = '') THEN 'BOTH_MISSING'
     WHEN city IS NULL OR TRIM(city) = '' THEN 'CITY_MISSING'
