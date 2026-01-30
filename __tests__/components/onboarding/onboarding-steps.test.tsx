@@ -22,10 +22,12 @@ jest.mock("@/context/profile-context", () => ({
 }));
 
 // Mock onboarding actions for CompletionStep
+// Note: The actual response is wrapped by withAuthenticatedAction which returns
+// { success: true, data: { success: true, profile: {...} } }
 jest.mock("@/actions/onboarding-actions", () => ({
   saveOnboardingData: jest
     .fn()
-    .mockResolvedValue({ success: true, profile: {} }),
+    .mockResolvedValue({ success: true, data: { success: true, profile: {} } }),
 }));
 
 describe("Onboarding Step Components", () => {

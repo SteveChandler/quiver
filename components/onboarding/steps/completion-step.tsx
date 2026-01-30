@@ -82,23 +82,37 @@ export function CompletionStep() {
       }
 
       const result = await saveOnboardingData(data);
-      if (result.success && 'profile' in result && result.profile) {
-        updateProfile(result.profile as Profile);
 
-        completeOnboarding();
-        toast.success('Welcome to Quiver!');
-
-        // Notify profile context so it can refresh quickly.
-        window.dispatchEvent(new CustomEvent('onboarding_completed'));
-
-        // Deterministic destination: dashboard Forecast tab.
-        router.push('/?tab=forecast');
-        router.refresh();
-      } else if (!result.success) {
-        const errorMessage = 'error' in result ? result.error : 'Failed to save your preferences. Please try again.';
+      // Handle wrapper-level errors (auth failures, exceptions)
+      if (!result.success) {
+        const errorMessage = result.error || 'Failed to save your preferences. Please try again.';
         console.error('Onboarding save failed:', errorMessage);
-        toast.error(errorMessage || 'Failed to save your preferences. Please try again.');
+        toast.error(errorMessage);
+        return;
       }
+
+      // Handle inner action errors (validation failures, db errors)
+      if (!result.data?.success) {
+        const errorMessage = result.data?.error || 'Failed to save your preferences. Please try again.';
+        console.error('Onboarding save failed:', errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      // Success - update profile and navigate
+      if (result.data.profile) {
+        updateProfile(result.data.profile as Profile);
+      }
+
+      completeOnboarding();
+      toast.success('Welcome to Quiver!');
+
+      // Notify profile context so it can refresh quickly.
+      window.dispatchEvent(new CustomEvent('onboarding_completed'));
+
+      // Deterministic destination: dashboard Forecast tab.
+      router.push('/?tab=forecast');
+      router.refresh();
     } catch (error: unknown) {
       console.error('Failed to complete onboarding:', error);
       const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
