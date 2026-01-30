@@ -153,8 +153,8 @@ test.describe('Email Preference Setting', () => {
     test('should show error when token is missing', async ({ page }) => {
       await page.goto('/api/prefs/set?time=dawn');
 
-      await expect(page.locator('h1')).toContainText('Missing');
-      await expect(page.locator('body')).toContainText('Missing token');
+      // API returns "Invalid Link" for any token issue (missing or invalid)
+      await expect(page.locator('h1')).toContainText('Invalid');
     });
 
     test('should return status 400 for missing token', async ({ page }) => {

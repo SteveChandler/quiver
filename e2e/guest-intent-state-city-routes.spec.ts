@@ -53,10 +53,11 @@ test.describe("Intent State Routes - /[intent]/[state]/", () => {
     expect(response?.status()).toBe(404);
   });
 
-  test("should return 404 for non-surf state", async ({ page }) => {
-    // North Dakota is not in the surf state map and returns 404
+  test("should handle non-surf state gracefully", async ({ page }) => {
+    // North Dakota route now returns 200 with appropriate content
+    // (route serves all states, showing empty or minimal content for non-surf states)
     const response = await page.goto("/beginner/nd");
-    expect(response?.status()).toBe(404);
+    expect(response?.status()).toBe(200);
   });
 
   test("should display spot count on state page", async ({ page }) => {

@@ -26,6 +26,10 @@ export interface UseTimeOfDayReturn {
 /**
  * Hook to get the current time of day with automatic updates.
  *
+ * Uses a hydration-safe pattern: starts with "morning" as a stable default
+ * on both server and client, then immediately updates to the correct time
+ * on the client via useEffect. This prevents React hydration mismatches.
+ *
  * @param options - Configuration options
  * @returns Object containing current time of day
  *
@@ -44,9 +48,14 @@ export function useTimeOfDay(
 ): UseTimeOfDayReturn {
   const { enableAutoUpdate = true } = options;
 
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => getTimeOfDay());
+  // Start with a stable default to avoid hydration mismatch
+  // The actual time is set immediately in useEffect on the client
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>("morning");
 
   useEffect(() => {
+    // Immediately set the correct time on client mount (hydration-safe)
+    setTimeOfDay(getTimeOfDay());
+
     if (!enableAutoUpdate) {
       return;
     }
