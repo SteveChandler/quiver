@@ -561,6 +561,14 @@ export async function discoverSurfSpots(
       log.warn(`[discoverSurfSpots] ${beachesWithNoWindow.length} beaches had no viable window: ${beachesWithNoWindow.join(', ')}`);
     }
 
+    // Log all beach scores before ranking (for debugging)
+    const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
+    log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
+    allScoresSorted.forEach((rec, idx) => {
+      const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty } = rec.subscores;
+      log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
+    });
+
     // 4. Fetch and merge favorites
     let favoriteBeachIds = new Set<string>();
     try {
