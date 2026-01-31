@@ -562,11 +562,12 @@ export async function discoverSurfSpots(
     }
 
     // Log all beach scores before ranking (for debugging)
+    // TEMPORARY: Using log.info to capture Blacks Beach subscores in Vercel logs
     const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
-    log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
+    log.info(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
     allScoresSorted.forEach((rec, idx) => {
       const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty } = rec.subscores;
-      log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
+      log.info(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
     });
 
     // 4. Fetch and merge favorites
