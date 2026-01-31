@@ -212,21 +212,6 @@ describe("useSurfDiscovery", () => {
       expect(fetchUrl).toContain("radius=50");
     });
 
-    it("handles includeHome option", async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: mockDiscoveryResponse }),
-      });
-
-      renderHook(() =>
-        useSurfDiscovery({ includeHome: false, immediate: true })
-      );
-
-      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-
-      const fetchUrl = (global.fetch as jest.Mock).mock.calls[0][0];
-      expect(fetchUrl).toContain("includeHome=false");
-    });
   });
 
   describe("Error Handling", () => {

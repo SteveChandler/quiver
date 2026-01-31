@@ -130,7 +130,6 @@ export function HomeScreen() {
     userLocation: seedDiscoveryLocation,
     horizonHours: 24,
     maxResults: 6,
-    includeHome: true,
     currentSlot: timeSlot,
     enabled: !!profile && !geoLoading && !discoveryLoading,
   });

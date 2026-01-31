@@ -16,16 +16,14 @@ import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
  * Options for useSurfDiscovery hook
  */
 interface UseSurfDiscoveryOptions {
-  /** User's GPS location (Phase 2) */
+  /** User's GPS location (required for discovery) */
   userLocation?: { lat: number; lon: number };
-  /** Search radius in miles (Phase 2, default: 25) */
+  /** Search radius in miles (default: 25) */
   radiusMiles?: number;
   /** Hard cap for window start time in hours (e.g. 24 for next-day UX) */
   horizonHours?: number;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
-  /** Include home beach in results (default: true) */
-  includeHome?: boolean;
   /** Filter windows to specific time of day (default: 'any') */
   timeSlot?: TimeSlot;
   /** Whether the hook is enabled (default: true) */
@@ -108,7 +106,6 @@ export function useSurfDiscovery(
     radiusMiles,
     horizonHours,
     maxResults,
-    includeHome,
     timeSlot,
     enabled = true,
     immediate = true,
@@ -134,18 +131,9 @@ export function useSurfDiscovery(
       radiusMiles,
       horizonHours,
       maxResults,
-      includeHome,
       timeSlot,
     });
-  }, [
-    userLat,
-    userLon,
-    radiusMiles,
-    horizonHours,
-    maxResults,
-    includeHome,
-    timeSlot,
-  ]);
+  }, [userLat, userLon, radiusMiles, horizonHours, maxResults, timeSlot]);
 
   // Generate cache key for this user + options combination
   const cacheKey = useMemo(() => {
@@ -208,10 +196,6 @@ export function useSurfDiscovery(
       params.set("horizonHours", horizonHours.toString());
     }
 
-    if (includeHome !== undefined) {
-      params.set("includeHome", includeHome.toString());
-    }
-
     if (timeSlot) {
       params.set("timeSlot", timeSlot);
     }
@@ -264,7 +248,6 @@ export function useSurfDiscovery(
     radiusMiles,
     horizonHours,
     maxResults,
-    includeHome,
     timeSlot,
     cacheKey,
     optionsHash,

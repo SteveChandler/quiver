@@ -2,52 +2,16 @@
  * Unit tests for Candidate Pool Builder
  *
  * Tests the buildCandidatePool function that gathers candidate beaches
- * for surf discovery based on:
- * - User's home beach from profile
- * - User's favorite beaches
- * - Nearby beaches via GPS/PostGIS RPC (optional)
+ * for surf discovery using pure GPS-based proximity ordering.
  */
 
 import type { Beach } from '@/types/database';
 
-// Mock data - Using actual Beach type properties (lat/lon, not center_lat/center_lng)
-const mockHomeBeach: Partial<Beach> = {
-  id: 'home-beach-id',
-  name: 'Home Beach',
-  slug: 'home-beach',
-  lat: 32.7157,
-  lon: -117.1611,
-  city: 'San Diego',
-  state: 'CA',
-  is_private: false,
-};
-
-const mockFavoriteBeach1: Partial<Beach> = {
-  id: 'favorite-beach-1',
-  name: 'Favorite Beach 1',
-  slug: 'favorite-beach-1',
-  lat: 32.8000,
-  lon: -117.2000,
-  city: 'La Jolla',
-  state: 'CA',
-  is_private: false,
-};
-
-const mockFavoriteBeach2: Partial<Beach> = {
-  id: 'favorite-beach-2',
-  name: 'Favorite Beach 2',
-  slug: 'favorite-beach-2',
-  lat: 32.9000,
-  lon: -117.2500,
-  city: 'Del Mar',
-  state: 'CA',
-  is_private: false,
-};
-
-const mockNearbyBeach: Partial<Beach> = {
+// Mock data
+const mockNearbyBeach1: Partial<Beach> = {
   id: 'nearby-beach-1',
-  name: 'Nearby Beach',
-  slug: 'nearby-beach',
+  name: 'Nearby Beach 1',
+  slug: 'nearby-beach-1',
   lat: 32.7500,
   lon: -117.1800,
   city: 'Pacific Beach',
@@ -55,10 +19,31 @@ const mockNearbyBeach: Partial<Beach> = {
   is_private: false,
 };
 
+const mockNearbyBeach2: Partial<Beach> = {
+  id: 'nearby-beach-2',
+  name: 'Nearby Beach 2',
+  slug: 'nearby-beach-2',
+  lat: 32.8000,
+  lon: -117.2000,
+  city: 'La Jolla',
+  state: 'CA',
+  is_private: false,
+};
+
+const mockNearbyBeach3: Partial<Beach> = {
+  id: 'nearby-beach-3',
+  name: 'Nearby Beach 3',
+  slug: 'nearby-beach-3',
+  lat: 32.9000,
+  lon: -117.2500,
+  city: 'Del Mar',
+  state: 'CA',
+  is_private: false,
+};
+
 // Shared mock state that can be updated between tests
 const mockState = {
   profileResponse: { data: null as unknown, error: null as unknown },
-  favoritesResponse: { data: [] as unknown, error: null as unknown },
   nearbyRpcResponse: { data: [] as unknown, error: null as unknown },
   beachesInResponse: { data: [] as unknown, error: null as unknown },
   mockCalls: [] as Array<{ table: string; method: string; args: unknown[] }>,
@@ -88,11 +73,11 @@ jest.mock('@/lib/supabase/server', () => ({
                   };
                 }
 
-                // For favorite_beaches
+                // For beaches table
                 return {
-                  order: jest.fn(() => {
-                    mockState.mockCalls.push({ table, method: 'order', args: [] });
-                    return Promise.resolve(mockState.favoritesResponse);
+                  limit: jest.fn(() => {
+                    mockState.mockCalls.push({ table, method: 'limit', args: [] });
+                    return Promise.resolve(mockState.beachesInResponse);
                   }),
                 };
               }),
@@ -111,10 +96,6 @@ jest.mock('@/lib/supabase/server', () => ({
                     };
                   }),
                 };
-              }),
-              order: jest.fn(() => {
-                mockState.mockCalls.push({ table, method: 'order', args: [] });
-                return Promise.resolve(mockState.favoritesResponse);
               }),
             };
           }),
@@ -142,246 +123,144 @@ import { buildCandidatePool } from '@/lib/services/discovery/candidate-pool-buil
 
 describe('buildCandidatePool', () => {
   const testUserId = 'test-user-123';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
 
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset mock state
     mockState.profileResponse = { data: null, error: null };
-    mockState.favoritesResponse = { data: [], error: null };
     mockState.nearbyRpcResponse = { data: [], error: null };
     mockState.beachesInResponse = { data: [], error: null };
     mockState.mockCalls = [];
   });
 
-  describe('home beach fetching', () => {
-    it('should return home beach from user profile', async () => {
+  describe('GPS-based beach discovery', () => {
+    it('should return nearby beaches ordered by distance', async () => {
       mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'medium',
-          home_beach: mockHomeBeach,
-        },
-        error: null,
-      };
-
-      const result = await buildCandidatePool(testUserId, {});
-
-      expect(result.candidates).toHaveLength(1);
-      expect(result.candidates[0].id).toBe(mockHomeBeach.id);
-      expect(result.candidates[0].name).toBe(mockHomeBeach.name);
-      expect(result.preferredWaveSize).toBe('medium');
-    });
-
-    it('should return empty candidates when user has no home beach', async () => {
-      mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: null,
-          preferred_wave_size: null,
-          home_beach: null,
-        },
-        error: null,
-      };
-      mockState.favoritesResponse = {
-        data: [],
-        error: null,
-      };
-
-      const result = await buildCandidatePool(testUserId, {});
-
-      expect(result.candidates).toHaveLength(0);
-      expect(result.preferredWaveSize).toBeNull();
-    });
-
-    it('should skip home beach when includeHome is false', async () => {
-      mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'large',
-          home_beach: mockHomeBeach,
-        },
-        error: null,
-      };
-
-      const result = await buildCandidatePool(testUserId, { includeHome: false });
-
-      expect(result.candidates).toHaveLength(0);
-      expect(result.preferredWaveSize).toBeNull();
-    });
-  });
-
-  describe('favorite beaches fetching', () => {
-    it('should include favorite beaches', async () => {
-      mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: null,
-          preferred_wave_size: 'small',
-          home_beach: null,
-        },
-        error: null,
-      };
-      mockState.favoritesResponse = {
-        data: [
-          { beach_id: mockFavoriteBeach1.id, rank: 1, beach: mockFavoriteBeach1 },
-          { beach_id: mockFavoriteBeach2.id, rank: 2, beach: mockFavoriteBeach2 },
-        ],
-        error: null,
-      };
-
-      const result = await buildCandidatePool(testUserId, {});
-
-      expect(result.candidates).toHaveLength(2);
-      expect(result.candidates[0].id).toBe(mockFavoriteBeach1.id);
-      expect(result.candidates[1].id).toBe(mockFavoriteBeach2.id);
-    });
-
-    it('should combine home beach and favorites without duplicates', async () => {
-      mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'medium',
-          home_beach: mockHomeBeach,
-        },
-        error: null,
-      };
-      mockState.favoritesResponse = {
-        data: [
-          // Include home beach in favorites to test dedup
-          { beach_id: mockHomeBeach.id, rank: 1, beach: mockHomeBeach },
-          { beach_id: mockFavoriteBeach1.id, rank: 2, beach: mockFavoriteBeach1 },
-        ],
-        error: null,
-      };
-
-      const result = await buildCandidatePool(testUserId, {});
-
-      // Should have 2 beaches, not 3 (home beach deduplicated)
-      expect(result.candidates).toHaveLength(2);
-      expect(result.candidates[0].id).toBe(mockHomeBeach.id);
-      expect(result.candidates[1].id).toBe(mockFavoriteBeach1.id);
-    });
-  });
-
-  describe('nearby beaches (GPS)', () => {
-    it('should add nearby beaches when userLocation is provided', async () => {
-      mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'medium',
-          home_beach: mockHomeBeach,
-        },
-        error: null,
-      };
-      mockState.favoritesResponse = {
-        data: [],
+        data: { preferred_wave_size: 'medium' },
         error: null,
       };
       mockState.nearbyRpcResponse = {
         data: [
-          { id: mockNearbyBeach.id, is_private: false, distance_meters: 5000 },
+          { id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 },
+          { id: mockNearbyBeach2.id, is_private: false, distance_meters: 5000 },
+          { id: mockNearbyBeach3.id, is_private: false, distance_meters: 10000 },
         ],
         error: null,
       };
       mockState.beachesInResponse = {
-        data: [mockNearbyBeach],
+        data: [mockNearbyBeach1, mockNearbyBeach2, mockNearbyBeach3],
         error: null,
       };
 
       const result = await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
       });
 
-      expect(result.candidates).toHaveLength(2);
-      expect(result.candidates[0].id).toBe(mockHomeBeach.id);
-      expect(result.candidates[1].id).toBe(mockNearbyBeach.id);
+      expect(result.candidates).toHaveLength(3);
+      // Verify distance-based ordering is maintained
+      expect(result.candidates[0].id).toBe(mockNearbyBeach1.id);
+      expect(result.candidates[1].id).toBe(mockNearbyBeach2.id);
+      expect(result.candidates[2].id).toBe(mockNearbyBeach3.id);
+      expect(result.preferredWaveSize).toBe('medium');
     });
 
-    it('should filter out private beaches from nearby results', async () => {
+    it('should return empty candidates when no beaches found within radius', async () => {
       mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: null,
-          preferred_wave_size: null,
-          home_beach: null,
-        },
+        data: { preferred_wave_size: 'small' },
         error: null,
       };
-      mockState.favoritesResponse = {
+      mockState.nearbyRpcResponse = {
         data: [],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates).toHaveLength(0);
+      expect(result.preferredWaveSize).toBe('small');
+    });
+
+    it('should filter out private beaches from results', async () => {
+      mockState.profileResponse = {
+        data: { preferred_wave_size: null },
         error: null,
       };
       mockState.nearbyRpcResponse = {
         data: [
           { id: 'private-beach', is_private: true, distance_meters: 1000 },
-          { id: mockNearbyBeach.id, is_private: false, distance_meters: 5000 },
+          { id: mockNearbyBeach1.id, is_private: false, distance_meters: 5000 },
         ],
         error: null,
       };
       mockState.beachesInResponse = {
-        data: [mockNearbyBeach],
+        data: [mockNearbyBeach1],
         error: null,
       };
 
       const result = await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
       });
 
       expect(result.candidates).toHaveLength(1);
-      expect(result.candidates[0].id).toBe(mockNearbyBeach.id);
+      expect(result.candidates[0].id).toBe(mockNearbyBeach1.id);
     });
 
-    it('should not add duplicate beaches from nearby results', async () => {
+    it('should fetch user preferred wave size from profile', async () => {
       mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'medium',
-          home_beach: mockHomeBeach,
-        },
-        error: null,
-      };
-      mockState.favoritesResponse = {
-        data: [],
+        data: { preferred_wave_size: 'large' },
         error: null,
       };
       mockState.nearbyRpcResponse = {
-        data: [
-          // Home beach appears in nearby results
-          { id: mockHomeBeach.id, is_private: false, distance_meters: 100 },
-          { id: mockNearbyBeach.id, is_private: false, distance_meters: 5000 },
-        ],
+        data: [{ id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 }],
         error: null,
       };
       mockState.beachesInResponse = {
-        data: [mockNearbyBeach], // Only returns nearby beach since home is already filtered
+        data: [mockNearbyBeach1],
         error: null,
       };
 
       const result = await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
       });
 
-      // Should have 2 beaches, not 3 (home beach deduplicated from nearby)
-      expect(result.candidates).toHaveLength(2);
-      expect(result.candidates[0].id).toBe(mockHomeBeach.id);
-      expect(result.candidates[1].id).toBe(mockNearbyBeach.id);
+      expect(result.preferredWaveSize).toBe('large');
     });
 
-    it('should use provided radiusMiles for nearby search', async () => {
+    it('should return null preferred wave size when user has none set', async () => {
       mockState.profileResponse = {
-        data: { id: testUserId, home_beach: null, preferred_wave_size: null },
+        data: { preferred_wave_size: null },
         error: null,
       };
-      mockState.favoritesResponse = { data: [], error: null };
+      mockState.nearbyRpcResponse = {
+        data: [{ id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 }],
+        error: null,
+      };
+      mockState.beachesInResponse = {
+        data: [mockNearbyBeach1],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.preferredWaveSize).toBeNull();
+    });
+  });
+
+  describe('radius handling', () => {
+    it('should use provided radiusMiles for nearby search', async () => {
+      mockState.profileResponse = {
+        data: { preferred_wave_size: null },
+        error: null,
+      };
       mockState.nearbyRpcResponse = { data: [], error: null };
 
       await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
         radiusMiles: 50,
       });
 
@@ -394,16 +273,34 @@ describe('buildCandidatePool', () => {
       expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(80467);
     });
 
-    it('should cap radiusMiles at 100 miles', async () => {
+    it('should use default radius of 25 miles when not specified', async () => {
       mockState.profileResponse = {
-        data: { id: testUserId, home_beach: null, preferred_wave_size: null },
+        data: { preferred_wave_size: null },
         error: null,
       };
-      mockState.favoritesResponse = { data: [], error: null };
       mockState.nearbyRpcResponse = { data: [], error: null };
 
       await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
+      });
+
+      // 25 miles * 1609.34 = 40234 meters (rounded)
+      const rpcCalls = mockState.mockCalls.filter(
+        (call) => call.method === 'get_nearby_beaches'
+      );
+      expect(rpcCalls).toHaveLength(1);
+      expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(40234);
+    });
+
+    it('should cap radiusMiles at 100 miles', async () => {
+      mockState.profileResponse = {
+        data: { preferred_wave_size: null },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = { data: [], error: null };
+
+      await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
         radiusMiles: 200, // Exceeds cap
       });
 
@@ -414,59 +311,54 @@ describe('buildCandidatePool', () => {
       expect(rpcCalls).toHaveLength(1);
       expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(160934);
     });
+
+    it('should handle negative radius by treating as 0', async () => {
+      mockState.profileResponse = {
+        data: { preferred_wave_size: null },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = { data: [], error: null };
+
+      await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+        radiusMiles: -10, // Invalid negative
+      });
+
+      // Should be floored at 0
+      const rpcCalls = mockState.mockCalls.filter(
+        (call) => call.method === 'get_nearby_beaches'
+      );
+      expect(rpcCalls).toHaveLength(1);
+      expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(0);
+    });
   });
 
   describe('error handling', () => {
-    it('should return empty candidates on database error', async () => {
+    it('should return empty candidates on nearby RPC error', async () => {
       mockState.profileResponse = {
-        data: null,
-        error: { message: 'Database error' },
-      };
-
-      const result = await buildCandidatePool(testUserId, {});
-
-      expect(result.candidates).toHaveLength(0);
-      expect(result.preferredWaveSize).toBeNull();
-    });
-
-    it('should handle nearby RPC error gracefully', async () => {
-      mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'medium',
-          home_beach: mockHomeBeach,
-        },
+        data: { preferred_wave_size: 'medium' },
         error: null,
       };
-      mockState.favoritesResponse = { data: [], error: null };
       mockState.nearbyRpcResponse = {
         data: null,
         error: { message: 'RPC error' },
       };
 
       const result = await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
       });
 
-      // Should still return home beach despite RPC error
-      expect(result.candidates).toHaveLength(1);
-      expect(result.candidates[0].id).toBe(mockHomeBeach.id);
+      expect(result.candidates).toHaveLength(0);
+      expect(result.preferredWaveSize).toBe('medium');
     });
 
-    it('should handle beach fetch error for nearby beaches gracefully', async () => {
+    it('should return empty candidates on beach fetch error', async () => {
       mockState.profileResponse = {
-        data: {
-          id: testUserId,
-          home_beach_id: mockHomeBeach.id,
-          preferred_wave_size: 'medium',
-          home_beach: mockHomeBeach,
-        },
+        data: { preferred_wave_size: 'medium' },
         error: null,
       };
-      mockState.favoritesResponse = { data: [], error: null };
       mockState.nearbyRpcResponse = {
-        data: [{ id: mockNearbyBeach.id, is_private: false, distance_meters: 5000 }],
+        data: [{ id: mockNearbyBeach1.id, is_private: false, distance_meters: 5000 }],
         error: null,
       };
       mockState.beachesInResponse = {
@@ -475,12 +367,34 @@ describe('buildCandidatePool', () => {
       };
 
       const result = await buildCandidatePool(testUserId, {
-        userLocation: { lat: 32.7157, lon: -117.1611 },
+        userLocation: defaultUserLocation,
       });
 
-      // Should still return home beach despite beach fetch error
+      expect(result.candidates).toHaveLength(0);
+      expect(result.preferredWaveSize).toBe('medium');
+    });
+
+    it('should handle profile fetch error gracefully', async () => {
+      mockState.profileResponse = {
+        data: null,
+        error: { message: 'Profile error' },
+      };
+      mockState.nearbyRpcResponse = {
+        data: [{ id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 }],
+        error: null,
+      };
+      mockState.beachesInResponse = {
+        data: [mockNearbyBeach1],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      // Should still return beaches even if profile fetch fails
       expect(result.candidates).toHaveLength(1);
-      expect(result.candidates[0].id).toBe(mockHomeBeach.id);
+      expect(result.preferredWaveSize).toBeNull();
     });
   });
 });

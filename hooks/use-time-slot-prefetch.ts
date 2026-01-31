@@ -20,7 +20,7 @@ const ALL_TIME_SLOTS: TimeSlot[] = ["any", "dawn-patrol", "morning", "afternoon"
  * Options for useTimeSlotPrefetch hook
  */
 interface UseTimeSlotPrefetchOptions {
-  /** User's GPS location */
+  /** User's GPS location (required for discovery) */
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles */
   radiusMiles?: number;
@@ -28,8 +28,6 @@ interface UseTimeSlotPrefetchOptions {
   horizonHours?: number;
   /** Maximum recommendations to return */
   maxResults?: number;
-  /** Include home beach in results */
-  includeHome?: boolean;
   /** Current active time slot (will be excluded from prefetch) */
   currentSlot: TimeSlot;
   /** Whether prefetching is enabled */
@@ -57,7 +55,6 @@ interface UseTimeSlotPrefetchOptions {
  *   userLocation: { lat: 32.715, lon: -117.161 },
  *   horizonHours: 24,
  *   maxResults: 6,
- *   includeHome: true,
  *   currentSlot: 'any',
  *   enabled: !discoveryLoading,
  * });
@@ -69,7 +66,6 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
     radiusMiles,
     horizonHours,
     maxResults,
-    includeHome,
     currentSlot,
     enabled = true,
   } = options;
@@ -107,7 +103,6 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
         radiusMiles,
         horizonHours,
         maxResults,
-        includeHome,
         timeSlot: slot,
       };
       const cacheKey = getDiscoveryCacheKey(user.id, cacheOptions);
@@ -161,7 +156,6 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
               radiusMiles,
               horizonHours,
               maxResults,
-              includeHome,
               timeSlot: slot,
             };
 
@@ -183,10 +177,6 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
 
             if (horizonHours) {
               params.set("horizonHours", horizonHours.toString());
-            }
-
-            if (includeHome !== undefined) {
-              params.set("includeHome", includeHome.toString());
             }
 
             params.set("timeSlot", slot);
@@ -273,6 +263,5 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
     radiusMiles,
     horizonHours,
     maxResults,
-    includeHome,
   ]);
 }
