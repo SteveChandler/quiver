@@ -35,6 +35,8 @@ export interface CandidatePoolResult {
   candidates: Beach[];
   /** User's preferred wave size from their profile */
   preferredWaveSize: string | null;
+  /** User's experience level from their profile */
+  userSkillLevel: string | null;
 }
 
 /**
@@ -64,22 +66,26 @@ export async function buildCandidatePool(
   const supabase = createSupabaseServiceRoleClient();
   const candidates: Beach[] = [];
   let preferredWaveSize: string | null = null;
+  let userSkillLevel: string | null = null;
 
   // Compute proximity radius
   const radiusMiles = Number.isFinite(options.radiusMiles) ? (options.radiusMiles as number) : 25;
   const cappedRadius = Math.min(Math.max(radiusMiles, 0), 100);
 
   try {
-    // Fetch user's preferred wave size (used for scoring)
+    // Fetch user's preferred wave size and experience level (used for scoring)
     const { data: profile } = await supabase
       .from('profiles')
-      .select('preferred_wave_size')
+      .select('preferred_wave_size, experience_level')
       .eq('id', userId)
       .single();
 
-    preferredWaveSize =
-      (profile as unknown as { preferred_wave_size?: string | null })
-        ?.preferred_wave_size ?? null;
+    const profileData = profile as unknown as {
+      preferred_wave_size?: string | null;
+      experience_level?: string | null;
+    };
+    preferredWaveSize = profileData?.preferred_wave_size ?? null;
+    userSkillLevel = profileData?.experience_level ?? null;
 
     // Fetch nearby beaches via PostGIS RPC (ordered by distance)
     const max_distance_meters = Math.round(cappedRadius * 1609.34);
@@ -97,7 +103,7 @@ export async function buildCandidatePool(
 
     if (nearbyError) {
       log.warn('[buildCandidatePool] Nearby RPC failed:', nearbyError);
-      return { candidates: [], preferredWaveSize };
+      return { candidates: [], preferredWaveSize, userSkillLevel };
     }
 
     const nearby = (nearbyRaw || []) as NearbyBeachRow[];
@@ -107,7 +113,7 @@ export async function buildCandidatePool(
 
     if (orderedIds.length === 0) {
       log.info('[buildCandidatePool] No nearby beaches found within radius');
-      return { candidates: [], preferredWaveSize };
+      return { candidates: [], preferredWaveSize, userSkillLevel };
     }
 
     // Fetch full beach details
@@ -120,7 +126,7 @@ export async function buildCandidatePool(
 
     if (beachError) {
       log.warn('[buildCandidatePool] Beach fetch failed:', beachError);
-      return { candidates: [], preferredWaveSize };
+      return { candidates: [], preferredWaveSize, userSkillLevel };
     }
 
     if (beachRows && beachRows.length > 0) {
@@ -136,9 +142,9 @@ export async function buildCandidatePool(
       log.info(`[buildCandidatePool] Found ${candidates.length} nearby beaches (GPS, sorted by distance)`);
     }
 
-    return { candidates, preferredWaveSize };
+    return { candidates, preferredWaveSize, userSkillLevel };
   } catch (error) {
     log.error('Error building candidate pool:', error);
-    return { candidates: [], preferredWaveSize: null };
+    return { candidates: [], preferredWaveSize: null, userSkillLevel: null };
   }
 }

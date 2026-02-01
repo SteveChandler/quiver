@@ -289,10 +289,11 @@ export async function scoreBeachForDiscovery(args: {
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
   preferredWaveSize: string | null;
+  userSkillLevel: string | null;
   affinity?: { affinity_score: number; session_count: number };
   distanceMiles?: number;
 }): Promise<DetailedScore> {
-  const { beach, forecast, userPrefs, preferredWaveSize, affinity, distanceMiles } =
+  const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, affinity, distanceMiles } =
     args;
 
   // Use the new domain-driven scoring engine
@@ -326,11 +327,20 @@ export async function scoreBeachForDiscovery(args: {
     normalizedWaveSize === 'large' ? 'large' :
     'any';
 
-  // Score using new engine
+  // Map userSkillLevel to engine option
+  const userSkillLevelOption: DiscoveryScoringOptions['userSkillLevel'] =
+    userSkillLevel === 'beginner' ? 'beginner' :
+    userSkillLevel === 'intermediate' ? 'intermediate' :
+    userSkillLevel === 'advanced' ? 'advanced' :
+    userSkillLevel === 'expert' ? 'expert' :
+    null;
+
+  // Score using new engine - pass skill level
   const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
     affinityBonus,
     distancePenalty,
     preferredWaveSize: preferredWaveSizeOption,
+    userSkillLevel: userSkillLevelOption,
   });
 
   // Add distance warning if far
@@ -419,7 +429,7 @@ export async function discoverSurfSpots(
     log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
     // 1. Build candidate pool (GPS-based, sorted by distance)
-    const { candidates, preferredWaveSize } = await buildCandidatePool(userId, {
+    const { candidates, preferredWaveSize, userSkillLevel } = await buildCandidatePool(userId, {
       userLocation,
       radiusMiles,
     });
@@ -540,6 +550,7 @@ export async function discoverSurfSpots(
         forecast: bestWindowForecast,
         userPrefs,
         preferredWaveSize,
+        userSkillLevel,
         affinity,
         distanceMiles,
       });

@@ -53,13 +53,13 @@ describe('Base Conditions Scorer', () => {
       expect(result.reasons).toContain('Larger swell (6.5ft)');
     });
 
-    it('should score very large waves (8ft+) with fixed lower score', () => {
+    it('should score very large waves (8ft+) as epic conditions', () => {
       const input = createInput({ waveHeight: 10 });
       const result = baseConditionsScorer.score(input);
 
-      expect(result.score).toBeGreaterThanOrEqual(50);
-      expect(result.score).toBeLessThanOrEqual(75);
-      expect(result.reasons).toContain('Big swell - expert conditions');
+      // Now scores 8ft+ waves highly - skill adjustment handles appropriateness
+      expect(result.score).toBeGreaterThanOrEqual(80);
+      expect(result.reasons).toContain('Epic swell (10.0ft)');
     });
   });
 

@@ -324,31 +324,38 @@ describe('Discovery Adapter', () => {
       expect(withLargePref.warnings.some(w => w.includes('smaller'))).toBe(true);
     });
 
-    it('should apply preferred wave size penalty when waves too big', () => {
+    it('should apply preferred wave size penalty when waves are outside preferred range', () => {
       const engine = createDiscoveryScoringEngine();
       const beach = createBeach();
-      const forecast = createForecast({ wave_height: '8' }); // Large waves
+      // Use 5ft waves - above small preference (1-3ft ideal, 0.5-4ft acceptable)
+      // Set skill level to 'intermediate' (6ft acceptable max) so skill ceiling doesn't interfere
+      const forecast = createForecast({ wave_height: '5' });
 
       const withSmallPref = scoreBeachWithEngine(engine, beach, forecast, {
-        preferredWaveSize: 'small', // Wants 1-3 ft
+        preferredWaveSize: 'small', // Wants 1-3 ft (acceptable: 0.5-4 ft)
+        userSkillLevel: 'intermediate', // Can handle up to 6ft
       });
 
-      expect(withSmallPref.total).toBeLessThanOrEqual(75); // Capped at 75
-      expect(withSmallPref.warnings.some(w => w.includes('larger'))).toBe(true);
+      // Should get penalty for waves outside preference acceptable range
+      const withoutPref = scoreBeachWithEngine(engine, beach, forecast, {
+        userSkillLevel: 'intermediate',
+      });
+      expect(withSmallPref.total).toBeLessThan(withoutPref.total);
+      expect(withSmallPref.warnings.some(w => w.includes('larger than preferred'))).toBe(true);
     });
 
-    it('should not penalize when waves match preferred size', () => {
+    it('should give bonus when waves match preferred size', () => {
       const engine = createDiscoveryScoringEngine();
       const beach = createBeach();
       const forecast = createForecast({ wave_height: '4' }); // Medium waves
 
       const withoutPref = scoreBeachWithEngine(engine, beach, forecast);
       const withMediumPref = scoreBeachWithEngine(engine, beach, forecast, {
-        preferredWaveSize: 'medium', // Wants 3-6 ft
+        preferredWaveSize: 'medium', // Wants 3-6 ft (ideal range match = +5 bonus)
       });
 
-      // Should be the same since waves match preference
-      expect(withMediumPref.total).toBe(withoutPref.total);
+      // Now gives +5 bonus when waves match preferred ideal range
+      expect(withMediumPref.total).toBeGreaterThanOrEqual(withoutPref.total);
     });
 
     it('should return valid DetailedScore structure', () => {

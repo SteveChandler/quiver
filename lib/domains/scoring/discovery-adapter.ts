@@ -169,6 +169,8 @@ export interface DiscoveryScoringOptions {
   distancePenalty?: number;
   /** User's preferred wave size category */
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any' | null;
+  /** User's experience/skill level */
+  userSkillLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert' | null;
 }
 
 /**
@@ -195,13 +197,15 @@ export function scoreBeachWithEngine(
 
   const composite = engine.score(input);
 
-  // Apply preferred wave size adjustment
+  // Apply preferred wave size adjustment WITH skill level
+  // Now applies if there's a preference OR a skill level (for skill ceiling checks)
   let adjustedComposite = composite;
-  if (options?.preferredWaveSize && options.preferredWaveSize !== 'any') {
+  if (options?.preferredWaveSize !== 'any' || options?.userSkillLevel) {
     adjustedComposite = applyPreferredWaveSizeAdjustment(
       composite,
       snapshot.waveHeight,
-      options.preferredWaveSize
+      options?.preferredWaveSize || 'any',
+      options?.userSkillLevel
     );
   }
 
@@ -213,60 +217,136 @@ export function scoreBeachWithEngine(
 }
 
 /**
+ * Skill-based wave height ranges.
+ * Defines ideal and acceptable wave ranges for each skill level.
+ */
+interface SkillWaveRanges {
+  ideal: { min: number; max: number };
+  acceptable: { min: number; max: number };
+}
+
+const SKILL_WAVE_RANGES: Record<string, SkillWaveRanges> = {
+  beginner: {
+    ideal: { min: 1, max: 3 },
+    acceptable: { min: 0.5, max: 4 },
+  },
+  intermediate: {
+    ideal: { min: 2, max: 5 },
+    acceptable: { min: 1, max: 6 },
+  },
+  advanced: {
+    ideal: { min: 3, max: 8 },
+    acceptable: { min: 2, max: 12 },
+  },
+  expert: {
+    ideal: { min: 4, max: 12 },
+    acceptable: { min: 2, max: 20 },
+  },
+};
+
+/**
+ * Preference-based wave height ranges.
+ */
+const PREF_WAVE_RANGES = {
+  small: { ideal: { min: 1, max: 3 }, acceptable: { min: 0.5, max: 4 } },
+  medium: { ideal: { min: 3, max: 6 }, acceptable: { min: 2, max: 8 } },
+  large: { ideal: { min: 5, max: 12 }, acceptable: { min: 4, max: 15 } },
+};
+
+/**
  * Apply preferred wave size adjustment to composite score.
- * Penalizes scores when waves don't match user's preferred size category.
+ * Now skill-level-aware with softer penalties.
+ *
+ * Priority:
+ * 1. Check skill ceiling first - waves too big for skill level get penalized
+ * 2. Apply preference-based bonus/penalty if preference is set
+ * 3. If no preference, check skill-based ideal range for small bonus
  */
 function applyPreferredWaveSizeAdjustment(
   composite: CompositeScore,
   waveHeight: number,
-  preferredSize: 'small' | 'medium' | 'large'
+  preferredSize: 'small' | 'medium' | 'large' | 'any',
+  userSkillLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert' | null
 ): CompositeScore {
-  const ranges = {
-    small: { min: 1, max: 3 },
-    medium: { min: 3, max: 6 },
-    large: { min: 6, max: Infinity },
-  };
-
-  const range = ranges[preferredSize];
-  const { min, max } = range;
-
-  // Check if wave height matches preferred range
-  if (waveHeight >= min && waveHeight <= max) {
-    // Perfect match - no adjustment needed
-    return composite;
-  }
-
-  // Calculate how far outside the range
-  const outsideRange = waveHeight < min
-    ? min - waveHeight
-    : waveHeight > max
-      ? waveHeight - max
-      : 0;
-
-  if (outsideRange === 0) {
-    return composite;
-  }
-
-  // Apply graduated penalty (max 36 points, 12 per 0.5ft outside range)
-  const penalty = Math.min(36, Math.floor(outsideRange / 0.5) * 12);
-  const adjustedTotal = Math.max(0, Math.min(75, composite.total - penalty));
-
-  // Add warning about wave size mismatch
-  const sizeLabel = preferredSize === 'small' ? '1-3 ft'
-    : preferredSize === 'medium' ? '3-6 ft'
-      : '6+ ft';
-
+  // SAFETY: Default to 'beginner' if no skill level set - conservative approach
+  // ensures unset users don't see dangerously high scores for big waves
+  const skillRanges = SKILL_WAVE_RANGES[userSkillLevel || 'beginner'];
+  const newReasons = [...composite.reasons];
   const newWarnings = [...composite.warnings];
-  if (waveHeight < min) {
-    newWarnings.push(`Waves may be smaller than your preferred size (${sizeLabel})`);
-  } else {
-    newWarnings.push(`Waves may be larger than your preferred size (${sizeLabel})`);
+
+  // Check skill ceiling first - waves too big for skill level
+  if (waveHeight > skillRanges.acceptable.max) {
+    const overSkill = waveHeight - skillRanges.acceptable.max;
+    // SAFETY: No cap on penalty - dangerous conditions (e.g., 20ft for beginner)
+    // should receive appropriately severe scores. -8 pts per foot over limit.
+    // Example: Beginner (max 4ft) vs 20ft = 16ft over = -128 pts (score near 0)
+    const penalty = Math.round(overSkill * 8);
+
+    // Determine warning severity based on how far over skill level
+    const warningMessage = overSkill >= 8
+      ? 'Dangerous: Waves far exceed your skill level'
+      : overSkill >= 4
+        ? 'Waves significantly exceed your skill level'
+        : 'Waves may exceed your skill level';
+
+    return {
+      ...composite,
+      total: Math.max(0, composite.total - penalty),
+      reasons: newReasons,
+      warnings: [...newWarnings, warningMessage],
+    };
   }
+
+  // If no preference or 'any', just check skill-based bonus
+  if (!preferredSize || preferredSize === 'any') {
+    // Within ideal skill range = small bonus
+    if (waveHeight >= skillRanges.ideal.min && waveHeight <= skillRanges.ideal.max) {
+      return {
+        ...composite,
+        total: Math.min(100, composite.total + 3),
+        reasons: [...newReasons, 'Great wave size for your level'],
+        warnings: newWarnings,
+      };
+    }
+    return composite;
+  }
+
+  // Apply preference-based adjustment
+  const prefRange = PREF_WAVE_RANGES[preferredSize];
+
+  // Perfect match - bonus
+  if (waveHeight >= prefRange.ideal.min && waveHeight <= prefRange.ideal.max) {
+    return {
+      ...composite,
+      total: Math.min(100, composite.total + 5),
+      reasons: [...newReasons, 'Waves match your preferred size'],
+      warnings: newWarnings,
+    };
+  }
+
+  // Within acceptable range - no adjustment
+  if (waveHeight >= prefRange.acceptable.min && waveHeight <= prefRange.acceptable.max) {
+    return composite;
+  }
+
+  // Outside acceptable - soft penalty (MUCH softer than before)
+  // OLD: -12 pts per 0.5ft, max -36
+  // NEW: -5 pts per 1ft, max -15
+  const distanceOutside = waveHeight < prefRange.acceptable.min
+    ? prefRange.acceptable.min - waveHeight
+    : waveHeight - prefRange.acceptable.max;
+
+  const penalty = Math.min(15, Math.round(distanceOutside * 5));
+
+  const warningMessage = waveHeight < prefRange.acceptable.min
+    ? 'Waves may be smaller than preferred'
+    : 'Waves may be larger than preferred';
 
   return {
     ...composite,
-    total: adjustedTotal,
-    warnings: newWarnings,
+    total: Math.max(0, composite.total - penalty),
+    reasons: newReasons,
+    warnings: [...newWarnings, warningMessage],
   };
 }
 

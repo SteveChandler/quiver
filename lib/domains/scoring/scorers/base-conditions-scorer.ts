@@ -61,8 +61,8 @@ const COMPONENT_WEIGHTS = {
  * Scoring logic:
  * - Ideal range (2-5ft): 100
  * - Below ideal (1-2ft): Linear ramp from 50-100
- * - Above ideal (5-8ft): Linear ramp from 100-60
- * - Very large (8ft+): Fixed 60 (expert only)
+ * - Above ideal (5-8ft): Linear ramp from 100-70
+ * - Very large (8ft+): 85 (epic conditions - skill adjustment handles appropriateness)
  * - Flat (0ft): 0
  */
 function scoreWaveHeight(
@@ -93,23 +93,25 @@ function scoreWaveHeight(
     };
   }
 
-  // Above ideal but within absolute max
-  if (height > idealMax && height <= absoluteMax) {
-    // Linear from 100 at idealMax to 60 at absoluteMax
+  // Above ideal but below absolute max
+  if (height > idealMax && height < absoluteMax) {
+    // Linear from 100 at idealMax to 70 at (absoluteMax - 0.1)
     const range = absoluteMax - idealMax;
     const excess = height - idealMax;
-    const penalty = (excess / range) * 40;
+    const penalty = (excess / range) * 30;
     const score = Math.round(100 - penalty);
     return {
-      score: Math.max(60, score),
+      score: Math.max(70, score),
       reason: `Larger swell (${height.toFixed(1)}ft)`,
     };
   }
 
-  // Very large swell - expert only
+  // Very large swell (>= absoluteMax) - epic conditions!
+  // Let skill-based adjustment in discovery-adapter handle appropriateness
+  // Advanced/expert surfers should see high scores for big waves
   return {
-    score: 60,
-    reason: 'Big swell - expert conditions',
+    score: 85,
+    reason: `Epic swell (${height.toFixed(1)}ft)`,
   };
 }
 
