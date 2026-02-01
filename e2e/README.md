@@ -119,6 +119,21 @@ npx playwright test --project=guest
 npx playwright test --project=auth
 ```
 
+### Dev Validation Suite (Fast - <5 minutes)
+
+```bash
+# Run curated dev validation tests (~50 tests in <5 minutes)
+yarn test:e2e:dev:quick
+
+# Run with UI mode
+TEST_ENV=dev BASE_URL=https://dev.quiversurf.app playwright test --grep @dev --ui
+
+# Run on localhost
+playwright test --grep @dev
+```
+
+**See `e2e/DEV_VALIDATION.md` for detailed documentation.**
+
 ### Environment-Specific Tests
 
 ```bash
