@@ -257,15 +257,17 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
   });
 
-  it("redirects to sign-in in PWA mode when unauthenticated without signup param", () => {
+  it("renders landing page in PWA mode when unauthenticated (no forced redirect)", () => {
     (isStandaloneApp as jest.Mock).mockReturnValue(true);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
 
     render(<AuthAwareLandingWrapper />);
 
-    // Should redirect to sign-in page
-    expect(replace).toHaveBeenCalledWith("/auth/sign-in");
+    // Should render landing page, not redirect to sign-in
+    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();

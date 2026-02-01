@@ -4,7 +4,6 @@ import { useAuth } from "@/context/auth-context";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
@@ -38,14 +37,12 @@ const HomeScreenDynamic = dynamic(
  * Behavior:
  * - Loading state: Shows auth loading spinner while checking authentication
  * - Authenticated: Renders the full HomeScreen dashboard
- * - Unauthenticated: Renders interactive landing page sections
+ * - Unauthenticated: Renders interactive landing page sections (including mobile apps)
  *
  * Special Cases:
  * - Signup Confirmation (`?signup=confirm-email`): Bypasses auth loading screen
  *   to show landing page with confirmation modal, even while auth is initializing.
  *   Modal requires user action ("Got it" button) to dismiss, ensuring visibility.
- * - Standalone/PWA Mode: Redirects to `/auth/sign-in` immediately unless showing
- *   signup confirmation, preventing unauthenticated access to PWA shell.
  *
  * Progressive Enhancement:
  * - Manages `js-loaded` body class to hide SSR beach section when client renders
@@ -59,7 +56,6 @@ export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectedRef = useRef(false);
   const didShowSignupModalRef = useRef(false);
   const [hasAuthCookie, setHasAuthCookie] = useState(false);
   const [showEmailConfirmModal, setShowEmailConfirmModal] = useState(false);
@@ -71,18 +67,6 @@ export function AuthAwareLandingWrapper() {
   useEffect(() => {
     setHasAuthCookie(hasSupabaseAuthCookie());
   }, []);
-
-  // Redirect to sign-in in standalone/PWA mode immediately (don't wait for auth)
-  useEffect(() => {
-    if (redirectedRef.current) return;
-    if (!isStandaloneApp()) return;
-    // Allow users who just signed up to see the confirmation message.
-    if (isConfirmEmailSignup) return;
-    if (user) return; // Already logged in, no redirect needed
-
-    redirectedRef.current = true;
-    router.replace("/auth/sign-in");
-  }, [user, router, isConfirmEmailSignup]);
 
   // Show post-signup confirm-email modal on landing.
   useEffect(() => {
