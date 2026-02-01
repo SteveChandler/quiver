@@ -35,6 +35,8 @@ export interface ShareSheetProps {
 
 type ShareState = "idle" | "loading" | "error" | "success";
 
+const LOADING_TEXT = "Generating image...";
+
 /**
  * Minimal bottom sheet for sharing images
  *
@@ -123,10 +125,11 @@ export function ShareSheet({
               )}
               onLoad={() => setImageLoaded(true)}
             />
-            {/* Share action loading overlay */}
+            {/* Share action loading overlay - 70% opacity allows preview visibility while indicating blocking operation */}
             {state === "loading" && (
-              <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-medium text-foreground">{LOADING_TEXT}</span>
               </div>
             )}
           </div>
@@ -149,7 +152,7 @@ export function ShareSheet({
             {state === "loading" ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sharing...
+                {LOADING_TEXT}
               </>
             ) : (
               <>
