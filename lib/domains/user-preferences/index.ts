@@ -15,3 +15,12 @@ export type {
 } from './types';
 
 export { WAVE_SIZE_RANGES, USER_PREFERENCES_DEFAULTS } from './types';
+
+// Skill level types and utilities
+export type { SkillLevel } from './skill-level';
+export {
+  DEFAULT_SKILL_LEVEL,
+  SKILL_LEVELS,
+  parseSkillLevel,
+  getSkillLevelOrDefault,
+} from './skill-level';

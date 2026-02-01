@@ -33,6 +33,7 @@ import {
   scoreBeachWithEngine,
   type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
 
@@ -289,7 +290,8 @@ export async function scoreBeachForDiscovery(args: {
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
   preferredWaveSize: string | null;
-  userSkillLevel: string | null;
+  /** Pre-parsed and validated skill level from candidate pool builder */
+  userSkillLevel: SkillLevel | null;
   affinity?: { affinity_score: number; session_count: number };
   distanceMiles?: number;
 }): Promise<DetailedScore> {
@@ -327,20 +329,13 @@ export async function scoreBeachForDiscovery(args: {
     normalizedWaveSize === 'large' ? 'large' :
     'any';
 
-  // Map userSkillLevel to engine option
-  const userSkillLevelOption: DiscoveryScoringOptions['userSkillLevel'] =
-    userSkillLevel === 'beginner' ? 'beginner' :
-    userSkillLevel === 'intermediate' ? 'intermediate' :
-    userSkillLevel === 'advanced' ? 'advanced' :
-    userSkillLevel === 'expert' ? 'expert' :
-    null;
-
-  // Score using new engine - pass skill level
+  // userSkillLevel is now pre-parsed as SkillLevel | null from candidate pool builder
+  // No mapping needed - pass directly to scoring engine
   const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
     affinityBonus,
     distancePenalty,
     preferredWaveSize: preferredWaveSizeOption,
-    userSkillLevel: userSkillLevelOption,
+    userSkillLevel,
   });
 
   // Add distance warning if far

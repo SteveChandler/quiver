@@ -11,13 +11,13 @@ import type {
   SwellWindow,
   WindThresholds,
   TidePreferences,
-  SkillLevel,
 } from './types';
 import { SPOT_PROFILE_DEFAULTS } from './types';
 import {
   normalizeAngle,
   angleDifference as sharedAngleDifference,
 } from '../shared';
+import { parseSkillLevel } from '../user-preferences/skill-level';
 
 /**
  * Creates a SpotProfile from a Beach database row.
@@ -149,25 +149,6 @@ function createTidePreferences(beach: Beach): TidePreferences {
       beach.break_type
     ),
   };
-}
-
-/**
- * Parses skill level string to typed enum.
- */
-function parseSkillLevel(level: string | null): SkillLevel | null {
-  if (!level) return null;
-
-  const normalized = level.toLowerCase().trim();
-  if (
-    normalized === 'beginner' ||
-    normalized === 'intermediate' ||
-    normalized === 'advanced' ||
-    normalized === 'expert'
-  ) {
-    return normalized;
-  }
-
-  return null;
 }
 
 /**

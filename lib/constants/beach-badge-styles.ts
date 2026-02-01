@@ -4,7 +4,15 @@
  */
 
 /**
- * Tailwind CSS classes for skill level badges
+ * Tailwind CSS classes for skill level badges.
+ *
+ * NOTE: This module uses PascalCase skill level names ('Beginner', 'Intermediate', etc.)
+ * intentionally for UI display purposes. This differs from the canonical lowercase
+ * SkillLevel type in @/lib/domains/user-preferences/skill-level which uses lowercase
+ * values ('beginner', 'intermediate', etc.) for data/domain logic.
+ *
+ * Callers should capitalize the first letter of skill level strings before
+ * using getSkillLevelStyle(), or pass PascalCase values directly.
  */
 export const SKILL_LEVEL_STYLES = {
   Beginner: "bg-blue-50 text-ocean-blue border-transparent",
