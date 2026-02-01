@@ -14,7 +14,8 @@ function renderFallback() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(180deg, #0f172a 0%, #1e3a5f 50%, #0c1929 100%)",
+          background:
+            "linear-gradient(180deg, #0f172a 0%, #1e3a5f 50%, #0c1929 100%)",
           fontFamily: "system-ui, -apple-system, sans-serif",
         }}
       >
@@ -41,7 +42,7 @@ function renderFallback() {
         </div>
       </div>
     ),
-    { width: 1200, height: 630 }
+    { width: 1200, height: 630 },
   );
 }
 
@@ -64,6 +65,8 @@ export async function GET(request: NextRequest) {
     const timeContext = searchParams.get("timeContext") || "";
     const conditionLabel = searchParams.get("conditionLabel") || "";
     const tideBadge = searchParams.get("tideBadge") || "";
+    const windowTime = searchParams.get("window") || "";
+    const message = searchParams.get("message") || "";
 
     // Parse condition badges from tags param
     const badgeTags = tags.split(",").filter(Boolean);
@@ -116,10 +119,44 @@ export async function GET(request: NextRequest) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.6) 100%)",
+              background:
+                "linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.6) 50%, rgba(15, 23, 42, 0.8) 100%)",
               display: "flex",
             }}
           />
+
+          {/* Branding - Top Left */}
+          <div
+            style={{
+              position: "absolute",
+              top: 40,
+              left: 50,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={logoUrl}
+              alt="Quiver"
+              height={50}
+              style={{
+                objectFit: "contain",
+              }}
+            />
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#FFFFFF",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              Quiver
+            </div>
+          </div>
 
           {/* Content container */}
           <div
@@ -129,9 +166,10 @@ export async function GET(request: NextRequest) {
               alignItems: "center",
               justifyContent: "center",
               padding: "50px 80px",
-              gap: 12,
+              gap: 16,
               position: "relative",
               zIndex: 1,
+              marginTop: 20,
             }}
           >
             {/* Beach name - prominent at top */}
@@ -145,24 +183,51 @@ export async function GET(request: NextRequest) {
                 textTransform: "uppercase",
                 display: "flex",
                 textShadow: "0 2px 20px rgba(0,0,0,0.5)",
+                marginBottom: 8,
               }}
             >
               {beach}
             </div>
 
-            {/* Time context subtitle */}
-            {timeContext && (
+            {/* Time context and Window */}
+            {(timeContext || windowTime) && (
               <div
                 style={{
-                  fontSize: 28,
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.85)",
-                  textAlign: "center",
                   display: "flex",
-                  marginTop: -4,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 16,
+                  marginTop: -8,
                 }}
               >
-                {timeContext}
+                {timeContext && (
+                  <div
+                    style={{
+                      fontSize: 32,
+                      fontWeight: 500,
+                      color: "rgba(255,255,255,0.9)",
+                      textAlign: "center",
+                    }}
+                  >
+                    {timeContext}
+                  </div>
+                )}
+                {timeContext && windowTime && (
+                  <div style={{ fontSize: 32, color: "rgba(255,255,255,0.4)" }}>
+                    •
+                  </div>
+                )}
+                {windowTime && (
+                  <div
+                    style={{
+                      fontSize: 32,
+                      fontWeight: 500,
+                      color: "#F97316", // Highlight the time window
+                    }}
+                  >
+                    {windowTime}
+                  </div>
+                )}
               </div>
             )}
 
@@ -170,14 +235,14 @@ export async function GET(request: NextRequest) {
             {hasScore && (
               <div
                 style={{
-                  fontSize: 120,
+                  fontSize: 140,
                   fontWeight: 800,
                   color: "#F97316",
                   letterSpacing: "-0.03em",
                   lineHeight: 1,
                   display: "flex",
                   alignItems: "baseline",
-                  marginTop: 16,
+                  marginTop: 8,
                   marginBottom: 8,
                   textShadow: "0 4px 30px rgba(249,115,22,0.4)",
                 }}
@@ -188,7 +253,7 @@ export async function GET(request: NextRequest) {
                     fontSize: 48,
                     fontWeight: 600,
                     color: "rgba(249,115,22,0.8)",
-                    marginLeft: 8,
+                    marginLeft: 12,
                     display: "flex",
                   }}
                 >
@@ -204,8 +269,8 @@ export async function GET(request: NextRequest) {
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 12,
-                marginTop: 8,
+                gap: 16,
+                marginTop: 16,
                 flexWrap: "wrap",
               }}
             >
@@ -213,15 +278,15 @@ export async function GET(request: NextRequest) {
               {waveHeight && (
                 <div
                   style={{
-                    backgroundColor: "rgba(255,255,255,0.2)",
-                    borderRadius: 24,
-                    padding: "10px 20px",
-                    fontSize: 22,
+                    background: "rgba(255,255,255,0.15)",
+                    borderRadius: 20,
+                    padding: "12px 24px",
+                    fontSize: 24,
                     fontWeight: 600,
                     color: "#FFFFFF",
                     display: "flex",
-                    backdropFilter: "blur(8px)",
-                    border: "1px solid rgba(255,255,255,0.15)",
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255,255,255,0.2)",
                   }}
                 >
                   {waveHeight}
@@ -232,13 +297,14 @@ export async function GET(request: NextRequest) {
               {conditionLabel && (
                 <div
                   style={{
-                    backgroundColor: "rgba(249,115,22,0.25)",
-                    borderRadius: 24,
-                    padding: "10px 20px",
-                    fontSize: 22,
+                    background: "rgba(249,115,22,0.2)",
+                    borderRadius: 20,
+                    padding: "12px 24px",
+                    fontSize: 24,
                     fontWeight: 600,
-                    color: "#FFFFFF",
+                    color: "#fdba74",
                     display: "flex",
+                    backdropFilter: "blur(10px)",
                     border: "1px solid rgba(249,115,22,0.3)",
                   }}
                 >
@@ -250,14 +316,15 @@ export async function GET(request: NextRequest) {
               {tideBadge && (
                 <div
                   style={{
-                    backgroundColor: "rgba(255,255,255,0.2)",
-                    borderRadius: 24,
-                    padding: "10px 20px",
-                    fontSize: 22,
+                    background: "rgba(255,255,255,0.15)",
+                    borderRadius: 20,
+                    padding: "12px 24px",
+                    fontSize: 24,
                     fontWeight: 600,
                     color: "#FFFFFF",
                     display: "flex",
-                    border: "1px solid rgba(255,255,255,0.15)",
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255,255,255,0.2)",
                   }}
                 >
                   {tideBadge}
@@ -269,69 +336,76 @@ export async function GET(request: NextRequest) {
                 <div
                   key={index}
                   style={{
-                    backgroundColor: "rgba(255,255,255,0.2)",
-                    borderRadius: 24,
-                    padding: "10px 20px",
-                    fontSize: 22,
+                    background: "rgba(255,255,255,0.15)",
+                    borderRadius: 20,
+                    padding: "12px 24px",
+                    fontSize: 24,
                     fontWeight: 600,
                     color: "#FFFFFF",
                     display: "flex",
-                    border: "1px solid rgba(255,255,255,0.15)",
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255,255,255,0.2)",
                   }}
                 >
                   {tag}
                 </div>
               ))}
             </div>
+
+            {/* Verdict/Message */}
+            {message && (
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.9)",
+                  textAlign: "center",
+                  maxWidth: 800,
+                  marginTop: 24,
+                  lineHeight: 1.4,
+                  textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+                  background: "rgba(0,0,0,0.3)",
+                  padding: "16px 32px",
+                  borderRadius: 16,
+                }}
+              >
+                {message}
+              </div>
+            )}
           </div>
 
-          {/* Footer - URL on left, logo on right */}
+          {/* Footer */}
           <div
             style={{
               position: "absolute",
-              bottom: 36,
-              left: 0,
-              right: 0,
+              bottom: 40,
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0 48px",
+              justifyContent: "center",
             }}
           >
             <span
               style={{
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.6)",
-                display: "flex",
+                color: "rgba(255,255,255,0.5)",
+                letterSpacing: "0.05em",
               }}
             >
               quiversurf.app
             </span>
-
-            {/* Logo - bottom right */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoUrl}
-              alt="Quiver"
-              width={60}
-              height={90}
-              style={{
-                display: "flex",
-              }}
-            />
           </div>
         </div>
       ),
       {
         width: 1200,
         height: 630,
-      }
+      },
     );
 
     response.headers.set(
       "Cache-Control",
-      "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400"
+      "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
     );
     return response;
   } catch (error) {
