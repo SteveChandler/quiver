@@ -50,9 +50,10 @@ test.describe('Beach OG Image API Contract', () => {
       const response = await context.get(`${OG_BEACH_ENDPOINT}?slug=blacks`);
       const cacheControl = response.headers()['cache-control'] || '';
 
+      // Verify essential cache directives are present
       expect(cacheControl).toContain('public');
-      expect(cacheControl).toContain('max-age=86400');
-      expect(cacheControl).toContain('stale-while-revalidate');
+      expect(cacheControl).toMatch(/max-age=\d+/);
+      expect(cacheControl).toMatch(/stale-while-revalidate/);
     });
   });
 

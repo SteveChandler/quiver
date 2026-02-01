@@ -52,7 +52,7 @@ describe("Middleware", () => {
     expect(mockNext).toHaveBeenCalled();
   });
 
-  test("redirects / to sign-in for Capacitor UA when unauthenticated", async () => {
+  test("allows / for Capacitor UA when unauthenticated (landing page is public)", async () => {
     const headers = new Headers([
       ["user-agent", "Capacitor"],
     ]);
@@ -64,15 +64,11 @@ describe("Middleware", () => {
       cookies: { get: () => undefined },
     };
     await middleware(request);
-    expect(mockRedirect).toHaveBeenCalled();
-
-    const redirectArg = mockRedirect.mock.calls[0]?.[0];
-    expect(redirectArg).toBeInstanceOf(URL);
-    expect(redirectArg.pathname).toBe("/auth/sign-in");
-    expect(redirectArg.searchParams.get("redirectTo")).toBe("/");
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  test("redirects /?signup=confirm-email to sign-in for Capacitor UA when unauthenticated", async () => {
+  test("allows /?signup=confirm-email for Capacitor UA when unauthenticated", async () => {
     const headers = new Headers([
       ["user-agent", "Capacitor"],
     ]);
@@ -84,13 +80,8 @@ describe("Middleware", () => {
       cookies: { get: () => undefined },
     };
     await middleware(request);
-    expect(mockRedirect).toHaveBeenCalled();
-
-    const redirectArg = mockRedirect.mock.calls[0]?.[0];
-    expect(redirectArg).toBeInstanceOf(URL);
-    expect(redirectArg.pathname).toBe("/auth/sign-in");
-    // Native app does not preserve confirm-email landing flow; always redirectTo /
-    expect(redirectArg.searchParams.get("redirectTo")).toBe("/");
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   test("allows / for Capacitor UA when Supabase auth cookie is present", async () => {

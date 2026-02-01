@@ -34,7 +34,6 @@ export interface DiscoveryCacheOptions {
   radiusMiles?: number;
   horizonHours?: number;
   maxResults?: number;
-  includeHome?: boolean;
   timeSlot?: TimeSlot;
 }
 
@@ -54,7 +53,6 @@ export function hashDiscoveryOptions(options: DiscoveryCacheOptions): string {
     `r:${options.radiusMiles || "def"}`,
     `h:${options.horizonHours || "def"}`,
     `m:${options.maxResults || "def"}`,
-    `home:${options.includeHome || "false"}`,
   ];
   const key = parts.join("|");
 

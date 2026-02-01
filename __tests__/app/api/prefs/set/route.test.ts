@@ -89,6 +89,23 @@ describe('GET /api/prefs/set', () => {
     expect(html).toContain('Saved');
   });
 
+  it('updates expert skill level with valid token', async () => {
+    const { GET } = await import('@/app/api/prefs/set/route');
+    const token = await signEmailToken(
+      { user_id: 'user-123', purpose: 'prefs' },
+      TEST_SECRET
+    );
+
+    const request = new NextRequest(
+      `http://localhost:3000/api/prefs/set?level=expert&token=${token}`
+    );
+    const response = await GET(request);
+
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain('Saved');
+  });
+
   it('updates email frequency with valid token', async () => {
     const { GET } = await import('@/app/api/prefs/set/route');
     const token = await signEmailToken(

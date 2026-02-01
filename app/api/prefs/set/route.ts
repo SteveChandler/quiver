@@ -11,14 +11,14 @@ import { NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
+import { SKILL_LEVELS, type SkillLevel } from '@/lib/domains/user-preferences';
 
 // Valid values for each preference
 const VALID_TIME_BUCKETS = ['dawn', 'after_work', 'weekends'] as const;
-const VALID_SKILL_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+const VALID_SKILL_LEVELS = SKILL_LEVELS;
 const VALID_FREQUENCIES = ['daily', 'only_good'] as const;
 
 type TimeBucket = (typeof VALID_TIME_BUCKETS)[number];
-type SkillLevel = (typeof VALID_SKILL_LEVELS)[number];
 type Frequency = (typeof VALID_FREQUENCIES)[number];
 
 export async function GET(request: NextRequest) {

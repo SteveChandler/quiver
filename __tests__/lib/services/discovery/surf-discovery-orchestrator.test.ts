@@ -209,6 +209,7 @@ import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orche
 
 describe('discoverSurfSpots - Favorites Merging', () => {
   const testUserId = 'test-user-123';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -238,7 +239,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Setup: beach-2 is a favorite
     mockState.favoriteBeaches = [mockBeach2];
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Verify results are returned and favorites are marked
     expect(result.recommendations.length).toBeGreaterThan(0);
@@ -260,7 +261,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     // Setup: beach-1 is a favorite
     mockState.favoriteBeaches = [mockBeach1];
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Count how many times beach-1 appears
     const beach1Count = result.recommendations.filter(r => r.beach.id === 'beach-1').length;
@@ -312,7 +313,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       };
     });
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Verify beach-2 IS in results (no longer excluded based on score)
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
@@ -328,7 +329,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
   test('handles empty favorites gracefully', async () => {
     mockState.favoriteBeaches = [];
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Should still return recommendations, just none marked as favorites
     expect(result.recommendations.length).toBeGreaterThan(0);
@@ -338,7 +339,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
   test('handles favorites fetch error gracefully', async () => {
     mockState.favoritesError = new Error('Database connection failed');
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Should continue with regular recommendations
     expect(result.recommendations.length).toBeGreaterThan(0);
@@ -375,7 +376,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       };
     });
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Verify all beaches are sorted by score (pure score ranking)
     expect(result.recommendations[0].beach.id).toBe('beach-2'); // 92
@@ -391,7 +392,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
   test('respects maxResults limit with pure score ranking', async () => {
     mockState.favoriteBeaches = [mockBeach1, mockBeach2];
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 3 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 3 });
 
     // Should return exactly 3 results
     expect(result.recommendations.length).toBe(3);
@@ -413,7 +414,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
   test('marks non-favorites with isFavorite: false', async () => {
     mockState.favoriteBeaches = [mockBeach1];
 
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Find a non-favorite recommendation
     const nonFavorite = result.recommendations.find(r => r.beach.id !== 'beach-1');
@@ -428,7 +429,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     // The mocking infrastructure ensures we always get valid data,
     // but this test documents the expected behavior for null safety
-    const result = await discoverSurfSpots(testUserId, { maxResults: 5 });
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
 
     // Should successfully complete without errors
     expect(result.recommendations).toBeDefined();

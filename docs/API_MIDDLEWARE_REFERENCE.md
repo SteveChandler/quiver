@@ -2,6 +2,7 @@
 
 **Status:** Documentation
 **Created:** 2026-01-04
+**Updated:** 2026-01-30
 **Purpose:** Technical architecture and type definitions for API middleware system
 
 ---
@@ -18,6 +19,107 @@ The API middleware system is built on a **composable Higher-Order Function (HOF)
 4. **Type Safety:** Full TypeScript support with proper context typing
 5. **Developer Experience:** Clear, readable API with good defaults
 6. **Performance:** Minimal overhead, early exits for failed checks
+
+---
+
+## Next.js 15+ Compatibility (CRITICAL)
+
+### Breaking Change: Route Params are Promises
+
+In Next.js 15+, the `params` object in route handlers is a **Promise** that must be awaited before accessing its properties. This is a breaking change from Next.js 14.
+
+**Problem:**
+```typescript
+// Next.js 14 - params was synchronous
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const id = params.id; // Worked fine
+}
+
+// Next.js 15+ - params is a Promise
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const id = params.id; // UNDEFINED! params is a Promise, not an object
+}
+```
+
+### How the Wrappers Handle This
+
+The `withAuth`, `createApiHandler`, and `withProtection` wrappers automatically resolve params before passing to your handler. This means:
+
+1. **RouteContext type accepts both formats** (for Next.js compatibility):
+   ```typescript
+   interface RouteContext {
+     params: Record<string, string> | Promise<Record<string, string>>;
+   }
+   ```
+
+2. **Handler context always has resolved params**:
+   ```typescript
+   interface AuthenticatedContext {
+     params: ResolvedParams; // Record<string, string> - already resolved
+     user: User;
+     supabase: SupabaseClient<Database>;
+   }
+   ```
+
+3. **Resolution logic in the wrappers**:
+   ```typescript
+   // In withAuth and createApiHandler (lib/middleware/api-wrappers/auth-wrapper.ts)
+   const resolvedParams = context?.params
+     ? typeof context.params === "object" && "then" in context.params
+       ? await context.params
+       : (context.params as Record<string, string>)
+     : {};
+   ```
+
+### Correct Usage Pattern
+
+```typescript
+import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+
+// Handler receives already-resolved params
+async function handler(
+  request: NextRequest,
+  { user, supabase, params }: AuthenticatedContext
+) {
+  // Safe to use params.id directly - already resolved by wrapper
+  const sessionId = params.id;
+
+  const { data } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .single();
+
+  return createSuccessResponse({ session: data });
+}
+
+export const GET = withAuth(handler);
+```
+
+### What NOT to Do
+
+```typescript
+// WRONG: Accessing params outside the wrapper
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const id = params.id; // UNDEFINED in Next.js 15+
+  // ...
+}
+
+// WRONG: Manually awaiting params then using wrapper
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const resolvedParams = await params;
+  return withAuth(async (req, { user, supabase }) => {
+    // This works but is redundant - wrapper already resolves params
+  })(request, { params: resolvedParams });
+}
+```
+
+### Files Changed for Next.js 15+ Support
+
+- `lib/middleware/api-wrappers/types.ts` - Added `ResolvedParams` type, updated `RouteContext` to accept Promise params, `AuthenticatedContext` and `OptionalAuthContext` use `ResolvedParams`
+- `lib/middleware/api-wrappers/auth-wrapper.ts` - Added params resolution in `withAuth` and `createApiHandler`
+- `lib/middleware/api-wrappers/index.ts` - Exports `ResolvedParams` and `OptionalAuthContext` types
 
 ---
 
@@ -53,8 +155,9 @@ The API middleware system is built on a **composable Higher-Order Function (HOF)
 |  Layer 3: AUTHENTICATION                                     |
 |  +-- Create Supabase server client                           |
 |  +-- Validate JWT token from cookies                         |
+|  +-- Resolve route params (await if Promise)   <-- NEW       |
 |  +-- Return 401 if invalid/missing (when required)           |
-|  +-- Inject user + supabase into context                     |
+|  +-- Inject user + supabase + resolved params into context   |
 |                                                              |
 |  Performance: ~5-10ms (Supabase auth check)                  |
 |  Early exit: Yes (if auth required and not authenticated)    |
@@ -72,7 +175,7 @@ The API middleware system is built on a **composable Higher-Order Function (HOF)
                             |
 +-------------------------------------------------------------+
 |  Layer 5: BUSINESS LOGIC (Your Handler)                      |
-|  +-- Receives clean context                                  |
+|  +-- Receives clean context with resolved params             |
 |  +-- No boilerplate needed                                   |
 |  +-- Returns NextResponse                                    |
 +-------------------------------------------------------------+
@@ -117,16 +220,26 @@ export type RouteHandler = (
 ) => Promise<NextResponse>;
 
 /**
- * Route context with typed params
+ * Route context with typed params as received from Next.js
+ *
+ * Note: In Next.js 15+, params is a Promise that must be awaited.
+ * We accept both for compatibility with the Next.js handler signature.
  */
 export interface RouteContext {
-  params: Record<string, string>;
+  params: Record<string, string> | Promise<Record<string, string>>;
 }
 
 /**
- * Extended context provided to authenticated handlers
+ * Resolved params type (after awaiting the Promise)
  */
-export interface AuthenticatedContext extends RouteContext {
+export type ResolvedParams = Record<string, string>;
+
+/**
+ * Extended context provided to authenticated handlers.
+ * Params are always resolved (not a Promise) at this point.
+ */
+export interface AuthenticatedContext {
+  params: ResolvedParams;
   user: User;
   supabase: SupabaseClient<Database>;
 }
@@ -140,14 +253,21 @@ export type AuthenticatedHandler = (
 ) => Promise<NextResponse>;
 
 /**
+ * Context for optional auth handlers (user may be null).
+ * Params are always resolved (not a Promise) at this point.
+ */
+export interface OptionalAuthContext {
+  params: ResolvedParams;
+  user: User | null;
+  supabase: SupabaseClient<Database>;
+}
+
+/**
  * Handler that receives optional auth (user may be null)
  */
 export type OptionalAuthHandler = (
   request: NextRequest,
-  context: RouteContext & {
-    user: User | null;
-    supabase: SupabaseClient<Database>;
-  }
+  context: OptionalAuthContext
 ) => Promise<NextResponse>;
 ```
 
@@ -342,9 +462,10 @@ Request --> Bot Blocking --> Rate Limiting --> Auth --> Error Handler --> Handle
 |-------|-----------------|-----------|------------|------------|
 | Bot Blocking | ~0.1ms | N/A | N/A | Yes (403) |
 | Rate Limiting | ~1ms | ~0.5ms | ~2ms | Yes (429) |
+| Params Resolution | ~0ms | N/A | ~0.1ms | No |
 | Authentication | ~5-10ms | ~3ms | ~15ms | Yes (401) |
 | Error Handling | Negligible | N/A | N/A | No |
-| **Total Overhead** | **~6-11ms** | **~3.6ms** | **~17.1ms** | - |
+| **Total Overhead** | **~6-11ms** | **~3.6ms** | **~17.2ms** | - |
 
 ### Optimization Strategies
 
@@ -361,6 +482,10 @@ Request --> Bot Blocking --> Rate Limiting --> Auth --> Error Handler --> Handle
    - Wrappers only execute if options enabled
    - No overhead for unused protections
 
+4. **Params Resolution:**
+   - Only awaits if params is actually a Promise
+   - Type check (`"then" in context.params`) is O(1)
+
 ---
 
 ## Context Propagation
@@ -368,21 +493,26 @@ Request --> Bot Blocking --> Rate Limiting --> Auth --> Error Handler --> Handle
 ### Handler Context Types
 
 ```typescript
-// Base context (always available)
+// Base context (always available) - from Next.js
 interface RouteContext {
-  params: Record<string, string>; // Route params from [id]
+  params: Record<string, string> | Promise<Record<string, string>>;
 }
 
+// Resolved params (after wrapper processing)
+type ResolvedParams = Record<string, string>;
+
 // Authenticated context (when auth enabled)
-interface AuthenticatedContext extends RouteContext {
-  user: User;                     // Guaranteed non-null if auth required
-  supabase: SupabaseClient;       // Authenticated client
+interface AuthenticatedContext {
+  params: ResolvedParams;           // Always resolved, never a Promise
+  user: User;                       // Guaranteed non-null if auth required
+  supabase: SupabaseClient;         // Authenticated client
 }
 
 // Optional auth context (when auth optional)
-interface OptionalAuthContext extends RouteContext {
-  user: User | null;              // May be null
-  supabase: SupabaseClient;       // Client (may be unauthenticated)
+interface OptionalAuthContext {
+  params: ResolvedParams;           // Always resolved, never a Promise
+  user: User | null;                // May be null
+  supabase: SupabaseClient;         // Client (may be unauthenticated)
 }
 ```
 
@@ -399,14 +529,15 @@ interface OptionalAuthContext extends RouteContext {
 |  withAuth creates context:                |
 |  +-- supabase = createSupabaseClient()    |
 |  +-- user = await getUser()               |
-|  +-- params = from route                  |
+|  +-- params = await context.params        |  <-- NEW: Resolves Promise
+|       (if params is Promise, await it)    |
 +------------------------------------------+
                 |
 +------------------------------------------+
 |  Handler receives typed context:          |
 |  +-- user: User (guaranteed)              |
 |  +-- supabase: SupabaseClient             |
-|  +-- params: Record<string, string>       |
+|  +-- params: ResolvedParams (not Promise) |  <-- Always resolved
 +------------------------------------------+
 ```
 
@@ -564,16 +695,18 @@ function isBot(userAgent: string): boolean {
 ```typescript
 // Required auth --> handler receives AuthenticatedContext
 export const GET = withProtection(
-  async (req, { user, supabase }: AuthenticatedContext) => {
+  async (req, { user, supabase, params }: AuthenticatedContext) => {
     user.id // TypeScript knows user exists
+    params.id // TypeScript knows params are resolved
   },
   { auth: { required: true } }
 );
 
 // Optional auth --> handler receives optional user
 export const GET = withProtection(
-  async (req, { user, supabase }) => {
+  async (req, { user, supabase, params }) => {
     user?.id // TypeScript enforces null check
+    params.id // TypeScript knows params are resolved
   },
   { auth: { required: false } }
 );
@@ -692,6 +825,8 @@ describe("withAuth", () => {
   it("allows unauthenticated requests when optional");
   it("injects user and supabase into context");
   it("handles auth errors gracefully");
+  it("resolves Promise params before passing to handler"); // NEW
+  it("handles non-Promise params correctly"); // NEW
 });
 
 describe("withRateLimit", () => {
@@ -711,6 +846,7 @@ describe("withProtection", () => {
   it("composes wrappers in correct order");
   it("applies only enabled protections");
   it("passes context through layers");
+  it("resolves params for dynamic routes"); // NEW
 });
 ```
 
@@ -723,6 +859,7 @@ describe("Protected API routes", () => {
   it("handles authenticated endpoint with rate limiting");
   it("handles optional auth with adaptive rate limits");
   it("returns consistent error responses");
+  it("handles dynamic route params correctly"); // NEW
 });
 ```
 
@@ -732,17 +869,18 @@ describe("Protected API routes", () => {
 
 ```
 lib/middleware/
-+-- api-wrappers.ts          # All wrappers live here (central location)
-|   +-- withAuth()
-|   +-- withErrorHandler()
-|   +-- withBotBlocking()
-|   +-- withRateLimit()
-|   +-- withBotBlockingAndRateLimit()
-|   +-- withAuthAndRateLimit()
-|   +-- withFullProtection()
-|   +-- withProtection()
-+-- bot-blocker.ts           # Bot detection logic (imported by api-wrappers)
-+-- rate-limiter.ts          # DEPRECATED - re-exports from api-wrappers
++-- api-wrappers/
+|   +-- index.ts              # Re-exports all wrappers and types
+|   +-- types.ts              # Type definitions (RouteContext, AuthenticatedContext, etc.)
+|   +-- auth-wrapper.ts       # withAuth, createApiHandler (includes params resolution)
+|   +-- error-handler.ts      # withErrorHandler
+|   +-- rate-limit-wrapper.ts # withRateLimit, withBotBlockingAndRateLimit
+|   +-- protection-wrappers.ts # withProtection, withFullProtection, withAuthAndRateLimit
+|   +-- validation-helpers.ts # validateUuidParam, validateRequiredParams
+|   +-- ownership-helpers.ts  # requireOwnership
+|   +-- response-utils.ts     # Re-exports from api-utils
++-- bot-blocker.ts            # Bot detection logic (imported by api-wrappers)
++-- rate-limiter.ts           # DEPRECATED - re-exports from api-wrappers
 ```
 
 ---

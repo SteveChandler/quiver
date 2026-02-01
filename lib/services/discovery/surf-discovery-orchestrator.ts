@@ -2,7 +2,7 @@
  * Surf Discovery Orchestrator
  *
  * Orchestrates the surf discovery flow by composing modular services:
- * 1. CandidatePoolBuilder - Builds initial candidate pool (home + favorites + GPS nearby)
+ * 1. CandidatePoolBuilder - Builds initial candidate pool using GPS proximity
  * 2. ForecastBatchFetcher - Fetches forecasts for all candidates in parallel
  * 3. WindowSelector - Selects best surf window for each beach
  * 4. ResponseFormatter - Enriches recommendations with photos and summaries
@@ -10,7 +10,7 @@
  * This is the main entry point for surf discovery, extracted from surf-discovery-service.ts
  * for better modularity and testability.
  *
- * Performance: 4 DB queries total, parallel forecast fetching, 12s timeout
+ * Performance: 3 DB queries total, parallel forecast fetching, 12s timeout
  *
  * @module lib/services/discovery/surf-discovery-orchestrator
  */
@@ -33,6 +33,7 @@ import {
   scoreBeachWithEngine,
   type DiscoveryScoringOptions,
 } from '@/lib/domains/scoring';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
 
@@ -289,10 +290,12 @@ export async function scoreBeachForDiscovery(args: {
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
   preferredWaveSize: string | null;
+  /** Pre-parsed and validated skill level from candidate pool builder */
+  userSkillLevel: SkillLevel | null;
   affinity?: { affinity_score: number; session_count: number };
   distanceMiles?: number;
 }): Promise<DetailedScore> {
-  const { beach, forecast, userPrefs, preferredWaveSize, affinity, distanceMiles } =
+  const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, affinity, distanceMiles } =
     args;
 
   // Use the new domain-driven scoring engine
@@ -326,11 +329,13 @@ export async function scoreBeachForDiscovery(args: {
     normalizedWaveSize === 'large' ? 'large' :
     'any';
 
-  // Score using new engine
+  // userSkillLevel is now pre-parsed as SkillLevel | null from candidate pool builder
+  // No mapping needed - pass directly to scoring engine
   const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
     affinityBonus,
     distancePenalty,
     preferredWaveSize: preferredWaveSizeOption,
+    userSkillLevel,
   });
 
   // Add distance warning if far
@@ -368,21 +373,25 @@ export async function scoreBeachForDiscovery(args: {
  * Discover surf spots for a user
  *
  * Orchestrates the full discovery flow:
- * 1. Build candidate pool (home + favorites + GPS nearby)
+ * 1. Build candidate pool using GPS proximity (requires userLocation)
  * 2. Batch fetch forecasts for all candidates
  * 3. Select best window for each beach
  * 4. Score and rank recommendations
  * 5. Enrich with photos and format response
  *
- * Returns ranked list of surf recommendations from home + favorites + (GPS nearby in Phase 2).
+ * Returns ranked list of surf recommendations based on GPS proximity and condition scoring.
  * Each recommendation includes detailed scoring breakdown and match quality.
+ * Favorites are marked with isFavorite flag but do not receive preferential ordering.
  *
  * @param userId - User ID
- * @param options - Discovery options
+ * @param options - Discovery options (userLocation required for results)
  * @returns Surf discovery response with ranked recommendations
  *
  * @example
- * const discovery = await discoverSurfSpots('user-123', { maxResults: 5 });
+ * const discovery = await discoverSurfSpots('user-123', {
+ *   userLocation: { lat: 32.7157, lon: -117.1611 },
+ *   maxResults: 5
+ * });
  * for (const rec of discovery.recommendations) {
  *   log.debug(`${rec.beach.name}: ${rec.score} (${rec.matchQuality})`);
  *   log.debug(rec.reasons.join(', '));
@@ -399,7 +408,6 @@ export async function discoverSurfSpots(
     radiusMiles = 25,
     horizonHours,
     maxResults = DEFAULT_MAX_RESULTS,
-    includeHome = true,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
@@ -407,11 +415,16 @@ export async function discoverSurfSpots(
   } = options;
 
   try {
+    // GPS location is required for discovery
+    if (!userLocation) {
+      log.warn(`Discovery called without userLocation for user ${userId}`);
+      return emptyResponse(maxResults);
+    }
+
     log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
-    // 1. Build candidate pool
-    const { candidates, preferredWaveSize } = await buildCandidatePool(userId, {
-      includeHome,
+    // 1. Build candidate pool (GPS-based, sorted by distance)
+    const { candidates, preferredWaveSize, userSkillLevel } = await buildCandidatePool(userId, {
       userLocation,
       radiusMiles,
     });
@@ -497,9 +510,12 @@ export async function discoverSurfSpots(
       loadBeachAffinity(userId, finalCandidates.map((b) => b.id)),
     ]);
 
+    const beachesWithNoWindow: string[] = [];
     for (const { beach, forecasts } of beachForecasts) {
       const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow) {
+        beachesWithNoWindow.push(beach.name);
+        log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
         continue;
       }
 
@@ -529,6 +545,7 @@ export async function discoverSurfSpots(
         forecast: bestWindowForecast,
         userPrefs,
         preferredWaveSize,
+        userSkillLevel,
         affinity,
         distanceMiles,
       });
@@ -552,6 +569,19 @@ export async function discoverSurfSpots(
         generated_at: new Date().toISOString(),
       });
     }
+
+    // Log beaches that had no window selected
+    if (beachesWithNoWindow.length > 0) {
+      log.warn(`[discoverSurfSpots] ${beachesWithNoWindow.length} beaches had no viable window: ${beachesWithNoWindow.join(', ')}`);
+    }
+
+    // Log all beach scores before ranking (for debugging)
+    const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
+    log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
+    allScoresSorted.forEach((rec, idx) => {
+      const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty } = rec.subscores;
+      log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
+    });
 
     // 4. Fetch and merge favorites
     let favoriteBeachIds = new Set<string>();

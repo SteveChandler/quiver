@@ -106,8 +106,8 @@ class QuiverBiasModel:
         )
         predicted_bias = predicted_bias * scale_factor
 
-        # 1. Clip bias to +/- 50% of raw forecast (min 0.3m floor for small waves)
-        max_bias = np.maximum(physics_forecast.abs() * 0.5, 0.3)
+        # 1. Clip bias to +/- 75% of raw forecast (min 0.5m floor for small waves)
+        max_bias = np.maximum(physics_forecast.abs() * 0.75, 0.5)
         predicted_bias = predicted_bias.clip(lower=-max_bias, upper=max_bias)
 
         # 2. Absolute bias cap at +/- 1.5m

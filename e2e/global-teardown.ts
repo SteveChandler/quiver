@@ -1,9 +1,10 @@
-import fs from 'fs';
+import * as fs from 'fs';
 import { FullConfig } from '@playwright/test';
+import { cleanupAllTestData } from './utils/test-data-cleanup';
 
 /**
  * Global teardown runs once after all tests complete
- * Validates authentication state and provides debugging information
+ * Validates authentication state, cleans up test data, and provides debugging information
  */
 async function globalTeardown(config: FullConfig) {
   console.log('\n[Global Teardown] ============================================');
@@ -85,6 +86,46 @@ async function globalTeardown(config: FullConfig) {
       console.error('[Global Teardown] State file contains invalid JSON');
       console.error('[Global Teardown] Run: npm run test:e2e:auth:reset to fix');
     }
+  }
+
+  // ============================================
+  // Clean up test data (soft-delete sessions and intel posts)
+  // ============================================
+  console.log('\n[Global Teardown] ============================================');
+  console.log('[Global Teardown] Cleaning up test data...');
+  console.log('[Global Teardown] ============================================\n');
+
+  try {
+    // Only run cleanup for dev environment to avoid cleaning production data
+    const testEnv = process.env.TEST_ENV || 'local';
+    const baseURL = process.env.BASE_URL || '';
+    const isDevEnvironment = testEnv === 'dev' || baseURL.includes('dev.quiversurf.app');
+
+    if (isDevEnvironment) {
+      const result = await cleanupAllTestData({ verbose: true });
+
+      if (result.totalCleaned > 0) {
+        console.log(`[Global Teardown] ✓ Cleaned ${result.totalCleaned} test item(s)`);
+        console.log(`  - Sessions: ${result.sessions.count}`);
+        console.log(`  - Intel Posts: ${result.intelPosts.count}`);
+      } else {
+        console.log('[Global Teardown] ✓ No test data to clean up');
+      }
+
+      if (result.sessions.error) {
+        console.warn(`[Global Teardown] ⚠️  Sessions cleanup warning: ${result.sessions.error}`);
+      }
+      if (result.intelPosts.error) {
+        console.warn(`[Global Teardown] ⚠️  Intel posts cleanup warning: ${result.intelPosts.error}`);
+      }
+    } else {
+      console.log(`[Global Teardown] Skipping cleanup (env=${testEnv}, not dev environment)`);
+      console.log('[Global Teardown] Test data cleanup only runs against dev.quiversurf.app');
+    }
+  } catch (error) {
+    // Don't fail tests if cleanup fails - just log the warning
+    console.warn('[Global Teardown] ⚠️  Test data cleanup failed (non-fatal):', error);
+    console.warn('[Global Teardown] Tests completed but test data may remain in the database');
   }
 
   console.log('\n[Global Teardown] ============================================');

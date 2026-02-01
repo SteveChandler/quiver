@@ -230,6 +230,7 @@ function assertHasRecommendation(result: any, errorCalls?: any[][]) {
 
 describe("discoverSurfSpots scoring behavior", () => {
   let consoleErrorSpy: jest.SpyInstance;
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
 
   beforeAll(() => {
     jest.useFakeTimers();
@@ -244,13 +245,25 @@ describe("discoverSurfSpots scoring behavior", () => {
     jest.clearAllMocks();
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    const { __setMockProfile, __setMockFavorites, __setMockAffinity } = require("@/lib/supabase/server");
+    const { __setMockProfile, __setMockFavorites, __setMockAffinity, __setMockNearby, __setMockBeaches } = require("@/lib/supabase/server");
 
-    // Default: single home beach candidate, no favorites/affinity
+    // Default: profile with preferred wave size and experience level
     __setMockProfile({
       id: "user-1",
-      home_beach_id: "beach-1",
-      home_beach: {
+      preferred_wave_size: null,
+      experience_level: null,
+    });
+    __setMockFavorites([]);
+    __setMockAffinity([]);
+
+    // GPS-based discovery: set up nearby beaches via RPC mock
+    __setMockNearby([
+      { id: "beach-1", is_private: false, distance_meters: 100 },
+    ]);
+
+    // Beach details for the nearby beach
+    __setMockBeaches([
+      {
         id: "beach-1",
         name: "Test Beach",
         lat: 32.7157,
@@ -261,9 +274,7 @@ describe("discoverSurfSpots scoring behavior", () => {
         preferred_tide_ft_max: null,
         skill_level: "beginner",
       },
-    });
-    __setMockFavorites([]);
-    __setMockAffinity([]);
+    ]);
   });
 
   afterEach(() => {
@@ -299,7 +310,7 @@ describe("discoverSurfSpots scoring behavior", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -320,12 +331,10 @@ describe("discoverSurfSpots scoring behavior", () => {
   it("uses wind_direction_deg for wind alignment scoring", async () => {
     const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
 
-    // Configure beach wind metadata
-    const { __setMockProfile } = require("@/lib/supabase/server");
-    __setMockProfile({
-      id: "user-1",
-      home_beach_id: "beach-1",
-      home_beach: {
+    // Configure beach wind metadata via nearby beach mock
+    const { __setMockBeaches } = require("@/lib/supabase/server");
+    __setMockBeaches([
+      {
         id: "beach-1",
         name: "Wind Beach",
         lat: 32.7157,
@@ -336,7 +345,7 @@ describe("discoverSurfSpots scoring behavior", () => {
         preferred_tide_ft_max: null,
         skill_level: "beginner",
       },
-    });
+    ]);
 
     const f = mkForecast("2025-01-20T13:00:00Z", {
       wind_speed: "10",
@@ -354,7 +363,7 @@ describe("discoverSurfSpots scoring behavior", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
 
@@ -398,7 +407,7 @@ describe("discoverSurfSpots scoring behavior", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
 
@@ -416,18 +425,6 @@ describe("discoverSurfSpots scoring behavior", () => {
     __setMockProfile({
       id: "user-1",
       preferred_wave_size: "medium", // 3-6 ft
-      home_beach_id: "beach-1",
-      home_beach: {
-        id: "beach-1",
-        name: "Test Beach",
-        lat: 32.7157,
-        lon: -117.1611,
-        wind_offshore_deg: null,
-        wind_offshore_tol_deg: null,
-        preferred_tide_ft_min: null,
-        preferred_tide_ft_max: null,
-        skill_level: "beginner",
-      },
     });
 
     const f = mkForecast("2025-01-20T13:00:00Z", {
@@ -448,16 +445,18 @@ describe("discoverSurfSpots scoring behavior", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
 
-    // Score should be capped to avoid misleadingly high "Match %" when out of preferred range
-    expect(rec.score).toBeLessThanOrEqual(54);
+    // Score should be penalized when waves are below preferred range
+    // NEW: softer penalty (-5 pts per 1ft, max -15) vs OLD (-12 per 0.5ft, max -36)
+    // 0.9ft waves, medium pref (2-8 acceptable) = 1.1ft outside = ~6pt penalty
+    expect(rec.score).toBeLessThanOrEqual(70);
 
     // Warnings should include explicit warning about preferred size mismatch
     // The warning is generated by applyPreferredWaveSizeAdjustment in discovery-adapter
-    expect(rec.warnings.some(w => w.includes('smaller than your preferred size'))).toBe(true);
+    expect(rec.warnings.some(w => w.includes('smaller than preferred'))).toBe(true);
   });
 
   it("adds nearby beaches via get_nearby_beaches RPC when userLocation is provided", async () => {
@@ -469,13 +468,24 @@ describe("discoverSurfSpots scoring behavior", () => {
     } = require("@/lib/supabase/server");
 
     __setMockNearby([
-      { id: "beach-1", is_private: false, distance_meters: 0 }, // duplicate home beach
+      { id: "beach-1", is_private: false, distance_meters: 0 },
       { id: "beach-2", is_private: false, distance_meters: 1200 },
       { id: "beach-3", is_private: false, distance_meters: 2500 },
       { id: "beach-4", is_private: false, distance_meters: 4000 },
     ]);
 
     __setMockBeaches([
+      {
+        id: "beach-1",
+        name: "Nearby 1",
+        lat: 32.7157,
+        lon: -117.1611,
+        wind_offshore_deg: null,
+        wind_offshore_tol_deg: null,
+        preferred_tide_ft_min: null,
+        preferred_tide_ft_max: null,
+        skill_level: "beginner",
+      },
       {
         id: "beach-2",
         name: "Nearby 2",
@@ -558,10 +568,131 @@ describe("discoverSurfSpots scoring behavior", () => {
       .filter(Boolean);
     expect(clients.some((c: any) => typeof c.rpc === "function")).toBe(true);
   });
+
+  it("gives high score to advanced user when waves are 8ft", async () => {
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { __setMockProfile } = require("@/lib/supabase/server");
+
+    __setMockProfile({
+      id: "user-1",
+      preferred_wave_size: "large",
+      experience_level: "advanced",
+    });
+
+    const f = mkForecast("2025-01-20T13:00:00Z", {
+      wave_height: "8.0",
+      wave_period: "14s",
+      wind_speed: "4",
+      wind_direction: "NW",
+      confidence_score: 90,
+    });
+
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
+
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
+    assertHasRecommendation(result, consoleErrorSpy.mock.calls);
+    const rec = result.recommendations[0];
+
+    // Advanced user with large preference and 8ft waves should get reasonable score
+    // Base conditions scorer now gives 85 for 8ft+ (was capped at 60)
+    // Skill adjustment adds +5 bonus for matching preference
+    // Other factors (wind, tide) may reduce score, but it should still be good
+    expect(rec.score).toBeGreaterThanOrEqual(60);
+    // Score should be higher than what a beginner would get (50 or less)
+    // The key difference is: NO skill ceiling warning for advanced users
+    expect(rec.warnings.some(w => w.includes('exceed your skill level'))).toBe(false);
+  });
+
+  it("gives low score and warning to beginner when waves are 8ft", async () => {
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { __setMockProfile } = require("@/lib/supabase/server");
+
+    __setMockProfile({
+      id: "user-1",
+      preferred_wave_size: "small",
+      experience_level: "beginner",
+    });
+
+    const f = mkForecast("2025-01-20T13:00:00Z", {
+      wave_height: "8.0",
+      wave_period: "14s",
+      wind_speed: "4",
+      wind_direction: "NW",
+      confidence_score: 90,
+    });
+
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
+
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
+    assertHasRecommendation(result, consoleErrorSpy.mock.calls);
+    const rec = result.recommendations[0];
+
+    // Beginner with 8ft waves should get penalized
+    // 8ft exceeds beginner acceptable max of 4ft by 4ft
+    // Penalty = min(25, 4 * 8) = 25 points
+    expect(rec.score).toBeLessThanOrEqual(70);
+    // Should have skill ceiling warning
+    expect(rec.warnings.some(w => w.includes('exceed your skill level'))).toBe(true);
+  });
+
+  it("gives bonus to intermediate user when waves match skill ideal range", async () => {
+    const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
+    const { __setMockProfile } = require("@/lib/supabase/server");
+
+    __setMockProfile({
+      id: "user-1",
+      preferred_wave_size: null, // No preference set
+      experience_level: "intermediate",
+    });
+
+    const f = mkForecast("2025-01-20T13:00:00Z", {
+      wave_height: "3.5", // Within intermediate ideal range (2-5ft)
+      wave_period: "12s",
+      wind_speed: "5",
+      wind_direction: "NW",
+      confidence_score: 80,
+    });
+
+    (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+      new Map([
+        ["beach-1", {
+          beachId: "beach-1",
+          forecasts: [f],
+          metadata: { cached: true, stale: false, missing: false, reason: null },
+        }],
+      ])
+    );
+
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
+    assertHasRecommendation(result, consoleErrorSpy.mock.calls);
+    const rec = result.recommendations[0];
+
+    // Should get a reasonable score with bonus for waves matching skill level
+    expect(rec.score).toBeGreaterThanOrEqual(60);
+    // Should have reason about great wave size for level
+    expect(rec.reasons.some(r => r.includes('Great wave size for your level'))).toBe(true);
+  });
 });
 
 describe("discoverSurfSpots sunset filtering", () => {
   let consoleErrorSpy: jest.SpyInstance;
+  const defaultUserLocation = { lat: 37.7749, lon: -122.4194 }; // San Francisco
 
   beforeAll(() => {
     jest.useFakeTimers();
@@ -577,12 +708,26 @@ describe("discoverSurfSpots sunset filtering", () => {
     jest.clearAllMocks();
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    const { __setMockProfile, __setMockFavorites, __setMockAffinity, __setMockSunTimes } = require("@/lib/supabase/server");
+    const { __setMockProfile, __setMockFavorites, __setMockAffinity, __setMockSunTimes, __setMockNearby, __setMockBeaches } = require("@/lib/supabase/server");
 
+    // Profile with no home beach (GPS-only discovery)
     __setMockProfile({
       id: "user-1",
-      home_beach_id: "beach-1",
-      home_beach: {
+      preferred_wave_size: null,
+      experience_level: null,
+    });
+    __setMockFavorites([]);
+    __setMockAffinity([]);
+    __setMockSunTimes([]);
+
+    // GPS-based discovery: set up nearby beaches via RPC mock
+    __setMockNearby([
+      { id: "beach-1", is_private: false, distance_meters: 100 },
+    ]);
+
+    // Beach details for the nearby beach
+    __setMockBeaches([
+      {
         id: "beach-1",
         name: "Sunset Test Beach",
         lat: 37.7749,  // San Francisco coordinates
@@ -594,10 +739,7 @@ describe("discoverSurfSpots sunset filtering", () => {
         skill_level: "beginner",
         tz: "America/Los_Angeles",
       },
-    });
-    __setMockFavorites([]);
-    __setMockAffinity([]);
-    __setMockSunTimes([]);
+    ]);
   });
 
   afterEach(() => {
@@ -654,7 +796,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -691,7 +833,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -735,7 +877,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -779,7 +921,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -827,7 +969,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -872,7 +1014,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -925,7 +1067,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -980,7 +1122,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];
@@ -1033,7 +1175,7 @@ describe("discoverSurfSpots sunset filtering", () => {
       ])
     );
 
-    const result = await discoverSurfSpots("user-1", { maxResults: 1 });
+    const result = await discoverSurfSpots("user-1", { userLocation: defaultUserLocation, maxResults: 1 });
 
     assertHasRecommendation(result, consoleErrorSpy.mock.calls);
     const rec = result.recommendations[0];

@@ -130,7 +130,6 @@ export function HomeScreen() {
     userLocation: seedDiscoveryLocation,
     horizonHours: 24,
     maxResults: 6,
-    includeHome: true,
     currentSlot: timeSlot,
     enabled: !!profile && !geoLoading && !discoveryLoading,
   });
@@ -309,7 +308,7 @@ export function HomeScreen() {
               ) : !discoveryLoading ? (
                 <div className="flex flex-col gap-3 px-4 sm:px-1" data-testid="fallback-actions">
                   <button
-                    onClick={() => router.push("/discover")}
+                    onClick={() => router.push("/map")}
                     className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-semibold text-sm sm:text-base border border-white/20 hover:border-white/30 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-header-end"
                   >
                     Explore Beaches Near You

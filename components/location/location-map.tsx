@@ -3,12 +3,12 @@
 import { useMemo, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { InteractiveMap } from "@/components/map/interactive-map";
-import type { BeachWithMetrics } from "@/types/location";
 import type { Beach } from "@/types/database";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 
 interface LocationMapProps {
-  beaches: BeachWithMetrics[];
+  /** Beaches to display - accepts Beach or BeachWithMetrics (metrics are optional) */
+  beaches: Beach[];
   city: string;
   state: string;
   className?: string;

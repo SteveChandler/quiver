@@ -26,6 +26,9 @@ import type {
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { createContextLogger } from '@/lib/logger';
+
+const log = createContextLogger('WindowSelector');
 
 import type { WindowSelectorOptions, CandidateWindow, ScoredForecast } from './types';
 import {
@@ -446,7 +449,10 @@ export function selectBestWindow(
     actualTimeSlot = optionsOrForecasts.timeSlot;
   }
 
-  if (forecasts.length === 0) return null;
+  if (forecasts.length === 0) {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: No forecasts provided`);
+    return null;
+  }
 
   const now = new Date();
   const beachTz = getTimezoneFromCoords(actualBeach.lat || 0, actualBeach.lon || 0);
@@ -479,7 +485,10 @@ export function selectBestWindow(
 
   // Score and prepare forecasts
   const scoredForecasts = prepareForecasts(forecasts, actualBeach, beachTz, now, todayDateStr);
-  if (scoredForecasts.length === 0) return null;
+  if (scoredForecasts.length === 0) {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: No scored forecasts after filtering past times`);
+    return null;
+  }
 
   // Get sun times
   const sunTimes = actualSunTimesCache?.get(actualBeach.id);
@@ -488,7 +497,12 @@ export function selectBestWindow(
 
   // Filter by time slot
   const filteredForecasts = filterByTimeSlot(scoredForecasts, actualTimeSlot, sunrises, beachTz);
-  if (filteredForecasts.length === 0) return null;
+  if (filteredForecasts.length === 0) {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: No forecasts after time slot filter (slot=${actualTimeSlot || 'any'})`);
+    return null;
+  }
+
+  log.debug(`[selectBestWindow] ${actualBeach.name}: ${filteredForecasts.length} forecasts to evaluate, isMorning=${isMorning}`);
 
   let bestWindow: CandidateWindow | null = null;
   let bestAdjustedScore = -1;
@@ -503,11 +517,13 @@ export function selectBestWindow(
       : 0;
 
     if (startScore < effectiveThreshold) {
+      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} score=${startScore} < threshold=${effectiveThreshold}, skipping`);
       continue;
     }
 
     // Light/sunset checks
     if (shouldSkipDueToLight(startTime, sunsets, beachTz, getLocalDateStrForBeach)) {
+      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} skipped due to light/sunset constraints`);
       continue;
     }
 
@@ -518,8 +534,11 @@ export function selectBestWindow(
     if (sameDaySunset) {
       const hoursUntilSunset = (sameDaySunset.getTime() - startTime.getTime()) / (1000 * 60 * 60);
       if (hoursUntilSunset < MIN_SESSION_HOURS) {
+        log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} too close to sunset (${hoursUntilSunset.toFixed(1)}h < ${MIN_SESSION_HOURS}h)`);
         continue;
       }
+    } else {
+      log.debug(`[selectBestWindow] ${actualBeach.name}: No same-day sunset found for ${forecastDateStr}, sunsets available: ${sunsets.map(s => getLocalDateStrForBeach(s)).join(', ')}`);
     }
 
     // Horizon constraint
@@ -602,7 +621,10 @@ export function selectBestWindow(
 
     // Validate minimum session length
     const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
-    if (durationHours < MIN_SESSION_HOURS) continue;
+    if (durationHours < MIN_SESSION_HOURS) {
+      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} session too short (${durationHours.toFixed(1)}h < ${MIN_SESSION_HOURS}h)`);
+      continue;
+    }
 
     // Calculate adjusted score
     const adjustedScore = calculateAdjustedScore(startScore, startTime, now, isToday, isMorning, beachTz);
@@ -619,6 +641,13 @@ export function selectBestWindow(
     }
   }
 
+  // Log main loop result
+  if (bestWindow) {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: Main loop found window with score=${bestWindow.score}`);
+  } else {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: Main loop found no valid window, trying fallback...`);
+  }
+
   // Fallback: if no forecasts passed threshold, use the best available anyway
   if (!bestWindow && filteredForecasts.length > 0) {
     bestWindow = selectFallbackWindow(
@@ -630,11 +659,13 @@ export function selectBestWindow(
       now,
       beachTz,
       isMorning,
-      getLocalDateStrForBeach
+      getLocalDateStrForBeach,
+      actualBeach.name // Pass beach name for logging
     );
   }
 
   if (!bestWindow) {
+    log.debug(`[selectBestWindow] ${actualBeach.name}: Both main loop and fallback returned null - NO WINDOW SELECTED`);
     return null;
   }
 
@@ -669,8 +700,10 @@ function selectFallbackWindow(
   now: Date,
   beachTz: string,
   isMorning: boolean,
-  getLocalDateStrForBeach: (d: Date) => string
+  getLocalDateStrForBeach: (d: Date) => string,
+  beachName?: string // For debug logging
 ): CandidateWindow | null {
+  const logPrefix = beachName ? `[selectFallbackWindow] ${beachName}` : '[selectFallbackWindow]';
   // Filter out night hours and post-sunset times
   const daylightForecasts = filteredForecasts.filter(({ forecastTime }) => {
     // Time slot filter
@@ -720,8 +753,11 @@ function selectFallbackWindow(
   });
 
   if (daylightForecasts.length === 0) {
+    log.debug(`${logPrefix}: No daylight forecasts available after filtering ${filteredForecasts.length} input forecasts`);
     return null;
   }
+
+  log.debug(`${logPrefix}: ${daylightForecasts.length} daylight forecasts available for fallback selection`);
 
   // Calculate adjusted score for fallback selection
   const getAdjustedScore = (f: ScoredForecast) => {
@@ -764,6 +800,7 @@ function selectFallbackWindow(
   // Check horizon constraint
   const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
   if (horizonHours && hoursAhead > horizonHours) {
+    log.debug(`${logPrefix}: Best fallback forecast is ${hoursAhead.toFixed(1)}h ahead, exceeds horizon of ${horizonHours}h`);
     return null;
   }
 
@@ -812,8 +849,11 @@ function selectFallbackWindow(
 
   const durationHours = (endTime.getTime() - effectiveStartTime.getTime()) / (1000 * 60 * 60);
   if (durationHours < MIN_SESSION_HOURS) {
+    log.debug(`${logPrefix}: Fallback session too short (${durationHours.toFixed(1)}h < ${MIN_SESSION_HOURS}h), start=${effectiveStartTime.toISOString()}, end=${endTime.toISOString()}`);
     return null;
   }
+
+  log.debug(`${logPrefix}: Fallback selected window with score=${best.score}, duration=${durationHours.toFixed(1)}h`);
 
   return {
     forecast: best.forecast,

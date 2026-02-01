@@ -263,9 +263,10 @@ test.describe('Home Header Animations', () => {
 
   test.describe('6. Reduced Motion Support', () => {
     test('should respect reduced motion preference', async ({ browser }) => {
-      // Create context with reduced motion preference
+      // Create context with reduced motion preference AND auth state
       const context = await browser.newContext({
-        reducedMotion: 'reduce'
+        reducedMotion: 'reduce',
+        storageState: 'e2e/.auth/user.json',
       });
       const page = await context.newPage();
 
@@ -329,8 +330,17 @@ test.describe('Home Header Animations', () => {
 
     test('should display gradient header background', async ({ page }) => {
       // Check for gradient header container
-      const headerContainer = page.locator('.bg-gradient-to-b.from-header-start.to-header-end').first();
-      await expect(headerContainer).toBeVisible({ timeout: TIMEOUTS.medium });
+      // Note: CSS classes differ based on reducedMotion preference:
+      // - With reduced motion: .bg-gradient-to-b.from-header-start.to-header-end
+      // - Without reduced motion: .bg-[linear-gradient...] with animate-ocean-swell
+      const reducedMotionHeader = page.locator('.bg-gradient-to-b.from-header-start.to-header-end').first();
+      const animatedHeader = page.locator('.animate-ocean-swell').first();
+
+      // Either pattern should be visible (depending on user's reduced motion setting)
+      const hasReducedMotion = await reducedMotionHeader.isVisible({ timeout: 1000 }).catch(() => false);
+      const hasAnimated = await animatedHeader.isVisible({ timeout: 1000 }).catch(() => false);
+
+      expect(hasReducedMotion || hasAnimated).toBe(true);
     });
   });
 });

@@ -35,6 +35,8 @@ export interface ShareSheetProps {
 
 type ShareState = "idle" | "loading" | "error" | "success";
 
+const LOADING_TEXT = "Generating image...";
+
 /**
  * Minimal bottom sheet for sharing images
  *
@@ -54,12 +56,14 @@ export function ShareSheet({
 }: ShareSheetProps) {
   const [state, setState] = React.useState<ShareState>("idle");
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = React.useState(false);
 
   // Reset state when sheet opens
   React.useEffect(() => {
     if (open) {
       setState("idle");
       setErrorMessage(null);
+      setImageLoaded(false);
     }
   }, [open]);
 
@@ -107,15 +111,25 @@ export function ShareSheet({
         <div className="flex flex-col items-center gap-4 pt-2">
           {/* Image preview */}
           <div className="relative w-full max-w-sm aspect-[4/3] rounded-lg overflow-hidden bg-muted">
+            {/* Shimmer loading state */}
+            {!imageLoaded && (
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-muted via-muted-foreground/10 to-muted" />
+            )}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
               alt="Session preview"
-              className="w-full h-full object-cover"
+              className={cn(
+                "w-full h-full object-cover transition-opacity duration-300",
+                imageLoaded ? "opacity-100" : "opacity-0"
+              )}
+              onLoad={() => setImageLoaded(true)}
             />
+            {/* Share action loading overlay - 70% opacity allows preview visibility while indicating blocking operation */}
             {state === "loading" && (
-              <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-medium text-foreground">{LOADING_TEXT}</span>
               </div>
             )}
           </div>
@@ -138,7 +152,7 @@ export function ShareSheet({
             {state === "loading" ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sharing...
+                {LOADING_TEXT}
               </>
             ) : (
               <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -60,10 +60,16 @@ const STATIC_MENU_ITEMS = [
 ];
 
 export function Navbar() {
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const { regionName } = useLandingLocation();
+
+  // Prevent hydration mismatch from Radix UI components generating different IDs
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Build menu items with dynamic first region based on user's location
   const exploreMenuItems = useMemo(() => {
@@ -106,31 +112,38 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             {/* Explore Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
+            {mounted ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
+                  Explore
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64 p-4">
+                  {Object.entries(groupedMenuItems).map(([category, items]) => (
+                    <div key={category} className="mb-4 last:mb-0">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        {category}
+                      </div>
+                      {items.map((item) => (
+                        <DropdownMenuItem key={item.label} asChild>
+                          <Link
+                            href={item.href}
+                            className="block px-2 py-1.5 text-sm text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded cursor-pointer"
+                          >
+                            {item.label}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <span className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
                 Explore
                 <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64 p-4">
-                {Object.entries(groupedMenuItems).map(([category, items]) => (
-                  <div key={category} className="mb-4 last:mb-0">
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                      {category}
-                    </div>
-                    {items.map((item) => (
-                      <DropdownMenuItem key={item.label} asChild>
-                        <Link
-                          href={item.href}
-                          className="block px-2 py-1.5 text-sm text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded cursor-pointer"
-                        >
-                          {item.label}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </span>
+            )}
 
             {/* Other Nav Links */}
             <Link
@@ -161,86 +174,98 @@ export function Navbar() {
 
           {/* Mobile Menu Toggle */}
           <div className="md:hidden">
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/10"
-                  aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-                  data-testid="mobile-menu-button"
-                >
-                  {mobileMenuOpen ? (
-                    <X className="h-6 w-6" />
-                  ) : (
-                    <Menu className="h-6 w-6" />
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-80 p-0 flex flex-col">
-                {/* Scrollable menu content */}
-                <div className="flex-1 overflow-y-auto px-6">
-                  <div className="flex flex-col gap-6 mt-8">
-                    {/* Mobile Explore Section */}
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                        Explore
-                      </h3>
-                      {Object.entries(groupedMenuItems).map(
-                        ([category, items]) => (
-                          <div key={category} className="mb-4">
-                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                              {category}
+            {mounted ? (
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-white/10"
+                    aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                    data-testid="mobile-menu-button"
+                  >
+                    {mobileMenuOpen ? (
+                      <X className="h-6 w-6" />
+                    ) : (
+                      <Menu className="h-6 w-6" />
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-80 p-0 flex flex-col">
+                  {/* Scrollable menu content */}
+                  <div className="flex-1 overflow-y-auto px-6">
+                    <div className="flex flex-col gap-6 mt-8">
+                      {/* Mobile Explore Section */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                          Explore
+                        </h3>
+                        {Object.entries(groupedMenuItems).map(
+                          ([category, items]) => (
+                            <div key={category} className="mb-4">
+                              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                                {category}
+                              </div>
+                              {items.map((item) => (
+                                <Link
+                                  key={item.label}
+                                  href={item.href}
+                                  className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
+                                  onClick={() => setMobileMenuOpen(false)}
+                                >
+                                  {item.label}
+                                </Link>
+                              ))}
                             </div>
-                            {items.map((item) => (
-                              <Link
-                                key={item.label}
-                                href={item.href}
-                                className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
-                                onClick={() => setMobileMenuOpen(false)}
-                              >
-                                {item.label}
-                              </Link>
-                            ))}
-                          </div>
-                        )
-                      )}
-                    </div>
+                          )
+                        )}
+                      </div>
 
-                    {/* Mobile Other Links */}
-                    <div className="border-t pt-4">
-                      <Link
-                        href="/discover"
-                        className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded font-medium"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Discover
-                      </Link>
+                      {/* Mobile Other Links */}
+                      <div className="border-t pt-4">
+                        <Link
+                          href="/discover"
+                          className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded font-medium"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          Discover
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Mobile Auth Buttons - Pinned to bottom */}
-                <div className="border-t pt-4 pb-6 px-6 mt-auto">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setAuthMode("login");
-                      setAuthModalOpen(true);
-                      trackAuthModalOpened({
-                        mode: "login",
-                        source: "landing-navbar-mobile",
-                      });
-                    }}
-                  >
-                    Log in
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
+                  {/* Mobile Auth Buttons - Pinned to bottom */}
+                  <div className="border-t pt-4 pb-6 px-6 mt-auto">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setAuthMode("login");
+                        setAuthModalOpen(true);
+                        trackAuthModalOpened({
+                          mode: "login",
+                          source: "landing-navbar-mobile",
+                        });
+                      }}
+                    >
+                      Log in
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/10"
+                aria-label="Open menu"
+                data-testid="mobile-menu-button"
+              >
+                <Menu className="h-6 w-6" />
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -1545,4 +1545,133 @@ test("POST /api/boards returns 400 for invalid payload", async () => {
 
 ---
 
-**Last Updated**: January 18, 2026
+---
+
+## Test Data Cleanup
+
+### Overview
+
+E2E tests running against `dev.quiversurf.app` create test data (sessions, intel posts) that can accumulate and clutter the community feed. The cleanup system uses **soft-delete patterns** to remove test data without permanent data loss.
+
+### How Test Data Is Identified
+
+Test users are identified by two criteria:
+
+1. **Main test user** - The email address specified in `TEST_USER_EMAIL` environment variable
+2. **Mock persona users** - User profiles with `is_mock = true` flag in the database
+
+All content (sessions, intel posts) created by these users is considered test data.
+
+### Soft Delete Patterns
+
+The cleanup uses existing soft-delete infrastructure:
+
+| Table | Soft Delete Column | Active State | Deleted State |
+|-------|-------------------|--------------|---------------|
+| `sessions` | `deleted_at` | `NULL` | Timestamp |
+| `intel_posts` | `is_active` | `true` | `false` |
+
+Soft-deleted data can be restored using the `restore_entity()` SQL function if needed.
+
+### Automatic Cleanup (Global Teardown)
+
+When running E2E tests against the dev environment, cleanup runs automatically after all tests complete:
+
+```bash
+# Tests against dev environment trigger cleanup
+yarn test:e2e:dev
+
+# Local tests do NOT trigger cleanup (to preserve your local data)
+yarn test:e2e
+```
+
+The global teardown (`e2e/global-teardown.ts`) detects the dev environment and soft-deletes test data:
+- Only runs when `TEST_ENV=dev` or `BASE_URL` contains `dev.quiversurf.app`
+- Cleanup failures don't fail the test suite (non-fatal)
+- Results are logged for debugging
+
+### Manual Cleanup
+
+For manual cleanup of existing test data:
+
+```bash
+# Preview what would be deleted (dry run)
+yarn test:e2e:cleanup:dry-run
+
+# Actually soft-delete test data
+yarn test:e2e:cleanup
+```
+
+The standalone script (`e2e/scripts/cleanup-test-data.ts`):
+- Always shows a preview first
+- Asks for confirmation before deletion (unless `--yes` flag)
+- Reports statistics after cleanup
+- Supports `--dry-run` for safe previewing
+
+### Cleanup Utility
+
+**Location:** `e2e/utils/test-data-cleanup.ts`
+
+The cleanup utility can be imported and used programmatically:
+
+```typescript
+import {
+  cleanupAllTestData,
+  previewCleanup,
+  executeCleanup
+} from './utils/test-data-cleanup';
+
+// Preview what would be cleaned
+const preview = await previewCleanup(true); // verbose=true
+console.log(`Would clean ${preview.totalCleaned} items`);
+
+// Execute cleanup
+const result = await executeCleanup(true); // verbose=true
+console.log(`Cleaned ${result.totalCleaned} items`);
+```
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypasses RLS) | Yes |
+| `TEST_USER_EMAIL` | Main test user email | Optional |
+| `TEST_ENV` | Environment name (e.g., 'dev') | Optional |
+| `BASE_URL` | Target URL for tests | Optional |
+
+### Safety Considerations
+
+- **Soft delete only**: Data is marked as deleted, not permanently removed
+- **Test users only**: Only affects content from identified test users
+- **Dev environment only**: Automatic cleanup only triggers for dev, not production
+- **Recoverable**: Use `restore_entity()` SQL function to recover soft-deleted data
+- **Non-fatal**: Cleanup failures don't fail the test suite
+
+### Troubleshooting
+
+**Cleanup not running:**
+- Verify `TEST_ENV=dev` or `BASE_URL` contains `dev.quiversurf.app`
+- Check environment variables are loaded from `.env.playwright`
+
+**No test users found:**
+- Verify `TEST_USER_EMAIL` is set correctly
+- Ensure mock users have `is_mock = true` in profiles table
+- Run `yarn seed:prod-mock-users` to create mock users
+
+**Permission errors:**
+- Verify `SUPABASE_SERVICE_ROLE_KEY` is set
+- Service role key must have access to bypass RLS
+
+**Want to restore deleted data:**
+```sql
+-- Restore a session
+SELECT restore_entity('sessions', 'uuid-here');
+
+-- Restore intel post (manual update)
+UPDATE intel_posts SET is_active = true WHERE id = 'uuid-here';
+```
+
+---
+
+**Last Updated**: February 1, 2026

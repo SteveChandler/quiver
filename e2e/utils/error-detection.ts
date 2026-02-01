@@ -292,8 +292,25 @@ function isIgnorableConsoleError(text: string): boolean {
     // Sentry noise
     'Sentry',
 
+    // Service worker registration failures (optional feature)
+    'Failed to register a ServiceWorker',
+    'Failed to register service worker',
+    'sw.js',
+    'A bad HTTP response code (404) was received when fetching the script',
+
+    // React hydration errors - can occur in dev/staging due to SSR timing
+    'Minified React error #418',
+    'Minified React error #423',
+    'Minified React error #425',
+    'Hydration failed',
+    'hydrating',
+
     // Image loading (handled gracefully)
     'Image optimization',
+
+    // Generic resource loading failures that match filtered network errors
+    // (Browser logs both network error and console error for same issue)
+    'Failed to load resource: the server responded with a status of 400',
 
     // Rate limiting (429) - infrastructure protection, not bugs
     // These can appear in different formats depending on the API handler
@@ -327,8 +344,26 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
       'analytics',
       'gtm',
       'facebook',
+      '/sw.js', // Service worker is optional
     ];
     return optional.some((pattern) => url.includes(pattern));
+  }
+
+  // 400 errors on root URL (no path) are often infrastructure-related
+  // (e.g., Vercel edge requests, prefetch failures, etc.)
+  if (status === 400) {
+    try {
+      const parsedUrl = new URL(url);
+      // If the URL has no path (just origin + trailing slash) or is missing path info
+      if (parsedUrl.pathname === '/' && !parsedUrl.search) {
+        return true;
+      }
+    } catch {
+      // If URL parsing fails, check if it's just a bare domain
+      if (url.match(/^https?:\/\/[^/]+\/?$/)) {
+        return true;
+      }
+    }
   }
 
   return false;

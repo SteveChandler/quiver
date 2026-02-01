@@ -373,7 +373,6 @@ describe("useTimeSlotPrefetch", () => {
           radiusMiles: 50,
           horizonHours: 24,
           maxResults: 6,
-          includeHome: true,
           currentSlot: "any",
           enabled: true,
         })
@@ -393,7 +392,6 @@ describe("useTimeSlotPrefetch", () => {
       expect(fetchUrl).toContain("radius=50");
       expect(fetchUrl).toContain("horizonHours=24");
       expect(fetchUrl).toContain("maxResults=6");
-      expect(fetchUrl).toContain("includeHome=true");
       expect(fetchUrl).toContain("timeSlot=");
     });
 

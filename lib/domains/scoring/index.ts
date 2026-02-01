@@ -33,11 +33,23 @@ export {
 } from './scorers';
 
 // Discovery adapter (backwards compatibility with surf-discovery-service)
-export type { DiscoveryScoringOptions } from './discovery-adapter';
+export type {
+  DiscoveryScoringOptions,
+  SkillCeilingResult,
+  SkillBonusResult,
+  PreferenceAdjustmentResult,
+} from './discovery-adapter';
 export {
   createDiscoveryScoringEngine,
   beachToSpotProfile,
   forecastToSnapshot,
   compositeToDetailedScore,
   scoreBeachWithEngine,
+  // Wave size scoring configuration and helper functions
+  WAVE_SIZE_SCORING_CONFIG,
+  SKILL_WAVE_RANGES,
+  PREF_WAVE_RANGES,
+  checkSkillCeiling,
+  calculateSkillBonus,
+  calculatePreferenceAdjustment,
 } from './discovery-adapter';

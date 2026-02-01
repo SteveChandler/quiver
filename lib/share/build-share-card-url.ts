@@ -99,6 +99,8 @@ export interface SurfCallShareParams {
   tideBadge?: string;
   /** Natural language message about conditions */
   message?: string;
+  /** Time context (e.g., "Tomorrow Morning", "This Afternoon") */
+  timeContext?: string;
 }
 
 /**
@@ -147,6 +149,10 @@ export function buildSurfCallShareUrl(params: SurfCallShareParams): string {
 
   if (params.message) {
     searchParams.set('message', params.message);
+  }
+
+  if (params.timeContext) {
+    searchParams.set('timeContext', params.timeContext);
   }
 
   return `${baseUrl}/api/og/surf-call?${searchParams.toString()}`;

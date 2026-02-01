@@ -10,9 +10,9 @@ primary_region = 'lax'
   dockerfile = 'Dockerfile'
 
 [env]
-  MODEL_PATH = 'models/bias_model_v2.json'
-  MODEL_VERSION = 'v2'
-  FALLBACK_MODEL_PATH = 'models/bias_model_v1.json'
+  MODEL_PATH = 'models/bias_model_v3.json'
+  MODEL_VERSION = 'v3'
+  FALLBACK_MODEL_PATH = 'models/bias_model_v2.json'
   USE_ENSEMBLE = 'false'
   PORT = '8080'
 

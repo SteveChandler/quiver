@@ -5,6 +5,11 @@
  * These are immutable value objects constructed from Beach database rows.
  */
 
+import type { SkillLevel } from '../user-preferences/skill-level';
+
+// Re-export SkillLevel for backwards compatibility with existing imports
+export type { SkillLevel };
+
 /**
  * Swell window configuration for a beach.
  * Swells within this directional range reach the beach cleanly.
@@ -50,11 +55,6 @@ export interface TidePreferences {
   /** How sensitive this spot is to wrong tide direction */
   readonly directionSensitivity: 'low' | 'medium' | 'high';
 }
-
-/**
- * Skill level classification for a surf spot.
- */
-export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
 /**
  * Complete spot profile for scoring.

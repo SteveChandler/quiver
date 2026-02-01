@@ -234,7 +234,7 @@ export default function SessionPhotoUpload({
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      if (result.success) {
+      if (result.success && result.data) {
         toast.success(`Successfully uploaded ${result.data.uploaded} photo(s)`);
 
         if (result.data.failed > 0) {

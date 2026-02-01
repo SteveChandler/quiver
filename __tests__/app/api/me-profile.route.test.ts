@@ -8,8 +8,8 @@ describe("GET /api/me/profile", () => {
       createSuccessResponse: (data: any, status = 200) => ({ status, json: async () => ({ success: true, data }) }),
       handleApiError: (err: any) => ({ status: 500, json: async () => ({ success: false, error: String(err) }) }),
     }));
-    const { GET } = await import("@/app/api/me/profile/route");
-    const res = await GET({} as any, {
+    const { handleGet } = await import("@/app/api/me/profile/route");
+    const res = await handleGet({} as any, {
       getUserFn: async () => ({ user: null, error: { message: "No auth" } } as any),
     });
     expect(res.status).toBe(401);
@@ -22,8 +22,8 @@ describe("GET /api/me/profile", () => {
       createSuccessResponse: (data: any, status = 200) => ({ status, json: async () => ({ success: true, data }) }),
       handleApiError: (err: any) => ({ status: 500, json: async () => ({ success: false, error: String(err) }) }),
     }));
-    const { GET } = await import("@/app/api/me/profile/route");
-    const res = await GET({} as any, {
+    const { handleGet } = await import("@/app/api/me/profile/route");
+    const res = await handleGet({} as any, {
       getUserFn: async () => ({ user: { id: "u1" }, error: null } as any),
       fetchProfileFn: async () => null as any,
     });
@@ -37,8 +37,8 @@ describe("GET /api/me/profile", () => {
       createSuccessResponse: (data: any, status = 200) => ({ status, json: async () => ({ success: true, data }) }),
       handleApiError: (err: any) => ({ status: 500, json: async () => ({ success: false, error: String(err) }) }),
     }));
-    const { GET } = await import("@/app/api/me/profile/route");
-    const res = await GET({} as any, {
+    const { handleGet } = await import("@/app/api/me/profile/route");
+    const res = await handleGet({} as any, {
       getUserFn: async () => ({ user: { id: "u1" }, error: null } as any),
       fetchProfileFn: async () => ({
         id: "u1",

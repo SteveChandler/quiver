@@ -37,7 +37,6 @@ describe("discovery-cache-utils", () => {
         radiusMiles: 25,
         horizonHours: 24,
         maxResults: 6,
-        includeHome: true,
       };
       const options2: DiscoveryCacheOptions = { ...options1 };
 
@@ -146,21 +145,6 @@ describe("discovery-cache-utils", () => {
       const options2: DiscoveryCacheOptions = {
         timeSlot: "afternoon", // Different timeSlot ensures different hash
         maxResults: 10,
-      };
-
-      // Different timeSlots always produce different hashes
-      expect(hashDiscoveryOptions(options1)).not.toBe(hashDiscoveryOptions(options2));
-    });
-
-    it("should differentiate by includeHome when combined with timeSlot", () => {
-      // Testing that includeHome contributes to the hash when combined with other params
-      const options1: DiscoveryCacheOptions = {
-        timeSlot: "dawn-patrol",
-        includeHome: true,
-      };
-      const options2: DiscoveryCacheOptions = {
-        timeSlot: "any", // Different timeSlot ensures different hash
-        includeHome: false,
       };
 
       // Different timeSlots always produce different hashes

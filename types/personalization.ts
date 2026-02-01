@@ -259,9 +259,9 @@ export interface SurfDiscoveryResponse {
  * Options for surf discovery queries
  */
 export interface SurfDiscoveryOptions {
-  /** User's GPS location (optional, Phase 2) */
+  /** User's GPS location (required for GPS-based discovery) */
   userLocation?: { lat: number; lon: number };
-  /** Search radius in miles (default: 25, Phase 2) */
+  /** Search radius in miles (default: 25) */
   radiusMiles?: number;
   /**
    * Hard cap for how far in the future a "best window" may start (in hours).
@@ -273,8 +273,6 @@ export interface SurfDiscoveryOptions {
   timeSlot?: TimeSlot;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
-  /** Include home beach in results (default: true) */
-  includeHome?: boolean;
   /** Maximum concurrent forecast fetches (default: 5) */
   maxConcurrent?: number;
   /** Timeout per beach forecast in ms (default: 5000) */

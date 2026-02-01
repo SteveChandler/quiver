@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
  * Validates discovery query parameters
  */
 const QuerySchema = z.object({
-  // GPS location (Phase 2)
+  // GPS location (required for discovery)
   lat: z.coerce.number().min(-90).max(90).optional(),
   lon: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().positive().max(100).optional(), // miles
@@ -27,28 +27,23 @@ const QuerySchema = z.object({
   horizonHours: z.coerce.number().int().min(1).max(72).optional(),
   // Result limits
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
-  includeHome: z
-    .string()
-    .optional()
-    .transform((val) => val !== 'false'),
 });
 
 /**
  * GET /api/surf/discover
  *
- * Returns ranked surf spot recommendations for authenticated user.
- * Discovers beaches from home + favorites + (GPS nearby in Phase 2),
- * scores them with detailed condition matching, and returns ranked list.
+ * Returns ranked surf spot recommendations based on user's GPS location.
+ * Discovers nearby beaches sorted by distance, scores them with detailed
+ * condition matching, and returns the top ranked list.
  *
- * @param request - Next.js request with optional query params
+ * @param request - Next.js request with query params
  * @returns SurfDiscoveryResponse with ranked recommendations
  *
  * Query Parameters:
- * - lat (optional, Phase 2): User's latitude for GPS discovery
- * - lon (optional, Phase 2): User's longitude for GPS discovery
- * - radius (optional, Phase 2): Search radius in miles (default: 25, max: 100)
+ * - lat (required): User's latitude for GPS discovery
+ * - lon (required): User's longitude for GPS discovery
+ * - radius (optional): Search radius in miles (default: 25, max: 100)
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
- * - includeHome (optional): Include home beach (default: true)
  * - timeSlot (optional): Time slot preference ('any', 'morning', 'afternoon', 'dawn-patrol', default: 'any')
  *
  * Authentication: Required (user session)
@@ -56,10 +51,9 @@ const QuerySchema = z.object({
  * Cache: Private, 5 minutes
  *
  * @example
- * GET /api/surf/discover
- * GET /api/surf/discover?maxResults=10
- * GET /api/surf/discover?timeSlot=morning
- * GET /api/surf/discover?lat=32.7157&lon=-117.1611&radius=25 (Phase 2)
+ * GET /api/surf/discover?lat=32.7157&lon=-117.1611
+ * GET /api/surf/discover?lat=32.7157&lon=-117.1611&radius=50&maxResults=10
+ * GET /api/surf/discover?lat=32.7157&lon=-117.1611&timeSlot=morning
  */
 async function surfDiscoveryHandler(
   request: NextRequest,
@@ -73,7 +67,6 @@ async function surfDiscoveryHandler(
     radius: searchParams.get('radius') || undefined,
     horizonHours: searchParams.get('horizonHours') || undefined,
     maxResults: searchParams.get('maxResults') || undefined,
-    includeHome: searchParams.get('includeHome') || undefined,
   };
 
   const validationResult = validateOrError(QuerySchema, queryData);
@@ -81,8 +74,7 @@ async function surfDiscoveryHandler(
     return validationResult.error;
   }
 
-  const { lat, lon, radius, horizonHours, maxResults, includeHome } =
-    validationResult.data;
+  const { lat, lon, radius, horizonHours, maxResults } = validationResult.data;
 
   // Parse timeSlot query parameter
   const timeSlotParam = searchParams.get('timeSlot');
@@ -111,7 +103,6 @@ async function surfDiscoveryHandler(
     radiusMiles: radius,
     horizonHours,
     maxResults,
-    includeHome,
     timeSlot,
   });
 

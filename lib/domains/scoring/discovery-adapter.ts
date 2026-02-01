@@ -18,6 +18,8 @@ import type { ScorerInput, CompositeScore } from './types';
 import type { SpotProfile } from '../spot-profile/types';
 import type { ConditionsSnapshot, ConditionsWindow } from '../conditions/types';
 import type { UserPreferences } from '../user-preferences/types';
+import type { SkillLevel } from '../user-preferences/skill-level';
+import { getSkillLevelOrDefault } from '../user-preferences/skill-level';
 import { createSpotProfile } from '../spot-profile';
 import { createSwellComponent } from '../conditions';
 import {
@@ -169,6 +171,8 @@ export interface DiscoveryScoringOptions {
   distancePenalty?: number;
   /** User's preferred wave size category */
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any' | null;
+  /** User's experience/skill level */
+  userSkillLevel?: SkillLevel | null;
 }
 
 /**
@@ -195,13 +199,15 @@ export function scoreBeachWithEngine(
 
   const composite = engine.score(input);
 
-  // Apply preferred wave size adjustment
+  // Apply preferred wave size adjustment WITH skill level
+  // Now applies if there's a preference OR a skill level (for skill ceiling checks)
   let adjustedComposite = composite;
-  if (options?.preferredWaveSize && options.preferredWaveSize !== 'any') {
+  if (options?.preferredWaveSize !== 'any' || options?.userSkillLevel) {
     adjustedComposite = applyPreferredWaveSizeAdjustment(
       composite,
       snapshot.waveHeight,
-      options.preferredWaveSize
+      options?.preferredWaveSize || 'any',
+      options?.userSkillLevel
     );
   }
 
@@ -212,62 +218,279 @@ export function scoreBeachWithEngine(
   );
 }
 
+// =============================================================================
+// Wave Size Scoring Configuration
+// =============================================================================
+
 /**
- * Apply preferred wave size adjustment to composite score.
- * Penalizes scores when waves don't match user's preferred size category.
+ * Configuration constants for wave size scoring adjustments.
+ * Centralized for easy tuning and testing.
  */
-function applyPreferredWaveSizeAdjustment(
-  composite: CompositeScore,
+export const WAVE_SIZE_SCORING_CONFIG = {
+  /** Points deducted per foot over skill ceiling */
+  skillCeilingPenaltyPerFoot: 8,
+  /** Bonus points for waves in skill ideal range */
+  skillIdealBonus: 3,
+  /** Bonus points for waves matching preference */
+  preferenceMatchBonus: 5,
+  /** Penalty points per foot outside preference range */
+  preferenceOutsidePenaltyPerFoot: 5,
+  /** Maximum penalty for preference mismatch */
+  preferenceOutsideMaxPenalty: 15,
+  /** Warning thresholds */
+  warnings: {
+    /** Feet over limit for "dangerous" warning */
+    dangerousThreshold: 8,
+    /** Feet over limit for "significantly exceeds" warning */
+    significantThreshold: 4,
+  },
+} as const;
+
+/**
+ * Skill-based wave height ranges.
+ * Defines ideal and acceptable wave ranges for each skill level.
+ */
+interface SkillWaveRanges {
+  ideal: { min: number; max: number };
+  acceptable: { min: number; max: number };
+}
+
+export const SKILL_WAVE_RANGES: Record<SkillLevel, SkillWaveRanges> = {
+  beginner: {
+    ideal: { min: 1, max: 3 },
+    acceptable: { min: 0.5, max: 4 },
+  },
+  intermediate: {
+    ideal: { min: 2, max: 5 },
+    acceptable: { min: 1, max: 6 },
+  },
+  advanced: {
+    ideal: { min: 3, max: 8 },
+    acceptable: { min: 2, max: 12 },
+  },
+  expert: {
+    ideal: { min: 4, max: 12 },
+    acceptable: { min: 2, max: 20 },
+  },
+};
+
+/**
+ * Preference-based wave height ranges.
+ */
+export const PREF_WAVE_RANGES = {
+  small: { ideal: { min: 1, max: 3 }, acceptable: { min: 0.5, max: 4 } },
+  medium: { ideal: { min: 3, max: 6 }, acceptable: { min: 2, max: 8 } },
+  large: { ideal: { min: 5, max: 12 }, acceptable: { min: 4, max: 15 } },
+} as const;
+
+// =============================================================================
+// Skill Level Scoring Helper Functions
+// =============================================================================
+
+/**
+ * Result of checking wave height against skill ceiling.
+ */
+export interface SkillCeilingResult {
+  /** Penalty points (0 if within skill limit) */
+  penalty: number;
+  /** Warning message if over skill limit */
+  warning: string | null;
+}
+
+/**
+ * Check if wave height exceeds user's skill ceiling.
+ * Returns penalty and warning for waves that are too big for skill level.
+ *
+ * @param waveHeight - Current wave height in feet
+ * @param skillLevel - User's skill level
+ * @returns Penalty and warning (if applicable)
+ */
+export function checkSkillCeiling(
+  waveHeight: number,
+  skillLevel: SkillLevel
+): SkillCeilingResult {
+  const skillRanges = SKILL_WAVE_RANGES[skillLevel];
+
+  if (waveHeight <= skillRanges.acceptable.max) {
+    return { penalty: 0, warning: null };
+  }
+
+  const overSkill = waveHeight - skillRanges.acceptable.max;
+  // SAFETY: No cap on penalty - dangerous conditions should receive severe scores.
+  // -8 pts per foot over limit. Example: Beginner (max 4ft) vs 20ft = -128 pts
+  const penalty = Math.round(overSkill * WAVE_SIZE_SCORING_CONFIG.skillCeilingPenaltyPerFoot);
+
+  // Determine warning severity based on how far over skill level
+  const warning =
+    overSkill >= WAVE_SIZE_SCORING_CONFIG.warnings.dangerousThreshold
+      ? 'Dangerous: Waves far exceed your skill level'
+      : overSkill >= WAVE_SIZE_SCORING_CONFIG.warnings.significantThreshold
+        ? 'Waves significantly exceed your skill level'
+        : 'Waves may exceed your skill level';
+
+  return { penalty, warning };
+}
+
+/**
+ * Result of calculating skill-based bonus.
+ */
+export interface SkillBonusResult {
+  /** Bonus points (0 if not in ideal range) */
+  bonus: number;
+  /** Reason string if bonus applies */
+  reason: string | null;
+}
+
+/**
+ * Calculate bonus for waves in user's ideal skill range.
+ * Only applies when no wave size preference is set.
+ *
+ * @param waveHeight - Current wave height in feet
+ * @param skillLevel - User's skill level
+ * @returns Bonus and reason (if applicable)
+ */
+export function calculateSkillBonus(
+  waveHeight: number,
+  skillLevel: SkillLevel
+): SkillBonusResult {
+  const skillRanges = SKILL_WAVE_RANGES[skillLevel];
+
+  if (waveHeight >= skillRanges.ideal.min && waveHeight <= skillRanges.ideal.max) {
+    return {
+      bonus: WAVE_SIZE_SCORING_CONFIG.skillIdealBonus,
+      reason: 'Great wave size for your level',
+    };
+  }
+
+  return { bonus: 0, reason: null };
+}
+
+/**
+ * Result of calculating preference-based adjustment.
+ */
+export interface PreferenceAdjustmentResult {
+  /** Score adjustment (positive = bonus, negative = penalty) */
+  adjustment: number;
+  /** Reason string for positive adjustments */
+  reason: string | null;
+  /** Warning string for negative adjustments */
+  warning: string | null;
+}
+
+/**
+ * Calculate score adjustment based on user's wave size preference.
+ *
+ * @param waveHeight - Current wave height in feet
+ * @param preferredSize - User's preferred wave size
+ * @returns Adjustment, reason, and warning (as applicable)
+ */
+export function calculatePreferenceAdjustment(
   waveHeight: number,
   preferredSize: 'small' | 'medium' | 'large'
+): PreferenceAdjustmentResult {
+  const prefRange = PREF_WAVE_RANGES[preferredSize];
+
+  // Perfect match - bonus
+  if (waveHeight >= prefRange.ideal.min && waveHeight <= prefRange.ideal.max) {
+    return {
+      adjustment: WAVE_SIZE_SCORING_CONFIG.preferenceMatchBonus,
+      reason: 'Waves match your preferred size',
+      warning: null,
+    };
+  }
+
+  // Within acceptable range - no change
+  if (waveHeight >= prefRange.acceptable.min && waveHeight <= prefRange.acceptable.max) {
+    return { adjustment: 0, reason: null, warning: null };
+  }
+
+  // Outside acceptable - soft penalty
+  const distanceOutside =
+    waveHeight < prefRange.acceptable.min
+      ? prefRange.acceptable.min - waveHeight
+      : waveHeight - prefRange.acceptable.max;
+
+  const penalty = Math.min(
+    WAVE_SIZE_SCORING_CONFIG.preferenceOutsideMaxPenalty,
+    Math.round(distanceOutside * WAVE_SIZE_SCORING_CONFIG.preferenceOutsidePenaltyPerFoot)
+  );
+
+  const warning =
+    waveHeight < prefRange.acceptable.min
+      ? 'Waves may be smaller than preferred'
+      : 'Waves may be larger than preferred';
+
+  return { adjustment: -penalty, reason: null, warning };
+}
+
+/**
+ * Apply a score adjustment consistently to a composite score.
+ * Handles clamping and array updates.
+ */
+function applyScoreAdjustment(
+  composite: CompositeScore,
+  adjustment: number,
+  reason: string | null,
+  warning: string | null
 ): CompositeScore {
-  const ranges = {
-    small: { min: 1, max: 3 },
-    medium: { min: 3, max: 6 },
-    large: { min: 6, max: Infinity },
-  };
-
-  const range = ranges[preferredSize];
-  const { min, max } = range;
-
-  // Check if wave height matches preferred range
-  if (waveHeight >= min && waveHeight <= max) {
-    // Perfect match - no adjustment needed
+  if (adjustment === 0 && !reason && !warning) {
     return composite;
-  }
-
-  // Calculate how far outside the range
-  const outsideRange = waveHeight < min
-    ? min - waveHeight
-    : waveHeight > max
-      ? waveHeight - max
-      : 0;
-
-  if (outsideRange === 0) {
-    return composite;
-  }
-
-  // Apply graduated penalty (max 36 points, 12 per 0.5ft outside range)
-  const penalty = Math.min(36, Math.floor(outsideRange / 0.5) * 12);
-  const adjustedTotal = Math.max(0, Math.min(75, composite.total - penalty));
-
-  // Add warning about wave size mismatch
-  const sizeLabel = preferredSize === 'small' ? '1-3 ft'
-    : preferredSize === 'medium' ? '3-6 ft'
-      : '6+ ft';
-
-  const newWarnings = [...composite.warnings];
-  if (waveHeight < min) {
-    newWarnings.push(`Waves may be smaller than your preferred size (${sizeLabel})`);
-  } else {
-    newWarnings.push(`Waves may be larger than your preferred size (${sizeLabel})`);
   }
 
   return {
     ...composite,
-    total: adjustedTotal,
-    warnings: newWarnings,
+    total: Math.max(0, Math.min(100, composite.total + adjustment)),
+    reasons: reason ? [...composite.reasons, reason] : composite.reasons,
+    warnings: warning ? [...composite.warnings, warning] : composite.warnings,
   };
+}
+
+/**
+ * Apply preferred wave size adjustment to composite score.
+ * Now skill-level-aware with softer penalties.
+ *
+ * Priority:
+ * 1. Check skill ceiling first - waves too big for skill level get penalized
+ * 2. Apply preference-based bonus/penalty if preference is set
+ * 3. If no preference, check skill-based ideal range for small bonus
+ *
+ * @param composite - The composite score to adjust
+ * @param waveHeight - Current wave height in feet
+ * @param preferredSize - User's preferred wave size (or 'any')
+ * @param userSkillLevel - User's skill level (defaults to beginner for safety)
+ * @returns Adjusted composite score
+ */
+function applyPreferredWaveSizeAdjustment(
+  composite: CompositeScore,
+  waveHeight: number,
+  preferredSize: 'small' | 'medium' | 'large' | 'any',
+  userSkillLevel?: SkillLevel | null
+): CompositeScore {
+  // SAFETY: Default to 'beginner' if no skill level set
+  const skillLevel = getSkillLevelOrDefault(userSkillLevel);
+
+  // 1. Safety first - check skill ceiling
+  const { penalty, warning: skillWarning } = checkSkillCeiling(waveHeight, skillLevel);
+  if (penalty > 0) {
+    return {
+      ...composite,
+      total: Math.max(0, composite.total - penalty),
+      warnings: [...composite.warnings, skillWarning!],
+    };
+  }
+
+  // 2. Apply preference adjustment if set
+  if (preferredSize && preferredSize !== 'any') {
+    const { adjustment, reason, warning } = calculatePreferenceAdjustment(
+      waveHeight,
+      preferredSize
+    );
+    return applyScoreAdjustment(composite, adjustment, reason, warning);
+  }
+
+  // 3. Fall back to skill-based bonus
+  const { bonus, reason } = calculateSkillBonus(waveHeight, skillLevel);
+  return applyScoreAdjustment(composite, bonus, reason, null);
 }
 
 // =============================================================================
