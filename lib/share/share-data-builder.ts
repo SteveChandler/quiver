@@ -89,8 +89,17 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
     // Build headline text for share description
     const headlineText = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
 
-    // Build headline for OG image (e.g., "Tomorrow at Big Jetty")
-    const ogHeadline = isTomorrow ? `Tomorrow at ${beach.name}` : beach.name;
+    // Build time context for OG image subtitle (e.g., "Tomorrow Morning", "This Afternoon")
+    let timeContext = "";
+    if (isTomorrow) {
+      timeContext = timeSlot === "morning" || timeSlot === "dawn-patrol" ? "Tomorrow Morning"
+        : timeSlot === "afternoon" ? "Tomorrow Afternoon"
+        : "Tomorrow";
+    } else {
+      timeContext = timeSlot === "morning" || timeSlot === "dawn-patrol" ? "This Morning"
+        : timeSlot === "afternoon" ? "This Afternoon"
+        : "Today";
+    }
 
     // Build the OG image URL with all parameters
     const imageUrl = buildSurfCallShareUrl({
@@ -102,9 +111,10 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
       tags: conditionBadges?.slice(0, 3).map((b) => b.label).join(",") || "",
       // New parameters for redesigned share card
       score: Math.round(score),
-      headline: ogHeadline,
+      headline: beach.name, // Beach name only - time context moved to separate param
       conditionLabel: conditionBadge?.label || "",
       message: message || "",
+      timeContext,
     });
 
     return {

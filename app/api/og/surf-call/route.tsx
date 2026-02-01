@@ -56,32 +56,24 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // New parameters for redesigned card
+    // Parameters for redesigned card
     const beach = searchParams.get("beach") || "Your Beach";
     const score = parseInt(searchParams.get("score") || "0", 10);
-    const headline = searchParams.get("headline") || "";
     const waveHeight = searchParams.get("waveHeight") || "";
+    const tags = searchParams.get("tags") || "";
+    const timeContext = searchParams.get("timeContext") || "";
     const conditionLabel = searchParams.get("conditionLabel") || "";
     const tideBadge = searchParams.get("tideBadge") || "";
-    const message = searchParams.get("message") || "";
-    const window = searchParams.get("window") || "";
 
-    // Fallback to old parameters if new ones aren't provided
-    const verdict = searchParams.get("verdict") || "";
+    // Parse condition badges from tags param
+    const badgeTags = tags.split(",").filter(Boolean);
 
-    // Build the headline display
-    // If no headline provided, build one from beach name
-    const displayHeadline = headline || `Check out ${beach}`;
+    // Build URLs for background image and logo
+    const baseUrl = new URL(request.url).origin;
+    const waveImageUrl = `${baseUrl}/surfer-wave-sample.png`;
+    const logoUrl = `${baseUrl}/logoQuiver.png`;
 
-    // Build conditions line (wave height + condition + tide)
-    const conditionParts: string[] = [];
-    if (waveHeight) conditionParts.push(waveHeight);
-    if (conditionLabel) conditionParts.push(conditionLabel);
-    if (tideBadge) conditionParts.push(tideBadge);
-    if (!conditionParts.length && window) conditionParts.push(window);
-    const conditionsLine = conditionParts.join(" \u2022 ");
-
-    // Determine if we have the new-style data or old-style
+    // Determine if we have a valid score
     const hasScore = score > 0;
 
     const response = new ImageResponse(
@@ -96,20 +88,23 @@ export async function GET(request: NextRequest) {
             justifyContent: "center",
             position: "relative",
             fontFamily: "system-ui, -apple-system, sans-serif",
-            // Ocean-inspired gradient background
-            background: "linear-gradient(180deg, #0a1628 0%, #0d3a5c 30%, #0f4a6d 50%, #0a3048 70%, #061420 100%)",
+            backgroundColor: "#0a1628",
           }}
         >
-          {/* Wave texture overlay - simulated with gradient */}
-          <div
+          {/* Background wave image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={waveImageUrl}
+            alt=""
+            width={1200}
+            height={630}
             style={{
               position: "absolute",
               top: 0,
               left: 0,
-              right: 0,
-              bottom: 0,
-              background: "radial-gradient(ellipse 150% 80% at 50% 120%, rgba(30,120,180,0.3) 0%, transparent 60%)",
-              display: "flex",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
             }}
           />
 
@@ -121,7 +116,7 @@ export async function GET(request: NextRequest) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(0,0,0,0.35)",
+              background: "linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.6) 100%)",
               display: "flex",
             }}
           />
@@ -133,70 +128,43 @@ export async function GET(request: NextRequest) {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              padding: "60px 80px",
-              gap: 24,
+              padding: "50px 80px",
+              gap: 12,
               position: "relative",
               zIndex: 1,
             }}
           >
-            {/* Quiver Logo */}
+            {/* Beach name - prominent at top */}
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 8,
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  backgroundColor: "rgba(249,115,22,0.9)",
-                  borderRadius: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#FFFFFF",
-                    display: "flex",
-                  }}
-                >
-                  Q
-                </span>
-              </div>
-              <span
-                style={{
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: "#FFFFFF",
-                  letterSpacing: "-0.01em",
-                  display: "flex",
-                }}
-              >
-                Quiver
-              </span>
-            </div>
-
-            {/* Headline */}
-            <div
-              style={{
-                fontSize: 52,
-                fontWeight: 700,
+                fontSize: 64,
+                fontWeight: 800,
                 color: "#FFFFFF",
                 textAlign: "center",
-                maxWidth: 900,
-                lineHeight: 1.2,
+                letterSpacing: "0.02em",
+                textTransform: "uppercase",
                 display: "flex",
+                textShadow: "0 2px 20px rgba(0,0,0,0.5)",
               }}
             >
-              {displayHeadline}
+              {beach}
             </div>
+
+            {/* Time context subtitle */}
+            {timeContext && (
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.85)",
+                  textAlign: "center",
+                  display: "flex",
+                  marginTop: -4,
+                }}
+              >
+                {timeContext}
+              </div>
+            )}
 
             {/* Score - large orange number */}
             {hasScore && (
@@ -209,8 +177,9 @@ export async function GET(request: NextRequest) {
                   lineHeight: 1,
                   display: "flex",
                   alignItems: "baseline",
-                  marginTop: 8,
+                  marginTop: 16,
                   marginBottom: 8,
+                  textShadow: "0 4px 30px rgba(249,115,22,0.4)",
                 }}
               >
                 {formatScore(score)}
@@ -228,77 +197,129 @@ export async function GET(request: NextRequest) {
               </div>
             )}
 
-            {/* Fallback: Old-style verdict for backwards compatibility */}
-            {!hasScore && verdict && (
-              <div
-                style={{
-                  fontSize: 96,
-                  fontWeight: 800,
-                  color: verdict === "YES" ? "#34d399" : verdict === "MAYBE" ? "#fbbf24" : "#f87171",
-                  letterSpacing: "-0.02em",
-                  display: "flex",
-                  marginTop: 8,
-                  marginBottom: 8,
-                }}
-              >
-                {verdict}
-              </div>
-            )}
+            {/* Condition badges row */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                marginTop: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              {/* Wave height badge */}
+              {waveHeight && (
+                <div
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    borderRadius: 24,
+                    padding: "10px 20px",
+                    fontSize: 22,
+                    fontWeight: 600,
+                    color: "#FFFFFF",
+                    display: "flex",
+                    backdropFilter: "blur(8px)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  {waveHeight}
+                </div>
+              )}
 
-            {/* Conditions line */}
-            {conditionsLine && (
-              <div
-                style={{
-                  fontSize: 28,
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.9)",
-                  textAlign: "center",
-                  display: "flex",
-                }}
-              >
-                {conditionsLine}
-              </div>
-            )}
+              {/* Condition label badge */}
+              {conditionLabel && (
+                <div
+                  style={{
+                    backgroundColor: "rgba(249,115,22,0.25)",
+                    borderRadius: 24,
+                    padding: "10px 20px",
+                    fontSize: 22,
+                    fontWeight: 600,
+                    color: "#FFFFFF",
+                    display: "flex",
+                    border: "1px solid rgba(249,115,22,0.3)",
+                  }}
+                >
+                  {conditionLabel}
+                </div>
+              )}
 
-            {/* Message */}
-            {message && (
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 400,
-                  color: "rgba(255,255,255,0.75)",
-                  textAlign: "center",
-                  maxWidth: 800,
-                  lineHeight: 1.4,
-                  marginTop: 4,
-                  display: "flex",
-                }}
-              >
-                {message}
-              </div>
-            )}
+              {/* Tide badge */}
+              {tideBadge && (
+                <div
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    borderRadius: 24,
+                    padding: "10px 20px",
+                    fontSize: 22,
+                    fontWeight: 600,
+                    color: "#FFFFFF",
+                    display: "flex",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  {tideBadge}
+                </div>
+              )}
+
+              {/* Additional condition tags */}
+              {badgeTags.slice(0, 2).map((tag, index) => (
+                <div
+                  key={index}
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    borderRadius: 24,
+                    padding: "10px 20px",
+                    fontSize: 22,
+                    fontWeight: 600,
+                    color: "#FFFFFF",
+                    display: "flex",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  {tag}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer - URL on left, logo on right */}
           <div
             style={{
               position: "absolute",
-              bottom: 40,
+              bottom: 36,
+              left: 0,
+              right: 0,
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              justifyContent: "space-between",
+              padding: "0 48px",
             }}
           >
             <span
               style={{
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.5)",
+                color: "rgba(255,255,255,0.6)",
                 display: "flex",
               }}
             >
               quiversurf.app
             </span>
+
+            {/* Logo - bottom right */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={logoUrl}
+              alt="Quiver"
+              width={60}
+              height={90}
+              style={{
+                display: "flex",
+              }}
+            />
           </div>
         </div>
       ),
