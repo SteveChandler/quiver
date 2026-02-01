@@ -111,7 +111,7 @@ async function logDelivery(
     user_id: userId,
     email_type: EMAIL_TYPE,
     sent_at: new Date().toISOString(),
-    metadata: { session_count: sessionCount },
+    meta: { session_count: sessionCount },
   });
 
   if (error) {

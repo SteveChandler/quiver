@@ -29,6 +29,92 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ---
 
+## API Middleware Wrappers
+
+All API routes should use the centralized middleware wrappers from `lib/middleware/api-wrappers/`. These provide authentication, rate limiting, bot blocking, and error handling in a composable pattern.
+
+### Next.js 15+ Compatibility (CRITICAL)
+
+**Breaking Change:** In Next.js 15+, route `params` is a **Promise** that must be awaited before accessing properties like `params.id`.
+
+The API wrappers handle this automatically. When using `withAuth`, `withProtection`, or `createApiHandler`:
+
+- **Handler functions receive already-resolved params** (not a Promise)
+- **You can safely access `params.id`** directly in your handler
+- **No manual awaiting required** - the wrapper does this for you
+
+```typescript
+// CORRECT - params are pre-resolved by the wrapper
+export const GET = withAuth(async (request, { user, supabase, params }) => {
+  const sessionId = params.id; // Safe - already resolved
+  // ...
+});
+
+// INCORRECT - DO NOT access params outside the wrapper
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const id = params.id; // DANGER: params.id may be undefined in Next.js 15+
+  // ...
+}
+```
+
+**Implementation Details:**
+
+The wrappers detect Promise params and resolve them before passing to handlers:
+
+```typescript
+// In withAuth and createApiHandler (lib/middleware/api-wrappers/auth-wrapper.ts)
+const resolvedParams = context?.params
+  ? typeof context.params === "object" && "then" in context.params
+    ? await context.params
+    : (context.params as Record<string, string>)
+  : {};
+```
+
+**Type Definitions:**
+
+```typescript
+// RouteContext accepts both formats for Next.js compatibility
+interface RouteContext {
+  params: Record<string, string> | Promise<Record<string, string>>;
+}
+
+// Handler context always has resolved params
+interface AuthenticatedContext {
+  params: ResolvedParams; // Record<string, string> - already resolved
+  user: User;
+  supabase: SupabaseClient<Database>;
+}
+```
+
+### Recommended Pattern
+
+```typescript
+import { withAuth, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+
+async function handler(
+  request: NextRequest,
+  { user, supabase, params }: AuthenticatedContext
+) {
+  // params.id is safe to use - already resolved by wrapper
+  const { data } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("id", params.id)
+    .eq("user_id", user.id)
+    .single();
+
+  return createSuccessResponse({ session: data });
+}
+
+export const GET = withAuth(handler);
+```
+
+**See Also:**
+- `/docs/API_MIDDLEWARE.md` - Developer guide with patterns and usage
+- `/docs/API_MIDDLEWARE_REFERENCE.md` - Technical architecture and type definitions
+
+---
+
 ## Directory Structure & Endpoint Mapping
 
 ### 📁 `/admin` - Administrative Operations
