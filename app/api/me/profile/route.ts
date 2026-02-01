@@ -9,12 +9,13 @@ import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
  * This route provides the canonical API for client-side profile fetching
  * and is tagged with "profile" for cache invalidation
  */
-type GetDeps = {
+export type GetDeps = {
   fetchProfileFn?: typeof defaultFetchProfile;
   getUserFn?: () => Promise<{ user: { id: string } | null; error: any }>;
 };
 
-export async function GET(request: NextRequest, deps?: GetDeps) {
+// Internal handler that accepts DI deps for testing
+export async function handleGet(request: NextRequest, deps?: GetDeps) {
   try {
     
     // Get current user (allow DI for tests)
@@ -82,4 +83,9 @@ export async function GET(request: NextRequest, deps?: GetDeps) {
     console.error("Error in GET /api/me/profile:", error);
     return handleApiError(error);
   }
+}
+
+// Next.js route handler - delegates to handleGet
+export async function GET(request: NextRequest) {
+  return handleGet(request);
 }
