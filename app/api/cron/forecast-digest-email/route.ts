@@ -139,59 +139,34 @@ async function fetchCrowdIntel(
 }
 
 /**
- * Check if user already received digest today (within DEDUPE_WINDOW_HOURS)
+ * Atomically claim a delivery slot using RPC function with row-level locking.
+ * This prevents race conditions where concurrent cron instances could both pass
+ * a check and send duplicate emails.
+ *
+ * Returns true if the slot was claimed (proceed with sending), false if already sent.
  */
-async function checkAlreadySent(
+async function claimDeliverySlot(
   supabase: SupabaseClient,
   userId: string,
   beachId: string
 ): Promise<boolean> {
-  const dedupeThreshold = new Date(
-    Date.now() - DEDUPE_WINDOW_HOURS * 60 * 60 * 1000
+  const { data: claimed, error } = await supabase.rpc(
+    'claim_forecast_delivery_slot',
+    {
+      p_user_id: userId,
+      p_beach_id: beachId,
+      p_alert_type: ALERT_TYPE,
+      p_dedupe_hours: DEDUPE_WINDOW_HOURS
+    }
   );
 
-  const { data, error } = await supabase
-    .from("forecast_alert_deliveries")
-    .select("last_sent_at")
-    .eq("user_id", userId)
-    .eq("beach_id", beachId)
-    .eq("alert_type", ALERT_TYPE)
-    .gt("last_sent_at", dedupeThreshold.toISOString())
-    .maybeSingle();
-
   if (error) {
-    console.error(`[checkAlreadySent] Error checking delivery for user ${userId}:`, error);
-    return false; // Fail open: allow sending on error
+    console.error(`[claimDeliverySlot] Error claiming slot for user ${userId}:`, error);
+    // Fail open: allow sending on error (matches previous behavior)
+    return true;
   }
 
-  return !!data;
-}
-
-/**
- * Track delivery in forecast_alert_deliveries (UPSERT)
- */
-async function trackDelivery(
-  supabase: SupabaseClient,
-  userId: string,
-  beachId: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("forecast_alert_deliveries")
-    .upsert(
-      {
-        user_id: userId,
-        beach_id: beachId,
-        alert_type: ALERT_TYPE,
-        last_sent_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "user_id,beach_id,alert_type",
-      }
-    );
-
-  if (error) {
-    console.error(`[trackDelivery] Error tracking delivery for user ${userId}:`, error);
-  }
+  return claimed === true;
 }
 
 /**
@@ -539,9 +514,11 @@ export async function GET(request: Request) {
           userPrefs
         );
 
-        // 6. DEDUPLICATION CHECK (CRITICAL)
-        const alreadySent = await checkAlreadySent(supabase, user.id, user.home_beach_id);
-        if (alreadySent) {
+        // 6. ATOMIC DEDUPLICATION (CRITICAL)
+        // Use RPC with row-level locking to prevent race conditions.
+        // This atomically checks AND claims the slot in one operation.
+        const claimed = await claimDeliverySlot(supabase, user.id, user.home_beach_id);
+        if (!claimed) {
           summary.skipped.alreadySentToday++;
           continue;
         }
@@ -600,7 +577,7 @@ export async function GET(request: Request) {
             console.log(
               `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
             );
-            await trackDelivery(supabase, user.id, user.home_beach_id);
+            // Note: Delivery already tracked atomically by claimDeliverySlot()
             summary.sent++;
 
             // Send push notification
