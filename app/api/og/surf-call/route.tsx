@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
             }}
           />
 
-          {/* Dark overlay for text readability */}
+          {/* Dark overlay for text readability - enhanced bottom scrim */}
           <div
             style={{
               position: "absolute",
@@ -120,17 +120,17 @@ export async function GET(request: NextRequest) {
               right: 0,
               bottom: 0,
               background:
-                "linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.6) 50%, rgba(15, 23, 42, 0.8) 100%)",
+                "linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.3) 40%, rgba(15, 23, 42, 0.7) 60%, rgba(15, 23, 42, 0.85) 100%)",
               display: "flex",
             }}
           />
 
-          {/* Branding - Top Left */}
+          {/* Branding - Top Right (moved to avoid overlap with beach name) */}
           <div
             style={{
               position: "absolute",
               top: 40,
-              left: 50,
+              right: 50,
               display: "flex",
               alignItems: "center",
               gap: 12,
@@ -231,11 +231,11 @@ export async function GET(request: NextRequest) {
               </div>
             )}
 
-            {/* Score - large orange number */}
+            {/* Score - reduced size for better balance */}
             {hasScore && (
               <div
                 style={{
-                  fontSize: 140,
+                  fontSize: 110,
                   fontWeight: 800,
                   color: "#F97316",
                   letterSpacing: "-0.03em",
@@ -243,14 +243,14 @@ export async function GET(request: NextRequest) {
                   display: "flex",
                   alignItems: "baseline",
                   marginTop: 8,
-                  marginBottom: 8,
+                  marginBottom: 16,
                   textShadow: "0 4px 30px rgba(249,115,22,0.4)",
                 }}
               >
                 {formatScore(score)}
                 <span
                   style={{
-                    fontSize: 48,
+                    fontSize: 40,
                     fontWeight: 600,
                     color: "rgba(249,115,22,0.8)",
                     marginLeft: 12,
@@ -274,11 +274,11 @@ export async function GET(request: NextRequest) {
                 flexWrap: "wrap",
               }}
             >
-              {/* Wave height badge */}
+              {/* Wave height badge - stronger frosted glass */}
               {waveHeight && (
                 <div
                   style={{
-                    background: "rgba(255,255,255,0.15)",
+                    background: "rgba(255,255,255,0.3)",
                     borderRadius: 20,
                     padding: "12px 24px",
                     fontSize: 24,
@@ -286,7 +286,7 @@ export async function GET(request: NextRequest) {
                     color: "#FFFFFF",
                     display: "flex",
                     backdropFilter: "blur(10px)",
-                    border: "1px solid rgba(255,255,255,0.2)",
+                    border: "1px solid rgba(255,255,255,0.4)",
                   }}
                 >
                   {waveHeight}
@@ -312,11 +312,11 @@ export async function GET(request: NextRequest) {
                 </div>
               )}
 
-              {/* Tide badge */}
+              {/* Tide badge - stronger frosted glass */}
               {tideBadge && (
                 <div
                   style={{
-                    background: "rgba(255,255,255,0.15)",
+                    background: "rgba(255,255,255,0.3)",
                     borderRadius: 20,
                     padding: "12px 24px",
                     fontSize: 24,
@@ -324,19 +324,19 @@ export async function GET(request: NextRequest) {
                     color: "#FFFFFF",
                     display: "flex",
                     backdropFilter: "blur(10px)",
-                    border: "1px solid rgba(255,255,255,0.2)",
+                    border: "1px solid rgba(255,255,255,0.4)",
                   }}
                 >
                   {tideBadge}
                 </div>
               )}
 
-              {/* Additional condition tags */}
+              {/* Additional condition tags - stronger frosted glass */}
               {badgeTags.slice(0, 2).map((tag, index) => (
                 <div
                   key={index}
                   style={{
-                    background: "rgba(255,255,255,0.15)",
+                    background: "rgba(255,255,255,0.3)",
                     borderRadius: 20,
                     padding: "12px 24px",
                     fontSize: 24,
@@ -344,7 +344,7 @@ export async function GET(request: NextRequest) {
                     color: "#FFFFFF",
                     display: "flex",
                     backdropFilter: "blur(10px)",
-                    border: "1px solid rgba(255,255,255,0.2)",
+                    border: "1px solid rgba(255,255,255,0.4)",
                   }}
                 >
                   {tag}
@@ -352,17 +352,18 @@ export async function GET(request: NextRequest) {
               ))}
             </div>
 
-            {/* Verdict/Message */}
+            {/* Verdict/Message - improved readability */}
             {message && (
               <div
                 style={{
-                  fontSize: 24,
-                  fontWeight: 500,
+                  fontSize: 26,
+                  fontWeight: 600,
                   color: "rgba(255,255,255,0.9)",
                   textAlign: "center",
                   maxWidth: 800,
-                  marginTop: 24,
-                  lineHeight: 1.4,
+                  marginTop: 16,
+                  marginBottom: 40,
+                  lineHeight: 1.6,
                   textShadow: "0 2px 10px rgba(0,0,0,0.5)",
                   background: "rgba(0,0,0,0.3)",
                   padding: "16px 32px",
@@ -374,11 +375,12 @@ export async function GET(request: NextRequest) {
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer - centered watermark */}
           <div
             style={{
               position: "absolute",
               bottom: 40,
+              width: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
