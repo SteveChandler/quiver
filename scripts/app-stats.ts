@@ -47,6 +47,21 @@ async function main() {
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   try {
+    // First, get real user IDs (exclude bots and test accounts)
+    const { data: realProfiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .not("email", "like", "%@example.invalid")
+      .not("email", "ilike", "%test%")
+      .not("email", "like", "%@local.test");
+
+    if (profileError) {
+      console.error(JSON.stringify({ error: "Failed to fetch profiles", details: profileError }));
+      process.exit(1);
+    }
+
+    const realUserIds = realProfiles?.map(p => p.id) || [];
+
     const [
       { count: totalUsers, error: e1 },
       { count: newUsers7d, error: e2 },
@@ -63,14 +78,17 @@ async function main() {
       { count: totalBeaches, error: e13 },
       { count: emails7d, error: e14 }
     ] = await Promise.all([
-      // Users
-      supabase.from("profiles").select("*", { count: "exact", head: true })
-        .not("email", "ilike", "%test%").not("email", "like", "%@local.test"),
+      // Users (exclude test and bot accounts)
       supabase.from("profiles").select("*", { count: "exact", head: true })
         .not("email", "ilike", "%test%").not("email", "like", "%@local.test")
+        .not("email", "like", "%@example.invalid"),
+      supabase.from("profiles").select("*", { count: "exact", head: true })
+        .not("email", "ilike", "%test%").not("email", "like", "%@local.test")
+        .not("email", "like", "%@example.invalid")
         .gte("created_at", sevenDaysAgo),
       supabase.from("profiles").select("*", { count: "exact", head: true })
         .not("email", "ilike", "%test%").not("email", "like", "%@local.test")
+        .not("email", "like", "%@example.invalid")
         .gte("created_at", oneDayAgo),
       // Sessions
       supabase.from("sessions").select("*", { count: "exact", head: true })
@@ -86,8 +104,11 @@ async function main() {
         .is("deleted_at", null),
       supabase.from("beach_reviews").select("*", { count: "exact", head: true })
         .is("deleted_at", null).gte("created_at", sevenDaysAgo),
-      supabase.from("intel_posts").select("*", { count: "exact", head: true }),
+      // Intel posts - only from real users (exclude bots)
       supabase.from("intel_posts").select("*", { count: "exact", head: true })
+        .in("user_id", realUserIds),
+      supabase.from("intel_posts").select("*", { count: "exact", head: true })
+        .in("user_id", realUserIds)
         .gte("created_at", sevenDaysAgo),
       supabase.from("boards").select("*", { count: "exact", head: true }),
       supabase.from("beaches").select("*", { count: "exact", head: true }),

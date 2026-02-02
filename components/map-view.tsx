@@ -58,6 +58,8 @@ export function MapView() {
     filters,
     loadBeaches,
     loadNearbyBeaches,
+    loadNearbyBeachesForSelected,
+    clearSelectedBeachNearby,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,
@@ -99,10 +101,12 @@ export function MapView() {
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
+      // Load beaches near the selected beach (not user location)
+      loadNearbyBeachesForSelected(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [setSelectedBeach]
+    [setSelectedBeach, loadNearbyBeachesForSelected]
   );
 
   const handleClearSearch = useCallback(() => {
@@ -210,6 +214,7 @@ export function MapView() {
         onNearMe={() => {
           // Clear selection so map centers on user location
           setSelectedBeach(null);
+          clearSelectedBeachNearby(); // Clear selected beach's nearby list
           clearSearch();
           lastLocationRef.current = null; // Allow reload at same location
           getUserLocation(true); // Force fresh geolocation

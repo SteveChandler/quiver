@@ -1,11 +1,9 @@
-
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
-import { BeachDetailClient } from "./beach-detail-client";
+import { BeachDetailClient } from "../beach-detail-client";
 import type { Metadata } from "next";
-import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
-import { getBeachForecastPreview } from "@/actions/forecast-actions";
+import { buildPageMetadata } from "@/lib/seo/meta";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -14,13 +12,13 @@ import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-export default async function BeachDetailBySlugPage(
+export default async function BeachTidesPage(
   props: {
     params: Promise<{ slug: string }>;
   }
 ) {
   const params = await props.params;
-  // Fetch beach data server-side using cached function
+
   try {
     const beach = await getBeachBySlugOrId(params.slug);
 
@@ -33,24 +31,21 @@ export default async function BeachDetailBySlugPage(
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Redirect to hierarchical URL format if beach has the required data
-    // This helps with SEO and provides a better URL structure
+    // Redirect to hierarchical URL if beach has complete data
     if (beach.slug && beach.city && beach.state) {
       const hierarchicalUrl = buildBeachUrl(beach);
-      const currentPath = `/beach/${params.slug}`;
+      const currentBasePath = `/beach/${params.slug}`;
 
-      // Only redirect if the hierarchical URL is different from current path
-      if (hierarchicalUrl !== currentPath) {
-        redirect(hierarchicalUrl);
+      if (hierarchicalUrl !== currentBasePath) {
+        redirect(`${hierarchicalUrl}/tides`);
       }
     }
 
     return (
       <>
-        {/* Structured Data: Place/Beach */}
         <BeachPageStructuredData
           beachName={beach.name}
-          description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
+          description={`Tide chart and tide times for ${beach.name}. High and low tide predictions updated daily.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
           rating={(beach as any).average_rating || undefined}
@@ -60,19 +55,18 @@ export default async function BeachDetailBySlugPage(
           country={beach.country || undefined}
         />
 
-        {/* Breadcrumb Structured Data for SEO */}
         <BreadcrumbStructuredData
           items={[
             { name: "Home", url: baseUrl },
             { name: "Surf Spots Map", url: `${baseUrl}/map` },
             { name: beach.name, url: `${baseUrl}/beach/${params.slug}` },
+            { name: "Tide Chart", url: `${baseUrl}/beach/${params.slug}/tides` },
           ]}
         />
 
         {/* FAQ Structured Data for rich snippets */}
         <BeachFAQSchema beachName={beach.name} />
 
-        {/* Client detail component with auth tracking */}
         <BeachDetailClient
           beach={beach}
           slug={params.slug}
@@ -81,8 +75,6 @@ export default async function BeachDetailBySlugPage(
       </>
     );
   } catch (error) {
-    // Ensure Next.js router signals are not swallowed by this page-level try/catch.
-    // `notFound()` and `redirect()` throw special errors with a `digest` marker.
     if (error && typeof error === "object" && "digest" in error) {
       const digest = (error as { digest?: unknown }).digest;
       if (
@@ -93,14 +85,14 @@ export default async function BeachDetailBySlugPage(
       }
     }
 
-    console.error("Error fetching beach:", error);
+    console.error("Error fetching beach for tides:", error);
     return (
       <div className="flex flex-col min-h-screen">
         <main className="flex-1 container mx-auto px-4 py-6">
           <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-2">Error Loading Beach</h2>
+            <h2 className="text-2xl font-bold mb-2">Error Loading Tide Chart</h2>
             <p className="text-muted-foreground">
-              There was an error loading this beach. Please try again.
+              There was an error loading tide information. Please try again.
             </p>
           </div>
         </main>
@@ -115,33 +107,27 @@ export async function generateMetadata(
   }
 ): Promise<Metadata> {
   const params = await props.params;
-  // Keep metadata generation side-effect free; don't depend on auth/session
-  // Uses cached function - deduped with page component in same render pass
   const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
-    // Fetch live forecast data for dynamic title with wave heights
-    const forecastResult = await getBeachForecastPreview(beach.id);
-    const forecast = forecastResult.success && forecastResult.data
-      ? { wave_height: forecastResult.data.wave_height }
-      : null;
+    const now = new Date();
+    const month = now.toLocaleDateString("en-US", { month: "long" });
+    const year = now.getFullYear();
 
-    const { title, description } = buildDynamicBeachMetadata({
-      beach,
-      forecast,
-    });
+    const locationContext =
+      beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
     return buildPageMetadata({
-      title,
-      description,
-      path: `/beach/${params.slug}`,
+      title: `${beach.name} Tide Chart ${month} ${year} - High/Low Times`,
+      description: `Complete tide chart for ${beach.name}${locationContext}. Today's high and low tide times. Hourly predictions and optimal surf windows included. Free, no paywall.`,
+      path: `/beach/${params.slug}/tides`,
       image: `/api/og/beach?slug=${params.slug}`,
     });
   }
 
   return buildPageMetadata({
-    title: `Beach`,
-    description: `Conditions, intel, photos, and community tips for this beach.`,
-    path: `/beach/${params.slug}`,
+    title: `Tide Chart`,
+    description: `Tide times and predictions for this beach.`,
+    path: `/beach/${params.slug}/tides`,
   });
 }
