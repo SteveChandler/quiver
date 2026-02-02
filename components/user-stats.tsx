@@ -71,7 +71,7 @@ export function UserStats({
     }
 
     loadStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [userId, refreshToken, getUserStatsFn]);
 
   if (loading) {

@@ -8,6 +8,7 @@ import {
   useTerrainFactors,
   TERRAIN_BINS,
 } from '@/types/terrain';
+import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
 
 type Grade = "epic" | "good" | "fair" | "poor";
 
@@ -122,7 +123,7 @@ function computeTideScore(
   tideMaxFt: number
 ): number {
   if (tideHeightM == null) return 0;
-  const tideFt = tideHeightM * 3.28084;
+  const tideFt = tideHeightM * METERS_TO_FEET;
   const center = (tideMinFt + tideMaxFt) / 2;
   const half = (tideMaxFt - tideMinFt) / 2;
   if (half === 0) return 0;
@@ -273,7 +274,7 @@ export function computeHourScore(arg1: any, arg2?: any, arg3?: any): any {
     wavePeriodS: m.tp_s,
     windDirectionDeg: m.wind_dir_deg,
     windSpeedMs: m.wind_spd_kts != null ? m.wind_spd_kts / 1.94384449 : null,
-    tideHeightM: tideFt / 3.28084,
+    tideHeightM: tideFt / METERS_TO_FEET,
     params,
   };
   const breakdown = computeHourScoreObject(input);

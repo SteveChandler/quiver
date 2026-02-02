@@ -39,6 +39,7 @@ import {
   getInitials,
   prepareAvatarPayload,
 } from "@/lib/utils/profile-form-utils";
+import { useScrollToElement } from "@/hooks/use-scroll-to-element";
 
 interface EditProfileFormProps {
   initialData?: {
@@ -64,15 +65,23 @@ interface EditProfileFormProps {
     notif_xp_updates?: boolean;
   };
   onSuccess?: () => void;
+  scrollToNotifications?: boolean;
 }
 
 export function EditProfileForm({
   initialData,
   onSuccess,
+  scrollToNotifications,
 }: EditProfileFormProps) {
   const { user } = useAuth();
   const router = useRouter();
   const { profile, refreshProfile } = useProfileContext();
+
+  // Scroll to notifications section when requested (e.g., from /settings redirect)
+  const notificationsSectionRef = useScrollToElement<HTMLDivElement>({
+    shouldScroll: scrollToNotifications ?? false,
+  });
+
   const {
     avatarUrl,
     setAvatarUrl,
@@ -202,7 +211,9 @@ export function EditProfileForm({
             />
 
             {/* Notifications */}
-            <NotificationsSection control={form.control} />
+            <div ref={notificationsSectionRef} id="notifications-section">
+              <NotificationsSection control={form.control} />
+            </div>
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button

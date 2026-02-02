@@ -2,7 +2,7 @@
 
 This document is the canonical, high-level overview of Quiver's architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 ---
 
@@ -102,6 +102,47 @@ Subscribe with cleanup in `useEffect`.
 
 ---
 
+### Email System
+
+**Status**: Production
+
+Quiver's email system drives the core engagement loop: sending targeted, valuable notifications that bring users back to the app.
+
+**Philosophy:**
+- Decision-first, not data-first
+- Earn trust by saying "no" when conditions are bad
+- One clear call per email
+- Strict rate limiting to prevent fatigue
+
+**Email Types:**
+
+| Email Type | Schedule | Purpose |
+|------------|----------|---------|
+| Welcome | On signup | Capture preferences, set expectations |
+| Forecast Digest | Daily 6 AM PT | Morning surf call with best windows |
+| Weekend Outlook | Thu 1 PM PT | Weekend planning preview |
+| Weekly Recap | Mon 6 PM PT | Session summary and stats |
+| Re-engagement | MWF 10 AM PT | Bring back inactive users when conditions are good |
+
+**Components:**
+- **Cron Routes** (`app/api/cron/*-email/`): Vercel cron-triggered endpoints
+- **Email Templates** (`lib/mailer/templates/`): React Email components
+- **Mailer Client** (`lib/mailer/client.ts`): Resend SDK wrapper
+- **Delivery Tracking** (`forecast_alert_deliveries`): Rate limiting and deduplication
+
+**Rate Limiting:**
+- Per-type deduplication (24-72 hours depending on type)
+- Global cooldown (48 hours between any emails)
+- Atomic slot claiming prevents duplicate sends
+
+**Documentation:**
+| Document | Description |
+|----------|-------------|
+| [Email Core Loop Design](plans/completed/2026-01-20-email-core-loop-design.md) | Original design philosophy |
+| [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Inactive user re-engagement system |
+
+---
+
 ### ML System
 
 **Status**: Production (Fly.io)
@@ -176,6 +217,7 @@ The terrain analysis system encodes beach-specific wind shelter and swell wrap b
 - **Forecasting**: 10-day NOAA integration with confidence scoring.
 - **ML Bias Correction**: XGBoost-corrected wave height forecasts.
 - **Terrain-Aware Scoring**: Beach-specific wind shelter and swell access factors.
+- **Email Engagement**: Automated forecast digests, re-engagement, and weekly recaps (Feb 2026).
 - **Media**: Photo upload, galleries, optimized storage.
 - **Session Management**: Logging, planning, rich metadata.
 - **Attribution**: UTM tracking and referral system for growth analytics.
@@ -214,6 +256,7 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
 | **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |
+| **Features** | [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Inactive user re-engagement emails |
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
 | **Reference** | [Coverage Areas](COVERAGE_AREAS.md) | Geographic coverage details |
 

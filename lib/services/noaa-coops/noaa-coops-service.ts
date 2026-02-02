@@ -7,6 +7,7 @@
 
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 import { createContextLogger } from "@/lib/logger";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type {
   TideDiagnostics,
   TideRawSample,
@@ -34,6 +35,8 @@ import {
   getNextTideFromTime as analyzeNextTideFromTime,
   getCurrentTideHeight as analyzeCurrentHeight,
 } from "./tide-analysis";
+import { TideExtremaDetector, TideSample } from "./tide-extrema-detector";
+import { TideCacheMonitor } from "./tide-cache-monitor";
 
 const log = createContextLogger("NOAACOOPS");
 
@@ -169,6 +172,95 @@ export class NOAACOOPSService {
    */
   getNextTideFromTime(tides: TideData[], targetTime: Date): TideData | null {
     return analyzeNextTideFromTime(tides, targetTime);
+  }
+
+  /**
+   * Fetch cached tide data from the tide_forecasts table
+   *
+   * Tides are deterministic astronomical predictions - reading from the cached
+   * table ensures consistency and avoids redundant API calls.
+   *
+   * @param beachId Beach UUID to fetch tides for
+   * @param days Number of days of tide data to fetch (default 14)
+   * @returns COOPSForecast-compatible object or null if no data
+   */
+  async fetchCachedTides(
+    beachId: string,
+    days: number = 14
+  ): Promise<COOPSForecast | null> {
+    try {
+      const supabase = await createSupabaseServiceRoleClient();
+      const now = new Date();
+      const endTime = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+      if (this.isVerbose()) {
+        log.debug(`Fetching cached tides for beach ${beachId}, ${days} days`);
+      }
+
+      // Query tide_forecasts table for this beach
+      const { data: rows, error } = await supabase
+        .from("tide_forecasts")
+        .select("ts, tide_height_m, tide_phase, source")
+        .eq("beach_id", beachId)
+        .gte("ts", now.toISOString())
+        .lte("ts", endTime.toISOString())
+        .order("ts", { ascending: true });
+
+      if (error) {
+        log.error(`Error fetching cached tides for beach ${beachId}:`, error);
+        return null;
+      }
+
+      if (!rows || rows.length === 0) {
+        if (this.isVerbose()) {
+          log.warn(`No cached tide data found for beach ${beachId}`);
+        }
+        TideCacheMonitor.logNoData({ beachId, rowCount: rows?.length ?? 0 });
+        return null;
+      }
+
+      // Use TideExtremaDetector to extract high/low points from hourly data
+      const detector = new TideExtremaDetector();
+      const samples: TideSample[] = rows.map((row) => ({
+        ts: row.ts,
+        tide_height_m: row.tide_height_m,
+      }));
+      const extrema = detector.detectExtrema(samples);
+
+      // Convert to TideData format
+      const tides: TideData[] = extrema.map((e) => ({
+        time: e.time,
+        height: e.height,
+        type: e.type,
+        name: e.name,
+      }));
+
+      if (tides.length === 0) {
+        // If no extremes found, something is wrong with the data
+        log.warn(`No tide extremes found in cached data for beach ${beachId}, rows: ${rows.length}`);
+        TideCacheMonitor.logNoExtrema({ beachId, rowCount: rows.length });
+        return null;
+      }
+
+      if (this.isVerbose()) {
+        log.debug(`Found ${tides.length} tide extremes from ${rows.length} hourly points for beach ${beachId}`);
+      }
+
+      /**
+       * station_id uses synthetic format "cached_{beachId}" to indicate
+       * this data came from the tide_forecasts cache, not a live NOAA API call.
+       * Used for logging/debugging purposes to distinguish data sources.
+       */
+      return {
+        station_id: `cached_${beachId}`,
+        station_name: "Cached Tide Data",
+        tides,
+        water_level: null,
+      };
+    } catch (error) {
+      log.error(`Error in fetchCachedTides for beach ${beachId}:`, error);
+      return null;
+    }
   }
 
   /**

@@ -61,11 +61,13 @@ const mockRouter = {
   push: jest.fn(),
   replace: jest.fn(),
 };
+let mockSearchParamsGet = jest.fn().mockReturnValue("sessions");
+let mockSearchParamsToString = jest.fn().mockReturnValue("tab=sessions");
 jest.mock("next/navigation", () => ({
   useRouter: () => mockRouter,
   useSearchParams: () => ({
-    get: jest.fn().mockReturnValue("sessions"),
-    toString: jest.fn().mockReturnValue("tab=sessions"),
+    get: (key: string) => mockSearchParamsGet(key),
+    toString: () => mockSearchParamsToString(),
   }),
 }));
 
@@ -113,6 +115,10 @@ describe("ProfileView - Surf Style Card", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (track as jest.Mock).mockClear();
+    mockRouter.push.mockClear();
+    mockRouter.replace.mockClear();
+    mockSearchParamsGet = jest.fn().mockReturnValue("sessions");
+    mockSearchParamsToString = jest.fn().mockReturnValue("tab=sessions");
 
     (useAuth as jest.Mock).mockReturnValue({
       user: mockUser,
@@ -352,6 +358,100 @@ describe("ProfileView - Surf Style Card", () => {
         "surf_profile_progress_shown",
         expect.anything()
       );
+    });
+  });
+
+  describe("URL Parameter Handling", () => {
+    it("opens edit modal when ?edit=true is present", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "edit") return "true";
+        if (key === "tab") return "sessions";
+        return null;
+      });
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-profile-modal")).toBeInTheDocument();
+      });
+    });
+
+    it("opens edit modal and sets scroll flag when ?openSettings=true", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "openSettings") return "true";
+        if (key === "tab") return "sessions";
+        return null;
+      });
+      mockSearchParamsToString = jest.fn().mockReturnValue("openSettings=true&tab=sessions");
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-profile-modal")).toBeInTheDocument();
+      });
+    });
+
+    it("cleans up openSettings param from URL after modal opens", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "openSettings") return "true";
+        if (key === "tab") return "sessions";
+        return null;
+      });
+      mockSearchParamsToString = jest.fn().mockReturnValue("openSettings=true&tab=sessions");
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(mockRouter.replace).toHaveBeenCalledWith(
+          "/profile?tab=sessions",
+          { scroll: false }
+        );
+      });
+    });
+
+    it("navigates to /profile when openSettings is the only param", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "openSettings") return "true";
+        return null;
+      });
+      mockSearchParamsToString = jest.fn().mockReturnValue("openSettings=true");
+
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(mockRouter.replace).toHaveBeenCalledWith(
+          "/profile",
+          { scroll: false }
+        );
+      });
     });
   });
 });

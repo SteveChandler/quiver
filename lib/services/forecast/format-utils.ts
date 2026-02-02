@@ -5,6 +5,8 @@
  * Extracted from enhanced-forecast-service.ts for testability.
  */
 
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
+
 /**
  * Format wave period in seconds with validation
  * Rejects periods outside realistic range (4-25s)
@@ -32,7 +34,7 @@ export function formatWaveFeet(
   if (!isFinite(meters)) return null;
   // Guard against absurd values; discard > 10m (≈ 32.8ft) as sensor/model glitch
   if (meters < 0 || meters > 10) return null;
-  return metersToFeet(meters);
+  return metersToFeetString(meters);
 }
 
 /**
@@ -48,13 +50,20 @@ export function formatFeet(feet: number | null | undefined): string | null {
 
 /**
  * Convert meters to feet string
+ * @param meters - Height in meters
+ * @returns Formatted string like "3.2 ft"
  */
-export function metersToFeet(meters: number): string {
-  const feet = meters * 3.28084;
+export function metersToFeetString(meters: number): string {
+  const feet = meters * METERS_TO_FEET;
   // Round to nearest 0.1 feet for precision
   const rounded = Math.round(feet * 10) / 10;
   return `${rounded} ft`;
 }
+
+/**
+ * @deprecated Use metersToFeetString for clarity
+ */
+export const metersToFeet = metersToFeetString;
 
 /**
  * Extract numeric wind speed from string like "15 mph"

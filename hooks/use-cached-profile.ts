@@ -9,7 +9,7 @@ interface CachedProfileData {
   profile: Profile | null;
   homeBeach: Beach | null;
   // Backward compat: older cache may store `defaultBeach`
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   defaultBeach?: any;
   timestamp: number;
 }

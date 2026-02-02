@@ -159,6 +159,17 @@ const nextConfig = {
       },
     ];
   },
+
+  async redirects() {
+    return [
+      {
+        source: "/settings",
+        destination: "/profile?openSettings=true",
+        permanent: false, // 302 for flexibility
+      },
+    ];
+  },
+
   images: {
     // CRITICAL FIX: Enable image optimization in production
     unoptimized: false,
