@@ -22,7 +22,7 @@ const DEBUG_INVITES =
     process.env.DEBUG_INVITES === undefined);
 const debug = (...args: any[]) => {
   if (DEBUG_INVITES) {
-    // eslint-disable-next-line no-console
+     
     console.log("[INVITES]", ...args);
   }
 };
