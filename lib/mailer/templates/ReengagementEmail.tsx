@@ -1,4 +1,6 @@
 import * as React from "react";
+import { getConditionLabel } from "@/lib/email/email-formatters";
+import type { IntelPost } from "@/lib/email/email-types";
 
 export interface ReengagementEmailProps {
   displayName: string | null;
@@ -11,24 +13,10 @@ export interface ReengagementEmailProps {
     start: string;
     end: string;
   } | null;
-  recentIntel: Array<{
-    tag: string;
-    description: string;
-  }>;
+  recentIntel: IntelPost[];
   ctaUrl: string;
   unsubscribeUrl: string;
   baseUrl?: string;
-}
-
-function getConditionLabel(score: number): { label: string; color: string; emoji: string } {
-  // Score is 0-10 scale from beach_daily_intel
-  if (score >= 9) {
-    return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-  } else if (score >= 8) {
-    return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
-  } else {
-    return { label: "Good", color: "#22c55e", emoji: "🌊" };
-  }
 }
 
 /**
@@ -268,9 +256,9 @@ export function ReengagementEmail({
             >
               Recent Community Intel
             </h3>
-            {recentIntel.map((intel, index) => (
+            {recentIntel.map((intel) => (
               <div
-                key={index}
+                key={intel.id}
                 style={{
                   backgroundColor: "#f9fafb",
                   padding: "12px 16px",

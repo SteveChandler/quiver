@@ -82,6 +82,7 @@ jest.mock("@/lib/mailer/client", () => {
     },
     MAIL_FROM: "Quiver <test@quiversurf.app>",
     MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
+    getBaseUrl: () => "https://quiversurf.app",
   };
 });
 
@@ -447,8 +448,8 @@ describe("Re-engagement Email Cron Job API", () => {
       // Mock intel posts
       mockLimit.mockResolvedValueOnce({
         data: [
-          { tag: "waves", description: "Clean sets rolling through" },
-          { tag: "wind", description: "Glassy in the morning" },
+          { id: "intel-1", tag: "waves", description: "Clean sets rolling through" },
+          { id: "intel-2", tag: "wind", description: "Glassy in the morning" },
         ],
         error: null,
       });
@@ -711,7 +712,7 @@ describe("Re-engagement Email Cron Job API", () => {
       await GET(request);
 
       expect(mockFrom).toHaveBeenCalledWith("intel_posts");
-      expect(mockSelect).toHaveBeenCalledWith("tag, description");
+      expect(mockSelect).toHaveBeenCalledWith("id, tag, description");
       expect(mockEq).toHaveBeenCalledWith("beach_id", "beach-1");
       expect(mockEq).toHaveBeenCalledWith("is_active", true);
       expect(mockOrder).toHaveBeenCalledWith("created_at", { ascending: false });

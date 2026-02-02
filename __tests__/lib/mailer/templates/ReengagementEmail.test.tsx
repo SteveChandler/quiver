@@ -35,8 +35,8 @@ describe("ReengagementEmail", () => {
       end: "10:00 AM",
     },
     recentIntel: [
-      { tag: "waves", description: "Clean sets rolling through" },
-      { tag: "wind", description: "Glassy in the morning" },
+      { id: "intel-1", tag: "waves", description: "Clean sets rolling through" },
+      { id: "intel-2", tag: "wind", description: "Glassy in the morning" },
     ],
     ctaUrl: "https://quiversurf.app/beaches/ocean-beach",
     unsubscribeUrl: "https://quiversurf.app/settings",
@@ -289,8 +289,8 @@ describe("ReengagementEmail", () => {
       const props: ReengagementEmailProps = {
         ...defaultProps,
         recentIntel: [
-          { tag: "waves", description: "Test 1" },
-          { tag: "wind", description: "Test 2" },
+          { id: "intel-1", tag: "waves", description: "Test 1" },
+          { id: "intel-2", tag: "wind", description: "Test 2" },
         ],
       };
 
@@ -304,8 +304,8 @@ describe("ReengagementEmail", () => {
       const props: ReengagementEmailProps = {
         ...defaultProps,
         recentIntel: [
-          { tag: "conditions", description: "Post 1" },
-          { tag: "crowd", description: "Post 2" },
+          { id: "intel-1", tag: "conditions", description: "Post 1" },
+          { id: "intel-2", tag: "crowd", description: "Post 2" },
         ],
       };
 
@@ -318,7 +318,7 @@ describe("ReengagementEmail", () => {
     it("should limit display to provided intel posts", () => {
       const props: ReengagementEmailProps = {
         ...defaultProps,
-        recentIntel: [{ tag: "waves", description: "Only one post" }],
+        recentIntel: [{ id: "intel-1", tag: "waves", description: "Only one post" }],
       };
 
       const { container } = render(<ReengagementEmail {...props} />);
