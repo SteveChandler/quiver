@@ -191,7 +191,6 @@ describe('Wind Quality Scorer', () => {
     it('should handle undefined breakType gracefully', () => {
       const input = createInput(
         { wind: { speedMph: 8, directionDeg: 0 } },
-        // @ts-expect-error - testing undefined handling
         { breakType: undefined }
       );
       expect(() => windQualityScorer.score(input)).not.toThrow();
