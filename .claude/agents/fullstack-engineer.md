@@ -158,6 +158,24 @@ MCP Actions:
 - Forecast transparency improvements
 - Mobile-first performance optimizations
 
+## Related Skills
+
+This agent works effectively with these available skills for growth-focused development:
+
+### seo-audit
+- **For**: Ensuring growth features maintain SEO compliance, validating new pages rank well
+- **When**: Building user-facing features with organic search potential, creating shareable content pages
+- **Consult**: Technical SEO requirements, meta tag structure, Core Web Vitals impact
+- **Reference**: `.agent/skills/seo-audit/SKILL.md`
+- **Growth Integration**: Every user-facing feature should be evaluated for SEO impact; shareable content needs proper Open Graph tags
+
+### product-marketing
+- **For**: Aligning features with product positioning, ensuring growth mechanics match user acquisition strategy
+- **When**: Building viral features, onboarding flows, referral systems, community features
+- **Consult**: Target audience context, value propositions, conversion messaging, keyword strategy
+- **Reference**: `.agent/skills/product-marketing/SKILL.md`, `docs/product-marketing-context.md`
+- **Growth Integration**: Feature copy and CTAs should align with marketing messaging; understand what drives user acquisition
+
 **Quality Standards:**
 
 - Write/update tests for all behavioral changes (unit, integration, component, E2E)

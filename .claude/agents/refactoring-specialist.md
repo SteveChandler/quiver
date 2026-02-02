@@ -271,6 +271,21 @@ Apply these patterns judiciously when appropriate:
 7. Update API documentation
 8. Add contract tests
 
+## Related Skills
+
+### seo-audit
+- **For**: Assessing SEO impact when refactoring user-facing pages
+- **When**: Refactoring page components, route structures, or metadata generation
+- **Consult**: SEO requirements to preserve during refactoring, URL structure impact
+- **Reference**: `.agent/skills/seo-audit/SKILL.md`
+
+**SEO Impact Analysis** (for page refactors):
+- [ ] URL structure preserved or redirects planned
+- [ ] Metadata generation still functional
+- [ ] Structured data not broken
+- [ ] Internal linking maintained
+- [ ] Core Web Vitals not degraded by changes
+
 ## Collaboration with Other Agents
 
 You work closely with:

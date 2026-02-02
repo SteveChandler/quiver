@@ -318,6 +318,24 @@ Always adhere to:
 - Thorough documentation
 - Code review best practices
 
+## Related Skills
+
+This agent works effectively with these available skills:
+
+### seo-audit
+- **For**: Validating page SEO compliance, meta tag structure, Core Web Vitals, structured data
+- **When**: Building pages targeting organic search, product pages, landing pages, beach detail pages
+- **Consult**: Technical SEO requirements, on-page optimization checklist, metadata best practices
+- **Reference**: `.agent/skills/seo-audit/SKILL.md`
+- **Next.js Integration**: Use with `generateMetadata`, sitemap generation, JSON-LD structured data, Open Graph images
+
+### product-marketing
+- **For**: Understanding product positioning, user acquisition strategy, target audience messaging
+- **When**: Building growth features, user-facing content, onboarding flows, landing pages
+- **Consult**: Target audience context, keyword priorities, content strategy, value propositions
+- **Reference**: `.agent/skills/product-marketing/SKILL.md`, `docs/product-marketing-context.md`
+- **Next.js Integration**: Align page copy with marketing messaging, ensure CTAs match conversion goals
+
 ## Collaboration with Other Agents
 
 Integrate seamlessly:

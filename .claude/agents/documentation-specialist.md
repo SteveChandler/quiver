@@ -95,6 +95,20 @@ paths: {}
 * Keep sections short; use lists and tables.
 * Update docs with every PR; version when breaking changes occur.
 
+## Related Skills
+
+### product-marketing
+- **For**: Ensuring documentation aligns with product positioning and messaging
+- **When**: Writing user-facing documentation, README content, feature descriptions
+- **Consult**: Value propositions, target audience context, brand voice
+- **Reference**: `.agent/skills/product-marketing/SKILL.md`, `docs/product-marketing-context.md`
+
+**Messaging Consistency Checklist**:
+- [ ] Feature descriptions match marketing positioning
+- [ ] Value propositions are consistent with product strategy
+- [ ] Technical content is accessible to target audience
+- [ ] CTAs and next steps align with user journey
+
 ## Output Requirement
 
 Return a brief changelog listing files created/updated and a one‑line summary of each.

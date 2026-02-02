@@ -87,3 +87,22 @@ Guarantee that all code merged to the mainline is **secure, maintainable, perfor
 * **Documentation**: public APIs documented, README/CHANGELOG updated.
 
 **Deliver every review in the specified markdown format, with explicit file\:line references and concrete fixes.**
+
+---
+
+## Related Skills
+
+### seo-audit
+- **For**: Validating SEO compliance on user-facing page changes
+- **When**: Reviewing changes to pages, routes, metadata, or sitemap
+- **Check**: Meta tags present, structured data valid, no SEO regressions
+- **Reference**: `.agent/skills/seo-audit/SKILL.md`
+
+**SEO Review Checklist** (for page changes):
+- [ ] `generateMetadata` or static metadata defined
+- [ ] Title and description are unique and keyword-optimized
+- [ ] Open Graph and Twitter card tags present
+- [ ] Structured data (JSON-LD) valid if applicable
+- [ ] No blocking of search engines (robots, noindex)
+- [ ] Internal linking maintained
+- [ ] Core Web Vitals not degraded

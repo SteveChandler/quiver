@@ -116,4 +116,46 @@ Task 6: specific_task_description → AGENT: code-reviewer
 **Bug Fix**: Code-Archaeologist → Specialist → Test → Review
 **Refactor**: Refactoring-Specialist → Test → Review
 
+## Skill Consultation Guidance
+
+When routing tasks, recommend skill consultation for these scenarios:
+
+### seo-audit Skill
+Recommend when task involves:
+- New user-facing pages or routes
+- Landing pages or marketing content
+- Beach detail pages or search result pages
+- Metadata or sitemap changes
+- Pages targeting organic search traffic
+
+**Reference**: `.agent/skills/seo-audit/SKILL.md`
+
+### product-marketing Skill
+Recommend when task involves:
+- Growth features (sharing, referrals, viral mechanics)
+- User onboarding flows
+- Marketing landing pages
+- Content that drives user acquisition
+- Feature copy and CTAs
+
+**Reference**: `.agent/skills/product-marketing/SKILL.md`, `docs/product-marketing-context.md`
+
+### Routing Example with Skills
+
+```
+Task: "Build a new beach comparison page"
+
+Skill Consultation:
+- Recommend `seo-audit` skill for SEO requirements (new page targeting search)
+- Recommend `product-marketing` skill for positioning and messaging
+
+Agent Assignments:
+Task 1: Schema design → AGENT: @supabase-db-expert
+Task 2: API endpoints → AGENT: @api-designer
+Task 3: Page implementation (consult seo-audit) → AGENT: @nextjs-developer
+Task 4: UI components → AGENT: @react-nextjs-expert
+Task 5: E2E tests → AGENT: @test-automator
+Task 6: Final review → AGENT: @code-reviewer
+```
+
 Remember: Every task gets a sub-agent. Maximum 2 parallel. Use exact format.

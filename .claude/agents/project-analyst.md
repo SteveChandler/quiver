@@ -64,3 +64,19 @@ Provide a structured snapshot of the project’s languages, frameworks, architec
 ---
 
 **Output must follow the structured headings so routing logic can parse automatically.**
+
+---
+
+## Related Skills
+
+### product-marketing
+- **For**: Understanding product context during stack analysis
+- **When**: Analyzing projects with marketing/growth components, user acquisition features
+- **Consult**: Target audience, product positioning, growth strategy context
+- **Reference**: `.agent/skills/product-marketing/SKILL.md`, `docs/product-marketing-context.md`
+
+**Product Context to Include in Analysis**:
+- Growth-focused features detected (sharing, referrals, onboarding)
+- SEO-critical pages and routes
+- Marketing landing pages
+- User acquisition flow components
