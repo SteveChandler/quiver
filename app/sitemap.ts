@@ -188,25 +188,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Generate canonical URLs for beaches:
     // - Hierarchical URL for beaches with complete data (slug + city + state)
     // - /spots/{slug} fallback for beaches missing city or state
+    // Also generate tide and water-temp intent pages for each beach
     beachEntries = beaches
       .filter((b) => b.slug) // Only include beaches with a slug
-      .map((beach) => {
+      .flatMap((beach) => {
         // Use hierarchical URL if we have complete location data (matches redirect logic in /spots/[slug])
-        const url = beach.city && beach.state
+        const beachUrl = beach.city && beach.state
           ? `${baseUrl}${buildBeachUrl(beach)}`
           : `${baseUrl}/spots/${beach.slug}`;
 
-        return {
-          url,
-          // Prefer updated_at when present so the sitemap reflects freshness.
-          lastModified:
-            // getBeaches() selects a subset; treat updated_at as optional.
-            (beach as { updated_at?: string | null }).updated_at ||
-            beach.created_at ||
-            lastmod,
+        const lastModifiedDate =
+          (beach as { updated_at?: string | null }).updated_at ||
+          beach.created_at ||
+          lastmod;
+
+        // Main beach page
+        const mainEntry = {
+          url: beachUrl,
+          lastModified: lastModifiedDate,
           changeFrequency: "weekly" as const,
           priority: 0.6,
         };
+
+        // Tide and water-temp intent pages (only for beaches with hierarchical URLs)
+        if (beach.city && beach.state) {
+          const tidesEntry = {
+            url: `${beachUrl}/tides`,
+            lastModified: lastModifiedDate,
+            changeFrequency: "daily" as const,
+            priority: 0.55,
+          };
+          const waterTempEntry = {
+            url: `${beachUrl}/water-temp`,
+            lastModified: lastModifiedDate,
+            changeFrequency: "daily" as const,
+            priority: 0.55,
+          };
+          return [mainEntry, tidesEntry, waterTempEntry];
+        }
+
+        return [mainEntry];
       });
   }
 

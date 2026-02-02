@@ -395,27 +395,13 @@ export class ForecastBuilder {
     useCDIPData: boolean,
     beach: Beach
   ): string | null {
-    const formatWaveFeet = (meters: number | null | undefined): string | null => {
-      if (meters == null) return null;
-      if (!isFinite(meters)) return null;
-      if (meters < 0 || meters > 10) return null;
-      return this.metersToFeet(meters);
-    };
-
-    const formatFeet = (feet: number | null | undefined): string | null => {
-      if (feet == null) return null;
-      if (!isFinite(feet)) return null;
-      if (feet < 0) return null;
-      const rounded = Math.round(feet * 10) / 10;
-      return `${rounded} ft`;
-    };
-
-    // Extract period: prefer CDIP peak period, then model swell period
+    // Extract period: prefer CDIP peak period, then model swell period, then buoy period
     const periodS =
       cdipPoint?.peakWavePeriod ??
       cdipPoint?.swellPeriod ??
       wavePoint?.swell_1_period ??
       wavePoint?.peak_wave_period ??
+      buoyData?.wave_period ??
       null;
 
     // Extract swell direction: prefer CDIP peak direction, then model swell direction
@@ -433,28 +419,20 @@ export class ForecastBuilder {
       terrain_enabled: beach.terrain_enabled ?? false,
     };
 
-    // Try toFaceHeightFeet with beach-specific transformation
-    const face = toFaceHeightFeet({
+    // Use toFaceHeightFeet with all available sources - it handles source priority
+    // and applies transformation to whichever source it selects.
+    // IMPORTANT: Never return raw untransformed heights - all heights must go through
+    // the transformer to convert Hs to face height.
+    return toFaceHeightFeet({
       cdipSigFt: cdipPoint?.significantWaveHeight ?? undefined,
       cdipSwellFt: cdipPoint?.swellHeight ?? undefined,
       modelSwellM: wavePoint?.swell_1_height ?? undefined,
       modelHsM: wavePoint?.significant_wave_height ?? undefined,
+      ndbcBuoyM: buoyData?.wave_height ?? undefined,
       beach: beachTerrain,
       periodS,
       swellDirectionDeg,
     });
-    if (face) return face;
-
-    // Fallback logic (without transformation for edge cases)
-    if (useCDIPData && cdipPoint?.significantWaveHeight != null)
-      return formatFeet(cdipPoint.significantWaveHeight);
-    if (useCDIPData && cdipPoint?.swellHeight != null) return formatFeet(cdipPoint.swellHeight);
-    if (wavePoint?.swell_1_height != null) return formatWaveFeet(wavePoint.swell_1_height);
-    if (useCDIPData && cdipPoint) return formatFeet(cdipPoint.significantWaveHeight);
-    if (buoyData?.wave_height != null) return formatWaveFeet(buoyData.wave_height);
-    if (wavePoint?.significant_wave_height != null)
-      return formatWaveFeet(wavePoint.significant_wave_height);
-    return null;
   }
 
   private getWavePeriod(

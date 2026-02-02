@@ -41,6 +41,9 @@ export function useBeachSearch() {
   });
   const [hasLoadedAllBeaches, setHasLoadedAllBeaches] = useState(false);
 
+  // State for beaches near the selected beach (not user location)
+  const [selectedBeachNearby, setSelectedBeachNearby] = useState<Beach[]>([]);
+
   // Track in-flight requests to prevent duplicates
   const nearbyRequestInFlightRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -326,6 +329,37 @@ export function useBeachSearch() {
     [] // No dependencies to prevent recreation and infinite loops
   );
 
+  // Load beaches near a selected beach (not user location)
+  const loadNearbyBeachesForSelected = useCallback(
+    async (beach: Beach) => {
+      if (typeof beach.lat !== "number" || typeof beach.lon !== "number") {
+        console.warn("[useBeachSearch] Selected beach has no coordinates");
+        return;
+      }
+
+      console.log("[useBeachSearch] Loading nearby beaches for selected beach:", beach.name);
+
+      try {
+        const result = await getNearbyBeaches(beach.lat, beach.lon, MAX_DISTANCE_MILES);
+
+        if (result.success && result.data) {
+          // Filter out the selected beach itself
+          const nearby = result.data.filter((b) => b.id !== beach.id);
+          console.log("[useBeachSearch] Found", nearby.length, "beaches near", beach.name);
+          setSelectedBeachNearby(nearby);
+        }
+      } catch (error) {
+        console.error("[useBeachSearch] Error loading nearby beaches for selected:", error);
+      }
+    },
+    []
+  );
+
+  // Clear the selected beach nearby list
+  const clearSelectedBeachNearby = useCallback(() => {
+    setSelectedBeachNearby([]);
+  }, []);
+
   const setSearchQuery = useCallback((query: string) => {
     setState((prev) => ({ ...prev, searchQuery: query }));
   }, []);
@@ -340,6 +374,12 @@ export function useBeachSearch() {
 
   // Get beaches to show in the horizontal scroll (excluding selected beach)
   const nearbyBeachesForScroll = useMemo(() => {
+    // When a beach is selected, prefer beaches near THAT beach (not user location)
+    if (state.selectedBeach && selectedBeachNearby.length > 0) {
+      return selectedBeachNearby.slice(0, 4);
+    }
+
+    // Fallback to filtered beaches (user location based)
     if (!state.filteredBeaches?.length) return [];
 
     if (state.selectedBeach) {
@@ -349,7 +389,7 @@ export function useBeachSearch() {
     }
 
     return state.filteredBeaches.slice(0, 5);
-  }, [state.filteredBeaches, state.selectedBeach]);
+  }, [state.filteredBeaches, state.selectedBeach, selectedBeachNearby]);
 
   return {
     ...state,
@@ -359,6 +399,8 @@ export function useBeachSearch() {
     regions,
     loadBeaches,
     loadNearbyBeaches,
+    loadNearbyBeachesForSelected,
+    clearSelectedBeachNearby,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,

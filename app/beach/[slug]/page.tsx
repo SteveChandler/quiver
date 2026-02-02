@@ -1,65 +1,18 @@
-import {
-  getBeachById,
-  getBeachesBySlug,
-} from "@/actions/beach/beach-query-actions";
-import type { Beach } from "@/types/database";
+
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { BeachFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "./beach-detail-client";
 import type { Metadata } from "next";
-import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
+import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
+import { getBeachForecastPreview } from "@/actions/forecast-actions";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
-import { cache } from "react";
+import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
-
-/**
- * Selects the best beach candidate from a list using deterministic sorting.
- * Prefers: coordinates > review_count > created_at > id
- */
-function selectBestCandidate(candidates: Beach[]): Beach | null {
-  if (candidates.length === 0) return null;
-  return [...candidates].sort((a, b) => {
-    const aHasCoords = Number(Boolean(a.lat && a.lon));
-    const bHasCoords = Number(Boolean(b.lat && b.lon));
-    if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
-
-    const aReviews = a.review_count ?? 0;
-    const bReviews = b.review_count ?? 0;
-    if (aReviews !== bReviews) return bReviews - aReviews;
-
-    const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
-    const bCreated = b.created_at ? Date.parse(b.created_at) : 0;
-    if (aCreated !== bCreated) return bCreated - aCreated;
-
-    return String(a.id).localeCompare(String(b.id));
-  })[0] ?? null;
-}
-
-/**
- * Cached beach lookup by slug with fallback to ID.
- * React's cache() deduplicates this call between generateMetadata and page component.
- */
-const getBeachBySlugOrId = cache(async (slug: string): Promise<Beach | null> => {
-  // Try slug lookup first
-  const bySlugResult = await getBeachesBySlug(slug);
-  const candidates = bySlugResult.success ? bySlugResult.data ?? [] : [];
-
-  if (candidates.length > 0) {
-    return selectBestCandidate(candidates);
-  }
-
-  // Fallback: treat slug as an ID for back-compat
-  const byIdResult = await getBeachById(slug);
-  if (byIdResult.success && byIdResult.data) {
-    return byIdResult.data;
-  }
-
-  return null;
-});
 
 export default async function BeachDetailBySlugPage(
   props: {
@@ -116,6 +69,9 @@ export default async function BeachDetailBySlugPage(
           ]}
         />
 
+        {/* FAQ Structured Data for rich snippets */}
+        <BeachFAQSchema beachName={beach.name} />
+
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
           beach={beach}
@@ -164,12 +120,20 @@ export async function generateMetadata(
   const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
-    const locationContext =
-      beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+    // Fetch live forecast data for dynamic title with wave heights
+    const forecastResult = await getBeachForecastPreview(beach.id);
+    const forecast = forecastResult.success && forecastResult.data
+      ? { wave_height: forecastResult.data.wave_height }
+      : null;
+
+    const { title, description } = buildDynamicBeachMetadata({
+      beach,
+      forecast,
+    });
 
     return buildPageMetadata({
-      title: `${beach.name} Surf Report & Forecast (Updated Daily)`,
-      description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
+      title,
+      description,
       path: `/beach/${params.slug}`,
       image: `/api/og/beach?slug=${params.slug}`,
     });

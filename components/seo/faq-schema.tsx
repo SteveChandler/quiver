@@ -37,6 +37,33 @@ export function FAQSchema({ items }: FAQSchemaProps) {
 }
 
 /**
+ * Beach-specific FAQ Schema for individual beach pages
+ * Targets common search queries: tide times, water temp, wave size
+ */
+export function BeachFAQSchema({ beachName }: { beachName: string }) {
+  const faqItems: FAQItem[] = [
+    {
+      question: `What are the tide times at ${beachName} today?`,
+      answer: `View today's high and low tide times at ${beachName} on our tide chart. Updated daily with hourly predictions and optimal surf windows.`,
+    },
+    {
+      question: `What is the water temperature at ${beachName}?`,
+      answer: `Check the current water temperature at ${beachName}. We provide real-time conditions and wetsuit recommendations based on seasonal trends.`,
+    },
+    {
+      question: `What size waves at ${beachName} right now?`,
+      answer: `See live wave height and surf conditions at ${beachName}. Our forecast is updated throughout the day with swell direction, period, and wind data.`,
+    },
+    {
+      question: `Is ${beachName} good for beginners?`,
+      answer: `Check our surf report for ${beachName} to see current conditions and crowd levels. We include skill level recommendations and the best times to paddle out.`,
+    },
+  ];
+
+  return <FAQSchema items={faqItems} />;
+}
+
+/**
  * Quiver-specific FAQ Schema for Landing Page
  */
 export function QuiverFAQSchema() {

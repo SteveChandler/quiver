@@ -237,6 +237,8 @@ export interface WaveHeightSourceParams {
   cdipSwellFt?: number | null;
   modelSwellM?: number | null;
   modelHsM?: number | null;
+  /** NDBC buoy wave height in meters */
+  ndbcBuoyM?: number | null;
 }
 
 /**
@@ -246,7 +248,7 @@ export interface WaveHeightSource {
   /** Raw height in feet */
   heightFt: number;
   /** Source identifier for debugging/logging */
-  source: 'cdip_sig' | 'model_swell' | 'cdip_swell' | 'model_hs';
+  source: 'cdip_sig' | 'model_swell' | 'cdip_swell' | 'model_hs' | 'ndbc_buoy';
 }
 
 /**
@@ -257,6 +259,7 @@ export interface WaveHeightSource {
  * 2. Model primary swell
  * 3. CDIP swell
  * 4. Model Hs
+ * 5. NDBC buoy
  *
  * @param params Wave height source parameters
  * @returns Best available source with height, or null if no valid source
@@ -268,6 +271,7 @@ export function selectWaveHeightSource(
   const cdipSwell = validateWaveHeight(params.cdipSwellFt);
   const modelSwell = metersToFeet(params.modelSwellM);
   const modelHs = metersToFeet(params.modelHsM);
+  const ndbcBuoy = metersToFeet(params.ndbcBuoyM);
 
   // Prefer CDIP significant height when available and within reasonable range
   if (cdipSig !== undefined && cdipSig <= MAX_TRUSTED_CDIP_FT) {
@@ -291,6 +295,11 @@ export function selectWaveHeightSource(
   // Model Hs as last resort
   if (modelHs !== undefined) {
     return { heightFt: modelHs, source: 'model_hs' };
+  }
+
+  // NDBC buoy as final fallback
+  if (ndbcBuoy !== undefined) {
+    return { heightFt: ndbcBuoy, source: 'ndbc_buoy' };
   }
 
   return null;

@@ -84,3 +84,28 @@ export function formatMetaDate(date = new Date()): string {
 function shouldIndex(): boolean {
   return process.env.DISALLOW_ROBOTS !== "true";
 }
+
+/**
+ * Build dynamic metadata for beach pages using live forecast data.
+ * Falls back to generic titles when forecast data is unavailable.
+ */
+export function buildDynamicBeachMetadata({
+  beach,
+  forecast,
+}: {
+  beach: { name: string; city?: string | null; state?: string | null };
+  forecast: { wave_height?: string | null } | null;
+}): { title: string; description: string } {
+  const locationContext =
+    beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+
+  const title = forecast?.wave_height
+    ? `${beach.name} Surf Report: ${forecast.wave_height} Today | Live Forecast`
+    : `${beach.name} Surf Report & Forecast | Updated Live`;
+
+  const description = forecast?.wave_height
+    ? `${beach.name} is ${forecast.wave_height} right now. See the best window to paddle out today${locationContext}. Free, no paywall.`
+    : `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`;
+
+  return { title, description };
+}
