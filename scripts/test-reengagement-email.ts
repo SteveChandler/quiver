@@ -18,6 +18,8 @@ if (!RESEND_API_KEY) {
 
 const resend = new Resend(RESEND_API_KEY);
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
+
 // Real data from Scripps today (2026-02-02)
 const testData = {
   displayName: "Steve",
@@ -36,12 +38,17 @@ const testData = {
       description: "Scripps waking up to 2-5ft faces with 15-second period. Light SE winds holding through mid-morning.",
     },
   ],
-  ctaUrl: "https://quiversurf.app/beaches/scripps",
-  unsubscribeUrl: "https://quiversurf.app/settings",
+  ctaUrl: `${baseUrl}/beaches/scripps`,
+  unsubscribeUrl: `${baseUrl}/settings`,
+  baseUrl,
 };
 
 async function main() {
-  const testEmail = "stcha0004@gmail.com";
+  const testEmail = process.env.TEST_EMAIL;
+  if (!testEmail) {
+    console.error("TEST_EMAIL environment variable is required");
+    process.exit(1);
+  }
   const subject = `Perfect conditions at ${testData.beachName} today!`;
 
   console.log(`Sending test re-engagement email to ${testEmail}...`);

@@ -17,6 +17,7 @@ export interface ReengagementEmailProps {
   }>;
   ctaUrl: string;
   unsubscribeUrl: string;
+  baseUrl?: string;
 }
 
 function getConditionLabel(score: number): { label: string; color: string; emoji: string } {
@@ -66,12 +67,13 @@ export function ReengagementEmail({
   recentIntel,
   ctaUrl,
   unsubscribeUrl,
+  baseUrl = "https://quiversurf.app",
 }: ReengagementEmailProps) {
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
   const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
   const displayScore = scoreToDisplayPercent(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
-  const logSessionUrl = `https://quiversurf.app/sessions/log?beach=${beachSlug}`;
+  const logSessionUrl = `${baseUrl}/sessions/log?beach=${beachSlug}`;
 
   return (
     <div

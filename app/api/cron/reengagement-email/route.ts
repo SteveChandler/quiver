@@ -282,6 +282,7 @@ export async function GET(request: Request) {
               recentIntel,
               ctaUrl,
               unsubscribeUrl,
+              baseUrl,
             }),
           });
 
