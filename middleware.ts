@@ -76,6 +76,20 @@ export async function middleware(request: NextRequest) {
   }
 
   /**
+   * Legacy Orange County beach URL redirects
+   *
+   * Historical URLs used "orange-county" as the city segment, but beaches
+   * are actually in specific cities. These were crawled by Google and now 404.
+   * Redirect to /spots/{beach} which is the universal beach detail route.
+   */
+  const ocMatch = pathname.toLowerCase().match(/^\/ca\/orange-county\/([^/]+)$/);
+  if (ocMatch && ocMatch[1]) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/spots/${ocMatch[1]}`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  /**
    * Canonicalize state-root casing
    * Example: /CA -> /ca
    *

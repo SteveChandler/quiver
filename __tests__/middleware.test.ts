@@ -155,4 +155,38 @@ describe("Middleware", () => {
     expect(mockRedirect).toHaveBeenCalled();
     expect(clonedUrl.pathname).toBe("/pr/rincon");
   });
+
+  test("redirects /ca/orange-county/{beach} to /spots/{beach} (legacy OC URLs)", async () => {
+    const clonedUrl = { pathname: "/ca/orange-county/seal-beach" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/ca/orange-county/seal-beach",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/ca/orange-county/seal-beach",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/spots/seal-beach");
+  });
+
+  test("redirects /CA/Orange-County/{beach} case-insensitively", async () => {
+    const clonedUrl = { pathname: "/CA/Orange-County/Bolsa-Chica" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/CA/Orange-County/Bolsa-Chica",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/CA/Orange-County/Bolsa-Chica",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/spots/bolsa-chica");
+  });
 });
