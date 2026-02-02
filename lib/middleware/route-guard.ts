@@ -30,6 +30,7 @@ export class RouteGuard {
     "/journal",
     "/discover",
     "/sessions/new",
+    "/settings",
   ];
 
   // Admin-only paths require additional authorization

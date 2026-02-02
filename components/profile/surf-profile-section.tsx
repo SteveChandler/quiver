@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
   getUserLearnedPreferences,
@@ -20,6 +20,7 @@ import { useAuth } from "@/context/auth-context";
 import { data as gateway } from "@/lib/data/client";
 import { getBeaches } from "@/actions/beach-actions";
 import type { Beach, Profile } from "@/types/database";
+import { useScrollToElement } from "@/hooks/use-scroll-to-element";
 
 /**
  * SurfProfileSection - Main container for the "Your Surf Profile" feature
@@ -53,7 +54,10 @@ export function SurfProfileSection() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [beaches, setBeaches] = useState<Beach[]>([]);
   const [isEditingExplicit, setIsEditingExplicit] = useState(false); // Toggle for explicit preferences edit
-  const editFormRef = useRef<HTMLDivElement>(null);
+  const [shouldScrollToEdit, setShouldScrollToEdit] = useState(false);
+  const editFormRef = useScrollToElement<HTMLDivElement>({
+    shouldScroll: shouldScrollToEdit,
+  });
 
   // Fetch profile and beaches data
   const fetchProfileData = useCallback(async () => {
@@ -119,14 +123,15 @@ export function SurfProfileSection() {
   // Handle edit button click from display card - toggle to edit mode
   const handleEditClick = () => {
     setIsEditingExplicit(true);
-    // Scroll to form after state update
-    setTimeout(() => {
-      editFormRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 100);
+    setShouldScrollToEdit(true);
   };
+
+  // Reset scroll flag when editing ends
+  useEffect(() => {
+    if (!isEditingExplicit) {
+      setShouldScrollToEdit(false);
+    }
+  }, [isEditingExplicit]);
 
   // Handle save complete from edit form
   const handleEditComplete = async () => {
