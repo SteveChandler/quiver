@@ -18,8 +18,7 @@ import type {
   ForecastSlice,
   BeachPreferences,
 } from "@/types/morning-intel";
-
-const METERS_TO_FEET = 3.28084;
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 
 /**
  * Type for tide direction

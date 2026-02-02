@@ -2,26 +2,56 @@
  * Unit Conversion Utilities
  *
  * Centralized utilities for converting between different measurement systems.
- * Only actively used functions are exported. Other conversion functions have
- * been removed as they were duplicated locally in components instead of using
- * this centralized module.
+ * This module is the single source of truth for unit conversion constants
+ * and functions across the codebase.
  */
+
+// =============================================================================
+// CONVERSION CONSTANTS
+// =============================================================================
+
+/**
+ * Meters to feet conversion factor.
+ * Single source of truth for this constant across the codebase.
+ */
+export const METERS_TO_FEET = 3.28084;
+
+/**
+ * Feet to meters conversion factor.
+ * Single source of truth for this constant across the codebase.
+ */
+export const FEET_TO_METERS = 0.3048;
 
 // =============================================================================
 // LENGTH CONVERSIONS
 // =============================================================================
 
 /**
- * Convert meters to feet.
- * Used by mToFt alias (imported by app/api/v1/recommendations/route.ts)
+ * Convert meters to feet (nullable-safe).
+ * Returns null if input is null/undefined.
+ *
+ * @param meters - Height in meters
+ * @param precision - Decimal places for rounding (default: 1)
+ * @returns Height in feet rounded to precision, or null
  */
-function metersToFeet(
+export function metersToFeet(
   meters: number | null | undefined,
   precision: number = 1
 ): number | null {
   if (meters == null) return null;
   const multiplier = Math.pow(10, precision);
-  return Math.round(meters * 3.28084 * multiplier) / multiplier;
+  return Math.round(meters * METERS_TO_FEET * multiplier) / multiplier;
+}
+
+/**
+ * Convert meters to feet (strict, non-nullable).
+ * Use when you know the input is valid.
+ *
+ * @param meters - Height in meters (must be a valid number)
+ * @returns Height in feet (no rounding applied)
+ */
+export function metersToFeetStrict(meters: number): number {
+  return meters * METERS_TO_FEET;
 }
 
 // =============================================================================
