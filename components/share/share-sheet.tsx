@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Share2, Loader2, AlertCircle } from "lucide-react";
+import { Share2, Loader2, AlertCircle, ImageIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -111,9 +111,11 @@ export function ShareSheet({
         <div className="flex flex-col items-center gap-4 pt-2">
           {/* Image preview */}
           <div className="relative w-full max-w-sm aspect-[4/3] rounded-lg overflow-hidden bg-muted">
-            {/* Shimmer loading state */}
+            {/* Image loading skeleton */}
             {!imageLoaded && (
-              <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-muted via-muted-foreground/10 to-muted" />
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-200 dark:bg-slate-700 animate-pulse">
+                <ImageIcon className="h-12 w-12 text-slate-400 dark:text-slate-500" />
+              </div>
             )}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
