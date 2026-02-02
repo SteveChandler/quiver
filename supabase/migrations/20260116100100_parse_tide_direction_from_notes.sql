@@ -1,28 +1,28 @@
--- Parse tide direction preferences from best_conditions notes field
+-- Parse tide direction preferences from best_conditions_prose notes field
 -- Keywords: incoming/rising/push -> 'rising', outgoing/falling/dropping/pull -> 'falling'
 
 UPDATE public.beaches
 SET preferred_tide_direction = 'rising'
 WHERE preferred_tide_direction IS NULL
-  AND best_conditions IS NOT NULL
+  AND best_conditions_prose IS NOT NULL
   AND (
-    best_conditions->>'notes' ~* '\bincoming\b'
-    OR best_conditions->>'notes' ~* '\brising\b'
-    OR best_conditions->>'notes' ~* '\bpush\b'
-    OR best_conditions->>'notes' ~* '\bincoming tide\b'
-    OR best_conditions->>'notes' ~* '\brising water\b'
+    best_conditions_prose ~* '\bincoming\b'
+    OR best_conditions_prose ~* '\brising\b'
+    OR best_conditions_prose ~* '\bpush\b'
+    OR best_conditions_prose ~* '\bincoming tide\b'
+    OR best_conditions_prose ~* '\brising water\b'
   );
 
 UPDATE public.beaches
 SET preferred_tide_direction = 'falling'
 WHERE preferred_tide_direction IS NULL
-  AND best_conditions IS NOT NULL
+  AND best_conditions_prose IS NOT NULL
   AND (
-    best_conditions->>'notes' ~* '\boutgoing\b'
-    OR best_conditions->>'notes' ~* '\bfalling\b'
-    OR best_conditions->>'notes' ~* '\bdropping\b'
-    OR best_conditions->>'notes' ~* '\bpull\b'
-    OR best_conditions->>'notes' ~* '\boutgoing tide\b'
+    best_conditions_prose ~* '\boutgoing\b'
+    OR best_conditions_prose ~* '\bfalling\b'
+    OR best_conditions_prose ~* '\bdropping\b'
+    OR best_conditions_prose ~* '\bpull\b'
+    OR best_conditions_prose ~* '\boutgoing tide\b'
   );
 
 -- Log how many were updated
