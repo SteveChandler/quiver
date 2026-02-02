@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Wave Height Displaying Raw Hs Instead of Face Height:** Fixed critical bug where certain fallback paths in `forecast-builder.ts` returned raw untransformed Significant Wave Height (Hs) instead of estimated face height. This caused beaches like Sunset Cliffs to show 2.6 ft when users observed 4-6 ft waves. Changes include:
+  - Removed all raw `formatFeet()` and `formatWaveFeet()` fallback paths in `getWaveHeight()` method
+  - Added NDBC buoy support (`ndbcBuoyM`) to `WaveHeightSourceParams` interface and source selection
+  - All wave height sources now flow through `toFaceHeightFeet()` which applies shoaling (1.6x), period amplification, and direction factors
+  - Added `buoyData?.wave_period` to period extraction chain for better transformation accuracy
+  - Example fix: 2.6 ft raw Hs × 1.6 shoaling = ~4.2 ft face height (matching observed conditions)
+  - Added Sunset Cliffs CDIP station override migration (Point Loma South - station 191)
+  - Full test coverage with new NDBC buoy transformation tests
+
 - **Forecast Sync "A.trim is not a function" Error:** Fixed a critical bug causing the enhanced forecast sync cron job to fail for all beaches with "A.trim is not a function" error. Added defensive type guards to direction parsing functions:
   - `cardinalToDegrees()` in `forecast-transformer.ts` - now validates input is a string before calling `.trim()`
   - `parseWaveDirection()` in `direction-utils.ts` - now validates input is a string before calling `.toUpperCase()`

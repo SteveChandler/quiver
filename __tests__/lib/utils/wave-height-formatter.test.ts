@@ -162,6 +162,22 @@ describe("Wave Height Formatter", () => {
         });
         expect(result).toBeNull();
       });
+
+      it("should use NDBC buoy as final fallback with transformation", () => {
+        const result = toFaceHeightFeet({
+          cdipSigFt: null,
+          modelSwellM: null,
+          cdipSwellFt: null,
+          modelHsM: null,
+          ndbcBuoyM: 0.8, // 2.62ft raw → 2.62 * 1.6 = 4.2ft face
+        });
+        // NDBC buoy should be transformed, not returned raw
+        expect(result).toMatch(/\d+\.?\d* ft/);
+        const faceHeight = parseFloat(result!);
+        // 0.8m = 2.62ft raw, × 1.6 shoaling = 4.2ft
+        expect(faceHeight).toBeGreaterThan(2.62); // Must be transformed
+        expect(faceHeight).toBeCloseTo(4.2, 0); // Should be ~4.2ft
+      });
     });
 
     describe("transformation with period", () => {
@@ -447,6 +463,40 @@ describe("Wave Height Formatter", () => {
         modelSwellM: 1.0,
       });
       expect(result?.source).toBe("model_swell");
+    });
+
+    it("should fall back to NDBC buoy when all other sources unavailable", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: null,
+        modelHsM: null,
+        ndbcBuoyM: 0.8, // 2.62ft
+      });
+      expect(result?.source).toBe("ndbc_buoy");
+      expect(result?.heightFt).toBeCloseTo(2.62, 1);
+    });
+
+    it("should prefer model Hs over NDBC buoy", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: null,
+        modelHsM: 0.5, // 1.64ft
+        ndbcBuoyM: 0.8, // 2.62ft
+      });
+      expect(result?.source).toBe("model_hs");
+    });
+
+    it("should return null when no sources including NDBC are available", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: null,
+        modelSwellM: null,
+        cdipSwellFt: null,
+        modelHsM: null,
+        ndbcBuoyM: null,
+      });
+      expect(result).toBeNull();
     });
   });
 
