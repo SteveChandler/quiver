@@ -40,8 +40,15 @@ describe("SeoRedirectHandler", () => {
       expect(classifyUrlPattern("/admin/users/settings")).toBe("none");
     });
 
+    it("classifies US city URLs for slug normalization", () => {
+      expect(classifyUrlPattern("/pr/rincon")).toBe("us-city");
+      expect(classifyUrlPattern("/pr/rinc-n")).toBe("us-city");
+      expect(classifyUrlPattern("/ca/san-diego")).toBe("us-city");
+    });
+
     it("does not classify 2-segment intent URLs as redirect candidates (canonical format)", () => {
       // 2-segment intent URLs are the canonical format handled by app/[intent]/[city]/page.tsx
+      // These have an intent slug first, not a state slug
       expect(classifyUrlPattern("/beginner/malibu")).toBe("none");
       expect(classifyUrlPattern("/tide/cardiff-by-the-sea")).toBe("none");
     });
@@ -721,6 +728,90 @@ describe("SeoRedirectHandler", () => {
 
         expect(result3).toEqual({ redirect: true, url: "/sunset/san-diego-ca" });
         expect(result4).toEqual({ redirect: true, url: "/sunset/san-diego-ca" });
+
+        // Restore env vars
+        process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalKey;
+      });
+    });
+  });
+
+  /**
+   * Puerto Rico City Slug Redirect Tests
+   *
+   * Tests for redirecting malformed Puerto Rico city slugs caused by
+   * accented character handling issues:
+   * - /pr/rinc-n/* → /pr/rincon/* (fixes "Rincón" → "rinc-n" bug)
+   * - /pr/rincn/* → /pr/rincon/* (handles other malformed variants)
+   */
+  describe("Puerto Rico City Slug Redirects", () => {
+    describe("classifyUrlPattern - US City Patterns", () => {
+      it("classifies 2-segment state/city URLs as us-city", () => {
+        expect(classifyUrlPattern("/pr/rincon")).toBe("us-city");
+        expect(classifyUrlPattern("/pr/rinc-n")).toBe("us-city");
+        expect(classifyUrlPattern("/pr/rincn")).toBe("us-city");
+        expect(classifyUrlPattern("/ca/san-diego")).toBe("us-city");
+      });
+
+      it("does not classify non-state first segments as us-city", () => {
+        expect(classifyUrlPattern("/invalid/city")).toBe("none");
+        expect(classifyUrlPattern("/beginner/malibu")).toBe("none");
+      });
+    });
+
+    describe("handleSeoRedirect - PR City Slug Fixes", () => {
+      it("redirects /pr/rinc-n to /pr/rincon", async () => {
+        const result = await handleSeoRedirect("/pr/rinc-n");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/pr/rincon"
+        });
+      });
+
+      it("redirects /pr/rincn to /pr/rincon", async () => {
+        const result = await handleSeoRedirect("/pr/rincn");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/pr/rincon"
+        });
+      });
+
+      it("does not redirect /pr/rincon (already correct)", async () => {
+        const result = await handleSeoRedirect("/pr/rincon");
+        expect(result).toEqual({ redirect: false });
+      });
+
+      it("does not redirect other PR cities", async () => {
+        const result = await handleSeoRedirect("/pr/san-juan");
+        expect(result).toEqual({ redirect: false });
+      });
+
+      it("does not redirect non-PR city URLs", async () => {
+        const result = await handleSeoRedirect("/ca/san-diego");
+        expect(result).toEqual({ redirect: false });
+      });
+
+      it("normalizes URL casing", async () => {
+        const result = await handleSeoRedirect("/PR/RINC-N");
+        expect(result).toEqual({
+          redirect: true,
+          url: "/pr/rincon"
+        });
+      });
+
+      it("does not require database lookup for PR city redirects", async () => {
+        // Clear any previous mocks
+        jest.clearAllMocks();
+
+        // Remove Supabase credentials to ensure no DB calls can succeed
+        const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const originalKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        // These should still work without database access
+        const result = await handleSeoRedirect("/pr/rinc-n");
+        expect(result).toEqual({ redirect: true, url: "/pr/rincon" });
 
         // Restore env vars
         process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
