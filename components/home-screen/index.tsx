@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
@@ -13,7 +14,7 @@ import { useReminderHandler } from "@/hooks/use-reminder-handler";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { track } from "@/lib/analytics";
 import { toast } from "sonner";
-import { getUserBoards, getProfileStrength } from "@/actions/dashboard-actions";
+import { getProfileStrength } from "@/actions/dashboard-actions";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import type { TimeSlot } from "@/types/personalization";
 
@@ -26,9 +27,27 @@ import { buildSurfCallShareData } from "@/lib/share/share-data-builder";
 import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import { TopSpotsCarousel } from "./top-spots-carousel";
 import { TimeSlotSelector } from "./time-slot-selector";
-import { CoastPulse } from "../dashboard/coast-pulse";
-import { ProfileStrength } from "../dashboard/profile-strength";
 import { BottomNav } from "./bottom-nav";
+
+// Dynamic imports for below-fold components to reduce initial bundle size
+const CoastPulse = dynamic(
+  () => import("../dashboard/coast-pulse").then((m) => m.CoastPulse),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[200px] animate-pulse bg-[#1e1e1e] rounded-2xl" />
+    ),
+  }
+);
+const ProfileStrength = dynamic(
+  () => import("../dashboard/profile-strength").then((m) => m.ProfileStrength),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[120px] animate-pulse bg-amber-50 rounded-xl" />
+    ),
+  }
+);
 
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
@@ -63,12 +82,6 @@ export function HomeScreen() {
   const { enableReminder } = useReminderHandler({
     homeBeachId: homeBeach?.id ?? null,
     onProfileUpdate: refreshProfile,
-  });
-
-  // Fetch user's boards for personalization
-  const { data: boardsResponse } = useDataFetcher(() => getUserBoards(), {
-    skip: !profile,
-    initialData: null,
   });
 
   // Fetch profile strength for onboarding widget

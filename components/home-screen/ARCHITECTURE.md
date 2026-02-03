@@ -355,10 +355,32 @@ const { discovery, loading } = useSurfDiscovery({
   enabled: !!profile,
 });
 
-// Skip fetches when no profile
-const { data: boardsResponse } = useDataFetcher(() => getUserBoards(), {
-  skip: !profile,
-});
+// Profile strength fetched for onboarding widget (skip when no profile)
+const { data: strengthResponse } = useDataFetcher(
+  () => getProfileStrength(),
+  { skip: !profile, initialData: null }
+);
+```
+
+### Lazy Loading Below-Fold Components
+
+Below-fold components use dynamic imports and visibility detection to defer loading:
+
+```typescript
+// Dynamic imports reduce initial bundle size
+const CoastPulse = dynamic(
+  () => import("../dashboard/coast-pulse").then((m) => m.CoastPulse),
+  { ssr: false, loading: () => <CoastPulseSkeleton /> }
+);
+
+// CoastPulse uses IntersectionObserver to defer API calls until visible
+useEffect(() => {
+  const observer = new IntersectionObserver(
+    ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); }},
+    { rootMargin: OBSERVER.VISIBILITY_MARGIN }
+  );
+  // ...
+}, []);
 ```
 
 ### Memoization Patterns

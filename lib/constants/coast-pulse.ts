@@ -87,4 +87,6 @@ export const REALTIME = {
 export const OBSERVER = {
   /** Root margin for triggering infinite scroll load */
   INFINITE_SCROLL_MARGIN: "200px",
+  /** Root margin for triggering visibility-based lazy loading */
+  VISIBILITY_MARGIN: "200px",
 } as const;
