@@ -5,7 +5,12 @@
  * Priority 2 test coverage for San Diego page redesign.
  */
 
-import { buildPageMetadata } from "@/lib/seo/meta";
+import {
+  buildPageMetadata,
+  buildDynamicBeachMetadata,
+  buildDynamicTideMetadata,
+  buildDynamicWaterTempMetadata,
+} from "@/lib/seo/meta";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
 // Type helper for test assertions - Metadata has union types that need narrowing
@@ -311,6 +316,201 @@ describe("SEO Meta Builder", () => {
         expect(result.twitter?.card).toBe(SEO_CONFIG.twitter.card);
         expect(result.twitter?.site).toBe(SEO_CONFIG.twitter.site);
         expect(result.twitter?.creator).toBe(SEO_CONFIG.twitter.creator);
+      });
+    });
+  });
+
+  describe("buildDynamicBeachMetadata", () => {
+    const mockBeach = {
+      name: "Ocean Beach",
+      city: "San Diego",
+      state: "CA",
+    };
+
+    describe("with forecast data", () => {
+      it("should include wave height in title when available", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: mockBeach,
+          forecast: { wave_height: "3-5ft" },
+        });
+        expect(result.title).toContain("3-5ft");
+        expect(result.title).toContain("Ocean Beach");
+      });
+
+      it("should include wave height in description", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: mockBeach,
+          forecast: { wave_height: "3-5ft" },
+        });
+        expect(result.description).toContain("3-5ft");
+      });
+    });
+
+    describe("without forecast data", () => {
+      it("should use fallback title when forecast is null", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: mockBeach,
+          forecast: null,
+        });
+        expect(result.title).toContain("Ocean Beach");
+        expect(result.title).toContain("Surf Report");
+      });
+
+      it("should use fallback title when wave_height is null", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: mockBeach,
+          forecast: { wave_height: null },
+        });
+        expect(result.title).toContain("Ocean Beach");
+      });
+
+      it("should include location context in fallback description", () => {
+        const result = buildDynamicBeachMetadata({
+          beach: mockBeach,
+          forecast: null,
+        });
+        expect(result.description).toContain("San Diego");
+      });
+    });
+
+    describe("title truncation", () => {
+      it("should truncate very long beach names to fit SEO limits", () => {
+        const longNameBeach = {
+          name: "Super Long Beach Name That Goes On And On Forever",
+          city: "San Diego",
+          state: "CA",
+        };
+        const result = buildDynamicBeachMetadata({
+          beach: longNameBeach,
+          forecast: { wave_height: "3-5ft" },
+        });
+        expect(result.title.length).toBeLessThanOrEqual(60);
+      });
+    });
+  });
+
+  describe("buildDynamicTideMetadata", () => {
+    const mockBeach = {
+      name: "Ocean Beach",
+      city: "San Diego",
+      state: "CA",
+    };
+
+    describe("with tide data", () => {
+      it("should include next high time in title", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
+        });
+        expect(result.title).toContain("2:30 PM");
+        expect(result.title).toContain("Ocean Beach");
+      });
+
+      it("should include both tide times in description", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
+        });
+        expect(result.description).toContain("2:30 PM");
+        expect(result.description).toContain("8:45 AM");
+      });
+    });
+
+    describe("without tide data", () => {
+      it("should use fallback title when tideData is null", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: null,
+        });
+        expect(result.title).toContain("Ocean Beach");
+        expect(result.title).toContain("Tide Chart");
+      });
+
+      it("should use fallback title when nextHighTime is null", () => {
+        const result = buildDynamicTideMetadata({
+          beach: mockBeach,
+          tideData: { nextHighTime: null, nextLowTime: null },
+        });
+        expect(result.title).toContain("Ocean Beach");
+        expect(result.title).not.toContain("Next High");
+      });
+    });
+
+    describe("title truncation", () => {
+      it("should truncate very long beach names to fit SEO limits", () => {
+        const longNameBeach = {
+          name: "Super Long Beach Name That Goes On And On Forever",
+          city: "San Diego",
+          state: "CA",
+        };
+        const result = buildDynamicTideMetadata({
+          beach: longNameBeach,
+          tideData: { nextHighTime: "2:30 PM", nextLowTime: "8:45 AM" },
+        });
+        expect(result.title.length).toBeLessThanOrEqual(60);
+      });
+    });
+  });
+
+  describe("buildDynamicWaterTempMetadata", () => {
+    const mockBeach = {
+      name: "Ocean Beach",
+      city: "San Diego",
+      state: "CA",
+    };
+
+    describe("with water temp data", () => {
+      it("should include temperature in title", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.title).toContain("64°F");
+        expect(result.title).toContain("Ocean Beach");
+      });
+
+      it("should include temperature and wetsuit rec in description", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.description).toContain("64°F");
+        expect(result.description).toContain("3/2mm fullsuit");
+      });
+    });
+
+    describe("without water temp data", () => {
+      it("should use fallback title when waterTempData is null", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: null,
+        });
+        expect(result.title).toContain("Ocean Beach");
+        expect(result.title).toContain("Water Temperature");
+      });
+
+      it("should use fallback title when tempF is null", () => {
+        const result = buildDynamicWaterTempMetadata({
+          beach: mockBeach,
+          waterTempData: { tempF: null, wetsuitRec: null },
+        });
+        expect(result.title).toContain("Ocean Beach");
+        expect(result.title).not.toContain("°F");
+      });
+    });
+
+    describe("title truncation", () => {
+      it("should truncate very long beach names to fit SEO limits", () => {
+        const longNameBeach = {
+          name: "Super Long Beach Name That Goes On And On Forever",
+          city: "San Diego",
+          state: "CA",
+        };
+        const result = buildDynamicWaterTempMetadata({
+          beach: longNameBeach,
+          waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
+        });
+        expect(result.title.length).toBeLessThanOrEqual(60);
       });
     });
   });

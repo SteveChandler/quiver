@@ -3,7 +3,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildPageMetadata, buildDynamicTideMetadata } from "@/lib/seo/meta";
+import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
@@ -13,7 +14,7 @@ const baseUrl =
 
 export const dynamic = "force-dynamic";
 
-export default async function CaBeachTidesPage(
+export default async function NcBeachTidesPage(
   props: {
     params: Promise<{ city: string; beachSlug: string }>;
   }
@@ -76,16 +77,27 @@ export async function generateMetadata(
   const beach = await getBeachBySlugOrId(params.beachSlug);
 
   if (beach) {
-    const now = new Date();
-    const month = now.toLocaleDateString("en-US", { month: "long" });
-    const year = now.getFullYear();
+    // Fetch tide data for dynamic SEO
+    let tideData: { nextHighTime?: string | null; nextLowTime?: string | null } | null = null;
+    try {
+      const tideMeta = await getTideMetaData(beach.id);
+      tideData = {
+        nextHighTime: tideMeta.nextHighTime,
+        nextLowTime: tideMeta.nextLowTime,
+      };
+    } catch {
+      // Gracefully degrade to static metadata on tide fetch failure
+    }
 
-    const locationContext =
-      beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+    // Build CTR-optimized title and description
+    const { title, description } = buildDynamicTideMetadata({
+      beach,
+      tideData,
+    });
 
     return buildPageMetadata({
-      title: `${beach.name} Tide Chart ${month} ${year} - High/Low Times`,
-      description: `Complete tide chart for ${beach.name}${locationContext}. Today's high and low tide times. Hourly predictions and optimal surf windows included. Free, no paywall.`,
+      title,
+      description,
       path: `/nc/${params.city}/${params.beachSlug}/tides`,
       image: `/api/og/beach?slug=${params.beachSlug}`,
     });
