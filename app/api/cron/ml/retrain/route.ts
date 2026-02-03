@@ -32,7 +32,7 @@ interface TrainResponse {
 }
 
 /**
- * POST /api/cron/ml/retrain
+ * GET/POST /api/cron/ml/retrain
  *
  * Orchestrates the ML model retraining pipeline:
  * 1. Extract training data from ml_predictions_log (max 365 days)
@@ -42,10 +42,11 @@ interface TrainResponse {
  * 5. If FAIL: Log failure, keep current model
  *
  * This is a long-running operation that may take several minutes.
+ * Supports both GET (Vercel cron) and POST (manual trigger).
  *
  * @see docs/plans/2026-02-01-ml-rolling-pipeline-design.md
  */
-export async function POST(request: Request) {
+async function handleRetrain(request: Request) {
   // Verify cron authentication
   if (!validateCronRequest(request)) {
     return createErrorResponse('Unauthorized', undefined, 401);
@@ -718,4 +719,13 @@ async function deployToFly(
       error: `Deployment failed: ${errorMessage}`,
     };
   }
+}
+
+// Export handlers for both GET (Vercel cron) and POST (manual trigger)
+export async function GET(request: Request) {
+  return handleRetrain(request);
+}
+
+export async function POST(request: Request) {
+  return handleRetrain(request);
 }
