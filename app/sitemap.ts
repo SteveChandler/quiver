@@ -19,13 +19,61 @@ const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
 
+// Force dynamic rendering because sitemap generation requires database queries
+// at request time to fetch beaches, locations, and cities with skill data.
 export const dynamic = "force-dynamic";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+// Sitemap segment IDs
+type SitemapSegment = "static" | "beaches" | "locations" | "intents" | "guides";
+
+/**
+ * Generate sitemap index entries.
+ * Next.js will create `/sitemap/{id}.xml` for each segment.
+ *
+ * @see https://nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap#generating-multiple-sitemaps
+ */
+export async function generateSitemaps(): Promise<{ id: SitemapSegment }[]> {
+  return [
+    { id: "static" },      // Static pages (home, features, about)
+    { id: "beaches" },     // Beach detail pages + beach intent pages (tides, water-temp)
+    { id: "locations" },   // City/state location pages
+    { id: "intents" },     // City and state intent pages (beginner, tide, etc.)
+    { id: "guides" },      // Hub region guides
+  ];
+}
+
+/**
+ * Generate sitemap for a specific segment.
+ */
+export default async function sitemap({ id }: { id: SitemapSegment }): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const lastmod = now.toISOString();
 
-  const staticRoutes: MetadataRoute.Sitemap = [
+  switch (id) {
+    case "static":
+      return getStaticRoutes(lastmod);
+    case "beaches":
+      return await getBeachRoutes(lastmod);
+    case "locations":
+      return await getLocationRoutes(lastmod);
+    case "intents":
+      return await getIntentRoutes(lastmod);
+    case "guides":
+      return getGuideRoutes(lastmod);
+    default:
+      return [];
+  }
+}
+
+// =============================================================================
+// Segment Generators
+// =============================================================================
+
+/**
+ * Static pages - home, features, about, etc.
+ */
+function getStaticRoutes(lastmod: string): MetadataRoute.Sitemap {
+  return [
     "/",
     "/features",
     "/about",
@@ -38,206 +86,216 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily",
     priority: route === "/" ? 1 : 0.7,
   }));
+}
 
-  // Generate intent routes for cities with at least 1 beach (database-driven)
-  // Skill-based intents (beginner/longboard/advanced) are only included for cities
-  // that have beaches matching those skill levels, to avoid thin-content URLs.
+/**
+ * Beach detail pages + beach-level intent pages (tides, water-temp).
+ */
+async function getBeachRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
+  const beachesResponse = await getBeaches();
+  if (!beachesResponse.success || !beachesResponse.data) {
+    console.error("Sitemap: Failed to fetch beaches");
+    return [];
+  }
+
+  const beaches = beachesResponse.data;
+
+  return beaches
+    .filter((b) => b.slug) // Only include beaches with a slug
+    .flatMap((beach) => {
+      // Use hierarchical URL if we have complete location data
+      const beachUrl = beach.city && beach.state
+        ? `${baseUrl}${buildBeachUrl(beach)}`
+        : `${baseUrl}/spots/${beach.slug}`;
+
+      const lastModifiedDate =
+        (beach as { updated_at?: string | null }).updated_at ||
+        beach.created_at ||
+        lastmod;
+
+      // Main beach page
+      const mainEntry = {
+        url: beachUrl,
+        lastModified: lastModifiedDate,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      };
+
+      // Tide and water-temp intent pages (only for beaches with hierarchical URLs)
+      if (beach.city && beach.state) {
+        const tidesEntry = {
+          url: `${beachUrl}/tides`,
+          lastModified: lastModifiedDate,
+          changeFrequency: "daily" as const,
+          priority: 0.55,
+        };
+        const waterTempEntry = {
+          url: `${beachUrl}/water-temp`,
+          lastModified: lastModifiedDate,
+          changeFrequency: "daily" as const,
+          priority: 0.55,
+        };
+        return [mainEntry, tidesEntry, waterTempEntry];
+      }
+
+      return [mainEntry];
+    });
+}
+
+/**
+ * Location pages - city and state listing pages.
+ */
+async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
+  const response = await getAllBeachLocations();
+  if (!response.success || !response.data) {
+    console.error("Sitemap: Failed to load beach locations");
+    return [];
+  }
+
+  const usaStates = new Set<string>();
+  const locationRoutes: MetadataRoute.Sitemap = [];
+
+  for (const location of response.data) {
+    const isUsa =
+      !location.country ||
+      String(location.country).toLowerCase() === "usa" ||
+      String(location.country).toLowerCase() === "us";
+
+    // HI: replace ambiguous Waimea city URL with island-specific pages
+    if (
+      isUsa &&
+      stateToSlug(location.state) === "hi" &&
+      cityToSlug(location.city) === "waimea"
+    ) {
+      usaStates.add("hi");
+      locationRoutes.push(
+        {
+          url: `${baseUrl}/beaches/usa/hi/waimea-kauai`,
+          lastModified: lastmod,
+          changeFrequency: "weekly",
+          priority: 0.75,
+        },
+        {
+          url: `${baseUrl}/beaches/usa/hi/waimea-big-island`,
+          lastModified: lastmod,
+          changeFrequency: "weekly",
+          priority: 0.75,
+        }
+      );
+      continue;
+    }
+
+    if (isUsa) {
+      const stateSlug = stateToSlug(location.state);
+      const citySlug = slugifyAscii(location.city);
+      if (stateSlug && citySlug) {
+        usaStates.add(stateSlug);
+        locationRoutes.push({
+          url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+          lastModified: lastmod,
+          changeFrequency: "weekly",
+          priority: 0.75,
+        });
+      }
+    } else {
+      const countrySlug = slugifyAscii(location.country);
+      const regionSlug = slugifyAscii(location.state);
+      const citySlug = slugifyAscii(location.city);
+      if (countrySlug && regionSlug && citySlug) {
+        locationRoutes.push({
+          url: `${baseUrl}/beaches/${countrySlug}/${regionSlug}/${citySlug}`,
+          lastModified: lastmod,
+          changeFrequency: "weekly",
+          priority: 0.75,
+        });
+      }
+    }
+  }
+
+  // Add state-level pages
+  const stateRoutes: MetadataRoute.Sitemap = [...usaStates].map((stateSlug) => ({
+    url: `${baseUrl}/beaches/usa/${stateSlug}`,
+    lastModified: lastmod,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...stateRoutes, ...locationRoutes];
+}
+
+/**
+ * Intent pages - city and state level intent pages.
+ *
+ * IMPORTANT: Filters out skill-based intent pages (beginner, longboard, advanced)
+ * for cities that don't have beaches matching those skill levels.
+ * This prevents empty intent pages from being included in the sitemap.
+ */
+async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
+  // Skill-based intents that require cities to have matching beach skill levels
   const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
-  const ADVANCED_INTENTS = new Set(["advanced"]);
+  const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
-  let dynamicIntentRoutes: MetadataRoute.Sitemap = [];
+  const routes: MetadataRoute.Sitemap = [];
+
+  // City-level intent pages (database-driven)
   try {
     const citiesResult = await getAllCitiesWithBeachSkills(1);
     if (citiesResult.success && citiesResult.data) {
-      // Filter to US-only cities for intent pages (non-US cities lack state codes for disambiguation)
+      // Filter to US-only cities (non-US cities lack state codes for disambiguation)
       const usCities = citiesResult.data.filter(
         (c) => c.country?.toUpperCase() === "USA" || c.country?.toUpperCase() === "US"
       );
       const collisionMap = detectCityCollisions(usCities);
-      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
-      dynamicIntentRoutes = usCities.flatMap((cityRecord) => {
+      for (const cityRecord of usCities) {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
-        if (!citySlug) return [];
+        if (!citySlug) continue;
 
-        // Filter skill-based intents to cities with matching beaches
-        const applicableIntents = intents.filter((intent) => {
-          if (BEGINNER_INTENTS.has(intent)) return cityRecord.hasBeginnerBeaches;
-          if (ADVANCED_INTENTS.has(intent)) return cityRecord.hasAdvancedBeaches;
-          return true; // Non-skill intents always included
-        });
+        for (const intent of intents) {
+          // Filter skill-based intents to cities with matching beaches.
+          // This ensures empty intent pages are NOT included in the sitemap.
+          // Cities without beginner-friendly beaches skip beginner/longboard intents.
+          if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
 
-        return applicableIntents.map((intent) => ({
-          url: `${baseUrl}/${intent}/${citySlug}`,
-          lastModified: lastmod,
-          changeFrequency: "daily" as const,
-          priority: intent === "beginner" ? 0.85 : 0.8,
-        }));
-      });
+          routes.push({
+            url: `${baseUrl}/${intent}/${citySlug}`,
+            lastModified: lastmod,
+            changeFrequency: "daily" as const,
+            priority: intent === "beginner" ? 0.85 : 0.8,
+          });
+        }
+      }
     }
   } catch (error) {
-    console.error("Sitemap: Failed to generate dynamic intent routes", error);
+    console.error("Sitemap: Failed to generate city intent routes", error);
   }
 
-  // State-level intent routes for major surf states
+  // State-level intent pages for major US surf markets.
+  // This is a curated subset (not all coastal states) focusing on states with
+  // significant surf communities: CA, HI, FL (Tier 1), plus East Coast, PNW, TX (Tier 2).
   const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
-  const stateIntentRoutes: MetadataRoute.Sitemap = usStates.flatMap((state) =>
-    ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"].map((intent) => ({
-      url: `${baseUrl}/${intent}/${state}`,
-      lastModified: lastmod,
-      changeFrequency: "daily" as const,
-      priority: 0.75,
-    }))
-  );
+  for (const state of usStates) {
+    for (const intent of intents) {
+      routes.push({
+        url: `${baseUrl}/${intent}/${state}`,
+        lastModified: lastmod,
+        changeFrequency: "daily" as const,
+        priority: 0.75,
+      });
+    }
+  }
 
-  // Hub region routes (e.g., /guides/surfing-southern-california)
-  const hubRoutes: MetadataRoute.Sitemap = HUB_REGION_SLUGS.map((region) => ({
+  return routes;
+}
+
+/**
+ * Hub region guide pages.
+ */
+function getGuideRoutes(lastmod: string): MetadataRoute.Sitemap {
+  return HUB_REGION_SLUGS.map((region) => ({
     url: `${baseUrl}/guides/surfing-${region}`,
     lastModified: lastmod,
     changeFrequency: "weekly" as const,
     priority: 0.9,
   }));
-
-  // Location pages (AllTrails-style beach listings by city)
-  let locationRoutes: MetadataRoute.Sitemap = [];
-  let usaStateRoutes: MetadataRoute.Sitemap = [];
-  try {
-    const response = await getAllBeachLocations();
-    if (response.success && response.data) {
-      // Build a state index (USA-only) under /beaches/usa/{state}
-      const usaStates = new Set<string>();
-
-      locationRoutes = response.data.flatMap((location) => {
-        // Canonical city URL:
-        // - USA:  /beaches/usa/{state}/{city}
-        // - Intl: /beaches/{country}/{state}/{city}
-        const isUsa =
-          !location.country ||
-          String(location.country).toLowerCase() === "usa" ||
-          String(location.country).toLowerCase() === "us";
-
-        // HI: replace ambiguous Waimea city URL with island-specific pages.
-        if (
-          isUsa &&
-          stateToSlug(location.state) === "hi" &&
-          cityToSlug(location.city) === "waimea"
-        ) {
-          usaStates.add("hi");
-          return [
-            {
-              url: `${baseUrl}/beaches/usa/hi/waimea-kauai`,
-              lastModified: lastmod,
-              changeFrequency: "weekly",
-              priority: 0.75,
-            },
-            {
-              url: `${baseUrl}/beaches/usa/hi/waimea-big-island`,
-              lastModified: lastmod,
-              changeFrequency: "weekly",
-              priority: 0.75,
-            },
-          ];
-        }
-
-        const locationUrl = isUsa
-          ? (() => {
-              const stateSlug = stateToSlug(location.state);
-              const citySlug = slugifyAscii(location.city);
-              if (!stateSlug || !citySlug) return "/";
-              usaStates.add(stateSlug);
-              return `/beaches/usa/${stateSlug}/${citySlug}`;
-            })()
-          : (() => {
-              const countrySlug = slugifyAscii(location.country);
-              const regionSlug = slugifyAscii(location.state);
-              const citySlug = slugifyAscii(location.city);
-              if (!countrySlug || !regionSlug || !citySlug) return "/";
-              return `/beaches/${countrySlug}/${regionSlug}/${citySlug}`;
-            })();
-
-        return [
-          {
-            url: `${baseUrl}${locationUrl}`,
-            lastModified: lastmod,
-            changeFrequency: "weekly",
-            priority: 0.75, // High priority for location pages
-          },
-        ];
-      });
-
-      usaStateRoutes = [...usaStates].map((stateSlug) => ({
-        url: `${baseUrl}/beaches/usa/${stateSlug}`,
-        lastModified: lastmod,
-        changeFrequency: "weekly",
-        priority: 0.7,
-      }));
-    }
-  } catch (error) {
-    console.error("Sitemap: Failed to load beach locations", error);
-    // Fail silently; return empty location routes
-  }
-
-  // Dynamic beaches and forecasts
-  let beachEntries: MetadataRoute.Sitemap = [];
-  
-  // Use direct DB call instead of fetch to avoid self-request issues
-  const beachesResponse = await getBeaches();
-  if (beachesResponse.success && beachesResponse.data) {
-    const beaches = beachesResponse.data;
-
-    // Generate canonical URLs for beaches:
-    // - Hierarchical URL for beaches with complete data (slug + city + state)
-    // - /spots/{slug} fallback for beaches missing city or state
-    // Also generate tide and water-temp intent pages for each beach
-    beachEntries = beaches
-      .filter((b) => b.slug) // Only include beaches with a slug
-      .flatMap((beach) => {
-        // Use hierarchical URL if we have complete location data (matches redirect logic in /spots/[slug])
-        const beachUrl = beach.city && beach.state
-          ? `${baseUrl}${buildBeachUrl(beach)}`
-          : `${baseUrl}/spots/${beach.slug}`;
-
-        const lastModifiedDate =
-          (beach as { updated_at?: string | null }).updated_at ||
-          beach.created_at ||
-          lastmod;
-
-        // Main beach page
-        const mainEntry = {
-          url: beachUrl,
-          lastModified: lastModifiedDate,
-          changeFrequency: "weekly" as const,
-          priority: 0.6,
-        };
-
-        // Tide and water-temp intent pages (only for beaches with hierarchical URLs)
-        if (beach.city && beach.state) {
-          const tidesEntry = {
-            url: `${beachUrl}/tides`,
-            lastModified: lastModifiedDate,
-            changeFrequency: "daily" as const,
-            priority: 0.55,
-          };
-          const waterTempEntry = {
-            url: `${beachUrl}/water-temp`,
-            lastModified: lastModifiedDate,
-            changeFrequency: "daily" as const,
-            priority: 0.55,
-          };
-          return [mainEntry, tidesEntry, waterTempEntry];
-        }
-
-        return [mainEntry];
-      });
-  }
-
-  return [
-    ...staticRoutes,
-    ...dynamicIntentRoutes,
-    ...stateIntentRoutes,
-    ...hubRoutes,
-    ...usaStateRoutes,
-    ...locationRoutes,
-    ...beachEntries,
-  ];
 }

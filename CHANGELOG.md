@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Segmented Sitemap for Improved Crawl Efficiency:** Converted monolithic sitemap to Next.js `generateSitemaps()` pattern with 5 dedicated segments:
+  - `static`: Core pages (home, features, about, privacy, map)
+  - `beaches`: Beach detail pages + beach-level tides/water-temp subpages
+  - `locations`: City and state listing pages under /beaches/
+  - `intents`: City and state intent pages (beginner, tide, water-temp, longboard, etc.)
+  - `guides`: Hub region guide pages (Southern California, San Diego, Orange County, Hawaii)
+  - Benefits: Better crawl budget allocation, faster sitemap parsing, logical URL grouping
+  - Intent pages for cities without matching beaches are automatically filtered from sitemap
+
+- **Product Marketing Context File:** Added `.claude/product-marketing-context.md` with SEO and content strategy guidance:
+  - Business overview and value proposition
+  - Target audience segments (Weekend Warriors, Beginners, Local Groms)
+  - Geographic focus and keyword strategy
+  - Content voice guidelines and AI writing patterns to avoid
+  - Competitive positioning vs Surfline
+
 - **Terrain-Aware ML Features:** Added terrain geometry factors to the ML bias correction pipeline. The model now incorporates beach-specific topography and bathymetry features for improved accuracy:
   - **New Features (13 total, up from 11):**
     - `swell_access_factor`: Swell accessibility at wave direction (0.0-1.0) extracted from 72-element array
