@@ -1276,7 +1276,7 @@ test.describe('Home Page - Time Slot Filter', () => {
 
     await expect(page.getByRole('button', { name: /any time/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /dawn patrol/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /morning/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /lunch session/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /afternoon/i })).toBeVisible();
   });
 

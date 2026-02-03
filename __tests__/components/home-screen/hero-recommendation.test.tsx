@@ -236,9 +236,9 @@ describe("buildHeadlineText", () => {
     expect(result.prefix).toContain("Tomorrow's dawn patrol");
   });
 
-  it("adds tomorrow prefix for morning", () => {
-    const result = buildHeadlineText("Blacks", "good", true, "morning");
-    expect(result.prefix).toContain("Tomorrow morning");
+  it("adds tomorrow prefix for lunch-session", () => {
+    const result = buildHeadlineText("Blacks", "good", true, "lunch-session");
+    expect(result.prefix).toContain("Tomorrow midday");
   });
 
   it("adds tomorrow prefix for afternoon", () => {
@@ -264,8 +264,8 @@ describe("buildHeadlineText", () => {
   });
 
   it("combines tomorrow prefix with marginal tier correctly", () => {
-    const result = buildHeadlineText("Blacks", "marginal", true, "morning");
-    expect(result.prefix).toContain("Tomorrow morning");
+    const result = buildHeadlineText("Blacks", "marginal", true, "lunch-session");
+    expect(result.prefix).toContain("Tomorrow midday");
     expect(result.connector).toContain("marginal");
   });
 

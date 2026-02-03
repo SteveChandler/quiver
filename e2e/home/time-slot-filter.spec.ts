@@ -13,7 +13,7 @@ import {
  *
  * Tests the home screen time slot selector functionality and verifies
  * that recommendations display correctly capped window times based on
- * the selected filter (Any time, Dawn patrol, Morning, Afternoon).
+ * the selected filter (Any time, Dawn patrol, Lunch session, Afternoon).
  *
  * Test Coverage:
  * - Time slot selector UI visibility and defaults
@@ -61,12 +61,12 @@ test.describe('Time Slot Filter - Home Screen', () => {
       // Verify all 4 buttons are present
       const anyTimeButton = page.getByRole('button', { name: 'Any time' });
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      const morningButton = page.getByRole('button', { name: 'Morning' });
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
 
       await expect(anyTimeButton).toBeVisible();
       await expect(dawnPatrolButton).toBeVisible();
-      await expect(morningButton).toBeVisible();
+      await expect(lunchSessionButton).toBeVisible();
       await expect(afternoonButton).toBeVisible();
     });
 
@@ -110,7 +110,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
     });
   });
 
-  test.describe('2. Dawn Patrol Filter (6am-9am)', () => {
+  test.describe('2. Dawn Patrol Filter (6am-11am)', () => {
     test('should update recommendations when Dawn patrol selected', async ({ page }) => {
       // Click Dawn patrol filter
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
@@ -149,7 +149,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       }
     });
 
-    test('should display capped window times ending at or before 9am', async ({ page }) => {
+    test('should display capped window times ending at or before 11am', async ({ page }) => {
       // Click Dawn patrol filter
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
       await dawnPatrolButton.click();
@@ -164,7 +164,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
         return;
       }
 
-      // Find the time window badge (e.g., "7-9am" or "Tomorrow 6-9am")
+      // Find the time window badge (e.g., "7-11am" or "Tomorrow 6-11am")
       // The badge is inside the hero recommendation
       const timeWindowBadge = heroRecommendation.locator('.inline-flex').filter({ hasText: /am|pm/i }).first();
       const badgeVisible = await timeWindowBadge.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
@@ -172,7 +172,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       if (badgeVisible) {
         const timeText = await timeWindowBadge.textContent();
 
-        // Extract end time (e.g., "7-9am" → "9am", "Tomorrow 6-9am" → "9am")
+        // Extract end time (e.g., "7-11am" → "11am", "Tomorrow 6-11am" → "11am")
         const timeMatch = timeText?.match(/(\d{1,2}):?(\d{2})?\s?(am|pm)/gi);
 
         if (timeMatch && timeMatch.length > 0) {
@@ -193,14 +193,14 @@ test.describe('Time Slot Filter - Home Screen', () => {
               endHour24 = 0;
             }
 
-            // Dawn patrol should end at or before 9am (hour 9)
-            expect(endHour24).toBeLessThanOrEqual(9);
+            // Dawn patrol should end at or before 11am (hour 11)
+            expect(endHour24).toBeLessThanOrEqual(11);
           }
         }
       }
     });
 
-    test('should NOT show windows extending beyond 9am', async ({ page }) => {
+    test('should NOT show windows extending beyond 11am', async ({ page }) => {
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
       await dawnPatrolButton.click();
 
@@ -213,21 +213,21 @@ test.describe('Time Slot Filter - Home Screen', () => {
         return;
       }
 
-      // Check that window format shows capped time (e.g., "7-9am" not "7-11am")
+      // Check that window format shows capped time (e.g., "7-11am" not "7-1pm")
       const timeWindowBadge = heroRecommendation.locator('.inline-flex').filter({ hasText: /am|pm/i }).first();
       const timeText = await timeWindowBadge.textContent();
 
-      // Should not contain times like 10am, 11am, 12pm, etc.
-      expect(timeText).not.toMatch(/10\s?am|11\s?am|12\s?pm/i);
+      // Should not contain times like 12pm, 1pm, 2pm, etc.
+      expect(timeText).not.toMatch(/12\s?pm|1\s?pm|2\s?pm/i);
     });
   });
 
-  test.describe('3. Morning Filter (6am-12pm)', () => {
-    test('should update recommendations when Morning selected', async ({ page }) => {
-      const morningButton = page.getByRole('button', { name: 'Morning' });
-      await morningButton.click();
+  test.describe('3. Lunch Session Filter (11am-2pm)', () => {
+    test('should update recommendations when Lunch session selected', async ({ page }) => {
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
+      await lunchSessionButton.click();
 
-      const ariaPressed = await morningButton.getAttribute('aria-pressed');
+      const ariaPressed = await lunchSessionButton.getAttribute('aria-pressed');
       expect(ariaPressed).toBe('true');
 
       await page.waitForTimeout(1500);
@@ -236,23 +236,23 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Morning');
+        test.skip(true, 'No recommendations available for Lunch session');
         return;
       }
 
       await expect(heroRecommendation).toBeVisible();
     });
 
-    test('should display window times within 6am-12pm range', async ({ page }) => {
-      const morningButton = page.getByRole('button', { name: 'Morning' });
-      await morningButton.click();
+    test('should display window times within 11am-2pm range', async ({ page }) => {
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
+      await lunchSessionButton.click();
 
       await page.waitForTimeout(1500);
       const heroRecommendation = page.getByTestId('hero-recommendation');
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Morning');
+        test.skip(true, 'No recommendations available for Lunch session');
         return;
       }
 
@@ -279,15 +279,15 @@ test.describe('Time Slot Filter - Home Screen', () => {
               endHour24 = 0;
             }
 
-            // Morning should end at or before 12pm (noon, hour 12)
-            expect(endHour24).toBeLessThanOrEqual(12);
+            // Lunch session should end at or before 2pm (hour 14)
+            expect(endHour24).toBeLessThanOrEqual(14);
           }
         }
       }
     });
   });
 
-  test.describe('4. Afternoon Filter (12pm-6pm)', () => {
+  test.describe('4. Afternoon Filter (2pm-6pm)', () => {
     test('should update recommendations when Afternoon selected', async ({ page }) => {
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
       await afternoonButton.click();
@@ -308,7 +308,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       await expect(heroRecommendation).toBeVisible();
     });
 
-    test('should display window times starting at 12pm or later', async ({ page }) => {
+    test('should display window times starting at 2pm or later', async ({ page }) => {
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
       await afternoonButton.click();
 
@@ -344,8 +344,8 @@ test.describe('Time Slot Filter - Home Screen', () => {
               startHour24 = 0;
             }
 
-            // Afternoon should start at or after 12pm (noon, hour 12)
-            expect(startHour24).toBeGreaterThanOrEqual(12);
+            // Afternoon should start at or after 2pm (hour 14)
+            expect(startHour24).toBeGreaterThanOrEqual(14);
           }
         }
       }
@@ -415,13 +415,13 @@ test.describe('Time Slot Filter - Home Screen', () => {
       // The hook has a 300ms debounce, so waiting 400ms should prevent overlapping requests
       const anyTimeButton = page.getByRole('button', { name: 'Any time' });
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      const morningButton = page.getByRole('button', { name: 'Morning' });
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
 
       // Click with delays that respect the debounce but still test switching behavior
       await dawnPatrolButton.click();
       await page.waitForTimeout(500);
-      await morningButton.click();
+      await lunchSessionButton.click();
       await page.waitForTimeout(500);
       await afternoonButton.click();
       await page.waitForTimeout(500);
@@ -464,12 +464,12 @@ test.describe('Time Slot Filter - Home Screen', () => {
     });
 
     test('should preserve filter selection after page reload', async ({ page }) => {
-      // Select Morning filter
-      const morningButton = page.getByRole('button', { name: 'Morning' });
-      await morningButton.click();
+      // Select Lunch session filter
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
+      await lunchSessionButton.click();
 
       // Verify selection
-      let ariaPressed = await morningButton.getAttribute('aria-pressed');
+      let ariaPressed = await lunchSessionButton.getAttribute('aria-pressed');
       expect(ariaPressed).toBe('true');
 
       // Wait for state to settle
@@ -481,8 +481,8 @@ test.describe('Time Slot Filter - Home Screen', () => {
 
       // Check if filter state is preserved (depends on implementation)
       // If localStorage is used, selection should persist
-      const morningButtonAfterReload = page.getByRole('button', { name: 'Morning' });
-      ariaPressed = await morningButtonAfterReload.getAttribute('aria-pressed');
+      const lunchSessionButtonAfterReload = page.getByRole('button', { name: 'Lunch session' });
+      ariaPressed = await lunchSessionButtonAfterReload.getAttribute('aria-pressed');
 
       // This test documents current behavior - adjust if persistence is not implemented
       // For now, we expect "Any time" as default after reload
@@ -576,9 +576,9 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const initialSpots = page.locator('[data-testid="top-spots-carousel"] [data-testid="compact-spot-card"]');
       const initialCount = await initialSpots.count();
 
-      // Select Morning filter
-      const morningButton = page.getByRole('button', { name: 'Morning' });
-      await morningButton.click();
+      // Select Lunch session filter
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
+      await lunchSessionButton.click();
       await page.waitForTimeout(1500);
 
       // Wait for carousel to update - section should still be visible
@@ -588,7 +588,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const carouselStillVisible = await carousel.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!carouselStillVisible) {
-        // Morning filter might have no results - this is acceptable
+        // Lunch session filter might have no results - this is acceptable
         return;
       }
 
@@ -639,8 +639,8 @@ test.describe('Time Slot Filter - Home Screen', () => {
         if (badgeVisible) {
           const timeText = await timeBadge.textContent();
 
-          // Verify end time is capped at 9am for Dawn patrol
-          expect(timeText).not.toMatch(/10\s?am|11\s?am|12\s?pm|1\s?pm/i);
+          // Verify end time is capped at 11am for Dawn patrol
+          expect(timeText).not.toMatch(/12\s?pm|1\s?pm|2\s?pm|3\s?pm/i);
         }
       }
     });

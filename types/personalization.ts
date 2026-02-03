@@ -20,11 +20,11 @@ import type { PersonalizedScore } from "@/lib/services/personalized-scoring-serv
  *
  * Users can filter surf windows to specific times of day:
  * - 'any': Full daylight hours (6am-9pm)
- * - 'dawn-patrol': Early morning (6am-9am)
- * - 'morning': Morning session (6am-12pm)
- * - 'afternoon': Afternoon session (12pm-6pm)
+ * - 'dawn-patrol': Early morning (6am-11am)
+ * - 'lunch-session': Lunch session (11am-2pm)
+ * - 'afternoon': Afternoon session (2pm-6pm)
  */
-export type TimeSlot = 'any' | 'morning' | 'afternoon' | 'dawn-patrol';
+export type TimeSlot = 'any' | 'lunch-session' | 'afternoon' | 'dawn-patrol';
 
 /**
  * Hour ranges for each time slot
@@ -34,9 +34,9 @@ export type TimeSlot = 'any' | 'morning' | 'afternoon' | 'dawn-patrol';
  */
 export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: number }> = {
   'any': { startHour: 6, endHour: 21 },
-  'dawn-patrol': { startHour: 6, endHour: 9 },
-  'morning': { startHour: 6, endHour: 12 },
-  'afternoon': { startHour: 12, endHour: 18 },
+  'dawn-patrol': { startHour: 6, endHour: 11 },
+  'lunch-session': { startHour: 11, endHour: 14 },
+  'afternoon': { startHour: 14, endHour: 18 },
 };
 
 /**

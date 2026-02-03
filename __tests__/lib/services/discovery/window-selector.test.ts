@@ -227,17 +227,17 @@ describe('capEndTimeToTimeSlot', () => {
     expect(result.getUTCHours()).toBe(17); // 9am PST = 17:00 UTC
   });
 
-  it('should cap morning to 12pm', () => {
-    // Start at 8am PST (16:00 UTC)
-    const start = new Date('2024-01-15T16:00:00Z');
-    // End at 4pm PST (00:00 UTC next day)
-    const end = new Date('2024-01-16T00:00:00Z');
+  it('should cap lunch-session to 2pm', () => {
+    // Start at 11am PST (19:00 UTC)
+    const start = new Date('2024-01-15T19:00:00Z');
+    // End at 5pm PST (01:00 UTC next day)
+    const end = new Date('2024-01-16T01:00:00Z');
 
-    const result = capEndTimeToTimeSlot(start, end, 'morning', beachTz);
+    const result = capEndTimeToTimeSlot(start, end, 'lunch-session', beachTz);
 
-    // Should be capped to 12pm PST (20:00 UTC)
+    // Should be capped to 2pm PST (22:00 UTC)
     expect(result.getTime()).toBeLessThan(end.getTime());
-    expect(result.getUTCHours()).toBe(20); // 12pm PST = 20:00 UTC
+    expect(result.getUTCHours()).toBe(22); // 2pm PST = 22:00 UTC
   });
 
   it('should not cap if end time is already before slot end', () => {
@@ -1062,18 +1062,18 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     }
   });
 
-  it('should handle time slot filter with morning slot and tide boundaries', () => {
-    // Tide schedule spanning morning hours
+  it('should handle time slot filter with lunch-session slot and tide boundaries', () => {
+    // Tide schedule spanning lunch session hours (11am-2pm PST)
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T15:00:00Z').getTime() / 1000), height: 1.5, type: 'low' as const }, // 7am PST
-      { time: Math.floor(new Date('2024-01-15T21:00:00Z').getTime() / 1000), height: 5.0, type: 'high' as const }, // 1pm PST
+      { time: Math.floor(new Date('2024-01-15T17:00:00Z').getTime() / 1000), height: 1.5, type: 'low' as const }, // 9am PST
+      { time: Math.floor(new Date('2024-01-15T23:00:00Z').getTime() / 1000), height: 5.0, type: 'high' as const }, // 3pm PST
     ];
 
     const forecasts = [
       createForecast({
-        id: 'forecast-mid-morning',
+        id: 'forecast-lunch-session',
         forecast_date: '2024-01-15',
-        forecast_time: '17:00', // 9am PST
+        forecast_time: '19:00', // 11am PST
         wave_height: '4',
         wave_period: '12s',
         tide_height: '2.5',
@@ -1086,8 +1086,8 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       } as any),
     ];
 
-    // Set time to 9am PST
-    jest.setSystemTime(new Date('2024-01-15T17:00:00Z'));
+    // Set time to 11am PST (start of lunch session)
+    jest.setSystemTime(new Date('2024-01-15T19:00:00Z'));
 
     const beachWithTidePrefs = {
       ...mockBeach,
@@ -1099,22 +1099,22 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const result = selectBestWindow({
       forecasts,
       beach: beachWithTidePrefs,
-      timeSlot: 'morning', // 9am-12pm
+      timeSlot: 'lunch-session', // 11am-2pm
       userPrefs: null,
     });
 
     if (result) {
-      // Window START should be within morning slot (9am-12pm PST)
-      // Window END can extend past noon for tide-driven windows (not capped)
+      // Window START should be within lunch session slot (11am-2pm PST)
+      // Window END can extend past 2pm for tide-driven windows (not capped)
       const startHour = result.start.getUTCHours();
       const endHour = result.end.getUTCHours();
 
-      // 9am PST = 17:00 UTC, 12pm PST = 20:00 UTC
-      // Start should be in morning slot
-      expect(startHour).toBeGreaterThanOrEqual(17);
-      // This tide naturally ends before noon (~10:50am PST), so end is still <= 20
-      // For tide windows that extend past noon, this assertion would be different
-      expect(endHour).toBeLessThanOrEqual(20);
+      // 11am PST = 19:00 UTC, 2pm PST = 22:00 UTC
+      // Start should be in lunch session slot
+      expect(startHour).toBeGreaterThanOrEqual(19);
+      // This tide naturally ends before 2pm (~10:50am PST), so end is still <= 22
+      // For tide windows that extend past 2pm, this assertion would be different
+      expect(endHour).toBeLessThanOrEqual(22);
     }
   });
 
@@ -1169,7 +1169,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
   });
 
   it('should reject tide-driven boundaries outside time slot', () => {
-    // Tide schedule that would create an evening window (7pm) when morning slot selected
+    // Tide schedule that would create an evening window (7pm) when lunch session slot selected
     const tideSchedule = [
       { time: Math.floor(new Date('2024-01-15T22:00:00Z').getTime() / 1000), height: 0.5, type: 'low' as const }, // 2pm PST
       { time: Math.floor(new Date('2024-01-16T04:00:00Z').getTime() / 1000), height: 6.0, type: 'high' as const }, // 8pm PST
@@ -1206,10 +1206,10 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       forecasts,
       beach: beachWithTidePrefs,
       userPrefs: null,
-      timeSlot: 'morning', // 5am-12pm
+      timeSlot: 'lunch-session', // 11am-2pm
     });
 
-    // If a result is returned, start should be within morning slot (5am-12pm)
+    // If a result is returned, start should be within lunch session slot (11am-2pm)
     if (result) {
       const startHour = parseInt(
         new Intl.DateTimeFormat("en-US", {
@@ -1219,21 +1219,21 @@ describe('selectBestWindow with tide-driven boundaries', () => {
         }).format(result.start),
         10
       );
-      // Morning slot is 5am-12pm
-      expect(startHour).toBeGreaterThanOrEqual(5);
-      expect(startHour).toBeLessThan(12);
+      // Lunch session slot is 11am-2pm
+      expect(startHour).toBeGreaterThanOrEqual(11);
+      expect(startHour).toBeLessThan(14);
     }
   });
 });
 
 describe('getTimeSlotRange', () => {
-  it('should return static range for morning slot', () => {
+  it('should return static range for lunch-session slot', () => {
     const { getTimeSlotRange } = require('@/lib/services/discovery/window-selector');
 
-    const range = getTimeSlotRange('morning', [], new Date(), 'America/Los_Angeles');
+    const range = getTimeSlotRange('lunch-session', [], new Date(), 'America/Los_Angeles');
 
-    expect(range.startHour).toBe(6);
-    expect(range.endHour).toBe(12);
+    expect(range.startHour).toBe(11);
+    expect(range.endHour).toBe(14);
   });
 
   it('should return static range for afternoon slot', () => {
@@ -1241,7 +1241,7 @@ describe('getTimeSlotRange', () => {
 
     const range = getTimeSlotRange('afternoon', [], new Date(), 'America/Los_Angeles');
 
-    expect(range.startHour).toBe(12);
+    expect(range.startHour).toBe(14); // Afternoon now starts at 2pm
     expect(range.endHour).toBe(18);
   });
 
@@ -1256,7 +1256,7 @@ describe('getTimeSlotRange', () => {
 
     // Should use civil twilight (6:17am -> hour 6)
     expect(range.startHour).toBe(6);
-    expect(range.endHour).toBe(9);
+    expect(range.endHour).toBe(11); // Dawn patrol now ends at 11am
   });
 
   it('should return full day range for any slot', () => {
@@ -1317,7 +1317,7 @@ describe('getDawnPatrolRange', () => {
 });
 
 describe('selectBestWindow time slot with tide boundaries', () => {
-  const fixedNow = new Date('2024-01-15T14:00:00Z'); // 6am PST
+  const fixedNow = new Date('2024-01-15T19:00:00Z'); // 11am PST (start of lunch session)
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -1328,23 +1328,23 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     jest.useRealTimers();
   });
 
-  it('should show tide-driven boundaries for morning slot (not hourly)', () => {
-    // Tide: low at 6am PST (1.0ft), high at 12pm PST (5.5ft)
-    // Preferred range 2.0-4.0ft - crossings will be AFTER 6am forecast
+  it('should show tide-driven boundaries for lunch-session slot (not hourly)', () => {
+    // Tide: low at 10am PST (1.0ft), high at 4pm PST (5.5ft)
+    // Preferred range 2.0-4.0ft - crossings will span the lunch session window
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const },
-      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const },
+      { time: Math.floor(new Date('2024-01-15T18:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 10am PST
+      { time: Math.floor(new Date('2024-01-16T00:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 4pm PST
     ];
 
-    // Forecast at 6am PST - BEFORE tide crosses 2.0ft threshold
+    // Forecast at 11am PST - within lunch session window
     const forecasts = [
       createForecast({
-        id: 'forecast-morning',
+        id: 'forecast-lunch',
         forecast_date: '2024-01-15',
-        forecast_time: '14:00', // 6am PST
+        forecast_time: '19:00', // 11am PST
         wave_height: '4',
         wave_period: '12s',
-        tide_height: '1.0',
+        tide_height: '1.5',
         tide_status: 'Rising',
         confidence_score: 80,
         raw_forecast: {
@@ -1364,20 +1364,20 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     const result = selectBestWindow({
       forecasts,
       beach: beachWithTidePrefs,
-      timeSlot: 'morning',
+      timeSlot: 'lunch-session',
       userPrefs: null,
     });
 
     expect(result).not.toBeNull();
     // Key assertion: should NOT be exactly on the hour (tide-driven)
-    // The tide-driven start time will be when tide crosses 2.0ft (~7:20am)
+    // The tide-driven start time will be when tide crosses 2.0ft
     const startMinutes = result!.start.getMinutes();
     const endMinutes = result!.end.getMinutes();
     expect(startMinutes !== 0 || endMinutes !== 0).toBe(true);
   });
 
   it('should show full tide window even if it extends past time slot', () => {
-    // Tide window that starts in morning but extends PAST noon
+    // Tide window that starts in lunch session but extends PAST 2pm
     // High tide at 4pm PST (10 hours after 6am low) means 4.5ft crossing is around 12:48pm PST
     const tideSchedule = [
       { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 6am PST
@@ -1414,43 +1414,43 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     const result = selectBestWindow({
       forecasts,
       beach: beachWithTidePrefs,
-      timeSlot: 'morning', // Ends at 12pm
+      timeSlot: 'lunch-session', // Ends at 2pm
       userPrefs: null,
     });
 
     expect(result).not.toBeNull();
 
-    // Tide-driven window should extend past 12pm (noon) to show full tide window
-    // The 4.5ft crossing is around 12:48pm PST (20:48 UTC) - past the morning slot end
-    // If not capped: end time should be after 12pm (20:00 UTC)
-    // If capped (bug): end time would be exactly 12pm (20:00 UTC)
+    // Tide-driven window should extend past 2pm to show full tide window
+    // The 4.5ft crossing is around 12:48pm PST (20:48 UTC) - still within lunch session
+    // If not capped: end time should be at or after 12:48pm (20:48 UTC)
+    // If capped (bug): end time would be exactly 2pm PST = 22:00 UTC
     const endUTCHour = result!.end.getUTCHours();
     const endMinutes = result!.end.getUTCMinutes();
 
     // With the fix, tide-driven windows should NOT be capped
     // End should be around 12:48pm PST = 20:48 UTC
-    // If capped, it would be exactly 12pm PST = 20:00 UTC (hour 20, minute 0)
-    expect(endUTCHour >= 20).toBe(true); // Should be at or after noon
-    expect(endMinutes > 0 || endUTCHour > 20).toBe(true); // Not exactly at noon
+    // If capped, it would be exactly 2pm PST = 22:00 UTC (hour 22, minute 0)
+    expect(endUTCHour >= 20).toBe(true); // Should be at or after 12:48pm
+    expect(endMinutes > 0 || endUTCHour > 20).toBe(true); // Not exactly at slot boundary
   });
 
   it('should show tide-driven boundaries for afternoon slot', () => {
-    // Tide: low at 12pm PST (1.0ft), high at 6pm PST (5.5ft)
-    // Preferred range 2.0-4.0ft - crossings will be AFTER 12pm forecast
+    // Tide: low at 1pm PST (1.0ft), high at 7pm PST (5.5ft)
+    // Preferred range 2.0-4.0ft - crossings will be AFTER 2pm forecast
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const },
-      { time: Math.floor(new Date('2024-01-16T02:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const },
+      { time: Math.floor(new Date('2024-01-15T21:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 1pm PST
+      { time: Math.floor(new Date('2024-01-16T03:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 7pm PST
     ];
 
-    // Forecast at 12pm PST - BEFORE tide crosses 2.0ft threshold
+    // Forecast at 2pm PST - within the afternoon slot (2pm-6pm)
     const forecasts = [
       createForecast({
         id: 'forecast-afternoon',
         forecast_date: '2024-01-15',
-        forecast_time: '20:00', // 12pm PST (noon)
+        forecast_time: '22:00', // 2pm PST
         wave_height: '4',
         wave_period: '12s',
-        tide_height: '1.0',
+        tide_height: '1.5',
         tide_status: 'Rising',
         confidence_score: 80,
         raw_forecast: {
@@ -1460,7 +1460,7 @@ describe('selectBestWindow time slot with tide boundaries', () => {
       } as any),
     ];
 
-    jest.setSystemTime(new Date('2024-01-15T20:00:00Z')); // 12pm PST
+    jest.setSystemTime(new Date('2024-01-15T22:00:00Z')); // 2pm PST
 
     const beachWithTidePrefs = {
       ...mockBeach,

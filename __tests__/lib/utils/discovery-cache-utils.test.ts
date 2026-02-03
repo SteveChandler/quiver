@@ -32,7 +32,7 @@ describe("discovery-cache-utils", () => {
   describe("hashDiscoveryOptions", () => {
     it("should generate consistent hash for same options", () => {
       const options1: DiscoveryCacheOptions = {
-        timeSlot: "morning" as TimeSlot,
+        timeSlot: "lunch-session" as TimeSlot,
         userLocation: { lat: 32.71, lon: -117.16 },
         radiusMiles: 25,
         horizonHours: 24,
@@ -50,7 +50,7 @@ describe("discovery-cache-utils", () => {
       };
 
       const hash1 = hashDiscoveryOptions({ ...baseOptions, timeSlot: "any" });
-      const hash2 = hashDiscoveryOptions({ ...baseOptions, timeSlot: "morning" });
+      const hash2 = hashDiscoveryOptions({ ...baseOptions, timeSlot: "lunch-session" });
       const hash3 = hashDiscoveryOptions({ ...baseOptions, timeSlot: "afternoon" });
       const hash4 = hashDiscoveryOptions({ ...baseOptions, timeSlot: "dawn-patrol" });
 
@@ -98,10 +98,10 @@ describe("discovery-cache-utils", () => {
 
     it("should handle missing userLocation", () => {
       const options1: DiscoveryCacheOptions = {
-        timeSlot: "morning",
+        timeSlot: "lunch-session",
       };
       const options2: DiscoveryCacheOptions = {
-        timeSlot: "morning",
+        timeSlot: "lunch-session",
         userLocation: undefined,
       };
 
@@ -111,7 +111,7 @@ describe("discovery-cache-utils", () => {
     it("should differentiate by radiusMiles when combined with timeSlot", () => {
       // Testing that radiusMiles contributes to differentiation
       const options1: DiscoveryCacheOptions = {
-        timeSlot: "morning",
+        timeSlot: "lunch-session",
         radiusMiles: 25,
       };
       const options2: DiscoveryCacheOptions = {
@@ -139,7 +139,7 @@ describe("discovery-cache-utils", () => {
       // The hash prioritizes timeSlot first, which is the primary differentiator
       // for our prefetch feature. Testing that combined options work correctly.
       const options1: DiscoveryCacheOptions = {
-        timeSlot: "morning",
+        timeSlot: "lunch-session",
         maxResults: 5,
       };
       const options2: DiscoveryCacheOptions = {
@@ -156,7 +156,7 @@ describe("discovery-cache-utils", () => {
     it("should generate key with user ID and options hash", () => {
       const userId = "test-user-123";
       const options: DiscoveryCacheOptions = {
-        timeSlot: "morning",
+        timeSlot: "lunch-session",
         userLocation: { lat: 32.71, lon: -117.16 },
       };
 
@@ -168,7 +168,7 @@ describe("discovery-cache-utils", () => {
     });
 
     it("should generate different keys for different users", () => {
-      const options: DiscoveryCacheOptions = { timeSlot: "morning" };
+      const options: DiscoveryCacheOptions = { timeSlot: "lunch-session" };
 
       const key1 = getDiscoveryCacheKey("user-1", options);
       const key2 = getDiscoveryCacheKey("user-2", options);
@@ -179,7 +179,7 @@ describe("discovery-cache-utils", () => {
     it("should generate different keys for different options", () => {
       const userId = "test-user";
 
-      const key1 = getDiscoveryCacheKey(userId, { timeSlot: "morning" });
+      const key1 = getDiscoveryCacheKey(userId, { timeSlot: "lunch-session" });
       const key2 = getDiscoveryCacheKey(userId, { timeSlot: "afternoon" });
 
       expect(key1).not.toBe(key2);
