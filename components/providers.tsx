@@ -34,6 +34,13 @@ const ProductTour = dynamic(
     })),
   { ssr: false }
 );
+const PageTracker = dynamic(
+  () =>
+    import("@/components/page-tracker").then((mod) => ({
+      default: mod.PageTracker,
+    })),
+  { ssr: false }
+);
 
 // Toast systems
 import { Toaster } from "@/components/ui/toaster";
@@ -121,6 +128,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           {/* Global body class manager for authenticated state */}
           <AuthBodyClassManager />
+          {/* Page view tracking for engagement analytics */}
+          <Suspense fallback={null}>
+            <PageTracker />
+          </Suspense>
           <ProfileProvider>
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
