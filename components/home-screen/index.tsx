@@ -12,6 +12,7 @@ import { useTimeSlotPrefetch } from "@/hooks/use-time-slot-prefetch";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useReminderHandler } from "@/hooks/use-reminder-handler";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { track } from "@/lib/analytics";
 import { toast } from "sonner";
 import { getProfileStrength } from "@/actions/dashboard-actions";
@@ -56,9 +57,22 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { timeOfDay } = useTimeOfDay();
   const reducedMotion = useReducedMotion();
+  const { track: trackEvent } = useTrackEvent();
 
   // Time slot filter state
   const [timeSlot, setTimeSlot] = useState<TimeSlot>('any');
+
+  // Wrapper to track time slot changes
+  const handleTimeSlotChange = useCallback((newSlot: TimeSlot) => {
+    trackEvent("forecast_interaction", {
+      metadata: {
+        action: "change_slot" as const,
+        slot: newSlot,
+      },
+      debounceMs: 200,
+    });
+    setTimeSlot(newSlot);
+  }, [trackEvent]);
 
   // Profile and home beach
   const { profile, homeBeach, refreshProfile } = useCachedProfile();
@@ -177,13 +191,23 @@ export function HomeScreen() {
       params.set("startTime", topRecommendation.window.start.toISOString());
     }
 
+    // Track for analytics
     track("home_at_beach_click", {
       beach_id: topRecommendation?.beach.id,
       beach_name: topRecommendation?.beach.name,
     });
 
+    // Track for engagement (stored in user_events)
+    trackEvent("cta_click", {
+      beachId: topRecommendation?.beach.id,
+      metadata: {
+        cta: "log_session" as const,
+        location: "home_primary_actions",
+      },
+    });
+
     router.push(`/sessions/new?${params.toString()}`);
-  }, [topRecommendation, router]);
+  }, [topRecommendation, router, trackEvent]);
 
   // Handler for "Plan Weekend" button - navigate to beach forecast tab
   const handlePlanWeekend = useCallback(() => {
@@ -193,29 +217,53 @@ export function HomeScreen() {
       return;
     }
 
+    // Track for analytics
     track("home_plan_weekend_click", {
       beach_id: topRecommendation.beach.id,
       beach_name: topRecommendation.beach.name,
     });
 
+    // Track for engagement (stored in user_events)
+    trackEvent("cta_click", {
+      beachId: topRecommendation.beach.id,
+      metadata: {
+        cta: "view_forecast" as const,
+        location: "home_primary_actions",
+      },
+    });
+
     const forecastUrl = buildBeachUrlWithTab(topRecommendation.beach, "forecast");
     router.push(forecastUrl);
-  }, [topRecommendation, router, timeSlot]);
+  }, [topRecommendation, router, timeSlot, trackEvent]);
 
   // Handler for viewing beach details from hero
   const handleViewBeach = useCallback(
     (beachId: string) => {
+      trackEvent("forecast_interaction", {
+        beachId,
+        metadata: {
+          action: "view_details" as const,
+          beach_id: beachId,
+        },
+      });
       router.push(`/beach/${beachId}?from=home_hero`);
     },
-    [router]
+    [router, trackEvent]
   );
 
   // Handler for viewing beach details from top spots
   const handleViewSpot = useCallback(
     (beachId: string) => {
+      trackEvent("forecast_interaction", {
+        beachId,
+        metadata: {
+          action: "view_details" as const,
+          beach_id: beachId,
+        },
+      });
       router.push(`/beach/${beachId}?from=home_top_spots`);
     },
-    [router]
+    [router, trackEvent]
   );
 
   // Wrapper for hero recommendation's onEnableReminder (expects boolean return)
@@ -266,7 +314,7 @@ export function HomeScreen() {
             >
               <TimeSlotSelector
                 value={timeSlot}
-                onChange={setTimeSlot}
+                onChange={handleTimeSlotChange}
                 className="mb-2"
               />
             </motion.section>

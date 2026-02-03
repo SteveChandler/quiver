@@ -46,7 +46,7 @@ export const dynamic = "force-dynamic";
 // Constants
 // ============================================================================
 
-const DEDUPE_WINDOW_HOURS = 20; // Not 24, prevents edge cases
+const DEDUPE_WINDOW_HOURS = 72; // 3 days to match Mon/Thu schedule
 const LOOKAHEAD_HOURS = 48;
 const ALERT_TYPE = "daily_digest_email";
 

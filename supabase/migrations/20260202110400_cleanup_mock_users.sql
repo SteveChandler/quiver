@@ -9,6 +9,9 @@
 
 BEGIN;
 
+-- Enable destructive operations for this transaction (required for DELETE on profiles)
+SET LOCAL app.allow_destructive = 'on';
+
 -- Backup mock users before deletion
 CREATE TABLE IF NOT EXISTS _backup_mock_profiles_20260202 AS
 SELECT *

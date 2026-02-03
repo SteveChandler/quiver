@@ -47,12 +47,12 @@ CREATE TABLE IF NOT EXISTS public.ml_model_registry (
 );
 
 -- Index for querying deployed models
-CREATE INDEX idx_ml_model_registry_status_deployed
+CREATE INDEX IF NOT EXISTS idx_ml_model_registry_status_deployed
   ON public.ml_model_registry(deployed_at DESC)
   WHERE status = 'deployed';
 
 -- Index for looking up current version
-CREATE INDEX idx_ml_model_registry_version
+CREATE INDEX IF NOT EXISTS idx_ml_model_registry_version
   ON public.ml_model_registry(version);
 
 COMMENT ON TABLE public.ml_model_registry IS
@@ -156,6 +156,7 @@ COMMENT ON FUNCTION public.check_ml_drift IS
 
 ALTER TABLE public.ml_model_registry ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS ml_model_registry_service_role ON public.ml_model_registry;
 CREATE POLICY ml_model_registry_service_role
   ON public.ml_model_registry FOR ALL
   USING (auth.jwt() ->> 'role' = 'service_role');
@@ -215,6 +216,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS ml_model_registry_updated_at ON public.ml_model_registry;
 CREATE TRIGGER ml_model_registry_updated_at
   BEFORE UPDATE ON public.ml_model_registry
   FOR EACH ROW

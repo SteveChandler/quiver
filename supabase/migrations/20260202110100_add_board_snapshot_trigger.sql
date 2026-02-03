@@ -43,6 +43,10 @@ BEFORE INSERT OR UPDATE ON sessions
 FOR EACH ROW
 EXECUTE FUNCTION capture_board_snapshot();
 
+-- Temporarily disable the beach affinity trigger to avoid FK issues during backfill
+-- (Some sessions have user_ids that don't exist in auth.users)
+ALTER TABLE sessions DISABLE TRIGGER update_beach_affinity_trigger;
+
 -- Backfill existing sessions that have board_id but no snapshot
 -- This updates sessions where the board still exists
 UPDATE sessions s
@@ -56,6 +60,9 @@ SET board_snapshot = jsonb_build_object(
 FROM boards b
 WHERE s.board_id = b.id
   AND s.board_snapshot IS NULL;
+
+-- Re-enable the beach affinity trigger
+ALTER TABLE sessions ENABLE TRIGGER update_beach_affinity_trigger;
 
 COMMIT;
 

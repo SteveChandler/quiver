@@ -6,6 +6,7 @@ import { Plus, Calendar, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { ShareSheet } from "@/components/share/share-sheet";
 
@@ -86,10 +87,22 @@ export const PrimaryActions = React.memo(function PrimaryActions({
   shareData,
 }: PrimaryActionsProps) {
   const reducedMotion = useReducedMotion();
+  const { track: trackEvent } = useTrackEvent();
   const [isPrimaryHovered, setIsPrimaryHovered] = useState(false);
   const [isSecondaryHovered, setIsSecondaryHovered] = useState(false);
   const [isShareHovered, setIsShareHovered] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  const handleShareClick = () => {
+    trackEvent("cta_click", {
+      beachId: topRecommendation?.beach?.id,
+      metadata: {
+        cta: "share" as const,
+        location: "home_primary_actions",
+      },
+    });
+    setShareOpen(true);
+  };
 
   return (
     <div
@@ -170,7 +183,7 @@ export const PrimaryActions = React.memo(function PrimaryActions({
       {/* Share action button */}
       {shareData && (
         <motion.button
-          onClick={() => setShareOpen(true)}
+          onClick={handleShareClick}
           disabled={disabled}
           onMouseEnter={() => setIsShareHovered(true)}
           onMouseLeave={() => setIsShareHovered(false)}
