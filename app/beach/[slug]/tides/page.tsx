@@ -72,6 +72,8 @@ export default async function BeachTidesPage(
           beach={beach}
           slug={params.slug}
           beachTimezone={beachTimezone}
+          defaultTab="forecast"
+          defaultSubTab="tides"
         />
       </>
     );
