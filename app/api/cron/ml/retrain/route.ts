@@ -90,7 +90,7 @@ async function handleRetrain(request: Request) {
 
     // Limit total samples based on ML service memory (2GB instance)
     // 2GB RAM supports ~100K samples comfortably
-    const MAX_TRAINING_SAMPLES = 100000;
+    const MAX_TRAINING_SAMPLES = 50000;
 
     // Extract all predictions with ground truth (observed_m is not null)
     // Join with beaches table to get terrain factors
