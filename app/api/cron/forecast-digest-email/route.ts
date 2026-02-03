@@ -1,10 +1,10 @@
 /**
  * GET /api/cron/forecast-digest-email
  *
- * Daily cron job: sends personalized forecast emails to eligible users
+ * Mon/Thu cron job: sends personalized forecast emails to eligible users
  * ONLY when conditions match their preferences.
  *
- * Runs daily at 14:00 UTC (6 AM Pacific).
+ * Runs Mon & Thu at 14:00 UTC (6 AM Pacific).
  *
  * Multi-gate matching determines eligibility:
  * 1. Skill Gate - User skill vs beach requirement

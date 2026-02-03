@@ -13,9 +13,10 @@ BEGIN;
 
 -- First, migrate any existing email log entries to the new types
 -- daily_best_window -> forecast_digest (same concept, just renamed)
+-- condition_alert, weekend_outlook, heads_up_alert -> forecast_digest (consolidated)
 UPDATE public.email_send_log
 SET email_type = 'forecast_digest'
-WHERE email_type = 'daily_best_window';
+WHERE email_type IN ('daily_best_window', 'condition_alert', 'weekend_outlook', 'heads_up_alert');
 
 -- Update the constraint with simplified email types
 ALTER TABLE public.email_send_log

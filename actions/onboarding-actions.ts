@@ -104,7 +104,7 @@ export async function saveOnboardingData(data: OnboardingData) {
       }
 
       // Create default email preferences (non-blocking)
-      // This ensures users receive forecast-digest-email and weekend-outlook-email
+      // This ensures users receive forecast-digest-email (Mon/Thu)
       if (data.homeBeachId && data.emailEnabled !== false) {
         try {
           await supabase.from('user_email_prefs').upsert({
