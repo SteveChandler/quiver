@@ -83,17 +83,14 @@ async function handleRetrain(request: Request) {
     // =======================================================================
     console.log('[ML Retrain] Step 1: Extracting training data...');
 
-    // Use 30 days for training to keep payload size manageable
-    // ML service has memory constraints (~400MB), so we limit data volume
-    // TODO: Scale up Fly.io instance or implement streaming to handle more data
-    const maxDaysBack = 30;
+    // Use 90 days for training (increased after scaling ML service to 2GB)
+    const maxDaysBack = 90;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxDaysBack);
 
-    // Also limit total samples to prevent OOM on ML service
-    // Current Fly.io instance has ~400MB RAM which limits us to ~20K samples
-    // TODO: Scale up to 1GB+ instance for larger training sets
-    const MAX_TRAINING_SAMPLES = 20000;
+    // Limit total samples based on ML service memory (2GB instance)
+    // 2GB RAM supports ~100K samples comfortably
+    const MAX_TRAINING_SAMPLES = 100000;
 
     // Extract all predictions with ground truth (observed_m is not null)
     // Join with beaches table to get terrain factors
