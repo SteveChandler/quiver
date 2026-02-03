@@ -4,6 +4,7 @@ import {
   createErrorResponse,
   createSuccessResponse,
 } from '@/lib/api-utils';
+import { createServiceRoleClient } from '@/lib/supabase';
 
 // Allow extended timeout for training orchestration
 // Note: Actual training happens on ML service, but data extraction
@@ -64,21 +65,8 @@ async function handleRetrain(request: Request) {
     );
   }
 
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.SUPABASE_SERVICE_ROLE_KEY
-  ) {
-    return createErrorResponse(
-      'Supabase configuration missing',
-      undefined,
-      500
-    );
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  // Use the standard service role client which has proper auth configuration
+  const supabase = createServiceRoleClient();
 
   const trainingStartedAt = new Date().toISOString();
   // Include timestamp to ensure unique version even on same day
@@ -95,16 +83,23 @@ async function handleRetrain(request: Request) {
     // =======================================================================
     console.log('[ML Retrain] Step 1: Extracting training data...');
 
-    // Use 90 days for training (balances data volume vs query performance)
-    // Can be increased once we have optimized indexes
-    const maxDaysBack = 90;
+    // Use 30 days for training to keep payload size manageable
+    // ML service has memory constraints (~400MB), so we limit data volume
+    // TODO: Scale up Fly.io instance or implement streaming to handle more data
+    const maxDaysBack = 30;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxDaysBack);
 
+    // Also limit total samples to prevent OOM on ML service
+    // Current Fly.io instance has ~400MB RAM which limits us to ~20K samples
+    // TODO: Scale up to 1GB+ instance for larger training sets
+    const MAX_TRAINING_SAMPLES = 20000;
+
     // Extract all predictions with ground truth (observed_m is not null)
     // Join with beaches table to get terrain factors
-    // Use pagination to fetch all rows (Supabase default limit is 1000)
-    const PAGE_SIZE = 5000;
+    // Use pagination to fetch all rows
+    // Note: Supabase API has a default 1000 row limit, so we use 1000 per page
+    const PAGE_SIZE = 1000;
     const trainingData: any[] = [];
     let page = 0;
     let hasMore = true;
@@ -112,7 +107,7 @@ async function handleRetrain(request: Request) {
     while (hasMore) {
       // Fetch predictions without JOIN (much faster)
       // Terrain factors will be fetched separately for unique beaches
-      const { data: pageData, error: extractError } = await supabase
+      const { data: pageData, error: extractError, count } = await supabase
         .from('ml_predictions_log')
         .select(
           `
@@ -129,7 +124,8 @@ async function handleRetrain(request: Request) {
           wave_direction_deg,
           wind_speed_ms,
           wind_direction_deg
-        `
+        `,
+          { count: 'exact' }
         )
         .gt('observed_m', 0)  // Exclude nulls and sentinel values (-1)
         .gte('predicted_at', cutoffDate.toISOString())
@@ -147,21 +143,27 @@ async function handleRetrain(request: Request) {
 
       if (pageData && pageData.length > 0) {
         trainingData.push(...pageData);
-        console.log(`[ML Retrain] Fetched page ${page + 1}: ${pageData.length} rows (total: ${trainingData.length})`);
-        hasMore = pageData.length === PAGE_SIZE;
+        // Continue pagination if we got data and haven't hit sample limit
+        hasMore = count !== null && trainingData.length < count && trainingData.length < MAX_TRAINING_SAMPLES;
         page++;
       } else {
         hasMore = false;
       }
 
-      // Safety limit: max 100 pages (500k rows)
-      if (page >= 100) {
+      // Check sample limit
+      if (trainingData.length >= MAX_TRAINING_SAMPLES) {
+        console.log(`[ML Retrain] Reached max training samples limit (${MAX_TRAINING_SAMPLES})`);
+        hasMore = false;
+      }
+
+      // Safety limit: max 500 pages (500k rows with 1000 per page)
+      if (page >= 500) {
         console.warn('[ML Retrain] Reached max pagination limit (500k rows)');
         hasMore = false;
       }
     }
 
-    console.log(`[ML Retrain] Total training data: ${trainingData.length} rows`);
+    console.log(`[ML Retrain] Extracted ${trainingData.length} training samples in ${page} pages`);
 
     if (trainingData.length === 0) {
       console.warn('[ML Retrain] No training data available');
@@ -247,27 +249,29 @@ async function handleRetrain(request: Request) {
     // =======================================================================
     // STEP 3: Call ML Service to Train Model
     // =======================================================================
-    console.log('[ML Retrain] Step 3: Calling ML service for training...');
+    console.log(`[ML Retrain] Step 3: Sending ${trainingData.length} samples to ML service...`);
 
     let trainResponse: TrainResponse;
 
     try {
       // Prepare training request payload
-      // Transform trainingData to include terrain factors from beaches join
+      // Transform trainingData to include terrain factors
+      const mappedData = trainingData.map((record: any) => ({
+        beach_id: record.beach_id,
+        predicted_at: record.predicted_at,
+        raw_forecast_m: record.raw_forecast_m,
+        observed_m: record.observed_m,
+        wave_period_s: record.wave_period_s,
+        wave_direction_deg: record.wave_direction_deg,
+        wind_speed_ms: record.wind_speed_ms,
+        wind_direction_deg: record.wind_direction_deg,
+        swell_access_factors: record.swell_access_factors || null,
+        wind_exposure_factors: record.wind_exposure_factors || null,
+      }));
+
       const trainingPayload = {
         version: modelVersion,
-        training_data: trainingData.map((record: any) => ({
-          beach_id: record.beach_id,
-          predicted_at: record.predicted_at,
-          raw_forecast_m: record.raw_forecast_m,
-          observed_m: record.observed_m,
-          wave_period_s: record.wave_period_s,
-          wave_direction_deg: record.wave_direction_deg,
-          wind_speed_ms: record.wind_speed_ms,
-          wind_direction_deg: record.wind_direction_deg,
-          swell_access_factors: record.beaches?.swell_access_factors || null,
-          wind_exposure_factors: record.beaches?.wind_exposure_factors || null,
-        })),
+        training_data: mappedData,
         config: {
           recency_weight_days: 14,
           recency_weight_multiplier: 2.0,
@@ -499,17 +503,8 @@ async function deployToFly(
     // =======================================================================
     console.log('[deployToFly] Step 1: Uploading model to Supabase Storage...');
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return {
-        success: false,
-        error: 'Supabase configuration missing for model upload',
-      };
-    }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    // Use the standard service role client which has proper auth configuration
+    const supabase = createServiceRoleClient();
 
     // Download model from training output
     const modelResponse = await fetch(modelUrl, {
