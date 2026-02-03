@@ -19,6 +19,7 @@ import {
   removeIntelPostConfirmation,
 } from "@/actions/intel-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getDisplayName, cleanTitle } from "@/lib/utils/display-name-utils";
 import { validateCoordinates } from "@/lib/coordinate-validation";
 import {
   Plus,
@@ -429,41 +430,6 @@ export function BeachIntelSection({
       />
     </>
   );
-}
-
-// Realistic surfer names for display
-const SURFER_NAMES = [
-  "Kai W.", "Sarah J.", "Mike T.", "Alana B.", "Rob S.",
-  "Malia K.", "Jake C.", "Luna M.", "Tyler N.", "Sofia R."
-];
-
-// Simple hash function for deterministic name selection
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
-}
-
-// Get display name - maps any "Test User" variant to a realistic name
-function getDisplayName(name: string, seed: string): string {
-  if (name.includes("Test User")) {
-    const index = hashString(seed) % SURFER_NAMES.length;
-    return SURFER_NAMES[index];
-  }
-  return name;
-}
-
-// Remove leading emoji from title if it matches the tag emoji
-function cleanTitle(title: string, tagEmoji: string): string {
-  const trimmed = title.trimStart();
-  if (trimmed.startsWith(tagEmoji)) {
-    return trimmed.slice(tagEmoji.length).trimStart();
-  }
-  return title;
 }
 
 // Modern Intel Post Card Component
