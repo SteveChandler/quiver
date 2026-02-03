@@ -57,9 +57,10 @@ create index if not exists idx_user_events_beach_id
 create index if not exists idx_user_events_event_type
   on public.user_events(event_type, created_at desc);
 
+-- Index on expires_at for efficient cleanup queries
+-- Note: Partial index with now() not possible (not IMMUTABLE), so index all rows
 create index if not exists idx_user_events_expires_at
-  on public.user_events(expires_at)
-  where expires_at < now() + interval '7 days';  -- Only index soon-to-expire events
+  on public.user_events(expires_at);
 
 -- Comments for documentation
 comment on table public.user_events is 'Behavioral signals for implicit preference learning. Events auto-expire after 90 days.';

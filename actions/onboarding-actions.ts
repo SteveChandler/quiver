@@ -103,6 +103,23 @@ export async function saveOnboardingData(data: OnboardingData) {
         throw new Error('Profile not found. Please ensure your account is fully set up.');
       }
 
+      // Create default email preferences (non-blocking)
+      // This ensures users receive forecast-digest-email (Mon/Thu)
+      if (data.homeBeachId && data.emailEnabled !== false) {
+        try {
+          await supabase.from('user_email_prefs').upsert({
+            user_id: user.id,
+            email_frequency: 'daily',
+            min_good_score: 6.0,
+            skill_level: data.experienceLevel?.toLowerCase() || 'beginner',
+            pref_time_bucket: 'dawn',
+            timezone: 'America/Los_Angeles',
+            home_beach_id: data.homeBeachId,
+          }, { onConflict: 'user_id' });
+        } catch (prefsErr) {
+          console.warn('[onboarding] Email prefs creation error (non-blocking):', prefsErr);
+        }
+      }
 
       // Award welcome XP for completing onboarding
       try {

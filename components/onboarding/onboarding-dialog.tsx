@@ -19,6 +19,7 @@ import { OnboardingProgress } from "./onboarding-progress";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
 import { skipOnboarding } from "@/actions/onboarding-actions";
+import { useOnboardingTracking } from "@/hooks/use-onboarding-tracking";
 import type { Profile } from "@/types/database";
 
 const STEPS = [
@@ -77,6 +78,9 @@ export function OnboardingDialog() {
     reset,
     checkUserId,
   } = useOnboardingStore();
+
+  // Set up step tracking for engagement analytics
+  useOnboardingTracking();
 
   const isTesting = searchParams?.get("showOnboarding") === "1";
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;

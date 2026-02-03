@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Terrain-Aware ML Features:** Added terrain geometry factors to the ML bias correction pipeline. The model now incorporates beach-specific topography and bathymetry features for improved accuracy:
+  - **New Features (13 total, up from 11):**
+    - `swell_access_factor`: Swell accessibility at wave direction (0.0-1.0) extracted from 72-element array
+    - `wind_exposure_factor`: Wind exposure at wind direction (0.0-1.0) extracted from 72-element array
+  - **Implementation:**
+    - Updated `ml/transformers_v2.py` with `get_terrain_factor()` helper to extract directional terrain factors from 5-degree bin arrays
+    - Modified `ml/api.py` to accept terrain factor arrays in `TrainingDataRecord` model
+    - Enhanced `/api/cron/ml/retrain` to join `beaches` table and extract `swell_access_factors` and `wind_exposure_factors` for training data
+    - Added comprehensive test coverage in `ml/test_transformers_v2_terrain.py`
+  - **Backward Compatibility:** Model defaults to neutral values (0.5) when terrain factors are not available
+  - **Expected Impact:** Better predictions at beaches with complex coastal geometry (e.g., headlands, bay configurations)
+
+- **ML Training API Endpoint:** Added `/train` endpoint to ML FastAPI service (`ml/api.py`) for automated model retraining. The endpoint:
+  - Accepts training data from `ml_predictions_log` table with all forecast features (wave height, period, direction, wind)
+  - Applies configurable recency weighting (default: last 14 days get 2x weight)
+  - Splits data into train/holdout sets based on configurable holdout window (default: 2 days)
+  - Trains XGBoost model using v3 configuration (no monotone constraints, relaxed guardrails)
+  - Runs 5-fold time-series cross-validation on training set
+  - Validates on holdout set with strict go/no-go gates:
+    - Overall improvement > 50%
+    - All buckets (<0.5m, 0.5-1.5m, >1.5m) improvement > 40%
+    - No bucket degradation > 0.05m
+    - Mean bias < 0.4m (not too one-directional)
+  - Saves trained model to `models/bias_model_{version}.json` if validation passes
+  - Returns comprehensive metrics including training window, sample counts, and holdout performance
+  - Protected by `X-Internal-Secret` authentication
+  - Integration with existing retrain cron job at `/api/cron/ml/retrain`
+
+- **ML Model Deployment Automation:** Implemented automated deployment of trained ML models from the retrain pipeline to Fly.io. The `deployToFly()` function in `/api/cron/ml/retrain` now:
+  - Uploads trained model artifacts to Supabase Storage (`ml-artifacts` bucket)
+  - Updates Fly.io machine environment variables (`MODEL_VERSION`, `MODEL_PATH`) via Machines API
+  - Restarts ML service machines to load the new model
+  - Polls the `/health` endpoint to confirm successful deployment
+  - Includes comprehensive error handling and timeout management (2-minute total timeout)
+  - New environment variables: `FLY_API_TOKEN`, `FLY_APP_NAME`, `ML_INTERNAL_SECRET`
+  - New migration: `20260203000000_create_ml_artifacts_bucket.sql` for storage setup
+  - New documentation: `docs/ML_DEPLOYMENT_SETUP.md` with setup guide and troubleshooting
+
 ### Fixed
 
 - **Wave Height Displaying Raw Hs Instead of Face Height:** Fixed critical bug where certain fallback paths in `forecast-builder.ts` returned raw untransformed Significant Wave Height (Hs) instead of estimated face height. This caused beaches like Sunset Cliffs to show 2.6 ft when users observed 4-6 ft waves. Changes include:

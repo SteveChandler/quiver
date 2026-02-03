@@ -211,6 +211,10 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ open: boolean; url: string; caption?: string } | null>(null);
 
+  // Visibility state for lazy loading - defer API calls until near viewport
+  const [isVisible, setIsVisible] = useState(false);
+  const visibilityRef = useRef<HTMLDivElement>(null);
+
   // Pagination state
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -227,6 +231,25 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
   // Ref for intersection observer sentinel
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver to detect when component is near viewport
+  useEffect(() => {
+    const element = visibilityRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: OBSERVER.VISIBILITY_MARGIN }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const fetchData = useCallback(async (cursor?: string) => {
     if (lat == null || lon == null) return;
@@ -311,9 +334,9 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
     fetchData(nextCursor);
   }, [fetchData, loadingMore, hasMore, nextCursor]);
 
-  // Fetch initial data and reset state on location change
+  // Fetch initial data and reset state on location change (only when visible)
   useEffect(() => {
-    if (lat != null && lon != null) {
+    if (lat != null && lon != null && isVisible) {
       // Reset pagination state on location change
       setItems([]);
       setSummary(null);
@@ -324,11 +347,11 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lat, lon]); // fetchData intentionally excluded to prevent double fetch
+  }, [lat, lon, isVisible]); // fetchData intentionally excluded to prevent double fetch
 
-  // Live polling - refresh data periodically
+  // Live polling - refresh data periodically (only when visible)
   useEffect(() => {
-    if (lat == null || lon == null) return;
+    if (lat == null || lon == null || !isVisible) return;
 
     const intervalId = setInterval(() => {
       // Only refresh first page (don't reset pagination state)
@@ -338,7 +361,7 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lat, lon]); // fetchData intentionally excluded to prevent re-creating interval
+  }, [lat, lon, isVisible]); // fetchData intentionally excluded to prevent re-creating interval
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -464,7 +487,13 @@ export function CoastPulse({ lat, lon }: CoastPulseProps) {
 
   return (
     <div
-      ref={containerRef}
+      ref={(node) => {
+        // Both refs need the same element:
+        // - containerRef: for scroll position detection (realtime updates)
+        // - visibilityRef: for IntersectionObserver (lazy loading)
+        containerRef.current = node;
+        visibilityRef.current = node;
+      }}
       className="relative bg-[#1e1e1e] rounded-2xl p-4 space-y-4 overflow-hidden"
       data-testid="coast-pulse-section"
     >

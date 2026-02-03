@@ -4,6 +4,9 @@
 -- Before: find_cities_by_pattern('koloa', 'HI') returns both Koloa and Waikoloa
 -- After: Returns both but with is_exact_match=true for Koloa, ordered so exact matches come first
 
+-- Must DROP first because return type is changing (adding is_exact_match column)
+DROP FUNCTION IF EXISTS find_cities_by_pattern(TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION find_cities_by_pattern(
   search_pattern TEXT,
   state_filter TEXT DEFAULT NULL

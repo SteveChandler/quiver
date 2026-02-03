@@ -503,10 +503,13 @@ export async function GET(request: Request) {
     }
 
     // Tides from NOAA T&C hourly (station-grouped; with CO-OPS hilo fallback -> interpolated hourly)
+    // Tides are deterministic astronomical predictions - fetch 30 days and refresh weekly
     try {
       const tideStartIso = new Date().toISOString();
       const tideEndDate = new Date();
-      tideEndDate.setDate(tideEndDate.getDate() + 5);
+      // Fetch 30 days of tide predictions (deterministic data that doesn't change)
+      const TIDE_FORECAST_DAYS = Number(process.env.TIDE_FORECAST_DAYS ?? 30);
+      tideEndDate.setDate(tideEndDate.getDate() + TIDE_FORECAST_DAYS);
       const tideEndIso = tideEndDate.toISOString();
 
       const nearestStationCache = new Map<string, TideStationMeta | null>();
@@ -589,7 +592,7 @@ export async function GET(request: Request) {
         // Fallback: if hourly predictions are empty, fetch CO-OPS hilo extremes and interpolate hourly
         if (!points.length) {
           try {
-            const coopsData = await coops.fetchCOOPSData(stationId, 5);
+            const coopsData = await coops.fetchCOOPSData(stationId, TIDE_FORECAST_DAYS);
             const tides = (coopsData?.tides || [])
               .filter((t: any) => typeof t?.time === "number" && typeof t?.height === "number")
               .sort((a: any, b: any) => a.time - b.time);

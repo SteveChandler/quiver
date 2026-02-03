@@ -4,6 +4,19 @@ import { persist } from 'zustand/middleware';
 // Total number of onboarding steps (0-indexed: steps 0-5)
 export const TOTAL_ONBOARDING_STEPS = 6;
 
+// Signal value indicating onboarding completion (used in step change callbacks)
+export const ONBOARDING_COMPLETION_SIGNAL = -1;
+
+// Step names for analytics tracking
+export const ONBOARDING_STEP_NAMES: Record<number, string> = {
+  0: 'welcome',
+  1: 'home_beach',
+  2: 'profile',
+  3: 'experience',
+  4: 'wave_preferences',
+  5: 'completion',
+};
+
 interface OnboardingData {
   // Step 1: Welcome (no data stored)
 
@@ -31,6 +44,9 @@ interface OnboardingData {
   // Step 6: Completion (no data stored)
 }
 
+/** Callback for tracking step transitions */
+export type OnStepChangeCallback = (fromStep: number, toStep: number, stepName: string) => void;
+
 interface OnboardingStore {
   // State
   currentStep: number;
@@ -49,6 +65,10 @@ interface OnboardingStore {
   completeOnboarding: () => void;
   reset: () => void;
   checkUserId: (currentUserId: string) => void;
+
+  // Step change callback (set by useOnboardingTracking hook)
+  onStepChange: OnStepChangeCallback | null;
+  setOnStepChange: (callback: OnStepChangeCallback | null) => void;
 }
 
 export const useOnboardingStore = create<OnboardingStore>()(
@@ -60,13 +80,24 @@ export const useOnboardingStore = create<OnboardingStore>()(
       data: {},
       isCompleted: false,
       userId: null,
+      onStepChange: null,
 
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
 
-      nextStep: () => set((state) => ({
-        currentStep: Math.min(state.currentStep + 1, TOTAL_ONBOARDING_STEPS - 1)
-      })),
+      nextStep: () => {
+        const state = get();
+        const fromStep = state.currentStep;
+        const toStep = Math.min(fromStep + 1, TOTAL_ONBOARDING_STEPS - 1);
+
+        // Notify callback before state change
+        if (state.onStepChange && fromStep !== toStep) {
+          const stepName = ONBOARDING_STEP_NAMES[fromStep] || `step_${fromStep}`;
+          state.onStepChange(fromStep, toStep, stepName);
+        }
+
+        set({ currentStep: toStep });
+      },
 
       prevStep: () => set((state) => ({
         currentStep: Math.max(state.currentStep - 1, 0)
@@ -80,23 +111,32 @@ export const useOnboardingStore = create<OnboardingStore>()(
 
       closeDialog: () => set({ isOpen: false }),
 
-      completeOnboarding: () => set({
-        isCompleted: true,
-        isOpen: false
-      }),
+      completeOnboarding: () => {
+        const state = get();
+        // Track completion step
+        if (state.onStepChange) {
+          const stepName = ONBOARDING_STEP_NAMES[state.currentStep] || `step_${state.currentStep}`;
+          state.onStepChange(state.currentStep, ONBOARDING_COMPLETION_SIGNAL, stepName);
+        }
+        set({
+          isCompleted: true,
+          isOpen: false
+        });
+      },
 
       reset: () => set({
         currentStep: 0,
         isOpen: false,
         data: {},
         isCompleted: false,
-        userId: null
+        userId: null,
+        // Keep onStepChange callback
       }),
 
       checkUserId: (currentUserId) => {
         const state = get();
         if (state.userId !== currentUserId) {
-          // Reset store if user has changed
+          // Reset store if user has changed (keep callback)
           set({
             currentStep: 0,
             isOpen: false,
@@ -106,6 +146,8 @@ export const useOnboardingStore = create<OnboardingStore>()(
           });
         }
       },
+
+      setOnStepChange: (callback) => set({ onStepChange: callback }),
     }),
     {
       name: 'quiver-onboarding',

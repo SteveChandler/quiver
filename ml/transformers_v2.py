@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 
-# Full list of features used by v2 model (11 features)
+# Full list of features used by v2 model (13 features)
 V2_FEATURE_COLUMNS = [
     'forecast_height_m',
     'wave_period_sq',
@@ -16,6 +16,8 @@ V2_FEATURE_COLUMNS = [
     'hour',
     'month',
     'wind_missing',
+    'swell_access_factor',
+    'wind_exposure_factor',
 ]
 
 
@@ -31,6 +33,8 @@ def preprocess_v2(df: pd.DataFrame) -> pd.DataFrame:
         - wind_dir_deg: Wind direction in degrees (0-360)
         - wind_missing: 1 if wind data was missing, 0 otherwise
         - forecast_ts_utc: Timestamp (for temporal features)
+        - swell_access_factors: Optional 72-element array (0.0-1.0) for swell accessibility by direction
+        - wind_exposure_factors: Optional 72-element array (0.0-1.0) for wind exposure by direction
 
     Returns:
         DataFrame with exactly V2_FEATURE_COLUMNS
@@ -73,4 +77,91 @@ def preprocess_v2(df: pd.DataFrame) -> pd.DataFrame:
     # 8. Wind missing indicator
     out['wind_missing'] = df['wind_missing'].astype(int) if 'wind_missing' in df.columns else 0
 
+    # 9. Terrain factors (swell access and wind exposure)
+    # Vectorized extraction from 72-element arrays based on wave/wind direction
+    out['swell_access_factor'] = extract_terrain_factors_vectorized(
+        df.get('swell_access_factors'),
+        df['forecast_dir_deg'] if 'forecast_dir_deg' in df.columns else None
+    )
+
+    out['wind_exposure_factor'] = extract_terrain_factors_vectorized(
+        df.get('wind_exposure_factors'),
+        df['wind_dir_deg'] if 'wind_dir_deg' in df.columns else None
+    )
+
     return out[V2_FEATURE_COLUMNS]
+
+
+def extract_terrain_factors_vectorized(
+    factors_series: pd.Series | None,
+    direction_series: pd.Series | None,
+    default_value: float = 0.5
+) -> pd.Series:
+    """
+    Vectorized extraction of terrain factors from 72-element arrays.
+
+    For each row, looks up the factor value at the bin corresponding to the direction.
+    Much faster than row-by-row apply() for large datasets.
+
+    Args:
+        factors_series: Series of 72-element arrays (or None)
+        direction_series: Series of directions in degrees (0-360)
+        default_value: Value to use when factors are missing or invalid
+
+    Returns:
+        Series of factor values (0.0-1.0)
+    """
+    if factors_series is None or direction_series is None:
+        # Return default values if either input is missing
+        if direction_series is not None:
+            return pd.Series(default_value, index=direction_series.index)
+        return pd.Series(dtype=float)
+
+    n_rows = len(factors_series)
+    result = np.full(n_rows, default_value, dtype=float)
+
+    # Compute bin indices for all rows at once (vectorized)
+    directions = direction_series.fillna(0.0).astype(float).values
+    bin_indices = ((directions + 2.5) / 5).astype(int) % 72
+
+    # Extract factors for each row
+    # This loop is necessary because each row has its own array, but it's
+    # much faster than df.apply() because we avoid pandas overhead
+    for i, (factors, bin_idx) in enumerate(zip(factors_series.values, bin_indices)):
+        if factors is not None:
+            # Handle both list and numpy array
+            if isinstance(factors, (list, np.ndarray)) and len(factors) == 72:
+                result[i] = float(factors[bin_idx])
+
+    return pd.Series(result, index=factors_series.index)
+
+
+def get_terrain_factor(factors_array, direction_deg: float) -> float:
+    """
+    Extract terrain factor from 72-element array based on direction.
+
+    This is the scalar version, kept for backward compatibility and testing.
+    For bulk processing, use extract_terrain_factors_vectorized() instead.
+
+    Args:
+        factors_array: 72-element array (0.0-1.0) or None
+        direction_deg: Direction in degrees (0-360)
+
+    Returns:
+        Factor value (0.0-1.0), defaults to 0.5 if array is invalid
+    """
+    if factors_array is None:
+        return 0.5
+
+    # Handle both list and numpy array
+    if isinstance(factors_array, (list, np.ndarray)):
+        if len(factors_array) != 72:
+            return 0.5
+    else:
+        return 0.5
+
+    # Convert direction to bin index (5-degree bins)
+    bin_idx = int((direction_deg + 2.5) / 5) % 72
+
+    # Return the factor value
+    return float(factors_array[bin_idx])

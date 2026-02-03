@@ -21,6 +21,7 @@ interface EditProfileModalProps {
   onOpenChange: (open: boolean) => void;
   profile: Profile | null;
   onProfileUpdated: () => void;
+  scrollToNotifications?: boolean;
 }
 
 export function EditProfileModal({
@@ -28,6 +29,7 @@ export function EditProfileModal({
   onOpenChange,
   profile,
   onProfileUpdated,
+  scrollToNotifications,
 }: EditProfileModalProps) {
   const initialData = profile
     ? {
@@ -61,10 +63,11 @@ export function EditProfileModal({
           <DialogDescription>Update your profile information</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto py-2">
+        <div className="flex-1 overflow-auto py-2" id="edit-profile-modal-content">
           <EditProfileForm
             initialData={initialData}
             onSuccess={onProfileUpdated}
+            scrollToNotifications={scrollToNotifications}
           />
         </div>
       </DialogContent>

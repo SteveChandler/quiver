@@ -152,14 +152,14 @@ Defined in `vercel.json`:
 **`forecast_alert_deliveries`** - Email send tracking
 
 ```sql
--- Added 'reengagement' to allowed alert_type values
+-- Simplified alert types (2026-02-03)
 CHECK (alert_type IN (
   'forecast_threshold',
-  'daily_digest_email',
-  'weekend_outlook',
-  'reengagement'
+  'daily_digest_email'
 ))
 ```
+
+Note: Reengagement emails use `email_send_log` table with type `reengagement`, not `forecast_alert_deliveries`.
 
 **`beach_daily_intel`** - Daily conditions data
 
@@ -400,8 +400,7 @@ LIMIT 20;
 
 - [Email Core Loop Design](/docs/plans/completed/2026-01-20-email-core-loop-design.md) - Original design document
 - [Email Core Loop Implementation](/docs/plans/completed/2026-01-20-email-core-loop-implementation.md) - Implementation plan
-- [Forecast Digest Email](/app/api/cron/forecast-digest-email/) - Daily digest system
-- [Weekend Outlook Email](/app/api/cron/weekend-outlook-email/) - Weekend preview system
+- [Forecast Digest Email](/app/api/cron/forecast-digest-email/) - Mon/Thu forecast digest (consolidated from daily digest + weekend outlook)
 
 ---
 

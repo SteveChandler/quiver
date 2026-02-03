@@ -27,11 +27,25 @@ export const dynamic = 'force-dynamic';
 // Rate Limiting Configuration
 // =============================================================================
 
+/**
+ * IMPORTANT: Rate limiting is in-memory and ephemeral.
+ * In serverless environments (Vercel), this resets on cold starts and
+ * is not shared across function instances.
+ *
+ * This is acceptable for low-stakes tracking events where:
+ * - Occasional duplicate events are tolerable
+ * - Perfect rate limiting is not security-critical
+ * - The cost of a distributed solution (Redis/Upstash) outweighs benefits
+ *
+ * For production abuse prevention at scale, consider migrating to
+ * distributed rate limiting with Redis, Upstash, or similar.
+ */
+
 const RATE_LIMIT = 60; // Max events per window
 const RATE_WINDOW_MS = 60_000; // 1 minute window
 const MAX_RATE_LIMIT_ENTRIES = 10000; // LRU eviction threshold
 
-// Per-user rate limit tracking with LRU eviction
+// Per-user rate limit tracking with LRU eviction (ephemeral in serverless)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const rateLimitOrder: string[] = [];
 
@@ -82,11 +96,19 @@ function checkRateLimit(userId: string): { allowed: boolean; remaining: number; 
 // =============================================================================
 
 const VALID_EVENTS: ImplicitEventType[] = [
+  // Implicit preference learning events
   'beach_view',
   'discovery_click',
   'discovery_skip',
   'forecast_check',
   'location_update',
+  // Engagement tracking events
+  'page_view',
+  'forecast_interaction',
+  'session_action',
+  'profile_update',
+  'onboarding_step',
+  'cta_click',
 ];
 
 /**

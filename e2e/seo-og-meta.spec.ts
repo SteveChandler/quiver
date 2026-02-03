@@ -5,7 +5,8 @@
  * - og:image points to the dynamic OG image endpoint with absolute URL
  * - og:title matches page title format
  * - Twitter card meta tags present
- * - Title format: "{Beach Name} Surf Forecast | Quiver"
+ * - Title format: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams | Quiver"
+ *   (CTR-optimized format with dynamic wave height)
  *
  * @project guest (public pages)
  */
@@ -23,9 +24,11 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
 
       const title = await page.title();
 
-      // Title should follow format: "{Beach Name} Surf Forecast | Quiver"
-      expect(title).toContain('Surf Forecast');
+      // CTR-optimized format: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams | Quiver"
+      expect(title).toContain('Surf Report');
       expect(title).toContain('Quiver');
+      // Should contain dynamic wave height (e.g., "5.7 ft" or "3-5ft")
+      expect(title).toMatch(/\d+(\.\d+)?(-\d+)?\s*ft/i);
     });
 
     test('should have og:image meta tag with absolute URL', async ({ page }) => {
@@ -53,8 +56,10 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
         .getAttribute('content');
 
       expect(ogTitle).not.toBeNull();
-      expect(ogTitle).toContain('Surf Forecast');
-      expect(ogTitle).toContain('Quiver');
+      // CTR-optimized: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams"
+      expect(ogTitle).toContain('Surf Report');
+      // Should contain dynamic wave height
+      expect(ogTitle).toMatch(/\d+(\.\d+)?(-\d+)?\s*ft/i);
     });
 
     test('should have og:description meta tag', async ({ page }) => {
@@ -66,7 +71,9 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
         .getAttribute('content');
 
       expect(ogDescription).not.toBeNull();
-      expect(ogDescription).toContain('surf forecast');
+      // CTR-optimized: "{Beach} is showing X ft waves. Free 7-day forecast..."
+      expect(ogDescription).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
+      expect(ogDescription).toContain('forecast');
     });
 
     test('should have og:image dimensions', async ({ page }) => {
@@ -111,8 +118,11 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
 
       const title = await page.title();
 
-      expect(title).toContain('Surf Forecast');
+      // CTR-optimized format: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams | Quiver"
+      expect(title).toContain('Surf Report');
       expect(title).toContain('Quiver');
+      // Should contain dynamic wave height
+      expect(title).toMatch(/\d+(\.\d+)?(-\d+)?\s*ft/i);
     });
 
     test('should have og:image meta tag with absolute URL', async ({ page }) => {
@@ -132,7 +142,7 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
       expect(ogImage).toContain(`slug=${TEST_BEACHES.blacks.slug}`);
     });
 
-    test('should have description mentioning live surf forecast', async ({ page }) => {
+    test('should have description mentioning waves and forecast', async ({ page }) => {
       const state = TEST_BEACHES.blacks.state?.toLowerCase() || 'ca';
       const city = TEST_BEACHES.blacks.city?.toLowerCase().replace(/\s+/g, '-') || 'san-diego';
 
@@ -144,7 +154,9 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
         .getAttribute('content');
 
       expect(description).not.toBeNull();
-      expect(description).toContain('surf forecast');
+      // CTR-optimized: "{Beach} is showing X ft waves. Free 7-day forecast..."
+      expect(description).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
+      expect(description).toContain('forecast');
     });
   });
 });

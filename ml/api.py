@@ -12,12 +12,15 @@ import os
 import secrets
 import asyncio
 import logging
+import xgboost as xgb
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 logger = logging.getLogger(__name__)
 
 from model import QuiverBiasModel
 from transformers import FeatureEngineer
-from transformers_v2 import preprocess_v2
+from transformers_v2 import preprocess_v2, V2_FEATURE_COLUMNS
 from transformers_ensemble import EnsembleFeatureEngineer
 from open_meteo_service import OpenMeteoService
 from config import (
@@ -71,6 +74,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Serve trained models as static files for download by the retrain cron job
+# Models are saved to /models/ directory during training
+from fastapi.staticfiles import StaticFiles
+import pathlib
+
+models_dir = pathlib.Path("models")
+models_dir.mkdir(exist_ok=True)
+app.mount("/models", StaticFiles(directory=str(models_dir)), name="models")
+
 # ----- Authentication -----
 api_key_header = APIKeyHeader(name="X-Internal-Secret", auto_error=False)
 
@@ -111,6 +123,50 @@ class ForecastInput(BaseModel):
         except ValueError:
             raise ValueError('Invalid ISO timestamp format. Expected format: YYYY-MM-DDTHH:MM:SSZ')
         return v
+
+class TrainingDataRecord(BaseModel):
+    """Single prediction record from ml_predictions_log with physical bounds validation."""
+    beach_id: str
+    predicted_at: str
+    raw_forecast_m: float = Field(ge=0.0, le=30.0, description="Raw forecast in meters (0-30m)")
+    observed_m: float = Field(ge=0.0, le=30.0, description="Observed wave height in meters (0-30m)")
+    wave_period_s: Optional[float] = Field(default=None, ge=1.0, le=30.0, description="Wave period in seconds")
+    wave_direction_deg: Optional[float] = Field(default=None, ge=0.0, le=360.0, description="Wave direction in degrees")
+    wind_speed_ms: Optional[float] = Field(default=None, ge=0.0, le=100.0, description="Wind speed in m/s")
+    wind_direction_deg: Optional[float] = Field(default=None, ge=0.0, le=360.0, description="Wind direction in degrees")
+    swell_access_factors: Optional[List[float]] = Field(default=None, description="72-element swell access array")
+    wind_exposure_factors: Optional[List[float]] = Field(default=None, description="72-element wind exposure array")
+
+class TrainingConfig(BaseModel):
+    """Training configuration parameters."""
+    recency_weight_days: int = Field(default=14, description="Number of recent days to apply higher weight")
+    recency_weight_multiplier: float = Field(default=2.0, description="Weight multiplier for recent data")
+    holdout_days: int = Field(default=2, description="Number of days to hold out for validation")
+    min_holdout_samples: int = Field(default=100, description="Minimum holdout samples required for valid training")
+    max_bias_pct: float = Field(default=0.75, description="Maximum bias as percentage of raw forecast")
+    bias_floor_m: float = Field(default=0.5, description="Minimum absolute bias allowed")
+
+class TrainRequest(BaseModel):
+    """Request payload for model training."""
+    version: str = Field(description="Model version identifier")
+    training_data: List[TrainingDataRecord] = Field(description="Training data from ml_predictions_log")
+    config: TrainingConfig = Field(default_factory=TrainingConfig)
+
+class TrainingMetrics(BaseModel):
+    """Training and validation metrics."""
+    training_window_days: int
+    training_samples: int
+    holdout_improvement_pct: float
+    holdout_raw_mae: float
+    holdout_corrected_mae: float
+
+class TrainResponse(BaseModel):
+    """Response from training endpoint."""
+    success: bool
+    version: str
+    metrics: Optional[TrainingMetrics] = None
+    model_url: Optional[str] = None
+    error: Optional[str] = None
 
 class CorrectionOutput(BaseModel):
     beach_id: str
@@ -159,6 +215,79 @@ async def fetch_open_meteo_with_timeout(lat: float, lon: float, target_time: dat
     except Exception as e:
         logger.debug(f"Open-Meteo fetch failed for ({lat}, {lon}): {e}")
         return None
+
+# ----- Training Helpers -----
+def compute_sample_weights(df: pd.DataFrame, recency_days: int, recency_multiplier: float) -> np.ndarray:
+    """
+    Compute recency-based sample weights.
+
+    Recent data gets higher weight to prioritize current conditions
+    while maintaining historical stability.
+    """
+    max_date = df['forecast_ts_utc'].max()
+    days_ago = (max_date - df['forecast_ts_utc']).dt.days
+    return np.where(days_ago <= recency_days, recency_multiplier, 1.0)
+
+def bucket_label(height_m: float) -> str:
+    """Assign forecast height to a bucket."""
+    if height_m < 0.5:
+        return '<0.5m'
+    elif height_m <= 1.5:
+        return '0.5-1.5m'
+    else:
+        return '>1.5m'
+
+def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
+    """
+    Evaluate improvement rate per forecast bucket.
+
+    Returns dict with bucket results and pass/fail status.
+    """
+    df_eval = df.copy()
+    df_eval['corrected_m'] = corrected
+    df_eval['raw_error'] = abs(df_eval['forecast_height_m'] - df_eval['observed_height_m'])
+    df_eval['corrected_error'] = abs(df_eval['corrected_m'] - df_eval['observed_height_m'])
+    df_eval['improved'] = df_eval['corrected_error'] < df_eval['raw_error']
+    df_eval['bucket'] = df_eval['forecast_height_m'].apply(bucket_label)
+
+    results = {}
+    all_pass = True
+
+    for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']:
+        bucket_df = df_eval[df_eval['bucket'] == bucket]
+        if len(bucket_df) == 0:
+            results[bucket] = {'n': 0, 'status': 'SKIP (no data)'}
+            continue
+
+        improvement_rate = bucket_df['improved'].mean() * 100
+        raw_mae = bucket_df['raw_error'].mean()
+        corrected_mae = bucket_df['corrected_error'].mean()
+        degradation = corrected_mae - raw_mae
+
+        passed = improvement_rate >= 40 and degradation <= 0.05
+        if not passed:
+            all_pass = False
+
+        results[bucket] = {
+            'n': len(bucket_df),
+            'improvement_rate': improvement_rate,
+            'raw_mae': raw_mae,
+            'corrected_mae': corrected_mae,
+            'degradation': degradation,
+            'status': 'PASS' if passed else 'FAIL'
+        }
+
+    # Overall
+    overall_improvement = df_eval['improved'].mean() * 100
+    results['overall'] = {
+        'n': len(df_eval),
+        'improvement_rate': overall_improvement,
+        'raw_mae': df_eval['raw_error'].mean(),
+        'corrected_mae': df_eval['corrected_error'].mean(),
+    }
+
+    results['all_pass'] = all_pass and overall_improvement > 50
+    return results
 
 
 @app.post("/correct", response_model=CorrectionOutput, dependencies=[Security(verify_api_key)])
@@ -275,6 +404,270 @@ async def correct_single(input: ForecastInput):
         model_version=MODEL_VERSION,
         ensemble_used=ensemble_used
     )
+
+@app.post("/train", response_model=TrainResponse, dependencies=[Security(verify_api_key)])
+async def train_model(request: TrainRequest):
+    """
+    Train a new v3 bias correction model.
+
+    This endpoint:
+    1. Converts training data to DataFrame
+    2. Applies recency weighting
+    3. Splits into train/holdout sets
+    4. Trains XGBoost model
+    5. Validates with go/no-go gates
+    6. Saves model if successful
+
+    Requires X-Internal-Secret header.
+    """
+    logger.info(f"[Train] Starting training for {request.version}")
+    logger.info(f"[Train] Training data: {len(request.training_data)} samples")
+
+    try:
+        # Convert training data to DataFrame
+        # Note: The training data from ml_predictions_log doesn't include all the features
+        # we need. We need to fetch the original forecast data to get wave_period, direction, wind, etc.
+        # For now, we'll compute residuals from the available data.
+
+        # Build DataFrame from training records
+        data_records = []
+        for record in request.training_data:
+            # Parse timestamp
+            predicted_at = pd.to_datetime(record.predicted_at)
+
+            # Calculate residual (observed - raw_forecast)
+            residual_m = record.observed_m - record.raw_forecast_m
+
+            # Use actual feature values from ml_predictions_log, with sensible defaults
+            period = record.wave_period_s if record.wave_period_s is not None else 10.0
+            direction = record.wave_direction_deg if record.wave_direction_deg is not None else 270.0
+            wind_speed = record.wind_speed_ms if record.wind_speed_ms is not None else 0.0
+            wind_dir = record.wind_direction_deg if record.wind_direction_deg is not None else 0.0
+            wind_missing = 1 if record.wind_speed_ms is None else 0
+
+            data_records.append({
+                'beach_id': record.beach_id,
+                'forecast_ts_utc': predicted_at,
+                'forecast_height_m': record.raw_forecast_m,
+                'observed_height_m': record.observed_m,
+                'residual_m': residual_m,
+                'forecast_period_s': period,
+                'forecast_dir_deg': direction,
+                'wind_speed_ms': wind_speed,
+                'wind_dir_deg': wind_dir,
+                'wind_missing': wind_missing,
+                'swell_access_factors': record.swell_access_factors,
+                'wind_exposure_factors': record.wind_exposure_factors,
+            })
+
+        df = pd.DataFrame(data_records)
+
+        if len(df) == 0:
+            return TrainResponse(
+                success=False,
+                version=request.version,
+                error="No training data provided"
+            )
+
+        # Calculate training window
+        training_window_days = (df['forecast_ts_utc'].max() - df['forecast_ts_utc'].min()).days
+
+        logger.info(f"[Train] Training window: {training_window_days} days")
+        logger.info(f"[Train] Date range: {df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}")
+
+        # Compute recency weights
+        weights = compute_sample_weights(
+            df,
+            request.config.recency_weight_days,
+            request.config.recency_weight_multiplier
+        )
+        recent_pct = (weights > 1.0).sum() / len(weights) * 100
+        logger.info(f"[Train] Recency weights: {recent_pct:.1f}% samples at {request.config.recency_weight_multiplier}x weight")
+
+        # Temporal holdout split (last N days)
+        max_ts = df['forecast_ts_utc'].max()
+        holdout_cutoff = max_ts - pd.Timedelta(days=request.config.holdout_days)
+
+        df_train = df[df['forecast_ts_utc'] <= holdout_cutoff].copy()
+        df_holdout = df[df['forecast_ts_utc'] > holdout_cutoff].copy()
+
+        weights_train = compute_sample_weights(
+            df_train,
+            request.config.recency_weight_days,
+            request.config.recency_weight_multiplier
+        )
+
+        logger.info(f"[Train] Training set: {len(df_train)} samples")
+        logger.info(f"[Train] Holdout set: {len(df_holdout)} samples ({request.config.holdout_days} days)")
+
+        # Fail if holdout set is too small for statistically valid validation
+        if len(df_holdout) < request.config.min_holdout_samples:
+            error_msg = (
+                f"Insufficient holdout data: {len(df_holdout)} samples < {request.config.min_holdout_samples} minimum. "
+                f"Need more training data or shorter holdout period."
+            )
+            logger.error(f"[Train] {error_msg}")
+            return TrainResponse(
+                success=False,
+                version=request.version,
+                error=error_msg
+            )
+
+        # Feature engineering
+        logger.info("[Train] Engineering features...")
+        X_train = preprocess_v2(df_train)
+        X_holdout = preprocess_v2(df_holdout)
+        y_train = df_train['residual_m']
+        y_holdout = df_holdout['residual_m']
+
+        # Cross-validation on training set
+        logger.info("[Train] Running 5-fold cross-validation...")
+
+        # v3: NO monotone constraints - let model learn freely from diverse data
+        params = {
+            'objective': 'reg:squarederror',
+            'n_estimators': 200,
+            'learning_rate': 0.05,
+            'max_depth': 4,
+            'subsample': 0.7,
+            'colsample_bytree': 0.8,
+            'reg_alpha': 0.1,
+            'min_child_weight': 10,
+            'n_jobs': -1,
+        }
+
+        tscv = TimeSeriesSplit(n_splits=5)
+        fold_rmses = []
+
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(X_train)):
+            X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
+            y_tr, y_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
+            w_tr = weights_train[train_idx]
+
+            reg = xgb.XGBRegressor(**params)
+            reg.fit(X_tr, y_tr, sample_weight=w_tr, eval_set=[(X_val, y_val)], verbose=False)
+
+            preds = reg.predict(X_val)
+            rmse = np.sqrt(mean_squared_error(y_val, preds))
+            fold_rmses.append(rmse)
+            logger.info(f"[Train] Fold {fold+1} RMSE: {rmse:.4f}m")
+
+        logger.info(f"[Train] Mean CV RMSE: {np.mean(fold_rmses):.4f} +/- {np.std(fold_rmses):.4f}m")
+
+        # Train final model on full training set
+        logger.info("[Train] Training final model...")
+        model_trained = xgb.XGBRegressor(**params)
+        model_trained.fit(X_train, y_train, sample_weight=weights_train, verbose=False)
+
+        # Holdout evaluation with v3 guardrails
+        logger.info("[Train] Evaluating on holdout set...")
+
+        predicted_bias = model_trained.predict(X_holdout)
+        raw_forecast = df_holdout['forecast_height_m'].values
+
+        # v3 guardrails: 75% max (was 50%), 0.5m floor (was 0.3m)
+        max_bias = np.maximum(np.abs(raw_forecast) * request.config.max_bias_pct, request.config.bias_floor_m)
+        clipped_bias = np.clip(predicted_bias, -max_bias, max_bias)
+        clipped_bias = np.clip(clipped_bias, -1.5, 1.5)
+        # No-correction zone
+        clipped_bias[np.abs(clipped_bias) < 0.03] = 0.0
+        corrected = raw_forecast + clipped_bias
+        corrected = np.clip(corrected, 0.01, 15.0)
+
+        # Bucket evaluation
+        bucket_results = evaluate_buckets(df_holdout, corrected)
+
+        logger.info("[Train] Bucket results:")
+        for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']:
+            r = bucket_results[bucket]
+            if r['n'] > 0:
+                logger.info(
+                    f"  {bucket}: {r['n']} samples, "
+                    f"{r['improvement_rate']:.1f}% improved, "
+                    f"MAE {r['raw_mae']:.3f}m -> {r['corrected_mae']:.3f}m, "
+                    f"{r['status']}"
+                )
+
+        overall = bucket_results['overall']
+        logger.info(
+            f"[Train] Overall: {overall['improvement_rate']:.1f}% improved, "
+            f"MAE {overall['raw_mae']:.3f}m -> {overall['corrected_mae']:.3f}m"
+        )
+
+        # Mean bias check
+        mean_bias = clipped_bias.mean()
+        logger.info(f"[Train] Mean bias applied: {mean_bias:+.3f}m")
+
+        # Go/No-Go decision
+        logger.info("[Train] Evaluating go/no-go criteria...")
+        go = True
+        failure_reasons = []
+
+        if overall['improvement_rate'] <= 50:
+            failure_reasons.append(f"Overall improvement {overall['improvement_rate']:.1f}% <= 50%")
+            go = False
+
+        if not bucket_results['all_pass']:
+            failure_reasons.append("Not all buckets pass (improvement >= 40%, degradation <= 0.05m)")
+            go = False
+
+        if abs(mean_bias) >= 0.4:
+            failure_reasons.append(f"Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= 0.4)")
+            go = False
+
+        if not go:
+            logger.warning(f"[Train] NO-GO: {', '.join(failure_reasons)}")
+            return TrainResponse(
+                success=False,
+                version=request.version,
+                metrics=TrainingMetrics(
+                    training_window_days=training_window_days,
+                    training_samples=len(df),
+                    holdout_improvement_pct=overall['improvement_rate'],
+                    holdout_raw_mae=overall['raw_mae'],
+                    holdout_corrected_mae=overall['corrected_mae']
+                ),
+                error='; '.join(failure_reasons)
+            )
+
+        # Save model
+        model_filename = f"bias_model_{request.version}.json"
+        model_path = os.path.join("models", model_filename)
+
+        # Ensure models directory exists
+        os.makedirs("models", exist_ok=True)
+
+        logger.info(f"[Train] Saving model to {model_path}...")
+        model_trained.save_model(model_path)
+
+        logger.info("[Train] GO: Model meets all deployment criteria")
+
+        # Build absolute model URL for download by the retrain cron job
+        # The models directory is served as static files via FastAPI
+        # Use ML_SERVICE_URL if set, otherwise construct from request
+        ml_service_url = os.getenv('ML_SERVICE_URL', 'https://quiver-ml.fly.dev')
+        model_url = f"{ml_service_url.rstrip('/')}/models/{model_filename}"
+
+        return TrainResponse(
+            success=True,
+            version=request.version,
+            metrics=TrainingMetrics(
+                training_window_days=training_window_days,
+                training_samples=len(df),
+                holdout_improvement_pct=overall['improvement_rate'],
+                holdout_raw_mae=overall['raw_mae'],
+                holdout_corrected_mae=overall['corrected_mae']
+            ),
+            model_url=model_url
+        )
+
+    except Exception as e:
+        logger.error(f"[Train] Error during training: {e}", exc_info=True)
+        return TrainResponse(
+            success=False,
+            version=request.version,
+            error=f"Training error: {str(e)}"
+        )
 
 @app.post("/correct/batch", response_model=BatchOutput, dependencies=[Security(verify_api_key)])
 async def correct_batch(input: BatchInput):

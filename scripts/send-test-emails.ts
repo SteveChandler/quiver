@@ -5,8 +5,8 @@
 
 import { Resend } from "resend";
 import { render } from "@react-email/render";
-import { WeekendOutlookEmail } from "../lib/mailer/templates/WeekendOutlookEmail";
 import { WeeklyRecapEmail } from "../lib/mailer/templates/WeeklyRecapEmail";
+import { ForecastDigestEmail } from "../lib/mailer/templates/ForecastDigestEmail";
 import * as dotenv from "dotenv";
 
 // Load environment variables
@@ -19,70 +19,58 @@ async function sendTestEmails(toEmail: string) {
   const resendApiKey = process.env.RESEND_API_KEY;
 
   if (!resendApiKey) {
-    console.error("❌ RESEND_API_KEY not found in environment");
+    console.error("RESEND_API_KEY not found in environment");
     process.exit(1);
   }
 
   const resend = new Resend(resendApiKey);
 
-  console.log(`\n📧 Sending test emails to: ${toEmail}\n`);
+  console.log(`\nSending test emails to: ${toEmail}\n`);
 
-  // 1. Weekend Outlook Email
-  console.log("1️⃣ Sending Weekend Outlook email...");
+  // 1. Forecast Digest Email
+  console.log("1. Sending Forecast Digest email...");
   try {
-    const weekendHtml = await render(
-      WeekendOutlookEmail({
-        userName: "Steve",
-        spotName: "Blacks Beach",
-        forecasts: [
-          {
-            dayName: "Friday",
-            date: "Jan 24",
-            condition: "Good",
-            waveHeight: "4-6ft",
-            wind: "5mph NW",
-            bestWindow: "6am - 10am",
-          },
-          {
-            dayName: "Saturday",
-            date: "Jan 25",
-            condition: "Fair",
-            waveHeight: "3-4ft",
-            wind: "8mph W",
-            bestWindow: "7am - 9am",
-          },
-          {
-            dayName: "Sunday",
-            date: "Jan 26",
-            condition: "Poor",
-            waveHeight: "2-3ft",
-            wind: "12mph SW",
-            bestWindow: "Skip it",
-          },
-        ],
+    const digestHtml = await render(
+      ForecastDigestEmail({
+        displayName: "Steve",
+        beachName: "Blacks Beach",
+        beachSlug: "blacks-beach",
+        forecastDate: "Monday, February 3",
+        matchQuality: "excellent",
+        waveHeight: "4-6ft",
+        wavePeriod: "14s",
+        windSpeed: "5mph",
+        windDirection: "NW",
+        tideStatus: "2.3ft, rising",
+        whyText: "Clean offshore winds and solid SW swell make for excellent conditions.",
+        crowdWarning: null,
+        bestWindow: {
+          startTime: "6:00 AM",
+          endTime: "10:00 AM",
+        },
         ctaUrl: "https://quiversurf.app/beaches/blacks-beach",
         unsubscribeUrl: "https://quiversurf.app/settings",
       })
     );
-    const weekendResult = await resend.emails.send({
+    const digestResult = await resend.emails.send({
       from: MAIL_FROM,
       to: toEmail,
-      subject: "🌊 Weekend Outlook: Blacks Beach (TEST)",
-      html: weekendHtml,
+      subject: "Blacks Beach: Excellent Conditions Today (TEST)",
+      html: digestHtml,
     });
-    console.log("   ✅ Weekend Outlook sent:", JSON.stringify(weekendResult));
+    console.log("   Forecast Digest sent:", JSON.stringify(digestResult));
   } catch (err) {
-    console.error("   ❌ Failed:", err);
+    console.error("   Failed:", err);
   }
 
   // 2. Weekly Recap Email
-  console.log("2️⃣ Sending Weekly Recap email...");
+  console.log("2. Sending Weekly Recap email...");
   try {
     const recapHtml = await render(
       WeeklyRecapEmail({
         userName: "Steve",
-        startDate: "Jan 19",
-        endDate: "Jan 25",
+        startDate: "Jan 27",
+        endDate: "Feb 2",
         stats: {
           totalSessions: 4,
           totalHours: "6.5",
@@ -98,12 +86,12 @@ async function sendTestEmails(toEmail: string) {
       subject: "Your Week in the Water: 4 Sessions (TEST)",
       html: recapHtml,
     });
-    console.log("   ✅ Weekly Recap sent:", recapResult.data?.id);
+    console.log("   Weekly Recap sent:", recapResult.data?.id);
   } catch (err) {
-    console.error("   ❌ Failed:", err);
+    console.error("   Failed:", err);
   }
 
-  console.log("\n✨ Done! Check your inbox.\n");
+  console.log("\nDone! Check your inbox.\n");
 }
 
 // Get email from command line

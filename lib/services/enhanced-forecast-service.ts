@@ -159,10 +159,27 @@ export class EnhancedForecastService {
 
   /**
    * Fetch tidal data with retry logic
+   *
+   * Prefers cached tide data from tide_forecasts table (deterministic, populated weekly)
+   * Falls back to live CO-OPS API if cache is empty.
    */
   private async fetchTidalDataWithRetry(beach: Beach) {
     return withRetry(async () => {
       try {
+        // First, try to get cached tide data from the database
+        // This is the preferred path as tides are deterministic and cached weekly
+        const cachedTides = await this.dataSourceManager.getCOOPSService().fetchCachedTides(
+          beach.id,
+          FORECAST_CONSTANTS.DAYS
+        );
+
+        if (cachedTides && cachedTides.tides.length > 0) {
+          log.debug(`Using cached tide data for beach ${beach.name}: ${cachedTides.tides.length} extremes`);
+          return cachedTides;
+        }
+
+        // Fallback to live API if no cached data (should be rare after initial population)
+        log.warn(`No cached tides for beach ${beach.name}, falling back to live CO-OPS API`);
         const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
           beach.name,
           beach.lat ?? 0,
