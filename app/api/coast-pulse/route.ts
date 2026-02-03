@@ -26,6 +26,7 @@ import {
   findNearestBeachName,
   formatForecastConditions,
 } from "@/lib/utils/coast-pulse-formatter";
+import { getDisplayName } from "@/lib/utils/display-name-utils";
 import { computeSummary } from "@/lib/utils/coast-pulse-summary";
 import { haversineDistance, degreesToCardinal } from "@/lib/utils/geo-utils";
 import {
@@ -704,7 +705,8 @@ async function fetchRecentIntel(
     });
 
     return nearbyPosts.slice(0, limit).map((post: any) => {
-      const surferName = post.profiles?.full_name || "Local Surfer";
+      const rawName = post.profiles?.full_name || "Local Surfer";
+      const surferName = getDisplayName(rawName, post.id);
 
       // Get beach name from join or nearest lookup
       const beachName =
