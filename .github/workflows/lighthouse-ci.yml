@@ -178,9 +178,9 @@ jobs:
                     echo "✅ Playwright smoke tests passed"
                     echo "success=true" >> $GITHUB_OUTPUT
                   else
-                    echo "⚠️ Playwright smoke tests failed"
+                    echo "❌ Playwright smoke tests failed"
                     echo "success=false" >> $GITHUB_OUTPUT
-                    # Don't fail the workflow - continue to Lighthouse
+                    exit 1
                   fi
               env:
                   CI: true
@@ -204,6 +204,19 @@ jobs:
                   npm install -g puppeteer
                   echo "✅ Lighthouse CI and Puppeteer installed"
 
+            - name: Verify test credentials
+              run: |
+                  echo "🔐 Verifying test credentials are configured..."
+                  if [ -z "$LIGHTHOUSE_TEST_EMAIL" ] || [ -z "$LIGHTHOUSE_TEST_PASSWORD" ]; then
+                    echo "❌ Missing LIGHTHOUSE_TEST_EMAIL or LIGHTHOUSE_TEST_PASSWORD secrets"
+                    echo "Please configure these secrets in GitHub repository settings."
+                    exit 1
+                  fi
+                  echo "✅ Test credentials configured (LIGHTHOUSE_TEST_EMAIL is set)"
+              env:
+                  LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
+                  LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
+
             - name: Run Lighthouse CI
               id: lighthouse
               run: |
@@ -216,15 +229,44 @@ jobs:
                     echo "✅ Lighthouse CI completed successfully"
                     echo "success=true" >> $GITHUB_OUTPUT
                   else
-                    echo "⚠️ Lighthouse CI completed with warnings/errors"
+                    echo "❌ Lighthouse CI failed"
                     echo "success=false" >> $GITHUB_OUTPUT
-                    # Don't fail the workflow, just mark as unsuccessful
+                    exit 1
                   fi
               env:
                   LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
                   # Test user credentials for authenticated Lighthouse tests
                   LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
                   LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
+
+            - name: Verify Lighthouse authentication
+              if: always() && steps.lighthouse.outcome != 'skipped'
+              run: |
+                  echo "🔍 Checking Lighthouse authentication status..."
+                  if [ -f lighthouse_output.log ]; then
+                    # Check for explicit auth failures
+                    if grep -q "Login failed\|AUTHENTICATION FAILED\|FATAL: Missing" lighthouse_output.log; then
+                      echo "❌ Lighthouse authentication failed"
+                      echo ""
+                      echo "=== Authentication Error Details ==="
+                      grep -A5 -B2 "Login failed\|AUTHENTICATION FAILED\|FATAL" lighthouse_output.log || true
+                      exit 1
+                    fi
+                    # Verify auth succeeded
+                    if grep -q "Login successful\|✅ Login successful" lighthouse_output.log; then
+                      echo "✅ Lighthouse authentication verified"
+                    else
+                      # Only warn if Lighthouse step succeeded but no auth confirmation
+                      if [ "${{ steps.lighthouse.outputs.success }}" = "true" ]; then
+                        echo "⚠️ Could not verify authentication status in logs"
+                        echo "Check lighthouse_output.log artifact for details"
+                      else
+                        echo "⚠️ Lighthouse failed before authentication could be verified"
+                      fi
+                    fi
+                  else
+                    echo "⚠️ lighthouse_output.log not found"
+                  fi
 
             - name: Stop server
               if: always()
