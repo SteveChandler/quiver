@@ -431,6 +431,41 @@ export function BeachIntelSection({
   );
 }
 
+// Realistic surfer names for display
+const SURFER_NAMES = [
+  "Kai W.", "Sarah J.", "Mike T.", "Alana B.", "Rob S.",
+  "Malia K.", "Jake C.", "Luna M.", "Tyler N.", "Sofia R."
+];
+
+// Simple hash function for deterministic name selection
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+// Get display name - maps any "Test User" variant to a realistic name
+function getDisplayName(name: string, seed: string): string {
+  if (name.includes("Test User")) {
+    const index = hashString(seed) % SURFER_NAMES.length;
+    return SURFER_NAMES[index];
+  }
+  return name;
+}
+
+// Remove leading emoji from title if it matches the tag emoji
+function cleanTitle(title: string, tagEmoji: string): string {
+  const trimmed = title.trimStart();
+  if (trimmed.startsWith(tagEmoji)) {
+    return trimmed.slice(tagEmoji.length).trimStart();
+  }
+  return title;
+}
+
 // Modern Intel Post Card Component
 interface IntelPostCardProps {
   post: IntelPostWithUser;
@@ -462,7 +497,7 @@ function IntelPostCard({
         <UserAvatarButton
           userId={post.user_id}
           src={post.user?.avatar_url ?? undefined}
-          name={post.user?.full_name ?? "Anonymous"}
+          name={getDisplayName(post.user?.full_name ?? "Anonymous", post.id)}
           size="sm"
           className="ring-2 ring-white shadow-sm"
         />
@@ -491,7 +526,7 @@ function IntelPostCard({
               </div>
 
               <h4 className="font-medium text-sm text-gray-900 line-clamp-1">
-                {post.title}
+                {cleanTitle(post.title, tagConfig.emoji)}
               </h4>
             </div>
 
