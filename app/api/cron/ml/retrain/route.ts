@@ -81,7 +81,11 @@ async function handleRetrain(request: Request) {
   );
 
   const trainingStartedAt = new Date().toISOString();
-  const modelVersion = `v3.${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
+  // Include timestamp to ensure unique version even on same day
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+  const timeStr = now.toISOString().split('T')[1].slice(0, 5).replace(':', '');
+  const modelVersion = `v3.${dateStr}.${timeStr}`;
 
   console.log(`[ML Retrain] Starting pipeline for ${modelVersion}`);
 
@@ -91,7 +95,9 @@ async function handleRetrain(request: Request) {
     // =======================================================================
     console.log('[ML Retrain] Step 1: Extracting training data...');
 
-    const maxDaysBack = 365;
+    // Use 90 days for training (balances data volume vs query performance)
+    // Can be increased once we have optimized indexes
+    const maxDaysBack = 90;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxDaysBack);
 
@@ -104,6 +110,8 @@ async function handleRetrain(request: Request) {
     let hasMore = true;
 
     while (hasMore) {
+      // Fetch predictions without JOIN (much faster)
+      // Terrain factors will be fetched separately for unique beaches
       const { data: pageData, error: extractError } = await supabase
         .from('ml_predictions_log')
         .select(
@@ -120,14 +128,10 @@ async function handleRetrain(request: Request) {
           wave_period_s,
           wave_direction_deg,
           wind_speed_ms,
-          wind_direction_deg,
-          beaches!inner(
-            swell_access_factors,
-            wind_exposure_factors
-          )
+          wind_direction_deg
         `
         )
-        .not('observed_m', 'is', null)
+        .gt('observed_m', 0)  // Exclude nulls and sentinel values (-1)
         .gte('predicted_at', cutoffDate.toISOString())
         .order('predicted_at', { ascending: true })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
@@ -167,6 +171,40 @@ async function handleRetrain(request: Request) {
         status: 'skipped',
       });
     }
+
+    // Fetch terrain factors for unique beaches (separate query for performance)
+    const uniqueBeachIds = [...new Set(trainingData.map((d) => d.beach_id))];
+    console.log(`[ML Retrain] Fetching terrain factors for ${uniqueBeachIds.length} beaches...`);
+
+    const { data: beachesData, error: beachesError } = await supabase
+      .from('beaches')
+      .select('id, swell_access_factors, wind_exposure_factors')
+      .in('id', uniqueBeachIds);
+
+    if (beachesError) {
+      console.error('[ML Retrain] Failed to fetch terrain factors:', beachesError);
+      // Continue without terrain factors (will use defaults)
+    }
+
+    // Create lookup map for terrain factors
+    const terrainMap = new Map<string, { swell_access_factors: number[] | null; wind_exposure_factors: number[] | null }>();
+    if (beachesData) {
+      for (const beach of beachesData) {
+        terrainMap.set(beach.id, {
+          swell_access_factors: beach.swell_access_factors,
+          wind_exposure_factors: beach.wind_exposure_factors,
+        });
+      }
+    }
+
+    // Merge terrain factors into training data
+    for (const row of trainingData) {
+      const terrain = terrainMap.get(row.beach_id);
+      row.swell_access_factors = terrain?.swell_access_factors || null;
+      row.wind_exposure_factors = terrain?.wind_exposure_factors || null;
+    }
+
+    console.log(`[ML Retrain] Terrain factors merged for ${terrainMap.size} beaches`);
 
     const trainingWindowDays = Math.ceil(
       (new Date().getTime() - new Date(trainingData[0].predicted_at).getTime()) /
