@@ -547,6 +547,124 @@ export type SessionSummary = Pick<
 export type SessionStream = AsyncIterable<SessionSummary>;
 ```
 
+## 📊 **Implicit Preferences System**
+
+### **Overview**
+
+The implicit preferences system tracks user behavior to learn surfing preferences without explicit input. Types are defined in `types/implicit-preferences.ts`.
+
+### **Event Types**
+
+```typescript
+type ImplicitEventType =
+  // Implicit preference learning events
+  | 'beach_view'
+  | 'discovery_click'
+  | 'discovery_skip'
+  | 'forecast_check'
+  | 'location_update'
+  // Engagement tracking events
+  | 'page_view'
+  | 'forecast_interaction'
+  | 'session_action'
+  | 'profile_update'
+  | 'onboarding_step'
+  | 'cta_click';
+```
+
+### **Event Weights**
+
+Events are weighted for preference learning:
+
+| Event | Weight | Purpose |
+|-------|--------|---------|
+| `location_update` | 10.0 | Strong signal of home location |
+| `discovery_click` | 3.0 | Active interest in a beach |
+| `forecast_check` | 2.5 | Engagement with specific beach |
+| `beach_view` | 0.5 | Passive interest |
+| `discovery_skip` | -1.0 | Negative signal |
+| Engagement events | 0 | Tracking only, no learning |
+
+### **Metadata Interfaces**
+
+Each event type has specific metadata:
+
+```typescript
+// Page view tracking
+interface PageViewMetadata {
+  page: string;           // Page identifier
+  referrer?: string;      // Previous page
+  session_id?: string;    // Session grouping
+}
+
+// Onboarding funnel
+interface OnboardingStepMetadata {
+  step: number;           // Step number (1-4)
+  step_name: string;      // Human-readable name
+  completed?: boolean;    // Completion status
+}
+
+// Location signals
+interface LocationUpdateMetadata {
+  lat: number;
+  lon: number;
+  accuracy_m?: number;
+}
+```
+
+### **Learned Preferences**
+
+Computed from aggregated events:
+
+```typescript
+interface UserImplicitPreferences {
+  user_id: string;
+  inferred_wave_min_ft: number | null;
+  inferred_wave_max_ft: number | null;
+  break_type_weights: BreakTypeWeights;
+  time_slot_weights: TimeSlotWeights;
+  location_centroid_lat: number | null;
+  location_centroid_lon: number | null;
+  typical_travel_radius_miles: number | null;
+  top_engaged_beach_ids: string[];
+  confidence: number;
+  event_count: number;
+  last_computed_at: string;
+}
+```
+
+### **LRU Cache Types**
+
+Used by tracking services for permission caching:
+
+```typescript
+// In lib/services/tracking-cache.ts
+interface TrackingPermissionCache {
+  allowed: boolean;
+  expires: number;  // Unix timestamp
+}
+
+// Configuration
+const MAX_CACHE_ENTRIES = 5000;  // LRU eviction threshold
+const CACHE_TTL_MS = 5 * 60 * 1000;  // 5 minutes
+```
+
+### **Type Guards**
+
+Runtime validation utilities:
+
+```typescript
+// Validate event type
+function isValidEventType(type: string): type is ImplicitEventType;
+
+// Metadata type guards
+function isBeachViewMetadata(m: EventMetadata): m is BeachViewMetadata;
+function isLocationUpdateMetadata(m: EventMetadata): m is LocationUpdateMetadata;
+function isOnboardingStepMetadata(m: EventMetadata): m is OnboardingStepMetadata;
+```
+
+---
+
 ## 🎯 **Growth-Focused Type Design**
 
 ### **Social Features Support**
@@ -626,8 +744,8 @@ Before adding new types:
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready comprehensive type system  
+**Last Updated**: February 2026
+**Status**: Production-ready comprehensive type system
 **Next Review**: After major feature additions or database schema changes
 
 **Key Principles**: Type safety, performance, extensibility, and developer experience that supports the app's growth from simple surf tracking to comprehensive social platform with full compile-time guarantees.
