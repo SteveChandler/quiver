@@ -372,29 +372,15 @@ function handleStateOnlyRedirect(pathname: string): SeoRedirectResult {
 
 /**
  * Handle Mexico beach URL redirects
- * Example: /mexico/baja-california/rosarito/alfonsos → /spots/alfonsos
+ * Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
+ * Let requests pass through to that route instead of redirecting to /spots/
  */
 async function handleMexicoBeachRedirect(
-  pathname: string
+  _pathname: string
 ): Promise<SeoRedirectResult> {
-  const segments = pathname.split("/").filter(Boolean);
-
-  // Extract beach slug (last segment)
-  const beachSlug = segments[segments.length - 1];
-  if (!beachSlug) {
-    return { redirect: false };
-  }
-
-  // Verify the beach exists before redirecting
-  const beach = await lookupBeachBySlug(beachSlug);
-  if (!beach) {
-    return { redirect: false };
-  }
-
-  // Redirect to /spots/{slug}
-  const redirectUrl = `/spots/${beach.slug}`;
-  console.log(`[SEO Redirect] ${pathname} → ${redirectUrl}`);
-  return { redirect: true, url: redirectUrl };
+  // Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
+  // Let the request pass through to that route instead of redirecting to /spots/
+  return { redirect: false };
 }
 
 /**

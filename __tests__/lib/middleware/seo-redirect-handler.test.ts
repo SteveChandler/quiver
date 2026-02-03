@@ -399,28 +399,18 @@ describe("SeoRedirectHandler", () => {
       expect(result).toEqual({ redirect: false });
     });
 
-    it("redirects Mexico URLs to /spots/{slug}", async () => {
-      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve([
-            {
-              slug: "alfonsos",
-              state: "Baja California",
-              city: "Rosarito",
-              name: "Alfonsos",
-            },
-          ]),
-      } as Response);
-
+    it("does not redirect Mexico URLs (handled by dedicated route)", async () => {
+      // Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
+      // so the middleware should NOT redirect them to /spots/
       const result = await handleSeoRedirect(
         "/mexico/baja-california/rosarito/alfonsos"
       );
 
       expect(result).toEqual({
-        redirect: true,
-        url: "/spots/alfonsos",
+        redirect: false,
       });
+      // Should not make a DB lookup for Mexico URLs anymore
+      expect(global.fetch).not.toHaveBeenCalled();
     });
 
     it("redirects state-only URLs to /beaches/usa/{state}", async () => {
