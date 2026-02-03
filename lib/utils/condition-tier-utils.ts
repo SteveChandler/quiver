@@ -126,8 +126,8 @@ export function buildHeadlineText(
       case "dawn-patrol":
         prefix = "Tomorrow's dawn patrol at ";
         break;
-      case "morning":
-        prefix = "Tomorrow morning at ";
+      case "lunch-session":
+        prefix = "Tomorrow midday at ";
         break;
       case "afternoon":
         prefix = "Tomorrow afternoon at ";

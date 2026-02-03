@@ -132,9 +132,9 @@ describe("condition-tier-utils", () => {
         expect(result.prefix).toBe("Tomorrow's dawn patrol at ");
       });
 
-      it("builds headline with morning time slot", () => {
-        const result = buildHeadlineText("Big Jetty", "great", true, "morning");
-        expect(result.prefix).toBe("Tomorrow morning at ");
+      it("builds headline with lunch-session time slot", () => {
+        const result = buildHeadlineText("Big Jetty", "great", true, "lunch-session");
+        expect(result.prefix).toBe("Tomorrow midday at ");
       });
 
       it("builds headline with afternoon time slot", () => {

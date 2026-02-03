@@ -18,7 +18,7 @@ import {
 const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
   'any': 'Any time',
   'dawn-patrol': 'Dawn patrol',
-  'morning': 'Morning',
+  'lunch-session': 'Lunch session',
   'afternoon': 'Afternoon',
 };
 

@@ -16,7 +16,7 @@ interface TimeSlotSelectorProps {
 const TIME_SLOT_OPTIONS: { value: TimeSlot; label: string; icon: React.ElementType }[] = [
   { value: 'any', label: 'Any time', icon: Clock },
   { value: 'dawn-patrol', label: 'Dawn patrol', icon: Sunrise },
-  { value: 'morning', label: 'Morning', icon: Sun },
+  { value: 'lunch-session', label: 'Lunch session', icon: Sun },
   { value: 'afternoon', label: 'Afternoon', icon: SunDim },
 ];
 

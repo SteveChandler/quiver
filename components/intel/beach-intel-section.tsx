@@ -19,6 +19,7 @@ import {
   removeIntelPostConfirmation,
 } from "@/actions/intel-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getDisplayName, cleanTitle } from "@/lib/utils/display-name-utils";
 import { validateCoordinates } from "@/lib/coordinate-validation";
 import {
   Plus,
@@ -462,7 +463,7 @@ function IntelPostCard({
         <UserAvatarButton
           userId={post.user_id}
           src={post.user?.avatar_url ?? undefined}
-          name={post.user?.full_name ?? "Anonymous"}
+          name={getDisplayName(post.user?.full_name ?? "Anonymous", post.id)}
           size="sm"
           className="ring-2 ring-white shadow-sm"
         />
@@ -491,7 +492,7 @@ function IntelPostCard({
               </div>
 
               <h4 className="font-medium text-sm text-gray-900 line-clamp-1">
-                {post.title}
+                {cleanTitle(post.title, tagConfig.emoji)}
               </h4>
             </div>
 

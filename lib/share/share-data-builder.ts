@@ -58,7 +58,7 @@ export interface BuildShareDataInput {
  * ```ts
  * const shareData = buildSurfCallShareData({
  *   recommendation: topRecommendation,
- *   timeSlot: 'morning',
+ *   timeSlot: 'lunch-session',
  * });
  *
  * if (shareData) {
@@ -90,13 +90,16 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
     const headlineText = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot);
 
     // Build time context for OG image subtitle (e.g., "Tomorrow Morning", "This Afternoon")
+    // Time slots: dawn-patrol (6-11am), lunch-session (11am-2pm), afternoon (2-6pm)
     let timeContext = "";
     if (isTomorrow) {
-      timeContext = timeSlot === "morning" || timeSlot === "dawn-patrol" ? "Tomorrow Morning"
+      timeContext = timeSlot === "dawn-patrol" ? "Tomorrow Morning"
+        : timeSlot === "lunch-session" ? "Tomorrow Midday"
         : timeSlot === "afternoon" ? "Tomorrow Afternoon"
         : "Tomorrow";
     } else {
-      timeContext = timeSlot === "morning" || timeSlot === "dawn-patrol" ? "This Morning"
+      timeContext = timeSlot === "dawn-patrol" ? "This Morning"
+        : timeSlot === "lunch-session" ? "Midday"
         : timeSlot === "afternoon" ? "This Afternoon"
         : "Today";
     }

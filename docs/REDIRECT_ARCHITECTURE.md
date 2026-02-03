@@ -58,9 +58,9 @@ The redirect system handles URL canonicalization for SEO purposes. It converts l
 
 | Type | Format | Example | Notes |
 |------|--------|---------|-------|
-| **Canonical (Complete)** | `/{state}/{city}/{beach}` | `/ca/san-diego/blacks` | When city+state known |
-| **Canonical (Incomplete)** | `/spots/{beach}` | `/spots/mystery-break` | When city/state missing |
-| Legacy (Mexico) | `/mexico/{region}/{city}/{beach}` | `/mexico/baja-california/rosarito/alfonsos` | Redirects to /spots/ |
+| **Canonical (USA)** | `/{state}/{city}/{beach}` | `/ca/san-diego/blacks` | When city+state known |
+| **Canonical (Mexico)** | `/mexico/{region}/{city}/{beach}` | `/mexico/baja-california/rosarito/alfonsos` | Dedicated route |
+| **Canonical (Incomplete)** | `/spots/{beach}` | `/spots/mystery-break` | When location data missing |
 
 ## Active Redirect Rules
 
@@ -108,16 +108,19 @@ The redirect system handles URL canonicalization for SEO purposes. It converts l
 // Handler: handleUsBeachRedirect()
 ```
 
-### Rule 5: Mexico Beach URLs
+### Rule 5: Mexico Beach URLs (Pass-Through)
 
 **Pattern:** `/mexico/{region}/{city}/{beach}`
-**Target:** `/spots/{beach}`
-**Example:** `/mexico/baja-california/rosarito/alfonsos` → `/spots/alfonsos`
+**Behavior:** Pass through to dedicated route (no redirect)
+**Route:** `app/mexico/[region]/[city]/[beachSlug]/page.tsx`
+**Example:** `/mexico/baja-california/rosarito/alfonsos` → (handled directly by App Router)
 
 ```typescript
 // Classification: "mexico-beach"
-// Handler: handleMexicoBeachRedirect()
+// Handler: handleMexicoBeachRedirect() → returns { redirect: false }
 ```
+
+> **Note:** As of 2026-02-02, Mexico beaches have a dedicated Next.js route and no longer redirect to `/spots/`. The pattern is still classified for monitoring purposes but passes through to the App Router.
 
 ### Deleted Rules (Historical)
 
@@ -138,14 +141,14 @@ Result: 826 redirect loops detected by Ahrefs crawl.
 
 The `classifyUrlPattern()` function determines how each URL should be handled:
 
-| Pattern Type | Segment Count | First Segment | Example |
-|--------------|---------------|---------------|---------|
-| `state-only` | 1 | Valid state slug | `/ca` |
-| `us-beach` | 3 | Valid state slug | `/ca/san-diego/blacks` |
-| `mexico-beach` | 4 | `mexico` | `/mexico/baja/rosarito/spot` |
-| `intent-city-legacy` | 3 | Intent slug + valid state in pos 2 | `/sunset/ca/san-diego` |
-| `intent-beach-legacy` | 4 | Intent slug + valid state in pos 2 | `/sunset/ca/san-diego/blacks` |
-| `none` | - | Reserved path or no match | `/api/health`, `/beginner/san-diego` |
+| Pattern Type | Segment Count | First Segment | Example | Behavior |
+|--------------|---------------|---------------|---------|----------|
+| `state-only` | 1 | Valid state slug | `/ca` | Redirects |
+| `us-beach` | 3 | Valid state slug | `/ca/san-diego/blacks` | Redirects |
+| `mexico-beach` | 4 | `mexico` | `/mexico/baja/rosarito/spot` | Pass-through |
+| `intent-city-legacy` | 3 | Intent slug + valid state in pos 2 | `/sunset/ca/san-diego` | Redirects |
+| `intent-beach-legacy` | 4 | Intent slug + valid state in pos 2 | `/sunset/ca/san-diego/blacks` | Redirects |
+| `none` | - | Reserved path or no match | `/api/health`, `/beginner/san-diego` | Pass-through |
 
 **Valid Intent Slugs:**
 - `beginner`
@@ -274,5 +277,5 @@ curl -IL https://quiversurf.com/water-temp/ca/santa-cruz
 
 ---
 
-**Last Updated:** 2025-01-25
+**Last Updated:** 2026-02-02
 **Maintainers:** @engineering-team

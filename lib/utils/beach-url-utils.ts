@@ -8,7 +8,7 @@
  */
 
 import type { Beach } from "@/types/database";
-import { slugify } from "@/lib/utils/text-utils";
+import { slugify, slugifyAscii } from "@/lib/utils/text-utils";
 
 // ============================================================================
 // Hawaii island-specific city helpers (Waimea-only to start)
@@ -182,13 +182,19 @@ export function regionToSlug(region: string | null | undefined): string {
 
 /**
  * Convert city name to URL slug
+ *
+ * Uses slugifyAscii to properly handle accented characters (diacritics).
+ * This ensures "Rincón" → "rincon" (not "rinc-n" or "rincn").
+ *
  * Examples:
  *   "San Diego" → "san-diego"
  *   "Huntington Beach" → "huntington-beach"
+ *   "Rincón" → "rincon"
+ *   "São Paulo" → "sao-paulo"
  */
 export function cityToSlug(city: string | null | undefined): string {
   if (!city) return "";
-  return slugify(city);
+  return slugifyAscii(city);
 }
 
 /**

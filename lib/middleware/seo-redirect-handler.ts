@@ -9,8 +9,8 @@
  * - URL typos (e.g., "rincn" instead of "rincon")
  * - Mexico route structure changes
  *
- * NOTE: Sentry removed from this file to reduce middleware bundle size.
- * Errors are logged to console instead.
+ * NOTE: Sentry and full logger removed from this file to reduce middleware bundle size.
+ * Uses lightweight seoLog() helper instead.
  */
 
 import {
@@ -18,6 +18,34 @@ import {
   stateToSlug,
   cityToSlug,
 } from "@/lib/utils/beach-url-utils";
+
+/**
+ * Lightweight logger for SEO redirects (Edge-compatible, minimal bundle impact)
+ * Logs are prefixed with [SEO Redirect] for easy filtering in logs
+ */
+const seoLog = {
+  info: (message: string, data?: Record<string, unknown>) => {
+    if (process.env.NODE_ENV === "development" || process.env.LOG_SEO_REDIRECTS === "true") {
+      console.log(`[SEO Redirect] ${message}`, data ?? "");
+    }
+  },
+  warn: (message: string, data?: Record<string, unknown>) => {
+    console.warn(`[SEO Redirect] ${message}`, data ?? "");
+  },
+};
+
+/**
+ * Puerto Rico city slug redirects for accented character normalization.
+ * Maps old malformed slugs to correct ASCII slugs.
+ *
+ * This map can be expanded if other Puerto Rico cities with diacritics
+ * have similar issues (e.g., Aguadilla, Añasco, Manatí, Mayagüez).
+ * Use slugifyAscii() to determine the correct target slug.
+ */
+const PR_CITY_SLUG_REDIRECTS: Record<string, string> = {
+  "rinc-n": "rincon",
+  "rincn": "rincon",
+};
 
 // Valid intent slugs for legacy URL redirect handling
 // Defined first as the single source of truth for intent paths
@@ -69,6 +97,7 @@ const RESERVED_PATHS = new Set([
  */
 export type UrlPatternType =
   | "state-only"           // /ca, /nj, /pr
+  | "us-city"              // /pr/rincon - city-level pages (for slug normalization)
   | "us-beach"             // /ca/san-diego/blacks
   | "mexico-beach"         // /mexico/baja-california/rosarito/alfonsos
   | "intent-city-legacy"   // /beginner/ca/san-diego (3-segment with state)
@@ -118,6 +147,12 @@ export function classifyUrlPattern(pathname: string): UrlPatternType {
   // 1 segment: /{state} - state-only pages like /ca, /nj
   if (segments.length === 1 && isValidStateSlug(firstSegment)) {
     return "state-only";
+  }
+
+  // 2 segments: /{state}/{city} - US city-level pages (for slug normalization)
+  // This catches malformed city slugs like /pr/rinc-n that need redirecting
+  if (segments.length === 2 && isValidStateSlug(firstSegment)) {
+    return "us-city";
   }
 
   // 3 segments: /{state}/{city}/{beach} - US beach URLs
@@ -201,7 +236,7 @@ export async function lookupCityBySlugForRedirect(
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn("[SEO Redirect] Missing Supabase credentials");
+      seoLog.warn("Missing Supabase credentials");
       return null;
     }
 
@@ -228,7 +263,7 @@ export async function lookupCityBySlugForRedirect(
     const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
-      console.warn("[SEO Redirect] City lookup query failed:", response.status);
+      seoLog.warn("City lookup query failed", { status: response.status });
       return null;
     }
 
@@ -243,7 +278,7 @@ export async function lookupCityBySlugForRedirect(
 
     return null;
   } catch (error) {
-    console.warn("[SEO Redirect] City lookup error:", {
+    seoLog.warn("City lookup error", {
       citySlug,
       error: error instanceof Error ? error.message : "Unknown error",
     });
@@ -273,7 +308,7 @@ export async function lookupBeachBySlug(
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn("[SEO Redirect] Missing Supabase credentials");
+      seoLog.warn("Missing Supabase credentials");
       return null;
     }
 
@@ -297,7 +332,7 @@ export async function lookupBeachBySlug(
     const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
-      console.warn("[SEO Redirect] Supabase query failed:", response.status);
+      seoLog.warn("Supabase query failed", { status: response.status });
       return null;
     }
 
@@ -309,7 +344,7 @@ export async function lookupBeachBySlug(
 
     return null;
   } catch (error) {
-    console.warn("[SEO Redirect] Beach lookup error:", {
+    seoLog.warn("Beach lookup error", {
       slug,
       error: error instanceof Error ? error.message : "Unknown error",
     });
@@ -366,35 +401,53 @@ function handleStateOnlyRedirect(pathname: string): SeoRedirectResult {
   }
 
   const redirectUrl = `/beaches/usa/${stateSlug}`;
-  console.log(`[SEO Redirect] ${pathname} → ${redirectUrl}`);
+  seoLog.info("State-only redirect", { from: pathname, to: redirectUrl });
   return { redirect: true, url: redirectUrl };
 }
 
 /**
- * Handle Mexico beach URL redirects
- * Example: /mexico/baja-california/rosarito/alfonsos → /spots/alfonsos
+ * Handle US city URL redirects for malformed slugs
+ * Example: /pr/rinc-n → /pr/rincon (fixes accented character slug issues)
+ *
+ * This primarily handles Puerto Rico cities with accented characters
+ * that were incorrectly slugified (e.g., "Rincón" → "rinc-n" instead of "rincon")
  */
-async function handleMexicoBeachRedirect(
-  pathname: string
-): Promise<SeoRedirectResult> {
+function handleUsCityRedirect(pathname: string): SeoRedirectResult {
   const segments = pathname.split("/").filter(Boolean);
 
-  // Extract beach slug (last segment)
-  const beachSlug = segments[segments.length - 1];
-  if (!beachSlug) {
+  if (segments.length !== 2) {
     return { redirect: false };
   }
 
-  // Verify the beach exists before redirecting
-  const beach = await lookupBeachBySlug(beachSlug);
-  if (!beach) {
+  const stateSlug = segments[0]?.toLowerCase() || "";
+  const citySlug = segments[1]?.toLowerCase() || "";
+
+  if (!stateSlug || !citySlug) {
     return { redirect: false };
   }
 
-  // Redirect to /spots/{slug}
-  const redirectUrl = `/spots/${beach.slug}`;
-  console.log(`[SEO Redirect] ${pathname} → ${redirectUrl}`);
-  return { redirect: true, url: redirectUrl };
+  // Check if this city slug needs redirecting (e.g., PR accented city fixes)
+  const correctedCitySlug = PR_CITY_SLUG_REDIRECTS[citySlug];
+  if (correctedCitySlug && correctedCitySlug !== citySlug) {
+    const redirectUrl = `/${stateSlug}/${correctedCitySlug}`;
+    seoLog.info("PR city slug fix", { from: pathname, to: redirectUrl });
+    return { redirect: true, url: redirectUrl };
+  }
+
+  return { redirect: false };
+}
+
+/**
+ * Handle Mexico beach URL redirects
+ * Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
+ * Let requests pass through to that route instead of redirecting to /spots/
+ */
+async function handleMexicoBeachRedirect(
+  _pathname: string
+): Promise<SeoRedirectResult> {
+  // Mexico beach URLs now have a dedicated route at /mexico/[region]/[city]/[beachSlug]
+  // Let the request pass through to that route instead of redirecting to /spots/
+  return { redirect: false };
 }
 
 /**
@@ -426,7 +479,7 @@ async function handleUsBeachRedirect(
     return { redirect: false };
   }
 
-  console.log(`[SEO Redirect] ${pathname} → ${canonicalUrl}`);
+  seoLog.info("Beach URL redirect", { from: pathname, to: canonicalUrl });
   return { redirect: true, url: canonicalUrl };
 }
 
@@ -455,7 +508,7 @@ function handleIntentCityLegacyRedirect(pathname: string): SeoRedirectResult {
   // Redirect to 2-segment format with state suffix: /{intent}/{city}-{state}
   // This avoids double redirect chains (e.g., /tide/or/seaside → /tide/seaside-or)
   const redirectUrl = `/${intentSlug}/${citySlug}-${stateSlug}`;
-  console.log(`[SEO Redirect] Intent city legacy ${pathname} → ${redirectUrl}`);
+  seoLog.info("Intent city legacy redirect", { from: pathname, to: redirectUrl });
   return { redirect: true, url: redirectUrl };
 }
 
@@ -485,7 +538,7 @@ function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
   // Redirect to 2-segment format with state suffix: /{intent}/{city}-{state}
   // This avoids double redirect chains (e.g., /tide/or/seaside/beach → /tide/seaside-or)
   const redirectUrl = `/${intentSlug}/${citySlug}-${stateSlug}`;
-  console.log(`[SEO Redirect] Intent beach legacy ${pathname} → ${redirectUrl}`);
+  seoLog.info("Intent beach legacy redirect", { from: pathname, to: redirectUrl });
   return { redirect: true, url: redirectUrl };
 }
 
@@ -494,6 +547,7 @@ function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
  *
  * Handles multiple URL pattern types:
  * - State-only: /ca → /beaches/usa/ca
+ * - US city: /pr/rinc-n → /pr/rincon (fixes accented character slug issues)
  * - US beach: /ca/orange-county/doheny → /ca/dana-point/doheny
  * - Mexico beach: /mexico/baja-california/rosarito/alfonsos → /spots/alfonsos
  * - Intent city legacy: /sunset/ca/san-diego → /sunset/san-diego
@@ -517,6 +571,9 @@ export async function handleSeoRedirect(
       case "state-only":
         return handleStateOnlyRedirect(pathname);
 
+      case "us-city":
+        return handleUsCityRedirect(pathname);
+
       case "us-beach":
         return handleUsBeachRedirect(pathname);
 
@@ -534,7 +591,7 @@ export async function handleSeoRedirect(
         return { redirect: false };
     }
   } catch (error) {
-    console.warn("[SEO Redirect] Handler error:", {
+    seoLog.warn("Handler error", {
       pathname,
       error: error instanceof Error ? error.message : "Unknown error",
     });

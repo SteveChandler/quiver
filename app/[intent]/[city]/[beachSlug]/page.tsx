@@ -4,7 +4,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
 import type { Metadata } from "next";
-import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
+import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
+import { getBeachForecastPreview } from "@/actions/forecast-actions";
 import {
   buildBeachUrl,
   buildHiCityUrlForBeach,
@@ -232,10 +233,6 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     });
 
     if (beach) {
-      // Build location context for description
-      const locationContext =
-        beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
-
       // Build path safely - use fallback if beach data is incomplete
       let path: string;
       try {
@@ -252,9 +249,26 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         path = `/beach/${beachSlug}`;
       }
 
+      // Fetch forecast data for dynamic SEO (lightweight preview endpoint)
+      let forecastData: { wave_height?: string | null } | null = null;
+      try {
+        const forecastResult = await getBeachForecastPreview(beach.id);
+        if (forecastResult.success && forecastResult.data) {
+          forecastData = { wave_height: forecastResult.data.wave_height };
+        }
+      } catch {
+        // Gracefully degrade to static metadata on forecast fetch failure
+      }
+
+      // Build CTR-optimized title and description
+      const { title, description } = buildDynamicBeachMetadata({
+        beach,
+        forecast: forecastData,
+      });
+
       return buildPageMetadata({
-        title: `${beach.name} Surf Report & Forecast (Updated Daily)`,
-        description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
+        title,
+        description,
         path,
         image: `/api/og/beach?slug=${beachSlug}`,
         keywords: [
@@ -268,6 +282,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
           "wave height",
           "tide",
           "wind",
+          "free surf report",
         ].filter(Boolean),
       });
     }

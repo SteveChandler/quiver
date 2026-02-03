@@ -287,6 +287,12 @@ const nextConfig = {
 
     // Enable external directory support
     externalDir: true,
+
+    // Server Actions configuration for file uploads
+    // Supports 5 photos × 10MB (pre-compression) + FormData overhead
+    serverActions: {
+      bodySizeLimit: '60mb',
+    },
   },
 
   // Reduce bundle size by rewriting common libs to per-module imports

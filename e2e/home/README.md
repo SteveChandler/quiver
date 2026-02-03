@@ -11,22 +11,22 @@ Comprehensive E2E tests for the time slot filtering UI on the home screen.
 #### Test Coverage
 
 **1. Time Slot Selector Visibility (3 tests)**
-- ✅ Display all 4 time slot buttons (Any time, Dawn patrol, Morning, Afternoon)
+- ✅ Display all 4 time slot buttons (Any time, Dawn patrol, Lunch session, Afternoon)
 - ✅ "Any time" selected by default
 - ✅ Selector visible and touch-friendly on mobile viewport
 
 **2. Dawn Patrol Filter (3 tests)**
 - ✅ Updates recommendations when selected
-- ✅ Displays capped window times ending at or before 9am
-- ✅ Does NOT show windows extending beyond 9am
+- ✅ Displays capped window times ending at or before 11am
+- ✅ Does NOT show windows extending beyond 11am
 
-**3. Morning Filter (2 tests)**
+**3. Lunch Session Filter (2 tests)**
 - ✅ Updates recommendations when selected
-- ✅ Displays window times within 6am-12pm range
+- ✅ Displays window times within 11am-2pm range
 
 **4. Afternoon Filter (3 tests)**
 - ✅ Updates recommendations when selected
-- ✅ Displays window times starting at 12pm or later
+- ✅ Displays window times starting at 2pm or later
 - ✅ Displays window times ending by 6pm
 
 **5. Filter Switching Behavior (3 tests)**
@@ -51,9 +51,9 @@ Comprehensive E2E tests for the time slot filtering UI on the home screen.
 #### Key Features Tested
 
 **Time Slot Capping Logic:**
-- Dawn patrol windows are capped at 9am (6am-9am)
-- Morning windows are capped at 12pm (6am-12pm)
-- Afternoon windows start at 12pm and end at 6pm (12pm-6pm)
+- Dawn patrol windows are capped at 11am (6am-11am)
+- Lunch session windows are capped at 2pm (11am-2pm)
+- Afternoon windows start at 2pm and end at 6pm (2pm-6pm)
 - Any time shows full daylight hours (6am-9pm)
 
 **User Experience:**
@@ -63,7 +63,7 @@ Comprehensive E2E tests for the time slot filtering UI on the home screen.
 - Mobile-optimized with touch-friendly targets (≥44px height)
 
 **Data Integrity:**
-- Window time format correctly shows capped times (e.g., "7-9am" not "7-11am")
+- Window time format correctly shows capped times (e.g., "7-11am" not "7-1pm")
 - Time parsing handles various formats (12-hour, with/without minutes)
 - Validates both start and end times match filter constraints
 

@@ -14,7 +14,7 @@ import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 /**
  * All available time slots for prefetching
  */
-const ALL_TIME_SLOTS: TimeSlot[] = ["any", "dawn-patrol", "morning", "afternoon"];
+const ALL_TIME_SLOTS: TimeSlot[] = ["any", "dawn-patrol", "lunch-session", "afternoon"];
 
 /**
  * Options for useTimeSlotPrefetch hook

@@ -13,7 +13,7 @@ describe("TimeSlotSelector", () => {
 
     expect(screen.getByText("Any time")).toBeInTheDocument();
     expect(screen.getByText("Dawn patrol")).toBeInTheDocument();
-    expect(screen.getByText("Morning")).toBeInTheDocument();
+    expect(screen.getByText("Lunch session")).toBeInTheDocument();
     expect(screen.getByText("Afternoon")).toBeInTheDocument();
   });
 
@@ -28,10 +28,10 @@ describe("TimeSlotSelector", () => {
   });
 
   it("marks selected slot with aria-pressed", () => {
-    render(<TimeSlotSelector {...defaultProps} value="morning" />);
+    render(<TimeSlotSelector {...defaultProps} value="lunch-session" />);
 
-    const morningButton = screen.getByText("Morning").closest("button");
-    expect(morningButton).toHaveAttribute("aria-pressed", "true");
+    const lunchSessionButton = screen.getByText("Lunch session").closest("button");
+    expect(lunchSessionButton).toHaveAttribute("aria-pressed", "true");
   });
 
   it("calls onChange when a time slot is clicked", async () => {
@@ -39,9 +39,9 @@ describe("TimeSlotSelector", () => {
     const onChange = jest.fn();
     render(<TimeSlotSelector value="any" onChange={onChange} />);
 
-    await user.click(screen.getByText("Morning"));
+    await user.click(screen.getByText("Lunch session"));
 
-    expect(onChange).toHaveBeenCalledWith("morning");
+    expect(onChange).toHaveBeenCalledWith("lunch-session");
   });
 
   it("applies motion wrapper for animations", () => {
