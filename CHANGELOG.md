@@ -47,6 +47,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New migration: `20260203000000_create_ml_artifacts_bucket.sql` for storage setup
   - New documentation: `docs/ML_DEPLOYMENT_SETUP.md` with setup guide and troubleshooting
 
+- **Weekly ML Retrain Cron:** Added automated weekly model retraining schedule (Sundays at 6am UTC) via Vercel cron in `vercel.json`. The pipeline extracts training data with pagination (5000 rows/page), trains v3 model with terrain factors, validates against go/no-go gates, and deploys to Fly.io.
+
+- **ML Predictions Log Enhancements:** Added new columns to `ml_predictions_log` for improved feature engineering:
+  - `tide_state` (TEXT): Tide state at prediction time (low/mid/high)
+  - `tide_height_m` (NUMERIC): Actual tide height in meters
+  - `forecast_horizon_hours` (INTEGER): Lead time of forecast (0-168 hours)
+  - Migrations: `20260203100000_add_tide_state_to_ml_predictions.sql`, `20260203174004_add_forecast_horizon_to_ml_predictions.sql`
+
+- **Per-Beach ML Performance Monitoring:** Added `beach_ml_performance_baseline` materialized view for tracking model performance by beach over a 14-day rolling window. Includes:
+  - Per-beach MAE, improvement rate, match rate, and bias metrics
+  - Helper functions: `get_beach_ml_performance(beach_id)`, `get_worst_performing_beaches(limit)`
+  - Daily refresh via pg_cron at 7am UTC
+  - Migration: `20260203130000_create_beach_ml_performance_baseline.sql`
+
 ### Fixed
 
 - **Wave Height Displaying Raw Hs Instead of Face Height:** Fixed critical bug where certain fallback paths in `forecast-builder.ts` returned raw untransformed Significant Wave Height (Hs) instead of estimated face height. This caused beaches like Sunset Cliffs to show 2.6 ft when users observed 4-6 ft waves. Changes include:
