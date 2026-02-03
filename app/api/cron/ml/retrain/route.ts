@@ -10,8 +10,10 @@ import {
 // and validation can take time with large datasets
 export const maxDuration = 300; // 5 minutes
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL!;
-const ML_INTERNAL_SECRET = process.env.ML_INTERNAL_SECRET!;
+// Environment variables validated at runtime in POST handler
+// Using getters to avoid non-null assertion at module load time
+const getMLServiceUrl = () => process.env.ML_SERVICE_URL;
+const getMLInternalSecret = () => process.env.ML_INTERNAL_SECRET;
 
 interface TrainingMetrics {
   training_window_days: number;
@@ -50,6 +52,9 @@ export async function POST(request: Request) {
   }
 
   // Check required environment variables
+  const ML_SERVICE_URL = getMLServiceUrl();
+  const ML_INTERNAL_SECRET = getMLInternalSecret();
+
   if (!ML_SERVICE_URL || !ML_INTERNAL_SECRET) {
     return createErrorResponse(
       'ML_SERVICE_URL or ML_INTERNAL_SECRET not configured',
@@ -90,35 +95,70 @@ export async function POST(request: Request) {
     cutoffDate.setDate(cutoffDate.getDate() - maxDaysBack);
 
     // Extract all predictions with ground truth (observed_m is not null)
-    const { data: trainingData, error: extractError } = await supabase
-      .from('ml_predictions_log')
-      .select(
-        `
-        id,
-        beach_id,
-        predicted_at,
-        raw_forecast_m,
-        corrected_forecast_m,
-        observed_m,
-        raw_error_m,
-        corrected_error_m,
-        model_version
-      `
-      )
-      .not('observed_m', 'is', null)
-      .gte('predicted_at', cutoffDate.toISOString())
-      .order('predicted_at', { ascending: true });
+    // Join with beaches table to get terrain factors
+    // Use pagination to fetch all rows (Supabase default limit is 1000)
+    const PAGE_SIZE = 5000;
+    const trainingData: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    if (extractError) {
-      console.error('[ML Retrain] Data extraction failed:', extractError);
-      return createErrorResponse(
-        'Failed to extract training data',
-        extractError,
-        500
-      );
+    while (hasMore) {
+      const { data: pageData, error: extractError } = await supabase
+        .from('ml_predictions_log')
+        .select(
+          `
+          id,
+          beach_id,
+          predicted_at,
+          raw_forecast_m,
+          corrected_forecast_m,
+          observed_m,
+          raw_error_m,
+          corrected_error_m,
+          model_version,
+          wave_period_s,
+          wave_direction_deg,
+          wind_speed_ms,
+          wind_direction_deg,
+          beaches!inner(
+            swell_access_factors,
+            wind_exposure_factors
+          )
+        `
+        )
+        .not('observed_m', 'is', null)
+        .gte('predicted_at', cutoffDate.toISOString())
+        .order('predicted_at', { ascending: true })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (extractError) {
+        console.error('[ML Retrain] Data extraction failed:', extractError);
+        return createErrorResponse(
+          'Failed to extract training data',
+          extractError,
+          500
+        );
+      }
+
+      if (pageData && pageData.length > 0) {
+        trainingData.push(...pageData);
+        console.log(`[ML Retrain] Fetched page ${page + 1}: ${pageData.length} rows (total: ${trainingData.length})`);
+        hasMore = pageData.length === PAGE_SIZE;
+        page++;
+      } else {
+        hasMore = false;
+      }
+
+      // Safety limit: max 100 pages (500k rows)
+      if (page >= 100) {
+        console.warn('[ML Retrain] Reached max pagination limit (500k rows)');
+        hasMore = false;
+      }
     }
 
-    if (!trainingData || trainingData.length === 0) {
+    console.log(`[ML Retrain] Total training data: ${trainingData.length} rows`);
+
+    if (trainingData.length === 0) {
       console.warn('[ML Retrain] No training data available');
       return createSuccessResponse({
         message: 'No training data available',
@@ -170,27 +210,25 @@ export async function POST(request: Request) {
     // =======================================================================
     console.log('[ML Retrain] Step 3: Calling ML service for training...');
 
-    // TODO: The ML service currently doesn't have a /train endpoint.
-    // This needs to be implemented in ml/api.py to accept:
-    // - Training data (or a reference to fetch from Supabase)
-    // - Model version string
-    // - Training configuration (recency weighting, guardrails)
-    //
-    // The endpoint should:
-    // 1. Run train_v3.py logic
-    // 2. Validate with go/no-go gates
-    // 3. Save model artifact
-    // 4. Return metrics and model file URL
-    //
-    // For now, this is a placeholder that shows the expected flow.
-
     let trainResponse: TrainResponse;
 
     try {
       // Prepare training request payload
+      // Transform trainingData to include terrain factors from beaches join
       const trainingPayload = {
         version: modelVersion,
-        training_data: trainingData,
+        training_data: trainingData.map((record: any) => ({
+          beach_id: record.beach_id,
+          predicted_at: record.predicted_at,
+          raw_forecast_m: record.raw_forecast_m,
+          observed_m: record.observed_m,
+          wave_period_s: record.wave_period_s,
+          wave_direction_deg: record.wave_direction_deg,
+          wind_speed_ms: record.wind_speed_ms,
+          wind_direction_deg: record.wind_direction_deg,
+          swell_access_factors: record.beaches?.swell_access_factors || null,
+          wind_exposure_factors: record.beaches?.wind_exposure_factors || null,
+        })),
         config: {
           recency_weight_days: 14,
           recency_weight_multiplier: 2.0,
@@ -268,19 +306,7 @@ export async function POST(request: Request) {
     // =======================================================================
     console.log('[ML Retrain] Step 4: Deploying to Fly.io...');
 
-    // TODO: Deploy the trained model to Fly.io
-    // Options:
-    // 1. Use Fly.io API to trigger deployment with new MODEL_VERSION env var
-    // 2. Upload model artifact to Fly.io volumes/storage
-    // 3. Trigger a rebuild with the new model baked in
-    //
-    // For now, this is a placeholder. In practice, you might:
-    // - Use Fly.io GraphQL API to update secrets/env vars
-    // - Trigger a deployment via flyctl or API
-    // - Wait for health check to confirm deployment
-
     try {
-      // Placeholder for deployment logic
       const deploymentResult = await deployToFly(
         modelVersion,
         trainResponse.model_url || ''
@@ -364,33 +390,332 @@ export async function POST(request: Request) {
 /**
  * Deploy model to Fly.io
  *
- * TODO: Implement actual Fly.io deployment
- * This should:
- * 1. Upload model artifact to Fly.io volume or S3
- * 2. Update MODEL_VERSION environment variable
- * 3. Trigger deployment/restart
- * 4. Wait for health check confirmation
+ * Implementation:
+ * 1. Upload model artifact to Supabase Storage (accessible by ML service)
+ * 2. Get list of machines for the Fly.io app
+ * 3. Update MODEL_VERSION and MODEL_PATH env vars on all machines
+ * 4. Restart machines to load new model
+ * 5. Poll health endpoint until new model version is confirmed
  *
- * For now, this is a stub.
+ * Timeout: 2 minutes for entire deployment process
  */
 async function deployToFly(
   modelVersion: string,
   modelUrl: string
 ): Promise<{ success: boolean; error?: string }> {
-  console.warn(
-    '[deployToFly] STUB: Fly.io deployment not yet implemented'
+  const FLY_API_TOKEN = process.env.FLY_API_TOKEN;
+  const FLY_APP_NAME = process.env.FLY_APP_NAME || 'quiver-ml';
+  const HEALTH_URL = process.env.ML_SERVICE_URL
+    ? `${process.env.ML_SERVICE_URL}/health`
+    : 'https://quiver-ml.fly.dev/health';
+  const DEPLOYMENT_TIMEOUT = 120000; // 2 minutes
+  const HEALTH_CHECK_INTERVAL = 3000; // 3 seconds
+  const HEALTH_CHECK_TIMEOUT = 60000; // 1 minute for health checks
+
+  // Validate required environment variables
+  if (!FLY_API_TOKEN) {
+    console.error('[deployToFly] FLY_API_TOKEN not configured');
+    return {
+      success: false,
+      error: 'FLY_API_TOKEN environment variable not set',
+    };
+  }
+
+  if (!modelUrl) {
+    console.error('[deployToFly] No model URL provided');
+    return {
+      success: false,
+      error: 'Model URL is required for deployment',
+    };
+  }
+
+  // Security: Validate model URL is from trusted ML service
+  // Prevents SSRF attacks if ML service is compromised
+  const ALLOWED_MODEL_URL_PREFIXES = [
+    'https://quiver-ml.fly.dev/',
+    'http://localhost:8080/', // Local development
+    process.env.ML_SERVICE_URL ? `${process.env.ML_SERVICE_URL}/` : null,
+  ].filter(Boolean) as string[];
+
+  const isAllowedUrl = ALLOWED_MODEL_URL_PREFIXES.some(prefix =>
+    modelUrl.startsWith(prefix)
   );
-  console.warn(`[deployToFly] Would deploy ${modelVersion} from ${modelUrl}`);
 
-  // TODO: Implement actual deployment
-  // Example using Fly.io API:
-  // 1. Upload model to Fly.io volume or external storage
-  // 2. Update app secrets with new MODEL_VERSION
-  // 3. Trigger deployment
-  // 4. Poll health endpoint until ready
+  if (!isAllowedUrl) {
+    console.error(`[deployToFly] Model URL not from trusted source: ${modelUrl}`);
+    console.error(`[deployToFly] Allowed prefixes: ${ALLOWED_MODEL_URL_PREFIXES.join(', ')}`);
+    return {
+      success: false,
+      error: `Model URL must be from trusted ML service. Got: ${modelUrl}`,
+    };
+  }
 
-  return {
-    success: false,
-    error: 'Fly.io deployment not yet implemented - manual deployment required',
-  };
+  const deploymentStartTime = Date.now();
+  console.log(`[deployToFly] Starting deployment of ${modelVersion}`);
+  console.log(`[deployToFly] Model URL: ${modelUrl}`);
+
+  try {
+    // =======================================================================
+    // STEP 1: Upload Model to Supabase Storage
+    // =======================================================================
+    console.log('[deployToFly] Step 1: Uploading model to Supabase Storage...');
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return {
+        success: false,
+        error: 'Supabase configuration missing for model upload',
+      };
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    // Download model from training output
+    const modelResponse = await fetch(modelUrl, {
+      signal: AbortSignal.timeout(30000), // 30 second timeout for download
+    });
+
+    if (!modelResponse.ok) {
+      throw new Error(`Failed to download model: ${modelResponse.status} ${modelResponse.statusText}`);
+    }
+
+    const modelData = await modelResponse.arrayBuffer();
+    const modelFileName = `${modelVersion}.json`;
+    const storagePath = `ml-models/${modelFileName}`;
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('ml-artifacts')
+      .upload(storagePath, modelData, {
+        contentType: 'application/json',
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[deployToFly] Model upload failed:', uploadError);
+      return {
+        success: false,
+        error: `Failed to upload model to storage: ${uploadError.message}`,
+      };
+    }
+
+    // Get public URL for the uploaded model
+    const { data: urlData } = supabase.storage
+      .from('ml-artifacts')
+      .getPublicUrl(storagePath);
+
+    const publicModelUrl = urlData.publicUrl;
+    console.log(`[deployToFly] Model uploaded to: ${publicModelUrl}`);
+
+    // =======================================================================
+    // STEP 2: Get Fly.io Machines
+    // =======================================================================
+    console.log('[deployToFly] Step 2: Fetching Fly.io machines...');
+
+    const machinesUrl = `https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines`;
+    const machinesResponse = await fetch(machinesUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${FLY_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!machinesResponse.ok) {
+      const errorText = await machinesResponse.text();
+      console.error('[deployToFly] Failed to fetch machines:', errorText);
+      return {
+        success: false,
+        error: `Failed to fetch Fly.io machines: ${machinesResponse.status} - ${errorText}`,
+      };
+    }
+
+    const machines = await machinesResponse.json();
+
+    if (!Array.isArray(machines) || machines.length === 0) {
+      console.error('[deployToFly] No machines found for app');
+      return {
+        success: false,
+        error: `No machines found for app ${FLY_APP_NAME}`,
+      };
+    }
+
+    console.log(`[deployToFly] Found ${machines.length} machine(s)`);
+
+    // =======================================================================
+    // STEP 3: Update Environment Variables and Restart Machines
+    // =======================================================================
+    console.log('[deployToFly] Step 3: Updating machines with new model...');
+
+    for (const machine of machines) {
+      const machineId = machine.id;
+      console.log(`[deployToFly] Updating machine ${machineId}...`);
+
+      // Get current machine configuration
+      const machineUrl = `https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines/${machineId}`;
+      const machineResponse = await fetch(machineUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${FLY_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!machineResponse.ok) {
+        const errorText = await machineResponse.text();
+        console.error(`[deployToFly] Failed to fetch machine ${machineId}:`, errorText);
+        continue;
+      }
+
+      const machineConfig = await machineResponse.json();
+
+      // Update environment variables with new model info
+      const updatedEnv = {
+        ...(machineConfig.config?.env || {}),
+        MODEL_VERSION: modelVersion,
+        MODEL_PATH: publicModelUrl,
+      };
+
+      // Update machine configuration
+      const updateResponse = await fetch(machineUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FLY_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          config: {
+            ...machineConfig.config,
+            env: updatedEnv,
+          },
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error(`[deployToFly] Failed to update machine ${machineId}:`, errorText);
+        return {
+          success: false,
+          error: `Failed to update machine ${machineId}: ${updateResponse.status} - ${errorText}`,
+        };
+      }
+
+      console.log(`[deployToFly] Machine ${machineId} configuration updated`);
+
+      // Restart machine to load new model
+      const restartUrl = `https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines/${machineId}/restart`;
+      const restartResponse = await fetch(restartUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FLY_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ timeout: 30 }),
+        signal: AbortSignal.timeout(35000),
+      });
+
+      if (!restartResponse.ok) {
+        const errorText = await restartResponse.text();
+        console.error(`[deployToFly] Failed to restart machine ${machineId}:`, errorText);
+        return {
+          success: false,
+          error: `Failed to restart machine ${machineId}: ${restartResponse.status} - ${errorText}`,
+        };
+      }
+
+      console.log(`[deployToFly] Machine ${machineId} restarted successfully`);
+    }
+
+    // =======================================================================
+    // STEP 4: Wait for Machines to Start
+    // =======================================================================
+    console.log('[deployToFly] Step 4: Waiting for machines to start...');
+
+    // Give machines a moment to start up before health checks
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // =======================================================================
+    // STEP 5: Poll Health Endpoint for New Model Version
+    // =======================================================================
+    console.log('[deployToFly] Step 5: Polling health endpoint...');
+
+    const healthCheckStartTime = Date.now();
+    let healthCheckSuccess = false;
+    let lastHealthError = '';
+
+    while (Date.now() - healthCheckStartTime < HEALTH_CHECK_TIMEOUT) {
+      // Check overall deployment timeout
+      if (Date.now() - deploymentStartTime > DEPLOYMENT_TIMEOUT) {
+        return {
+          success: false,
+          error: `Deployment timed out after ${DEPLOYMENT_TIMEOUT / 1000} seconds`,
+        };
+      }
+
+      try {
+        const healthResponse = await fetch(HEALTH_URL, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          console.log('[deployToFly] Health check response:', healthData);
+
+          // Check if the new model version is active
+          if (healthData.model_version === modelVersion) {
+            healthCheckSuccess = true;
+            console.log(`[deployToFly] Health check confirmed new model version: ${modelVersion}`);
+            break;
+          } else {
+            lastHealthError = `Model version mismatch: expected ${modelVersion}, got ${healthData.model_version}`;
+            console.log(`[deployToFly] ${lastHealthError}, retrying...`);
+          }
+        } else {
+          lastHealthError = `Health check returned ${healthResponse.status}`;
+          console.log(`[deployToFly] ${lastHealthError}, retrying...`);
+        }
+      } catch (error) {
+        lastHealthError = error instanceof Error ? error.message : 'Unknown error';
+        console.log(`[deployToFly] Health check failed: ${lastHealthError}, retrying...`);
+      }
+
+      // Wait before next health check
+      await new Promise(resolve => setTimeout(resolve, HEALTH_CHECK_INTERVAL));
+    }
+
+    if (!healthCheckSuccess) {
+      return {
+        success: false,
+        error: `Health check failed to confirm new model version after ${HEALTH_CHECK_TIMEOUT / 1000}s: ${lastHealthError}`,
+      };
+    }
+
+    const deploymentDuration = ((Date.now() - deploymentStartTime) / 1000).toFixed(1);
+    console.log(`[deployToFly] Deployment completed successfully in ${deploymentDuration}s`);
+
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[deployToFly] Deployment failed:', errorMessage);
+
+    if (error instanceof Error && error.stack) {
+      console.error('[deployToFly] Stack trace:', error.stack);
+    }
+
+    return {
+      success: false,
+      error: `Deployment failed: ${errorMessage}`,
+    };
+  }
 }

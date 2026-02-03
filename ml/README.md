@@ -446,6 +446,81 @@ Correct multiple forecasts in a single request. Requires `X-Internal-Secret` hea
 
 Note: v2 corrections can be negative (reducing forecasts that overestimate), unlike v1 which always added positive bias.
 
+### POST /train
+
+Train a new bias correction model. Requires `X-Internal-Secret` header. Called by the automated retrain pipeline at `/api/cron/ml/retrain`.
+
+**Request**:
+```json
+{
+  "version": "v3.20260203",
+  "training_data": [
+    {
+      "beach_id": "uuid-here",
+      "predicted_at": "2026-01-22T12:00:00Z",
+      "raw_forecast_m": 1.5,
+      "observed_m": 1.42,
+      "wave_period_s": 10.0,
+      "wave_direction_deg": 270.0,
+      "wind_speed_ms": 5.0,
+      "wind_direction_deg": 180.0
+    }
+  ],
+  "config": {
+    "recency_weight_days": 14,
+    "recency_weight_multiplier": 2.0,
+    "holdout_days": 2,
+    "max_bias_pct": 0.75,
+    "bias_floor_m": 0.5
+  }
+}
+```
+
+**Response (Success)**:
+```json
+{
+  "success": true,
+  "version": "v3.20260203",
+  "metrics": {
+    "training_window_days": 30,
+    "training_samples": 5000,
+    "holdout_improvement_pct": 55.2,
+    "holdout_raw_mae": 0.35,
+    "holdout_corrected_mae": 0.28
+  },
+  "model_url": "/models/bias_model_v3.20260203.json"
+}
+```
+
+**Response (Validation Failure)**:
+```json
+{
+  "success": false,
+  "version": "v3.20260203",
+  "metrics": {
+    "training_window_days": 30,
+    "training_samples": 5000,
+    "holdout_improvement_pct": 48.5,
+    "holdout_raw_mae": 0.35,
+    "holdout_corrected_mae": 0.30
+  },
+  "error": "Overall improvement 48.5% <= 50%"
+}
+```
+
+**Go/No-Go Validation Gates**:
+- Overall improvement > 50%
+- Each bucket (<0.5m, 0.5-1.5m, >1.5m) improvement > 40%
+- No bucket degradation > 0.05m
+- Mean bias < 0.4m (not too one-directional)
+
+**Training Configuration**:
+- `recency_weight_days`: Number of recent days to apply higher weight (default: 14)
+- `recency_weight_multiplier`: Weight multiplier for recent data (default: 2.0)
+- `holdout_days`: Number of days to hold out for validation (default: 2)
+- `max_bias_pct`: Maximum bias as percentage of raw forecast (default: 0.75)
+- `bias_floor_m`: Minimum absolute bias allowed (default: 0.5m)
+
 **Field Validation**:
 - `wave_height_m`: 0.0 - 30.0 meters
 - `wave_period_s`: 1.0 - 30.0 seconds
