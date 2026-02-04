@@ -12,6 +12,7 @@ import os
 import secrets
 import asyncio
 import logging
+import base64
 import xgboost as xgb
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -165,7 +166,8 @@ class TrainResponse(BaseModel):
     success: bool
     version: str
     metrics: Optional[TrainingMetrics] = None
-    model_url: Optional[str] = None
+    model_url: Optional[str] = None  # Keep for backwards compat
+    model_data: Optional[str] = None  # Base64 encoded model JSON (avoids ephemeral storage 404)
     error: Optional[str] = None
 
 class CorrectionOutput(BaseModel):
@@ -236,6 +238,27 @@ def bucket_label(height_m: float) -> str:
         return '0.5-1.5m'
     else:
         return '>1.5m'
+
+def compute_training_stats(df: pd.DataFrame) -> dict:
+    """Compute detailed statistics about training data quality."""
+    beach_counts = df.groupby('beach_id').size()
+
+    buckets = {
+        'small': int((df['observed_height_m'] < 0.5).sum()),
+        'medium': int(((df['observed_height_m'] >= 0.5) & (df['observed_height_m'] <= 1.5)).sum()),
+        'large': int((df['observed_height_m'] > 1.5).sum())
+    }
+
+    return {
+        'unique_beaches': df['beach_id'].nunique(),
+        'min_per_beach': int(beach_counts.min()),
+        'max_per_beach': int(beach_counts.max()),
+        'avg_per_beach': float(beach_counts.mean()),
+        'buckets': buckets,
+        'missing_wind_pct': float((df['wind_missing'] == 1).sum() / len(df) * 100),
+        'residual_mean': float(df['residual_m'].mean()),
+        'residual_std': float(df['residual_m'].std())
+    }
 
 def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
     """
@@ -360,10 +383,12 @@ async def correct_single(input: ForecastInput):
         corrected = model.predict(features, pd.Series([input.wave_height_m]))
     else:
         # Fall back to NOAA-only model
-        active_model = fallback_model if (fallback_model and MODEL_VERSION not in ('v2',)) else model
+        # v2 and v3 models use the same feature pipeline
+        use_v2_features = MODEL_VERSION == 'v2' or MODEL_VERSION.startswith('v3')
+        active_model = fallback_model if (fallback_model and not use_v2_features) else model
 
-        if MODEL_VERSION == 'v2':
-            # v2 feature pipeline
+        if use_v2_features:
+            # v2/v3 feature pipeline
             data = {
                 'forecast_height_m': [input.wave_height_m],
                 'forecast_period_s': [input.wave_period_s],
@@ -474,6 +499,15 @@ async def train_model(request: TrainRequest):
 
         logger.info(f"[Train] Training window: {training_window_days} days")
         logger.info(f"[Train] Date range: {df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}")
+
+        # Log detailed training data statistics
+        stats = compute_training_stats(df)
+        logger.info(f"[Train] === Training Data Statistics ===")
+        logger.info(f"[Train] Unique beaches: {stats['unique_beaches']}")
+        logger.info(f"[Train] Samples per beach - min: {stats['min_per_beach']}, max: {stats['max_per_beach']}, avg: {stats['avg_per_beach']:.1f}")
+        logger.info(f"[Train] Bucket distribution: small(<0.5m)={stats['buckets']['small']}, medium(0.5-1.5m)={stats['buckets']['medium']}, large(>1.5m)={stats['buckets']['large']}")
+        logger.info(f"[Train] Missing wind data: {stats['missing_wind_pct']:.1f}%")
+        logger.info(f"[Train] Residual stats: mean={stats['residual_mean']:.3f}m, std={stats['residual_std']:.3f}m")
 
         # Compute recency weights
         weights = compute_sample_weights(
@@ -642,11 +676,19 @@ async def train_model(request: TrainRequest):
 
         logger.info("[Train] GO: Model meets all deployment criteria")
 
-        # Build absolute model URL for download by the retrain cron job
+        # Build absolute model URL for download by the retrain cron job (backwards compat)
         # The models directory is served as static files via FastAPI
         # Use ML_SERVICE_URL if set, otherwise construct from request
         ml_service_url = os.getenv('ML_SERVICE_URL', 'https://quiver-ml.fly.dev')
         model_url = f"{ml_service_url.rstrip('/')}/models/{model_filename}"
+
+        # Read and encode model data inline to avoid ephemeral storage 404 issues
+        # Fly.io ephemeral storage is lost on machine restart/stop, so we return
+        # the model data directly in the response instead of relying on static files
+        with open(model_path, 'rb') as f:
+            model_bytes = f.read()
+        model_data_b64 = base64.b64encode(model_bytes).decode('utf-8')
+        logger.info(f"[Train] Model size: {len(model_bytes)} bytes, base64: {len(model_data_b64)} chars")
 
         return TrainResponse(
             success=True,
@@ -658,7 +700,8 @@ async def train_model(request: TrainRequest):
                 holdout_raw_mae=overall['raw_mae'],
                 holdout_corrected_mae=overall['corrected_mae']
             ),
-            model_url=model_url
+            model_url=model_url,  # Keep for backwards compat
+            model_data=model_data_b64  # Inline model data (primary)
         )
 
     except Exception as e:
@@ -801,10 +844,12 @@ async def correct_batch(input: BatchInput):
 
     # Process fallback forecasts (NOAA-only)
     if fallback_indices:
-        active_model = fallback_model if (fallback_model and MODEL_VERSION not in ('v2',)) else model
+        # v2 and v3 models use the same feature pipeline
+        use_v2_features = MODEL_VERSION == 'v2' or MODEL_VERSION.startswith('v3')
+        active_model = fallback_model if (fallback_model and not use_v2_features) else model
 
-        if MODEL_VERSION == 'v2':
-            # v2 feature pipeline
+        if use_v2_features:
+            # v2/v3 feature pipeline
             data = {
                 'forecast_height_m': [input.forecasts[i].wave_height_m for i in fallback_indices],
                 'forecast_period_s': [input.forecasts[i].wave_period_s for i in fallback_indices],

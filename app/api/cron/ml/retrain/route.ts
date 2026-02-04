@@ -28,7 +28,8 @@ interface TrainResponse {
   success: boolean;
   version: string;
   metrics?: TrainingMetrics;
-  model_url?: string;
+  model_url?: string;  // Keep for backwards compat
+  model_data?: string;  // Base64 encoded model JSON (avoids ephemeral storage 404)
   error?: string;
 }
 
@@ -88,8 +89,9 @@ async function handleRetrain(request: Request) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxDaysBack);
 
-    // Limit total samples based on ML service memory (2GB instance)
-    // 2GB RAM supports ~100K samples comfortably
+    // Limit total samples to avoid 4-minute API timeout
+    // Memory supports ~100K but request times out at ~60K samples
+    // See: docs/plans/2026-02-01-ml-rolling-pipeline-design.md for infrastructure tracking
     const MAX_TRAINING_SAMPLES = 50000;
 
     // Extract all predictions with ground truth (observed_m is not null)
@@ -205,6 +207,54 @@ async function handleRetrain(request: Request) {
 
     console.log(`[ML Retrain] Terrain factors merged for ${terrainMap.size} beaches`);
 
+    // Log training data quality statistics
+    const stats = computeTrainingStats(trainingData, uniqueBeachIds);
+    console.log('[ML Retrain] Training data statistics:');
+    console.log(`  - Total samples: ${stats.totalSamples}`);
+    console.log(`  - Unique beaches: ${stats.uniqueBeaches}`);
+    console.log(`  - Date range: ${stats.minDate} to ${stats.maxDate}`);
+    console.log(`  - Days covered: ${stats.daysCovered}`);
+    console.log(`  - Avg samples/beach: ${stats.avgSamplesPerBeach.toFixed(1)}`);
+    console.log(`  - Min samples/beach: ${stats.minSamplesPerBeach} (beach: ${stats.minSamplesBeachId})`);
+    console.log(`  - Bucket distribution: small=${stats.buckets.small}, medium=${stats.buckets.medium}, large=${stats.buckets.large}`);
+
+    // Filter out beaches with insufficient samples for reliable training
+    const MIN_SAMPLES_PER_BEACH = 10;
+    const beachSampleCounts = new Map<string, number>();
+    for (const d of trainingData) {
+      beachSampleCounts.set(d.beach_id, (beachSampleCounts.get(d.beach_id) || 0) + 1);
+    }
+
+    const lowSampleBeaches = Array.from(beachSampleCounts.entries())
+      .filter(([, count]) => count < MIN_SAMPLES_PER_BEACH);
+
+    if (lowSampleBeaches.length > 0) {
+      console.warn(`[ML Retrain] Filtering ${lowSampleBeaches.length} beaches with <${MIN_SAMPLES_PER_BEACH} samples`);
+      const validBeachIds = new Set(
+        Array.from(beachSampleCounts.entries())
+          .filter(([, count]) => count >= MIN_SAMPLES_PER_BEACH)
+          .map(([id]) => id)
+      );
+
+      const originalLength = trainingData.length;
+      const filteredData = trainingData.filter(d => validBeachIds.has(d.beach_id));
+      console.log(`[ML Retrain] Samples after filtering: ${filteredData.length} (removed ${originalLength - filteredData.length})`);
+
+      // Replace trainingData with filtered version
+      trainingData.length = 0;
+      trainingData.push(...filteredData);
+    }
+
+    // Guard against empty training data after filtering
+    if (trainingData.length === 0) {
+      console.warn('[ML Retrain] No training data remaining after filtering beaches with insufficient samples');
+      return createSuccessResponse({
+        message: 'No training data remaining after filtering beaches with insufficient samples',
+        model_version: modelVersion,
+        status: 'skipped',
+      });
+    }
+
     const trainingWindowDays = Math.ceil(
       (new Date().getTime() - new Date(trainingData[0].predicted_at).getTime()) /
         (1000 * 60 * 60 * 24)
@@ -285,7 +335,7 @@ async function handleRetrain(request: Request) {
           'X-Internal-Secret': ML_INTERNAL_SECRET,
         },
         body: JSON.stringify(trainingPayload),
-        signal: AbortSignal.timeout(240000), // 4 minute timeout for training
+        signal: AbortSignal.timeout(270000), // 4.5 minute timeout for training
       });
 
       if (!response.ok) {
@@ -349,7 +399,8 @@ async function handleRetrain(request: Request) {
     try {
       const deploymentResult = await deployToFly(
         modelVersion,
-        trainResponse.model_url || ''
+        trainResponse.model_url || '',
+        trainResponse.model_data  // Pass inline model data if available
       );
 
       if (!deploymentResult.success) {
@@ -427,11 +478,68 @@ async function handleRetrain(request: Request) {
 // HELPER FUNCTIONS
 // =============================================================================
 
+interface TrainingStats {
+  totalSamples: number;
+  uniqueBeaches: number;
+  minDate: string;
+  maxDate: string;
+  daysCovered: number;
+  avgSamplesPerBeach: number;
+  minSamplesPerBeach: number;
+  minSamplesBeachId: string;
+  buckets: { small: number; medium: number; large: number };
+}
+
+/**
+ * Compute statistics about training data quality
+ */
+function computeTrainingStats(data: any[], beachIds: string[]): TrainingStats {
+  const byBeach = new Map<string, number>();
+  let minDate = new Date();
+  let maxDate = new Date(0);
+  const buckets = { small: 0, medium: 0, large: 0 };
+
+  for (const d of data) {
+    // Count per beach
+    byBeach.set(d.beach_id, (byBeach.get(d.beach_id) || 0) + 1);
+
+    // Track date range
+    const dt = new Date(d.predicted_at);
+    if (dt < minDate) minDate = dt;
+    if (dt > maxDate) maxDate = dt;
+
+    // Bucket by wave size
+    const height = d.observed_m;
+    if (height < 0.5) buckets.small++;
+    else if (height <= 1.5) buckets.medium++;
+    else buckets.large++;
+  }
+
+  const samplesPerBeach = Array.from(byBeach.values());
+  const minSamples = samplesPerBeach.length > 0 ? Math.min(...samplesPerBeach) : 0;
+  const minIdx = samplesPerBeach.indexOf(minSamples);
+  const minBeachId = Array.from(byBeach.keys())[minIdx] || 'unknown';
+
+  return {
+    totalSamples: data.length,
+    uniqueBeaches: beachIds.length,
+    minDate: minDate.toISOString().split('T')[0],
+    maxDate: maxDate.toISOString().split('T')[0],
+    daysCovered: Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)),
+    avgSamplesPerBeach: beachIds.length > 0 ? data.length / beachIds.length : 0,
+    minSamplesPerBeach: minSamples,
+    minSamplesBeachId: minBeachId,
+    buckets
+  };
+}
+
 /**
  * Deploy model to Fly.io
  *
  * Implementation:
  * 1. Upload model artifact to Supabase Storage (accessible by ML service)
+ *    - Prefers inline model_data (base64) to avoid ephemeral storage 404 issues
+ *    - Falls back to modelUrl fetch for backwards compatibility
  * 2. Get list of machines for the Fly.io app
  * 3. Update MODEL_VERSION and MODEL_PATH env vars on all machines
  * 4. Restart machines to load new model
@@ -441,7 +549,8 @@ async function handleRetrain(request: Request) {
  */
 async function deployToFly(
   modelVersion: string,
-  modelUrl: string
+  modelUrl: string,
+  modelDataB64?: string  // Base64 encoded model data (preferred over URL)
 ): Promise<{ success: boolean; error?: string }> {
   const FLY_API_TOKEN = process.env.FLY_API_TOKEN;
   const FLY_APP_NAME = process.env.FLY_APP_NAME || 'quiver-ml';
@@ -461,33 +570,37 @@ async function deployToFly(
     };
   }
 
-  if (!modelUrl) {
-    console.error('[deployToFly] No model URL provided');
+  // Validate we have either inline model data or a URL
+  if (!modelDataB64 && !modelUrl) {
+    console.error('[deployToFly] No model data or URL provided');
     return {
       success: false,
-      error: 'Model URL is required for deployment',
+      error: 'Either model_data or model_url is required for deployment',
     };
   }
 
-  // Security: Validate model URL is from trusted ML service
-  // Prevents SSRF attacks if ML service is compromised
-  const ALLOWED_MODEL_URL_PREFIXES = [
-    'https://quiver-ml.fly.dev/',
-    'http://localhost:8080/', // Local development
-    process.env.ML_SERVICE_URL ? `${process.env.ML_SERVICE_URL}/` : null,
-  ].filter(Boolean) as string[];
+  // If using URL (fallback), validate it's from trusted source
+  if (!modelDataB64 && modelUrl) {
+    // Security: Validate model URL is from trusted ML service
+    // Prevents SSRF attacks if ML service is compromised
+    const ALLOWED_MODEL_URL_PREFIXES = [
+      'https://quiver-ml.fly.dev/',
+      'http://localhost:8080/', // Local development
+      process.env.ML_SERVICE_URL ? `${process.env.ML_SERVICE_URL}/` : null,
+    ].filter(Boolean) as string[];
 
-  const isAllowedUrl = ALLOWED_MODEL_URL_PREFIXES.some(prefix =>
-    modelUrl.startsWith(prefix)
-  );
+    const isAllowedUrl = ALLOWED_MODEL_URL_PREFIXES.some(prefix =>
+      modelUrl.startsWith(prefix)
+    );
 
-  if (!isAllowedUrl) {
-    console.error(`[deployToFly] Model URL not from trusted source: ${modelUrl}`);
-    console.error(`[deployToFly] Allowed prefixes: ${ALLOWED_MODEL_URL_PREFIXES.join(', ')}`);
-    return {
-      success: false,
-      error: `Model URL must be from trusted ML service. Got: ${modelUrl}`,
-    };
+    if (!isAllowedUrl) {
+      console.error(`[deployToFly] Model URL not from trusted source: ${modelUrl}`);
+      console.error(`[deployToFly] Allowed prefixes: ${ALLOWED_MODEL_URL_PREFIXES.join(', ')}`);
+      return {
+        success: false,
+        error: `Model URL must be from trusted ML service. Got: ${modelUrl}`,
+      };
+    }
   }
 
   const deploymentStartTime = Date.now();
@@ -503,16 +616,34 @@ async function deployToFly(
     // Use the standard service role client which has proper auth configuration
     const supabase = createServiceRoleClient();
 
-    // Download model from training output
-    const modelResponse = await fetch(modelUrl, {
-      signal: AbortSignal.timeout(30000), // 30 second timeout for download
-    });
+    // Get model data - prefer inline base64 data over URL fetch
+    // This avoids 404 errors from Fly.io ephemeral storage
+    let modelData: ArrayBuffer;
 
-    if (!modelResponse.ok) {
-      throw new Error(`Failed to download model: ${modelResponse.status} ${modelResponse.statusText}`);
+    if (modelDataB64) {
+      // Decode base64 model data returned directly from training
+      console.log('[deployToFly] Using inline model data from training response');
+      const binaryString = atob(modelDataB64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      modelData = bytes.buffer;
+      console.log(`[deployToFly] Decoded model size: ${modelData.byteLength} bytes`);
+    } else {
+      // Fallback: Download model from URL (backwards compatibility)
+      console.log(`[deployToFly] Fetching model from URL: ${modelUrl}`);
+      const modelResponse = await fetch(modelUrl, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout for download
+      });
+
+      if (!modelResponse.ok) {
+        throw new Error(`Failed to download model: ${modelResponse.status} ${modelResponse.statusText}`);
+      }
+
+      modelData = await modelResponse.arrayBuffer();
+      console.log(`[deployToFly] Downloaded model size: ${modelData.byteLength} bytes`);
     }
-
-    const modelData = await modelResponse.arrayBuffer();
     const modelFileName = `${modelVersion}.json`;
     const storagePath = `ml-models/${modelFileName}`;
 
@@ -637,30 +768,10 @@ async function deployToFly(
         };
       }
 
-      console.log(`[deployToFly] Machine ${machineId} configuration updated`);
+      console.log(`[deployToFly] Machine ${machineId} configuration updated (auto-restarts)`);
 
-      // Restart machine to load new model
-      const restartUrl = `https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines/${machineId}/restart`;
-      const restartResponse = await fetch(restartUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${FLY_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ timeout: 30 }),
-        signal: AbortSignal.timeout(35000),
-      });
-
-      if (!restartResponse.ok) {
-        const errorText = await restartResponse.text();
-        console.error(`[deployToFly] Failed to restart machine ${machineId}:`, errorText);
-        return {
-          success: false,
-          error: `Failed to restart machine ${machineId}: ${restartResponse.status} - ${errorText}`,
-        };
-      }
-
-      console.log(`[deployToFly] Machine ${machineId} restarted successfully`);
+      // Note: Fly.io Machines API automatically restarts the machine when config is updated
+      // No explicit restart call needed - it would fail with 412 "not currently started or stopped"
     }
 
     // =======================================================================
