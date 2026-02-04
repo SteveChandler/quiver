@@ -25,10 +25,19 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
+import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const CONTEXT_TAG = "[welcome-email]";
+const EMAIL_TYPE = "welcome" as const;
 
 // ============================================================================
 // Type Definitions
@@ -67,9 +76,9 @@ export async function GET(request: Request) {
       return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
     }
 
-    console.log("[welcome-email] Starting welcome email cron run");
+    console.log(`${CONTEXT_TAG} Starting welcome email cron run`);
 
-    const supabase = createSupabaseServiceRoleClient();
+    const supabase = await createSupabaseServiceRoleClient();
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app").trim();
     const secret = getEmailTokenSecret();
 
@@ -96,25 +105,25 @@ export async function GET(request: Request) {
 
     if (!candidates || candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
-      console.log("[welcome-email] No candidates found");
+      console.log(`${CONTEXT_TAG} No candidates found`);
       return createSuccessResponse({ summary });
     }
 
     summary.candidates = candidates.length;
-    console.log(`[welcome-email] Found ${candidates.length} candidates`);
+    console.log(`${CONTEXT_TAG} Found ${candidates.length} candidates`);
+
+    // Initialize shared utilities
+    const rateLimiter = createResendRateLimiter();
+    const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 2. Process each candidate
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD for local_date
 
-    for (let i = 0; i < (candidates as WelcomeCandidate[]).length; i++) {
-      const candidate = (candidates as WelcomeCandidate[])[i];
-
-      // Respect Resend rate limit (2 req/s) — pause 600ms between sends
-      if (i > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-      }
-
+    for (const candidate of candidates as WelcomeCandidate[]) {
       try {
+        // Rate limit before sending
+        await rateLimiter.throttle();
+
         // Generate welcome email
         const { subject, html, text } = await generateWelcomeEmail(
           { userId: candidate.user_id, userEmail: candidate.email, baseUrl },
@@ -133,7 +142,7 @@ export async function GET(request: Request) {
 
         if (sendError) {
           console.error(
-            `[welcome-email] Failed to send to ${candidate.email}:`,
+            `${CONTEXT_TAG} Failed to send to ${candidate.email}:`,
             sendError
           );
           summary.skipped.sendFailed++;
@@ -149,7 +158,7 @@ export async function GET(request: Request) {
 
           if (confirmError) {
             console.error(
-              `[welcome-email] Failed to auto-confirm ${candidate.user_id}:`,
+              `${CONTEXT_TAG} Failed to auto-confirm ${candidate.user_id}:`,
               confirmError
             );
             summary.skipped.confirmFailed++;
@@ -159,32 +168,26 @@ export async function GET(request: Request) {
           }
         }
 
-        // Insert into email_send_log for dedup
-        const { error: logError } = await supabase
-          .from("email_send_log")
-          .insert({
-            user_id: candidate.user_id,
-            email_type: "welcome",
-            local_date: today,
-            subject,
-            meta: { case_type: candidate.case_type },
-          });
+        // Log delivery using shared service
+        const logResult = await emailLogger.logDelivery({
+          userId: candidate.user_id,
+          emailType: EMAIL_TYPE,
+          subject,
+          localDate: today,
+          meta: { case_type: candidate.case_type },
+        });
 
-        if (logError) {
-          console.error(
-            `[welcome-email] Failed to log send for ${candidate.user_id}:`,
-            logError
-          );
+        if (!logResult.success) {
           summary.skipped.logFailed++;
         }
 
         summary.sent++;
         console.log(
-          `[welcome-email] Sent to ${candidate.email} (${candidate.case_type})`
+          `${CONTEXT_TAG} Sent to ${candidate.email} (${candidate.case_type})`
         );
       } catch (userError) {
         console.error(
-          `[welcome-email] Error processing ${candidate.user_id}:`,
+          `${CONTEXT_TAG} Error processing ${candidate.user_id}:`,
           userError
         );
         summary.skipped.sendFailed++;
@@ -193,7 +196,7 @@ export async function GET(request: Request) {
 
     summary.durationMs = Date.now() - startTime;
     console.log(
-      `[welcome-email] Completed: ${summary.sent} sent, ${summary.autoConfirmed} auto-confirmed, ${summary.durationMs}ms`
+      `${CONTEXT_TAG} Completed: ${summary.sent} sent, ${summary.autoConfirmed} auto-confirmed, ${summary.durationMs}ms`
     );
 
     return createSuccessResponse({ summary });

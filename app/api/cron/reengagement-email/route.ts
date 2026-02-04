@@ -32,6 +32,8 @@ import {
   getConditionLabelText,
 } from "@/lib/email/email-formatters";
 import type { IntelPost, ReengagementCandidate } from "@/lib/email/email-types";
+import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -42,6 +44,7 @@ export const maxDuration = 300; // 5 minutes for processing all users
 // Constants
 // ============================================================================
 
+const CONTEXT_TAG = "[reengagement-email]";
 const INACTIVE_DAYS = 7; // User hasn't surfed in 7 days
 const MIN_SCORE = 7; // Minimum conditions_score (0-10 scale) to trigger email
 const DEDUPE_HOURS = 72; // 3 days between re-engagement emails
@@ -61,6 +64,13 @@ interface RunSummary {
     claimFailed: number;
     sendFailed: number;
   };
+}
+
+type ProcessingStatus = "success" | "claim_failed" | "send_failed";
+
+interface ProcessingResult {
+  status: ProcessingStatus;
+  error?: unknown;
 }
 
 // ============================================================================
@@ -88,7 +98,7 @@ async function claimDeliverySlot(
 
   if (error) {
     console.error(
-      `[reengagement-email] Error claiming slot for user ${userId}:`,
+      `${CONTEXT_TAG} Error claiming slot for user ${userId}:`,
       error
     );
     // Fail closed for re-engagement: don't send on error to avoid spam
@@ -126,6 +136,96 @@ async function fetchRecentIntel(
   }));
 }
 
+/**
+ * Process a single reengagement candidate: claim slot, fetch data, send email, log delivery.
+ */
+async function processCandidate(
+  candidate: ReengagementCandidate,
+  supabase: SupabaseClient,
+  baseUrl: string,
+  rateLimiter: ReturnType<typeof createResendRateLimiter>,
+  emailLogger: ReturnType<typeof createEmailLogger>
+): Promise<ProcessingResult> {
+  // 1. Atomically claim the delivery slot
+  const claimed = await claimDeliverySlot(
+    supabase,
+    candidate.user_id,
+    candidate.home_beach_id
+  );
+
+  if (!claimed) {
+    return { status: "claim_failed" };
+  }
+
+  // 2. Fetch recent intel for social proof
+  const recentIntel = await fetchRecentIntel(supabase, candidate.home_beach_id);
+
+  // 3. Format best window
+  const bestWindow =
+    candidate.best_window_start && candidate.best_window_end
+      ? {
+          start: formatDatabaseTime(candidate.best_window_start) || "",
+          end: formatDatabaseTime(candidate.best_window_end) || "",
+        }
+      : null;
+
+  // 4. Prepare email content
+  const ctaUrl = `${baseUrl}/beaches/${candidate.beach_slug}`;
+  const unsubscribeUrl = `${baseUrl}/settings`;
+  const conditionLabel = getConditionLabelText(candidate.conditions_score);
+  const emailSubject = `${conditionLabel} conditions at ${candidate.beach_name} today!`;
+
+  // 5. Rate limit and send email
+  await rateLimiter.throttle();
+
+  const { error: sendError } = await resend.emails.send({
+    from: MAIL_FROM,
+    replyTo: MAIL_REPLY_TO,
+    to: candidate.email,
+    subject: emailSubject,
+    react: ReengagementEmail({
+      displayName: candidate.display_name,
+      beachName: candidate.beach_name,
+      beachSlug: candidate.beach_slug,
+      conditionsScore: candidate.conditions_score,
+      surfDescription: candidate.surf_description,
+      windDescription: candidate.wind_description,
+      bestWindow,
+      recentIntel,
+      ctaUrl,
+      unsubscribeUrl,
+      baseUrl,
+    }),
+  });
+
+  if (sendError) {
+    console.error(
+      `${CONTEXT_TAG} Failed to send to ${candidate.email}:`,
+      sendError
+    );
+    return { status: "send_failed", error: sendError };
+  }
+
+  // 6. Log to email_send_log for tracking
+  await emailLogger.logDelivery({
+    userId: candidate.user_id,
+    emailType: "reengagement",
+    subject: emailSubject,
+    bestScore: candidate.conditions_score,
+    bestBeachId: candidate.home_beach_id,
+    meta: {
+      beach_name: candidate.beach_name,
+      beach_slug: candidate.beach_slug,
+    },
+  });
+
+  console.log(
+    `${CONTEXT_TAG} Sent to ${candidate.email} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
+  );
+
+  return { status: "success" };
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -143,9 +243,7 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log(
-      "[reengagement-email] Starting re-engagement email run"
-    );
+    console.log(`${CONTEXT_TAG} Starting re-engagement email run`);
 
     const supabase = await createSupabaseServiceRoleClient();
 
@@ -177,9 +275,7 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log(
-      `[reengagement-email] Found ${candidates?.length ?? 0} candidates`
-    );
+    console.log(`${CONTEXT_TAG} Found ${candidates?.length ?? 0} candidates`);
 
     if (!candidates || candidates.length === 0) {
       summary.durationMs = Date.now() - startTime;
@@ -189,81 +285,35 @@ export async function GET(request: Request) {
     summary.candidates = candidates.length;
     const baseUrl = getBaseUrl();
 
+    // Initialize shared utilities
+    const rateLimiter = createResendRateLimiter();
+    const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
+
     // 3. Process each candidate
     for (const candidate of candidates as ReengagementCandidate[]) {
       try {
-        // Atomically claim the delivery slot
-        const claimed = await claimDeliverySlot(
+        const result = await processCandidate(
+          candidate,
           supabase,
-          candidate.user_id,
-          candidate.home_beach_id
+          baseUrl,
+          rateLimiter,
+          emailLogger
         );
 
-        if (!claimed) {
-          summary.skipped.claimFailed++;
-          continue;
-        }
-
-        // Fetch recent intel for social proof
-        const recentIntel = await fetchRecentIntel(
-          supabase,
-          candidate.home_beach_id
-        );
-
-        // Format best window
-        const bestWindow =
-          candidate.best_window_start && candidate.best_window_end
-            ? {
-                start: formatDatabaseTime(candidate.best_window_start) || "",
-                end: formatDatabaseTime(candidate.best_window_end) || "",
-              }
-            : null;
-
-        const ctaUrl = `${baseUrl}/beaches/${candidate.beach_slug}`;
-        const unsubscribeUrl = `${baseUrl}/settings`;
-        const conditionLabel = getConditionLabelText(candidate.conditions_score);
-        const emailSubject = `${conditionLabel} conditions at ${candidate.beach_name} today!`;
-
-        try {
-          // Respect Resend rate limit (2 req/s)
-          if (summary.sent > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 600));
-          }
-
-          await resend.emails.send({
-            from: MAIL_FROM,
-            replyTo: MAIL_REPLY_TO,
-            to: candidate.email,
-            subject: emailSubject,
-            react: ReengagementEmail({
-              displayName: candidate.display_name,
-              beachName: candidate.beach_name,
-              beachSlug: candidate.beach_slug,
-              conditionsScore: candidate.conditions_score,
-              surfDescription: candidate.surf_description,
-              windDescription: candidate.wind_description,
-              bestWindow,
-              recentIntel,
-              ctaUrl,
-              unsubscribeUrl,
-              baseUrl,
-            }),
-          });
-
-          console.log(
-            `[reengagement-email] Sent to ${candidate.email} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
-          );
-          summary.sent++;
-        } catch (sendError) {
-          console.error(
-            `[reengagement-email] Failed to send to ${candidate.email}:`,
-            sendError
-          );
-          summary.skipped.sendFailed++;
+        switch (result.status) {
+          case "success":
+            summary.sent++;
+            break;
+          case "claim_failed":
+            summary.skipped.claimFailed++;
+            break;
+          case "send_failed":
+            summary.skipped.sendFailed++;
+            break;
         }
       } catch (candidateError) {
         console.error(
-          `[reengagement-email] Error processing candidate ${candidate.user_id}:`,
+          `${CONTEXT_TAG} Error processing candidate ${candidate.user_id}:`,
           candidateError
         );
         summary.skipped.sendFailed++;
@@ -273,7 +323,7 @@ export async function GET(request: Request) {
     summary.durationMs = Date.now() - startTime;
 
     console.log(
-      `[reengagement-email] Completed: ${summary.sent} emails sent, ${summary.candidates} candidates, ${summary.durationMs}ms`
+      `${CONTEXT_TAG} Completed: ${summary.sent} emails sent, ${summary.candidates} candidates, ${summary.durationMs}ms`
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
 
