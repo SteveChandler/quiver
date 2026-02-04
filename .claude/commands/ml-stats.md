@@ -134,10 +134,23 @@ If any section returns an error, display: `⚠️ {section}: {error message}`
 
 After the dashboard, flag any of these conditions:
 
+### Pipeline Health Anomalies
 - **match_rate_24h < 15** — "Low match rate — check session ingestion"
 - **improvement_pct_24h < 5** — "Correction model underperforming"
 - **pending_gt_24h > 0** — "Stale pending predictions — check cron job"
 - **oldest_pending_age_hours > 48** — "Very old pending predictions"
+
+### Model Registry Anomalies
+- **Latest model status is 'failed'** — "Most recent training failed — check logs"
+- **Latest model status is 'training' for >30 min** — "Training may be stuck"
+- **No 'deployed' model in last 7 days** — "No recent deployments — pipeline may be broken"
+- **Multiple consecutive 'failed' entries** — "Repeated training failures — investigate"
+
+### Deployment Health Anomalies
+- **healthEndpoint is null or error** — "ML service unreachable"
+- **healthEndpoint.model_version != latest deployed registry version** — "Version mismatch — deployment may have failed"
+- **Any machine state != 'started'** — "Machine not running — check Fly.io dashboard"
+- **machines array is empty** — "No machines found — app may be deleted or paused"
 
 Display flags as a bulleted warnings list. If no anomalies, print "No anomalies detected."
 
@@ -154,3 +167,11 @@ If you get errors:
 3. **RPC function errors**
    - The `get_ml_health_metrics()` and `get_ml_weekly_metrics()` functions may not exist yet
    - The 24h metrics will still work via direct table query
+
+4. **"FLY_API_TOKEN not configured"**
+   - Add `FLY_API_TOKEN` to `.env` to enable Fly.io machine status
+   - The health endpoint check will still work without this token
+
+5. **Machines API errors**
+   - Verify the token has read access to the `quiver-ml` app
+   - Check if the app name is correct (default: `quiver-ml`)
