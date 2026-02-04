@@ -12,7 +12,8 @@ The script:
 - Loads credentials from `.env.production.local` (not `.env` which points to local dev)
 - Uses service role key to bypass RLS
 - Calls RPC functions for pipeline health and weekly metrics
-- Computes 24h metrics from ml_predictions_log
+- Queries model registry for recent deployments
+- Queries Fly.io for deployment health (requires `FLY_API_TOKEN` in .env)
 - Outputs JSON to stdout
 
 ## Parsing the Output
@@ -54,7 +55,32 @@ The script outputs JSON in this format:
     "maeRaw": N.NNN,
     "maeCorrected": N.NNN,
     "improvementPct": N.N
-  } | null
+  } | null,
+  "modelRegistry": [{
+    "version": "v3.YYYYMMDD.HHMM",
+    "status": "deployed|validated|failed|training",
+    "holdout_improvement_pct": N.N | null,
+    "created_at": "ISO timestamp",
+    "deployed_at": "ISO timestamp" | null,
+    "training_samples": N | null,
+    "notes": "string" | null
+  }, ...] | null,
+  "modelRegistryError": "message" | null,
+  "deploymentHealth": {
+    "healthEndpoint": {
+      "status": "healthy",
+      "model_version": "v3.YYYYMMDD.HHMM",
+      "model_loaded": true
+    } | null,
+    "healthError": "message" | null,
+    "machines": [{
+      "id": "machine_id",
+      "state": "started|stopped|stopping",
+      "memoryMb": 2048,
+      "updatedAt": "ISO timestamp"
+    }, ...] | null,
+    "machinesError": "message" | null
+  }
 }
 ```
 
@@ -88,6 +114,18 @@ Present results as a markdown dashboard:
 | Model | Predictions | Ground Truth | Raw MAE | Corrected MAE | Improvement |
 |-------|-------------|--------------|---------|---------------|-------------|
 | {model_version} | {predictions} | {with_ground_truth} | {avg_raw_error_m}m | {avg_corrected_error_m}m | {pct_improved}% |
+
+### Recent Model Registry (from modelRegistry)
+| Version | Status | Improvement | Samples | Created | Deployed |
+|---------|--------|-------------|---------|---------|----------|
+| {version} | {status} | {holdout_improvement_pct}% | {training_samples} | {relative_time(created_at)} | {relative_time(deployed_at)} |
+
+### Fly.io Deployment Health (from deploymentHealth)
+**Health Endpoint:** {healthEndpoint.status} - Model: {healthEndpoint.model_version}
+
+| Machine | State | Memory | Last Updated |
+|---------|-------|--------|--------------|
+| {id} | {state} | {memoryMb}MB | {relative_time(updatedAt)} |
 ```
 
 If any section returns an error, display: `⚠️ {section}: {error message}`

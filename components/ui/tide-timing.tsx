@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { Clock, ArrowUp, ArrowDown, Timer } from "lucide-react";
@@ -152,6 +153,13 @@ export function TideSchedule({
   className,
   beachTimezone,
 }: TideScheduleProps) {
+  // Use state for client-side date to avoid hydration mismatches
+  const [today, setToday] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setToday(new Date());
+  }, []);
+
   if (!tides || tides.length === 0) {
     return null;
   }
@@ -176,24 +184,35 @@ export function TideSchedule({
     });
   };
 
-  // Only calculate on client side to avoid hydration mismatches
-  const today = typeof window !== "undefined" ? new Date() : new Date(0);
+  // Show loading state until client-side date is available
+  if (!today) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <div className="flex items-center gap-2 mb-3">
+          <Clock className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-medium">Today&apos;s Tides</span>
+        </div>
+        <div className="space-y-2">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-200 animate-pulse"
+            >
+              <div className="h-4 w-20 bg-gray-200 rounded" />
+              <div className="h-4 w-16 bg-gray-200 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const todaysTides = tides.filter((tide) => {
     const tideDate = new Date(tide.time * 1000);
     return tideDate.toDateString() === today.toDateString();
   });
 
-  const isToday = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return date.toDateString() === today.toDateString();
-  };
-
   const getTimeUntil = (timestamp: number) => {
-    // Only calculate on client side to avoid hydration mismatches
-    if (typeof window === "undefined") {
-      return "Loading...";
-    }
-
     const now = Date.now();
     const tideTime = timestamp * 1000;
     const diff = tideTime - now;

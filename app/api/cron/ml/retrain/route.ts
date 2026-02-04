@@ -540,12 +540,16 @@ function computeTrainingStats(data: any[], beachIds: string[]): TrainingStats {
  * 1. Upload model artifact to Supabase Storage (accessible by ML service)
  *    - Prefers inline model_data (base64) to avoid ephemeral storage 404 issues
  *    - Falls back to modelUrl fetch for backwards compatibility
- * 2. Get list of machines for the Fly.io app
- * 3. Update MODEL_VERSION and MODEL_PATH env vars on all machines
- * 4. Restart machines to load new model
- * 5. Poll health endpoint until new model version is confirmed
+ * 2. Use Fly.io GraphQL API to set secrets (MODEL_VERSION, MODEL_PATH)
+ *    - Secrets override env vars baked into Docker images
+ *    - Setting secrets triggers automatic rolling redeployment
+ * 3. Poll health endpoint until new model version is confirmed
  *
- * Timeout: 2 minutes for entire deployment process
+ * NOTE: Previous approach used Fly Machines API to update env vars, but these
+ * don't reliably propagate due to Docker image layer caching. Secrets always
+ * override other env var sources and trigger proper redeployment.
+ *
+ * Timeout: 2.5 minutes for entire deployment process (secrets trigger redeploy)
  */
 async function deployToFly(
   modelVersion: string,
@@ -557,9 +561,9 @@ async function deployToFly(
   const HEALTH_URL = process.env.ML_SERVICE_URL
     ? `${process.env.ML_SERVICE_URL}/health`
     : 'https://quiver-ml.fly.dev/health';
-  const DEPLOYMENT_TIMEOUT = 120000; // 2 minutes
-  const HEALTH_CHECK_INTERVAL = 3000; // 3 seconds
-  const HEALTH_CHECK_TIMEOUT = 60000; // 1 minute for health checks
+  const DEPLOYMENT_TIMEOUT = 150000; // 2.5 minutes (secrets trigger rolling redeploy)
+  const HEALTH_CHECK_INTERVAL = 5000; // 5 seconds (machines need time to restart)
+  const HEALTH_CHECK_TIMEOUT = 90000; // 1.5 minutes for health checks (rolling deploy takes time)
 
   // Validate required environment variables
   if (!FLY_API_TOKEN) {
@@ -673,119 +677,89 @@ async function deployToFly(
     console.log(`[deployToFly] Model uploaded to: ${publicModelUrl}`);
 
     // =======================================================================
-    // STEP 2: Get Fly.io Machines
+    // STEP 2: Set Fly.io Secrets via GraphQL API
     // =======================================================================
-    console.log('[deployToFly] Step 2: Fetching Fly.io machines...');
+    // Using secrets instead of machine env vars because:
+    // - Secrets always override env vars baked into Docker images
+    // - Setting secrets triggers automatic rolling redeployment
+    // - Previous approach with Machines API env vars didn't reliably propagate
+    console.log('[deployToFly] Step 2: Setting Fly.io secrets via GraphQL...');
 
-    const machinesUrl = `https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines`;
-    const machinesResponse = await fetch(machinesUrl, {
-      method: 'GET',
+    const FLY_GRAPHQL_URL = 'https://api.fly.io/graphql';
+
+    // GraphQL mutation to set secrets
+    // This triggers an automatic rolling deployment of all machines
+    const setSecretsMutation = `
+      mutation SetSecrets($appId: ID!, $secrets: [SecretInput!]!) {
+        setSecrets(input: {appId: $appId, secrets: $secrets}) {
+          app {
+            name
+          }
+        }
+      }
+    `;
+
+    const secretsPayload = {
+      query: setSecretsMutation,
+      variables: {
+        appId: FLY_APP_NAME,
+        secrets: [
+          { key: 'MODEL_VERSION', value: modelVersion },
+          { key: 'MODEL_PATH', value: publicModelUrl },
+        ],
+      },
+    };
+
+    console.log(`[deployToFly] Setting secrets: MODEL_VERSION=${modelVersion}, MODEL_PATH=${publicModelUrl}`);
+
+    const secretsResponse = await fetch(FLY_GRAPHQL_URL, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${FLY_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify(secretsPayload),
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
-    if (!machinesResponse.ok) {
-      const errorText = await machinesResponse.text();
-      console.error('[deployToFly] Failed to fetch machines:', errorText);
+    if (!secretsResponse.ok) {
+      const errorText = await secretsResponse.text();
+      console.error('[deployToFly] GraphQL request failed:', errorText);
       return {
         success: false,
-        error: `Failed to fetch Fly.io machines: ${machinesResponse.status} - ${errorText}`,
+        error: `Failed to set Fly.io secrets: ${secretsResponse.status} - ${errorText}`,
       };
     }
 
-    const machines = await machinesResponse.json();
+    const secretsResult = await secretsResponse.json();
 
-    if (!Array.isArray(machines) || machines.length === 0) {
-      console.error('[deployToFly] No machines found for app');
+    // Check for GraphQL errors
+    if (secretsResult.errors && secretsResult.errors.length > 0) {
+      const errorMessages = secretsResult.errors.map((e: any) => e.message).join('; ');
+      console.error('[deployToFly] GraphQL errors:', secretsResult.errors);
       return {
         success: false,
-        error: `No machines found for app ${FLY_APP_NAME}`,
+        error: `GraphQL errors setting secrets: ${errorMessages}`,
       };
     }
 
-    console.log(`[deployToFly] Found ${machines.length} machine(s)`);
+    console.log('[deployToFly] Secrets set successfully, rolling deployment triggered');
+    console.log('[deployToFly] GraphQL response:', JSON.stringify(secretsResult.data));
 
     // =======================================================================
-    // STEP 3: Update Environment Variables and Restart Machines
+    // STEP 3: Wait for Rolling Deployment
     // =======================================================================
-    console.log('[deployToFly] Step 3: Updating machines with new model...');
+    console.log('[deployToFly] Step 3: Waiting for rolling deployment to complete...');
 
-    for (const machine of machines) {
-      const machineId = machine.id;
-      console.log(`[deployToFly] Updating machine ${machineId}...`);
-
-      // Get current machine configuration
-      const machineUrl = `https://api.machines.dev/v1/apps/${FLY_APP_NAME}/machines/${machineId}`;
-      const machineResponse = await fetch(machineUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${FLY_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (!machineResponse.ok) {
-        const errorText = await machineResponse.text();
-        console.error(`[deployToFly] Failed to fetch machine ${machineId}:`, errorText);
-        continue;
-      }
-
-      const machineConfig = await machineResponse.json();
-
-      // Update environment variables with new model info
-      const updatedEnv = {
-        ...(machineConfig.config?.env || {}),
-        MODEL_VERSION: modelVersion,
-        MODEL_PATH: publicModelUrl,
-      };
-
-      // Update machine configuration
-      const updateResponse = await fetch(machineUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${FLY_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          config: {
-            ...machineConfig.config,
-            env: updatedEnv,
-          },
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        console.error(`[deployToFly] Failed to update machine ${machineId}:`, errorText);
-        return {
-          success: false,
-          error: `Failed to update machine ${machineId}: ${updateResponse.status} - ${errorText}`,
-        };
-      }
-
-      console.log(`[deployToFly] Machine ${machineId} configuration updated (auto-restarts)`);
-
-      // Note: Fly.io Machines API automatically restarts the machine when config is updated
-      // No explicit restart call needed - it would fail with 412 "not currently started or stopped"
-    }
+    // Setting secrets triggers automatic rolling redeployment
+    // Give machines time to restart before polling health endpoint
+    // Typical restart time is 20-40 seconds for rolling deploy
+    await new Promise(resolve => setTimeout(resolve, 15000));
 
     // =======================================================================
-    // STEP 4: Wait for Machines to Start
+    // STEP 4: Poll Health Endpoint for New Model Version
     // =======================================================================
-    console.log('[deployToFly] Step 4: Waiting for machines to start...');
-
-    // Give machines a moment to start up before health checks
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // =======================================================================
-    // STEP 5: Poll Health Endpoint for New Model Version
-    // =======================================================================
-    console.log('[deployToFly] Step 5: Polling health endpoint...');
+    console.log('[deployToFly] Step 4: Polling health endpoint...');
 
     const healthCheckStartTime = Date.now();
     let healthCheckSuccess = false;

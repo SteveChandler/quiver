@@ -99,9 +99,11 @@ export async function registerWebPushNotifications(): Promise<void> {
       serviceWorkerRegistration: await navigator.serviceWorker.ready,
     });
 
-    if (!token) {
+    if (!token || token.trim().length === 0) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("Push notifications: Failed to get FCM token");
+        console.warn(
+          "Push notifications: Token is empty or invalid, skipping registration"
+        );
       }
       return;
     }

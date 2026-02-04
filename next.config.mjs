@@ -73,10 +73,20 @@ const getSupabaseHostname = () => {
 
 const supabaseHostname = getSupabaseHostname();
 
-const isProd = process.env.NODE_ENV === "production";
+// Determine if we're in production mode for PWA and caching purposes.
+// On Vercel, NODE_ENV is always "production" for both preview and production deployments,
+// so we use VERCEL_ENV to distinguish between them.
+const isProd =
+  process.env.VERCEL_ENV === "production" ||
+  (process.env.NODE_ENV === "production" && !process.env.VERCEL_ENV);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Expose VERCEL_ENV to client-side code for PWA/preview detection
+  env: {
+    NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV,
+  },
+
   typescript: {
     ignoreBuildErrors: true,
   },
