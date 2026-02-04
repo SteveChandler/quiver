@@ -94,6 +94,7 @@ const RecentSessionsSection = dynamic(
   { ssr: false }
 );
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
+import { REVIEW_TRACKING_SOURCES, type ReviewTrackingSource } from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { FullPageLoader } from "@/components/ui/loading-states";
@@ -188,6 +189,7 @@ function BeachDetailContent({
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewDialogSource, setReviewDialogSource] = useState<ReviewTrackingSource>(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA);
   const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -279,7 +281,8 @@ function BeachDetailContent({
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
 
   // Review handlers
-  const handleWriteReview = useCallback(() => {
+  const handleWriteReview = useCallback((source: ReviewTrackingSource = REVIEW_TRACKING_SOURCES.OVERVIEW_CTA) => {
+    setReviewDialogSource(source);
     setReviewDialogOpen(true);
   }, []);
 
@@ -628,7 +631,7 @@ function BeachDetailContent({
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab beach={beach as any} />
+              <OverviewTab beach={beach as any} onWriteReview={handleWriteReview} />
             </Suspense>
           </BeachTabContent>
 
@@ -660,7 +663,7 @@ function BeachDetailContent({
               <Suspense fallback={<TabLoadingSkeleton />}>
                 <ReviewsTab
                   beach={beach}
-                  onWriteReview={handleWriteReview}
+                  onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)}
                   reviewRefreshTrigger={reviewRefreshTrigger}
                 />
               </Suspense>
@@ -721,6 +724,7 @@ function BeachDetailContent({
             onSuccess={handleReviewSuccess}
             onCancel={() => setReviewDialogOpen(false)}
             isInDialog={true}
+            trackingSource={reviewDialogSource}
           />
         </DialogContent>
       </Dialog>

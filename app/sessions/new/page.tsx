@@ -33,6 +33,9 @@ import { ShareSheet } from "@/components/share";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 import { Button } from "@/components/ui/button";
 import { Share2 } from "lucide-react";
+import { ReviewPromptDialog } from "@/components/dialogs/review-prompt-dialog";
+import { useReviewPrompt } from "@/hooks/use-review-prompt";
+import { REVIEW_TIMEOUTS } from "@/lib/constants/review-tracking";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
@@ -75,6 +78,13 @@ function NewSessionPageContent({
   const [feedbackResolved, setFeedbackResolved] = useState(false);
   const feedbackResolvedRef = useRef(false);
 
+  // Post-session review prompt flow (using custom hook)
+  const reviewPrompt = useReviewPrompt({
+    autoDismissTimeout: REVIEW_TIMEOUTS.PROMPT_AUTO_DISMISS,
+    onReviewSubmit: () => startCelebrationAndRedirect("log"),
+    onDismiss: () => startCelebrationAndRedirect("log"),
+  });
+
   useEffect(() => {
     feedbackResolvedRef.current = feedbackResolved;
   }, [feedbackResolved]);
@@ -108,7 +118,7 @@ function NewSessionPageContent({
     // Redirect to profile after extended celebration (5 seconds for better visibility)
     setTimeout(() => {
       router.push("/profile");
-    }, 5000);
+    }, REVIEW_TIMEOUTS.CELEBRATION_DURATION);
   };
 
   const tryLoadClosestForecastForFeedback = async (session: any) => {
@@ -162,6 +172,24 @@ function NewSessionPageContent({
     }
   };
 
+  // Show review prompt after feedback (if beach_id exists)
+  const showReviewPromptIfEligible = () => {
+    // Try to get beach info from feedbackSession first, then fallback to savedSessionData
+    const beachId = feedbackSession?.beach_id || savedSessionData?.selectedBeachId;
+    const beachName = feedbackSession?.beach_name || savedSessionData?.selectedBeach;
+
+    if (beachId && beachName) {
+      reviewPrompt.showPrompt({
+        beachId,
+        beachName,
+        sessionId: createdSessionId,
+      });
+    } else {
+      // No beach info available, skip review prompt
+      startCelebrationAndRedirect("log");
+    }
+  };
+
   const handleSkipFeedback = (reason: "skip" | "timeout") => {
     if (feedbackResolvedRef.current) return;
     feedbackResolvedRef.current = true;
@@ -175,7 +203,8 @@ function NewSessionPageContent({
         });
       }
     } catch {}
-    startCelebrationAndRedirect("log");
+    // Instead of celebration, show review prompt
+    showReviewPromptIfEligible();
   };
 
   const handleSubmitFeedback = async (feedback: ForecastFeedback) => {
@@ -252,7 +281,8 @@ function NewSessionPageContent({
       setFeedbackResolved(true);
       setFeedbackOpen(false);
       toast.success("Thanks! Your feedback helps improve forecasts.");
-      startCelebrationAndRedirect("log");
+      // Instead of celebration, show review prompt
+      showReviewPromptIfEligible();
     } catch (error) {
       console.error("Error saving forecast feedback:", error);
       toast.error(
@@ -556,11 +586,24 @@ function NewSessionPageContent({
               );
             }
 
-            startCelebrationAndRedirect("log");
+            // Instead of celebration, show review prompt (if beach_id exists)
+            if (loggedSession.beach_id && sessionData?.selectedBeach) {
+              reviewPrompt.showPrompt({
+                beachId: loggedSession.beach_id,
+                beachName: sessionData.selectedBeach,
+                sessionId: loggedSession.id,
+              });
+            } else {
+              startCelebrationAndRedirect("log");
+            }
             return;
           }
 
-          setFeedbackSession(loggedSession);
+          // Store beach info with the session for the review prompt
+          setFeedbackSession({
+            ...loggedSession,
+            beach_name: sessionData?.selectedBeach || loggedSession.beach_name,
+          });
           const closest = await tryLoadClosestForecastForFeedback(
             loggedSession
           );
@@ -574,7 +617,7 @@ function NewSessionPageContent({
             if (!feedbackResolvedRef.current) {
               handleSkipFeedback("timeout");
             }
-          }, 30000);
+          }, REVIEW_TIMEOUTS.FEEDBACK_AUTO_DISMISS);
           return;
         }
       }
@@ -756,6 +799,14 @@ function NewSessionPageContent({
         </DialogContent>
       </Dialog>
 
+      {/* Post-session review prompt modal */}
+      <ReviewPromptDialog
+        open={reviewPrompt.isOpen}
+        reviewData={reviewPrompt.reviewData}
+        onSuccess={reviewPrompt.handleSuccess}
+        onSkip={() => reviewPrompt.handleSkip("skip")}
+      />
+
       {/* Celebration overlay with enhanced visibility */}
       {showCelebration && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/10">
@@ -788,7 +839,7 @@ function NewSessionPageContent({
             </div>
 
             <p className="text-xs text-gray-500 mt-4">
-              Auto-redirect in 5 seconds
+              Auto-redirect in {REVIEW_TIMEOUTS.CELEBRATION_DURATION / 1000} seconds
             </p>
           </div>
         </div>

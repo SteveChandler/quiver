@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,11 @@ import { useAuth } from "@/context/auth-context";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import type { BeachReviewWithUser } from "@/types/database";
+import type { ReviewFormMetadata } from "@/types/implicit-preferences";
+import type { ReviewTrackingSource } from "@/lib/constants/review-tracking";
+import { REVIEW_TRACKING_SOURCES } from "@/lib/constants/review-tracking";
 
 interface BeachReviewFormProps {
   beachId: string;
@@ -30,7 +34,11 @@ interface BeachReviewFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   isInDialog?: boolean;
+  /** Source for tracking where the review form was opened from */
+  trackingSource?: ReviewTrackingSource;
 }
+
+export { REVIEW_TRACKING_SOURCES };
 
 interface ReviewFormData {
   overall_rating: number;
@@ -50,10 +58,34 @@ export function BeachReviewForm({
   onSuccess,
   onCancel,
   isInDialog = false,
+  trackingSource = REVIEW_TRACKING_SOURCES.REVIEWS_TAB,
 }: BeachReviewFormProps) {
   const { user } = useAuth();
+  const { track } = useTrackEvent();
   const [submitting, setSubmitting] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Track form open time for abandon duration calculation
+  const formOpenTimeRef = useRef<number>(Date.now());
+  // Prevent duplicate open tracking
+  const hasTrackedOpenRef = useRef(false);
+
+  // Track form open on mount (only once)
+  useEffect(() => {
+    if (hasTrackedOpenRef.current || !user) return;
+    hasTrackedOpenRef.current = true;
+    formOpenTimeRef.current = Date.now();
+
+    track('review_form_open', {
+      beachId,
+      metadata: {
+        source: trackingSource,
+        beach_id: beachId,
+        beach_name: beachName,
+        is_edit: Boolean(existingReview),
+      } as ReviewFormMetadata,
+    });
+  }, [user, beachId, beachName, existingReview, trackingSource, track]);
 
   const [formData, setFormData] = useState<ReviewFormData>({
     overall_rating: existingReview?.overall_rating || 0,
@@ -75,6 +107,22 @@ export function BeachReviewForm({
     setFormData((prev) => ({ ...prev, [category]: rating }));
   };
 
+  const handleCancel = () => {
+    // Track form abandon
+    track('review_form_abandon', {
+      beachId,
+      metadata: {
+        source: trackingSource,
+        beach_id: beachId,
+        beach_name: beachName,
+        is_edit: Boolean(existingReview),
+        duration_ms: Date.now() - formOpenTimeRef.current,
+      } as ReviewFormMetadata,
+    });
+
+    onCancel?.();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -87,6 +135,18 @@ export function BeachReviewForm({
       formData.parking_rating === 0 ||
       formData.accessibility_rating === 0
     ) {
+      // Track validation error
+      track('review_validation_error', {
+        beachId,
+        metadata: {
+          source: trackingSource,
+          beach_id: beachId,
+          beach_name: beachName,
+          error_type: 'missing_ratings',
+          is_edit: Boolean(existingReview),
+        } as ReviewFormMetadata,
+      });
+
       toast({
         title: "Missing Ratings",
         description: "Please provide ratings for all categories.",
@@ -96,6 +156,18 @@ export function BeachReviewForm({
     }
 
     if (!formData.title.trim() || !formData.content.trim()) {
+      // Track validation error
+      track('review_validation_error', {
+        beachId,
+        metadata: {
+          source: trackingSource,
+          beach_id: beachId,
+          beach_name: beachName,
+          error_type: 'missing_content',
+          is_edit: Boolean(existingReview),
+        } as ReviewFormMetadata,
+      });
+
       toast({
         title: "Missing Information",
         description: "Please provide both a title and review content.",
@@ -129,6 +201,18 @@ export function BeachReviewForm({
       }
 
       if (result.success) {
+        // Track successful submit
+        track('review_submit', {
+          beachId,
+          metadata: {
+            source: trackingSource,
+            beach_id: beachId,
+            beach_name: beachName,
+            is_edit: Boolean(existingReview),
+            duration_ms: Date.now() - formOpenTimeRef.current,
+          } as ReviewFormMetadata,
+        });
+
         toast({
           title: existingReview ? "Review Updated" : "Review Posted",
           description: `Your review for ${beachName} has been ${
@@ -168,13 +252,15 @@ export function BeachReviewForm({
           {icon}
           <Label className="text-sm font-medium">{label}</Label>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="group" aria-label={`${label} rating`}>
           {[1, 2, 3, 4, 5].map((star) => (
             <button
               key={star}
               type="button"
               onClick={() => handleRatingChange(category, star)}
-              className="p-1 hover:scale-110 transition-transform"
+              className="p-1 hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-ocean-blue focus:ring-offset-1 rounded"
+              aria-label={`Rate ${label} ${star} out of 5 stars${star <= rating ? ' (selected)' : ''}`}
+              aria-pressed={star <= rating}
             >
               <Star
                 className={`h-6 w-6 ${
@@ -182,6 +268,7 @@ export function BeachReviewForm({
                     ? "text-yellow-500 fill-yellow-500"
                     : "text-gray-300 hover:text-yellow-300"
                 }`}
+                aria-hidden="true"
               />
             </button>
           ))}
@@ -330,7 +417,7 @@ export function BeachReviewForm({
           <Button
             type="button"
             variant="outline"
-            onClick={onCancel}
+            onClick={handleCancel}
             disabled={submitting}
           >
             Cancel

@@ -109,6 +109,11 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'profile_update',
   'onboarding_step',
   'cta_click',
+  // Review tracking events
+  'review_form_open',
+  'review_form_abandon',
+  'review_validation_error',
+  'review_submit',
 ];
 
 /**
