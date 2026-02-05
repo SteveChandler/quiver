@@ -214,31 +214,13 @@ The terrain analysis system encodes beach-specific wind shelter and swell wrap b
 
 ---
 
-### Segmented Sitemap Architecture
+### Sitemap
 
 **Status**: Production
 
-The sitemap system uses Next.js `generateSitemaps()` for efficient crawl management across 5 specialized segments.
+Single flat sitemap at `/sitemap.xml` combining all 6 route groups (static, beaches, locations, intents, guides, forecasts) via `Promise.all()`. Reverted from segmented `generateSitemaps()` pattern due to a Next.js 16 bug ([#77304](https://github.com/vercel/next.js/issues/77304)) where the sitemap index at `/sitemap.xml` returns 404.
 
-**Segments:**
-
-| Segment | Content | Priority |
-|---------|---------|----------|
-| `static` | Home, features, about, privacy | 0.7-1.0 |
-| `beaches` | Beach detail pages + /tides, /water-temp | 0.55-0.6 |
-| `locations` | City and state listing pages | 0.7-0.75 |
-| `intents` | Intent pages (beginner, tide, etc.) | 0.75-0.85 |
-| `guides` | Hub region guides | 0.9 |
-
-**Key Features:**
-- **Smart Filtering**: Skill-based intent pages (beginner, longboard) excluded for cities without matching beaches
-- **Dynamic Generation**: Database-driven at request time
-- **SEO Optimization**: Hierarchical URLs, proper change frequencies
-
-**Documentation:**
-| Document | Description |
-|----------|-------------|
-| [Segmented Sitemap](features/SEGMENTED_SITEMAP.md) | Full implementation guide |
+**Implementation:** `app/sitemap.ts` (single file, ~330 lines)
 
 ---
 

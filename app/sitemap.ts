@@ -24,59 +24,49 @@ const baseUrl = (
 // at request time to fetch beaches, locations, and cities with skill data.
 export const dynamic = "force-dynamic";
 
-// Sitemap segment IDs
-type SitemapSegment = "static" | "beaches" | "locations" | "intents" | "guides" | "forecasts";
-
 /**
- * Generate sitemap index entries.
- * Next.js will create `/sitemap/{id}.xml` for each segment.
+ * Generate a single flat sitemap combining all routes.
  *
- * @see https://nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap#generating-multiple-sitemaps
+ * NOTE: Reverted from segmented sitemap pattern due to Next.js 16 bug where
+ * generateSitemaps() does NOT auto-generate a sitemap index at /sitemap.xml,
+ * causing a 404. This flat approach ensures /sitemap.xml is properly served.
  */
-export async function generateSitemaps(): Promise<{ id: SitemapSegment }[]> {
-  return [
-    { id: "static" },      // Static pages (home, features, about)
-    { id: "beaches" },     // Beach detail pages + beach intent pages (tides, water-temp)
-    { id: "locations" },   // City/state location pages
-    { id: "intents" },     // City and state intent pages (beginner, tide, etc.)
-    { id: "guides" },      // Hub region guides
-    { id: "forecasts" },   // Forecast hub + regional forecast pages
-  ];
-}
-
-/**
- * Generate sitemap for a specific segment.
- *
- * NOTE: Next.js 16 changed the function signature - the `id` parameter is now
- * a Promise that must be awaited before use.
- */
-export default async function sitemap(
-  props: { id: Promise<SitemapSegment> }
-): Promise<MetadataRoute.Sitemap> {
-  const id = await props.id;
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const lastmod = now.toISOString();
 
-  switch (id) {
-    case "static":
-      return getStaticRoutes(lastmod);
-    case "beaches":
-      return await getBeachRoutes(lastmod);
-    case "locations":
-      return await getLocationRoutes(lastmod);
-    case "intents":
-      return await getIntentRoutes(lastmod);
-    case "guides":
-      return getGuideRoutes(lastmod);
-    case "forecasts":
-      return getForecastRoutes(lastmod);
-    default:
-      return [];
-  }
+  // Sitemap protocol limit: 50,000 URLs / 50 MB per file.
+  // Current estimate: ~8,500 URLs — well under the limit.
+
+  // Combine all route generators into a single flat sitemap
+  const [
+    staticRoutes,
+    beachRoutes,
+    locationRoutes,
+    intentRoutes,
+    guideRoutes,
+    forecastRoutes,
+  ] = await Promise.all([
+    Promise.resolve(getStaticRoutes(lastmod)),
+    getBeachRoutes(lastmod),
+    getLocationRoutes(lastmod),
+    getIntentRoutes(lastmod),
+    Promise.resolve(getGuideRoutes(lastmod)),
+    Promise.resolve(getForecastRoutes(lastmod)),
+  ]);
+
+  return [
+    ...staticRoutes,
+    ...beachRoutes,
+    ...locationRoutes,
+    ...intentRoutes,
+    ...guideRoutes,
+    ...forecastRoutes,
+  ];
 }
 
 // =============================================================================
-// Segment Generators
+// Route Generators
 // =============================================================================
 
 /**

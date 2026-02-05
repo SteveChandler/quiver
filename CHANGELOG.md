@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Flat Sitemap (Next.js 16 Workaround):** Reverted segmented `generateSitemaps()` to single flat sitemap due to Next.js 16 bug (#77304) where sitemap index at `/sitemap.xml` returns 404. All 6 route groups (static, beaches, locations, intents, guides, forecasts) now combined into one file via `Promise.all()`.
+
 - **Regional Forecast Dynamic Pages:** Implemented detailed 7-day forecast pages at `/forecast/[region]` (e.g., `/forecast/san-diego`, `/forecast/orange-county`):
   - **URL Pattern:** `/forecast/[region]` (unified route in `app/forecast/[beachId]/page.tsx` handling both regional forecasts and beach ID redirects)
   - **Page Structure:** Hero with region name and average score, Best Days section (hero card + top 4 secondary days), Upcoming Swells section (timeline with peak dates), Beach Conditions grid (ranked by score, desktop table + mobile cards), Cross-links to regional guides and forecast hub, CTA for forecast alerts
