@@ -482,6 +482,50 @@ test.describe('Home Page - Layout', () => {
     });
   });
 
+  test.describe('Forecast Outlook Card', () => {
+    test('should display 7-Day Outlook card @smoke', async ({ page }) => {
+      const forecastCard = page.getByTestId('forecast-outlook-card');
+      await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      await expect(forecastCard).toContainText('7-Day Outlook');
+      await expect(forecastCard).toContainText('Regional forecasts');
+    });
+
+    test('should navigate to forecast hub when clicked', async ({ page }) => {
+      const forecastCard = page.getByTestId('forecast-outlook-card');
+      await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      await forecastCard.click();
+
+      await page.waitForURL('/forecast', { timeout: TIMEOUTS.medium });
+      expect(page.url()).toContain('/forecast');
+    });
+
+    test('should have proper accessibility attributes', async ({ page }) => {
+      const forecastCard = page.getByTestId('forecast-outlook-card');
+      await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      // Should have aria-describedby linking to description
+      const describedBy = await forecastCard.getAttribute('aria-describedby');
+      expect(describedBy).toBe('forecast-outlook-description');
+
+      // Description element should exist
+      const description = page.locator('#forecast-outlook-description');
+      await expect(description).toBeVisible();
+      await expect(description).toContainText('Regional forecasts');
+    });
+
+    test('should have proper touch target size', async ({ page }) => {
+      const forecastCard = page.getByTestId('forecast-outlook-card');
+      await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      const box = await forecastCard.boundingBox();
+      if (box) {
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+    });
+  });
+
   test.describe('Layout Order and Structure', () => {
     test('should render all sections in correct order @smoke', async ({ page }) => {
       const sections = page.locator('main section, main > div > section');

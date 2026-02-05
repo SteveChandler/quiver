@@ -74,6 +74,9 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
     metaDescription:
       "LA surf forecast from Malibu to Manhattan Beach. Get daily conditions and find the best waves this week.",
     states: ["ca"],
+    // Note: Seal Beach is geographically in Orange County but included here for UX convenience.
+    // This creates intentional overlap with the orange-county region, allowing users
+    // to find Seal Beach from either the LA or OC forecast pages.
     cities: [
       "Malibu",
       "Santa Monica",
@@ -83,6 +86,10 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
       "Redondo Beach",
       "El Segundo",
       "Playa del Rey",
+      "Torrance",
+      "Palos Verdes",
+      "Long Beach",
+      "Seal Beach",
     ],
     centerLat: 33.95,
     centerLon: -118.45,

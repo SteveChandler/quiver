@@ -146,6 +146,39 @@ const config: Config = {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(1.15)" },
         },
+        // Forecast page animations
+        scoreGaugeFill: {
+          "0%": { strokeDashoffset: "100" },
+          "100%": { strokeDashoffset: "var(--score-offset, 0)" },
+        },
+        pulseGlow: {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(34, 197, 94, 0.4)" },
+          "50%": { boxShadow: "0 0 20px 10px rgba(34, 197, 94, 0)" },
+        },
+        pulseGlowBlue: {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(59, 130, 246, 0.4)" },
+          "50%": { boxShadow: "0 0 15px 8px rgba(59, 130, 246, 0)" },
+        },
+        waveFlow: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+        countUp: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        sparklineDraw: {
+          "0%": { strokeDashoffset: "1000" },
+          "100%": { strokeDashoffset: "0" },
+        },
+        revealUp: {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        revealScale: {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -163,6 +196,15 @@ const config: Config = {
         shimmer: "shimmer 1.5s infinite linear",
         "ocean-swell": "oceanSwell 2s ease-in-out infinite",
         heartbeat: "heartbeat 1.2s ease-in-out infinite",
+        // Forecast page animations
+        "score-gauge-fill": "scoreGaugeFill 1.2s ease-out forwards",
+        "pulse-glow": "pulseGlow 2s ease-in-out infinite",
+        "pulse-glow-blue": "pulseGlowBlue 2s ease-in-out infinite",
+        "wave-flow": "waveFlow 8s linear infinite",
+        "count-up": "countUp 0.5s ease-out forwards",
+        "sparkline-draw": "sparklineDraw 0.8s ease-out forwards",
+        "reveal-up": "revealUp 0.5s ease-out forwards",
+        "reveal-scale": "revealScale 0.5s ease-out forwards",
       },
     },
   },

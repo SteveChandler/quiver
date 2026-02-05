@@ -3,9 +3,12 @@
  *
  * Summary card for the forecast hub page showing a region's overview.
  * Displays best day, wave range, conditions quality, and beach count.
+ * Enhanced with sparklines, animations, and ocean gradient effects.
  *
  * @module components/forecast/regional-forecast-card
  */
+
+"use client";
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -23,6 +26,8 @@ import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { RegionalForecastSummary } from "@/lib/utils/regional-forecast-utils";
 import { getQualityConfig } from "@/lib/utils/score-color-utils";
 import { formatWaveRange } from "@/lib/utils/wave-formatters";
+import { WaveSparkline, createSparklineData } from "./wave-sparkline";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
 
 // ============================================================================
 // Types
@@ -55,7 +60,7 @@ function QualityScoreBadge({ score }: { score: number }) {
     <Badge
       variant="outline"
       className={cn(
-        "text-sm font-semibold tabular-nums",
+        "text-sm font-semibold tabular-nums transition-transform duration-200",
         config.badgeClass
       )}
     >
@@ -65,15 +70,17 @@ function QualityScoreBadge({ score }: { score: number }) {
 }
 
 /**
- * Individual stat display
+ * Individual stat display with optional animation
  */
 function Stat({
   label,
   value,
+  animated = false,
   className,
 }: {
   label: string;
   value: string | number;
+  animated?: boolean;
   className?: string;
 }) {
   return (
@@ -81,7 +88,13 @@ function Stat({
       <p className="text-xs text-muted-foreground uppercase tracking-wide">
         {label}
       </p>
-      <p className="text-sm font-medium">{value}</p>
+      <p className="text-sm font-medium">
+        {animated && typeof value === "number" ? (
+          <AnimatedCounter value={value} duration={600} />
+        ) : (
+          value
+        )}
+      </p>
     </div>
   );
 }
@@ -125,6 +138,11 @@ function RegionalForecastCardSkeleton({
             <Skeleton className="h-4 w-8" />
           </div>
         </div>
+
+        {/* Sparkline skeleton */}
+        <div className="mt-4">
+          <Skeleton className="h-8 w-full rounded" />
+        </div>
       </CardContent>
 
       <CardFooter className="pt-0">
@@ -143,6 +161,7 @@ function RegionalForecastCardSkeleton({
  *
  * Displays a summary of forecast conditions for a region.
  * The entire card is clickable and links to the full forecast page.
+ * Enhanced with wave sparkline, animated counters, and hover effects.
  *
  * @example
  * ```tsx
@@ -169,19 +188,28 @@ export function RegionalForecastCard({
   const hasIncomingSwell = summary.upcomingSwells.length > 0;
   const topBeachToday = summary.beachConditions[0];
 
+  // Create sparkline data from days
+  const sparklineData = createSparklineData(summary.days);
+
   return (
     <Link
       href={cardHref}
       className={cn("block group", className)}
     >
-      <Card className="h-full transition-shadow hover:shadow-lg">
+      <Card className={cn(
+        "h-full transition-all duration-200",
+        "hover:shadow-lg",
+        "hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30"
+      )}>
         {/* Header with region name and score */}
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="text-lg group-hover:text-primary transition-colors">
               {region.name}
             </CardTitle>
-            <QualityScoreBadge score={summary.bestDay.score} />
+            <div className="transition-transform duration-200 group-hover:scale-110">
+              <QualityScoreBadge score={summary.bestDay.score} />
+            </div>
           </div>
         </CardHeader>
 
@@ -204,12 +232,31 @@ export function RegionalForecastCard({
             <Stat
               label="Beaches"
               value={summary.stats.totalBeaches}
+              animated
             />
           </div>
 
-          {/* Incoming swell indicator */}
+          {/* Wave Sparkline - 7 day trend */}
+          {sparklineData.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">7-Day Trend</span>
+                <WaveSparkline
+                  data={sparklineData}
+                  width={100}
+                  height={28}
+                  showPeak
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Incoming swell indicator with pulse animation */}
           {hasIncomingSwell && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-blue-600">
+            <div className={cn(
+              "mt-4 flex items-center gap-2 text-sm text-blue-600",
+              "animate-pulse-glow-blue rounded-md px-2 py-1 -mx-2"
+            )}>
               <Waves className="w-4 h-4 text-blue-500" />
               <span>{summary.upcomingSwells[0].size} swell incoming</span>
             </div>

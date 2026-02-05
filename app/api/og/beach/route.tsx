@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 export const runtime = 'edge';
 
 function renderFallback() {
-  return new ImageResponse(
+  const response = new ImageResponse(
     (
       <div
         style={{
@@ -53,6 +53,8 @@ function renderFallback() {
     ),
     { width: 1200, height: 630 }
   );
+  response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+  return response;
 }
 
 export async function GET(request: NextRequest) {

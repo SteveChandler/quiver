@@ -18,6 +18,7 @@ import { useLandingLocation } from "@/hooks/use-landing-location";
 
 // Static menu items (non-region items)
 const STATIC_MENU_ITEMS = [
+  { label: "7-Day Outlook", href: "/forecast", category: "Forecast" },
   { label: "United States", href: "/beaches/usa", category: "Countries" },
   { label: "Mexico", href: "/beaches/mexico", category: "Countries" },
   { label: "Orange County", href: "/map", category: "Regions" },

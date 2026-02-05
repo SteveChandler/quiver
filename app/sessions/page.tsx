@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Waves, Sparkles } from "lucide-react";
+import { Waves, Sparkles, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trackPublicPageView } from "@/lib/analytics";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
@@ -260,6 +260,20 @@ export default function SessionsPage() {
         >
           {gatedContent}
         </PublicContentGate>
+
+        {/* Floating Log Session button for authenticated users */}
+        {user && !isLoading && (
+          <Link href="/sessions/new?mode=log">
+            <Button
+              size="lg"
+              className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 shadow-lg bg-ocean-blue hover:bg-ocean-blue/90 h-14 px-6 rounded-full"
+              data-testid="log-session-btn"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Log Session
+            </Button>
+          </Link>
+        )}
 
         {/* Call to action */}
         <Card className="mt-8 border-2 border-ocean-blue/20 bg-gradient-to-br from-ocean-blue/5 to-blue-50/50">

@@ -15,6 +15,7 @@ components/home-screen/
 ├── primary-actions.tsx        # "I'm at the beach" / "Plan Weekend" / "Share" buttons
 ├── top-spots-carousel.tsx     # Horizontal carousel of top spots
 ├── compact-spot-card.tsx      # Card component for carousel spots
+├── forecast-outlook-card.tsx  # Entry point to regional 7-day forecast hub
 ├── use-time-of-day.ts         # Hook for time-of-day detection
 ├── personalized-forecast-card.tsx # Forecast with personalized insights
 ├── similar-sessions-drawer.tsx    # Session history comparison drawer

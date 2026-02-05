@@ -161,6 +161,28 @@ export async function waitForPageLoad(page: Page) {
 }
 
 /**
+ * Dismiss onboarding wizard if it appears
+ * This modal can appear on various pages and block interactions
+ */
+export async function dismissOnboardingWizard(page: Page): Promise<void> {
+  try {
+    // Check if onboarding dialog is visible
+    const dialog = page.locator('dialog[role="dialog"]:has-text("Onboarding Wizard")');
+    const isDialogVisible = await dialog.isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (isDialogVisible) {
+      // Try to click the close button
+      const closeButton = dialog.locator('button:has-text("Close")');
+      await closeButton.click({ timeout: 5000 });
+      // Wait for dialog to close
+      await page.waitForTimeout(500);
+    }
+  } catch (error) {
+    // Onboarding wizard not present or already closed - this is fine
+  }
+}
+
+/**
  * Check for console errors
  */
 export async function hasConsoleErrors(page: Page): Promise<string[]> {

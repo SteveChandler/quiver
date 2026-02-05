@@ -2,16 +2,21 @@
  * Swell Event Card Components
  *
  * Displays incoming swell events with timeline, direction, and intensity information.
- * Used in regional forecast pages to show upcoming swells.
+ * Enhanced with mini wave visualizations and animated effects.
  *
  * @module components/forecast/swell-event-card
  */
 
+"use client";
+
+import { useEffect, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Waves } from "lucide-react";
 import type { SwellEvent } from "@/lib/utils/regional-forecast-utils";
 import { formatCompactDate, formatShortDate } from "@/lib/utils/time-formatters";
 import { getWaveSizeLabel } from "@/lib/utils/wave-formatters";
+import { SwellWaveChart } from "./swell-wave-chart";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 // ============================================================================
 // Types
@@ -45,7 +50,7 @@ export interface SwellEventListProps {
  */
 const SIZE_STYLES: Record<
   string,
-  { bg: string; border: string; text: string; badge: string; icon: string; peakBg: string }
+  { bg: string; border: string; text: string; badge: string; icon: string; peakBg: string; glow?: string }
 > = {
   "knee-high": {
     bg: "bg-gray-50",
@@ -86,6 +91,7 @@ const SIZE_STYLES: Record<
     badge: "bg-emerald-100 text-emerald-700",
     icon: "text-emerald-500",
     peakBg: "bg-emerald-900",
+    glow: "shadow-emerald-200",
   },
   "double-overhead": {
     bg: "bg-purple-50",
@@ -94,6 +100,7 @@ const SIZE_STYLES: Record<
     badge: "bg-purple-100 text-purple-700",
     icon: "text-purple-500",
     peakBg: "bg-purple-900",
+    glow: "shadow-purple-200",
   },
 };
 
@@ -188,7 +195,7 @@ function DirectionArrow({
 }
 
 /**
- * Timeline visualization for swell event duration
+ * Animated timeline visualization for swell event duration
  */
 function SwellTimeline({
   startDate,
@@ -201,14 +208,66 @@ function SwellTimeline({
   endDate: Date;
   styles: ReturnType<typeof getSizeStyles>;
 }) {
+  const [animatedProgress, setAnimatedProgress] = useState(0);
+  const elementRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
+
   const totalDuration = endDate.getTime() - startDate.getTime();
   const peakPosition =
     totalDuration > 0
       ? ((peakDate.getTime() - startDate.getTime()) / totalDuration) * 100
       : 50;
 
+  // Calculate current progress (how much of the swell has passed)
+  const now = new Date().getTime();
+  const progress = totalDuration > 0
+    ? Math.max(0, Math.min(100, ((now - startDate.getTime()) / totalDuration) * 100))
+    : 0;
+
+  // Animate progress bar on scroll into view
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+
+    if (reducedMotion) {
+      setAnimatedProgress(progress);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Animate to current progress
+            const startTime = performance.now();
+            const duration = 800;
+
+            const animate = (currentTime: number) => {
+              const elapsed = currentTime - startTime;
+              const t = Math.min(elapsed / duration, 1);
+              const eased = 1 - Math.pow(1 - t, 3);
+              setAnimatedProgress(progress * eased);
+
+              if (t < 1) {
+                requestAnimationFrame(animate);
+              }
+            };
+
+            requestAnimationFrame(animate);
+            observer.unobserve(element);
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [progress, reducedMotion]);
+
   return (
-    <div className="w-full mt-3">
+    <div ref={elementRef} className="w-full mt-3">
       {/* Date labels */}
       <div className="flex justify-between text-xs text-muted-foreground mb-1">
         <span>{formatShortDate(startDate)}</span>
@@ -220,17 +279,27 @@ function SwellTimeline({
 
       {/* Timeline bar */}
       <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-        {/* Progress bar */}
+        {/* Progress bar (animated) */}
         <div
-          className={cn("absolute inset-y-0 left-0 rounded-full", styles.badge)}
+          className={cn(
+            "absolute inset-y-0 left-0 rounded-full transition-all duration-300",
+            styles.badge
+          )}
+          style={{ width: `${animatedProgress}%` }}
+        />
+
+        {/* Full duration indicator (dimmed) */}
+        <div
+          className={cn("absolute inset-y-0 left-0 rounded-full opacity-30", styles.badge)}
           style={{ width: "100%" }}
         />
 
-        {/* Peak indicator */}
+        {/* Peak indicator with pulse effect */}
         <div
           className={cn(
             "absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm",
-            styles.peakBg
+            styles.peakBg,
+            animatedProgress >= peakPosition && "animate-pulse"
           )}
           style={{ left: `${peakPosition}%`, marginLeft: "-6px" }}
           aria-label={`Peak on ${formatCompactDate(peakDate)}`}
@@ -248,7 +317,7 @@ function SwellTimeline({
  * SwellEventCard
  *
  * Displays a single swell event with visual intensity, direction, timeline,
- * and key metrics. Color-coded by swell size for quick scanning.
+ * and key metrics. Features mini wave chart and animated timeline.
  */
 export function SwellEventCard({
   event,
@@ -259,12 +328,14 @@ export function SwellEventCard({
   const sizeLabel = getWaveSizeLabel(event.size);
   const timingLabel = getTimingLabel(event.startDate);
   const heightRange = `${event.heightRange[0].toFixed(0)}-${event.heightRange[1].toFixed(0)}ft`;
+  const isLargeSwell = event.size === "overhead" || event.size === "double-overhead";
 
   if (compact) {
     return (
       <div
         className={cn(
-          "rounded-lg border p-3",
+          "rounded-lg border p-3 transition-all duration-200",
+          "hover:shadow-md",
           styles.bg,
           styles.border,
           className
@@ -298,9 +369,11 @@ export function SwellEventCard({
   return (
     <div
       className={cn(
-        "rounded-xl border-2 p-4",
+        "rounded-xl border-2 p-4 transition-all duration-200",
+        "hover:shadow-lg",
         styles.bg,
         styles.border,
+        isLargeSwell && styles.glow,
         className
       )}
     >
@@ -316,15 +389,28 @@ export function SwellEventCard({
           </div>
         </div>
 
-        {/* Size badge */}
+        {/* Size badge with glow for large swells */}
         <span
           className={cn(
-            "px-2.5 py-1 rounded-full text-xs font-medium capitalize",
-            styles.badge
+            "px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-shadow",
+            styles.badge,
+            isLargeSwell && "shadow-lg"
           )}
         >
           {event.size.replace("-", " ")}
         </span>
+      </div>
+
+      {/* Mini Wave Chart */}
+      <div className="flex justify-center mb-4">
+        <SwellWaveChart
+          height={event.heightRange[1]}
+          period={event.period}
+          direction={event.direction}
+          width={120}
+          chartHeight={48}
+          colorClass={styles.icon}
+        />
       </div>
 
       {/* Details grid */}
@@ -366,7 +452,7 @@ export function SwellEventCard({
         {event.description}
       </p>
 
-      {/* Timeline */}
+      {/* Animated Timeline */}
       <SwellTimeline
         startDate={event.startDate}
         peakDate={event.peakDate}

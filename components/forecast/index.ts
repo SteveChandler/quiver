@@ -35,6 +35,29 @@ export type { RegionalForecastCardProps } from './regional-forecast-card';
 export { ScoreBadge } from './score-badge';
 export type { ScoreBadgeProps } from './score-badge';
 
+// Animated Score Gauge Component
+export { AnimatedScoreGauge } from './animated-score-gauge';
+export type { AnimatedScoreGaugeProps } from './animated-score-gauge';
+
+// Wave Sparkline Component
+export { WaveSparkline, createSparklineData } from './wave-sparkline';
+export type { WaveSparklineProps, SparklineDataPoint } from './wave-sparkline';
+
+// Swell Wave Chart Component
+export { SwellWaveChart, SwellIndicator } from './swell-wave-chart';
+export type { SwellWaveChartProps } from './swell-wave-chart';
+
+// Forecast Skeleton Components
+export {
+  HeroSkeleton,
+  CardGridSkeleton,
+  CardSkeleton,
+  TableSkeleton,
+  TimelineSkeleton,
+  WaveShimmer,
+  ForecastPageSkeleton,
+} from './forecast-skeleton';
+
 // Re-export types from regional-forecast-utils for convenience
 export type {
   DaySummary,

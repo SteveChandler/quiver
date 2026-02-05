@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Instagram, Play } from "lucide-react";
 
 const FOOTER_LINKS = {
@@ -13,6 +14,7 @@ const FOOTER_LINKS = {
     { name: "Mexico", href: "/beaches/mexico" },
   ],
   guides: [
+    { name: "7-Day Outlook", href: "/forecast" },
     { name: "Beginner Spots", href: "/beginner/ca" },
     { name: "Tide Charts", href: "/tide/san-diego" },
     { name: "Dawn Patrol", href: "/dawn-patrol/ca" },
@@ -29,6 +31,28 @@ const FOOTER_LINKS = {
     { name: "Cookie Policy", href: "#" },
   ],
 } as const;
+
+/**
+ * Render a footer link - uses Next.js Link for internal routes,
+ * native anchor for placeholder (#) links
+ */
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const isInternalRoute = href.startsWith("/");
+
+  if (isInternalRoute) {
+    return (
+      <Link href={href} className="hover:text-white transition-colors">
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={href} className="hover:text-white transition-colors">
+      {children}
+    </a>
+  );
+}
 
 export function FooterSection() {
   const currentYear = new Date().getFullYear();
@@ -78,12 +102,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.about.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="hover:text-white transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLink href={link.href}>{link.name}</FooterLink>
                 </li>
               ))}
             </ul>
@@ -97,12 +116,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.beaches.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="hover:text-white transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLink href={link.href}>{link.name}</FooterLink>
                 </li>
               ))}
             </ul>
@@ -116,12 +130,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.guides.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="hover:text-white transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLink href={link.href}>{link.name}</FooterLink>
                 </li>
               ))}
             </ul>
@@ -135,12 +144,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.support.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="hover:text-white transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLink href={link.href}>{link.name}</FooterLink>
                 </li>
               ))}
             </ul>
@@ -152,12 +156,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.legal.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="hover:text-white transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  <FooterLink href={link.href}>{link.name}</FooterLink>
                 </li>
               ))}
             </ul>
