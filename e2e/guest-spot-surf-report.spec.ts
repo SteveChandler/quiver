@@ -44,7 +44,8 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const title = await page.title();
-    expect(title).toContain('Surf Forecast');
+    // Title format: "Beach Surf Report: X.X ft | 7-Day Forecast & Cams | Quiver"
+    expect(title).toContain('Surf Report');
   });
 
   test('page includes FAQ structured data', async ({ page }) => {

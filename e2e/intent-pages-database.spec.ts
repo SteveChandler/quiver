@@ -306,19 +306,29 @@ test.describe("Database-driven intent pages - SEO", () => {
   });
 
   test("should have breadcrumb structured data", async ({ page }) => {
-    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    // Use san-diego which has beginner beaches (santa-cruz empty state doesn't include structured data)
+    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
 
     // Look for JSON-LD structured data
     const structuredData = page.locator('script[type="application/ld+json"]');
     await expect(structuredData.first()).toBeAttached();
 
-    // Verify it contains breadcrumb data
-    const jsonLdContent = await structuredData.first().textContent();
-    expect(jsonLdContent).toContain("BreadcrumbList");
+    // Search all JSON-LD scripts for BreadcrumbList
+    const count = await structuredData.count();
+    let hasBreadcrumb = false;
+    for (let i = 0; i < count; i++) {
+      const content = await structuredData.nth(i).textContent();
+      if (content?.includes("BreadcrumbList")) {
+        hasBreadcrumb = true;
+        break;
+      }
+    }
+    expect(hasBreadcrumb).toBe(true);
   });
 
   test("should have FAQ structured data", async ({ page }) => {
-    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    // Use san-diego which has beginner beaches (santa-cruz empty state doesn't include FAQ schema)
+    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
 
     // Look for FAQ schema
     const structuredData = page.locator('script[type="application/ld+json"]');
@@ -340,7 +350,8 @@ test.describe("Database-driven intent pages - SEO", () => {
   });
 
   test("should have proper heading hierarchy", async ({ page }) => {
-    await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
+    // Use san-diego which has beginner beaches and full content (santa-cruz empty state has no h2 tags)
+    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
 
     // Should have exactly one h1
     const h1Count = await page.locator("h1").count();

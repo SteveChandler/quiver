@@ -39,6 +39,7 @@ export async function generateStaticParams() {
 
 interface SpotPageParams {
   params: Promise<{ slug: SurfSpotSlug }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata(props: SpotPageParams): Promise<Metadata> {
@@ -102,6 +103,7 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
 
 export default async function SpotPage(props: SpotPageParams) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
   const { data: spot, dbHasLocation } = await getSpotDataBySlug(params.slug);
   if (!spot) {
     return notFound();
@@ -114,11 +116,25 @@ export default async function SpotPage(props: SpotPageParams) {
   // - If DB has city/state, sitemap emits hierarchical URL and page should redirect
   // Note: dbHasLocation guarantees non-empty city and state in the DB record
   if (dbHasLocation && spot.slug) {
-    const canonicalUrl = buildBeachUrl({
+    let canonicalUrl = buildBeachUrl({
       slug: spot.slug,
       city: spot.city!,
       state: spot.state!,
     });
+
+    // Preserve query parameters on redirect (important for tabs, UTM params, etc.)
+    const queryString = new URLSearchParams();
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (typeof value === "string") {
+        queryString.set(key, value);
+      } else if (Array.isArray(value)) {
+        value.forEach((v) => queryString.append(key, v));
+      }
+    }
+    if (queryString.toString()) {
+      canonicalUrl = `${canonicalUrl}?${queryString.toString()}`;
+    }
+
     permanentRedirect(canonicalUrl);
   }
 
