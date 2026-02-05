@@ -124,13 +124,19 @@ function BeachConditionRow({
         </Link>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <div className="transition-transform duration-200 hover:scale-110">
-            <ScoreBadge score={beach.currentScore} />
-          </div>
-          <span className={cn("text-xs font-medium", scoreColors.text)}>
-            {scoreColors.label}
-          </span>
+        <div className="flex items-center gap-1.5">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">{beach.bestDay}</span>
+          {beach.bestDayScore > 0 && (
+            <span
+              className={cn(
+                "text-xs",
+                getScoreColorClasses(beach.bestDayScore).text
+              )}
+            >
+              ({beach.bestDayScore})
+            </span>
+          )}
         </div>
       </TableCell>
       <TableCell>
@@ -150,19 +156,13 @@ function BeachConditionRow({
         <TrendIndicator trend={beach.trend} />
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1.5">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{beach.bestDay}</span>
-          {beach.bestDayScore > 0 && (
-            <span
-              className={cn(
-                "text-xs",
-                getScoreColorClasses(beach.bestDayScore).text
-              )}
-            >
-              ({beach.bestDayScore})
-            </span>
-          )}
+        <div className="flex items-center gap-2">
+          <div className="transition-transform duration-200 hover:scale-110">
+            <ScoreBadge score={beach.currentScore} />
+          </div>
+          <span className={cn("text-xs font-medium", scoreColors.text)}>
+            {scoreColors.label}
+          </span>
         </div>
       </TableCell>
     </TableRow>
@@ -323,10 +323,10 @@ export function BeachConditionsGrid({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[30%]">Beach</TableHead>
-                <TableHead className="w-[20%]">Score</TableHead>
+                <TableHead className="w-[20%]">Best Day</TableHead>
                 <TableHead className="w-[15%]">Wave Height</TableHead>
                 <TableHead className="w-[15%]">Trend</TableHead>
-                <TableHead className="w-[20%]">Best Day</TableHead>
+                <TableHead className="w-[20%]">Score</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

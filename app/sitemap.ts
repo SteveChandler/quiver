@@ -46,8 +46,14 @@ export async function generateSitemaps(): Promise<{ id: SitemapSegment }[]> {
 
 /**
  * Generate sitemap for a specific segment.
+ *
+ * NOTE: Next.js 16 changed the function signature - the `id` parameter is now
+ * a Promise that must be awaited before use.
  */
-export default async function sitemap({ id }: { id: SitemapSegment }): Promise<MetadataRoute.Sitemap> {
+export default async function sitemap(
+  props: { id: Promise<SitemapSegment> }
+): Promise<MetadataRoute.Sitemap> {
+  const id = await props.id;
   const now = new Date();
   const lastmod = now.toISOString();
 
