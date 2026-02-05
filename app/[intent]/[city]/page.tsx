@@ -28,6 +28,9 @@ import {
   TideOverviewSection,
   WaterTempOverviewSection,
 } from "@/components/intent";
+import { CTASection } from "@/components/landing-page/cta-section";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { ZeroState } from "@/components/ui/zero-state";
 import {
@@ -37,8 +40,9 @@ import {
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
 
-// ISR: Revalidate intent pages periodically for updated city/beach data
-// Note: generateStaticParams() pre-generates most routes at build time
+// Dynamic rendering for intent pages - database queries use no-store fetch
+// which prevents static generation. ISR revalidation still applies.
+export const dynamic = "force-dynamic";
 export const revalidate = 3600; // 1 hour
 
 function formatPacificDateTime(date: Date) {
@@ -516,6 +520,14 @@ export default async function IntentPage(props: IntentPageParams) {
             />
           </section>
 
+          {/* Inline Signup CTA */}
+          <InlineSignupCta
+            title={`Track Your ${cityMetadata.cityName} Sessions`}
+            description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
+            source={`intent-${params.intent}-${params.city}`}
+            className="my-8"
+          />
+
           {/* Editorial Focus Section */}
           <section>
             <h2 className="text-2xl font-semibold text-slate-900 mb-4">
@@ -609,6 +621,14 @@ export default async function IntentPage(props: IntentPageParams) {
           </div>
         </div>
       </div>
+
+      {/* Bottom CTA Section */}
+      <CTASection />
+
+      {/* Mobile Sticky Signup Bar */}
+      <StickySignupBar
+        source={`intent-${params.intent}-${params.city}`}
+      />
     </div>
   );
 }

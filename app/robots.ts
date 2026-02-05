@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
           {
             userAgent: "*",
             allow: "/",
+            // Note: /forecast/ is now public and indexable for SEO (regional forecast landing pages)
             disallow: [
               "/_next/", // Don't crawl Next.js build assets
               "/api/", // Don't crawl API routes (except /api/og/)
@@ -26,7 +27,6 @@ export default function robots(): MetadataRoute.Robots {
               "/inbox/", // Private: notifications
               "/sessions/", // Private: user sessions
               "/auth/*", // Auth pages
-              "/forecast/", // Deprecated: redirects to beach detail pages
             ],
           },
           {
