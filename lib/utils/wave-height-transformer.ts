@@ -5,14 +5,14 @@
  * that match what surfers expect from services like Surfline/Surf Captain.
  *
  * The transformation applies:
- * 1. Base shoaling factor (~1.6x) - waves steepen approaching shore
+ * 1. Base shoaling factor (1.0x) - raw model data already accounts for shoaling
  * 2. Period amplification - longer periods (14-20s) = bigger faces
  * 3. Beach-specific swell access - uses terrain swell_access_factors
  *
  * Formula:
  *   face_height = Hs x BASE_SHOALING x period_factor x direction_factor
  *
- * Example: 1.9ft Hs @ 16s with good direction = 1.9 x 1.6 x 1.3 x 1.0 = 4.0ft face
+ * Example: 3.5ft Hs @ 14s with good direction = 3.5 x 1.0 x 1.2 x 1.0 = 4.2ft face
  */
 
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
@@ -45,9 +45,11 @@ export interface TransformParams {
 
 /**
  * Base shoaling factor - waves steepen as they approach shore
- * Typical range: 1.4-1.8x, using 1.6x as balanced default
+ * Note: Reduced from 1.6 to 1.0 because raw model data (NOAA/IOOS)
+ * may already account for shoaling effects. This brings wave heights
+ * in line with services like Surfline (~4x reduction in displayed heights).
  */
-export const BASE_SHOALING = 1.6;
+export const BASE_SHOALING = 1.0;
 
 /**
  * Reference period for neutral amplification (10 seconds)
@@ -68,9 +70,10 @@ export const PERIOD_FACTOR_MIN = 0.8;
 
 /**
  * Maximum period factor (clamped)
- * Long period swells max out at 1.4x
+ * Long period swells max out at 1.2x (reduced from 1.4x to prevent
+ * over-amplification of Caribbean/Pacific long-period groundswells)
  */
-export const PERIOD_FACTOR_MAX = 1.4;
+export const PERIOD_FACTOR_MAX = 1.2;
 
 /**
  * Minimum direction factor when terrain is fully blocking
@@ -113,13 +116,13 @@ export interface WaveHeightRange {
  * Long periods (14-20s) increase face height (groundswell)
  *
  * @param periodS Wave period in seconds (null defaults to reference)
- * @returns Period factor in range [0.8, 1.4]
+ * @returns Period factor in range [0.8, 1.2]
  *
  * @example
  * calculatePeriodFactor(8)  // 0.9 (short period)
  * calculatePeriodFactor(10) // 1.0 (reference)
- * calculatePeriodFactor(14) // 1.2 (groundswell)
- * calculatePeriodFactor(20) // 1.4 (clamped max)
+ * calculatePeriodFactor(14) // 1.2 (groundswell, at max)
+ * calculatePeriodFactor(20) // 1.2 (clamped max)
  */
 export function calculatePeriodFactor(periodS: number | null): number {
   const period = periodS ?? PERIOD_REF;
@@ -178,13 +181,13 @@ export function calculateDirectionFactor(
  * @returns Face height in feet, rounded to 1 decimal place
  *
  * @example
- * // 2ft @ 10s, no terrain = 2.0 x 1.6 x 1.0 x 1.0 = 3.2ft
+ * // 2ft @ 10s, no terrain = 2.0 x 1.0 x 1.0 x 1.0 = 2.0ft
  * transformToFaceHeight({ rawHeightFt: 2.0, periodS: 10, swellDirectionDeg: null })
  *
- * // 1.9ft @ 16s with good SW access = 1.9 x 1.6 x 1.3 x 1.0 = 4.0ft
+ * // 3.5ft @ 14s with good SW access = 3.5 x 1.0 x 1.2 x 1.0 = 4.2ft
  * transformToFaceHeight({
- *   rawHeightFt: 1.9,
- *   periodS: 16,
+ *   rawHeightFt: 3.5,
+ *   periodS: 14,
  *   swellDirectionDeg: 225,
  *   beach: { terrain_enabled: true, swell_access_factors: [...] }
  * })
@@ -246,9 +249,9 @@ export function getTransformationFactors(params: TransformParams): {
  * @returns Wave height range with low (average) and high (set) values
  *
  * @example
- * // 2ft @ 10s = 3.2ft average, 4.8ft sets
- * transformToFaceHeightRange({ rawHeightFt: 2.0, periodS: 10, swellDirectionDeg: null })
- * // Returns { low: 3.2, high: 4.8 }
+ * // 3ft @ 10s = 3.0ft average, 4.5ft sets
+ * transformToFaceHeightRange({ rawHeightFt: 3.0, periodS: 10, swellDirectionDeg: null })
+ * // Returns { low: 3.0, high: 4.5 }
  */
 export function transformToFaceHeightRange(params: TransformParams): WaveHeightRange {
   const low = transformToFaceHeight(params);

@@ -60,11 +60,12 @@ const CDIP_OUTLIER_THRESHOLD = 1.8;
 const MAX_TRUSTED_CDIP_FT = 10;
 
 /**
- * Minimum transformation ratio that indicates proper shoaling occurred.
+ * Minimum transformation ratio that indicates proper transformation occurred.
  * If actual transformation is less than this, debug logging is triggered
  * to help identify issues with wave height calculations.
+ * Note: With BASE_SHOALING=1.0, minimum is 0.8 (short period with blocked direction)
  */
-const MIN_EXPECTED_TRANSFORM_RATIO = 1.3;
+const MIN_EXPECTED_TRANSFORM_RATIO = 0.9;
 
 /**
  * Minimum wave height (feet) to trigger transformation debug logging.
@@ -343,7 +344,7 @@ export interface FaceHeightParams extends WaveHeightSourceParams {
  * Convert various swell/height inputs to a display face height in feet.
  *
  * Applies beach-specific wave transformation including:
- * - Base shoaling factor (1.6x) - waves steepen approaching shore
+ * - Base shoaling factor (1.0x) - raw model data already accounts for shoaling
  * - Period amplification - longer periods = bigger faces
  * - Direction factor from terrain swell_access_factors
  *
@@ -384,7 +385,7 @@ export function toFaceHeightFeet(params: FaceHeightParams): string | null {
       periodFactor,
       directionFactor,
       baseShoaling: BASE_SHOALING,
-      expectedMinFactor: BASE_SHOALING * 0.8, // 1.28 minimum
+      expectedMinFactor: BASE_SHOALING * 0.8, // 0.8 minimum
       actualFactor: transformRatio,
       faceHeight,
       clamped,
