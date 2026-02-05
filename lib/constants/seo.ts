@@ -170,10 +170,8 @@ export const SEO_CONFIG = {
 
   // Additional meta tags
   additionalMeta: {
-    robots:
-      "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
-    googlebot: "index, follow",
-    bingbot: "index, follow",
+    // robots/googlebot/bingbot directives are set per-page via buildPageMetadata()
+    // to allow noindex on auth/404/thin-content pages
     viewport: "width=device-width, initial-scale=1",
     "theme-color": "#1e40af", // ocean-blue
     "msapplication-TileColor": "#1e40af",
