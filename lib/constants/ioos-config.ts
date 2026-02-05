@@ -200,6 +200,11 @@ export type CanonicalVar =
 export const IOOS_VARIABLE_ALIASES: Record<CanonicalVar, readonly string[]> = {
   wave_height: [
     "sea_surface_wave_significant_height",
+    "significant_wave_height",
+    "Hs",
+    "WVHT",
+    "wave_height",
+    "sea_surface_wave_height",
   ],
   wave_period: [
     "sea_surface_wave_period_at_variance_spectral_density_maximum", // Tp (peak)
