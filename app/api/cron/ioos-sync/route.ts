@@ -389,6 +389,9 @@ async function syncObservations(
 
         // Skip stations without variable_map (will be refreshed next run)
         if (!variableMap.wave_height) {
+          console.log(
+            `⏭️ Skipping station ${station.station_id} (${station.source_network}): no wave_height mapping`
+          );
           result.stationsSkipped++;
           continue;
         }
