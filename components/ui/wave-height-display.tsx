@@ -40,8 +40,28 @@ export function WaveHeightDisplay({
     const low = extractNumericWaveHeight(height);
     if (low === null) return height;
 
-    // Format as range: average to set waves (1.5x)
-    return formatWaveHeightRangeString(low, low * SET_WAVE_VARIANCE);
+    // Calculate high (set waves)
+    const high = low * SET_WAVE_VARIANCE;
+    const result = formatWaveHeightRangeString(low, high);
+
+    // Debug logging to trace "X-Xft" bug where low and high show identical values
+    // This helps identify data issues upstream
+    if (process.env.NODE_ENV === 'development') {
+      const lowRounded = Math.round(low);
+      const highRounded = Math.round(high);
+      if (lowRounded === highRounded && low !== high) {
+        console.debug('[WaveHeightDisplay] Same rounded values:', {
+          input: height,
+          low,
+          high,
+          lowRounded,
+          highRounded,
+          result,
+        });
+      }
+    }
+
+    return result;
   }, [height]);
 
   if (!displayHeight) {

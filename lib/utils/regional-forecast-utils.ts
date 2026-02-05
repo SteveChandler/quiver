@@ -12,6 +12,7 @@ import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
+import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 
 /**
  * Summary of forecast conditions for a single day across a region
@@ -346,15 +347,20 @@ export function detectSwellEvents(
       const peak = dateWaveHeights[peakIdx];
       const end = dateWaveHeights[endIdx];
 
+      // Use peak wave height as the "average" face height, then calculate set waves (1.5x)
+      // This ensures we always show a proper range like "4-6ft" instead of "6-6ft"
+      const avgHeight = peak.avgHeight;
+      const setHeight = avgHeight * SET_WAVE_VARIANCE;
+
       events.push({
         startDate: new Date(current.date + "T00:00:00Z"),
         peakDate: new Date(peak.date + "T00:00:00Z"),
         endDate: new Date(end.date + "T00:00:00Z"),
         direction: peak.dominantDirection,
         period: peak.avgPeriod,
-        heightRange: [current.avgHeight, peak.avgHeight],
-        size: getWaveSizeDescription(peak.avgHeight),
-        description: `${getWaveSizeDescription(peak.avgHeight)} ${peak.dominantDirection} swell with ${peak.avgPeriod.toFixed(0)}s period`,
+        heightRange: [avgHeight, setHeight],
+        size: getWaveSizeDescription(avgHeight),
+        description: `${getWaveSizeDescription(avgHeight)} ${peak.dominantDirection} swell with ${peak.avgPeriod.toFixed(0)}s period`,
       });
 
       // Skip ahead to avoid duplicate detection

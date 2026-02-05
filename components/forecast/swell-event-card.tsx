@@ -15,6 +15,7 @@ import { Waves } from "lucide-react";
 import type { SwellEvent } from "@/lib/utils/regional-forecast-utils";
 import { formatCompactDate, formatShortDate } from "@/lib/utils/time-formatters";
 import { getWaveSizeLabel } from "@/lib/utils/wave-formatters";
+import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
 import { SwellWaveChart } from "./swell-wave-chart";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
@@ -327,7 +328,8 @@ export function SwellEventCard({
   const styles = getSizeStyles(event.size);
   const sizeLabel = getWaveSizeLabel(event.size);
   const timingLabel = getTimingLabel(event.startDate);
-  const heightRange = `${event.heightRange[0].toFixed(0)}-${event.heightRange[1].toFixed(0)}ft`;
+  // Use the shared formatter for consistent wave height range display (e.g., "4-6ft" not "6-6ft")
+  const heightRange = formatWaveHeightRangeString(event.heightRange[0], event.heightRange[1]);
   const isLargeSwell = event.size === "overhead" || event.size === "double-overhead";
 
   if (compact) {
