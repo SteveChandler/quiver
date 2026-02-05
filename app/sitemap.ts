@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
+import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
@@ -24,7 +25,7 @@ const baseUrl = (
 export const dynamic = "force-dynamic";
 
 // Sitemap segment IDs
-type SitemapSegment = "static" | "beaches" | "locations" | "intents" | "guides";
+type SitemapSegment = "static" | "beaches" | "locations" | "intents" | "guides" | "forecasts";
 
 /**
  * Generate sitemap index entries.
@@ -39,6 +40,7 @@ export async function generateSitemaps(): Promise<{ id: SitemapSegment }[]> {
     { id: "locations" },   // City/state location pages
     { id: "intents" },     // City and state intent pages (beginner, tide, etc.)
     { id: "guides" },      // Hub region guides
+    { id: "forecasts" },   // Forecast hub + regional forecast pages
   ];
 }
 
@@ -60,6 +62,8 @@ export default async function sitemap({ id }: { id: SitemapSegment }): Promise<M
       return await getIntentRoutes(lastmod);
     case "guides":
       return getGuideRoutes(lastmod);
+    case "forecasts":
+      return getForecastRoutes(lastmod);
     default:
       return [];
   }
@@ -273,7 +277,7 @@ async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> 
   // State-level intent pages for major US surf markets.
   // This is a curated subset (not all coastal states) focusing on states with
   // significant surf communities: CA, HI, FL (Tier 1), plus East Coast, PNW, TX (Tier 2).
-  const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
+  const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx", "ma", "me", "nh", "ri", "ga"];
   for (const state of usStates) {
     for (const intent of intents) {
       routes.push({
@@ -298,4 +302,32 @@ function getGuideRoutes(lastmod: string): MetadataRoute.Sitemap {
     changeFrequency: "weekly" as const,
     priority: 0.9,
   }));
+}
+
+/**
+ * Forecast pages - hub landing page and regional forecast pages.
+ */
+function getForecastRoutes(lastmod: string): MetadataRoute.Sitemap {
+  const routes: MetadataRoute.Sitemap = [];
+
+  // Forecast hub landing page
+  routes.push({
+    url: `${baseUrl}/forecast`,
+    lastModified: lastmod,
+    changeFrequency: "daily" as const,
+    priority: 0.9,
+  });
+
+  // Regional forecast pages (e.g., /forecast/southern-california)
+  const regionSlugs = getAllForecastRegionSlugs();
+  for (const slug of regionSlugs) {
+    routes.push({
+      url: `${baseUrl}/forecast/${slug}`,
+      lastModified: lastmod,
+      changeFrequency: "daily" as const,
+      priority: 0.8,
+    });
+  }
+
+  return routes;
 }
