@@ -560,14 +560,18 @@ export function aggregateRegionalForecast(
     const trend: "improving" | "steady" | "declining" =
       avgScore > currentScore + 10 ? "improving" : avgScore < currentScore - 10 ? "declining" : "steady";
 
-    // Find best day for this beach
+    // Find best day for this beach - calculate from all forecast data
     let bestDayName = "";
     let bestDayScore = 0;
-    for (const day of days) {
-      const topBeach = day.topBeaches.find((b) => b.id === beach.id);
-      if (topBeach && topBeach.score > bestDayScore) {
-        bestDayScore = topBeach.score;
-        bestDayName = day.dayOfWeek;
+    for (const dateString of sortedDates) {
+      const beachForecasts = dateMap.get(dateString)?.get(beach.id);
+      if (beachForecasts && beachForecasts.length > 0) {
+        const dayScore = calculateDayScore(beachForecasts, beach);
+        if (dayScore > bestDayScore) {
+          bestDayScore = dayScore;
+          const date = new Date(dateString + "T00:00:00Z");
+          bestDayName = date.toLocaleDateString("en-US", { weekday: "long" });
+        }
       }
     }
 
