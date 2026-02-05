@@ -17,6 +17,10 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
 
+// Helper to wrap segment id in a Promise (Next.js 16+ signature)
+type SitemapSegment = "static" | "beaches" | "locations" | "intents" | "guides" | "forecasts";
+const getSitemap = (id: SitemapSegment) => sitemap({ id: Promise.resolve(id) });
+
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
   getAllBeachLocations: jest.fn(),
@@ -69,18 +73,19 @@ describe("Sitemap Generation", () => {
         { id: "locations" },
         { id: "intents" },
         { id: "guides" },
+        { id: "forecasts" },
       ]);
     });
 
-    it("should return 5 segments", async () => {
+    it("should return 6 segments", async () => {
       const segments = await generateSitemaps();
-      expect(segments).toHaveLength(5);
+      expect(segments).toHaveLength(6);
     });
   });
 
   describe("Static Routes (id: static)", () => {
     it("should include home page route", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
       expect(homeRoute).toBeDefined();
@@ -88,7 +93,7 @@ describe("Sitemap Generation", () => {
     });
 
     it("should include /features route", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const route = result.find((r) => r.url === `${baseUrl}/features`);
 
       expect(route).toBeDefined();
@@ -96,35 +101,35 @@ describe("Sitemap Generation", () => {
     });
 
     it("should include /about route", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const route = result.find((r) => r.url === `${baseUrl}/about`);
 
       expect(route).toBeDefined();
     });
 
     it("should include /privacy route", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const route = result.find((r) => r.url === `${baseUrl}/privacy`);
 
       expect(route).toBeDefined();
     });
 
     it("should include /map route", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const route = result.find((r) => r.url === `${baseUrl}/map`);
 
       expect(route).toBeDefined();
     });
 
     it("should include /beaches/usa route", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);
 
       expect(route).toBeDefined();
     });
 
     it("should set changeFrequency to daily for static routes", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const staticRoutes = ["/", "/features", "/about", "/privacy", "/map"];
 
       staticRoutes.forEach((path) => {
@@ -135,7 +140,7 @@ describe("Sitemap Generation", () => {
 
     it("should set lastModified to current date", async () => {
       const beforeTest = new Date().toISOString().split("T")[0];
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
       expect(homeRoute?.lastModified).toBeDefined();
@@ -145,7 +150,7 @@ describe("Sitemap Generation", () => {
     });
 
     it("should only include static routes (not dynamic)", async () => {
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
 
       // Should not include any dynamic routes
       expect(result.every((r) =>
@@ -161,7 +166,7 @@ describe("Sitemap Generation", () => {
 
   describe("Database-Driven Intent Routes (id: intents)", () => {
     it("should generate intent routes for cities from database", async () => {
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // San Diego should have intent routes (from mocked getAllCitiesWithBeachSkills)
       const sanDiegoIntentRoute = result.find(
@@ -177,13 +182,13 @@ describe("Sitemap Generation", () => {
     });
 
     it("should call getAllCitiesWithBeachSkills with minimum beach count", async () => {
-      await sitemap({ id: "intents" });
+      await getSitemap("intents");
 
       expect(getAllCitiesWithBeachSkills).toHaveBeenCalledWith(1);
     });
 
     it("should generate all intent types for each city", async () => {
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
       const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
       intents.forEach((intent) => {
@@ -200,7 +205,7 @@ describe("Sitemap Generation", () => {
         new Error("Database error")
       );
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // Should still return state-level intent routes
       expect(result.find((r) => r.url === `${baseUrl}/beginner/ca`)).toBeDefined();
@@ -209,7 +214,7 @@ describe("Sitemap Generation", () => {
     });
 
     it("should include state-level intent routes", async () => {
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
       const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
       const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
 
@@ -224,7 +229,7 @@ describe("Sitemap Generation", () => {
 
   describe("Intent Route Priorities (id: intents)", () => {
     it("should prioritize beginner intent (0.85) over others (0.8)", async () => {
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       const beginnerRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/san-diego`
@@ -238,7 +243,7 @@ describe("Sitemap Generation", () => {
     });
 
     it("should use correct URL format /{intent}/{city}", async () => {
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
       const intentRoutes = result.filter(
         (r) => r.url.includes("/beginner/") || r.url.includes("/tide/")
       );
@@ -254,7 +259,7 @@ describe("Sitemap Generation", () => {
         data: [],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // No city-level intent routes
       const cityIntentRoute = result.find(
@@ -277,7 +282,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // Should NOT have beginner or longboard for this city
       expect(result.find((r) => r.url === `${baseUrl}/beginner/advanced-city`)).toBeUndefined();
@@ -299,7 +304,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // Should include beginner and longboard
       expect(result.find((r) => r.url === `${baseUrl}/beginner/beginner-town`)).toBeDefined();
@@ -316,7 +321,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // US city should be present
       expect(result.find((r) => r.url === `${baseUrl}/tide/san-diego`)).toBeDefined();
@@ -337,7 +342,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // "newport" is substring of "newport-beach" → gets state suffix
       expect(result.find((r) => r.url === `${baseUrl}/tide/newport-or`)).toBeDefined();
@@ -362,7 +367,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       // Non-skill intents always included
       expect(result.find((r) => r.url === `${baseUrl}/tide/no-skill-data`)).toBeDefined();
@@ -392,7 +397,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       // Complete data uses hierarchical URL (canonical, no redirect)
       const hierarchicalRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs")
@@ -414,7 +419,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       // Incomplete data falls back to /spots/ URL
       const spotsRoute = result.find((r) =>
         r.url.includes("/spots/mystery-break")
@@ -437,7 +442,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       // Uses hierarchical URL when city and state are present (matches redirect in /spots/[slug])
       const beachRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs")
@@ -460,7 +465,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
 
       const tidesRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs/tides")
@@ -486,7 +491,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
 
       // Main page should exist
       expect(result.find((r) => r.url.includes("/spots/mystery-break"))).toBeDefined();
@@ -511,7 +516,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       // Uses hierarchical URL for international beaches with complete data
       const beachRoute = result.find((r) =>
         r.url.includes("/mexico/baja-california/rosarito/teresas")
@@ -533,7 +538,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       // Beach with null slug should not be in beach entries
       const beachRoute = result.find(
         (r) => r.url.includes("/spots/") && r.url.includes("beach-1")
@@ -555,7 +560,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       const sunsetRoute = result.find((r) =>
         r.url.includes("/spots/sunset-cliffs")
       );
@@ -576,7 +581,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       const sunsetRoute = result.find((r) =>
         r.url.includes("/spots/sunset-cliffs")
       );
@@ -598,7 +603,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       const beachRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
       );
@@ -620,7 +625,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       const tidesRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs/tides")
       );
@@ -648,7 +653,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       const beachRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
       );
@@ -663,7 +668,7 @@ describe("Sitemap Generation", () => {
         data: null,
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
 
       expect(result).toEqual([]);
       consoleSpy.mockRestore();
@@ -681,7 +686,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
 
       const laJollaRoute = result.find((r) =>
         r.url.endsWith("/ca/la-jolla")
@@ -704,7 +709,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
 
       const caStateIndex = result.find((r) => r.url === `${baseUrl}/beaches/usa/ca`);
       expect(caStateIndex).toBeDefined();
@@ -725,7 +730,7 @@ describe("Sitemap Generation", () => {
         data: [{ city: "Waimea", state: "HI", country: "USA" }],
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
 
       const kauai = result.find((r) => r.url === `${baseUrl}/beaches/usa/hi/waimea-kauai`);
       expect(kauai).toBeDefined();
@@ -746,7 +751,7 @@ describe("Sitemap Generation", () => {
         data: [{ city: "Rincón", state: "PR", country: "USA" }],
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
 
       const canonical = result.find((r) => r.url.endsWith("/pr/rincon"));
       expect(canonical).toBeDefined();
@@ -761,7 +766,7 @@ describe("Sitemap Generation", () => {
         data: [{ city: "La Jolla", state: "CA", country: "USA" }],
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
       const locationRoute = result.find((r) =>
         r.url.endsWith("/ca/la-jolla")
       );
@@ -775,7 +780,7 @@ describe("Sitemap Generation", () => {
         data: [{ city: "La Jolla", state: "CA", country: "USA" }],
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
       const locationRoute = result.find((r) =>
         r.url.endsWith("/ca/la-jolla")
       );
@@ -790,7 +795,7 @@ describe("Sitemap Generation", () => {
         data: null,
       });
 
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
 
       expect(result).toEqual([]);
       consoleSpy.mockRestore();
@@ -799,7 +804,7 @@ describe("Sitemap Generation", () => {
 
   describe("Guide Routes (id: guides)", () => {
     it("should include hub region guide routes", async () => {
-      const result = await sitemap({ id: "guides" });
+      const result = await getSitemap("guides");
 
       // Check for expected hub regions
       expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-southern-california`)).toBeDefined();
@@ -809,14 +814,14 @@ describe("Sitemap Generation", () => {
     });
 
     it("should set priority 0.9 for guide routes", async () => {
-      const result = await sitemap({ id: "guides" });
+      const result = await getSitemap("guides");
       const guideRoute = result.find((r) => r.url.includes("/guides/surfing-"));
 
       expect(guideRoute?.priority).toBe(0.9);
     });
 
     it("should set changeFrequency to weekly for guide routes", async () => {
-      const result = await sitemap({ id: "guides" });
+      const result = await getSitemap("guides");
       const guideRoute = result.find((r) => r.url.includes("/guides/surfing-"));
 
       expect(guideRoute?.changeFrequency).toBe("weekly");
@@ -832,19 +837,19 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "static" });
+      const result = await getSitemap("static");
 
       expect(result.find((r) => r.url.includes("sunset-cliffs"))).toBeUndefined();
     });
 
     it("should not include static routes in beaches segment", async () => {
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
 
       expect(result.find((r) => r.url === `${baseUrl}/features`)).toBeUndefined();
     });
 
     it("should not include intent routes in locations segment", async () => {
-      const result = await sitemap({ id: "locations" });
+      const result = await getSitemap("locations");
 
       expect(result.find((r) => r.url.includes("/beginner/"))).toBeUndefined();
       expect(result.find((r) => r.url.includes("/tide/"))).toBeUndefined();
@@ -856,7 +861,7 @@ describe("Sitemap Generation", () => {
         data: [{ city: "La Jolla", state: "CA", country: "USA" }],
       });
 
-      const result = await sitemap({ id: "intents" });
+      const result = await getSitemap("intents");
 
       expect(result.find((r) => r.url.endsWith("/ca/la-jolla"))).toBeUndefined();
     });
@@ -864,10 +869,10 @@ describe("Sitemap Generation", () => {
 
   describe("Sitemap Structure", () => {
     it("should return array of sitemap entries for each segment", async () => {
-      const segments = ["static", "beaches", "locations", "intents", "guides"] as const;
+      const segments: SitemapSegment[] = ["static", "beaches", "locations", "intents", "guides", "forecasts"];
 
       for (const segment of segments) {
-        const result = await sitemap({ id: segment });
+        const result = await getSitemap(segment);
 
         expect(Array.isArray(result)).toBe(true);
         result.forEach((entry) => {
@@ -880,10 +885,10 @@ describe("Sitemap Generation", () => {
     });
 
     it("should have all URLs starting with base URL", async () => {
-      const segments = ["static", "beaches", "locations", "intents", "guides"] as const;
+      const segments: SitemapSegment[] = ["static", "beaches", "locations", "intents", "guides", "forecasts"];
 
       for (const segment of segments) {
-        const result = await sitemap({ id: segment });
+        const result = await getSitemap(segment);
 
         result.forEach((entry) => {
           expect(entry.url.startsWith(baseUrl)).toBe(true);
@@ -892,10 +897,10 @@ describe("Sitemap Generation", () => {
     });
 
     it("should have valid priority values (0-1)", async () => {
-      const segments = ["static", "beaches", "locations", "intents", "guides"] as const;
+      const segments: SitemapSegment[] = ["static", "beaches", "locations", "intents", "guides", "forecasts"];
 
       for (const segment of segments) {
-        const result = await sitemap({ id: segment });
+        const result = await getSitemap(segment);
 
         result.forEach((entry) => {
           expect(entry.priority).toBeGreaterThanOrEqual(0);
@@ -915,10 +920,10 @@ describe("Sitemap Generation", () => {
         "never",
       ];
 
-      const segments = ["static", "beaches", "locations", "intents", "guides"] as const;
+      const segments: SitemapSegment[] = ["static", "beaches", "locations", "intents", "guides", "forecasts"];
 
       for (const segment of segments) {
-        const result = await sitemap({ id: segment });
+        const result = await getSitemap(segment);
 
         result.forEach((entry) => {
           expect(validFrequencies).toContain(entry.changeFrequency);
@@ -929,8 +934,7 @@ describe("Sitemap Generation", () => {
 
   describe("Unknown Segment", () => {
     it("should return empty array for unknown segment id", async () => {
-      // @ts-expect-error - Testing unknown segment
-      const result = await sitemap({ id: "unknown" });
+      const result = await getSitemap("unknown" as SitemapSegment);
 
       expect(result).toEqual([]);
     });
@@ -950,7 +954,7 @@ describe("Sitemap Generation", () => {
         ],
       });
 
-      const result = await sitemap({ id: "beaches" });
+      const result = await getSitemap("beaches");
       const hasForecastRoutes = result.some((r) => r.url.includes("/forecast/"));
 
       expect(hasForecastRoutes).toBe(false);

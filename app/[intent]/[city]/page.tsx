@@ -19,7 +19,7 @@ import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { StateMapView } from "@/components/state/state-map-view";
-import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-actions";
+import { findCityBySlug, getCityMetadata, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
@@ -39,11 +39,69 @@ import {
   type CityTideData,
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
+import { findCitiesMatchingPattern } from "@/actions/city/city-metadata-actions";
 
 // Dynamic rendering for intent pages - database queries use no-store fetch
 // which prevents static generation. ISR revalidation still applies.
 export const dynamic = "force-dynamic";
 export const revalidate = 3600; // 1 hour
+
+/**
+ * Try to resolve a city slug with automatic state suffix detection.
+ * Uses a single batched database query instead of 13 parallel queries to avoid
+ * connection pool exhaustion under concurrent load.
+ *
+ * @param baseSlug - The city slug without state suffix (e.g., "belmar")
+ * @returns Object with cityMetadata and the resolved slug, or nulls if not found
+ */
+async function resolveCityWithStateSuffix(
+  baseSlug: string
+): Promise<{ cityMetadata: CityMetadata | null; resolvedSlug: string }> {
+  // First try the base slug directly (e.g., "santa-cruz" or "newport-ca")
+  const baseResult = await findCityBySlug(baseSlug);
+  if (baseResult.success && baseResult.data) {
+    return { cityMetadata: baseResult.data, resolvedSlug: baseSlug };
+  }
+
+  // If already has state suffix, don't try adding more
+  if (baseSlug.match(/-[a-z]{2}$/)) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  // Find all cities matching the pattern across all states with a SINGLE query
+  const citiesResult = await findCitiesMatchingPattern(baseSlug);
+  if (!citiesResult.success || !citiesResult.data || citiesResult.data.length === 0) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  // Filter to only coastal states and sort by priority (COASTAL_STATE_SUFFIXES order)
+  const coastalStateSet = new Set(COASTAL_STATE_SUFFIXES.map(s => s.toUpperCase()));
+  const coastalCities = citiesResult.data
+    .filter((c) => coastalStateSet.has(c.state))
+    .sort((a, b) => {
+      const aIndex = COASTAL_STATE_SUFFIXES.indexOf(a.state.toLowerCase() as any);
+      const bIndex = COASTAL_STATE_SUFFIXES.indexOf(b.state.toLowerCase() as any);
+      return aIndex - bIndex;
+    });
+
+  if (coastalCities.length === 0) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  // Get full metadata for the first (highest priority) match
+  const topMatch = coastalCities[0];
+  const resolvedSlug = buildCitySlug(topMatch.city, topMatch.state, new Map());
+
+  const metadataResult = await getCityMetadata(topMatch.city, topMatch.state);
+  if (!metadataResult.success || !metadataResult.data) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  return {
+    cityMetadata: metadataResult.data,
+    resolvedSlug: resolvedSlug || baseSlug,
+  };
+}
 
 function formatPacificDateTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -187,23 +245,9 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     };
   }
 
-  const cityResult = await findCityBySlug(params.city);
-  let cityMetadata = cityResult.success ? cityResult.data : null;
-  let canonicalCitySlug = params.city;
-
-  // If city lookup failed, check if a state-suffixed version exists
-  // This handles cases like "/tide/belmar" resolving to Belmar, NJ
-  if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
-    for (const stateSuffix of COASTAL_STATE_SUFFIXES) {
-      const suffixedSlug = `${params.city}-${stateSuffix}`;
-      const suffixedResult = await findCityBySlug(suffixedSlug);
-      if (suffixedResult.success && suffixedResult.data) {
-        cityMetadata = suffixedResult.data;
-        canonicalCitySlug = suffixedSlug; // Use suffixed version for canonical
-        break;
-      }
-    }
-  }
+  // Resolve city with automatic state suffix detection (parallel lookup for performance)
+  const { cityMetadata, resolvedSlug: canonicalCitySlug } =
+    await resolveCityWithStateSuffix(params.city);
 
   // City lookup failed: return 404-safe metadata with self-referential canonical
   // CRITICAL: Without this, Google picks an arbitrary canonical (e.g., /tide/hull for /beginner/nags-head)
@@ -358,26 +402,10 @@ export default async function IntentPage(props: IntentPageParams) {
     );
   }
 
-  // Database-driven city resolution (replaces hardcoded SURF_CITIES)
-  const cityResult = await findCityBySlug(params.city);
-  let cityMetadata = cityResult.success ? cityResult.data : null;
-
-  // If city lookup failed, check if a state-suffixed version exists
+  // Database-driven city resolution with automatic state suffix detection (parallel lookup)
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
   // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
-  if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
-    // Try common coastal states (prioritize by surfing popularity)
-    for (const stateSuffix of COASTAL_STATE_SUFFIXES) {
-      const suffixedSlug = `${params.city}-${stateSuffix}`;
-      const suffixedResult = await findCityBySlug(suffixedSlug);
-      if (suffixedResult.success && suffixedResult.data) {
-        // Found a match with state suffix - use metadata directly (no redirect)
-        // The canonical URL in generateMetadata will point to the suffixed version
-        cityMetadata = suffixedResult.data;
-        break;
-      }
-    }
-  }
+  const { cityMetadata } = await resolveCityWithStateSuffix(params.city);
 
   if (!cityMetadata || !definition) {
     return notFound();

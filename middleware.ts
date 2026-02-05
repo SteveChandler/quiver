@@ -42,6 +42,23 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /**
+   * Handle 4-segment state URLs that would incorrectly match the international route
+   *
+   * URLs like /hi/koloa-hi/waikoloa-village-lagoon/extra would match the 4-segment
+   * international route (/[country]/[region]/[city]/[beach]) but with "hi" as the
+   * country. Since "hi" is a valid state slug, redirect to /spots/{beach} instead.
+   *
+   * This prevents 404s caused by the international route's state slug validation.
+   */
+  const fourSegmentMatch = pathname.match(/^\/([a-z]{2})\/([^/]+)\/([^/]+)\/([^/]+)$/i);
+  if (fourSegmentMatch && isValidStateSlug(fourSegmentMatch[1].toLowerCase())) {
+    const beachSlug = fourSegmentMatch[3]; // Use the 3rd segment as beach slug
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/spots/${beachSlug}`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  /**
    * Hawaii: disambiguate same-named cities by island (Waimea-only to start)
    *
    * Redirect ambiguous legacy URL to the primary island page.
@@ -574,6 +591,6 @@ export const config = {
      * - Files with extensions (.svg, .png, etc.)
      * Only apply to actual page navigation
      */
-    "/((?!api|_next/static|_next/image|_vercel|favicon.ico|robots.txt|sitemap.xml).*)",
+    "/((?!api|_next/static|_next/image|_vercel|favicon.ico|robots.txt|sitemap).*)",
   ],
 };

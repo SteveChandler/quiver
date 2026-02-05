@@ -19,6 +19,9 @@ const FOOTER_LINKS = {
     { name: "Tide Charts", href: "/tide/san-diego" },
     { name: "Dawn Patrol", href: "/dawn-patrol/ca" },
     { name: "Sunset Sessions", href: "/sunset/ca" },
+    { name: "Less Crowded", href: "/least-crowded/ca" },
+    { name: "Longboard Spots", href: "/longboard/ca" },
+    { name: "Water Temp", href: "/water-temp/san-diego" },
   ],
   support: [
     { name: "Help Center", href: "#" },
