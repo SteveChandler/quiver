@@ -105,6 +105,16 @@ export const metadata: Metadata = {
     images: ["/twitter-image.png"],
   },
 
+  // Explicit robots so child pages (not-found, auth) can override cleanly
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+
   // Performance hints
   other: {
     ...SEO_CONFIG.additionalMeta,

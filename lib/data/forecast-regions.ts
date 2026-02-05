@@ -134,33 +134,27 @@ export function getForecastRegion(slug: string): ForecastRegion | undefined {
   return FORECAST_REGIONS[slug];
 }
 
-/**
- * Sub-regions that map to the Southern California guide
- */
-const SOCAL_SUBREGIONS = ["san-diego", "orange-county", "los-angeles"] as const;
+/** Forecast regions that don't have their own guide and map to a parent */
+const GUIDE_SLUG_OVERRIDES: Record<string, string> = {
+  "los-angeles": "southern-california",
+};
 
 /**
  * Get the appropriate surf guide slug for a forecast region
  *
- * Some regions are sub-regions that share a parent guide.
- * For example, San Diego, Orange County, and Los Angeles all
- * map to the "southern-california" surf guide.
+ * Most regions map directly to their own guide (e.g. san-diego -> surfing-san-diego).
+ * Regions without a dedicated guide fall back to a parent guide via GUIDE_SLUG_OVERRIDES.
  *
  * @param regionSlug - The forecast region slug
  * @returns The corresponding surf guide slug
  *
  * @example
  * ```typescript
- * getGuideSlugForRegion("san-diego")     // "southern-california"
+ * getGuideSlugForRegion("san-diego")     // "san-diego"
+ * getGuideSlugForRegion("los-angeles")   // "southern-california"
  * getGuideSlugForRegion("puerto-rico")   // "puerto-rico"
  * ```
  */
 export function getGuideSlugForRegion(regionSlug: string): string {
-  // Check if this is a SoCal sub-region (exact match)
-  if (SOCAL_SUBREGIONS.includes(regionSlug as typeof SOCAL_SUBREGIONS[number])) {
-    return "southern-california";
-  }
-
-  // Default: use the region slug directly
-  return regionSlug;
+  return GUIDE_SLUG_OVERRIDES[regionSlug] ?? regionSlug;
 }

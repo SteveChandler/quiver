@@ -34,7 +34,7 @@ import type { Beach } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Surf Forecast - 7 Day Regional Surf Conditions | Quiver",
+  title: "Surf Forecast - 7 Day Regional Surf Conditions",
   description:
     "Get the surf forecast for California, Hawaii, Puerto Rico and more. 7-day outlooks with best days, swell analysis, and beach-by-beach conditions.",
   path: "/forecast",
