@@ -96,7 +96,7 @@ describe("Redirect Chain Validation", () => {
       // 3-segment SHOULD redirect to 2-segment
       const threeSegmentResult = await handleSeoRedirect(threeSegment);
       expect(threeSegmentResult.redirect).toBe(true);
-      expect(threeSegmentResult.url).toBe(twoSegment);
+      expect(threeSegmentResult.url).toBe("/water-temp/santa-cruz-ca");
 
       // Follow chain from 3-segment to ensure no loop
       const chain = await followRedirectChain(threeSegment);
@@ -105,7 +105,7 @@ describe("Redirect Chain Validation", () => {
     });
 
     it("does not create redirect loop for intent beach URLs (4-segment)", async () => {
-      const twoSegment = "/sunset/san-diego";
+      const twoSegment = "/sunset/san-diego-ca";
       const fourSegment = "/sunset/ca/san-diego/blacks";
 
       // 2-segment should NOT redirect
@@ -134,7 +134,7 @@ describe("Redirect Chain Validation", () => {
       ];
 
       for (const intent of intents) {
-        const twoSegment = `/${intent}/san-diego`;
+        const twoSegment = `/${intent}/san-diego-ca`;
         const threeSegment = `/${intent}/ca/san-diego`;
         const fourSegment = `/${intent}/ca/san-diego/blacks`;
 
@@ -352,21 +352,22 @@ describe("Redirect Chain Validation", () => {
         expect(chain.hasLoop).toBe(false);
         expect(chain.chain.length).toBeLessThanOrEqual(MAX_REDIRECT_HOPS + 1);
 
-        // Should redirect to 2-segment format
+        // Should redirect to 2-segment format with state suffix
         const segments = url.split("/").filter(Boolean);
         const intent = segments[0];
+        const state = segments[1];
         const city = segments[2];
-        expect(chain.finalUrl).toBe(`/${intent}/${city}`);
+        expect(chain.finalUrl).toBe(`/${intent}/${city}-${state}`);
       }
     );
 
     it("handles different state codes without loops", async () => {
       const stateCases = [
-        ["/tide/nj/asbury-park", "/tide/asbury-park"],
-        ["/beginner/hi/honolulu", "/beginner/honolulu"],
-        ["/sunset/fl/miami", "/sunset/miami"],
-        ["/water-temp/nc/outer-banks", "/water-temp/outer-banks"],
-        ["/dawn-patrol/or/portland", "/dawn-patrol/portland"],
+        ["/tide/nj/asbury-park", "/tide/asbury-park-nj"],
+        ["/beginner/hi/honolulu", "/beginner/honolulu-hi"],
+        ["/sunset/fl/miami", "/sunset/miami-fl"],
+        ["/water-temp/nc/outer-banks", "/water-temp/outer-banks-nc"],
+        ["/dawn-patrol/or/portland", "/dawn-patrol/portland-or"],
       ];
 
       for (const [legacyUrl, expectedCanonical] of stateCases) {
@@ -449,21 +450,21 @@ describe("Redirect Rule Inventory", () => {
       const result = await handleSeoRedirect("/sunset/ca/san-diego");
       expect(result).toEqual({
         redirect: true,
-        url: "/sunset/san-diego",
+        url: "/sunset/san-diego-ca",
       });
     });
 
     /**
      * Rule 3: Intent beach legacy (4-segment)
      * Pattern: /{intent}/{state}/{city}/{beach}
-     * Target: /{intent}/{city}
-     * Example: /sunset/ca/san-diego/blacks → /sunset/san-diego
+     * Target: /{intent}/{city}-{state}
+     * Example: /sunset/ca/san-diego/blacks → /sunset/san-diego-ca
      */
     it("Rule 3: Intent beach legacy (4-segment) redirects to city intent", async () => {
       const result = await handleSeoRedirect("/sunset/ca/san-diego/blacks");
       expect(result).toEqual({
         redirect: true,
-        url: "/sunset/san-diego",
+        url: "/sunset/san-diego-ca",
       });
     });
 

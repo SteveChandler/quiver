@@ -222,9 +222,9 @@ describe('capEndTimeToTimeSlot', () => {
 
     const result = capEndTimeToTimeSlot(start, end, 'dawn-patrol', beachTz);
 
-    // Should be capped to 9am PST (17:00 UTC)
+    // Should be capped to 11am PST (19:00 UTC)
     expect(result.getTime()).toBeLessThan(end.getTime());
-    expect(result.getUTCHours()).toBe(17); // 9am PST = 17:00 UTC
+    expect(result.getUTCHours()).toBe(19); // 11am PST = 19:00 UTC
   });
 
   it('should cap lunch-session to 2pm', () => {
@@ -1284,7 +1284,7 @@ describe('getDawnPatrolRange', () => {
     // Civil twilight is ~30 min before sunrise
     // 6:47am - 30min = 6:17am, so startHour should be 6
     expect(range.startHour).toBe(6);
-    expect(range.endHour).toBe(9);
+    expect(range.endHour).toBe(11);
   });
 
   it('should return earlier start for summer sunrise', () => {
@@ -1299,7 +1299,7 @@ describe('getDawnPatrolRange', () => {
 
     // 5:42am - 30min = 5:12am, so startHour should be 5
     expect(range.startHour).toBe(5);
-    expect(range.endHour).toBe(9);
+    expect(range.endHour).toBe(11);
   });
 
   it('should fall back to 6am when no sunrise data', () => {
@@ -1312,7 +1312,7 @@ describe('getDawnPatrolRange', () => {
     const range = getDawnPatrolRange(sunrises, forecastDate, beachTz);
 
     expect(range.startHour).toBe(6);
-    expect(range.endHour).toBe(9);
+    expect(range.endHour).toBe(11);
   });
 });
 
@@ -1388,10 +1388,10 @@ describe('selectBestWindow time slot with tide boundaries', () => {
       createForecast({
         id: 'forecast-morning-extended',
         forecast_date: '2024-01-15',
-        forecast_time: '15:00', // 7am PST
+        forecast_time: '19:00', // 11am PST - within lunch-session window
         wave_height: '4',
         wave_period: '12s',
-        tide_height: '1.5',
+        tide_height: '2.5',
         tide_status: 'Rising',
         confidence_score: 80,
         raw_forecast: {
@@ -1401,8 +1401,8 @@ describe('selectBestWindow time slot with tide boundaries', () => {
       } as any),
     ];
 
-    // Set time to 7am PST
-    jest.setSystemTime(new Date('2024-01-15T15:00:00Z'));
+    // Set time to 11am PST (start of lunch session)
+    jest.setSystemTime(new Date('2024-01-15T19:00:00Z'));
 
     const beachWithTidePrefs = {
       ...mockBeach,

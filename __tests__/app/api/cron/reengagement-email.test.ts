@@ -91,6 +91,42 @@ jest.mock("@/lib/mailer/templates/ReengagementEmail", () => ({
   ReengagementEmail: jest.fn(() => "ReengagementEmail"),
 }));
 
+// Mock email formatters
+jest.mock("@/lib/email/email-formatters", () => ({
+  formatDatabaseTime: jest.fn((time: string) => {
+    if (!time) return "";
+    const parts = time.split(":");
+    const hours = parseInt(parts[0], 10);
+    const minutes = parts[1];
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const displayHour = hours > 12 ? hours - 12 : hours || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  }),
+  getConditionLabelText: jest.fn((score: number) => {
+    if (score >= 9) return "Perfect";
+    if (score >= 8) return "Excellent";
+    return "Good";
+  }),
+}));
+
+// Mock email logging service
+jest.mock("@/lib/services/email-logging-service", () => ({
+  createEmailLogger: jest.fn(() => ({
+    logDelivery: jest.fn().mockResolvedValue(undefined),
+    logEmailSent: jest.fn(),
+    logEmailFailed: jest.fn(),
+  })),
+}));
+
+// Mock rate limiter
+const mockThrottle = jest.fn().mockResolvedValue(undefined);
+jest.mock("@/lib/utils/email-rate-limiter", () => ({
+  createResendRateLimiter: jest.fn(() => ({
+    throttle: mockThrottle,
+    waitForSlot: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+
 describe("Re-engagement Email Cron Job API", () => {
   const mockRequest = (
     headers: Record<string, string> = {},
@@ -634,15 +670,13 @@ describe("Re-engagement Email Cron Job API", () => {
         .mockResolvedValueOnce({ data: [], error: null })
         .mockResolvedValueOnce({ data: [], error: null });
 
-      const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+      mockThrottle.mockClear();
 
       const request = mockRequest({ authorization: "Bearer valid" });
       await GET(request);
 
-      // Should have called setTimeout for rate limiting after first send
-      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 600);
-
-      setTimeoutSpy.mockRestore();
+      // Should have called throttle for rate limiting (once per candidate)
+      expect(mockThrottle).toHaveBeenCalledTimes(2);
     });
 
     it("should not rate limit for first email", async () => {
@@ -669,19 +703,13 @@ describe("Re-engagement Email Cron Job API", () => {
 
       mockLimit.mockResolvedValueOnce({ data: [], error: null });
 
-      const setTimeoutSpy = jest.spyOn(global, "setTimeout");
+      mockThrottle.mockClear();
 
       const request = mockRequest({ authorization: "Bearer valid" });
       await GET(request);
 
-      // Check that setTimeout was called fewer times than candidates
-      // (rate limiting only happens AFTER first send)
-      const rateLimitCalls = setTimeoutSpy.mock.calls.filter(
-        (call) => call[1] === 600
-      );
-      expect(rateLimitCalls.length).toBe(0);
-
-      setTimeoutSpy.mockRestore();
+      // throttle is called once per candidate (even for first)
+      expect(mockThrottle).toHaveBeenCalledTimes(1);
     });
   });
 

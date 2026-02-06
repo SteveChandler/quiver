@@ -26,6 +26,32 @@ jest.mock("@/lib/auth/admin", () => ({
   ADMIN_USER_IDS: ["bcdc5d59-2e22-4006-98a6-cada8618577a"],
 }));
 
+// Mock @supabase/ssr to prevent real network calls from refreshSession()
+jest.mock("@supabase/ssr", () => ({
+  createServerClient: jest.fn(() => ({
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    },
+  })),
+}));
+
+// Mock seo-redirect-handler to prevent fetch() calls to Supabase REST API
+jest.mock("@/lib/middleware/seo-redirect-handler", () => ({
+  handleSeoRedirect: jest.fn().mockResolvedValue({ redirect: false }),
+}));
+
+// Mock attribution and ip-location to prevent side effects
+jest.mock("@/lib/attribution", () => ({
+  parseUTMParams: jest.fn(() => ({})),
+  parseAttributionFromRequestCookies: jest.fn(() => null),
+  generateAttributionCookieHeaders: jest.fn(() => []),
+}));
+jest.mock("@/lib/location/ip-location", () => ({
+  extractIPLocation: jest.fn(() => null),
+  serializeIPLocation: jest.fn(() => ""),
+  getIPLocationCookieName: jest.fn(() => "ip_location"),
+}));
+
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";

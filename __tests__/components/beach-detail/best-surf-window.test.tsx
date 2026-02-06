@@ -1,22 +1,30 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useMagicHour } from "@/hooks/use-magic-hour";
 import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
+import { getWindowStatus } from "@/lib/utils/window-status";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // Mock dependencies
 jest.mock("@/hooks/use-data-fetcher");
 jest.mock("@/hooks/use-magic-hour");
 jest.mock("@/lib/utils/morning-intel-utils");
+jest.mock("@/lib/utils/window-status");
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/beach/123"),
+}));
+// Mock timezone-utils so forecastDate is always "2024-01-15" (matching mockIntel/mockForecasts)
+jest.mock("@/lib/utils/timezone-utils", () => ({
+  DEFAULT_TIMEZONE: "America/Los_Angeles",
+  getLocalDateString: jest.fn(() => "2024-01-15"),
 }));
 
 const mockUseDataFetcher = useDataFetcher as jest.Mock;
 const mockUseMagicHour = useMagicHour as jest.Mock;
 const mockFindNextBestWindow = findNextBestWindow as jest.Mock;
+const mockGetWindowStatus = getWindowStatus as jest.Mock;
 
 describe("BestSurfWindow", () => {
   const defaultProps = {
@@ -89,6 +97,11 @@ describe("BestSurfWindow", () => {
       error: null,
     });
     mockFindNextBestWindow.mockReturnValue(null);
+    // Default: upcoming window status (safe default that renders the full component)
+    mockGetWindowStatus.mockReturnValue({
+      status: "upcoming",
+      message: "Starts in 1 hour",
+    });
   });
 
   describe("Loading state", () => {
@@ -103,7 +116,7 @@ describe("BestSurfWindow", () => {
       const { container } = render(<BestSurfWindow {...defaultProps} />);
 
       // Check for skeleton elements by looking for animate-pulse class
-      const skeletons = container.querySelectorAll('.animate-pulse');
+      const skeletons = container.querySelectorAll(".animate-pulse");
       expect(skeletons.length).toBeGreaterThan(0);
     });
   });
@@ -155,9 +168,10 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} />);
 
-      // Times should be rendered (crossing midnight)
-      expect(screen.getByText(/11:00 PM/i)).toBeInTheDocument();
-      expect(screen.getByText(/1:00 AM/i)).toBeInTheDocument();
+      // Times should be rendered (crossing midnight) - use getAllByText as the
+      // time may appear in more than one element (e.g. the display and share text)
+      expect(screen.getAllByText(/11:00 PM/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/1:00 AM/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -233,7 +247,7 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} />);
 
-      expect(screen.getByText('High')).toBeInTheDocument();
+      expect(screen.getByText("High")).toBeInTheDocument();
       expect(screen.getByText(/Score: 8.5\/10/i)).toBeInTheDocument();
     });
 
@@ -265,7 +279,9 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} />);
 
-      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Surf intel not available yet/i)
+      ).toBeInTheDocument();
     });
 
     it("should handle error state gracefully", () => {
@@ -279,7 +295,9 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} />);
 
-      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Surf intel not available yet/i)
+      ).toBeInTheDocument();
     });
 
     it("should show fallback when no best window times exist", () => {
@@ -315,28 +333,21 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} forecasts={[]} />);
 
       // Should show the fallback message
-      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
-      expect(screen.getByText(/Intel is generated daily for select beaches/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Surf intel not available yet/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Intel is generated daily for select beaches/i)
+      ).toBeInTheDocument();
     });
   });
 
   describe("Window status indicators", () => {
     it("should show upcoming status when window hasn't started", () => {
-      // Mock current time to be before window start (need to use fixed date)
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T05:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      mockGetWindowStatus.mockReturnValue({
+        status: "upcoming",
+        message: "Starts in 1 hour",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -348,26 +359,13 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} />);
 
       expect(screen.getByText(/Starts in/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
 
     it("should show current status when in the window", () => {
-      // Mock current time to be during window
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T07:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      mockGetWindowStatus.mockReturnValue({
+        status: "current",
+        message: "120 mins remaining",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -380,26 +378,13 @@ describe("BestSurfWindow", () => {
 
       expect(screen.getByText(/SURF NOW!/i)).toBeInTheDocument();
       expect(screen.getByText(/remaining/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
 
     it("should show passed status when window has ended", () => {
-      // Mock current time to be after window end
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T10:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      mockGetWindowStatus.mockReturnValue({
+        status: "passed",
+        message: "Window has passed",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -411,32 +396,20 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} />);
 
       expect(screen.getByText(/Window has passed/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
   });
 
   describe("Magic Hour integration", () => {
     it("should display Magic Hour when available", () => {
-      // Set time to be before window ends (so Magic Hour is shown)
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T06:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      // Window must not be "passed" for Magic Hour to show
+      mockGetWindowStatus.mockReturnValue({
+        status: "current",
+        message: "120 mins remaining",
+      });
 
       const mockMagicHour = {
         found: true,
-        peakTime: new Date("2024-01-15T07:30:00"),
+        peakTime: new Date("2024-01-15T15:30:00Z"),
         windowStart: "7:00 AM",
         windowEnd: "8:00 AM",
         confidence: 0.85,
@@ -461,26 +434,14 @@ describe("BestSurfWindow", () => {
 
       expect(screen.getByText(/Magic Hour/i)).toBeInTheDocument();
       expect(screen.getByText(/High confidence/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
 
     it("should show Magic Hour loading state", () => {
-      // Set time to be before window ends (so Magic Hour loading is shown)
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T06:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      // Window must not be "passed" for loading indicator to show
+      mockGetWindowStatus.mockReturnValue({
+        status: "current",
+        message: "120 mins remaining",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -496,31 +457,21 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} />);
 
-      expect(screen.getByText(/Calculating peak time/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
+      expect(
+        screen.getByText(/Calculating peak time/i)
+      ).toBeInTheDocument();
     });
 
     it("should display wind quality badges correctly", () => {
-      // Set time to be before window ends (so Magic Hour is shown)
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T06:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      // Window must not be "passed" for Magic Hour to show
+      mockGetWindowStatus.mockReturnValue({
+        status: "current",
+        message: "120 mins remaining",
+      });
 
       const mockMagicHour = {
         found: true,
-        peakTime: new Date("2024-01-15T07:30:00"),
+        peakTime: new Date("2024-01-15T15:30:00Z"),
         windowStart: "7:00 AM",
         windowEnd: "8:00 AM",
         confidence: 0.9,
@@ -546,28 +497,15 @@ describe("BestSurfWindow", () => {
       // Check for Magic Hour indicators
       expect(screen.getByText(/Swell aligned/i)).toBeInTheDocument();
       expect(screen.getByText(/Optimal tide/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
   });
 
   describe("Next window display", () => {
     it("should show next best window when primary has passed", () => {
-      // Mock current time to be after primary window
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T10:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      mockGetWindowStatus.mockReturnValue({
+        status: "passed",
+        message: "Window has passed",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -584,27 +522,17 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} forecasts={mockForecasts} />);
 
-      expect(screen.getByText(/Next Best Window Today/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Next Best Window Today/i)
+      ).toBeInTheDocument();
       expect(screen.getByText(/2:00.*PM.*4:00.*PM/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
 
     it("should show current conditions when window passed and no next window", () => {
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T10:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      mockGetWindowStatus.mockReturnValue({
+        status: "passed",
+        message: "Window has passed",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -618,8 +546,6 @@ describe("BestSurfWindow", () => {
 
       expect(screen.getByText(/Current Conditions/i)).toBeInTheDocument();
       expect(screen.getByText(/Right now/i)).toBeInTheDocument();
-
-      global.Date = RealDate;
     });
   });
 
@@ -678,27 +604,18 @@ describe("BestSurfWindow", () => {
       });
       mockFindNextBestWindow.mockReturnValue(null);
 
-      const { container } = render(<BestSurfWindow {...defaultProps} />);
+      render(<BestSurfWindow {...defaultProps} />);
 
       const alertText = screen.getByText(/Surf intel not available yet/i);
       expect(alertText).toBeInTheDocument();
     });
 
     it("should apply correct styling classes based on window status", () => {
-      const RealDate = Date;
-      const mockDate = new Date("2024-01-15T07:00:00");
-      global.Date = class extends RealDate {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(mockDate.getTime());
-          } else {
-            super(...(args as ConstructorParameters<typeof Date>));
-          }
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-      } as any;
+      // Mock "current" status so green styling is applied
+      mockGetWindowStatus.mockReturnValue({
+        status: "current",
+        message: "120 mins remaining",
+      });
 
       mockUseDataFetcher.mockReturnValue({
         data: mockIntel,
@@ -712,8 +629,6 @@ describe("BestSurfWindow", () => {
       // Check for green styling when current
       const greenElements = container.querySelectorAll('[class*="green"]');
       expect(greenElements.length).toBeGreaterThan(0);
-
-      global.Date = RealDate;
     });
   });
 
@@ -810,7 +725,9 @@ describe("BestSurfWindow", () => {
       );
 
       // Component should render without errors
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Best Time to Surf Today/i)
+      ).toBeInTheDocument();
     });
 
     it("should handle null timezone gracefully", () => {
@@ -824,7 +741,9 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} beachTimezone={null} />);
 
       // Should use default timezone
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Best Time to Surf Today/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -844,9 +763,13 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} />);
 
       // Component should render the title without crashing
-      expect(screen.getByText(/Best Time to Surf Today/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Best Time to Surf Today/i)
+      ).toBeInTheDocument();
       // Description should be shown when times are equal (using getAllByText since it might appear multiple times)
-      const descriptions = screen.getAllByText(/Clean offshore winds with rising swell/i);
+      const descriptions = screen.getAllByText(
+        /Clean offshore winds with rising swell/i
+      );
       expect(descriptions.length).toBeGreaterThan(0);
     });
 
@@ -864,7 +787,7 @@ describe("BestSurfWindow", () => {
       render(<BestSurfWindow {...defaultProps} />);
 
       // Should still render confidence
-      expect(screen.getByText('High')).toBeInTheDocument();
+      expect(screen.getByText("High")).toBeInTheDocument();
       // Score should not appear when null
       expect(screen.queryByText(/Score:/i)).not.toBeInTheDocument();
     });
@@ -880,7 +803,9 @@ describe("BestSurfWindow", () => {
 
       render(<BestSurfWindow {...defaultProps} forecasts={[]} />);
 
-      expect(screen.getByText(/Surf intel not available yet/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Surf intel not available yet/i)
+      ).toBeInTheDocument();
     });
 
     it("should handle very long description text", () => {

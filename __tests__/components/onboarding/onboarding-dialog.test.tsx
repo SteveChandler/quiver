@@ -19,6 +19,12 @@ jest.mock("@/components/onboarding/stepper", () => ({
 jest.mock("@/components/onboarding/steps/welcome-step", () => ({
   WelcomeStep: () => <div data-testid="welcome-step" />,
 }));
+jest.mock("@/hooks/use-onboarding-tracking", () => ({
+  useOnboardingTracking: jest.fn(),
+}));
+jest.mock("@/actions/onboarding-actions", () => ({
+  skipOnboarding: jest.fn(),
+}));
 
 describe("OnboardingDialog Logic", () => {
   const mockOpenDialog = jest.fn();
@@ -42,6 +48,8 @@ describe("OnboardingDialog Logic", () => {
       openDialog: mockOpenDialog,
       reset: mockReset,
       checkUserId: mockCheckUserId,
+      closeDialog: jest.fn(),
+      setCurrentStep: jest.fn(),
     });
     (useSearchParams as jest.Mock).mockReturnValue({ get: jest.fn() });
   });
@@ -67,6 +75,8 @@ describe("OnboardingDialog Logic", () => {
       openDialog: mockOpenDialog,
       reset: mockReset,
       checkUserId: mockCheckUserId,
+      closeDialog: jest.fn(),
+      setCurrentStep: jest.fn(),
     });
 
     jest.useFakeTimers();
