@@ -94,41 +94,9 @@ export const SEO_CONFIG = {
         "Ultimate surf community platform - Community-driven surf session tracking and social platform",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
-      sameAs: [],
       foundingDate: "2024",
       applicationCategory: "Sports & Recreation",
       operatingSystem: "Web, iOS, Android",
-    },
-
-    softwareApplication: {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      name: "Quiver - Surf Community App",
-      alternateName: "Quiver Surf Tracker",
-      description:
-        "Ultimate surf community platform. Find surf buddies, track sessions, get accurate forecasts, and discover the best surf spots worldwide.",
-      applicationCategory: "Sports & Recreation",
-      applicationSubCategory: "Surfing",
-      operatingSystem: ["Web", "iOS", "Android"],
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-        availability: "https://schema.org/InStock",
-      },
-      featureList: [
-        "Find surf buddies and build your crew",
-        "Track and share epic surf sessions",
-        "Get accurate surf forecasts and conditions",
-        "Discover new surf spots with community reviews",
-        "Plan group surf sessions with friends",
-        "Join a thriving surf community",
-        "Share session photos and videos",
-        "Connect with local surfers worldwide",
-      ],
-      screenshot: `${SITE_URL}/app-screenshot.jpg`,
-      downloadUrl: SITE_URL,
-      installUrl: SITE_URL,
     },
 
     website: {
@@ -143,6 +111,11 @@ export const SEO_CONFIG = {
         "@type": "Organization",
         name: "Quiver",
         logo: `${SITE_URL}/logo.png`,
+      },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${SITE_URL}/discover?search={search_term_string}`,
+        "query-input": "required name=search_term_string",
       },
     },
   },

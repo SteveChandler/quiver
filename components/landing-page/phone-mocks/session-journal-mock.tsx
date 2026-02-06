@@ -32,9 +32,9 @@ export function SessionJournalMock() {
 
       {/* Header Section */}
       <div className="px-4 pt-4 pb-3">
-        <h1 className="text-[18px] font-bold text-slate-900 mb-1">
+        <div className="text-[18px] font-bold text-slate-900 mb-1">
           Surf Journal+
-        </h1>
+        </div>
         <p className="text-[11px] text-slate-500">
           Track your sessions, analyze your progress, and share your stoke
         </p>

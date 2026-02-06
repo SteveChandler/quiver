@@ -78,7 +78,9 @@ function getStaticRoutes(lastmod: string): MetadataRoute.Sitemap {
     "/features",
     "/about",
     "/privacy",
+    "/terms",
     "/map",
+    "/beaches",
     "/beaches/usa",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
