@@ -20,16 +20,26 @@ import {
   type EnhancedForecastWithRawData,
   type CDIPBuoyData,
 } from "@/types/forecast";
+import type {
+  WaveWatchForecast,
+  WaveWatchData,
+  COOPSForecast,
+  COOPSTideData,
+  WeatherPeriod,
+  CDIPDataPoint,
+  NDBCBuoyRow,
+  ResolvedTideInfo,
+} from "./api-types";
 
 /**
  * Interface for injected dependencies (services)
  */
 export interface DataSourceServices {
   getWaveDirectionText: (degrees: number) => string;
-  getTideStatusAtTime: (tides: any[], time: Date) => string;
-  getTideHeightAtTime: (tides: any[], time: Date) => number | null;
-  getNextTideFromTime: (tides: any[], time: Date) => any;
-  getDataQualityScore: (data: any) => number;
+  getTideStatusAtTime: (tides: COOPSTideData[], time: Date) => string;
+  getTideHeightAtTime: (tides: COOPSTideData[], time: Date) => number | null;
+  getNextTideFromTime: (tides: COOPSTideData[], time: Date) => COOPSTideData | null;
+  getDataQualityScore: (data: CDIPBuoyData) => number;
 }
 
 /**
@@ -37,10 +47,10 @@ export interface DataSourceServices {
  */
 export interface ForecastInputs {
   beach: Beach;
-  waveData: any;
-  tideData: any;
-  weatherData: any[];
-  buoyData: any;
+  waveData: WaveWatchForecast | null;
+  tideData: COOPSForecast | null;
+  weatherData: WeatherPeriod[];
+  buoyData: NDBCBuoyRow | null;
   cdipData: CDIPBuoyData | null;
 }
 
@@ -99,7 +109,7 @@ export class ForecastBuilder {
         hasWaveData: !!wavePoint,
         hasTideData: !!tideInfo,
         hasWeatherData: !!weatherPoint,
-        hasBuoyData: useBuoyData,
+        hasBuoyData: !!useBuoyData,
         hasCDIPData: useCDIPData,
         forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
       });
@@ -144,16 +154,16 @@ export class ForecastBuilder {
     beach: Beach;
     forecastTime: Date;
     dateString: string;
-    wavePoint: any;
-    cdipPoint: any;
-    tideInfo: any;
-    weatherPoint: any;
-    buoyData: any;
+    wavePoint: WaveWatchData | null;
+    cdipPoint: CDIPDataPoint | null;
+    tideInfo: ResolvedTideInfo;
+    weatherPoint: WeatherPeriod | null;
+    buoyData: NDBCBuoyRow | null;
     useCDIPData: boolean;
     confidenceScore: number;
     timepointDataSource: string;
     dataSources: string[];
-    tideData: any;
+    tideData: COOPSForecast | null;
     isFirstOfDay: boolean;
     cdipData: CDIPBuoyData | null;
     now: Date;
@@ -250,9 +260,9 @@ export class ForecastBuilder {
     cdipData: CDIPBuoyData | null;
     confidenceScore: number;
     isFirstOfDay: boolean;
-    tideData: any;
+    tideData: COOPSForecast | null;
     now: Date;
-  }): any {
+  }): EnhancedForecastWithRawData["raw_forecast"] {
     const { dataSources, useCDIPData, cdipData, confidenceScore, isFirstOfDay, tideData, now } =
       params;
 
@@ -261,11 +271,11 @@ export class ForecastBuilder {
       ...(useCDIPData &&
         cdipData && {
           cdip_data: {
-            stationId: (cdipData as any).stationId,
-            stationName: (cdipData as any).stationName,
-            lastUpdated: (cdipData as any).lastUpdated,
-            dataSource: "CDIP",
-            data: Array.isArray((cdipData as any).data) ? (cdipData as any).data.slice(0, 2) : [],
+            stationId: cdipData.stationId,
+            stationName: cdipData.stationName,
+            lastUpdated: cdipData.lastUpdated,
+            dataSource: "CDIP" as const,
+            data: Array.isArray(cdipData.data) ? cdipData.data.slice(0, 2) : [],
           },
         }),
       quality_scores: {
@@ -277,20 +287,21 @@ export class ForecastBuilder {
         cdip: cdipData?.lastUpdated,
         noaa: now.toISOString(),
       },
-      ...(isFirstOfDay &&
-        tideData?.tides?.length > 0 && {
-          tide_schedule: tideData.tides
-            .slice(0, 20)
-            .map((t: { time: number; height: number; type: string }) => ({
-              time: t.time,
-              height: t.height,
-              type: t.type as "high" | "low",
-            })),
-          tide_station: {
-            id: tideData.station_id ?? "",
-            name: tideData.station_name ?? "",
-          },
-        }),
+      ...(isFirstOfDay && tideData && tideData.tides && tideData.tides.length > 0
+        ? {
+            tide_schedule: tideData.tides
+              .slice(0, 20)
+              .map((t) => ({
+                time: t.time,
+                height: t.height,
+                type: t.type as "high" | "low",
+              })),
+            tide_station: {
+              id: tideData.station_id ?? "",
+              name: tideData.station_name ?? "",
+            },
+          }
+        : {}),
     };
   }
 
@@ -317,7 +328,7 @@ export class ForecastBuilder {
     return sortedData[0];
   }
 
-  private getWaveDataForTime(waveData: any, targetTime: Date) {
+  private getWaveDataForTime(waveData: WaveWatchForecast | null, targetTime: Date): WaveWatchData | null {
     if (!waveData?.forecast) return null;
 
     const targetTimestamp = targetTime.getTime();
@@ -337,7 +348,7 @@ export class ForecastBuilder {
     return closest;
   }
 
-  private getTideInfo(tideData: any, targetTime: Date) {
+  private getTideInfo(tideData: COOPSForecast | null, targetTime: Date): ResolvedTideInfo {
     const defaultTideInfo = {
       status: "Unknown",
       currentHeight: "2.5 ft",
@@ -368,7 +379,7 @@ export class ForecastBuilder {
     };
   }
 
-  private getWeatherDataForTime(weatherData: any[], targetTime: Date) {
+  private getWeatherDataForTime(weatherData: WeatherPeriod[], targetTime: Date): WeatherPeriod | null {
     if (!weatherData || weatherData.length === 0) return null;
 
     const targetTimestamp = targetTime.getTime();
@@ -389,9 +400,9 @@ export class ForecastBuilder {
   }
 
   private getWaveHeight(
-    cdipPoint: any,
-    wavePoint: any,
-    buoyData: any,
+    cdipPoint: CDIPDataPoint | null,
+    wavePoint: WaveWatchData | null,
+    buoyData: NDBCBuoyRow | null,
     useCDIPData: boolean,
     beach: Beach
   ): string | null {
@@ -436,9 +447,9 @@ export class ForecastBuilder {
   }
 
   private getWavePeriod(
-    cdipPoint: any,
-    wavePoint: any,
-    buoyData: any,
+    cdipPoint: CDIPDataPoint | null,
+    wavePoint: WaveWatchData | null,
+    buoyData: NDBCBuoyRow | null,
     useCDIPData: boolean
   ): string | null {
     const formatPeriodSeconds = (value: number | string | null | undefined): string | null => {
@@ -461,7 +472,7 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getWaveDirection(cdipPoint: any, wavePoint: any, useCDIPData: boolean): string | null {
+  private getWaveDirection(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     if (useCDIPData && cdipPoint) {
       return this.services.getWaveDirectionText(cdipPoint.peakWaveDirection);
     }
@@ -471,7 +482,7 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getSwell1Height(cdipPoint: any, wavePoint: any, useCDIPData: boolean): string | null {
+  private getSwell1Height(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     const formatWaveFeet = (meters: number | null | undefined): string | null => {
       if (meters == null) return null;
       if (!isFinite(meters)) return null;
@@ -492,7 +503,7 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getSwell1Period(cdipPoint: any, wavePoint: any, useCDIPData: boolean): string | null {
+  private getSwell1Period(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     const formatPeriodSeconds = (value: number | string | null | undefined): string | null => {
       if (value == null) return null;
       const num = typeof value === "string" ? parseFloat(value) : value;
@@ -508,7 +519,7 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getSwell1Direction(cdipPoint: any, wavePoint: any, useCDIPData: boolean): string | null {
+  private getSwell1Direction(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     if (useCDIPData && cdipPoint?.swellDirection) {
       return this.services.getWaveDirectionText(cdipPoint.swellDirection);
     }
@@ -518,14 +529,14 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getSwell2Height(wavePoint: any): string | null {
+  private getSwell2Height(wavePoint: WaveWatchData | null): string | null {
     if (wavePoint?.swell_2_height == null) return null;
     if (!isFinite(wavePoint.swell_2_height)) return null;
     if (wavePoint.swell_2_height < 0 || wavePoint.swell_2_height > 10) return null;
     return this.metersToFeet(wavePoint.swell_2_height);
   }
 
-  private getSwell2Period(wavePoint: any): string | null {
+  private getSwell2Period(wavePoint: WaveWatchData | null): string | null {
     if (wavePoint?.swell_2_period == null) return null;
     const num = wavePoint.swell_2_period;
     if (!isFinite(num)) return null;
@@ -534,12 +545,12 @@ export class ForecastBuilder {
     return `${rounded}s`;
   }
 
-  private getSwell2Direction(wavePoint: any): string | null {
+  private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
     if (!wavePoint) return null;
     return this.services.getWaveDirectionText(wavePoint.swell_2_direction);
   }
 
-  private getWindWaveHeight(cdipPoint: any, wavePoint: any, useCDIPData: boolean): string | null {
+  private getWindWaveHeight(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     const formatFeet = (feet: number | null | undefined): string | null => {
       if (feet == null) return null;
       if (!isFinite(feet)) return null;
@@ -553,15 +564,15 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getWindWavePeriod(cdipPoint: any, wavePoint: any, useCDIPData: boolean): string | null {
+  private getWindWavePeriod(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
     if (useCDIPData && cdipPoint?.windWavePeriod) return `${cdipPoint.windWavePeriod}s`;
     if (wavePoint) return `${wavePoint.wind_wave_period}s`;
     return null;
   }
 
   private getWindWaveDirection(
-    cdipPoint: any,
-    wavePoint: any,
+    cdipPoint: CDIPDataPoint | null,
+    wavePoint: WaveWatchData | null,
     useCDIPData: boolean
   ): string | null {
     if (useCDIPData && cdipPoint?.windWaveDirection) {
@@ -573,23 +584,23 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getWaterTemperature(buoyData: any, beach: Beach, forecastTime: Date): string | null {
+  private getWaterTemperature(buoyData: NDBCBuoyRow | null, beach: Beach, forecastTime: Date): string | null {
     if (buoyData?.water_temperature) {
       return `${Math.round((buoyData.water_temperature * 9) / 5 + 32)}°F`;
     }
     return this.estimateWaterTemperature(beach.lat ?? 32.7, forecastTime);
   }
 
-  private getWindSpeed(weatherPoint: any): string | null {
+  private getWindSpeed(weatherPoint: WeatherPeriod | null): string | null {
     if (!weatherPoint) return "10 mph";
     return this.extractWindSpeed(weatherPoint.windSpeed);
   }
 
-  private getWindDirection(weatherPoint: any): string | null {
+  private getWindDirection(weatherPoint: WeatherPeriod | null): string | null {
     return weatherPoint?.windDirection || "SW";
   }
 
-  private getAirTemperature(weatherPoint: any, beach: Beach, forecastTime: Date): string | null {
+  private getAirTemperature(weatherPoint: WeatherPeriod | null, beach: Beach, forecastTime: Date): string | null {
     if (weatherPoint) {
       return `${weatherPoint.temperature}°F`;
     }

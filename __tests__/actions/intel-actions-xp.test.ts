@@ -24,7 +24,15 @@ beforeAll(async () => {
 });
 
 // Local DI trackXP mock
-const trackXP = jest.fn(async () => ({ success: true }));
+const trackXP = jest.fn(async () => ({
+  xp_gained: 10,
+  total_xp: 100,
+  previous_level: 1,
+  new_level: 1,
+  level_up: false,
+  level_title: "Grommet",
+  new_badges: [],
+}));
 
 // Avoid realtime client constructor errors
 jest.mock('@supabase/realtime-js', () => ({

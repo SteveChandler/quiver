@@ -17,6 +17,7 @@ import type {
   IntelPostWithUser,
   IntelPost,
 } from "@/types/database";
+import type { XPTrackingResult } from "@/lib/gamification/types";
 
 // Result types for intel actions
 interface IntelPostsData {
@@ -37,6 +38,34 @@ interface ConfirmationData {
   confirmation_id: string;
 }
 
+interface SupabaseErrorLike {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+interface IntelPostRPCResult {
+  id: string;
+  user_id: string;
+  beach_id: string;
+  latitude: number;
+  longitude: number;
+  tag: IntelPostTag;
+  title: string;
+  description: string;
+  photo_url: string;
+  is_active: boolean;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+  confirmations_count: number;
+  beach_name: string;
+  distance_miles: number;
+  user_name: string;
+  surf_conditions: import("@/types/database.generated").Json | null;
+}
+
 /**
  * Create a new intel post
  */
@@ -54,7 +83,7 @@ type TrackXPFn = (
   action: XPAction,
   relatedEntityId?: string,
   relatedEntityType?: "session" | "board" | "intel_post" | "review" | "invite" | "photo"
-) => Promise<any>;
+) => Promise<XPTrackingResult>;
 
 interface IntelDeps {
   trackXP?: TrackXPFn;
@@ -113,7 +142,7 @@ const parseNullableNumber = (value: unknown) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-const shouldFallbackToConditionReports = (error: any) => {
+const shouldFallbackToConditionReports = (error: SupabaseErrorLike | null): boolean => {
   if (!error) return false;
   const code = typeof error.code === "string" ? error.code : undefined;
   if (code && INTEL_FALLBACK_ERROR_CODES.has(code)) return true;
@@ -271,7 +300,7 @@ export async function createIntelPost(
       }
 
       // Normalize optional surf condition inputs into JSONB
-      const surfConditions: Record<string, any> = {};
+      const surfConditions: Record<string, string | number | string[] | null> = {};
       if (wave_height !== undefined && wave_height !== null)
         surfConditions.wave_height = wave_height;
       if (wind_speed !== undefined && wind_speed !== null)
@@ -487,7 +516,7 @@ export async function getNearbyIntelPosts(
     const { lat, lon, radius = 5, tag, limit = 50 } = params;
 
     // Use the database function for geo-query (preferred)
-    let intelPosts: any[] | null = null;
+    let intelPosts: IntelPostRPCResult[] | null = null;
     const { data: rpcPosts, error: intelError } = await supabase.rpc(
       "get_nearby_intel_posts",
       {
@@ -500,14 +529,14 @@ export async function getNearbyIntelPosts(
     );
 
     if (!intelError && rpcPosts) {
-      intelPosts = rpcPosts as any[];
+      intelPosts = rpcPosts as IntelPostRPCResult[];
     } else {
       // CRITICAL ERROR: RPC function failed - this should not happen
       console.error("[CRITICAL] RPC get_nearby_intel_posts failed - returning empty results", {
-        code: (intelError as any)?.code,
-        message: (intelError as any)?.message,
-        details: (intelError as any)?.details,
-        hint: (intelError as any)?.hint,
+        code: intelError?.code,
+        message: intelError?.message,
+        details: intelError?.details,
+        hint: intelError?.hint,
         params: { lat, lon, radius, tag, limit },
         timestamp: new Date().toISOString(),
       });
@@ -538,7 +567,7 @@ export async function getNearbyIntelPosts(
     }
 
     // Get user details for posts
-    const userIds = [...new Set(intelPosts.map((post: any) => post.user_id))];
+    const userIds = [...new Set(intelPosts.map((post: IntelPostRPCResult) => post.user_id))];
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
@@ -549,9 +578,9 @@ export async function getNearbyIntelPosts(
     }
 
     // Get user confirmations when a user is present
-    let confirmations: any[] | null = null;
+    let confirmations: { intel_post_id: string }[] | null = null;
     if (user) {
-      const postIds = intelPosts.map((post: any) => post.id);
+      const postIds = intelPosts.map((post: IntelPostRPCResult) => post.id);
       const { data: conf, error: confirmationsError } = await supabase
         .from("intel_post_confirmations")
         .select("intel_post_id")
@@ -566,12 +595,16 @@ export async function getNearbyIntelPosts(
       (confirmations || []).map((c) => c.intel_post_id)
     );
 
-    const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: any) => {
+    const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: IntelPostRPCResult) => {
       const profile = profilesMap.get(post.user_id);
       return {
         ...post,
+        dedupe_hash: null,
+        emoji_rating: null,
+        photo_storage_path: null,
+        report_count: 0,
         user: {
-          full_name: profile?.full_name || (post as any).user_name || "Anonymous",
+          full_name: profile?.full_name || post.user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
         user_has_confirmed: confirmationsSet.has(post.id),
@@ -846,7 +879,7 @@ export async function getPublicIntelPosts(
     const { lat, lon, radius = 5, tag, limit = 50 } = params;
 
     // Use the database function for geo-query (preferred)
-    let intelPosts: any[] | null = null;
+    let intelPosts: IntelPostRPCResult[] | null = null;
     const { data: rpcPosts, error: intelError } = await supabase.rpc(
       "get_nearby_intel_posts",
       {
@@ -859,14 +892,14 @@ export async function getPublicIntelPosts(
     );
 
     if (!intelError && rpcPosts) {
-      intelPosts = rpcPosts as any[];
+      intelPosts = rpcPosts as IntelPostRPCResult[];
     } else {
       // CRITICAL ERROR: RPC function failed for public access - this should not happen
       console.error("[CRITICAL] RPC get_nearby_intel_posts failed (public) - returning empty results", {
-        code: (intelError as any)?.code,
-        message: (intelError as any)?.message,
-        details: (intelError as any)?.details,
-        hint: (intelError as any)?.hint,
+        code: intelError?.code,
+        message: intelError?.message,
+        details: intelError?.details,
+        hint: intelError?.hint,
         params: { lat, lon, radius, tag, limit },
         timestamp: new Date().toISOString(),
       });
@@ -897,7 +930,7 @@ export async function getPublicIntelPosts(
     }
 
     // Get user details for posts
-    const userIds = [...new Set(intelPosts.map((post: any) => post.user_id))];
+    const userIds = [...new Set(intelPosts.map((post: IntelPostRPCResult) => post.user_id))];
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
@@ -909,12 +942,16 @@ export async function getPublicIntelPosts(
     // Combine data (no user confirmations for public access)
     const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
-    const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: any) => {
+    const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post: IntelPostRPCResult) => {
       const profile = profilesMap.get(post.user_id);
       return {
         ...post,
+        dedupe_hash: null,
+        emoji_rating: null,
+        photo_storage_path: null,
+        report_count: 0,
         user: {
-          full_name: profile?.full_name || (post as any).user_name || "Anonymous",
+          full_name: profile?.full_name || post.user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
         user_has_confirmed: false, // Public users can't confirm posts
@@ -1029,7 +1066,7 @@ export async function getAllIntelPosts(
     }
 
     // Get user confirmations if authenticated
-    let userConfirmations: any[] = [];
+    let userConfirmations: { intel_post_id: string }[] = [];
     if (user) {
       const postIds = intelPosts.map((post) => post.id);
       const { data: confirmations, error: confirmationsError } =

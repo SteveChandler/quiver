@@ -1,4 +1,5 @@
 import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
+import type { ForecastInputs } from "@/lib/services/forecast/forecast-builder";
 import type { Beach } from "@/types/database";
 
 // Mock dependencies
@@ -19,7 +20,9 @@ describe("ForecastBuilder", () => {
   } as Beach;
 
   const mockWaveData = {
-    data_source: "NOAA_NWS",
+    lat: 32.7,
+    lng: -117.2,
+    data_source: "NOAA_NWS" as const,
     forecast: [
       {
         timestamp: new Date().toISOString(),
@@ -29,17 +32,25 @@ describe("ForecastBuilder", () => {
         swell_1_height: 0.8,
         swell_1_period: 14,
         swell_1_direction: 220,
+        swell_2_height: 0,
+        swell_2_period: 0,
+        swell_2_direction: 0,
+        wind_wave_height: 0.3,
+        wind_wave_period: 6,
+        wind_wave_direction: 200,
+        data_source: "NOAA_NWS" as const,
       },
     ],
-  };
+  } satisfies ForecastInputs["waveData"] & {};
 
   const mockTideData = {
     station_id: "9410230",
     station_name: "La Jolla",
+    water_level: null as number | null,
     tides: [
-      { time: Math.floor(Date.now() / 1000) + 7200, height: 5.2, type: "high", name: "High" },
+      { time: Math.floor(Date.now() / 1000) + 7200, height: 5.2, type: "high" as const, name: "High" },
     ],
-  };
+  } satisfies ForecastInputs["tideData"] & {};
 
   let builder: ForecastBuilder;
 
