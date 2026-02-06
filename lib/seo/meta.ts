@@ -58,8 +58,6 @@ export function buildPageMetadata({
       card: SEO_CONFIG.twitter.card as any,
       title,
       description,
-      site: SEO_CONFIG.twitter.site,
-      creator: SEO_CONFIG.twitter.creator,
       images: [ogImage],
     },
     robots: {

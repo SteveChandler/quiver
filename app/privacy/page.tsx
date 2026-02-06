@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
     "Learn how Quiver protects your privacy and handles your personal data. Our comprehensive privacy policy explains our data practices in clear terms.",
+  alternates: { canonical: "/privacy" },
   keywords: [
     "privacy policy",
     "data protection",

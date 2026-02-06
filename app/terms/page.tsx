@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Terms of Service",
   description:
     "Review Quiver's Terms of Service. Understand your rights and responsibilities when using our surf forecasting and community platform.",
+  alternates: { canonical: "/terms" },
   keywords: [
     "terms of service",
     "user agreement",

@@ -35,13 +35,13 @@ export function LocalIntelMock() {
       {/* Header Section with Add Button */}
       <div className="flex items-center justify-between px-4 pb-3">
         <div>
-          <h1 className="text-[18px] font-bold text-slate-900 flex items-center gap-2">
+          <div className="text-[18px] font-bold text-slate-900 flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-ocean-blue" aria-hidden="true" />
             Local Intel
             <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-ocean-blue text-[10px] font-bold text-white">
               10
             </span>
-          </h1>
+          </div>
         </div>
         <button className="flex items-center gap-1 rounded-full bg-ocean-blue px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm">
           <Plus className="h-3 w-3" aria-hidden="true" />
