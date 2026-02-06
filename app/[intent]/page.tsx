@@ -110,16 +110,16 @@ export default async function StateRootPage(props: StateRootPageProps) {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-4xl font-bold">Best Surf Beaches in {stateName}</h1>
-      <p className="mt-2 text-slate-600">{stateName}, USA</p>
+      <p className="mt-2 text-gray-600">{stateName}, USA</p>
 
       <div className="mt-8">
-        <h2 className="text-xl font-semibold text-slate-900">Top beaches</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Top beaches</h2>
         {beaches.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-700">
+          <div className="mt-4 rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-gray-700">
             <p className="font-medium">
-              We’re expanding coverage in {stateName}.
+              We're expanding coverage in {stateName}.
             </p>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-gray-600">
               Explore the surf map to find nearby spots and save favorites.
             </p>
             <div className="mt-3">
@@ -141,12 +141,12 @@ export default async function StateRootPage(props: StateRootPageProps) {
               return (
                 <li
                   key={beach.id}
-                  className="rounded-lg border border-slate-200 p-4"
+                  className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 shadow-sm"
                 >
                   <Link href={href} className="text-sky-700 hover:underline">
                     {beach.name}
                   </Link>
-                  <div className="mt-1 text-sm text-slate-600">
+                  <div className="mt-1 text-sm text-gray-600">
                     {beach.city}, {stateName}
                     {rating ? ` · ${rating}★` : ""}
                     {reviews ? ` · ${reviews} reviews` : ""}

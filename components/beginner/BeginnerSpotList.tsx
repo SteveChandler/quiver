@@ -9,22 +9,22 @@ interface BeginnerSpotListProps {
 export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
   return (
     <section data-testid="beginner-spot-list">
-      <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
         Best Beginner Breaks in {cityName}
       </h2>
       <div className="space-y-4">
         {beaches.map((beach, idx) => (
           <div
             key={beach.id}
-            className="rounded-lg border border-slate-200 bg-white p-5 hover:border-sky-200 hover:bg-slate-50/50 transition-colors"
+            className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-5 shadow-sm hover:border-blue-200 hover:shadow-md transition-all"
           >
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-sky-100 text-sky-700 text-sm font-bold">
+              <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-50 text-ocean-blue text-sm font-bold">
                 {idx + 1}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-lg font-semibold text-slate-900">
+                  <h3 className="text-lg font-semibold text-gray-800">
                     <Link
                       href={`/spots/${beach.slug}`}
                       className="hover:text-ocean-blue hover:underline underline-offset-2"
@@ -33,12 +33,12 @@ export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
                     </Link>
                   </h3>
                   {beach.rating > 0 && (
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-gray-500">
                       ★ {beach.rating.toFixed(1)} ({beach.reviewCount})
                     </span>
                   )}
                   {beach.breakType && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
                       {beach.breakType}
                     </span>
                   )}
@@ -51,7 +51,7 @@ export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
 
                 {beach.editorial && (
                   <>
-                    <p className="mt-2 text-sm text-slate-700">
+                    <p className="mt-2 text-sm text-gray-700">
                       {beach.editorial.description}
                     </p>
                     {beach.editorial.whyBeginnersLoveIt.length > 0 && (
@@ -65,7 +65,7 @@ export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
                             .map((reason) => (
                               <li
                                 key={reason}
-                                className="text-xs text-slate-600 flex items-start gap-1.5"
+                                className="text-xs text-gray-600 flex items-start gap-1.5"
                               >
                                 <span className="text-green-500 mt-0.5">
                                   &#10003;
@@ -76,7 +76,7 @@ export function BeginnerSpotList({ cityName, beaches }: BeginnerSpotListProps) {
                         </ul>
                       </div>
                     )}
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
                       {beach.editorial.logistics.parking && (
                         <span>
                           <span aria-hidden="true">🅿️</span> {beach.editorial.logistics.parking}

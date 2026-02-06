@@ -52,7 +52,7 @@ export function TideOverviewSection({ data }: TideOverviewSectionProps) {
               </Badge>
             )}
             {nextTideType && nextTideTime && (
-              <div className="flex items-center gap-1.5 text-sm text-slate-600">
+              <div className="flex items-center gap-1.5 text-sm text-gray-600">
                 <TideIcon className="h-4 w-4 text-blue-600" />
                 <span>
                   Next {nextTideType.toLowerCase()}: {nextTideTime}
@@ -75,7 +75,7 @@ export function TideOverviewSection({ data }: TideOverviewSectionProps) {
           )}
 
           {/* Attribution */}
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-gray-500">
             Data from {tideStation || beachName}
           </p>
         </CardContent>

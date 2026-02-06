@@ -336,7 +336,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
     // Render state-level intent page (with empty state if no beaches)
     return (
-      <div className="bg-white">
+      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
         <BreadcrumbStructuredData
           items={[
             { name: "Quiver", url: baseUrl },
@@ -353,13 +353,13 @@ export default async function IntentPage(props: IntentPageParams) {
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
               {intentDefinition.heading({ cityName: stateName })}
             </h1>
             <p className="text-lg text-gray-600 mt-2">
               {beaches.length} spots across {stateName}
             </p>
-            <p className="text-base text-slate-700 mt-4">
+            <p className="text-base text-gray-700 mt-4">
               {intentDefinition.intro({ cityName: stateName })}
             </p>
           </header>
@@ -374,7 +374,7 @@ export default async function IntentPage(props: IntentPageParams) {
           ) : (
             <>
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                   {intentDefinition.label} spots in {stateName}
                 </h2>
                 <StateMapView
@@ -385,14 +385,14 @@ export default async function IntentPage(props: IntentPageParams) {
 
               {/* Focus Points */}
               <section>
-                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                   What to focus on
                 </h2>
                 <ul className="grid gap-3 sm:grid-cols-2">
                   {intentDefinition.focusPoints.map((point) => (
                     <li
                       key={point}
-                      className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                      className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
                     >
                       {point}
                     </li>
@@ -481,10 +481,10 @@ export default async function IntentPage(props: IntentPageParams) {
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     return (
-      <div className="bg-white">
+      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-800">
               {definition.heading({ cityName: cityMetadata.cityName })}
             </h1>
           </header>
@@ -513,7 +513,7 @@ export default async function IntentPage(props: IntentPageParams) {
   const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
 
   return (
-    <div className="bg-white">
+    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${baseUrl.replace(/\/$/, "")}/` },
@@ -548,22 +548,22 @@ export default async function IntentPage(props: IntentPageParams) {
             Back to {cityMetadata.cityName}
           </Link>
           <span className="text-gray-400 mx-2">›</span>
-          <span className="text-gray-900 font-medium">{definition.label}</span>
+          <span className="text-gray-800 font-medium">{definition.label}</span>
         </nav>
 
         {/* Header */}
         <header className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
             {pageContent.heading}
           </h1>
           <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
 
           <div className="space-y-2 mt-6">
-            <p className="text-base text-slate-700">
+            <p className="text-base text-gray-700">
               Updated {updatedAt} · Dialed recommendations refresh every 30
               minutes based on tide, wind, and crowd telemetry from Quiver.
             </p>
-            <p className="text-base text-slate-700">
+            <p className="text-base text-gray-700">
               {pageContent.intro}
             </p>
           </div>
@@ -578,10 +578,10 @@ export default async function IntentPage(props: IntentPageParams) {
         <div className="space-y-12">
           {/* Map & List Section */}
           <section>
-            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Top spot recommendations
             </h2>
-            <p className="mb-6 text-sm text-slate-600">
+            <p className="mb-6 text-sm text-gray-600">
               Sort your quiver, choose the right tide window, and jot down a
               backup in case the main peak gets stacked.
             </p>
@@ -605,14 +605,14 @@ export default async function IntentPage(props: IntentPageParams) {
 
           {/* Editorial Focus Section */}
           <section>
-            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               What to focus on today
             </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {definition.focusPoints.map((point) => (
                 <li
                   key={point}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                  className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
                 >
                   {point}
                 </li>
@@ -623,10 +623,10 @@ export default async function IntentPage(props: IntentPageParams) {
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Logging Tips */}
             <section>
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                 Session logging tips
               </h2>
-              <p className="text-slate-700 leading-relaxed">
+              <p className="text-gray-700 leading-relaxed">
                 Once you wrap the surf, drop a note in your Quiver journal with
                 tide, board, and crowd observations. Over time you&apos;ll see
                 crystal-clear patterns about when {cityMetadata.cityName} rewards this type
@@ -636,11 +636,11 @@ export default async function IntentPage(props: IntentPageParams) {
 
             {/* Checklist & Links */}
             <aside className="space-y-6">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-inner">
-                <h2 className="text-lg font-semibold text-slate-900">
+              <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border border-blue-200/50 shadow-sm p-5">
+                <h2 className="text-lg font-semibold text-gray-800">
                   Rapid-fire checklist
                 </h2>
-                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                <ul className="mt-3 space-y-2 text-sm text-gray-700">
                   <li>
                     Screenshot the tide window and share it with your crew.
                   </li>
@@ -653,8 +653,8 @@ export default async function IntentPage(props: IntentPageParams) {
                   </li>
                 </ul>
               </div>
-              <div className="rounded-xl border border-slate-200 p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">
+              <div className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
+                <h2 className="text-lg font-semibold text-gray-800">
                   Continue exploring
                 </h2>
                 <ul className="mt-3 space-y-2 text-sm text-sky-700">

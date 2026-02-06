@@ -24,7 +24,7 @@ export function BeginnerHero({
   return (
     <section data-testid="beginner-hero">
       <header className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
           Beginner Surf Spots in {cityName}
         </h1>
         <p className="text-lg text-gray-600">
@@ -35,7 +35,7 @@ export function BeginnerHero({
 
       {conditionsBadge && (
         <div
-          className={`inline-flex items-center gap-3 rounded-xl border border-slate-200 ${STATUS_COLORS[conditionsBadge.status].bg} px-5 py-3`}
+          className={`inline-flex items-center gap-3 rounded-xl border border-blue-200/50 shadow-sm ${STATUS_COLORS[conditionsBadge.status].bg} px-5 py-3`}
         >
           <span
             className={`h-3 w-3 rounded-full ${STATUS_COLORS[conditionsBadge.status].dot}`}
@@ -46,11 +46,11 @@ export function BeginnerHero({
             >
               {conditionsBadge.statusLabel}
             </p>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-gray-600">
               {conditionsBadge.waveHeight} &middot; {conditionsBadge.wind}{" "}
               &middot; {conditionsBadge.waterTemp}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-gray-600">
               Based on conditions at {conditionsBadge.spotName}
             </p>
           </div>
@@ -58,7 +58,7 @@ export function BeginnerHero({
       )}
 
       {cityEditorial && cityEditorial.description.length > 0 && (
-        <p className="mt-6 text-base text-slate-700 leading-relaxed max-w-3xl">
+        <p className="mt-6 text-base text-gray-700 leading-relaxed max-w-3xl">
           {cityEditorial.description[0]}
         </p>
       )}

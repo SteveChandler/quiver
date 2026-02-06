@@ -78,7 +78,7 @@ test.describe("Beginner page - San Diego", () => {
 
     // Should have at least one beach card
     const spotCards = section.locator(
-      "div.rounded-lg.border"
+      "div.rounded-xl.border"
     );
     await expect(spotCards.first()).toBeVisible();
 

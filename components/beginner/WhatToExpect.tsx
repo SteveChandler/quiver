@@ -10,12 +10,12 @@ export function WhatToExpect({ cityName, cityEditorial }: WhatToExpectProps) {
 
   return (
     <section data-testid="what-to-expect">
-      <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
         What to Expect Surfing in {cityName}
       </h2>
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 space-y-4">
+      <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-white/80 to-blue-50/60 backdrop-blur-sm shadow-lg p-6 space-y-4">
         {cityEditorial.description.slice(1).map((paragraph, idx) => (
-          <p key={idx} className="text-sm text-slate-700 leading-relaxed">
+          <p key={idx} className="text-sm text-gray-700 leading-relaxed">
             {paragraph}
           </p>
         ))}

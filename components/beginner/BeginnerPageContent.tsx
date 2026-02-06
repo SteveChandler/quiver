@@ -73,7 +73,7 @@ export function BeginnerPageContent({
   ];
 
   return (
-    <div className="bg-white">
+    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${baseUrl}/` },
@@ -103,7 +103,7 @@ export function BeginnerPageContent({
             Back to {cityName}
           </Link>
           <span className="text-gray-400 mx-2">&rsaquo;</span>
-          <span className="text-gray-900 font-medium">Beginner Spots</span>
+          <span className="text-gray-800 font-medium">Beginner Spots</span>
         </nav>
 
         <div className="space-y-12">
@@ -172,8 +172,8 @@ export function BeginnerPageContent({
 
           {/* Continue Exploring */}
           <SectionFadeUp>
-            <aside className="rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900 mb-3">
+            <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">
                 Continue exploring
               </h2>
               <ul className="space-y-2 text-sm text-sky-700">
@@ -216,11 +216,11 @@ export function BeginnerPageContent({
           {/* Planning Checklist */}
           {cityEditorial && cityEditorial.planningChecklist.length > 0 && (
             <SectionFadeUp>
-              <aside className="rounded-xl border border-slate-200 bg-slate-50 p-6">
-                <h2 className="text-lg font-semibold text-slate-900 mb-3">
+              <aside className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border border-blue-200/50 shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-3">
                   Beginner checklist
                 </h2>
-                <ul className="space-y-2 text-sm text-slate-700">
+                <ul className="space-y-2 text-sm text-gray-700">
                   {cityEditorial.planningChecklist.map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <span className="text-sky-600 mt-0.5">-</span>

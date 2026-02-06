@@ -12,15 +12,15 @@ const SEASONS = [
 export function SeasonalGuide({ cityName }: SeasonalGuideProps) {
   return (
     <section data-testid="seasonal-guide">
-      <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
         Best Months for Beginner Surfing
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
         {SEASONS.map(({ season, months, color }) => (
           <div key={season} className={`rounded-xl border p-4 ${color}`}>
-            <h3 className="text-lg font-semibold text-slate-900">{season}</h3>
-            <p className="text-xs text-slate-500 mb-2">{months}</p>
-            <p className="text-sm text-slate-700">
+            <h3 className="text-lg font-semibold text-gray-800">{season}</h3>
+            <p className="text-xs text-gray-600 mb-2">{months}</p>
+            <p className="text-sm text-gray-700">
               Conditions for beginners in {cityName} during{" "}
               {season.toLowerCase()}.
             </p>

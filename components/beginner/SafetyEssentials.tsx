@@ -26,7 +26,7 @@ const SAFETY_TIPS = [
 export function SafetyEssentials({ cityName }: SafetyEssentialsProps) {
   return (
     <section data-testid="safety-essentials">
-      <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
         <Shield className="inline h-5 w-5 text-amber-600 mr-2" aria-hidden="true" />
         Safety Tips for {cityName}
       </h2>
@@ -37,7 +37,7 @@ export function SafetyEssentials({ cityName }: SafetyEssentialsProps) {
             className="rounded-lg border border-amber-200 bg-amber-50 p-4"
           >
             <h3 className="text-sm font-semibold text-amber-800">{title}</h3>
-            <p className="mt-1 text-sm text-slate-700">{tip}</p>
+            <p className="mt-1 text-sm text-gray-700">{tip}</p>
           </div>
         ))}
       </div>
