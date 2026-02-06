@@ -265,6 +265,89 @@ export function formatBestAtLabel(
   }
 }
 
+/**
+ * Month names in order (1-indexed: January = 1, December = 12)
+ */
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/**
+ * Convert month number (1-12) to month name.
+ *
+ * @param month - Month number (1 = January, 12 = December)
+ * @returns Month name or fallback if invalid
+ *
+ * @example
+ * monthNumberToName(1) // "January"
+ * monthNumberToName(12) // "December"
+ * monthNumberToName(99) // "Month 99"
+ */
+export function monthNumberToName(month: number): string {
+  return MONTH_NAMES[month - 1] ?? `Month ${month}`;
+}
+
+/**
+ * Format an array of month numbers into a human-readable range.
+ *
+ * Handles contiguous ranges ("January through March") and
+ * non-contiguous lists ("January, February, and March").
+ * Also handles wrap-around ranges (e.g., [11, 12, 1, 2] = "November through February").
+ *
+ * @param months - Array of month numbers (1-12)
+ * @returns Formatted month range string
+ *
+ * @example
+ * formatMonthRange([1, 2, 3]) // "January through March"
+ * formatMonthRange([1, 3, 5]) // "January, March, and May"
+ * formatMonthRange([11, 12, 1, 2]) // "November through February"
+ * formatMonthRange([6]) // "June"
+ */
+export function formatMonthRange(months: number[]): string {
+  if (months.length === 0) return '';
+  if (months.length === 1) return monthNumberToName(months[0]);
+
+  const sorted = [...months].sort((a, b) => a - b);
+
+  // Check if months are contiguous (non-wrapping)
+  const isContiguous = sorted.every((m, i) => {
+    if (i === 0) return true;
+    const prev = sorted[i - 1];
+    return m === prev + 1 || (prev === 12 && m === 1);
+  });
+
+  // Check if range wraps around year boundary (e.g., Nov, Dec, Jan, Feb)
+  const wrapsAround =
+    sorted.length > 1 &&
+    sorted[0] === 1 &&
+    sorted[sorted.length - 1] === 12 &&
+    sorted.every((m, i) => {
+      if (i === 0) return true;
+      return m === sorted[i - 1] + 1;
+    });
+
+  if (isContiguous || wrapsAround) {
+    if (wrapsAround) {
+      // Find where the sequence breaks to determine start/end
+      let startIdx = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] !== sorted[i - 1] + 1) {
+          startIdx = i;
+          break;
+        }
+      }
+      return `${monthNumberToName(sorted[startIdx])} through ${monthNumberToName(sorted[startIdx === 0 ? sorted.length - 1 : startIdx - 1])}`;
+    }
+    return `${monthNumberToName(sorted[0])} through ${monthNumberToName(sorted[sorted.length - 1])}`;
+  }
+
+  // Non-contiguous: list them with Oxford comma
+  const names = sorted.map(monthNumberToName);
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
 export const dateUtils = {
   /**
    * Format a date string to short format (e.g., "Jan 15")

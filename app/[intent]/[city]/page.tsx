@@ -348,7 +348,8 @@ export default async function IntentPage(props: IntentPageParams) {
           items={generateIntentFAQ(
             params.intent as SurfIntentSlug,
             stateName,
-            beaches.slice(0, 3).map((b) => b.name)
+            beaches.slice(0, 3).map((b) => b.name),
+            params.city
           )}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -360,7 +361,7 @@ export default async function IntentPage(props: IntentPageParams) {
               {beaches.length} spots across {stateName}
             </p>
             <p className="text-base text-gray-700 mt-4">
-              {intentDefinition.intro({ cityName: stateName })}
+              {intentDefinition.intro({ cityName: stateName, stateSlug: params.city })}
             </p>
           </header>
 
@@ -531,7 +532,8 @@ export default async function IntentPage(props: IntentPageParams) {
         items={generateIntentFAQ(
           params.intent as SurfIntentSlug,
           cityMetadata.cityName,
-          spots.slice(0, 3).map((s) => s.name)
+          spots.slice(0, 3).map((s) => s.name),
+          cityMetadata.state.toLowerCase()
         )}
       />
       <div className="container mx-auto px-4 py-8 max-w-7xl">

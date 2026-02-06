@@ -22,7 +22,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Southern California",
     title: "Complete Guide to Surfing Southern California",
     description:
-      "From Malibu to the Mexican border, Southern California offers world-class waves for every skill level. Explore 200+ surf spots across LA, Orange County, and San Diego.",
+      "From Malibu to the Mexican border, Southern California offers world-class waves across 200 miles of coastline. Point breaks at Rincon and Malibu deliver long, peeling rides on south swells, while San Diego's reef breaks and beach breaks handle everything the Pacific throws at them.\n\nSummer brings consistent south swells and warm water (65-72°F), making it prime for longboarding and dawn patrol. Winter northwest groundswells push overhead surf to exposed breaks like Blacks Beach and Trestles. Water temps drop to the mid-50s but rarely require more than a 4/3mm. Offshore Santa Ana winds in fall create the cleanest conditions of the year.",
     states: ["ca"],
     centerLat: 33.5,
     centerLon: -117.8,
@@ -33,7 +33,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "San Diego",
     title: "Complete Guide to Surfing San Diego",
     description:
-      "San Diego delivers year-round surf with 70+ miles of coastline. From La Jolla reefs to Imperial Beach sandbars, find your perfect wave.",
+      "San Diego delivers year-round surf across 70+ miles of coastline, from the kelp-lined reefs of La Jolla to the jetty breaks of Imperial Beach. The region's southwest-facing exposure catches every south swell that tracks through, while winter northwest groundswells light up the more exposed north county breaks.\n\nWater temps run 57-72°F, comfortable in a 3/2mm most of the year. Fall Santa Ana events push offshore winds across the county and bring the warmest water and cleanest surf of the season. The lineup culture ranges from mellow longboard points at Tourmaline to competitive shortboard reefs at Seaside.",
     states: ["ca"],
     centerLat: 32.85,
     centerLon: -117.25,
@@ -44,7 +44,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Orange County",
     title: "Complete Guide to Surfing Orange County",
     description:
-      "Home to Trestles, Huntington Beach, and The Wedge. Orange County is the heart of California surf culture.",
+      "Home to Trestles, Huntington Beach, and The Wedge, Orange County sits at the heart of California surf culture. Trestles' cobblestone points are among the best high-performance waves in the world, while HB's consistent beach break hosts the US Open of Surfing every summer.\n\nSouth swells light up Lower Trestles and San Clemente from April through October. Winter brings northwest energy to Huntington and Newport's jetty-enhanced peaks. The Wedge bodysurf break at Newport is a spectacle on south swells - not for the faint-hearted.",
     states: ["ca"],
     centerLat: 33.6,
     centerLon: -117.9,
@@ -55,7 +55,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Hawaii",
     title: "Complete Guide to Surfing Hawaii",
     description:
-      "The birthplace of surfing. From North Shore's legendary winter swells to Waikiki's perfect learning waves.",
+      "The birthplace of surfing. Hawaii's North Shore delivers some of the heaviest waves on earth from November through February, while the south-facing shores of Waikiki and Ala Moana serve up gentle rollers for beginners year-round.\n\nWater temps stay between 73-80°F, so boardshorts are standard. The trade winds blow onshore most afternoons, making early mornings and Kona wind days the prime windows. Reef breaks dominate - booties are smart for urchin-heavy spots. Respect the locals and understand the lineup pecking order, especially at spots like Pipeline and Sunset Beach.",
     states: ["hi"],
     centerLat: 21.3,
     centerLon: -157.8,
@@ -66,7 +66,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Los Angeles",
     title: "Complete Guide to Surfing Los Angeles",
     description:
-      "From Malibu's perfect points to Venice's beach breaks. LA offers diverse surf across 75 miles of coastline.",
+      "From Malibu's perfect points to Venice's beach breaks, Los Angeles offers diverse surf across 75 miles of coastline. Summer south swells light up Malibu First Point and El Porto, while winter northwest energy pushes overhead waves to exposed breaks in Palos Verdes and Manhattan Beach.\n\nWater temps range 55-70°F. A 3/2mm handles most of the year, with a 4/3mm for winter dawn patrols. LA's urban setting means parking battles and crowds, but midweek sessions and knowledge of secondary peaks reward the persistent.",
     states: ["ca"],
     centerLat: 33.95,
     centerLon: -118.45,
@@ -77,7 +77,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Santa Cruz",
     title: "Complete Guide to Surfing Santa Cruz",
     description:
-      "The birthplace of mainland surfing. World-class point breaks, consistent beach breaks, and a deep surf culture.",
+      "The birthplace of mainland surfing. Santa Cruz delivers world-class point breaks like Steamer Lane and Pleasure Point alongside consistent beach breaks and sheltered coves. The region picks up every swell the North Pacific generates.\n\nWater temps run 50-60°F year-round - a 4/3mm is standard, and a 5/4mm with boots earns its keep in winter. Northwest swells are the bread and butter, with fall and winter delivering the biggest and most consistent surf. Kelp beds, rock reefs, and sea otters are part of the scenery.",
     states: ["ca"],
     centerLat: 36.97,
     centerLon: -122.03,
@@ -88,7 +88,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Ventura County",
     title: "Complete Guide to Surfing Ventura County",
     description:
-      "From Rincon to County Line. Ventura County delivers some of California's most consistent waves.",
+      "From Rincon to County Line, Ventura County delivers some of California's most consistent waves. Rincon - 'Queen of the Coast' - is one of the best right-hand point breaks in the world when a winter west swell fills in.\n\nThe county faces south-to-southwest, picking up both summer south swells and winter northwest energy. Water temps range 54-68°F. Ventura Harbor's sandbars and Mondos' mellow longboard walls balance out the high-performance reef breaks scattered along the coast.",
     states: ["ca"],
     centerLat: 34.28,
     centerLon: -119.25,
@@ -99,7 +99,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Florida",
     title: "Complete Guide to Surfing Florida",
     description:
-      "Year-round warm water surfing on both coasts. From Jacksonville to Miami, find your Florida wave.",
+      "Year-round warm water surfing on both coasts, with New Smyrna Beach, Sebastian Inlet, and Jacksonville delivering the most consistent waves on the Atlantic side. Florida waves are smaller and shorter-period than the West Coast, but hurricane season (June-November) brings overhead surf and hollow barrels.\n\nWater temps range 65-85°F - boardshorts work from May through October. The Gulf Coast picks up rare but clean south swells. East Coast breaks respond best to nor'easters and tropical systems tracking north.",
     states: ["fl"],
     centerLat: 28.5,
     centerLon: -80.6,
@@ -110,7 +110,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "New Jersey",
     title: "Complete Guide to Surfing New Jersey",
     description:
-      "The heart of East Coast surfing. 127 miles of coastline with beach breaks that light up on fall swells.",
+      "The heart of East Coast surfing. New Jersey's 127 miles of beach break coastline light up on fall nor'easters and passing hurricane swells. Spots like Manasquan Inlet, Long Branch, and Belmar deliver punchy, hollow waves when the sandbars line up.\n\nSummer water temps reach 72-75°F, but winter drops to the high 30s - a 5/4mm with boots, gloves, and hood is mandatory December through March. Fall is prime season: warm water lingers while consistent north swells push through.",
     states: ["nj"],
     centerLat: 39.8,
     centerLon: -74.1,
@@ -121,7 +121,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Outer Banks",
     title: "Complete Guide to Surfing the Outer Banks",
     description:
-      "North Carolina's barrier islands catch swell from every direction. Uncrowded peaks and warm water.",
+      "North Carolina's barrier islands catch swell from every direction - northeast storms, southeast tropical swells, and even rare wraparound south energy. The Outer Banks offers some of the least crowded quality surf on the East Coast.\n\nWater temps range 48-80°F depending on season. Rodanthe, Buxton, and the Cape Hatteras jetties are the marquee spots. Fall hurricane season is the main event, but consistent nor'easter swells keep things rideable through winter.",
     states: ["nc"],
     centerLat: 35.75,
     centerLon: -75.55,
@@ -132,7 +132,7 @@ export const HUB_REGIONS: Record<string, HubRegion> = {
     name: "Puerto Rico",
     title: "Complete Guide to Surfing Puerto Rico",
     description:
-      "World-class Caribbean surf with warm water year-round. From Rincon's legendary points to Isabela's beach breaks.",
+      "World-class Caribbean surf with warm water year-round. Rincon's legendary points - Domes, Indicators, Maria's - fire from November through April on northwest groundswells. Isabela and Aguadilla offer more accessible beach breaks for intermediates.\n\nWater temps stay 78-84°F, making it a boardshorts-only destination. The west coast faces open Atlantic swell and delivers surprisingly powerful reef and point breaks. Crowds at top spots during winter season are real - midweek and dawn patrol help.",
     states: ["pr"],
     centerLat: 18.22,
     centerLon: -67.15,

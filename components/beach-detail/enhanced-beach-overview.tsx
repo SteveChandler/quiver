@@ -6,6 +6,7 @@ import { PracticalTipsSection } from "./practical-tips-section";
 import { QuickStats } from "./quick-stats";
 import type { Beach } from "@/types/database";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
+import { buildEnrichedBeachContent, isBeachDescriptionThin } from "@/lib/seo/beach-content-utils";
 
 interface EnhancedBeachOverviewProps {
   beach: Beach & {
@@ -28,6 +29,7 @@ export function EnhancedBeachOverview({
   beach,
   className,
 }: EnhancedBeachOverviewProps) {
+  const hasEnrichableData = beach.break_type || beach.skill_level || beach.hazards?.length || beach.best_months?.length || beach.crowd_level;
   const hasContent =
     beach.description ||
     beach.features?.length ||
@@ -36,11 +38,19 @@ export function EnhancedBeachOverview({
     beach.parking_tips ||
     beach.access_tips ||
     beach.wave_tips ||
-    beach.crowd_tips;
+    beach.crowd_tips ||
+    hasEnrichableData;
 
   if (!hasContent) return null;
 
   const sanitizedDescription = sanitizeBeachDescription(beach.description, beach.name);
+
+  // Use enriched content when the curator description is thin or missing
+  const enrichedContent = isBeachDescriptionThin(sanitizedDescription)
+    ? buildEnrichedBeachContent(beach)
+    : null;
+  const displayDescription = enrichedContent?.description || sanitizedDescription;
+  const highlights = enrichedContent?.highlights || [];
 
   return (
     <div className={className}>
@@ -61,13 +71,23 @@ export function EnhancedBeachOverview({
       />
 
       {/* Description - 2-3 paragraphs */}
-      {sanitizedDescription && (
+      {displayDescription && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-3">About This Spot</h3>
             <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-              {sanitizedDescription}
+              {displayDescription}
             </p>
+            {highlights.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {highlights.map((highlight, i) => (
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-ocean-blue mt-0.5 shrink-0">&bull;</span>
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {beach.local_etiquette && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="text-sm font-semibold text-blue-900 mb-1">

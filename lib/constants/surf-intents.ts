@@ -5,6 +5,8 @@
  * to generate SEO-optimized content templates.
  */
 
+import { getClimateZone } from "@/lib/seo/regional-surf-data";
+
 export type SurfIntentSlug =
   | "beginner"
   | "least-crowded"
@@ -20,7 +22,7 @@ export interface SurfIntentDefinition {
   titleTemplate: (args: { cityName: string }) => string;
   heading: (args: { cityName: string }) => string;
   metaDescription: (args: { cityName: string; topSpots: string[] }) => string;
-  intro: (args: { cityName: string }) => string;
+  intro: (args: { cityName: string; stateSlug?: string }) => string;
   focusPoints: string[];
 }
 
@@ -102,8 +104,24 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       `Stay warm and surf longer in ${cityName}. Track water temperatures, upwelling events, and recommended wetsuit thickness for breaks like ${topSpots
         .slice(0, 3)
         .join(", ")}.`,
-    intro: ({ cityName }) =>
-      `From spring upwelling chills to balmy south-swell summers, ${cityName} water temps fluctuate more than the forecast suggests. Use this guide to pick the right rubber and understand when sudden drops are coming.`,
+    intro: ({ cityName, stateSlug }) => {
+      if (stateSlug) {
+        const zone = getClimateZone(stateSlug);
+        switch (zone) {
+          case "tropical":
+            return `${cityName} stays warm year-round with water temps rarely dipping below the mid-70s. A rashguard handles most sessions, and reef booties are more important than neoprene here. Use this guide to plan around trade wind shifts and seasonal swell patterns.`;
+          case "warm-atlantic":
+            return `${cityName} water stays swimmable most of the year, but winter cold fronts can drop temps fast. Hurricane season brings the warmest water alongside the best waves. This guide helps you pick the right rubber for each season.`;
+          case "cold-pacific":
+            return `${cityName} water runs cold year-round - you'll want a thick wetsuit even in summer. The upside: powerful swells, uncrowded lineups, and dramatic coastline. Use this guide to stay warm and surf longer.`;
+          case "temperate-pacific":
+            return `From spring upwelling chills to balmy south-swell summers, ${cityName} water temps fluctuate more than the forecast suggests. Use this guide to pick the right rubber and understand when sudden drops are coming.`;
+          case "cold-atlantic":
+            return `${cityName} water temps swing dramatically with the seasons - from frigid winter surf requiring full hooded suits to warm summer sessions in trunks or a spring suit. This guide helps you gear up right for every month.`;
+        }
+      }
+      return `From spring upwelling chills to balmy south-swell summers, ${cityName} water temps fluctuate more than the forecast suggests. Use this guide to pick the right rubber and understand when sudden drops are coming.`;
+    },
     focusPoints: [
       "Weekly temperature trends and seasonal averages",
       "Gear recommendations for dawn patrol versus midday",
