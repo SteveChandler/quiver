@@ -12,8 +12,16 @@
  * Featured beaches already have a 10-minute cache, so this aligns with that strategy.
  */
 
+import type { Metadata } from "next";
+
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
 export const revalidate = 600;
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 

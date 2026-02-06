@@ -105,7 +105,7 @@ describe("BeachDetail loading and error guards", () => {
 
     // Assert the beach name is rendered to confirm content is present
     expect(
-      screen.getByRole("heading", { name: "Test Beach" })
+      screen.getByRole("heading", { name: "Test Beach Surf Report" })
     ).toBeInTheDocument();
     expect(screen.queryByText(/Beach data not found/i)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalled();

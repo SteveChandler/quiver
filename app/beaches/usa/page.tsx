@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches by State",
   description:
-    "Browse surf beaches by state. Explore top surf cities and their best beaches, AllTrails-style.",
+    "Browse surf beaches across every US coastal state. Find real-time conditions, AI-powered forecasts, and community reviews for hundreds of breaks from California to Hawaii.",
   path: "/beaches/usa",
 });
 

@@ -94,7 +94,7 @@ export function BeachHeroCompact({
     <div className={`bg-white py-6 border-b border-gray-200 ${className || ""}`}>
       {/* Phase 4 Spec: Beach Name - 36px Roboto, 700 weight, 44px line-height, 8px margin-bottom */}
       <h1 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900 mb-2">
-        {beach.name}
+        {beach.name} Surf Report
       </h1>
 
       {/* Personalization Badge - Show after title for authenticated users */}

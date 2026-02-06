@@ -3,7 +3,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import FeaturesPageClient from "./features-client";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Features - AI Surf Forecasts, Personalized Recommendations & Community",
+  title: "AI Surf Forecasts & Personalized Recommendations",
   description:
     "Quiver uses machine learning to correct NOAA wave models with real-time buoy data, delivering personalized surf forecasts with 0-100 match scores. Free for iOS, Android, and web.",
   path: "/features",

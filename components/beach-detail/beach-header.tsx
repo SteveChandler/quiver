@@ -12,7 +12,7 @@ export function BeachHeader({ beachName }: BeachHeaderProps) {
         <Link href="/map" className="mr-2">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-xl font-bold">{beachName}</h1>
+        <h1 className="text-xl font-bold">{beachName} Surf Report</h1>
       </div>
     </header>
   );

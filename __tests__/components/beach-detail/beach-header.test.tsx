@@ -76,7 +76,7 @@ describe("BeachHeader", () => {
     render(<BeachHeader beachName="" />);
 
     const heading = screen.getByRole("heading", { level: 1 });
-    expect(heading).toHaveTextContent("");
+    expect(heading).toHaveTextContent("Surf Report");
   });
 
   it("should handle special characters in beach name", () => {

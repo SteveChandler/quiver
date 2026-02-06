@@ -81,9 +81,6 @@ export const SEO_CONFIG = {
     title: "Quiver - Ultimate Surf Community Platform",
     description:
       "Find surf buddies, track sessions, get forecasts. Join the surf community that's revolutionizing how surfers connect.",
-    // TODO: Update with verified social accounts before launch
-    creator: "@QuiverSurf", // Placeholder - update when account is created
-    site: "@QuiverSurf", // Placeholder - update when account is created
   },
 
   // Structured Data (JSON-LD)
@@ -97,11 +94,7 @@ export const SEO_CONFIG = {
         "Ultimate surf community platform - Community-driven surf session tracking and social platform",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
-      // TODO: Update with verified social accounts before launch
-      sameAs: [
-        "https://instagram.com/quiversurf", // Placeholder - update when account is created
-        "https://tiktok.com/@quiversurf", // Placeholder - update when account is created
-      ],
+      sameAs: [],
       foundingDate: "2024",
       applicationCategory: "Sports & Recreation",
       operatingSystem: "Web, iOS, Android",

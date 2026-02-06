@@ -81,11 +81,20 @@ export function AnimatedCounter({
   animateOnView = true,
   threshold = 0.5,
 }: AnimatedCounterProps) {
-  const [displayValue, setDisplayValue] = useState(0);
+  // SSR: Initialize with real value so Google indexes correct numbers.
+  // Client: Reset to 0 after hydration to preserve count-up animation.
+  const [displayValue, setDisplayValue] = useState(value);
   const [hasAnimated, setHasAnimated] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const elementRef = useRef<HTMLSpanElement>(null);
   const animationRef = useRef<number | undefined>(undefined);
   const reducedMotion = useReducedMotion();
+
+  // After hydration, reset to 0 so the animation can count up
+  useEffect(() => {
+    setIsHydrated(true);
+    setDisplayValue(0);
+  }, []);
 
   // Format the display value
   const formattedValue = useCallback(
@@ -130,6 +139,9 @@ export function AnimatedCounter({
 
   // Intersection observer for scroll-triggered animation
   useEffect(() => {
+    // Don't start observing until hydrated (displayValue has been reset to 0)
+    if (!isHydrated) return;
+
     if (!animateOnView) {
       // Animate immediately if not waiting for scroll
       animate();
@@ -158,7 +170,7 @@ export function AnimatedCounter({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [animate, animateOnView, hasAnimated, threshold]);
+  }, [animate, animateOnView, hasAnimated, isHydrated, threshold]);
 
   // Update value if prop changes after initial animation
   useEffect(() => {
@@ -194,6 +206,7 @@ export function AnimatedCounter({
       ref={elementRef}
       className={cn("tabular-nums", className)}
       aria-label={`${prefix}${formattedValue(value)}${suffix}`}
+      suppressHydrationWarning
     >
       {prefix}
       {formattedValue(displayValue)}

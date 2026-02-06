@@ -54,7 +54,7 @@ export async function generateMetadata(
   const stateName = getUsStateDisplayNameFromSlug(stateSlug);
   return buildPageMetadata({
     title: `Best Surf Beaches in ${stateName}`,
-    description: `Explore surf cities and their top beaches across ${stateName}.`,
+    description: `Explore every surf city and beach break in ${stateName} with real-time conditions, AI-powered forecasts, and community reviews. Find your next session from beginner-friendly waves to expert reef breaks.`,
     path: `/beaches/usa/${stateSlug}`,
   });
 }

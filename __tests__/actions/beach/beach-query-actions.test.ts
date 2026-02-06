@@ -313,12 +313,12 @@ describe('beach-query-actions', () => {
       expect(qb._orderCalls).toContain('name');
     });
 
-    it('should limit results to 100', async () => {
+    it('should not apply a limit (CA has 157+ beaches)', async () => {
       const qb = makeMockSupabase([]);
 
       await getBeachesByState('ca');
 
-      expect(qb._limitVal).toBe(100);
+      expect(qb._limitVal).toBeUndefined();
     });
 
     it('should handle database errors gracefully', async () => {
