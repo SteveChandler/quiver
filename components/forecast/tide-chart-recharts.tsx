@@ -20,6 +20,20 @@ import {
   formatWindowDuration,
 } from "@/lib/utils/tide-window";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import {
+  type InternalPoint,
+  toDate,
+  defaultDayFmt,
+  normalizeDirectData,
+  normalizeHourly,
+  normalizeEvents,
+  normalizeTideSchedule as normalizeTideScheduleInternal,
+  normalizeForecasts,
+  sortAndUnique,
+  synthesizeFromExtrema,
+  annotateWithExtrema,
+} from "./tide-chart/tide-chart-helpers";
+import { TideTooltip } from "./tide-chart/TideTooltip";
 
 // Public types for the chart API
 export type TidePoint = {
@@ -72,319 +86,16 @@ export type TideChartProps = {
   bufferHours?: number;
 };
 
-// --- Helpers ---------------------------------------------------------------
-
-type InternalPoint = TidePoint & { timestamp: number };
-
-const toDate = (t: TidePoint["t"]) => (t instanceof Date ? t : new Date(t));
-
-const defaultDayFmt = (d: Date) =>
-  d.toLocaleDateString(undefined, { weekday: "short" });
-
-const metersToFeet = (m?: number | null) =>
-  typeof m === "number" && Number.isFinite(m) ? m * 3.28084 : undefined;
-
-const parseHeight = (value?: string | null) => {
-  if (!value) return undefined;
-  const match = /-?\d+(?:\.\d+)?/.exec(value);
-  return match ? Number.parseFloat(match[0]) : undefined;
-};
-
-const parseForecastDateTime = (
-  dateStr: string,
-  timeStr: string
-): Date | undefined => {
-  const trimmedTime = (timeStr ?? "").trim();
-  if (!dateStr) return undefined;
-  const datePart = dateStr.includes("T")
-    ? dateStr.split("T")[0]?.trim() ?? dateStr.trim()
-    : dateStr.trim();
-
-  const candidates: string[] = [];
-
-  if (trimmedTime) {
-    const timeUpper = trimmedTime.toUpperCase();
-
-    if (/^\d{1,2}:\d{2}$/.test(trimmedTime)) {
-      candidates.push(`${datePart}T${trimmedTime.padStart(5, "0")}:00`);
-    } else if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmedTime)) {
-      candidates.push(`${datePart}T${trimmedTime}`);
-    } else if (/^\d{1,2}:\d{2}\s?[AP]M$/.test(timeUpper)) {
-      const [hh, mm] = timeUpper.replace(/\s+/g, "").split(/[:APM]/);
-      let hours = Number.parseInt(hh ?? "0", 10) % 12;
-      if (timeUpper.includes("PM")) hours += 12;
-      candidates.push(
-        `${datePart}T${hours.toString().padStart(2, "0")}:${mm ?? "00"}:00`
-      );
-    } else if (/^\d{1,2}\s?[AP]M$/.test(timeUpper)) {
-      const match = /^\d{1,2}/.exec(timeUpper);
-      let hours = Number.parseInt(match?.[0] ?? "0", 10) % 12;
-      if (timeUpper.includes("PM")) hours += 12;
-      candidates.push(`${datePart}T${hours.toString().padStart(2, "0")}:00:00`);
-    }
-
-    candidates.push(`${datePart}T${trimmedTime}`);
-    candidates.push(`${datePart} ${trimmedTime}`);
-  }
-
-  candidates.push(`${dateStr}T${trimmedTime}`);
-  candidates.push(`${dateStr} ${trimmedTime}`);
-
-  for (const candidate of candidates) {
-    const parsed = new Date(candidate);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
-
-  if (!/^\d{1,2}$/.test(trimmedTime)) {
-    const fallback = new Date(trimmedTime);
-    if (!Number.isNaN(fallback.getTime())) {
-      return fallback;
-    }
-  }
-
-  return undefined;
-};
-
-const normalizeDirectData = (
-  points?: TideChartProps["data"]
-): InternalPoint[] => {
-  if (!Array.isArray(points)) return [];
-  return points
-    .map((p) => {
-      if (!p) return undefined;
-      const dateValue = toDate((p as TidePoint).t ?? (p as any).time);
-      if (Number.isNaN(dateValue.getTime())) return undefined;
-      const height = (p as TidePoint).h ?? (p as any).height;
-      if (!Number.isFinite(height)) return undefined;
-      const legacyType = (p as any)?.type as string | undefined;
-      const normalized: InternalPoint = {
-        t: dateValue,
-        h: Number(height),
-        isHigh:
-          (p as TidePoint).isHigh ??
-          (typeof legacyType === "string" &&
-            legacyType.toLowerCase() === "high"),
-        isLow:
-          (p as TidePoint).isLow ??
-          (typeof legacyType === "string" &&
-            legacyType.toLowerCase() === "low"),
-        timestamp: dateValue.getTime(),
-      };
-      return normalized;
-    })
-    .filter(Boolean) as InternalPoint[];
-};
-
-const normalizeHourly = (
-  hourly?: TideChartProps["hourly"]
-): InternalPoint[] => {
-  if (!Array.isArray(hourly)) return [];
-  return hourly
-    .map((h) => {
-      if (!h || !h.ts) return undefined;
-      const ts = new Date(h.ts);
-      if (Number.isNaN(ts.getTime())) return undefined;
-      const heightFt = h.height_ft ?? metersToFeet(h.height_m ?? undefined);
-      if (!Number.isFinite(heightFt)) return undefined;
-      return {
-        t: ts,
-        h: Number(heightFt),
-        timestamp: ts.getTime(),
-      } satisfies InternalPoint;
-    })
-    .filter(Boolean) as InternalPoint[];
-};
-
-const normalizeEvents = (
-  events?: TideChartProps["events"]
-): InternalPoint[] => {
-  if (!Array.isArray(events)) return [];
-  return events
-    .map((event) => {
-      if (!event || !event.ts) return undefined;
-      const ts = new Date(event.ts);
-      if (Number.isNaN(ts.getTime())) return undefined;
-      const heightFt =
-        event.height_ft ?? metersToFeet(event.height_m ?? undefined);
-      if (!Number.isFinite(heightFt)) return undefined;
-      const isHigh = event.type === "HIGH";
-      return {
-        t: ts,
-        h: Number(heightFt),
-        isHigh,
-        isLow: !isHigh,
-        timestamp: ts.getTime(),
-      } satisfies InternalPoint;
-    })
-    .filter(Boolean) as InternalPoint[];
-};
+// --- Backward Compatibility Re-export -------------------------------------
 
 /**
- * Extract tide extrema from raw_forecast.tide_schedule
- * This is the authoritative source - same data used by "Next Tides" cards
+ * Re-export normalizeTideSchedule for backward compatibility
+ * External code imports this from tide-chart-recharts.tsx
  */
-export const normalizeTideSchedule = (
-  forecasts?: EnhancedForecastEntity[]
-): InternalPoint[] => {
-  if (!Array.isArray(forecasts)) return [];
-
-  // Find first forecast with tide_schedule
-  for (const forecast of forecasts) {
-    const schedule = forecast.raw_forecast?.tide_schedule;
-    if (Array.isArray(schedule) && schedule.length > 0) {
-      return schedule.map((tide) => ({
-        t: new Date(tide.time * 1000),
-        h: tide.height,
-        isHigh: tide.type === "high",
-        isLow: tide.type === "low",
-        timestamp: tide.time * 1000,
-      }));
-    }
-  }
-
-  return [];
-};
-
-const normalizeForecasts = (
-  forecasts?: EnhancedForecastEntity[]
-): InternalPoint[] => {
-  if (!Array.isArray(forecasts)) return [];
-  return forecasts
-    .map((forecast) => {
-      if (!forecast?.forecast_date || !forecast.forecast_time) return undefined;
-      const date =
-        parseForecastDateTime(forecast.forecast_date, forecast.forecast_time) ??
-        new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
-      if (Number.isNaN(date.getTime())) return undefined;
-      const heightFt =
-        parseHeight(forecast.tide_height) ??
-        parseHeight(forecast.next_tide_height);
-      if (!Number.isFinite(heightFt)) return undefined;
-      const type = forecast.tide_status ?? forecast.next_tide_type ?? "";
-      const isHigh = typeof type === "string" && /high/i.test(type);
-      const isLow = typeof type === "string" && /low/i.test(type);
-      return {
-        t: date,
-        h: Number(heightFt),
-        isHigh,
-        isLow,
-        timestamp: date.getTime(),
-      } satisfies InternalPoint;
-    })
-    .filter(Boolean) as InternalPoint[];
-};
-
-const sortAndUnique = (points: InternalPoint[]): InternalPoint[] => {
-  const byTs = new Map<number, InternalPoint>();
-  for (const point of points) {
-    if (!point) continue;
-    const existing = byTs.get(point.timestamp);
-    if (!existing) {
-      byTs.set(point.timestamp, point);
-    } else {
-      byTs.set(point.timestamp, {
-        ...existing,
-        ...point,
-        isHigh: existing.isHigh || point.isHigh,
-        isLow: existing.isLow || point.isLow,
-      });
-    }
-  }
-  return Array.from(byTs.values()).sort((a, b) => a.timestamp - b.timestamp);
-};
-
-const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
-  if (extrema.length < 2) return extrema;
-  const sorted = sortAndUnique(extrema);
-  const result: InternalPoint[] = [];
-  const step = 60 * 60 * 1000; // 1 hour granularity for smoothing
-
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const current = sorted[i];
-    const next = sorted[i + 1];
-    const dt = next.timestamp - current.timestamp;
-    if (dt <= 0) continue;
-    for (let t = current.timestamp; t < next.timestamp; t += step) {
-      const u = (t - current.timestamp) / dt;
-      const h =
-        current.h + ((next.h - current.h) * (1 - Math.cos(Math.PI * u))) / 2;
-      result.push({
-        t,
-        h,
-        timestamp: t,
-        isHigh: u === 0 ? current.isHigh : undefined,
-        isLow: u === 0 ? current.isLow : undefined,
-      });
-    }
-  }
-  // include final point explicitly
-  result.push(sorted[sorted.length - 1]);
-  return sortAndUnique(result);
-};
-
-const annotateWithExtrema = (
-  data: InternalPoint[],
-  extrema: InternalPoint[]
-): InternalPoint[] => {
-  if (!extrema.length || !data.length) return data;
-
-  const emphasisLookup = new Map<
-    number,
-    { isHigh?: boolean; isLow?: boolean }
-  >();
-  extrema.forEach((point) => {
-    emphasisLookup.set(point.timestamp, {
-      isHigh: point.isHigh,
-      isLow: point.isLow,
-    });
-  });
-
-  return data.map((point) => {
-    const emphasis = emphasisLookup.get(point.timestamp);
-    if (!emphasis) return point;
-    return { ...point, ...emphasis };
-  });
-};
+export const normalizeTideSchedule = normalizeTideScheduleInternal;
 
 // Gradient id must be stable per instance
 const useGradientId = () => React.useId().replace(/:/g, "");
-
-// Tooltip
-const TideTooltip: React.FC<{
-  active?: boolean;
-  payload?: any;
-  label?: any;
-  unit: string;
-}> = ({ active, payload, unit }) => {
-  if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload as TidePoint & { t: any };
-  const d = toDate(p.t);
-  const time = d.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const day = d.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/90 backdrop-blur px-3 py-2 shadow-md">
-      <div className="text-[11px] text-slate-500">
-        {day} • {time}
-      </div>
-      <div className="text-sm font-semibold text-slate-900">
-        {p.h.toFixed(1)} {unit}
-      </div>
-      {p.isHigh && (
-        <div className="text-[11px] text-emerald-600">High tide</div>
-      )}
-      {p.isLow && <div className="text-[11px] text-rose-600">Low tide</div>}
-    </div>
-  );
-};
 
 export function TideChart({
   data,
@@ -729,24 +440,3 @@ export function TideChart({
   );
 }
 
-// --- Example usage (remove in prod)
-export function Example() {
-  const start = new Date();
-  start.setHours(start.getHours() - 6); // Start 6 hours ago
-  const pts: TidePoint[] = [];
-  for (let i = 0; i < 8; i++) {
-    // 8 points over ~21 hours
-    const d = new Date(start.getTime() + i * 2.5 * 60 * 60 * 1000);
-    const wave =
-      Math.sin((i / 3) * Math.PI) * 2.2 + 2.0 + (Math.random() - 0.5) * 0.2;
-    pts.push({
-      t: d.toISOString(),
-      h: Number(wave.toFixed(2)),
-      isHigh: i % 4 === 1,
-      isLow: i % 4 === 3,
-    });
-  }
-  return (
-    <TideChart data={pts} now={new Date()} windowHours={18} nowBias={1 / 3} />
-  );
-}

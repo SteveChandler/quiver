@@ -5,7 +5,7 @@
  */
 
 // Tide Chart Components
-export { TideChart, Example as TideChartExample } from './tide-chart-recharts';
+export { TideChart } from './tide-chart-recharts';
 export type { TidePoint, TideChartProps } from './tide-chart-recharts';
 
 // Forecast Transparency & Verification Components
