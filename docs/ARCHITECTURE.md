@@ -224,6 +224,71 @@ Single flat sitemap at `/sitemap.xml` combining all 6 route groups (static, beac
 
 ---
 
+### Intent Pages System
+
+**Status**: Production
+
+The intent pages system serves programmatic SEO landing pages at `/[intent]/[city]` for 7 surf intent types: beginner, least-crowded, tide, water-temp, longboard, dawn-patrol, and sunset.
+
+**URL Pattern**: `/[intent]/[city]` (e.g., `/beginner/san-diego`, `/tide/santa-cruz`)
+
+**Architecture:**
+- **Unified Route** (`app/[intent]/[city]/page.tsx`): Single dynamic route handles all 7 intents plus legacy redirects
+- **City Resolution**: Batched DB queries via `findCityBySlug()` with state abbreviation fallback
+- **Dedicated Intent Pages**: Beginner (`BeginnerPageContent`) and Tide (`TidePageContent`) have fully custom layouts; other intents use a generic template
+- **Static Generation**: `generateStaticParams()` produces ~350 pages (50+ cities x 7 intents) plus all 50 US states
+- **Design Language**: Frosted glass (`bg-white/60 backdrop-blur-md`), ocean-tinted borders (`border-blue-100/50`), `rounded-2xl` cards
+- **ISR**: 30-minute revalidation (`revalidate: 1800`)
+
+**Data Flow:**
+```
+Route Params → City Resolution → Intent Router
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                  ▼
+              Beginner Page     Tide Page          Generic Template
+              (11 components)   (5 components)     (shared components)
+```
+
+**Documentation:**
+| Document | Description |
+|----------|-------------|
+| [Intent Components](../components/intent/ARCHITECTURE.md) | Tide page components |
+| [Beginner Components](../components/beginner/ARCHITECTURE.md) | Beginner page components |
+| [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | Editorial content system |
+
+---
+
+### Forecast Hub
+
+**Status**: Production
+
+The forecast hub provides 7-day regional surf forecast aggregation at `/forecast` (hub) and `/forecast/[region]` (detail pages) across 6 California regions plus Puerto Rico.
+
+**URL Patterns**: `/forecast` (hub), `/forecast/[region]` (e.g., `/forecast/san-diego`)
+
+**Architecture:**
+- **Hub Page** (`app/forecast/page.tsx`): Regional forecast cards grid with "Best Conditions Today" highlight
+- **Regional Pages** (`app/forecast/[beachId]/page.tsx`): Unified route handling both regional forecasts and beach ID redirects
+- **Forecast Components** (`components/forecast/`): `BestDaysSection`, `SwellEventList`, `BeachConditionsGrid`, animated score gauge and wave chart
+- **Home Integration**: Forecast outlook section on authenticated home screen
+
+**Data Pipeline:**
+```
+getBatchFreshForecastsFromCache() → getBeachesForRegion() → aggregateRegionalForecast()
+         │                                                            │
+         ▼                                                            ▼
+  Batch forecast data                                    DaySummary[], SwellEvent[],
+  (2 queries for all beaches)                            BeachConditionSummary[]
+```
+
+**Documentation:**
+| Document | Description |
+|----------|-------------|
+| [Regional Forecast Utils](../lib/utils/REGIONAL_FORECAST_UTILS_README.md) | Aggregation utilities and types |
+
+---
+
 ### User Engagement Tracking
 
 **Status**: Production
@@ -260,6 +325,9 @@ Tracks user behavior for implicit preference learning and analytics.
 - **Session Management**: Logging, planning, rich metadata.
 - **Attribution**: UTM tracking and referral system for growth analytics.
 - **Coverage**: California, Oregon, Washington, Hawaii, Baja California.
+- **Intent Pages**: 7 intent types with dedicated beginner and tide experiences across 50+ cities.
+- **Forecast Hub**: 7-day regional forecast aggregation across 6 regions with animated UI.
+- **City Content Hub**: Editorial-driven beginner and tide pages with live conditions data.
 
 ---
 
@@ -296,6 +364,10 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |
 | **Features** | [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Inactive user re-engagement emails |
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
+| **Components** | [Intent Components](../components/intent/ARCHITECTURE.md) | Tide intent page components |
+| **Components** | [Beginner Components](../components/beginner/ARCHITECTURE.md) | Beginner page components |
+| **Features** | [Forecast Hub Utils](../lib/utils/REGIONAL_FORECAST_UTILS_README.md) | Regional forecast aggregation |
+| **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City content hub design |
 | **Reference** | [Coverage Areas](COVERAGE_AREAS.md) | Geographic coverage details |
 
 ---

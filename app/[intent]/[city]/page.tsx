@@ -26,6 +26,7 @@ import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/c
 import {
   PopularCitiesForIntent,
   TideOverviewSection,
+  TidePageContent,
   WaterTempOverviewSection,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -35,8 +36,10 @@ import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { ZeroState } from "@/components/ui/zero-state";
 import {
   getCityTideData,
+  getCityTideDataExpanded,
   getCityWaterTempHistory,
   type CityTideData,
+  type CityTideDataExpanded,
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
 import { findCitiesMatchingPattern } from "@/actions/city/city-metadata-actions";
@@ -457,6 +460,52 @@ export default async function IntentPage(props: IntentPageParams) {
         baseUrl={baseUrl}
       />
     );
+  }
+
+  // Tide intent: use dedicated page component with 7-day data + beach preferences
+  if (params.intent === "tide") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const tidePageContent = buildIntentPageContent("tide", cityMetadata);
+
+    const [expandedTideData, tideBeachesResult] = await Promise.all([
+      getCityTideDataExpanded(cityMetadata.cityName, cityMetadata.state),
+      getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower),
+    ]);
+
+    // If expanded data unavailable, fall through to generic intent flow
+    if (expandedTideData) {
+      const tideBeachesWithMetrics: BeachWithMetrics[] = (
+        tideBeachesResult.success && tideBeachesResult.data
+          ? tideBeachesResult.data
+          : []
+      ).map((beach) => ({
+        ...beach,
+        compositeScore: 0,
+        recentIntelCount: 0,
+        avgConfirmations: 0,
+      }));
+      const tideSpots: SurfSpot[] = transformBeachesToSurfSpots(tideBeachesWithMetrics);
+
+      const now = new Date();
+      const tideUpdatedAt = formatPacificDateTime(now);
+
+      return (
+        <TidePageContent
+          cityName={cityMetadata.cityName}
+          citySlug={params.city}
+          stateSlug={stateSlugLower}
+          stateName={cityMetadata.stateName}
+          regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+          pageContent={tidePageContent}
+          tideData={expandedTideData}
+          spots={tideSpots}
+          updatedAt={tideUpdatedAt}
+          baseUrl={baseUrl}
+        />
+      );
+    }
+    // Fall through to generic intent flow if expanded data unavailable
   }
 
   // Generate content from templates

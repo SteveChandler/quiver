@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Beginner Page Redesign** (`aaaa944d2`) - Phase 1 city content hub with 11 modular components, editorial content DB schema (`city_beginner_editorial`), consolidated 16 state-specific routes into dynamic `[intent]/[city]` route, Framer Motion scroll animations via `SectionFadeUp`, FAQPage + BreadcrumbList structured data, and 15 E2E tests.
+- **7-Day Regional Forecast Hub** (`0c06d754e`) - `/forecast` hub landing + `/forecast/[region]` detail pages with animated UI components (score gauge, wave chart, sparkline), forecast outlook on home screen, LA beaches migration, and 34 E2E tests.
+- **Tide Intent Page** (uncommitted) - Dedicated `/tide/[city]` pages with `TideHeroSection`, `TideFullChart` (24h/72h/168h tabs), `SevenDayTideTable`, `BeachTideCards`. Server action `getCityTideDataExpanded()` with extrema detection via `TideExtremaDetector`.
+- **Conversion CTAs** (`2f745542c`) - `InlineSignupCta` and `StickySignupBar` on programmatic SEO pages for unauthenticated visitors.
+
+### Changed
+
+- **Intent Pages Design Language** (`4b5d561bf`) - Frosted glass aesthetic with `bg-white/60 backdrop-blur-md`, ocean-tinted borders (`border-blue-100/50`), and `rounded-2xl` across all 7 intent types.
+- **Auth Gate Pattern** (`2f9a5f01c`) - Modal-based auth gating replacing blocking overlay for unauthenticated users on beach detail page action buttons.
+
+### Fixed
+
+- **Water Temperature Data** (`5399d05b9`) - 3-tier priority for non-California beaches: IOOS station > NDBC buoy > latitude-based estimate.
+- **SEO Content Quality Overhaul** (`a02a715b3`) - Data-driven FAQs, regional accuracy, richer descriptions affecting 279 beach pages and ~3,500 intent pages.
+- **9 SEO Audit Fixes** (`200403dcb`) - H1 hierarchy, canonical URLs, SearchAction schema, beaches landing page improvements.
+- **8 SEO Audit Fixes** (`123baa746`) - SSR counters, missing canonical, removed fake social links, thin metadata pages.
+- **5 Quick-Win SEO Fixes** (`fc3a9709c`) - Crawlability and structured data compliance improvements.
+- **SEO Audit Bug Fixes** (`a7ed4ff75`) - Robots.txt conflict, duplicate title tags, incorrect guide links.
+- **13 Failing Test Suites** (`72c1a6224`) - Redirect chain validation, window selector, forecast CDIP, timezone issues.
+- **19 TypeScript Errors** (`f595dbcf8`) - Forecast builder, intel actions, test mock type mismatches.
+
+### Refactored
+
+- **Session Wizard Extraction** (`0896f7439`) - Page reduced from 957 to 194 lines; extracted `useSessionSubmission` hook, `CelebrationOverlay`, `ForecastFeedbackFlow`, date/time utilities.
+- **Helper Extraction** (`a5c413cc7`) - Shared helpers extracted from tide chart and coast pulse components.
+- **Auth Modal & Session Forms** (`c9debe931`) - Shared components extracted from auth modal and session form flows.
+- **Post-Review Cleanup** (`6c7bf12aa`) - Beach page SEO overhaul cleanup after code review.
+
+### Added
+
 - **Immediate Welcome Email:** New users now receive their welcome email within seconds of signing up instead of 24-48 hours:
   - New API endpoint `/api/internal/send-welcome-email` sends email immediately upon authentication
   - Auth context detects new users (created within 60 seconds) and triggers welcome email
