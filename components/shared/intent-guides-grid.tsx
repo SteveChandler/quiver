@@ -19,6 +19,8 @@ interface IntentGuidesGridProps {
   locationType: LocationType;
   /** Optional state abbreviation, only used for city locations to display "City, ST" */
   stateAbbrev?: string;
+  /** Optional current intent key — when set, that card is rendered as a highlighted non-link "You're here" card */
+  currentIntent?: IntentKey;
 }
 
 /**
@@ -39,6 +41,7 @@ export function IntentGuidesGrid({
   locationName,
   locationType,
   stateAbbrev,
+  currentIntent,
 }: IntentGuidesGridProps) {
   const displayName =
     locationType === "city" && stateAbbrev
@@ -66,14 +69,18 @@ export function IntentGuidesGrid({
           {INTENT_GROUPS.session}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {INTENTS_BY_GROUP.session.map((intent) => (
-            <IntentCard
-              key={intent.key}
-              intent={intent}
-              href={buildUrl(intent.key as IntentKey)}
-              locationName={locationName}
-            />
-          ))}
+          {INTENTS_BY_GROUP.session.map((intent) =>
+            currentIntent === intent.key ? (
+              <IntentCardCurrent key={intent.key} intent={intent} />
+            ) : (
+              <IntentCard
+                key={intent.key}
+                intent={intent}
+                href={buildUrl(intent.key as IntentKey)}
+                locationName={locationName}
+              />
+            )
+          )}
         </div>
       </div>
 
@@ -83,14 +90,18 @@ export function IntentGuidesGrid({
           {INTENT_GROUPS.style}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {INTENTS_BY_GROUP.style.map((intent) => (
-            <IntentCard
-              key={intent.key}
-              intent={intent}
-              href={buildUrl(intent.key as IntentKey)}
-              locationName={locationName}
-            />
-          ))}
+          {INTENTS_BY_GROUP.style.map((intent) =>
+            currentIntent === intent.key ? (
+              <IntentCardCurrent key={intent.key} intent={intent} />
+            ) : (
+              <IntentCard
+                key={intent.key}
+                intent={intent}
+                href={buildUrl(intent.key as IntentKey)}
+                locationName={locationName}
+              />
+            )
+          )}
         </div>
       </div>
     </section>
@@ -115,6 +126,18 @@ function IntentCard({ intent, href, locationName }: IntentCardProps) {
         {intent.description}
       </div>
     </Link>
+  );
+}
+
+function IntentCardCurrent({ intent }: { intent: IntentDefinitionType }) {
+  return (
+    <div
+      className="p-4 rounded-lg border-2 border-sky-400 bg-sky-50"
+      aria-current="page"
+    >
+      <div className="font-medium text-sky-800">{intent.label}</div>
+      <div className="text-sm text-sky-600">You&apos;re here</div>
+    </div>
   );
 }
 

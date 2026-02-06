@@ -33,6 +33,8 @@ import { CTASection } from "@/components/landing-page/cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
+import { ContinueExploring } from "@/components/shared/continue-exploring";
+import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { ZeroState } from "@/components/ui/zero-state";
 import {
   getCityTideData,
@@ -415,6 +417,14 @@ export default async function IntentPage(props: IntentPageParams) {
                   />
                 </section>
               )}
+
+              {/* Cross-intent navigation */}
+              <IntentGuidesGrid
+                locationSlug={params.city}
+                locationName={stateName}
+                locationType="state"
+                currentIntent={params.intent as IntentKey}
+              />
             </>
           )}
         </div>
@@ -704,45 +714,13 @@ export default async function IntentPage(props: IntentPageParams) {
                   </li>
                 </ul>
               </div>
-              <div className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Continue exploring
-                </h2>
-                <ul className="mt-3 space-y-2 text-sm text-sky-700">
-                  <li>
-                    <a
-                      href={`/beaches/usa/${cityMetadata.state.toLowerCase()}/${params.city}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      Back to the {cityMetadata.cityName} surf hub
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={`/${params.intent}/${cityMetadata.state.toLowerCase()}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      {definition.label} spots across {cityMetadata.stateName}
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={`/least-crowded/${params.city}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      Less-crowded backups
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={`/water-temp/${params.city}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      Water temperature trends
-                    </a>
-                  </li>
-                </ul>
-              </div>
+              <ContinueExploring
+                currentIntent={params.intent as IntentKey}
+                citySlug={params.city}
+                cityName={cityMetadata.cityName}
+                stateSlug={cityMetadata.state.toLowerCase()}
+                stateName={cityMetadata.stateName}
+              />
             </aside>
           </div>
         </div>

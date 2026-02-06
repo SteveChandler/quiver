@@ -42,6 +42,7 @@ import { AboutAccordion } from "@/components/city/about-accordion";
 import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
+import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { LocationMapClient } from "./location-map-client";
 
 const SITE_ORIGIN = (
@@ -409,6 +410,14 @@ export default async function LocationPage(props: LocationPageProps) {
             </div>
           </div>
         </div>
+
+        {/* Intent Guides Grid - internal linking to all intent pages */}
+        <IntentGuidesGrid
+          locationSlug={params.city}
+          locationName={displayCityName}
+          locationType="city"
+          stateAbbrev={params.state.toUpperCase()}
+        />
 
         {/* Empty State (shouldn't happen due to notFound check above) */}
         {beaches.length === 0 && (

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Internal Linking ("Looping") Overhaul** (uncommitted) - Site-wide `SiteFooter` server component (~14 crawlable links on ~35+ pages), shared `ContinueExploring` component replacing 3 hardcoded sidebars (now 8+ cross-links per intent page), `IntentGuidesGrid` with `currentIntent` highlighting on state-level intent pages, intent grid on standard city hubs, and browse links section on forecast hub.
 - **Beginner Page Redesign** (`aaaa944d2`) - Phase 1 city content hub with 11 modular components, editorial content DB schema (`city_beginner_editorial`), consolidated 16 state-specific routes into dynamic `[intent]/[city]` route, Framer Motion scroll animations via `SectionFadeUp`, FAQPage + BreadcrumbList structured data, and 15 E2E tests.
 - **7-Day Regional Forecast Hub** (`0c06d754e`) - `/forecast` hub landing + `/forecast/[region]` detail pages with animated UI components (score gauge, wave chart, sparkline), forecast outlook on home screen, LA beaches migration, and 34 E2E tests.
 - **Tide Intent Page** (uncommitted) - Dedicated `/tide/[city]` pages with `TideHeroSection`, `TideFullChart` (24h/72h/168h tabs), `SevenDayTideTable`, `BeachTideCards`. Server action `getCityTideDataExpanded()` with extrema detection via `TideExtremaDetector`.

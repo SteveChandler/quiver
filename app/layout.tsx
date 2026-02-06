@@ -6,6 +6,7 @@ import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
+import { SiteFooter } from "@/components/shared/site-footer";
 import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
 
 // Optimize font loading with display swap for better performance
@@ -130,6 +131,12 @@ export default async function RootLayout({
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "/";
   const isLandingPage = pathname === "/";
+
+  // Show the shared site footer on public content pages; hide on landing
+  // (has its own footer), auth pages, and authenticated app pages.
+  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs"];
+  const showSiteFooter =
+    !isLandingPage && !hideFooterPrefixes.some((p) => pathname.startsWith(p));
 
   return (
     <html
@@ -266,6 +273,7 @@ export default async function RootLayout({
           Positioned AFTER Providers so it appears after Hero/main content in DOM order.
         */}
         {isLandingPage && <LandingPageSSRSection />}
+        {showSiteFooter && <SiteFooter />}
       </body>
     </html>
   );

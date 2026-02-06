@@ -11,6 +11,7 @@ import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityTideDataExpanded } from "@/actions/forecast/intent-forecast-actions";
 import type { IntentPageContent } from "@/lib/seo/intent-content-templates";
 import { SURF_INTENTS } from "@/lib/constants/surf-intents";
+import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { TideHeroSection } from "./tide-hero-section";
 import { TideFullChart } from "./tide-full-chart";
 import { SevenDayTideTable } from "./seven-day-tide-table";
@@ -168,45 +169,13 @@ export function TidePageContent({
           </section>
 
           {/* Continue Exploring */}
-          <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
-            <h2 className="text-lg font-semibold text-gray-800 mb-3">
-              Continue exploring
-            </h2>
-            <ul className="space-y-2 text-sm text-sky-700">
-              <li>
-                <Link
-                  href={`/beaches/usa/${stateSlug}/${citySlug}`}
-                  className="underline-offset-2 hover:underline"
-                >
-                  Back to the {cityName} surf hub
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href={`/beginner/${citySlug}`}
-                  className="underline-offset-2 hover:underline"
-                >
-                  Beginner spots in {cityName}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href={`/water-temp/${citySlug}`}
-                  className="underline-offset-2 hover:underline"
-                >
-                  Water temperature trends
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href={`/least-crowded/${citySlug}`}
-                  className="underline-offset-2 hover:underline"
-                >
-                  Less-crowded backups
-                </Link>
-              </li>
-            </ul>
-          </aside>
+          <ContinueExploring
+            currentIntent="tide"
+            citySlug={citySlug}
+            cityName={cityName}
+            stateSlug={stateSlug}
+            stateName={stateName}
+          />
         </div>
       </div>
 

@@ -366,6 +366,34 @@ export default async function ForecastHubPage() {
           </section>
         </ScrollReveal>
 
+        {/* Browse Beaches & Guides */}
+        <ScrollReveal variant="fadeUp" delay={350}>
+          <section className="mb-12">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              Browse Beaches
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { href: "/beaches/usa", title: "United States", desc: "All U.S. surf beaches by state" },
+                { href: "/beaches/mexico", title: "Mexico", desc: "Baja, mainland, and island spots" },
+                { href: "/beginner/ca", title: "Beginner Spots", desc: "Gentle waves for learning" },
+                { href: "/tide/san-diego", title: "Tide Charts", desc: "Tidal conditions and timing" },
+              ].map((card) => (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
+                >
+                  <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                    {card.title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{card.desc}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </ScrollReveal>
+
         {/* CTA Section */}
         <ScrollReveal variant="scale" delay={400}>
           <section className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-8 border border-slate-700 text-center relative overflow-hidden">
