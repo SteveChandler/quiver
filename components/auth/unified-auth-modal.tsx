@@ -13,12 +13,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, LogIn, Mail, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import {
   initiateOAuthFlow,
   sendMagicLink,
@@ -26,7 +22,6 @@ import {
   validatePassword,
   getAuthRedirect,
   setAuthRedirect,
-  clearAuthRedirect,
 } from "@/lib/auth/auth-utils";
 import {
   trackAuthModalOpened,
@@ -43,6 +38,13 @@ import {
 } from "@/lib/analytics/auth-events";
 import { useLocationSafe } from "@/context/location-context";
 import { getAttributionFromCookies } from "@/lib/attribution";
+import {
+  AuthProviders,
+  EmailPasswordForm,
+  MagicLinkForm,
+  VerifyEmailMessage,
+  SuccessMessage,
+} from "./auth-modal";
 
 /**
  * Props for the UnifiedAuthModal component
@@ -87,52 +89,6 @@ type AuthView =
   | "magic-link" // Email-only magic link form
   | "verify-email" // Post-signup verification message
   | "success"; // Success confirmation
-
-/**
- * Terms and Privacy consent checkbox
- */
-interface TermsCheckboxProps {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  disabled?: boolean;
-}
-
-function TermsCheckbox({ checked, onCheckedChange, disabled }: TermsCheckboxProps) {
-  return (
-    <div className="flex items-start space-x-2">
-      <Checkbox
-        id="terms-consent"
-        checked={checked}
-        onCheckedChange={(checked) => onCheckedChange(checked === true)}
-        disabled={disabled}
-        className="mt-1"
-      />
-      <label
-        htmlFor="terms-consent"
-        className="text-sm text-muted-foreground leading-relaxed cursor-pointer"
-      >
-        I agree to the{" "}
-        <a
-          href="/terms"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:underline"
-        >
-          Terms of Service
-        </a>{" "}
-        and{" "}
-        <a
-          href="/privacy"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:underline"
-        >
-          Privacy Policy
-        </a>
-      </label>
-    </div>
-  );
-}
 
 /**
  * Unified authentication modal component
@@ -596,306 +552,3 @@ export function UnifiedAuthModal({
   );
 }
 
-/**
- * Provider selection view
- */
-interface AuthProvidersProps {
-  mode: "login" | "signup" | "auto";
-  enableOAuth: boolean;
-  enablePassword: boolean;
-  enableMagicLink: boolean;
-  loading: boolean;
-  termsAccepted: boolean;
-  onTermsAcceptedChange: (accepted: boolean) => void;
-  onGoogleClick: () => void;
-  onEmailPasswordClick: () => void;
-  onMagicLinkClick: () => void;
-}
-
-function AuthProviders({
-  mode,
-  enableOAuth,
-  enablePassword,
-  enableMagicLink,
-  loading,
-  termsAccepted,
-  onTermsAcceptedChange,
-  onGoogleClick,
-  onEmailPasswordClick,
-  onMagicLinkClick,
-}: AuthProvidersProps) {
-  return (
-    <div className="grid gap-3 pt-2">
-      {mode === "signup" && (
-        <TermsCheckbox
-          checked={termsAccepted}
-          onCheckedChange={onTermsAcceptedChange}
-          disabled={loading}
-        />
-      )}
-      {enableOAuth && (
-        <Button
-          onClick={onGoogleClick}
-          className="w-full"
-          size="lg"
-          variant="default"
-          disabled={loading || (mode === "signup" && !termsAccepted)}
-        >
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <LogIn className="mr-2 h-4 w-4" />
-          )}
-          Continue with Google
-        </Button>
-      )}
-
-      {(enablePassword || enableMagicLink) && enableOAuth && (
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">or</span>
-          </div>
-        </div>
-      )}
-
-      {enablePassword && (
-        <Button
-          onClick={onEmailPasswordClick}
-          className="w-full"
-          size="lg"
-          variant="outline"
-          disabled={loading}
-        >
-          <Mail className="mr-2 h-4 w-4" />
-          Continue with Email
-        </Button>
-      )}
-
-      {enableMagicLink && mode === "login" && (
-        <Button
-          onClick={onMagicLinkClick}
-          className="w-full"
-          size="lg"
-          variant="outline"
-          disabled={loading}
-        >
-          <Mail className="mr-2 h-4 w-4" />
-          Continue with Email Link
-        </Button>
-      )}
-    </div>
-  );
-}
-
-/**
- * Email + password form view
- */
-interface EmailPasswordFormProps {
-  mode: "login" | "signup" | "auto";
-  email: string;
-  password: string;
-  displayName: string;
-  termsAccepted: boolean;
-  loading: boolean;
-  emailInputRef: React.RefObject<HTMLInputElement | null>;
-  onEmailChange: (email: string) => void;
-  onPasswordChange: (password: string) => void;
-  onDisplayNameChange: (name: string) => void;
-  onTermsAcceptedChange: (accepted: boolean) => void;
-  onSubmit: () => void;
-  onBack: () => void;
-}
-
-function EmailPasswordForm({
-  mode,
-  email,
-  password,
-  displayName,
-  termsAccepted,
-  loading,
-  emailInputRef,
-  onEmailChange,
-  onPasswordChange,
-  onDisplayNameChange,
-  onTermsAcceptedChange,
-  onSubmit,
-  onBack,
-}: EmailPasswordFormProps) {
-  return (
-    <div className="space-y-4 pt-2">
-      {mode === "signup" && (
-        <div className="space-y-2">
-          <Label htmlFor="displayName">Your Name</Label>
-          <Input
-            id="displayName"
-            type="text"
-            placeholder="John Doe"
-            value={displayName}
-            onChange={(e) => onDisplayNameChange(e.target.value)}
-            autoComplete="name"
-            disabled={loading}
-          />
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="your.email@example.com"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !loading && onSubmit()}
-          autoComplete="email"
-          ref={emailInputRef}
-          disabled={loading}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => onPasswordChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !loading && onSubmit()}
-          autoComplete={mode === "signup" ? "new-password" : "current-password"}
-          disabled={loading}
-        />
-      </div>
-
-      {mode === "signup" && (
-        <TermsCheckbox
-          checked={termsAccepted}
-          onCheckedChange={onTermsAcceptedChange}
-          disabled={loading}
-        />
-      )}
-
-      <Button
-        onClick={onSubmit}
-        className="w-full"
-        size="lg"
-        disabled={loading || (mode === "signup" && !termsAccepted)}
-      >
-        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {mode === "signup" ? "Sign up" : "Log in"}
-      </Button>
-
-      <Button
-        onClick={onBack}
-        variant="ghost"
-        className="w-full"
-        disabled={loading}
-      >
-        Back to options
-      </Button>
-    </div>
-  );
-}
-
-/**
- * Magic link form view
- */
-interface MagicLinkFormProps {
-  email: string;
-  loading: boolean;
-  emailInputRef: React.RefObject<HTMLInputElement | null>;
-  onEmailChange: (email: string) => void;
-  onSubmit: () => void;
-  onBack: () => void;
-}
-
-function MagicLinkForm({
-  email,
-  loading,
-  emailInputRef,
-  onEmailChange,
-  onSubmit,
-  onBack,
-}: MagicLinkFormProps) {
-  return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email Address</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="your.email@example.com"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !loading && onSubmit()}
-          ref={emailInputRef}
-          disabled={loading}
-        />
-      </div>
-
-      <Button
-        onClick={onSubmit}
-        className="w-full"
-        size="lg"
-        disabled={!validateEmail(email) || loading}
-      >
-        {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Mail className="mr-2 h-4 w-4" />
-        )}
-        Send Magic Link
-      </Button>
-
-      <Button
-        onClick={onBack}
-        variant="ghost"
-        className="w-full"
-        disabled={loading}
-      >
-        Back to options
-      </Button>
-    </div>
-  );
-}
-
-/**
- * Email verification message
- */
-function VerifyEmailMessage({ email }: { email: string }) {
-  return (
-    <div className="py-4 text-center space-y-3">
-      <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-        <Mail className="h-6 w-6 text-green-600" />
-      </div>
-      <div>
-        <h3 className="font-semibold">Check your email</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          We sent a confirmation link to{" "}
-          <span className="font-medium">{email}</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Success confirmation message
- */
-function SuccessMessage() {
-  return (
-    <div className="py-4 text-center space-y-3">
-      <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-        <LogIn className="h-6 w-6 text-green-600" />
-      </div>
-      <div>
-        <h3 className="font-semibold">Success!</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          You&apos;re now signed in.
-        </p>
-      </div>
-    </div>
-  );
-}

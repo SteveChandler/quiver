@@ -1,0 +1,78 @@
+"use client";
+
+import React from "react";
+import { getRatingDescription } from "@/lib/constants/session-form-constants";
+
+/**
+ * RatingInput - 5-star rating component
+ * Shared by SessionDetailsSection and ConditionsSection
+ *
+ * Features:
+ * - Interactive 5-star rating with hover effects
+ * - Displays rating description text
+ * - Accessible with proper ARIA labels
+ * - Supports different icon types and colors
+ */
+
+export interface RatingInputProps {
+  label: string;
+  icon: React.ComponentType<any>;
+  value: string;
+  onChange: (value: string) => void;
+  colorClass: string;
+  ratingType: "waveQuality" | "crowdLevel" | "parkingEase";
+  emptyText: string;
+}
+
+export function RatingInput({
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  colorClass,
+  ratingType,
+  emptyText,
+}: RatingInputProps) {
+  return (
+    <div className="text-center">
+      <label className="block text-sm font-medium mb-3">{label}</label>
+      <div className="space-y-3">
+        <div className="flex justify-center gap-1">
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <button
+              key={rating}
+              type="button"
+              onClick={() => onChange(rating.toString())}
+              className={`p-2 rounded-lg transition-all duration-200 ${
+                parseInt(value) >= rating
+                  ? `${colorClass} bg-opacity-10`
+                  : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"
+              }`}
+              title={getRatingDescription(ratingType, rating)}
+              aria-label={`Rate ${label} as ${rating} out of 5 - ${getRatingDescription(
+                ratingType,
+                rating
+              )}`}
+            >
+              <Icon
+                className="w-5 h-5"
+                fill={parseInt(value) >= rating ? "currentColor" : "none"}
+              />
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-sm font-medium">
+            {value
+              ? `${value}/5 - ${getRatingDescription(
+                  ratingType,
+                  parseInt(value)
+                )}`
+              : emptyText}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

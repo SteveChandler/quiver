@@ -33,6 +33,11 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
+import {
+  RatingInput,
+  WIND_DIRECTIONS,
+  FORECAST_ACCURACY_OPTIONS,
+} from "./shared";
 
 // Tide status options for the dropdown
 const tideStatusOptions = [
@@ -60,106 +65,6 @@ interface ConditionsSectionProps {
     field: K,
     value: SessionFormState[K]
   ) => void;
-}
-
-const windDirections = [
-  { value: "N", label: "North" },
-  { value: "NE", label: "Northeast" },
-  { value: "E", label: "East" },
-  { value: "SE", label: "Southeast" },
-  { value: "S", label: "South" },
-  { value: "SW", label: "Southwest" },
-  { value: "W", label: "West" },
-  { value: "NW", label: "Northwest" },
-  { value: "OFFSHORE", label: "Offshore" },
-  { value: "ONSHORE", label: "Onshore" },
-  { value: "CROSS", label: "Cross-shore" },
-];
-
-const accuracyOptions = [
-  {
-    value: "accurate",
-    label: "Yes",
-    icon: CheckCircle2,
-    color: "text-green-600",
-    bgColor: "bg-green-50 hover:bg-green-100",
-    description: "Forecast was spot on",
-  },
-  {
-    value: "somewhat",
-    label: "Kinda",
-    icon: AlertCircle,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-50 hover:bg-yellow-100",
-    description: "Close but not perfect",
-  },
-  {
-    value: "inaccurate",
-    label: "No",
-    icon: XCircle,
-    color: "text-red-600",
-    bgColor: "bg-red-50 hover:bg-red-100",
-    description: "Way off the mark",
-  },
-];
-
-interface RatingInputProps {
-  label: string;
-  icon: React.ComponentType<any>;
-  value: string;
-  onChange: (value: string) => void;
-  colorClass: string;
-  ratingType: "waveQuality" | "crowdLevel" | "parkingEase";
-  emptyText: string;
-}
-
-function RatingInput({
-  label,
-  icon: Icon,
-  value,
-  onChange,
-  colorClass,
-  ratingType,
-  emptyText,
-}: RatingInputProps) {
-  return (
-    <div className="text-center">
-      <label className="block text-sm font-medium mb-3">{label}</label>
-      <div className="space-y-3">
-        <div className="flex justify-center gap-1">
-          {[1, 2, 3, 4, 5].map((rating) => (
-            <button
-              key={rating}
-              type="button"
-              onClick={() => onChange(rating.toString())}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                parseInt(value) >= rating
-                  ? `${colorClass} bg-opacity-10`
-                  : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"
-              }`}
-              title={getRatingDescription(ratingType, rating)}
-            >
-              <Icon
-                className="w-5 h-5"
-                fill={parseInt(value) >= rating ? "currentColor" : "none"}
-              />
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-sm font-medium">
-            {value
-              ? `${value}/5 - ${getRatingDescription(
-                  ratingType,
-                  parseInt(value)
-                )}`
-              : emptyText}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function ConditionsSection({
@@ -553,7 +458,7 @@ export function ConditionsSection({
                   <SelectValue placeholder="Select direction" />
                 </SelectTrigger>
                 <SelectContent>
-                  {windDirections.map((direction) => (
+                  {WIND_DIRECTIONS.map((direction) => (
                     <SelectItem key={direction.value} value={direction.value}>
                       {direction.label}
                     </SelectItem>
@@ -703,7 +608,7 @@ export function ConditionsSection({
           )}
 
           <div className="grid grid-cols-3 gap-3">
-            {accuracyOptions.map((option) => {
+            {FORECAST_ACCURACY_OPTIONS.map((option) => {
               const IconComponent = option.icon;
               const isSelected = formState.forecastAccuracy === option.value;
 

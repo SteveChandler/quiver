@@ -38,6 +38,11 @@ import {
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
 import { cn } from "@/lib/utils";
+import {
+  RatingInput,
+  WIND_DIRECTIONS,
+  FORECAST_ACCURACY_OPTIONS,
+} from "./shared";
 
 /**
  * SessionDetailsSection - Consolidated component for log mode
@@ -64,49 +69,6 @@ interface SessionDetailsSectionProps {
   onPhotosChange: (files: File[]) => void;
 }
 
-// Wind direction options for the select dropdown
-const WIND_DIRECTIONS = [
-  { value: "N", label: "North" },
-  { value: "NE", label: "Northeast" },
-  { value: "E", label: "East" },
-  { value: "SE", label: "Southeast" },
-  { value: "S", label: "South" },
-  { value: "SW", label: "Southwest" },
-  { value: "W", label: "West" },
-  { value: "NW", label: "Northwest" },
-  { value: "OFFSHORE", label: "Offshore" },
-  { value: "ONSHORE", label: "Onshore" },
-  { value: "CROSS", label: "Cross-shore" },
-] as const;
-
-// Forecast accuracy options
-const FORECAST_ACCURACY_OPTIONS = [
-  {
-    value: "accurate",
-    label: "Yes",
-    icon: CheckCircle2,
-    color: "text-green-600",
-    bgColor: "bg-green-50 hover:bg-green-100",
-    description: "Forecast was spot on",
-  },
-  {
-    value: "somewhat",
-    label: "Kinda",
-    icon: AlertCircle,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-50 hover:bg-yellow-100",
-    description: "Close but not perfect",
-  },
-  {
-    value: "inaccurate",
-    label: "No",
-    icon: XCircle,
-    color: "text-red-600",
-    bgColor: "bg-red-50 hover:bg-red-100",
-    description: "Way off the mark",
-  },
-] as const;
-
 // Photo upload constraints
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB before compression
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -118,73 +80,6 @@ interface FilePreview {
   url: string;
   id: string;
   originalSize: number;
-}
-
-/**
- * RatingInput - 5-star rating component
- * Reused from ConditionsSection with proper accessibility
- */
-interface RatingInputProps {
-  label: string;
-  icon: React.ComponentType<any>;
-  value: string;
-  onChange: (value: string) => void;
-  colorClass: string;
-  ratingType: "waveQuality" | "crowdLevel" | "parkingEase";
-  emptyText: string;
-}
-
-function RatingInput({
-  label,
-  icon: Icon,
-  value,
-  onChange,
-  colorClass,
-  ratingType,
-  emptyText,
-}: RatingInputProps) {
-  return (
-    <div className="text-center">
-      <label className="block text-sm font-medium mb-3">{label}</label>
-      <div className="space-y-3">
-        <div className="flex justify-center gap-1">
-          {[1, 2, 3, 4, 5].map((rating) => (
-            <button
-              key={rating}
-              type="button"
-              onClick={() => onChange(rating.toString())}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                parseInt(value) >= rating
-                  ? `${colorClass} bg-opacity-10`
-                  : "text-gray-300 hover:text-gray-400 hover:bg-gray-50"
-              }`}
-              title={getRatingDescription(ratingType, rating)}
-              aria-label={`Rate ${label} as ${rating} out of 5 - ${getRatingDescription(
-                ratingType,
-                rating
-              )}`}
-            >
-              <Icon
-                className="w-5 h-5"
-                fill={parseInt(value) >= rating ? "currentColor" : "none"}
-              />
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-sm font-medium">
-            {value
-              ? `${value}/5 - ${getRatingDescription(
-                  ratingType,
-                  parseInt(value)
-                )}`
-              : emptyText}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /**
