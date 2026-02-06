@@ -15,6 +15,7 @@ import {
   getStationConfig,
   SWELL_ESTIMATION,
 } from "./constants";
+import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 
 const log = createContextLogger("CDIPDataParser");
 
@@ -44,7 +45,7 @@ export function transformERDDAPToDataResponse(
   const dataPoints: any[] = rows.map((row: any[]) => {
     // Convert from meters to feet for wave height
     const waveHeightMeters = row[waveHsIdx] || 0;
-    const waveHeightFeet = waveHeightMeters * 3.28084;
+    const waveHeightFeet = waveHeightMeters * METERS_TO_FEET;
 
     return [
       row[timeIdx] || new Date().toISOString(), // timestamp

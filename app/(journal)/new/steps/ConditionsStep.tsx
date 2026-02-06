@@ -109,7 +109,7 @@ export default function ConditionsStep({ questions, isReady, debug = true }: Con
   useEffect(() => {
     if (debug) {
       // One-time breadcrumb on mount
-      // eslint-disable-next-line no-console
+       
       console.debug("[ConditionsStep] isReady:", Boolean(isReady), "providedQuestions:", questions?.length ?? 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

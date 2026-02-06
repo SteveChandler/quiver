@@ -1,4 +1,5 @@
 import { boardCall, computeHourScore, HourInputs, BeachMeta, HourlyMarine, HourlyTide } from "./scoring";
+import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
 
 interface HourSample extends HourInputs {
   ts: string; // ISO timestamp (hourly)
@@ -141,7 +142,7 @@ export function topWindowsInRange(
       scores.reduce((a, b) => a + b, 0) / scores.length
     );
     const avgHsFt =
-      hours.reduce((a, b) => a + b.hs_m * 3.28084, 0) / Math.max(1, hours.length);
+      hours.reduce((a, b) => a + b.hs_m * METERS_TO_FEET, 0) / Math.max(1, hours.length);
 
     results.push({
       beach,

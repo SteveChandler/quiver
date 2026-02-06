@@ -209,7 +209,7 @@ test.describe('Home Screen Surf Recommendations', () => {
     // All options should be present
     await expect(page.getByRole('button', { name: /any time/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /dawn patrol/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /morning/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /lunch session/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /afternoon/i })).toBeVisible();
 
     // "Any time" should be selected by default

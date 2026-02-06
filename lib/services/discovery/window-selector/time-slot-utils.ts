@@ -54,7 +54,7 @@ export function getTimeSlotRange(
 
 /**
  * Get dawn patrol time range based on sunrise.
- * Start is civil twilight (~30 min before sunrise), end is 9am.
+ * Start is civil twilight (~30 min before sunrise), end is 11am.
  *
  * @param sunrises - Array of sunrise times for the area
  * @param forecastDate - The forecast date to find sunrise for
@@ -72,7 +72,7 @@ export function getDawnPatrolRange(
 
   if (!sameDaySunrise) {
     // Fallback to conservative 6am if no sunrise data
-    return { startHour: 6, endHour: 9 };
+    return { startHour: 6, endHour: 11 };
   }
 
   // Civil twilight ~30 minutes before sunrise
@@ -88,9 +88,9 @@ export function getDawnPatrolRange(
       }).format(civilTwilight),
       10
     );
-    return { startHour: twilightHour, endHour: 9 };
+    return { startHour: twilightHour, endHour: 11 };
   } catch {
-    return { startHour: 6, endHour: 9 };
+    return { startHour: 6, endHour: 11 };
   }
 }
 
@@ -98,7 +98,7 @@ export function getDawnPatrolRange(
  * Cap end time to time slot boundary.
  *
  * Ensures window doesn't extend past the selected time slot.
- * For example, dawn-patrol ends at 9am, morning ends at 12pm.
+ * For example, dawn-patrol ends at 11am, lunch session ends at 2pm.
  *
  * @param effectiveStartTime - The window start time
  * @param endTime - The uncapped window end time

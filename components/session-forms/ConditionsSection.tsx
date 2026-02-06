@@ -336,7 +336,7 @@ export function ConditionsSection({
   // Breadcrumb for diagnostics (log once on mount)
   useEffect(() => {
     try {
-      // eslint-disable-next-line no-console
+       
       console.debug(
         "[ConditionsStep] isReady:",
         Boolean(formState.selectedBeachId && formState.selectedDate),

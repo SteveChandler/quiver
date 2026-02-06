@@ -2,7 +2,17 @@ import {
   transformToFaceHeight,
   SET_WAVE_VARIANCE,
   type BeachTerrainConfig,
+  BASE_SHOALING,
+  calculatePeriodFactor,
+  calculateDirectionFactor,
 } from './wave-height-transformer';
+import { METERS_TO_FEET } from './unit-conversions';
+import { createContextLogger } from '@/lib/logger';
+
+const log = createContextLogger('WaveHeightFormatter');
+
+// Re-export for backward compatibility (consumers may import from here)
+export { METERS_TO_FEET };
 
 // ============================================================================
 // Constants
@@ -50,9 +60,17 @@ const CDIP_OUTLIER_THRESHOLD = 1.8;
 const MAX_TRUSTED_CDIP_FT = 10;
 
 /**
- * Meters to feet conversion factor
+ * Minimum transformation ratio that indicates proper shoaling occurred.
+ * If actual transformation is less than this, debug logging is triggered
+ * to help identify issues with wave height calculations.
  */
-const METERS_TO_FEET = 3.28084;
+const MIN_EXPECTED_TRANSFORM_RATIO = 1.3;
+
+/**
+ * Minimum wave height (feet) to trigger transformation debug logging.
+ * Below this threshold, low transformation ratios are expected and not logged.
+ */
+const MIN_HEIGHT_FOR_TRANSFORM_DEBUG = 1.5;
 
 // ============================================================================
 // Utility Functions
@@ -337,6 +355,10 @@ export function toFaceHeightFeet(params: FaceHeightParams): string | null {
   const source = selectWaveHeightSource(params);
   if (!source) return null;
 
+  // Calculate factors for debugging
+  const periodFactor = calculatePeriodFactor(params.periodS ?? null);
+  const directionFactor = calculateDirectionFactor(params.swellDirectionDeg ?? null, params.beach ?? null);
+
   // Transform using beach-specific factors
   const faceHeight = transformToFaceHeight({
     rawHeightFt: source.heightFt,
@@ -348,6 +370,27 @@ export function toFaceHeightFeet(params: FaceHeightParams): string | null {
   // Clamp and round
   const clamped = clampWaveHeight(faceHeight);
   const rounded = roundWaveHeight(clamped);
+
+  // Debug logging to trace transformation issues
+  // Log when transformation appears to have minimal effect (raw ≈ face)
+  const transformRatio = faceHeight / source.heightFt;
+  if (transformRatio < MIN_EXPECTED_TRANSFORM_RATIO && source.heightFt > MIN_HEIGHT_FOR_TRANSFORM_DEBUG) {
+    log.debug('Wave height transformation debug', {
+      source: source.source,
+      rawHeightFt: source.heightFt,
+      periodS: params.periodS,
+      swellDirectionDeg: params.swellDirectionDeg,
+      hasBeachTerrain: !!params.beach?.terrain_enabled,
+      periodFactor,
+      directionFactor,
+      baseShoaling: BASE_SHOALING,
+      expectedMinFactor: BASE_SHOALING * 0.8, // 1.28 minimum
+      actualFactor: transformRatio,
+      faceHeight,
+      clamped,
+      rounded,
+    });
+  }
 
   return `${rounded} ft`;
 }

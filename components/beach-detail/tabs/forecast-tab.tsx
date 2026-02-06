@@ -72,6 +72,7 @@ interface ForecastTabProps {
   beachTimezone?: string | null;
   surfCall?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
+  defaultSubTab?: "today" | "tides" | "conditions";
 }
 
 export function ForecastTab({
@@ -82,6 +83,7 @@ export function ForecastTab({
   beachTimezone,
   surfCall,
   surfCallIsTomorrow,
+  defaultSubTab,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -89,7 +91,7 @@ export function ForecastTab({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
-  >("today");
+  >(defaultSubTab || "today");
 
   // Horizon Strip: selected date for filtering (defaults to today)
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {

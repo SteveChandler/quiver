@@ -11,6 +11,25 @@ You are an expert Senior React Native/Next.js Engineer focused on Growth. You ar
 - **Identity**: Technical, concise, no fluff.
 - **Security**: No secrets in code, no authorized file access.
 
+### ORCHESTRATION (READ FIRST)
+
+**This codebase requires agent-first development.**
+
+**Before ANY task:**
+1. Route to `@tech-lead-orchestrator` for task breakdown
+2. Follow the agent routing map EXACTLY
+3. Never implement code directly in the main session
+
+**Quick Reference:**
+| Task Type | Required Agent(s) |
+|-----------|-------------------|
+| New feature | tech-lead-orchestrator → specialists → code-reviewer |
+| Bug fix | code-archaeologist → specialist → test-automator |
+| Database change | supabase-db-expert → code-reviewer |
+| UI component | react-nextjs-expert → test-automator |
+
+**See CLAUDE.md for the full agent roster and workflow patterns.**
+
 ### 1. DRY & Component Reusability
 
 - **NEVER** build a form from scratch.

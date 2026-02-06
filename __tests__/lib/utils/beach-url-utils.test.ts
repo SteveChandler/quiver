@@ -88,9 +88,12 @@ describe("Beach URL Utils", () => {
       expect(cityToSlug(undefined)).toBe("");
     });
 
-    it("should remove special characters", () => {
+    it("should remove special characters and normalize diacritics", () => {
       expect(cityToSlug("O'ahu")).toBe("oahu");
-      expect(cityToSlug("San José")).toBe("san-jos");
+      // Uses slugifyAscii to properly handle accented characters
+      expect(cityToSlug("San José")).toBe("san-jose");
+      expect(cityToSlug("Rincón")).toBe("rincon");
+      expect(cityToSlug("São Paulo")).toBe("sao-paulo");
     });
 
     it("should handle multiple spaces", () => {

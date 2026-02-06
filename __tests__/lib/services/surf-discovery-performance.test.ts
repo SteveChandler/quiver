@@ -100,8 +100,8 @@ describe('Surf Discovery Performance Benchmarks', () => {
 
   describe('capEndTimeToTimeSlot function', () => {
     const testCases: { timeSlot: TimeSlot; expectedCap: number }[] = [
-      { timeSlot: 'dawn-patrol', expectedCap: 9 },
-      { timeSlot: 'morning', expectedCap: 12 },
+      { timeSlot: 'dawn-patrol', expectedCap: 11 },
+      { timeSlot: 'lunch-session', expectedCap: 14 },
       { timeSlot: 'afternoon', expectedCap: 18 },
       { timeSlot: 'any', expectedCap: -1 }, // No capping
     ];
@@ -152,7 +152,7 @@ describe('Surf Discovery Performance Benchmarks', () => {
   describe('Batch processing simulation', () => {
     it('should process 50 beaches x 10 windows = 500 calls efficiently', () => {
       const beachTz = 'America/Los_Angeles';
-      const timeSlot: TimeSlot = 'morning';
+      const timeSlot: TimeSlot = 'lunch-session';
 
       // Simulate 50 beaches, each with 10 forecast windows
       const beaches = 50;

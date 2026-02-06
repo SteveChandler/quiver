@@ -3,7 +3,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "../beach-detail-client";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildPageMetadata, buildDynamicWaterTempMetadata } from "@/lib/seo/meta";
+import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -71,6 +72,8 @@ export default async function BeachWaterTempPage(
           beach={beach}
           slug={params.slug}
           beachTimezone={beachTimezone}
+          defaultTab="forecast"
+          defaultSubTab="conditions"
         />
       </>
     );
@@ -110,11 +113,23 @@ export async function generateMetadata(
   const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
-    const locationContext =
-      beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
+    // Fetch water temp data for dynamic SEO
+    let waterTempData: { tempF?: number | null; wetsuitRec?: string | null } | null = null;
+    try {
+      const tempMeta = await getWaterTempMetaData(beach.id);
+      waterTempData = {
+        tempF: tempMeta.tempF,
+        wetsuitRec: tempMeta.wetsuitRec,
+      };
+    } catch {
+      // Gracefully degrade to static metadata on fetch failure
+    }
 
-    const title = `${beach.name} Water Temperature Today | Current Conditions`;
-    const description = `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. Free surf conditions, no paywall.`;
+    // Build CTR-optimized title and description
+    const { title, description } = buildDynamicWaterTempMetadata({
+      beach,
+      waterTempData,
+    });
 
     return buildPageMetadata({
       title,

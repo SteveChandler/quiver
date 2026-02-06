@@ -159,6 +159,17 @@ const nextConfig = {
       },
     ];
   },
+
+  async redirects() {
+    return [
+      {
+        source: "/settings",
+        destination: "/profile?openSettings=true",
+        permanent: false, // 302 for flexibility
+      },
+    ];
+  },
+
   images: {
     // CRITICAL FIX: Enable image optimization in production
     unoptimized: false,
@@ -276,6 +287,12 @@ const nextConfig = {
 
     // Enable external directory support
     externalDir: true,
+
+    // Server Actions configuration for file uploads
+    // Supports 5 photos × 10MB (pre-compression) + FormData overhead
+    serverActions: {
+      bodySizeLimit: '60mb',
+    },
   },
 
   // Reduce bundle size by rewriting common libs to per-module imports

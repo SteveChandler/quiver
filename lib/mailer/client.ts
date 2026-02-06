@@ -23,3 +23,11 @@ export const resend: any = new Proxy(
 
 export const MAIL_FROM = process.env.MAIL_FROM || "Quiver <invites@quiversurf.app>";
 export const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || MAIL_FROM;
+
+/**
+ * Get the base URL for the application.
+ * Used for constructing links in emails.
+ */
+export function getBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
+}

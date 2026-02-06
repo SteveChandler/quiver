@@ -116,6 +116,7 @@ function ProfileViewContent() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [scrollToNotifications, setScrollToNotifications] = useState(false);
   // No local beach name state; prefer DTO fields on profile
   const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
@@ -186,12 +187,24 @@ function ProfileViewContent() {
     }
   }, [user, authLoading]);
 
-  // Open edit modal if URL contains ?edit=true
+  // Extract URL params for controlled effect triggers
+  const openSettings = searchParams?.get("openSettings") === "true";
+  const editMode = searchParams?.get("edit") === "true";
+
+  // Open edit modal if URL contains ?edit=true or ?openSettings=true
   useEffect(() => {
-    if (searchParams?.get("edit") === "true") {
+    if (editMode) {
       setEditModalOpen(true);
+    } else if (openSettings) {
+      setEditModalOpen(true);
+      setScrollToNotifications(true);
+      // Clean up URL after opening modal (remove openSettings param)
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.delete("openSettings");
+      const newUrl = params.toString() ? `/profile?${params.toString()}` : "/profile";
+      router.replace(newUrl, { scroll: false });
     }
-  }, [searchParams]);
+  }, [editMode, openSettings, searchParams, router]);
 
   // Track surf profile analytics when preferences are shown
   useEffect(() => {
@@ -557,9 +570,15 @@ function ProfileViewContent() {
         <Suspense fallback={null}>
           <EditProfileModal
             open={editModalOpen}
-            onOpenChange={setEditModalOpen}
+            onOpenChange={(open) => {
+              setEditModalOpen(open);
+              if (!open) {
+                setScrollToNotifications(false);
+              }
+            }}
             profile={profile}
             onProfileUpdated={handleProfileUpdated}
+            scrollToNotifications={scrollToNotifications}
           />
         </Suspense>
       )}

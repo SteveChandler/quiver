@@ -155,6 +155,8 @@ interface BeachDetailProps {
   surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
+  defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
+  defaultSubTab?: "today" | "tides" | "conditions";
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -177,6 +179,8 @@ function BeachDetailContent({
   surfReportSlot,
   surfCallReport,
   surfCallIsTomorrow,
+  defaultTab,
+  defaultSubTab,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -193,10 +197,11 @@ function BeachDetailContent({
   const [sessionPlanningMode, setSessionPlanningMode] = useState<
     "log" | "plan"
   >("log");
-  const [activeTab, setActiveTab] = useState<BeachTabValue>("overview");
+  const [activeTab, setActiveTab] = useState<BeachTabValue>(defaultTab || "overview");
 
   // Track whether we've already synced the tab from URL params
-  const [tabSynced, setTabSynced] = useState(false);
+  // If defaultTab is provided (e.g., from tides/water-temp pages), mark as synced
+  const [tabSynced, setTabSynced] = useState(!!defaultTab);
 
   // Handle URL parameters and default section opening
   useEffect(() => {
@@ -641,6 +646,7 @@ function BeachDetailContent({
                   hasCamera={hasCamera}
                   surfCall={surfCallReport}
                   surfCallIsTomorrow={surfCallIsTomorrow}
+                  defaultSubTab={defaultSubTab}
                 />
               </Suspense>
             )}

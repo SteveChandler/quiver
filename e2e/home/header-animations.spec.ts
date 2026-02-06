@@ -71,13 +71,13 @@ test.describe('Home Header Animations', () => {
       // Each button should have an icon - verify by checking class names contain icon styling
       const anyTimeButton = page.getByRole('button', { name: 'Any time' });
       const dawnPatrolButton = page.getByRole('button', { name: 'Dawn patrol' });
-      const morningButton = page.getByRole('button', { name: 'Morning' });
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
       const afternoonButton = page.getByRole('button', { name: 'Afternoon' });
 
       // All buttons should have icons (SVG elements)
       await expect(anyTimeButton.locator('svg')).toBeVisible();
       await expect(dawnPatrolButton.locator('svg')).toBeVisible();
-      await expect(morningButton.locator('svg')).toBeVisible();
+      await expect(lunchSessionButton.locator('svg')).toBeVisible();
       await expect(afternoonButton.locator('svg')).toBeVisible();
     });
   });
@@ -87,17 +87,17 @@ test.describe('Home Header Animations', () => {
       const timeSlotGroup = page.locator('[role="radiogroup"][aria-label="Time slot filter"]');
       await expect(timeSlotGroup).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      const morningButton = page.getByRole('button', { name: 'Morning' });
+      const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
 
       // Initially Morning should not be pressed
-      const initialPressed = await morningButton.getAttribute('aria-pressed');
+      const initialPressed = await lunchSessionButton.getAttribute('aria-pressed');
       expect(initialPressed).toBe('false');
 
       // Click to select
-      await morningButton.click();
+      await lunchSessionButton.click();
 
       // Should now be pressed
-      const afterPressed = await morningButton.getAttribute('aria-pressed');
+      const afterPressed = await lunchSessionButton.getAttribute('aria-pressed');
       expect(afterPressed).toBe('true');
 
       // Previous selection (Any time) should no longer be pressed
@@ -288,10 +288,10 @@ test.describe('Home Header Animations', () => {
         const selectorVisible = await timeSlotGroup.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
         if (selectorVisible) {
-          const morningButton = page.getByRole('button', { name: 'Morning' });
-          await morningButton.click();
+          const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
+          await lunchSessionButton.click();
 
-          const ariaPressed = await morningButton.getAttribute('aria-pressed');
+          const ariaPressed = await lunchSessionButton.getAttribute('aria-pressed');
           expect(ariaPressed).toBe('true');
         }
       } finally {

@@ -7,8 +7,9 @@ import {
   type SurfSpotSlug,
   type SurfCitySlug,
 } from "@/lib/data/surf-spots";
-import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
+import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { getBeachForecastPreview } from "@/actions/forecast-actions";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import { SpotStructuredData } from "@/components/seo/spot-structured-data";
 import {
@@ -48,11 +49,26 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
   }
 
   const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
-  const locationContext = spot.city && spot.region
-    ? ` in ${spot.city}, ${spot.region.split(",")[0]}`
-    : spot.region ? ` in ${spot.region}` : '';
-  const title = `${spot.name} Surf Report & Forecast (Updated Daily)`;
-  const description = `${spot.name} surf report for ${formatMetaDate()}. Wave height, wind, tide, and best time window${locationContext} — plus nearby spots.`;
+  const regionName = spot.region?.split(",")[0] || "";
+
+  // Fetch live forecast data for dynamic meta
+  let forecastData: { wave_height?: string | null } | null = null;
+  if (spot.id) {
+    const forecastResult = await getBeachForecastPreview(spot.id);
+    if (forecastResult.success && forecastResult.data?.wave_height) {
+      forecastData = { wave_height: forecastResult.data.wave_height };
+    }
+  }
+
+  // Use CTR-optimized dynamic metadata (same as hierarchical pages)
+  const { title, description } = buildDynamicBeachMetadata({
+    beach: {
+      name: spot.name,
+      city: spot.city,
+      state: spot.state || regionName,
+    },
+    forecast: forecastData,
+  });
 
   // Canonical path matches sitemap logic:
   // - Use hierarchical URL when DB has complete location data
@@ -66,14 +82,21 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
     title,
     description,
     path: canonicalPath,
+    image: `/api/og/beach?slug=${params.slug}`,
     keywords: [
       `${spot.name} surf report`,
       `${spot.name} surf forecast`,
+      `${spot.name} surf conditions`,
       `${spot.name} tides`,
+      `${spot.name} wave height`,
       `${cityName} surf`,
+      `${cityName} surf report`,
+      `${regionName} surf spots`,
       "surf report",
       "surf forecast",
-    ],
+      "surf conditions",
+      "wave height today",
+    ].filter(Boolean),
   });
 }
 

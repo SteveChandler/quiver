@@ -75,7 +75,7 @@ const cache = {
   xpStatusByUserId: new Map<string, CacheEntry<UserXPStatus>>(),
   userBadgesByUserId: new Map<string, CacheEntry<CachedUserBadge[]>>(),
   badgeDefinitions: new Map<string, CacheEntry<CachedBadgeDefinition[]>>(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   inflight: new Map<string, Promise<any>>(),
 };
 
@@ -153,7 +153,7 @@ export function getBadgeDefinitionsCache(): Map<string, CacheEntry<CachedBadgeDe
  * Uses `any` because it holds heterogeneous promise types that callers
  * use polymorphically based on the cache key pattern.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function getInflightCache(): Map<string, Promise<any>> {
   return cache.inflight;
 }

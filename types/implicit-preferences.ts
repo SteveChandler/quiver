@@ -19,7 +19,14 @@ export type ImplicitEventType =
   | 'discovery_click'
   | 'discovery_skip'
   | 'forecast_check'
-  | 'location_update';
+  | 'location_update'
+  // Engagement tracking events
+  | 'page_view'
+  | 'forecast_interaction'
+  | 'session_action'
+  | 'profile_update'
+  | 'onboarding_step'
+  | 'cta_click';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -31,6 +38,13 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   forecast_check: 2.5,
   beach_view: 0.5,
   discovery_skip: -1.0,
+  // Engagement events (tracking only, no preference learning weight)
+  page_view: 0,
+  forecast_interaction: 0,
+  session_action: 0,
+  profile_update: 0,
+  onboarding_step: 0,
+  cta_click: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -95,6 +109,76 @@ export interface LocationUpdateMetadata {
   accuracy_m?: number;
 }
 
+// -----------------------------------------------------------------------------
+// Engagement Tracking Metadata Interfaces
+// -----------------------------------------------------------------------------
+
+/**
+ * Metadata for page_view events
+ */
+export interface PageViewMetadata {
+  /** Page identifier (home, discover, beach, profile, etc.) */
+  page: string;
+  /** Previous page URL or path */
+  referrer?: string;
+  /** Session identifier for grouping page views */
+  session_id?: string;
+}
+
+/**
+ * Metadata for forecast_interaction events
+ */
+export interface ForecastInteractionMetadata {
+  /** Type of interaction */
+  action: 'change_slot' | 'expand' | 'view_extended' | 'view_details';
+  /** Time slot selected (if action is change_slot) */
+  slot?: string;
+  /** Beach ID being interacted with */
+  beach_id?: string;
+}
+
+/**
+ * Metadata for session_action events
+ */
+export interface SessionActionMetadata {
+  /** Type of session action */
+  action: 'start' | 'complete' | 'cancel';
+  /** Session ID if completing or canceling */
+  session_id?: string;
+  /** Beach where session was logged */
+  beach_id?: string;
+}
+
+/**
+ * Metadata for profile_update events
+ */
+export interface ProfileUpdateMetadata {
+  /** Field that was updated */
+  field: 'home_beach' | 'experience' | 'preferences' | 'board' | 'avatar' | 'name' | 'other';
+}
+
+/**
+ * Metadata for onboarding_step events
+ */
+export interface OnboardingStepMetadata {
+  /** Step number (1-4) */
+  step: number;
+  /** Human-readable step name */
+  step_name: string;
+  /** Whether the step was completed or skipped */
+  completed?: boolean;
+}
+
+/**
+ * Metadata for cta_click events
+ */
+export interface CTAClickMetadata {
+  /** CTA identifier */
+  cta: 'log_session' | 'view_forecast' | 'share' | 'view_beach' | 'check_conditions' | 'other';
+  /** Where the CTA was located */
+  location: string;
+}
+
 /**
  * Union type of all possible event metadata
  */
@@ -103,7 +187,13 @@ export type EventMetadata =
   | DiscoveryClickMetadata
   | DiscoverySkipMetadata
   | ForecastCheckMetadata
-  | LocationUpdateMetadata;
+  | LocationUpdateMetadata
+  | PageViewMetadata
+  | ForecastInteractionMetadata
+  | SessionActionMetadata
+  | ProfileUpdateMetadata
+  | OnboardingStepMetadata
+  | CTAClickMetadata;
 
 /**
  * Full user event record as stored in the database

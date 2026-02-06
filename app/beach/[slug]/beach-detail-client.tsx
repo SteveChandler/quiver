@@ -18,6 +18,8 @@ interface BeachDetailClientProps {
   surfReportSlot?: ReactNode;
   surfCallReport?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
+  defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
+  defaultSubTab?: "today" | "tides" | "conditions";
 }
 
 export function BeachDetailClient({
@@ -27,6 +29,8 @@ export function BeachDetailClient({
   surfReportSlot,
   surfCallReport,
   surfCallIsTomorrow,
+  defaultTab,
+  defaultSubTab,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const { track } = useTrackEvent();
@@ -91,6 +95,8 @@ export function BeachDetailClient({
         surfReportSlot={surfReportSlot}
         surfCallReport={surfCallReport}
         surfCallIsTomorrow={surfCallIsTomorrow}
+        defaultTab={defaultTab}
+        defaultSubTab={defaultSubTab}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

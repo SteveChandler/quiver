@@ -133,7 +133,7 @@ describe("buildSurfCallShareData", () => {
       const recommendation = createMockRecommendation();
       const result = buildSurfCallShareData({
         recommendation,
-        timeSlot: "morning",
+        timeSlot: "lunch-session",
       });
 
       expect(result).not.toBeNull();

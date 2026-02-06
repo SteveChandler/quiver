@@ -434,7 +434,7 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
 
       if (upsertError) {
         // Non-fatal: don't fail the run if state write fails
-        // eslint-disable-next-line no-console
+         
         console.warn("Forecast alert delivery upsert failed", upsertError);
       } else {
         deliveryByKey.set(deliveryKey, {

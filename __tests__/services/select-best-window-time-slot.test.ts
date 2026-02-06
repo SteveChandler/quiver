@@ -44,14 +44,14 @@ describe('selectBestWindow with timeSlot filter', () => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-  it('returns morning window when timeSlot=morning', () => {
+  it('returns lunch session window when timeSlot=lunch-session', () => {
     const forecasts = [
       createForecast(tomorrowStr, 15),  // 7am PST (15:00 UTC)
-      createForecast(tomorrowStr, 18),  // 10am PST (18:00 UTC)
+      createForecast(tomorrowStr, 19),  // 11am PST (19:00 UTC)
       createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC)
     ];
 
-    const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'morning');
+    const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'lunch-session');
 
     expect(result).not.toBeNull();
     // Check local hour in America/Los_Angeles timezone
@@ -63,18 +63,18 @@ describe('selectBestWindow with timeSlot filter', () => {
       }).format(result!.start),
       10
     );
-    // Morning filter: 6am-12pm local time
-    expect(localHour).toBeGreaterThanOrEqual(6);
-    expect(localHour).toBeLessThan(12);
+    // Lunch session filter: 11am-2pm local time
+    expect(localHour).toBeGreaterThanOrEqual(11);
+    expect(localHour).toBeLessThan(14);
   });
 
   it('returns afternoon window when timeSlot=afternoon with tide schedule', () => {
     // Create tide schedule with Unix timestamps in seconds
-    // Low tide at 10am PST (18:00 UTC), high tide at 4pm PST (00:00 UTC next day)
-    // This creates a rising tide period from 10am to 4pm
+    // Low tide at 2pm PST (22:00 UTC), high tide at 6pm PST (02:00 UTC next day)
+    // This creates a rising tide period from 2pm to 6pm
     const tomorrowDate = new Date(`${tomorrowStr}T00:00:00Z`);
-    const lowTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 18 * 3600; // 18:00 UTC
-    const highTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 24 * 3600; // 00:00 UTC next day
+    const lowTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 22 * 3600; // 22:00 UTC
+    const highTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 26 * 3600; // 02:00 UTC next day
 
     const tideSchedule = [
       { time: lowTideTimestamp, height: 1.0, type: 'low' as const },   // Low tide - below preferred min (2ft)
@@ -89,9 +89,9 @@ describe('selectBestWindow with timeSlot filter', () => {
 
     const forecasts = [
       forecastWithTideSchedule(15),  // 7am PST (15:00 UTC)
-      forecastWithTideSchedule(18),  // 10am PST (18:00 UTC)
-      forecastWithTideSchedule(20),  // 12pm PST (20:00 UTC)
+      forecastWithTideSchedule(19),  // 11am PST (19:00 UTC)
       forecastWithTideSchedule(22),  // 2pm PST (22:00 UTC)
+      forecastWithTideSchedule(24),  // 4pm PST (00:00 UTC next day)
     ];
 
     const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'afternoon');
@@ -106,9 +106,9 @@ describe('selectBestWindow with timeSlot filter', () => {
       }).format(result!.start),
       10
     );
-    // Afternoon filter: 12pm-6pm local time
+    // Afternoon filter: 2pm-6pm local time
     // With tide-driven windows, the START must be within the afternoon slot
-    expect(localHour).toBeGreaterThanOrEqual(12);
+    expect(localHour).toBeGreaterThanOrEqual(14);
     expect(localHour).toBeLessThan(18);
   });
 
@@ -132,22 +132,22 @@ describe('selectBestWindow with timeSlot filter', () => {
       }).format(result!.start),
       10
     );
-    // Dawn patrol: 6am-9am local time
+    // Dawn patrol: 6am-11am local time
     expect(localHour).toBeGreaterThanOrEqual(6);
-    expect(localHour).toBeLessThan(9);
+    expect(localHour).toBeLessThan(11);
   });
 
   it('returns null when no forecasts match time slot (strict enforcement)', () => {
     // Create tide schedule with Unix timestamps in seconds
-    // Low tide at 12pm PST (20:00 UTC), high tide at 6pm PST (02:00 UTC next day)
-    // This creates a rising tide period starting in the afternoon only
+    // Low tide at 3pm PST (23:00 UTC), high tide at 7pm PST (03:00 UTC next day)
+    // This creates a rising tide period starting in the late afternoon only
     const tomorrowDate = new Date(`${tomorrowStr}T00:00:00Z`);
-    const lowTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 20 * 3600; // 20:00 UTC = 12pm PST
-    const highTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 26 * 3600; // 02:00 UTC next day = 6pm PST
+    const lowTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 23 * 3600; // 23:00 UTC = 3pm PST
+    const highTideTimestamp = Math.floor(tomorrowDate.getTime() / 1000) + 27 * 3600; // 03:00 UTC next day = 7pm PST
 
     const tideSchedule = [
-      { time: lowTideTimestamp, height: 1.0, type: 'low' as const },   // Low tide at 12pm PST
-      { time: highTideTimestamp, height: 6.0, type: 'high' as const }, // High tide at 6pm PST
+      { time: lowTideTimestamp, height: 1.0, type: 'low' as const },   // Low tide at 3pm PST
+      { time: highTideTimestamp, height: 6.0, type: 'high' as const }, // High tide at 7pm PST
     ];
 
     const forecastWithTideSchedule = (hour: number) => {
@@ -156,24 +156,25 @@ describe('selectBestWindow with timeSlot filter', () => {
       return forecast;
     };
 
-    // Only afternoon forecasts - tide window will start after 12pm
+    // Only afternoon forecasts - tide window will start after 2pm
     const forecasts = [
-      forecastWithTideSchedule(20),  // 12pm PST (20:00 UTC) - afternoon only
       forecastWithTideSchedule(22),  // 2pm PST (22:00 UTC) - afternoon only
+      forecastWithTideSchedule(24),  // 4pm PST (00:00 UTC next day) - afternoon only
     ];
 
     // STRICT ENFORCEMENT: When no forecasts match the time slot,
-    // return null so the UI can show "No morning windows available"
+    // return null so the UI can show "No lunch session windows available"
     // instead of confusingly showing an afternoon window.
-    const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'morning');
+    const result = selectBestWindow(forecasts, mockBeach, null, 48, undefined, 'lunch-session');
 
     // Should return null when no forecasts exist within the requested time slot
     expect(result).toBeNull();
   });
 
   it('returns null for dawn-patrol when only afternoon forecasts exist', () => {
-    // Test case for the bug: Dawn patrol showing "4-5:08pm"
+    // Test case for the bug: Dawn patrol showing afternoon times
     // When user selects dawn-patrol, they should NOT see afternoon times
+    // Dawn patrol ends at 11am, so forecasts at 2pm+ should not match
     const forecasts = [
       createForecast(tomorrowStr, 22),  // 2pm PST (22:00 UTC) - afternoon only
       createForecast(tomorrowStr, 24),  // 4pm PST (00:00 UTC next day) - afternoon only

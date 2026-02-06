@@ -44,7 +44,7 @@ const QuerySchema = z.object({
  * - lon (required): User's longitude for GPS discovery
  * - radius (optional): Search radius in miles (default: 25, max: 100)
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
- * - timeSlot (optional): Time slot preference ('any', 'morning', 'afternoon', 'dawn-patrol', default: 'any')
+ * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
  *
  * Authentication: Required (user session)
  * Rate Limit: 10 requests/minute
@@ -78,7 +78,7 @@ async function surfDiscoveryHandler(
 
   // Parse timeSlot query parameter
   const timeSlotParam = searchParams.get('timeSlot');
-  const validTimeSlots: TimeSlot[] = ['any', 'morning', 'afternoon', 'dawn-patrol'];
+  const validTimeSlots: TimeSlot[] = ['any', 'lunch-session', 'afternoon', 'dawn-patrol'];
   const timeSlot: TimeSlot = validTimeSlots.includes(timeSlotParam as TimeSlot)
     ? (timeSlotParam as TimeSlot)
     : 'any';

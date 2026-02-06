@@ -77,6 +77,14 @@ scripts/setup-dev-cron.sh
 .supabase
 .codex/
 
+# AI tooling local configs
+.agent/
+.claude/skills/
+.claude/settings.local.json
+
+# Temporary scripts
+scripts/tmp-*
+
 
 # Performance testing results
 scripts/lighthouseRun.*

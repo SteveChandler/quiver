@@ -125,16 +125,16 @@ describe("useTimeSlotPrefetch", () => {
       const urls = fetchCalls.map((call) => call[0] as string);
 
       expect(urls.some((url) => url.includes("timeSlot=dawn-patrol"))).toBe(true);
-      expect(urls.some((url) => url.includes("timeSlot=morning"))).toBe(true);
+      expect(urls.some((url) => url.includes("timeSlot=lunch-session"))).toBe(true);
       expect(urls.some((url) => url.includes("timeSlot=afternoon"))).toBe(true);
       expect(urls.some((url) => url.includes("timeSlot=any"))).toBe(false);
     });
 
-    it("should not prefetch current slot (morning)", async () => {
+    it("should not prefetch current slot (lunch-session)", async () => {
       renderHook(() =>
         useTimeSlotPrefetch({
           userLocation: mockLocation,
-          currentSlot: "morning",
+          currentSlot: "lunch-session",
           enabled: true,
         })
       );
@@ -149,8 +149,8 @@ describe("useTimeSlotPrefetch", () => {
       const fetchCalls = mockFetch.mock.calls;
       const urls = fetchCalls.map((call) => call[0] as string);
 
-      // Should NOT include morning
-      expect(urls.some((url) => url.includes("timeSlot=morning"))).toBe(false);
+      // Should NOT include lunch-session
+      expect(urls.some((url) => url.includes("timeSlot=lunch-session"))).toBe(false);
       // Should include the other 3
       expect(urls.some((url) => url.includes("timeSlot=any"))).toBe(true);
       expect(urls.some((url) => url.includes("timeSlot=dawn-patrol"))).toBe(true);
@@ -160,9 +160,9 @@ describe("useTimeSlotPrefetch", () => {
 
   describe("caching behavior", () => {
     it("should skip slots that already have valid cache", async () => {
-      // Mock: only 'morning' needs fetching, others are cached
+      // Mock: only 'lunch-session' needs fetching, others are cached
       (cacheUtils.hasValidCache as jest.Mock).mockImplementation((key: string) => {
-        return !key.includes("morning");
+        return !key.includes("lunch-session");
       });
 
       renderHook(() =>
@@ -180,7 +180,7 @@ describe("useTimeSlotPrefetch", () => {
         { timeout: 5000 }
       );
 
-      expect(mockFetch.mock.calls[0][0]).toContain("timeSlot=morning");
+      expect(mockFetch.mock.calls[0][0]).toContain("timeSlot=lunch-session");
     });
 
     it("should not prefetch if all slots are already cached", async () => {
