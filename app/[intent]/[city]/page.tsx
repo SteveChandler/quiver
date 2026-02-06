@@ -40,6 +40,12 @@ import {
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
 import { findCitiesMatchingPattern } from "@/actions/city/city-metadata-actions";
+import {
+  getBeginnerConditionsData,
+  getBeginnerBeachesWithEditorial,
+  getBeginnerCityEditorial,
+} from "@/actions/beginner/beginner-actions";
+import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 
 // Dynamic rendering for intent pages - database queries use no-store fetch
 // which prevents static generation. ISR revalidation still applies.
@@ -274,15 +280,25 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     return true; // Non-skill intents always have results
   })();
 
+  const keywords =
+    params.intent === "beginner"
+      ? [
+          `${cityMetadata.cityName} beginner surf spots`,
+          `learn to surf ${cityMetadata.cityName}`,
+          `${cityMetadata.cityName} surf lessons`,
+          `${cityMetadata.stateName} beginner surfing`,
+        ]
+      : [
+          `${cityMetadata.cityName} ${definition.label}`,
+          `${cityMetadata.cityName} surf`,
+          `${cityMetadata.stateName} surfing`,
+        ];
+
   const metadata = buildPageMetadata({
     title: pageContent.title,
     description: pageContent.metaDescription,
     path: `/${params.intent}/${canonicalCitySlug}`,
-    keywords: [
-      `${cityMetadata.cityName} ${definition.label}`,
-      `${cityMetadata.cityName} surf`,
-      `${cityMetadata.stateName} surfing`,
-    ],
+    keywords,
   });
 
   // Prevent indexing of empty-state pages (thin content)
@@ -409,6 +425,37 @@ export default async function IntentPage(props: IntentPageParams) {
 
   if (!cityMetadata || !definition) {
     return notFound();
+  }
+
+  // Beginner intent: use dedicated page component with editorial + live conditions
+  if (params.intent === "beginner") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+    const [conditionsData, beaches, cityEditorial] =
+      await Promise.all([
+        getBeginnerConditionsData(params.city, stateSlugLower),
+        getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
+        getBeginnerCityEditorial(params.city, stateSlugLower),
+      ]);
+
+    const { badge: conditionsBadge, rightNow: rightNowConditions } = conditionsData;
+
+    return (
+      <BeginnerPageContent
+        cityName={cityMetadata.cityName}
+        citySlug={params.city}
+        stateSlug={stateSlugLower}
+        stateName={cityMetadata.stateName}
+        regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+        conditionsBadge={conditionsBadge}
+        rightNowConditions={rightNowConditions}
+        beaches={beaches}
+        cityEditorial={cityEditorial}
+        totalBeaches={beaches.length}
+        baseUrl={baseUrl}
+      />
+    );
   }
 
   // Generate content from templates

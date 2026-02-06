@@ -1,0 +1,241 @@
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import type {
+  BeginnerConditionsBadge,
+  RightNowConditions as RightNowConditionsType,
+  BeginnerBeachWithEditorial,
+  BeginnerCityEditorial,
+} from "@/types/beginner";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { FAQSchema } from "@/components/seo/faq-schema";
+import { CTASection } from "@/components/landing-page/cta-section";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { BeginnerHero } from "./BeginnerHero";
+import { RightNowConditions } from "./RightNowConditions";
+import { BeginnerSpotList } from "./BeginnerSpotList";
+import { WhatToExpect } from "./WhatToExpect";
+import { SeasonalGuide } from "./SeasonalGuide";
+import { SafetyEssentials } from "./SafetyEssentials";
+import { GearAndLessons } from "./GearAndLessons";
+import { SessionGallery } from "./SessionGallery";
+import { BeginnerFAQ } from "./BeginnerFAQ";
+import { SectionFadeUp } from "./SectionFadeUp";
+
+interface BeginnerPageContentProps {
+  cityName: string;
+  citySlug: string;
+  stateSlug: string;
+  stateName: string;
+  regionLabel: string;
+  conditionsBadge: BeginnerConditionsBadge | null;
+  rightNowConditions: RightNowConditionsType | null;
+  beaches: BeginnerBeachWithEditorial[];
+  cityEditorial: BeginnerCityEditorial | null;
+  totalBeaches: number;
+  baseUrl: string;
+}
+
+export function BeginnerPageContent({
+  cityName,
+  citySlug,
+  stateSlug,
+  stateName,
+  regionLabel,
+  conditionsBadge,
+  rightNowConditions,
+  beaches,
+  cityEditorial,
+  totalBeaches,
+  baseUrl,
+}: BeginnerPageContentProps) {
+  const faqItems = [
+    {
+      question: `What size waves are good for beginners in ${cityName}?`,
+      answer: `1-3 foot waves are ideal for beginners in ${cityName}. Most beginner spots here consistently have these conditions, especially during summer months.`,
+    },
+    {
+      question: `Do I need a wetsuit to surf in ${cityName}?`,
+      answer: `It depends on the season. Water temperatures in ${cityName} range throughout the year. Check the current conditions above for today's water temperature and wetsuit recommendation.`,
+    },
+    {
+      question: `Where can I take surf lessons in ${cityName}?`,
+      answer: `${cityName} has multiple surf schools operating at beginner-friendly beaches. Look for schools near the top-rated beginner spots listed above.`,
+    },
+    {
+      question: `What is the best time of year to learn to surf in ${cityName}?`,
+      answer: `Summer typically offers the most beginner-friendly conditions in ${cityName} with smaller, cleaner waves and warmer water. Spring and fall can also be good on smaller swell days.`,
+    },
+    {
+      question: `What board should I use as a beginner in ${cityName}?`,
+      answer: `Start with a soft-top foam board, 8-9 feet long for adults. These boards provide maximum stability and are forgiving for learning. Most rental shops near ${cityName} beaches carry them.`,
+    },
+  ];
+
+  return (
+    <div className="bg-white">
+      <BreadcrumbStructuredData
+        items={[
+          { name: "Quiver", url: `${baseUrl}/` },
+          {
+            name: `${cityName} Surf`,
+            url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
+          },
+          {
+            name: "Beginner Spots",
+            url: `${baseUrl}/beginner/${citySlug}`,
+          },
+        ]}
+      />
+      <FAQSchema items={faqItems} />
+
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Breadcrumb */}
+        <nav
+          aria-label="breadcrumb"
+          className="flex items-center gap-1 text-sm mb-6"
+        >
+          <Link
+            href={`/beaches/usa/${stateSlug}/${citySlug}`}
+            className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to {cityName}
+          </Link>
+          <span className="text-gray-400 mx-2">&rsaquo;</span>
+          <span className="text-gray-900 font-medium">Beginner Spots</span>
+        </nav>
+
+        <div className="space-y-12">
+          {/* Module 1: Hero + Conditions Badge */}
+          <BeginnerHero
+            cityName={cityName}
+            regionLabel={regionLabel}
+            totalBeaches={totalBeaches}
+            conditionsBadge={conditionsBadge}
+            cityEditorial={cityEditorial}
+          />
+
+          {/* Module 2: Right Now Conditions */}
+          {rightNowConditions && (
+            <SectionFadeUp delay={0.1}>
+              <RightNowConditions conditions={rightNowConditions} />
+            </SectionFadeUp>
+          )}
+
+          {/* Module 3: Curated Spot Cards */}
+          <SectionFadeUp delay={0.15}>
+            <BeginnerSpotList cityName={cityName} beaches={beaches} />
+          </SectionFadeUp>
+
+          {/* Inline Signup CTA */}
+          <SectionFadeUp delay={0.1}>
+            <InlineSignupCta
+              title={`Track Your ${cityName} Sessions`}
+              description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
+              source={`intent-beginner-${citySlug}`}
+              className="my-8"
+            />
+          </SectionFadeUp>
+
+          {/* Module 4: What to Expect Editorial */}
+          {cityEditorial && (
+            <SectionFadeUp>
+              <WhatToExpect cityName={cityName} cityEditorial={cityEditorial} />
+            </SectionFadeUp>
+          )}
+
+          {/* Module 5: Seasonal Guide */}
+          <SectionFadeUp>
+            <SeasonalGuide cityName={cityName} />
+          </SectionFadeUp>
+
+          {/* Module 6: Safety Essentials */}
+          <SectionFadeUp>
+            <SafetyEssentials cityName={cityName} />
+          </SectionFadeUp>
+
+          {/* Module 7: Gear & Lessons */}
+          <SectionFadeUp>
+            <GearAndLessons />
+          </SectionFadeUp>
+
+          {/* Module 8: Session Gallery */}
+          <SectionFadeUp>
+            <SessionGallery cityName={cityName} />
+          </SectionFadeUp>
+
+          {/* Module 9: FAQ */}
+          <SectionFadeUp>
+            <BeginnerFAQ items={faqItems} />
+          </SectionFadeUp>
+
+          {/* Continue Exploring */}
+          <SectionFadeUp>
+            <aside className="rounded-xl border border-slate-200 p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900 mb-3">
+                Continue exploring
+              </h2>
+              <ul className="space-y-2 text-sm text-sky-700">
+                <li>
+                  <Link
+                    href={`/beaches/usa/${stateSlug}/${citySlug}`}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    Back to the {cityName} surf hub
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href={`/tide/${citySlug}`}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {cityName} tide chart &amp; forecast
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href={`/water-temp/${citySlug}`}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    Water temperature trends
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href={`/least-crowded/${citySlug}`}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    Less-crowded backups
+                  </Link>
+                </li>
+              </ul>
+            </aside>
+          </SectionFadeUp>
+
+          {/* Planning Checklist */}
+          {cityEditorial && cityEditorial.planningChecklist.length > 0 && (
+            <SectionFadeUp>
+              <aside className="rounded-xl border border-slate-200 bg-slate-50 p-6">
+                <h2 className="text-lg font-semibold text-slate-900 mb-3">
+                  Beginner checklist
+                </h2>
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {cityEditorial.planningChecklist.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="text-sky-600 mt-0.5">-</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            </SectionFadeUp>
+          )}
+        </div>
+      </div>
+
+      <CTASection />
+      <StickySignupBar source={`intent-beginner-${citySlug}`} />
+    </div>
+  );
+}

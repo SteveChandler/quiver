@@ -27,7 +27,7 @@ const mockBeach = {
   name: "Ocean Beach",
   city: "San Francisco",
   state: "CA",
-  region_id: "Northern California",
+  region: "Northern California",
   lat: 37.7749,
   lon: -122.4194,
   created_at: "2024-01-01",
@@ -167,18 +167,18 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
       expect(location).toHaveClass("text-ocean-blue");
     });
 
-    it("should fallback to region_id if city/state not available", () => {
+    it("should fallback to region if city/state not available", () => {
       const beach = { ...mockBeach, city: null, state: null } as Beach;
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("Northern California")).toBeInTheDocument();
     });
 
-    it("should use default California if city/state/region_id unavailable", () => {
+    it("should use default California if city/state/region unavailable", () => {
       const beach = {
         ...mockBeach,
         city: null,
         state: null,
-        region_id: null,
+        region: null,
       } as Beach;
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("California")).toBeInTheDocument();

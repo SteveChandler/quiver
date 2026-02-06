@@ -35,7 +35,6 @@ describe("ForecastStorageService", () => {
   const mockBeach = {
     id: "beach-123",
     name: "Test Beach",
-    region_id: "region-1",
     center_lat: 33.5,
     center_lng: -117.5,
     created_at: new Date().toISOString(),

@@ -9,7 +9,6 @@ describe("getBeachLocation", () => {
       city: "Huntington Beach",
       state: "CA",
       region: null,
-      region_id: null,
     } as Beach;
 
     expect(getBeachLocation(beach)).toBe("Huntington Beach, CA");
@@ -22,7 +21,6 @@ describe("getBeachLocation", () => {
       city: "San Diego",
       state: "CA",
       region: "Southern California",
-      region_id: "socal",
     } as Beach;
 
     expect(getBeachLocation(beach)).toBe("San Diego, CA");
@@ -35,7 +33,6 @@ describe("getBeachLocation", () => {
       city: "Waikiki",
       state: null,
       region: null,
-      region_id: null,
     } as Beach;
 
     expect(getBeachLocation(beach)).toBe("Waikiki");
@@ -48,23 +45,21 @@ describe("getBeachLocation", () => {
       city: null,
       state: "CA",
       region: null,
-      region_id: null,
     } as Beach;
 
     expect(getBeachLocation(beach)).toBe("CA");
   });
 
-  it("should return region_id when city and state are missing", () => {
+  it("should return region when city and state are missing", () => {
     const beach = {
       id: "test-id",
       name: "Test Beach",
       city: null,
       state: null,
-      region: null,
-      region_id: "norcal",
+      region: "Northern California",
     } as Beach;
 
-    expect(getBeachLocation(beach)).toBe("norcal");
+    expect(getBeachLocation(beach)).toBe("Northern California");
   });
 
   it("should return 'California' as fallback when all location fields are missing", () => {
@@ -74,7 +69,6 @@ describe("getBeachLocation", () => {
       city: null,
       state: null,
       region: null,
-      region_id: null,
     } as Beach;
 
     expect(getBeachLocation(beach)).toBe("California");
@@ -87,7 +81,6 @@ describe("getBeachLocation", () => {
       city: "Rosarito",
       state: "Baja California",
       region: null,
-      region_id: null,
     } as Beach;
 
     expect(getBeachLocation(beach)).toBe("Rosarito, Baja California");

@@ -42,7 +42,6 @@ export function getBeachDefaults(): Omit<
     state: null,
     country: null,
     region: null,
-    region_id: null,
     slug: null,
     geog: null,
     timezone: null,

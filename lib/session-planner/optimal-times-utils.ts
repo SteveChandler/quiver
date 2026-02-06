@@ -6,6 +6,19 @@
  */
 
 import { confidenceToDecimal, decimalToConfidence } from "@/lib/services/forecast/confidence-scorer";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+
+/**
+ * Extended forecast entity with additional computed/aliased fields
+ * that session planner database views and RPC functions provide
+ * beyond the base EnhancedForecastEntity columns.
+ */
+type SessionPlannerForecast = EnhancedForecastEntity & {
+  tide_type?: string | null;
+  swell_period?: string | number | null;
+};
+
+type ForecastWithHour = SessionPlannerForecast & { __hour?: number | null; __interpolated?: boolean };
 
 export interface OptimalTimeSlot {
   // Center time of the block for backwards compatibility with previous UI
@@ -85,10 +98,10 @@ export function toTimeString(hourFloat: number): string {
  * Filters forecasts to within N hours of the selected time
  */
 export function filterByTimeWindow(
-  forecasts: any[],
+  forecasts: SessionPlannerForecast[],
   selectedTime: string,
   windowHours: number
-): any[] {
+): SessionPlannerForecast[] {
   try {
     const selectedHour = parseTimeToHour(selectedTime);
     if (selectedHour === null) return forecasts;
@@ -113,8 +126,8 @@ export function filterByTimeWindow(
 /**
  * Scores a single forecast row and returns an OptimalTimeSlot-compatible object
  */
-export function scoreForecast(forecast: any, currentTimeHour?: number | null): OptimalTimeSlot {
-  const waveHeight = parseFloat(forecast.wave_height) || 0;
+export function scoreForecast(forecast: SessionPlannerForecast, currentTimeHour?: number | null): OptimalTimeSlot {
+  const waveHeight = parseFloat(forecast.wave_height ?? "") || 0;
   const windSpeed =
     parseFloat(String(forecast.wind_speed)?.replace(/[^\d.]/g, "")) || 0;
   const windDirectionLabel: string = forecast.wind_direction || "Variable";
@@ -389,7 +402,7 @@ export function buildTwoHourBlocks(
  * Analyzes forecast data to determine optimal surf times
  */
 export function analyzeOptimalTimes(
-  forecasts: any[],
+  forecasts: SessionPlannerForecast[],
   selectedTime?: string | null,
   currentTimeHour?: number | null
 ): OptimalTimeSlot[] {
@@ -471,9 +484,9 @@ export function analyzeOptimalTimes(
  * by interpolating between surrounding real forecast rows.
  */
 function generateAnchoredInterpolatedPoints(
-  forecasts: any[],
+  forecasts: SessionPlannerForecast[],
   selectedTime: string
-): any[] {
+): ForecastWithHour[] {
   const target = parseTimeToHour(selectedTime);
   if (target == null) return [];
 
@@ -483,7 +496,7 @@ function generateAnchoredInterpolatedPoints(
     .sort((a, b) => a.__hour! - b.__hour!);
   if (rows.length === 0) return [];
 
-  const points: any[] = [];
+  const points: ForecastWithHour[] = [];
   const wantedHours = [target - 2, target - 1, target, target + 1, target + 2];
 
   for (const h of wantedHours) {
@@ -507,13 +520,13 @@ function generateAnchoredInterpolatedPoints(
       continue;
     }
 
-    const nearest = rows.reduce((best: any | null, r) => {
+    const nearest = rows.reduce((best: ForecastWithHour | null, r) => {
       if (!best) return r;
       return Math.abs((r.__hour as number) - modH) <
         Math.abs((best.__hour as number) - modH)
         ? r
         : best;
-    }, null as any);
+    }, null as ForecastWithHour | null);
     if (nearest) {
       points.push({
         ...nearest,
@@ -527,17 +540,17 @@ function generateAnchoredInterpolatedPoints(
 }
 
 function interpolateForecastRow(
-  before: any,
-  after: any,
+  before: ForecastWithHour,
+  after: ForecastWithHour,
   targetHour: number
-): any {
+): ForecastWithHour {
   const t0 = before.__hour as number;
   const t1 = after.__hour as number;
   const alpha =
     t1 === t0 ? 0 : Math.min(Math.max((targetHour - t0) / (t1 - t0), 0), 1);
 
   const lerp = (a: number, b: number) => a + (b - a) * alpha;
-  const num = (v: any) => {
+  const num = (v: string | number | null | undefined) => {
     const n = parseFloat(String(v).replace(/[^\d.\-]/g, ""));
     return isNaN(n) ? 0 : n;
   };
@@ -569,7 +582,7 @@ function interpolateForecastRow(
     wind_speed: `${Math.round(windSpeed)} mph`,
     confidence_score: confidence,
     tide_height: Number.isFinite(tideHeight)
-      ? Number(tideHeight.toFixed(1))
+      ? tideHeight.toFixed(1)
       : null,
     tide_type: tideType,
     swell_period: Number.isFinite(swellPeriod)

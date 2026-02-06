@@ -7,7 +7,9 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import type { BadgeUnlock, UserBadgeStats } from "./types";
+import type { CachedUserBadge, CachedBadgeDefinition } from "./cache";
 import { getBadgeChecks } from "./constants";
 import {
   getCached,
@@ -17,6 +19,27 @@ import {
   getInflightCache,
   CACHE_TTL,
 } from "./cache";
+
+/**
+ * Generic type alias for a Supabase query builder used in safeCount.
+ * Uses broad generics because safeCount accepts dynamic table names.
+ * The generic parameters match the shape returned by an untyped
+ * SupabaseClient's `.from(table).select(...)` call.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseCountQuery = PostgrestFilterBuilder<any, any, any, any, any>;
+
+/**
+ * Row shape returned when selecting session fields for reflection/swell analysis
+ */
+interface SessionRow {
+  notes: string | null;
+  wave_quality: number | null;
+  rating: number | null;
+  status: string | null;
+  arrival_time: string | null;
+  wave_height: string | null;
+}
 
 /**
  * Helper function for safe counting
@@ -29,7 +52,7 @@ import {
 async function safeCount(
   supabase: SupabaseClient,
   table: string,
-  apply: (q: any) => any
+  apply: (q: SupabaseCountQuery) => SupabaseCountQuery
 ): Promise<number> {
   try {
     let q = supabase.from(table).select("*", { count: "exact", head: true });
@@ -54,19 +77,19 @@ export async function getUserStatsForBadges(
   supabase: SupabaseClient
 ): Promise<UserBadgeStats> {
   // Sessions: totals and derived counts
-  const session_count = await safeCount(supabase, "sessions", (q: any) =>
+  const session_count = await safeCount(supabase, "sessions", (q) =>
     q.eq("user_id", userId)
   );
-  const complete_entries = await safeCount(supabase, "sessions", (q: any) =>
+  const complete_entries = await safeCount(supabase, "sessions", (q) =>
     q.eq("user_id", userId).eq("status", "completed")
   );
-  const board_tags = await safeCount(supabase, "sessions", (q: any) =>
+  const board_tags = await safeCount(supabase, "sessions", (q) =>
     q.eq("user_id", userId).not("board_id", "is", null)
   );
-  const temp_records = await safeCount(supabase, "sessions", (q: any) =>
+  const temp_records = await safeCount(supabase, "sessions", (q) =>
     q.eq("user_id", userId).not("water_temp", "is", null)
   );
-  const wave_ratings = await safeCount(supabase, "sessions", (q: any) =>
+  const wave_ratings = await safeCount(supabase, "sessions", (q) =>
     q.eq("user_id", userId).or("wave_quality.not.is.null,rating.not.is.null")
   );
 
@@ -82,19 +105,19 @@ export async function getUserStatsForBadges(
       .limit(1000);
     const sessions = data || [];
     reflection_count = sessions.filter(
-      (s: any) =>
+      (s: SessionRow) =>
         (s?.notes && String(s.notes).trim().length > 0) ||
         typeof s?.rating === "number" ||
         typeof s?.wave_quality === "number"
     ).length;
     // Simple parse: extract first number from wave_height, treat as feet
-    const parseFeet = (v: any): number => {
+    const parseFeet = (v: string | number | null | undefined): number => {
       if (!v) return 0;
       const m = String(v).match(/(\d+(?:\.\d+)?)/);
       if (!m) return 0;
       return Number(m[1]);
     };
-    swell_sessions = sessions.reduce((acc: number, s: any) => {
+    swell_sessions = sessions.reduce((acc: number, s: SessionRow) => {
       const h = parseFeet(s?.wave_height);
       const noteFlag =
         typeof s?.notes === "string" && /swell|storm|big|huge/i.test(s.notes);
@@ -117,18 +140,24 @@ export async function getUserStatsForBadges(
       .order("arrival_time", { ascending: false })
       .limit(1000);
 
-    const completed = (data || []).filter((s: any) => s?.arrival_time);
+    const completed = (data || []).filter(
+      (s): s is { arrival_time: string; status: string | null } =>
+        s?.arrival_time != null
+    );
     // Count early sessions: before 6am local time
-    early_sessions = completed.reduce((acc: number, s: any) => {
-      const d = new Date(s.arrival_time);
-      const hour = d.getHours();
-      return acc + (hour < 6 ? 1 : 0);
-    }, 0);
+    early_sessions = completed.reduce(
+      (acc: number, s: { arrival_time: string }) => {
+        const d = new Date(s.arrival_time);
+        const hour = d.getHours();
+        return acc + (hour < 6 ? 1 : 0);
+      },
+      0
+    );
 
     // Compute max consecutive day streak (based on arrival date)
     const dates = Array.from(
       new Set(
-        completed.map((s: any) =>
+        completed.map((s) =>
           new Date(s.arrival_time).toISOString().slice(0, 10)
         )
       )
@@ -157,10 +186,10 @@ export async function getUserStatsForBadges(
   }
 
   // Boards
-  const board_count = await safeCount(supabase, "boards", (q: any) =>
+  const board_count = await safeCount(supabase, "boards", (q) =>
     q.eq("user_id", userId)
   );
-  const detailed_boards = await safeCount(supabase, "boards", (q: any) =>
+  const detailed_boards = await safeCount(supabase, "boards", (q) =>
     q
       .eq("user_id", userId)
       .or("dimensions.not.is.null,description.not.is.null,image_url.not.is.null")
@@ -175,7 +204,7 @@ export async function getUserStatsForBadges(
       .select("id,board_type")
       .eq("user_id", userId)
       .ilike("board_type", "%twin%");
-    const twinIds = (twinBoards || []).map((b: any) => b.id);
+    const twinIds = (twinBoards || []).map((b: { id: string }) => b.id);
     if (twinIds.length > 0) {
       const { count } = await supabase
         .from("sessions")
@@ -189,7 +218,7 @@ export async function getUserStatsForBadges(
   }
 
   // Intel posts & likes (confirmations)
-  const intel_posts = await safeCount(supabase, "intel_posts", (q: any) =>
+  const intel_posts = await safeCount(supabase, "intel_posts", (q) =>
     q.eq("user_id", userId)
   );
   let intel_likes = 0;
@@ -200,7 +229,8 @@ export async function getUserStatsForBadges(
       .eq("user_id", userId)
       .limit(1000);
     intel_likes = (posts || []).reduce(
-      (sum: number, p: any) => sum + (p?.confirmations_count || 0),
+      (sum: number, p: { confirmations_count: number | null }) =>
+        sum + (p?.confirmations_count || 0),
       0
     );
   } catch {
@@ -208,7 +238,7 @@ export async function getUserStatsForBadges(
   }
 
   // Beach reviews
-  const beach_reviews = await safeCount(supabase, "beach_reviews", (q: any) =>
+  const beach_reviews = await safeCount(supabase, "beach_reviews", (q) =>
     q.eq("user_id", userId)
   );
 
@@ -216,12 +246,12 @@ export async function getUserStatsForBadges(
   const invites_sent = await safeCount(
     supabase,
     "session_invitations",
-    (q: any) => q.eq("inviter_id", userId)
+    (q) => q.eq("inviter_id", userId)
   );
   const group_sessions = await safeCount(
     supabase,
     "session_invitations",
-    (q: any) => q.eq("inviter_id", userId).eq("status", "accepted")
+    (q) => q.eq("inviter_id", userId).eq("status", "accepted")
   );
 
   // Users tagged: distinct participants across your sessions
@@ -232,7 +262,7 @@ export async function getUserStatsForBadges(
       .select("id")
       .eq("user_id", userId)
       .limit(1000);
-    const sessionIds = (mySessions || []).map((s: any) => s.id);
+    const sessionIds = (mySessions || []).map((s: { id: string }) => s.id);
     if (sessionIds.length > 0) {
       const { data: participants } = await supabase
         .from("session_participants")
@@ -240,7 +270,11 @@ export async function getUserStatsForBadges(
         .in("session_id", sessionIds)
         .limit(5000);
       const unique = new Set<string>();
-      for (const p of participants || []) {
+      const typedParticipants = (participants || []) as Array<{
+        user_id: string;
+        session_id: string;
+      }>;
+      for (const p of typedParticipants) {
         if (p?.user_id && p.user_id !== userId) unique.add(p.user_id);
       }
       users_tagged = unique.size;
@@ -367,7 +401,7 @@ export async function evaluateBadgeUnlocks(
 export async function fetchUserBadges(
   userId: string,
   supabase: SupabaseClient
-): Promise<any[]> {
+): Promise<CachedUserBadge[]> {
   const badgeCache = getUserBadgesCache();
   const inflightCache = getInflightCache();
 
@@ -426,7 +460,7 @@ export async function fetchUserBadges(
  */
 export async function fetchAllBadgeDefinitions(
   supabase: SupabaseClient
-): Promise<any[]> {
+): Promise<CachedBadgeDefinition[]> {
   const defCache = getBadgeDefinitionsCache();
   const inflightCache = getInflightCache();
   const cacheKey = "all";

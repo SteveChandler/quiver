@@ -312,7 +312,7 @@ function BeachDetailContent({
       const isHome = (searchParams?.get("from") || "") === "home";
       track("beach_view", {
         beach_slug: slugify(beach.name),
-        region: beach.region_id || getBeachLocation(beach) || undefined,
+        region: beach.region || getBeachLocation(beach) || undefined,
         is_home: isHome,
       });
     } catch {}

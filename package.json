@@ -114,6 +114,7 @@
     "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0",
     "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.0.0",
