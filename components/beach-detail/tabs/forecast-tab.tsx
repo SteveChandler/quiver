@@ -11,6 +11,7 @@ import {
   Sun,
   Globe2,
   ChevronDown,
+  Lock,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -41,6 +42,7 @@ import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 
 const CamsSection = dynamic(
   () =>
@@ -73,6 +75,7 @@ interface ForecastTabProps {
   surfCall?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
   defaultSubTab?: "today" | "tides" | "conditions";
+  publicMode?: boolean;
 }
 
 export function ForecastTab({
@@ -84,6 +87,7 @@ export function ForecastTab({
   surfCall,
   surfCallIsTomorrow,
   defaultSubTab,
+  publicMode = false,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -147,6 +151,10 @@ export function ForecastTab({
     }[];
   }, [sortedDates, forecastsByDate]);
 
+  // Public mode: visible and hidden days for 5-Day Outlook
+  const visibleDays = publicMode ? miniForecastDays.slice(0, 3) : miniForecastDays;
+  const hiddenDaysCount = publicMode ? Math.max(0, miniForecastDays.length - 3) : 0;
+
   // Horizon Strip: aggregated day summaries (12 days)
   const horizonDaySummaries = useMemo(() => {
     return aggregateDayForecasts(forecasts, beach, {
@@ -155,11 +163,28 @@ export function ForecastTab({
     });
   }, [forecasts, beach, beachTimezone]);
 
+  // Public mode: limit horizon to 3 days
+  const publicHorizonDays = publicMode ? horizonDaySummaries.slice(0, 3) : horizonDaySummaries;
+
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
     if (!horizonSelectedDate) return forecasts;
     return forecasts.filter((f) => f.forecast_date === horizonSelectedDate);
   }, [forecasts, horizonSelectedDate]);
+
+  // Public mode: allowed dates (first 3 days)
+  const publicAllowedDates = useMemo(() => {
+    if (!publicMode) return null;
+    const today = getTodayDateString();
+    const futureDates = [...new Set(forecasts.filter(f => f.forecast_date >= today).map(f => f.forecast_date))].sort();
+    return new Set(futureDates.slice(0, 3));
+  }, [publicMode, forecasts]);
+
+  // Public mode: filter forecasts to 3 days (reuses publicAllowedDates)
+  const publicFilteredForecasts = useMemo(() => {
+    if (!publicMode || !publicAllowedDates) return forecasts;
+    return forecasts.filter(f => publicAllowedDates.has(f.forecast_date));
+  }, [publicMode, forecasts, publicAllowedDates]);
 
   const todayStr = useMemo(() => {
     return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
@@ -359,11 +384,19 @@ export function ForecastTab({
             </span>
           </div>
           <HorizonStrip
-            days={horizonDaySummaries}
+            days={publicHorizonDays}
             selectedDate={horizonSelectedDate}
             onSelectDate={setHorizonSelectedDate}
             beachSlug={slugify(beach.name)}
           />
+          {publicMode && horizonDaySummaries.length > 3 && (
+            <div className="mt-2 text-center">
+              <p className="text-xs text-muted-foreground">
+                <Lock className="inline h-3 w-3 mr-1" />
+                Sign up to see the full 12-day outlook
+              </p>
+            </div>
+          )}
         </section>
       )}
 
@@ -573,21 +606,36 @@ export function ForecastTab({
           )}
 
           {/* Best Surf Window */}
-          <BestSurfWindow
-            beachId={beach.id}
-            beachName={beach.name}
-            beachTimezone={beachTimezone}
-            forecasts={todaysForecasts}
-            surfCall={surfCall}
-            surfCallIsTomorrow={surfCallIsTomorrow}
-          />
+          {(() => {
+            const bestSurfWindowContent = (
+              <BestSurfWindow
+                beachId={beach.id}
+                beachName={beach.name}
+                beachTimezone={beachTimezone}
+                forecasts={todaysForecasts}
+                surfCall={surfCall}
+                surfCallIsTomorrow={surfCallIsTomorrow}
+              />
+            );
+            return publicMode ? (
+              <PublicContentGate
+                ctaTitle="See the Best Time to Surf Today"
+                ctaDescription="Sign up to unlock AI-powered surf window analysis — we find the optimal conditions for you"
+                blurLevel="md"
+                source="best-window-gate"
+                className="min-h-[200px]"
+              >
+                {bestSurfWindowContent}
+              </PublicContentGate>
+            ) : bestSurfWindowContent;
+          })()}
 
           {/* 5-Day Outlook */}
           {forecasts.length > 0 && (
             <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg backdrop-blur">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                  5-Day Outlook
+                  {publicMode ? "3-Day Outlook" : "5-Day Outlook"}
                 </h2>
                 <span className="text-sm text-muted-foreground">
                   Quick glance forecast
@@ -595,7 +643,7 @@ export function ForecastTab({
               </div>
               {miniForecastDays.length > 0 && (
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                  {miniForecastDays.map(({ date, forecast }) => {
+                  {visibleDays.map(({ date, forecast }) => {
                     const label = (() => {
                       try {
                         return new Date(`${date}T00:00:00`).toLocaleDateString(
@@ -646,6 +694,19 @@ export function ForecastTab({
                       </button>
                     );
                   })}
+                  {publicMode && hiddenDaysCount > 0 && (
+                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex items-center justify-center rounded-2xl border border-dashed border-ocean-blue/20 bg-blue-50/30 p-3 text-center">
+                      <div>
+                        <Lock className="h-5 w-5 text-ocean-blue/40 mx-auto mb-1" />
+                        <p className="text-xs text-ocean-blue/60 font-medium">
+                          +{hiddenDaysCount} more days
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Sign up free
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -657,14 +718,14 @@ export function ForecastTab({
                     className="w-full justify-between rounded-2xl hover:bg-blue-50/50"
                   >
                     <span className="text-sm font-medium">
-                      View Detailed 5-Day Forecast
+                      View Detailed {publicMode ? "3" : "5"}-Day Forecast
                     </span>
                     <ChevronDown className="h-4 w-4 transition-transform duration-200" />
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="mt-4">
-                    <SimplifiedForecastTable forecasts={forecasts} />
+                    <SimplifiedForecastTable forecasts={publicFilteredForecasts} />
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -699,9 +760,19 @@ export function ForecastTab({
 
         {/* Conditions Tab */}
         <TabsContent value="conditions" className="mt-6">
-          <div className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg p-6">
-            <SimplifiedForecastTable forecasts={selectedDateForecasts} />
-          </div>
+          {publicMode && publicAllowedDates && !publicAllowedDates.has(horizonSelectedDate) ? (
+            <PublicContentGate
+              ctaTitle="Unlock the 5-Day Forecast"
+              ctaDescription="Sign up to see extended conditions and plan your week"
+              blurLevel="md"
+              source="forecast-gate"
+              className="min-h-[200px]"
+            />
+          ) : (
+            <div className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg p-6">
+              <SimplifiedForecastTable forecasts={selectedDateForecasts} />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

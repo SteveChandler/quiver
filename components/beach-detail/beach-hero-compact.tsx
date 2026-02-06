@@ -1,14 +1,19 @@
 "use client";
 
-import { Star, Loader2 } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Star, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { track } from "@/lib/analytics";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import type { Beach } from "@/types/database";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { slugify } from "@/lib/utils/text-utils";
 
 interface BeachHeroCompactProps {
   beach: Beach & {
@@ -22,6 +27,7 @@ interface BeachHeroCompactProps {
   /** Current forecast data for board recommendations */
   currentForecast?: EnhancedForecastEntity | null;
   className?: string;
+  publicMode?: boolean;
 }
 
 export function BeachHeroCompact({
@@ -31,8 +37,10 @@ export function BeachHeroCompact({
   baseScore,
   isLoadingPersonalization,
   currentForecast,
-  className
+  className,
+  publicMode
 }: BeachHeroCompactProps) {
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const rating = beach.average_rating || 0;
   const reviewCount = beach.review_count || 0;
   const breakType = beach.break_type || "Beach Break";
@@ -71,6 +79,17 @@ export function BeachHeroCompact({
     return "bg-cyan-50 text-cyan-600 border-transparent";
   };
 
+  const handleMatchScoreTeaserClick = useCallback(() => {
+    track("match_score_teaser_click", {
+      beach_slug: slugify(beach.name),
+    });
+    trackAuthModalOpened({
+      mode: "signup",
+      source: "match-score-teaser",
+    });
+    setAuthModalOpen(true);
+  }, [beach.name]);
+
   return (
     <div className={`bg-white py-6 border-b border-gray-200 ${className || ""}`}>
       {/* Phase 4 Spec: Beach Name - 36px Roboto, 700 weight, 44px line-height, 8px margin-bottom */}
@@ -97,6 +116,20 @@ export function BeachHeroCompact({
             showDelta={baseScore !== undefined}
             baseScore={baseScore}
           />
+        </div>
+      )}
+
+      {/* Match Score Teaser - Show for anonymous users */}
+      {publicMode && !personalizationScore && !isLoadingPersonalization && (
+        <div className="mb-3">
+          <button
+            aria-label="Sign up to see your personalized match score"
+            onClick={handleMatchScoreTeaserClick}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-dashed border-ocean-blue/30 bg-ocean-blue/5 text-ocean-blue/70 text-sm font-medium transition-all hover:bg-ocean-blue/10 hover:border-ocean-blue/50 hover:text-ocean-blue"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Your Match: ???</span>
+          </button>
         </div>
       )}
 
@@ -153,6 +186,15 @@ export function BeachHeroCompact({
         {/* Location */}
         <span className="text-gray-600 text-sm">{location}</span>
       </div>
+
+      {publicMode && (
+        <UnifiedAuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          mode="signup"
+          source="match-score-teaser"
+        />
+      )}
     </div>
   );
 }
