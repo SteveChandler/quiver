@@ -123,15 +123,6 @@ export const SEO_CONFIG = {
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
       },
-      aggregateRating: {
-        "@type": "AggregateRating",
-        // Use numeric values (not strings) to avoid validator quirks and ensure
-        // Search Console never interprets these as invalid/zero.
-        ratingValue: 4.8,
-        ratingCount: 150,
-        bestRating: 5,
-        worstRating: 1,
-      },
       featureList: [
         "Find surf buddies and build your crew",
         "Track and share epic surf sessions",
@@ -155,11 +146,6 @@ export const SEO_CONFIG = {
       description:
         "Ultimate surf community platform - Find surf buddies, track sessions, and join the thriving surf community",
       url: SITE_URL,
-      potentialAction: {
-        "@type": "SearchAction",
-        target: `${SITE_URL}/search?q={search_term_string}`,
-        "query-input": "required name=search_term_string",
-      },
       publisher: {
         "@type": "Organization",
         name: "Quiver",
@@ -173,7 +159,7 @@ export const SEO_CONFIG = {
     // robots/googlebot/bingbot directives are set per-page via buildPageMetadata()
     // to allow noindex on auth/404/thin-content pages
     viewport: "width=device-width, initial-scale=1",
-    "theme-color": "#1e40af", // ocean-blue
+    "theme-color": "#0f172a",
     "msapplication-TileColor": "#1e40af",
     
     // Progressive Web App (PWA) support
@@ -186,10 +172,5 @@ export const SEO_CONFIG = {
     
     "format-detection": "telephone=no",
     "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "", // Add verification code via environment variable
-    // Geographic targeting for surf communities
-    "geo.region": "US-CA",
-    "geo.placename": "San Diego, California",
-    "geo.position": "32.7157;-117.1611",
-    ICBM: "32.7157, -117.1611",
   },
 } as const;

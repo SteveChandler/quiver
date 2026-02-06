@@ -4,7 +4,7 @@ const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const isProd =
   (process.env.VERCEL_ENV || process.env.NODE_ENV) === "production";
 // Allow indexing in development for testing unless explicitly disabled
-const disallow = process.env.DISALLOW_ROBOTS === "true";
+const disallow = process.env.DISALLOW_ROBOTS === "true" || !isProd;
 
 export default function robots(): MetadataRoute.Robots {
   return {
