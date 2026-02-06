@@ -1,21 +1,15 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronLeft,
   ChevronRight,
-  MapPin,
-  Calendar,
-  Target,
-  Camera,
-  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 
 import {
@@ -24,7 +18,7 @@ import {
   SessionFormState,
 } from "@/hooks/use-session-form";
 import { useAuth } from "@/context/auth-context";
-import { WIZARD_MOTION, PHASE2_ANIMATIONS } from "@/lib/constants/animations";
+import { WIZARD_MOTION } from "@/lib/constants/animations";
 import { LocationStep } from "@/components/session-forms/LocationStep";
 import { DateTimeSection } from "@/components/session-forms/DateTimeSection";
 import { EquipmentStep } from "@/components/session-forms/EquipmentStep";
@@ -38,14 +32,9 @@ import {
   createLoggedSession,
 } from "@/actions/session-actions";
 
-interface WizardStep {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  component: string;
-  isRequired: boolean;
-}
+import { getWizardSteps } from "./wizard-steps";
+import { parseDuration } from "./wizard-utils";
+import { useWizardNavigation } from "./useWizardNavigation";
 
 interface AnimatedSessionWizardProps {
   initialMode: SessionFormMode;
@@ -65,172 +54,6 @@ interface AnimatedSessionWizardProps {
   targetStep?: number;
 }
 
-// Feature flag for consolidated wizard (safe rollout)
-// Set to true to enable the new 4-step consolidated flow for log mode
-const USE_CONSOLIDATED_WIZARD = true;
-
-// Legacy step configurations (6 steps for log mode)
-const WIZARD_STEPS_V1: Record<SessionFormMode, WizardStep[]> = {
-  plan: [
-    {
-      id: "location",
-      title: "Location",
-      description: "Choose where you'll be surfing",
-      icon: <MapPin className="w-5 h-5" />,
-      component: "LocationStep",
-      isRequired: true,
-    },
-    {
-      id: "datetime",
-      title: "When",
-      description: "Set your session date and time",
-      icon: <Calendar className="w-5 h-5" />,
-      component: "DateTimeSection",
-      isRequired: true,
-    },
-    {
-      id: "goals",
-      title: "Goals",
-      description: "What do you want to focus on?",
-      icon: <Target className="w-5 h-5" />,
-      component: "GoalsSection",
-      isRequired: false,
-    },
-    {
-      id: "notes",
-      title: "Notes & Invites",
-      description: "Add notes and invite friends",
-      icon: <FileText className="w-5 h-5" />,
-      component: "NotesSection",
-      isRequired: false,
-    },
-  ],
-  log: [
-    {
-      id: "location",
-      title: "Location",
-      description: "Where did your session take place?",
-      icon: <MapPin className="w-5 h-5" />,
-      component: "LocationStep",
-      isRequired: true,
-    },
-    {
-      id: "datetime",
-      title: "When",
-      description: "When did you surf?",
-      icon: <Calendar className="w-5 h-5" />,
-      component: "DateTimeSection",
-      isRequired: true,
-    },
-    {
-      id: "equipment",
-      title: "Equipment",
-      description: "Which board did you ride?",
-      icon: <Target className="w-5 h-5" />,
-      component: "EquipmentStep",
-      isRequired: false,
-    },
-    {
-      id: "conditions",
-      title: "Conditions",
-      description: "How were the waves and conditions?",
-      icon: <Target className="w-5 h-5" />,
-      component: "ConditionsSection",
-      isRequired: false,
-    },
-    {
-      id: "photos",
-      title: "Photos",
-      description: "Add photos from your session",
-      icon: <Camera className="w-5 h-5" />,
-      component: "PhotoSelectionSection",
-      isRequired: false,
-    },
-    {
-      id: "notes",
-      title: "Notes",
-      description: "Reflect on your session",
-      icon: <FileText className="w-5 h-5" />,
-      component: "NotesSection",
-      isRequired: false,
-    },
-  ],
-};
-
-// New consolidated step configurations (4 steps for log mode)
-const WIZARD_STEPS_V2: Record<SessionFormMode, WizardStep[]> = {
-  plan: [
-    // Plan mode unchanged (same as V1)
-    {
-      id: "location",
-      title: "Location",
-      description: "Choose where you'll be surfing",
-      icon: <MapPin className="w-5 h-5" />,
-      component: "LocationStep",
-      isRequired: true,
-    },
-    {
-      id: "datetime",
-      title: "When",
-      description: "Set your session date and time",
-      icon: <Calendar className="w-5 h-5" />,
-      component: "DateTimeSection",
-      isRequired: true,
-    },
-    {
-      id: "goals",
-      title: "Goals",
-      description: "What do you want to focus on?",
-      icon: <Target className="w-5 h-5" />,
-      component: "GoalsSection",
-      isRequired: false,
-    },
-    {
-      id: "notes",
-      title: "Notes & Invites",
-      description: "Add notes and invite friends",
-      icon: <FileText className="w-5 h-5" />,
-      component: "NotesSection",
-      isRequired: false,
-    },
-  ],
-  log: [
-    // CONSOLIDATED: 4 steps (was 6)
-    {
-      id: "location",
-      title: "Location",
-      description: "Where did your session take place?",
-      icon: <MapPin className="w-5 h-5" />,
-      component: "LocationStep",
-      isRequired: true,
-    },
-    {
-      id: "datetime",
-      title: "When",
-      description: "When did you surf?",
-      icon: <Calendar className="w-5 h-5" />,
-      component: "DateTimeSection",
-      isRequired: true,
-    },
-    {
-      id: "equipment",
-      title: "Equipment",
-      description: "Which board did you ride?",
-      icon: <Target className="w-5 h-5" />,
-      component: "EquipmentStep",
-      isRequired: false,
-    },
-    {
-      id: "session-details",
-      title: "Session Details",
-      description: "Rate conditions, add photos, and share your experience",
-      icon: <FileText className="w-5 h-5" />,
-      component: "SessionDetailsSection", // NEW CONSOLIDATED COMPONENT
-      isRequired: false,
-    },
-  ],
-};
-
 export function AnimatedSessionWizard({
   initialMode,
   className,
@@ -241,15 +64,8 @@ export function AnimatedSessionWizard({
 }: AnimatedSessionWizardProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<
-    "idle" | "saving" | "saved"
-  >("idle");
-
-  // Track whether we've performed the auto-jump to target step
-  const hasJumpedRef = useRef(false);
 
   const {
     mode,
@@ -265,6 +81,8 @@ export function AnimatedSessionWizard({
     initialMode,
     initialFormState,
   });
+
+  const steps = getWizardSteps(mode);
 
   const sendInvitations = useCallback(
     async (
@@ -309,167 +127,25 @@ export function AnimatedSessionWizard({
     []
   );
 
-  // Select wizard steps based on feature flag
-  const WIZARD_STEPS = USE_CONSOLIDATED_WIZARD
-    ? WIZARD_STEPS_V2
-    : WIZARD_STEPS_V1;
-  const steps = WIZARD_STEPS[mode];
-  const currentWizardStep = steps[currentStep];
-  const progress = ((currentStep + 1) / steps.length) * 100;
-
-  /**
-   * Validates that required fields for all steps up to (but not including) the target step are satisfied.
-   * This ensures we can safely jump to a target step without skipping required data.
-   */
-  const validateStepsUpTo = useCallback(
-    (targetStepIndex: number): boolean => {
-      // Step 1 (index 0) - Location: Requires beach
-      if (targetStepIndex > 0 && !formState.selectedBeachId) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn(
-            "Cannot jump to step",
-            targetStepIndex + 1,
-            "- missing beach selection"
-          );
-        }
-        return false;
-      }
-
-      // Step 2 (index 1) - DateTime: Requires date and time (for plan mode)
-      if (targetStepIndex > 1) {
-        if (!formState.selectedDate) {
-          if (process.env.NODE_ENV === "development") {
-            console.warn(
-              "Cannot jump to step",
-              targetStepIndex + 1,
-              "- missing date selection"
-            );
-          }
-          return false;
-        }
-        // Time is only required for plan mode
-        if (mode === "plan" && !formState.selectedTime) {
-          if (process.env.NODE_ENV === "development") {
-            console.warn(
-              "Cannot jump to step",
-              targetStepIndex + 1,
-              "- missing time selection (plan mode)"
-            );
-          }
-          return false;
-        }
-      }
-
-      // Step 3+ (index 2+) - Goals/Equipment/etc: No additional validation needed
-      // These steps are optional and don't block progression
-      return true;
-    },
-    [
-      formState.selectedBeachId,
-      formState.selectedDate,
-      formState.selectedTime,
-      mode,
-    ]
-  );
-
-  /**
-   * Auto-jump to target step if provided and valid.
-   * This effect runs once after initial render and validates that required fields are present.
-   */
-  useEffect(() => {
-    if (targetStep && !hasJumpedRef.current) {
-      // Validate target step is in valid range (1-indexed to 0-indexed conversion)
-      const targetStepIndex = targetStep - 1;
-      if (targetStepIndex < 0 || targetStepIndex >= steps.length) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn(
-            `Invalid targetStep: ${targetStep}. Must be between 1 and ${steps.length}`
-          );
-        }
-        return;
-      }
-
-      // Validate that required fields for earlier steps are satisfied
-      const canJump = validateStepsUpTo(targetStepIndex);
-
-      if (canJump) {
-        if (process.env.NODE_ENV === "development") {
-          console.log(
-            `Auto-jumping to step ${targetStep} (index ${targetStepIndex})`
-          );
-        }
-        setCurrentStep(targetStepIndex);
-        hasJumpedRef.current = true;
-      } else {
-        if (process.env.NODE_ENV === "development") {
-          console.warn(
-            `Cannot auto-jump to step ${targetStep} - validation failed. Starting at step 1.`
-          );
-        }
-        hasJumpedRef.current = true; // Mark as attempted to prevent retry
-      }
-    }
-  }, [targetStep, steps.length, validateStepsUpTo]);
-
-  // Step validation
-  const isStepValid = useCallback(
-    (step: number): boolean => {
-      const wizardStep = steps[step];
-      if (!wizardStep) return false;
-
-      switch (wizardStep.id) {
-        case "location":
-          return Boolean(formState.selectedBeach);
-        case "datetime":
-          if (mode === "plan") {
-            return Boolean(formState.selectedDate && formState.selectedTime);
-          }
-          return Boolean(formState.selectedDate);
-        case "conditions":
-          // Forecast accuracy is required for completed sessions (log mode)
-          if (mode === "log") {
-            return Boolean(formState.forecastAccuracy);
-          }
-          return true;
-        default:
-          return true; // Non-required steps are always valid
-      }
-    },
-    [steps, formState, mode]
-  );
-
-  const canGoNext = currentStep < steps.length - 1 && isStepValid(currentStep);
-  const canGoPrev = currentStep > 0;
-  const isLastStep = currentStep === steps.length - 1;
-  const isFormComplete = steps
-    .filter((step) => step.isRequired)
-    .every((_, index) => isStepValid(index));
-
-  // Navigation functions
-  const goToStep = useCallback(
-    (step: number) => {
-      if (step >= 0 && step < steps.length) {
-        setCurrentStep(step);
-      }
-    },
-    [steps.length]
-  );
-
-  const nextStep = useCallback(() => {
-    if (canGoNext) {
-      setCurrentStep((prev) => prev + 1);
-      // Trigger auto-save on step progression
-      setAutoSaveStatus("saving");
-      setTimeout(() => setAutoSaveStatus("saved"), 500);
-      setTimeout(() => setAutoSaveStatus("idle"), 2000);
-    }
-  }, [canGoNext]);
-
-  const prevStep = useCallback(() => {
-    if (canGoPrev) {
-      setCurrentStep((prev) => prev - 1);
-    }
-  }, [canGoPrev]);
+  const {
+    currentStep,
+    currentWizardStep,
+    progress,
+    canGoNext,
+    canGoPrev,
+    isLastStep,
+    isFormComplete,
+    isStepValid,
+    goToStep,
+    nextStep,
+    prevStep,
+    autoSaveStatus,
+  } = useWizardNavigation({
+    steps,
+    formState,
+    mode,
+    targetStep,
+  });
 
   // Photo handling
   const handlePhotosChange = (files: File[]) => {
@@ -520,9 +196,6 @@ export function AnimatedSessionWizard({
         // Use internal completion logic (for direct page usage)
         await handleInternalSubmit(sessionData);
       }
-
-      // Show completion celebration
-      setAutoSaveStatus("saved");
     } catch (error) {
       console.error("Error creating session:", error);
       toast.error(
@@ -640,16 +313,6 @@ export function AnimatedSessionWizard({
     setTimeout(() => {
       router.push("/profile");
     }, 1500);
-  };
-
-  // Utility function to parse duration
-  const parseDuration = (duration: string): number | undefined => {
-    if (!duration) return undefined;
-    const hourMatch = duration.match(/(\d+)h/);
-    const minuteMatch = duration.match(/(\d+)m/);
-    const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
-    const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
-    return hours * 60 + minutes;
   };
 
   // Render step content

@@ -658,6 +658,93 @@ function PersonalizedForecastCard({ recommendation }) {
 - Provides board recommendation UI
 - Shows match quality indicators
 
+### **Utility Hooks**
+
+#### **useScrollToElement** (Smooth Scrolling)
+
+- **Purpose**: Hook for scrolling to an element when a condition is met
+- **Location**: `hooks/use-scroll-to-element.ts`
+- **Features**:
+  - Configurable delay for DOM settling
+  - Smooth or instant scroll behavior
+  - Scroll block alignment options
+  - Automatic cleanup on unmount
+
+```typescript
+interface UseScrollToElementOptions {
+  shouldScroll: boolean;     // Whether to trigger scroll
+  delay?: number;            // Delay before scrolling (ms) - allows DOM to settle
+  behavior?: ScrollBehavior; // 'smooth' | 'instant' | 'auto'
+  block?: ScrollLogicalPosition; // 'start' | 'center' | 'end' | 'nearest'
+}
+
+function useScrollToElement<T extends HTMLElement = HTMLDivElement>(
+  options: UseScrollToElementOptions
+): React.RefObject<T>;
+```
+
+**Usage Example:**
+
+```typescript
+function AccordionSection({ isActive }) {
+  const ref = useScrollToElement<HTMLDivElement>({
+    shouldScroll: isActive,
+    delay: 100,
+    behavior: 'smooth',
+    block: 'start',
+  });
+
+  return <div ref={ref}>Target Section</div>;
+}
+```
+
+#### **useOnboardingTracking** (Onboarding Analytics)
+
+- **Purpose**: Connects onboarding store to event tracking for funnel analytics
+- **Location**: `hooks/use-onboarding-tracking.ts`
+- **Features**:
+  - Tracks each step completion in the onboarding flow
+  - Fires `onboarding_step` events to `/api/events`
+  - Includes step index, step name, and completion status
+  - Automatically handles cleanup on unmount
+
+```typescript
+function useOnboardingTracking(): void;
+```
+
+**Usage Example:**
+
+```typescript
+function OnboardingDialog() {
+  // Set up tracking - call once in the dialog component
+  useOnboardingTracking();
+
+  // Rest of onboarding UI...
+  return <OnboardingSteps />;
+}
+```
+
+**Event Payload:**
+
+```typescript
+{
+  eventType: 'onboarding_step',
+  metadata: {
+    step: 1,          // 1-indexed step number
+    step_name: 'welcome',
+    completed: true,
+  }
+}
+```
+
+**Integration:**
+
+- Works with `useOnboardingStore` from `store/onboarding-store.ts`
+- Fires events via `useTrackEvent` hook
+- Events stored in `user_events` table for funnel analysis
+
+---
+
 ### **Social & Real-time Hooks**
 
 #### **useOptimizedRealtime** (Real-time Optimization)
@@ -933,6 +1020,6 @@ test("useSessionLike should toggle like state", async () => {
 
 ---
 
-**Last Updated**: January 18, 2026
+**Last Updated**: February 3, 2026
 **Status**: Production-ready with comprehensive custom hook library
 **Next Review**: After offline synchronization hooks implementation

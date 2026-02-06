@@ -145,6 +145,42 @@ export async function getCityMetadata(
 }
 
 /**
+ * Find cities matching a pattern across all states.
+ * Used for batch city resolution to avoid N database queries.
+ *
+ * @param cityPattern - City name pattern (e.g., "belmar")
+ * @returns Array of matching cities with state and beach count
+ */
+export async function findCitiesMatchingPattern(
+  cityPattern: string
+): Promise<ServerActionResponse<CityPatternMatch[]>> {
+  return withServerAction(async () => {
+    const supabase = await createSupabaseServerClient();
+
+    // Call RPC without state filter to get all matching cities
+    const { data: matches, error } = await supabase.rpc("find_cities_by_pattern", {
+      search_pattern: cityPattern,
+      state_filter: null,
+    });
+
+    if (error) {
+      throw new Error(error.message || "Failed to find cities by pattern");
+    }
+
+    if (!matches || matches.length === 0) {
+      return [];
+    }
+
+    // Filter to cities with at least 1 beach
+    const validCities = (matches as CityPatternMatch[]).filter(
+      (c) => c.beach_count >= 1
+    );
+
+    return validCities;
+  });
+}
+
+/**
  * Find a city by its URL slug and return full metadata.
  * Handles both simple slugs ("santa-cruz") and state-suffixed slugs ("newport-ca").
  * Returns null if city not found, ambiguous, or has no beaches.

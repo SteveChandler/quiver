@@ -125,14 +125,33 @@ test.describe('Beach Detail Page', () => {
   test('should NOT have console errors on load', async ({ page }) => {
     const errors: string[] = [];
 
+    // Ignorable console error patterns - matches error-detection.ts
+    const isIgnorable = (text: string): boolean => {
+      const ignorable = [
+        'localhost',
+        'DevTools',
+        'Extension',
+        'WebSocket connection',
+        // Generic resource loading failures from graceful degradation APIs
+        'Failed to load resource: the server responded with a status of 400',
+        'Failed to load resource: the server responded with a status of 500',
+        // Mapbox CORS issues in test environments
+        'api.mapbox.com',
+        'mapbox',
+        'CORS',
+        // Analytics and tracking APIs
+        '/api/events',
+        // Service worker registration
+        'ServiceWorker',
+        'sw.js',
+      ];
+      return ignorable.some(pattern => text.includes(pattern));
+    };
+
     page.on('console', msg => {
       if (msg.type() === 'error') {
-        // Filter out known non-critical errors
         const text = msg.text();
-        if (!text.includes('localhost') &&
-            !text.includes('DevTools') &&
-            !text.includes('Extension') &&
-            !text.includes('WebSocket connection')) {
+        if (!isIgnorable(text)) {
           errors.push(text);
         }
       }

@@ -16,7 +16,7 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
-import { useCallback, useMemo, useRef, useEffect } from "react";
+import { useCallback, useMemo, useRef, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface DateTimeSectionProps {
@@ -56,18 +56,19 @@ export function DateTimeSection({
     return parsed.toString();
   }, [formState.duration]);
 
-  // Memoize date constraints to prevent infinite re-renders
-  const dateConstraints = useMemo(() => {
-    // Only calculate on client side to avoid hydration mismatches
-    if (typeof window === "undefined") {
-      return { min: undefined, max: undefined };
-    }
+  // Use state for date constraints to avoid hydration mismatches.
+  // On initial SSR render, constraints are undefined. After hydration, they're set client-side.
+  const [dateConstraints, setDateConstraints] = useState<{
+    min: string | undefined;
+    max: string | undefined;
+  }>({ min: undefined, max: undefined });
 
+  useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    return {
+    setDateConstraints({
       min: isPlanning ? today : undefined,
       max: isPlanning ? undefined : today,
-    };
+    });
   }, [isPlanning]);
 
   // Use ref to prevent infinite loops

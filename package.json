@@ -114,6 +114,7 @@
     "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0",
     "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.0.0",
@@ -255,6 +256,7 @@
     "diff": "^8.0.3",
     "js-yaml": "^4.1.1",
     "glob": "^11.1.0",
+    "@isaacs/brace-expansion": "^5.0.1",
     "firebase-admin/jsonwebtoken/jws": "3.2.3",
     "firebase-admin/google-auth-library/jws": "4.0.1",
     "firebase-admin/google-auth-library/gtoken/jws": "4.0.1",

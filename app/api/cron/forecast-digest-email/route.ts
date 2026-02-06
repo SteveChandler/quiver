@@ -27,7 +27,8 @@ import {
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
+import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { ForecastDigestEmail } from "@/lib/mailer/templates/ForecastDigestEmail";
 import {
   evaluateDigestMatch,
@@ -452,6 +453,9 @@ export async function GET(request: Request) {
 
     summary.eligibleUsers = users.length;
 
+    // Initialize rate limiter for Resend API
+    const rateLimiter = createResendRateLimiter();
+
     // 3. Process each user
     for (const user of users) {
       try {
@@ -523,7 +527,7 @@ export async function GET(request: Request) {
           continue;
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
+        const baseUrl = getBaseUrl();
         const ctaUrl = `${baseUrl}/beaches/${beach.slug}`;
         const unsubscribeUrl = `${baseUrl}/settings`;
         const forecastDate = getForecastDate();
@@ -562,10 +566,9 @@ export async function GET(request: Request) {
           const emailSubject = `${matchQualityEmoji} ${beach.name}: ${capitalizeFirst(matchResult.matchQuality)} Conditions Today`;
 
           try {
-            // Respect Resend rate limit (2 req/s)
-            if (summary.sent > 0) {
-              await new Promise((resolve) => setTimeout(resolve, 600));
-            }
+            // Rate limit before sending
+            await rateLimiter.throttle();
+
             await resend.emails.send({
               from: MAIL_FROM,
               replyTo: MAIL_REPLY_TO,

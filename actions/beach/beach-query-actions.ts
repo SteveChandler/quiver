@@ -271,8 +271,7 @@ async function _getBeachesByStateInternal(stateSlug: string): Promise<Beach[]> {
     .or("is_private.is.null,is_private.eq.false")
     .eq("state", stateSlug.toUpperCase())
     .order("city")
-    .order("name")
-    .limit(100);
+    .order("name");
 
   if (error) throw error;
   return (data ?? []) as Beach[];

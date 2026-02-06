@@ -61,7 +61,7 @@ The v3 model introduces a rolling auto-retrain pipeline that keeps the model con
 - **Removed monotone constraint:** Allows model to learn complex non-linear relationships
 - **Recency weighting:** Recent observations (14 days) weighted 2x, improving adaptation to current conditions
 - **Relaxed guardrails:** 75% max correction (vs v2's 50%), 0.5m floor (vs v2's 0.3m)
-- **Extended training window:** Uses up to 365 days of data (vs v2's fixed dataset)
+- **Extended training window:** Uses up to 90 days of data (vs v2's fixed dataset)
 
 **v3 Configuration:**
 ```python
@@ -69,7 +69,7 @@ The v3 model introduces a rolling auto-retrain pipeline that keeps the model con
     'max_correction_pct': 0.75,      # 75% of forecast (v2: 50%)
     'min_correction_floor': 0.5,     # 0.5m minimum (v2: 0.3m)
     'recency_weight_days': 14,       # 2x weight for last 14 days
-    'training_window_days': 365,     # Max training data window
+    'training_window_days': 90,      # Max training data window
     'monotone_constraints': None,    # Removed (v2: -1 on forecast_height_m)
 }
 ```
@@ -112,7 +112,7 @@ The v3 model introduces an automated retraining pipeline that keeps the model co
 +--------+---------------------------+---------+              |
 |           /api/cron/ml/retrain               |              |
 |  +-------------------------------------+     |              |
-|  | 1. Extract training data (365d)     |     |              |
+|  | 1. Extract training data (90d)      |     |              |
 |  | 2. Apply recency weighting          |     |              |
 |  | 3. Train new XGBoost model          |     |              |
 |  | 4. Validate against holdout         |     |              |
@@ -140,7 +140,7 @@ export const config = {
 ```
 
 **Retrain Steps:**
-1. Extract all matched predictions from last 365 days
+1. Extract all matched predictions from last 90 days
 2. Apply 2x recency weight to observations from last 14 days
 3. Train new XGBoost model with v3 hyperparameters
 4. Validate on temporal holdout (last 7 days)
@@ -806,7 +806,7 @@ SELECT COUNT(*) FROM observable_beaches;
 
 #### Data Extraction
 
-v3 training data uses the same source as v2 (`ml_predictions_log`) but extracts a larger window (up to 365 days) and applies recency weighting:
+v3 training data uses the same source as v2 (`ml_predictions_log`) but extracts a larger window (up to 90 days) and applies recency weighting:
 
 ```bash
 cd ml
@@ -815,7 +815,7 @@ SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> python3 extract_training
 
 **v3 data characteristics:**
 - Source: `ml_predictions_log` (pre-matched numeric pairs)
-- Window: Up to 365 days of historical data
+- Window: Up to 90 days of historical data
 - Recency weighting: Last 14 days weighted 2x
 - Output: `data/training_data_v3.csv` (gitignored)
 

@@ -134,6 +134,7 @@ useEffect(() => {
 - **`beach-search.tsx`** - Comprehensive beach discovery with forecasting
 - **`beach-detail.tsx`** - Beach information aggregation wrapper
 - **`profile-view.tsx`** - User profile display and management
+- **`page-tracker.tsx`** - Authenticated page view tracking (see below)
 
 #### Form & Data Entry
 
@@ -155,6 +156,65 @@ useEffect(() => {
 - **`favorite-button.tsx`** - Beach favoriting with state management
 - **`comments-modal.tsx`** - Session commenting interface
 - **`session-comments.tsx`** - Comment thread management
+
+#### Tracking & Analytics
+
+##### **PageTracker** (Page View Tracking)
+
+- **Location**: `components/page-tracker.tsx`
+- **Purpose**: Tracks page view events for authenticated users
+- **Features**:
+  - Fires `page_view` events to `/api/events` on navigation
+  - Maps pathnames to human-readable page names
+  - Generates per-browser-session IDs for session grouping
+  - Skips duplicate events and landing page (tracked separately)
+  - Only tracks authenticated users
+
+**Integration:**
+
+```typescript
+// In providers.tsx or root layout
+import { PageTracker } from '@/components/page-tracker';
+
+function Providers({ children }) {
+  return (
+    <AuthProvider>
+      <PageTracker />
+      {children}
+    </AuthProvider>
+  );
+}
+```
+
+**Page Name Mapping:**
+
+| Pathname Pattern | Page Name |
+|-----------------|-----------|
+| `/home`, `/dashboard` | `home` |
+| `/beach/*` | `beach_detail` |
+| `/map` | `map` |
+| `/profile/*` | `profile` |
+| `/session/*` | `session` |
+| `/onboarding/*` | `onboarding` |
+| `/` | `landing` (skipped) |
+
+**Event Payload:**
+
+```typescript
+{
+  eventType: 'page_view',
+  metadata: {
+    page: 'beach_detail',
+    referrer: '/home',
+    session_id: 'uuid-v4',
+  }
+}
+```
+
+**Privacy Considerations:**
+- Respects `allow_implicit_tracking` profile setting
+- Rate limited: 60 requests/minute per user
+- Uses LRU cache (5000 entries) for permission lookups
 
 ---
 

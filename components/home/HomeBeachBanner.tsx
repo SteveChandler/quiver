@@ -9,6 +9,8 @@ import * as ProfileActions from "@/actions/profile-actions";
 interface HomeBeachBannerProps {
   selectedBeachId: string;
   selectedBeachName?: string;
+  publicMode?: boolean;
+  onAuthRequired?: () => void;
 }
 
 import { track } from "@/lib/analytics";
@@ -17,11 +19,17 @@ import { slugify } from "@/lib/utils/text-utils";
 export function HomeBeachBanner({
   selectedBeachId,
   selectedBeachName,
+  publicMode,
+  onAuthRequired,
 }: HomeBeachBannerProps) {
   const { profile, refreshProfile } = useProfileContext();
   const [saving, setSaving] = useState(false);
 
   async function onSet() {
+    if (publicMode && onAuthRequired) {
+      onAuthRequired();
+      return;
+    }
     setSaving(true);
     try {
       console.debug("[HomeBeach/UI] submit payload", {

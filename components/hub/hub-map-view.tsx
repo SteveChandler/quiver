@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -14,6 +14,19 @@ interface HubMapViewProps {
   centerLongitude: number;
   zoom: number;
   className?: string;
+}
+
+/**
+ * Escape HTML entities to prevent XSS attacks
+ * Used for user-provided content in map popups
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /**
@@ -66,15 +79,17 @@ export function HubMapView({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapRef.current) return; // Already initialized
 
-    const accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
     if (!accessToken) {
       console.error("Mapbox token not found");
+      setMapError("Map configuration error. Please try again later.");
       return;
     }
 
@@ -99,6 +114,7 @@ export function HubMapView({
       mapRef.current = map;
     } catch (error) {
       console.error("Failed to initialize map:", error);
+      setMapError("Failed to load map. Please refresh the page.");
     }
 
     return () => {
@@ -147,22 +163,28 @@ export function HubMapView({
       el.style.cursor = "pointer";
 
       // Create popup with beach info and link
+      // Note: All user-provided content is escaped to prevent XSS
       const beachUrl = getBeachUrlSafe(beach);
+      if (!beachUrl) return; // Skip beaches without valid URLs
+
+      const safeName = escapeHtml(beach.name);
+      const safeCity = beach.city ? escapeHtml(beach.city) : null;
+      const safeUrl = escapeHtml(beachUrl);
       const popupContent = `
         <div style="padding: 8px; min-width: 150px;">
           <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 14px;">
-            ${beach.name}
+            ${safeName}
           </h3>
           <div style="margin-bottom: 4px; font-size: 12px; color: #64748b;">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${markerColor}; margin-right: 4px;"></span>
             ${skillLevel.charAt(0).toUpperCase() + skillLevel.slice(1)}
           </div>
           ${
-            beach.city
-              ? `<div style="margin-bottom: 8px; font-size: 12px; color: #64748b;">${beach.city}</div>`
+            safeCity
+              ? `<div style="margin-bottom: 8px; font-size: 12px; color: #64748b;">${safeCity}</div>`
               : ""
           }
-          <a href="${beachUrl}" style="display: inline-block; margin-top: 8px; padding: 4px 12px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: 500;">
+          <a href="${safeUrl}" style="display: inline-block; margin-top: 8px; padding: 4px 12px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: 500;">
             View Details
           </a>
         </div>
@@ -183,6 +205,21 @@ export function HubMapView({
       markersRef.current.push(marker);
     });
   }, [isMapReady, beaches]);
+
+  // Show error state if map failed to load
+  if (mapError) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-slate-100 rounded-lg">
+        <div className="text-center p-6">
+          <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Unable to Load Map
+          </h3>
+          <p className="text-sm text-gray-600 max-w-xs">{mapError}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full">

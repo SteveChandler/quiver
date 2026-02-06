@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
-import { MapPin, Users, TrendingUp, Waves } from "lucide-react";
 
 import {
   HUB_REGION_SLUGS,
@@ -13,7 +11,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { getBeachesByState } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
-import { HubMapClient } from "./hub-map-client";
+import { HubRegionClient } from "./hub-region-client";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -149,7 +147,7 @@ export default async function HubRegionPage(
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   return (
-    <div className="bg-white min-h-screen">
+    <>
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: baseUrl },
@@ -161,178 +159,7 @@ export default async function HubRegionPage(
         ]}
       />
       <FAQSchema items={generateHubFAQ(region, stats.total)} />
-
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
-        <header className="mb-8">
-          <nav className="text-sm mb-4">
-            <Link
-              href="/guides"
-              className="text-ocean-blue hover:underline inline-flex items-center gap-1"
-            >
-              ← Back to Surf Guides
-            </Link>
-          </nav>
-
-          <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4">
-            {region.title}
-          </h1>
-          <p className="text-lg md:text-xl text-gray-600 max-w-3xl">
-            {region.description}
-          </p>
-        </header>
-
-        {/* Stats Cards */}
-        <section className="mb-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-lg p-4 border border-sky-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Waves className="h-5 w-5 text-sky-600" />
-                <h3 className="text-sm font-medium text-gray-700">
-                  Total Spots
-                </h3>
-              </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-                <h3 className="text-sm font-medium text-gray-700">Beginner</h3>
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {stats.beginner}
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <h3 className="text-sm font-medium text-gray-700">
-                  Intermediate
-                </h3>
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {stats.intermediate}
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-lg p-4 border border-slate-200">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="h-5 w-5 text-slate-600" />
-                <h3 className="text-sm font-medium text-gray-700">Advanced</h3>
-              </div>
-              <p className="text-3xl font-bold text-gray-900">
-                {stats.advanced}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Interactive Map */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            Explore Surf Spots
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Click any marker to view spot details. Markers are color-coded by
-            skill level: green for beginner, blue for intermediate, dark for
-            advanced.
-          </p>
-          <div className="h-96 rounded-lg overflow-hidden border border-gray-200 shadow-lg">
-            <HubMapClient
-              beaches={allBeaches}
-              centerLatitude={region.centerLat}
-              centerLongitude={region.centerLon}
-              zoom={region.zoom}
-            />
-          </div>
-        </section>
-
-        {/* Quick Links Section */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            Browse by Category
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {region.states.map((stateSlug) => (
-              <div key={stateSlug}>
-                <Link
-                  href={`/beginner/${stateSlug}`}
-                  className="block p-4 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 transition-colors"
-                >
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    Beginner Spots
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Find gentle waves perfect for learning
-                  </p>
-                </Link>
-              </div>
-            ))}
-            {region.states.map((stateSlug) => (
-              <div key={`crowded-${stateSlug}`}>
-                <Link
-                  href={`/least-crowded/${stateSlug}`}
-                  className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-colors"
-                >
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    Least Crowded
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Escape the crowds at hidden gems
-                  </p>
-                </Link>
-              </div>
-            ))}
-            {region.states.map((stateSlug) => (
-              <div key={`tide-${stateSlug}`}>
-                <Link
-                  href={`/tide/${stateSlug}`}
-                  className="block p-4 rounded-lg border border-gray-200 hover:border-sky-500 hover:bg-sky-50 transition-colors"
-                >
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    Tide Reports
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Check optimal tide windows
-                  </p>
-                </Link>
-              </div>
-            ))}
-            {region.states.map((stateSlug) => (
-              <div key={`temp-${stateSlug}`}>
-                <Link
-                  href={`/water-temp/${stateSlug}`}
-                  className="block p-4 rounded-lg border border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-colors"
-                >
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    Water Temp
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    See current water temperatures
-                  </p>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* About Section */}
-        <section className="prose prose-slate max-w-none">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            About {region.name} Surfing
-          </h2>
-          <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
-            <p className="text-gray-700 mb-4">{region.description}</p>
-            <p className="text-gray-700">
-              Use Quiver to track conditions, plan sessions, and connect with
-              the local surf community. Get real-time forecasts, tide charts,
-              and crowd predictions for every spot in {region.name}.
-            </p>
-          </div>
-        </section>
-      </div>
-    </div>
+      <HubRegionClient region={region} beaches={allBeaches} stats={stats} />
+    </>
   );
 }

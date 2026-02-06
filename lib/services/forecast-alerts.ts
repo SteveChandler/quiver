@@ -13,6 +13,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-service-utils";
 import { sendPushNotification } from "@/lib/services/push-notifications";
+import { getLocalHour, DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 
 type AlertType = "forecast_threshold";
 
@@ -33,6 +34,7 @@ type EligibleProfileRow = {
   notif_push_enabled: boolean;
   notif_forecast_alerts: boolean;
   is_mock: boolean;
+  timezone: string | null;
 };
 
 type BeachRow = {
@@ -64,6 +66,7 @@ export type ForecastAlertRunSummary = {
     notCrossing: number;
     noDeviceTokens: number;
     sendFailed: number;
+    quietHours: number;
   };
   sent: number;
   durationMs: number;
@@ -81,6 +84,84 @@ const DEFAULT_THRESHOLDS = {
 const LOOKAHEAD_HOURS = 18;
 const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const ALERT_TYPE: AlertType = "forecast_threshold";
+
+// Quiet hours: suppress notifications between 10 PM and 4 AM local time
+const QUIET_HOURS_START = 22; // 10 PM
+const QUIET_HOURS_END = 4;    // 4 AM
+
+/**
+ * Check if a given hour falls within quiet hours (10 PM - 4 AM)
+ */
+function isHourInQuietHours(hour: number): boolean {
+  return hour >= QUIET_HOURS_START || hour < QUIET_HOURS_END;
+}
+
+/**
+ * Check if a given time falls within quiet hours (10 PM - 4 AM) in a timezone
+ * Exported for testing
+ */
+export function isWithinQuietHours(timezone: string | null, now: Date = new Date()): boolean {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  const localHour = getLocalHour(now, tz);
+  return isHourInQuietHours(localHour);
+}
+
+/**
+ * Determine if a notification should be suppressed due to quiet hours.
+ *
+ * Logic: Only suppress if BOTH the current time AND the forecast time are in quiet hours.
+ * This allows dawn patrol alerts - e.g., at 3 AM we still notify about good 6 AM conditions
+ * so users can prepare, but we don't wake users for forecasts they can't act on.
+ *
+ * @param timezone - User's timezone (falls back to DEFAULT_TIMEZONE if null)
+ * @param forecastUtcMs - The UTC timestamp of the forecast
+ * @param now - Current time (defaults to now, injectable for testing)
+ * @returns true if notification should be suppressed
+ *
+ * Exported for testing
+ */
+export function shouldSuppressForQuietHours(
+  timezone: string | null,
+  forecastUtcMs: number,
+  now: Date = new Date()
+): boolean {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  const currentHour = getLocalHour(now, tz);
+  const forecastHour = getLocalHour(new Date(forecastUtcMs), tz);
+
+  // Only suppress if BOTH current time and forecast time are in quiet hours
+  return isHourInQuietHours(currentHour) && isHourInQuietHours(forecastHour);
+}
+
+/**
+ * Format forecast time in user's local timezone for notification display
+ * Example output: "2/4 6AM" or "2/4 2PM"
+ * Exported for testing
+ */
+export function formatForecastTimeLocal(forecastUtcMs: number, timezone: string | null): string {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      hour12: true,
+    }).formatToParts(new Date(forecastUtcMs));
+
+    const month = parts.find(p => p.type === "month")?.value ?? "";
+    const day = parts.find(p => p.type === "day")?.value ?? "";
+    const hour = parts.find(p => p.type === "hour")?.value ?? "";
+    const dayPeriod = parts.find(p => p.type === "dayPeriod")?.value ?? "";
+
+    return `${month}/${day} ${hour}${dayPeriod}`;
+  } catch {
+    // Fallback to UTC if timezone invalid
+    const d = new Date(forecastUtcMs);
+    const h = d.getUTCHours();
+    return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${h % 12 || 12}${h >= 12 ? "PM" : "AM"} UTC`;
+  }
+}
 
 function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) return [items];
@@ -196,13 +277,14 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
       notCrossing: 0,
       noDeviceTokens: 0,
       sendFailed: 0,
+      quietHours: 0,
     },
   };
 
   // 1) Load eligible users (home beach + push enabled + alerts enabled)
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, home_beach_id, notif_push_enabled, notif_forecast_alerts, is_mock")
+    .select("id, home_beach_id, notif_push_enabled, notif_forecast_alerts, is_mock, timezone")
     .not("home_beach_id", "is", null);
 
   if (profilesError) {
@@ -315,6 +397,7 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
 
   // 6) Evaluate and send per user
   const nowMs = Date.now();
+  const now = new Date(nowMs);
   for (const p of filtered) {
     const beachId = p.home_beach_id!;
     const beach = beachById.get(beachId);
@@ -351,6 +434,17 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
       continue;
     }
 
+    // Check quiet hours AFTER finding a match - only suppress if both current time
+    // and forecast time are in quiet hours. This allows dawn patrol alerts.
+    if (shouldSuppressForQuietHours(p.timezone, match.forecastUtcMs, now)) {
+      console.info(
+        `[ForecastAlerts] Skipping notification for user ${p.id} - quiet hours ` +
+        `(tz: ${p.timezone || DEFAULT_TIMEZONE}, forecast: ${new Date(match.forecastUtcMs).toISOString()})`
+      );
+      summary.skipped.quietHours++;
+      continue;
+    }
+
     const matchIso = new Date(match.forecastUtcMs).toISOString();
     const deliveryKey = `${p.id}|${beachId}|${ALERT_TYPE}`;
     const prior = deliveryByKey.get(deliveryKey);
@@ -374,14 +468,9 @@ export async function runForecastThresholdAlerts(): Promise<ForecastAlertRunSumm
     const windMph = parseNumber(match.forecast.wind_speed);
 
     const title = "Quiver Forecast Alert";
-    // Format as relative/short time in UTC to avoid server-locale confusion
-    const forecastDate = new Date(match.forecastUtcMs);
-    const hours = forecastDate.getUTCHours();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const hour12 = hours % 12 || 12;
-    const monthDay = `${forecastDate.getUTCMonth() + 1}/${forecastDate.getUTCDate()}`;
-    const whenUtc = `${monthDay} ${hour12}${ampm} UTC`;
-    const body = `${beach.name || "Your home beach"} looks good ${whenUtc}: ${
+    // Format time in user's local timezone
+    const whenLocal = formatForecastTimeLocal(match.forecastUtcMs, p.timezone);
+    const body = `${beach.name || "Your home beach"} looks good ${whenLocal}: ${
       waveFt !== null ? `${Math.round(waveFt * 10) / 10}ft` : "waves"
     } @ ${periodS !== null ? `${Math.round(periodS)}s` : "—"} • ${
       windMph !== null ? `${Math.round(windMph)}mph wind` : "—"

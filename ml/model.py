@@ -137,7 +137,25 @@ class QuiverBiasModel:
         logger.info(f"Model saved to {filepath}")
 
     def load(self, filepath: str):
-        """Loads the model from a JSON file."""
+        """Loads the model from a JSON file or HTTP URL."""
+        import tempfile
+        import urllib.request
+
         self.model = xgb.XGBRegressor()
-        self.model.load_model(filepath)
-        logger.info(f"Model loaded from {filepath}")
+
+        # Handle HTTP/HTTPS URLs by downloading to temp file first
+        if filepath.startswith('http://') or filepath.startswith('https://'):
+            logger.info(f"Downloading model from URL: {filepath}")
+            with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                urllib.request.urlretrieve(filepath, tmp_path)
+                self.model.load_model(tmp_path)
+                logger.info(f"Model loaded from URL via temp file")
+            finally:
+                # Clean up temp file
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+        else:
+            self.model.load_model(filepath)
+            logger.info(f"Model loaded from {filepath}")

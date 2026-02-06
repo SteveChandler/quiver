@@ -1,16 +1,17 @@
 # ML Cron Jobs Architecture
 
-> Vercel cron jobs for ML bias correction and ground truth backfill.
+> Vercel cron jobs for ML bias correction, ground truth backfill, and automated retraining.
 
 **Location:** `app/api/cron/ml/`
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 ## Overview
 
-Two cron jobs power the ML bias correction pipeline:
+Three cron jobs power the ML bias correction pipeline:
 
 1. **correct-forecasts**: Runs every 3 hours, processes uncorrected NOAA forecasts
 2. **backfill-observations**: Runs hourly, matches predictions with ground truth
+3. **retrain**: Runs weekly (Sundays 6am UTC), retrains v3 model with terrain factors
 
 ## Directory Structure
 
@@ -20,6 +21,8 @@ app/api/cron/ml/
 |   +-- route.ts         # Batch correction job
 +-- backfill-observations/
 |   +-- route.ts         # Ground truth matching job
++-- retrain/
+|   +-- route.ts         # Weekly model retraining job
 +-- ARCHITECTURE.md      # This file
 ```
 
@@ -48,6 +51,7 @@ app/api/cron/ml/
 |-----|----------|-----------|-------------|
 | correct-forecasts | `0 */3 * * *` | Every 3 hours at :00 | Process new forecasts |
 | backfill-observations | `30 * * * *` | Every hour at :30 | Match with ground truth |
+| retrain | `0 6 * * 0` | Sundays 6am UTC | Retrain v3 model with terrain factors |
 
 ## correct-forecasts
 
@@ -247,9 +251,126 @@ if (obs?.wave_height_m) {
 }
 ```
 
+## retrain
+
+**File:** `retrain/route.ts`
+
+### Purpose
+
+Orchestrates weekly model retraining with terrain-aware features (v3 pipeline). Extracts training data, sends to ML service, validates results, and deploys to Fly.io.
+
+### Flow
+
+```
+1. Verify CRON_SECRET header
+2. Extract training data from ml_predictions_log (90-day window, max 50K samples)
+3. Fetch terrain factors (swell_access_factors, wind_exposure_factors) per beach
+4. Create ml_model_registry entry with status='training'
+5. POST training data to ML service /train endpoint
+6. ML service runs validation gates on holdout set (2-day holdout)
+7. If PASS: Upload model to Supabase Storage, deploy to Fly.io
+8. If FAIL: Log failure, keep current model
+9. Update registry with final status and metrics
+```
+
+### Configuration
+
+```typescript
+export const maxDuration = 300;  // 5 minute timeout for full pipeline
+
+// Training constraints (2GB Fly.io instance)
+const MAX_TRAINING_SAMPLES = 50000;
+const maxDaysBack = 90;
+```
+
+### Terrain Factors Integration
+
+The v3 model incorporates beach-specific terrain factors:
+
+```typescript
+// 72 directional bins (5-degree resolution)
+interface TerrainFactors {
+  swell_access_factors: number[] | null;   // Swell wrap/access per direction
+  wind_exposure_factors: number[] | null;  // Wind shelter per direction
+}
+
+// Joined from beaches table during data extraction
+const trainingPayload = {
+  version: modelVersion,
+  training_data: mappedData,  // Includes terrain factors per sample
+  config: {
+    recency_weight_days: 14,
+    recency_weight_multiplier: 2.0,
+    holdout_days: 2,
+    max_bias_pct: 0.75,
+    bias_floor_m: 0.5,
+  },
+};
+```
+
+### Validation Gates
+
+Model must pass these thresholds before deployment:
+
+| Gate | Threshold | Description |
+|------|-----------|-------------|
+| Holdout improvement | >0% | Corrected MAE must be better than raw |
+| Sample count | ≥1000 | Minimum training samples required |
+| Max bias | ≤75% | Maximum correction as percentage of raw |
+| Bias floor | ≥0.5m | Minimum correction magnitude |
+
+### Deployment Process
+
+```
+1. Download model artifact from ML service
+2. Upload to Supabase Storage (ml-artifacts bucket)
+3. Get Fly.io machines list
+4. Update MODEL_VERSION and MODEL_PATH env vars
+5. Restart machines
+6. Poll /health endpoint until new version confirmed (60s timeout)
+```
+
+### Response
+
+**Success:**
+```json
+{
+  "message": "Model retrain and deployment successful",
+  "model_version": "v3.20260202.0600",
+  "status": "deployed",
+  "training_samples": 45000,
+  "training_window_days": 87,
+  "metrics": {
+    "holdout_improvement_pct": 12.5,
+    "holdout_raw_mae": 0.45,
+    "holdout_corrected_mae": 0.39
+  }
+}
+```
+
+**Validation Failure:**
+```json
+{
+  "message": "Model training failed validation gates",
+  "model_version": "v3.20260202.0600",
+  "status": "failed",
+  "reason": "Holdout improvement below threshold"
+}
+```
+
+### Database Dependencies
+
+| Table | Operation | Columns Used |
+|-------|-----------|--------------|
+| `ml_predictions_log` | SELECT | beach_id, predicted_at, raw_forecast_m, observed_m, wave_period_s, wave_direction_deg, wind_speed_ms, wind_direction_deg |
+| `beaches` | SELECT | id, swell_access_factors, wind_exposure_factors |
+| `ml_model_registry` | INSERT/UPDATE | version, training_window_days, training_samples, status, holdout_improvement_pct, holdout_raw_mae, holdout_corrected_mae, notes |
+
+---
+
 ## Authentication
 
-Both jobs require the Vercel cron secret:
+All jobs require the Vercel cron secret:
 
 ```typescript
 const authHeader = request.headers.get('authorization');
@@ -262,11 +383,13 @@ if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
 
 | Variable | Used By | Description |
 |----------|---------|-------------|
-| `CRON_SECRET` | Both | Vercel cron authentication |
-| `ML_SERVICE_URL` | correct-forecasts | ML service base URL |
-| `ML_INTERNAL_SECRET` | correct-forecasts | ML service API key |
-| `NEXT_PUBLIC_SUPABASE_URL` | Both | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Both | Supabase admin access |
+| `CRON_SECRET` | All | Vercel cron authentication |
+| `ML_SERVICE_URL` | correct-forecasts, retrain | ML service base URL |
+| `ML_INTERNAL_SECRET` | correct-forecasts, retrain | ML service API key |
+| `NEXT_PUBLIC_SUPABASE_URL` | All | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | All | Supabase admin access |
+| `FLY_API_TOKEN` | retrain | Fly.io API token for deployment |
+| `FLY_APP_NAME` | retrain | Fly.io app name (default: quiver-ml) |
 
 ## Database Dependencies
 
@@ -378,6 +501,7 @@ vercel cron trigger /api/cron/ml/correct-forecasts
 |-----|---------|------------|------------------|
 | correct-forecasts | 60s | 500 forecasts | 10-20s |
 | backfill-observations | 30s | 200 predictions | 5-15s |
+| retrain | 300s | 50K samples max | 2-4 min |
 
 ### Scaling
 
@@ -395,4 +519,4 @@ If more forecasts need processing:
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026

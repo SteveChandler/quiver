@@ -1,0 +1,11 @@
+export { BeginnerPageContent } from "./BeginnerPageContent";
+export { BeginnerHero } from "./BeginnerHero";
+export { RightNowConditions } from "./RightNowConditions";
+export { BeginnerSpotList } from "./BeginnerSpotList";
+export { WhatToExpect } from "./WhatToExpect";
+export { SeasonalGuide } from "./SeasonalGuide";
+export { SafetyEssentials } from "./SafetyEssentials";
+export { GearAndLessons } from "./GearAndLessons";
+export { SessionGallery } from "./SessionGallery";
+export { BeginnerFAQ } from "./BeginnerFAQ";
+export { SectionFadeUp } from "./SectionFadeUp";

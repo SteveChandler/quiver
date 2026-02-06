@@ -2,11 +2,11 @@
 
 import { BeachDetail } from "@/components/beach-detail";
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useState, useRef, Suspense, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { trackPublicPageView } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { Beach } from "@/types/database";
-import AuthGate from "@/components/auth/auth-gate";
+
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
@@ -84,9 +84,6 @@ export function BeachDetailClient({
 
   return (
     <>
-      <Suspense fallback={null}>
-        <AuthGate block />
-      </Suspense>
       <BeachDetail
         id={beach.id}
         publicMode={!user}
@@ -104,9 +101,20 @@ export function BeachDetailClient({
 
           setPersonalizationData(prev => ({ ...prev, isLoading: true, error: false }));
 
+          // Safe fetch wrapper that doesn't cause console errors for graceful degradation
+          const safeFetch = async <T,>(url: string, options?: RequestInit): Promise<T | null> => {
+            try {
+              const res = await fetch(url, options);
+              if (!res.ok) return null;
+              return await res.json();
+            } catch {
+              return null;
+            }
+          };
+
           // Fetch personalized score and affinity data in parallel
           Promise.all([
-            fetch('/api/beach/personalized-score', {
+            safeFetch<{ data: typeof personalizationData.score }>('/api/beach/personalized-score', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -114,10 +122,8 @@ export function BeachDetailClient({
                 baseScore,
                 forecast,
               }),
-            }).then(res => res.ok ? res.json() : null),
-            fetch(`/api/user/beach-affinity?beachId=${beach.id}`)
-              .then(res => res.ok ? res.json() : null)
-              .catch(() => null)
+            }),
+            safeFetch<{ data: typeof personalizationData.affinityData }>(`/api/user/beach-affinity?beachId=${beach.id}`)
           ])
             .then(([scoreResponse, affinityResponse]) => {
               setPersonalizationData({
@@ -127,8 +133,8 @@ export function BeachDetailClient({
                 error: !scoreResponse?.data,
               });
             })
-            .catch(error => {
-              console.error('Failed to calculate personalization:', error);
+            .catch(() => {
+              // Silent fail - personalization is optional enhancement
               setPersonalizationData(prev => ({
                 ...prev,
                 isLoading: false,

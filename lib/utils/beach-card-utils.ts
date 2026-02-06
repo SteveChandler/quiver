@@ -86,8 +86,8 @@ export function getBeachLocation(beach: Beach): string {
   if (beach.state) {
     return beach.state;
   }
-  if (beach.region_id) {
-    return beach.region_id;
+  if (beach.region) {
+    return beach.region;
   }
   return "California";
 }

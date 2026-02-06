@@ -23,10 +23,11 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
+import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { WeeklyRecapEmail } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { subDays, format, startOfDay, endOfDay } from "date-fns";
+import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -37,7 +38,8 @@ export const maxDuration = 300; // 5 minutes for processing all users
 // Constants
 // ============================================================================
 
-const EMAIL_TYPE = "weekly_recap";
+const CONTEXT_TAG = "[weekly-recap]";
+const EMAIL_TYPE = "weekly_recap" as const;
 
 // ============================================================================
 // Type Definitions
@@ -99,26 +101,6 @@ function calculateStats(
   return { totalSessions, totalHours, topSpot };
 }
 
-/**
- * Log email delivery to email_send_log
- */
-async function logDelivery(
-  supabase: SupabaseClient,
-  userId: string,
-  sessionCount: number
-): Promise<void> {
-  const { error } = await supabase.from("email_send_log").insert({
-    user_id: userId,
-    email_type: EMAIL_TYPE,
-    sent_at: new Date().toISOString(),
-    meta: { session_count: sessionCount },
-  });
-
-  if (error) {
-    console.error(`[weekly-recap] Error logging delivery for ${userId}:`, error);
-  }
-}
-
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -132,7 +114,7 @@ export async function GET(request: Request) {
       return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
     }
 
-    console.log("📊 [weekly-recap] Starting Sunday weekly recap email run");
+    console.log(`${CONTEXT_TAG} Starting Sunday weekly recap email run`);
 
     const supabase = await createSupabaseServiceRoleClient();
 
@@ -152,7 +134,7 @@ export async function GET(request: Request) {
     const startDate = subDays(endDate, 7);
 
     console.log(
-      `📅 [weekly-recap] Date range: ${format(startDate, "MMM d")} - ${format(endDate, "MMM d")}`
+      `${CONTEXT_TAG} Date range: ${format(startDate, "MMM d")} - ${format(endDate, "MMM d")}`
     );
 
     // 2. Fetch all sessions from the past 7 days with user and beach info
@@ -178,12 +160,12 @@ export async function GET(request: Request) {
     }
 
     if (!sessions || sessions.length === 0) {
-      console.log("📭 [weekly-recap] No sessions found this week");
+      console.log(`${CONTEXT_TAG} No sessions found this week`);
       summary.durationMs = Date.now() - startTime;
       return createSuccessResponse({ message: "No sessions found this week", summary });
     }
 
-    console.log(`🏄 [weekly-recap] Found ${sessions.length} sessions this week`);
+    console.log(`${CONTEXT_TAG} Found ${sessions.length} sessions this week`);
 
     // 3. Group sessions by user
     const userSessionsMap: Map<string, typeof sessions> = new Map();
@@ -196,7 +178,7 @@ export async function GET(request: Request) {
     });
 
     const activeUserIds = Array.from(userSessionsMap.keys());
-    console.log(`👥 [weekly-recap] ${activeUserIds.length} active users this week`);
+    console.log(`${CONTEXT_TAG} ${activeUserIds.length} active users this week`);
 
     // 4. Fetch user profiles for active users
     const { data: profiles, error: profilesError } = await supabase
@@ -212,14 +194,18 @@ export async function GET(request: Request) {
     }
 
     if (!profiles || profiles.length === 0) {
-      console.log("📭 [weekly-recap] No eligible users found");
+      console.log(`${CONTEXT_TAG} No eligible users found`);
       summary.durationMs = Date.now() - startTime;
       return createSuccessResponse({ message: "No eligible users", summary });
     }
 
     summary.activeUsers = profiles.length;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app";
+    const baseUrl = getBaseUrl();
+
+    // Initialize shared utilities
+    const rateLimiter = createResendRateLimiter();
+    const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 5. Process each active user
     for (const profile of profiles) {
@@ -243,10 +229,9 @@ export async function GET(request: Request) {
         const emailSubject = `Your Week in the Water: ${stats.totalSessions} Session${stats.totalSessions === 1 ? "" : "s"}`;
 
         try {
-          // Respect Resend rate limit (2 req/s)
-          if (summary.sent > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 600));
-          }
+          // Rate limit before sending
+          await rateLimiter.throttle();
+
           await resend.emails.send({
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
@@ -263,16 +248,24 @@ export async function GET(request: Request) {
           });
 
           console.log(
-            `✅ [weekly-recap] Sent to ${profile.email}: ${stats.totalSessions} sessions, ${stats.totalHours}h`
+            `${CONTEXT_TAG} Sent to ${profile.email}: ${stats.totalSessions} sessions, ${stats.totalHours}h`
           );
-          await logDelivery(supabase, profile.id, stats.totalSessions);
+
+          // Log delivery using shared service
+          await emailLogger.logDelivery({
+            userId: profile.id,
+            emailType: EMAIL_TYPE,
+            subject: emailSubject,
+            meta: { session_count: stats.totalSessions },
+          });
+
           summary.sent++;
         } catch (sendError) {
-          console.error(`❌ [weekly-recap] Failed to send to ${profile.email}:`, sendError);
+          console.error(`${CONTEXT_TAG} Failed to send to ${profile.email}:`, sendError);
           summary.skipped.sendFailed++;
         }
       } catch (userError) {
-        console.error(`❌ [weekly-recap] Error processing user ${profile.id}:`, userError);
+        console.error(`${CONTEXT_TAG} Error processing user ${profile.id}:`, userError);
         summary.skipped.sendFailed++;
       }
     }
@@ -280,7 +273,7 @@ export async function GET(request: Request) {
     summary.durationMs = Date.now() - startTime;
 
     console.log(
-      `🎉 [weekly-recap] Completed: ${summary.sent} emails sent, ${summary.activeUsers} active users, ${summary.durationMs}ms`
+      `${CONTEXT_TAG} Completed: ${summary.sent} emails sent, ${summary.activeUsers} active users, ${summary.durationMs}ms`
     );
     console.log(`   Skipped breakdown:`, summary.skipped);
 

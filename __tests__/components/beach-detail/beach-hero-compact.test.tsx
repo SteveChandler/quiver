@@ -16,7 +16,7 @@ const mockBeach = {
   name: "Ocean Beach",
   city: "San Francisco",
   state: "CA",
-  region_id: "Northern California",
+  region: "Northern California",
   lat: 37.7749,
   lon: -122.4194,
   break_type: "Beach Break",
@@ -266,7 +266,7 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       expect(screen.getByText("San Francisco, CA")).toBeInTheDocument();
     });
 
-    it("should fallback to region_id if city/state not available", () => {
+    it("should fallback to region if city/state not available", () => {
       const beach = { ...mockBeach, city: null, state: null } as any;
       render(<BeachHeroCompact beach={beach} />);
       expect(screen.getByText("Northern California")).toBeInTheDocument();

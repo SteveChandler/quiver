@@ -9,6 +9,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Immediate Welcome Email:** New users now receive their welcome email within seconds of signing up instead of 24-48 hours:
+  - New API endpoint `/api/internal/send-welcome-email` sends email immediately upon authentication
+  - Auth context detects new users (created within 60 seconds) and triggers welcome email
+  - Multi-layer deduplication: sessionStorage (client), email_send_log check (API), cron RPC filter (backup)
+  - Rate limited via `authenticated-default` preset (120 req/min)
+  - Fail-closed error handling: database errors return 503, cron job serves as fallback
+  - Sentry error tracking for production monitoring
+  - Comprehensive unit test coverage
+
+### Changed
+
+- **Flat Sitemap (Next.js 16 Workaround):** Reverted segmented `generateSitemaps()` to single flat sitemap due to Next.js 16 bug (#77304) where sitemap index at `/sitemap.xml` returns 404. All 6 route groups (static, beaches, locations, intents, guides, forecasts) now combined into one file via `Promise.all()`.
+
+- **Regional Forecast Dynamic Pages:** Implemented detailed 7-day forecast pages at `/forecast/[region]` (e.g., `/forecast/san-diego`, `/forecast/orange-county`):
+  - **URL Pattern:** `/forecast/[region]` (unified route in `app/forecast/[beachId]/page.tsx` handling both regional forecasts and beach ID redirects)
+  - **Page Structure:** Hero with region name and average score, Best Days section (hero card + top 4 secondary days), Upcoming Swells section (timeline with peak dates), Beach Conditions grid (ranked by score, desktop table + mobile cards), Cross-links to regional guides and forecast hub, CTA for forecast alerts
+  - **Data Fetching:** Batch forecast fetching via `getBatchFreshForecastsFromCache()`, filters beaches by region via `getBeachesForRegion()`, aggregates via `aggregateRegionalForecast()`
+  - **SEO:** Dynamic `generateMetadata()` with region-specific titles/descriptions, JSON-LD structured data (WebPage + Breadcrumb schemas), `generateStaticParams()` for SSG of all 6 regions
+  - **Components Used:** `BestDaysSection`, `SwellEventList`, `BeachConditionsGrid` (all from `components/forecast/`)
+  - **ISR:** 1-hour revalidation for fresh forecasts
+  - **E2E Tests:** Comprehensive Playwright test suite (`e2e/forecast-regional.spec.ts`) with 22 passing tests covering page rendering, navigation, breadcrumbs, best days display, swell events, beach conditions, trend indicators, structured data, cross-links, CTA, responsive design, multiple regions, and 404 handling
+  - **Performance:** Batch data fetching (2 queries for all beaches vs N*2 queries), optimized aggregation, responsive images
+  - **Accessibility:** Semantic HTML, ARIA labels, keyboard navigation, color contrast compliance
+
+- **Forecast Hub Landing Page:** Created `/forecast` index page linking to all regional forecasts (`app/forecast/page.tsx`):
+  - Displays regional forecast cards in responsive grid (6 regions: Southern CA, San Diego, Orange County, LA, Northern CA, Puerto Rico)
+  - "Best Conditions Today" section highlighting top-scoring region with wave height and swell information
+  - Cross-links to regional surf guides at `/guides/surfing-[region]`
+  - SEO optimization: Page title, meta description, JSON-LD structured data (WebPage schema)
+  - Performance: ISR with 1-hour revalidation, batch forecast fetching (2 queries total vs N*2 queries)
+  - Comprehensive E2E test coverage (`e2e/forecast-hub.spec.ts`): 12 test scenarios covering page rendering, navigation, responsive design, SEO metadata, and accessibility
+  - Follows established Next.js App Router patterns from guides pages
+
+- **Regional Forecast Utilities:** Added comprehensive utilities for aggregating forecast data across multiple beaches within a region (`lib/utils/regional-forecast-utils.ts`):
+  - `getBeachesForRegion()`: Filter beaches by geographic region (state and optional cities)
+  - `calculateDayScore()`: Calculate 0-100 score based on wave height, wind direction, swell period, and consistency
+  - `detectSwellEvents()`: Identify upcoming swell events with >40% wave height increases
+  - `aggregateRegionalForecast()`: Main aggregation function producing 7-day regional summaries
+  - Types: `DaySummary`, `SwellEvent`, `BeachConditionSummary`, `RegionalForecastSummary`
+  - Features: Daily top-5 beach rankings, best day identification, trend detection (improving/steady/declining)
+  - Wave size descriptions: knee-high, waist-high, chest-high, head-high, overhead, double-overhead
+  - Comprehensive test coverage with 19 passing unit tests
+  - Documentation: `lib/utils/REGIONAL_FORECAST_UTILS_README.md`
+
+- **Segmented Sitemap for Improved Crawl Efficiency:** Converted monolithic sitemap to Next.js `generateSitemaps()` pattern with 6 dedicated segments:
+  - `static`: Core pages (home, features, about, privacy, map)
+  - `beaches`: Beach detail pages + beach-level tides/water-temp subpages
+  - `locations`: City and state listing pages under /beaches/
+  - `intents`: City and state intent pages (beginner, tide, water-temp, longboard, etc.)
+  - `guides`: Hub region guide pages (Southern California, San Diego, Orange County, Hawaii)
+  - `forecasts`: Forecast hub page + regional forecast pages (priority 0.9 for hub, 0.8 for regional, daily changeFreq)
+  - Benefits: Better crawl budget allocation, faster sitemap parsing, logical URL grouping
+  - Intent pages for cities without matching beaches are automatically filtered from sitemap
+
+- **Product Marketing Context File:** Added `.claude/product-marketing-context.md` with SEO and content strategy guidance:
+  - Business overview and value proposition
+  - Target audience segments (Weekend Warriors, Beginners, Local Groms)
+  - Geographic focus and keyword strategy
+  - Content voice guidelines and AI writing patterns to avoid
+  - Competitive positioning vs Surfline
+
+
 - **Terrain-Aware ML Features:** Added terrain geometry factors to the ML bias correction pipeline. The model now incorporates beach-specific topography and bathymetry features for improved accuracy:
   - **New Features (13 total, up from 11):**
     - `swell_access_factor`: Swell accessibility at wave direction (0.0-1.0) extracted from 72-element array
@@ -46,6 +108,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New environment variables: `FLY_API_TOKEN`, `FLY_APP_NAME`, `ML_INTERNAL_SECRET`
   - New migration: `20260203000000_create_ml_artifacts_bucket.sql` for storage setup
   - New documentation: `docs/ML_DEPLOYMENT_SETUP.md` with setup guide and troubleshooting
+
+- **Weekly ML Retrain Cron:** Added automated weekly model retraining schedule (Sundays at 6am UTC) via Vercel cron in `vercel.json`. The pipeline extracts training data with pagination (5000 rows/page), trains v3 model with terrain factors, validates against go/no-go gates, and deploys to Fly.io.
+
+- **ML Predictions Log Enhancements:** Added new columns to `ml_predictions_log` for improved feature engineering:
+  - `tide_state` (TEXT): Tide state at prediction time (low/mid/high)
+  - `tide_height_m` (NUMERIC): Actual tide height in meters
+  - `forecast_horizon_hours` (INTEGER): Lead time of forecast (0-168 hours)
+  - Migrations: `20260203100000_add_tide_state_to_ml_predictions.sql`, `20260203174004_add_forecast_horizon_to_ml_predictions.sql`
+
+- **Per-Beach ML Performance Monitoring:** Added `beach_ml_performance_baseline` materialized view for tracking model performance by beach over a 14-day rolling window. Includes:
+  - Per-beach MAE, improvement rate, match rate, and bias metrics
+  - Helper functions: `get_beach_ml_performance(beach_id)`, `get_worst_performing_beaches(limit)`
+  - Daily refresh via pg_cron at 7am UTC
+  - Migration: `20260203130000_create_beach_ml_performance_baseline.sql`
 
 ### Fixed
 

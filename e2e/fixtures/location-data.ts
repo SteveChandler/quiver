@@ -121,7 +121,6 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
     is_private: false,
     created_at: new Date().toISOString(),
     best_conditions_prose: null,
-    region_id: null,
   } as unknown as BeachWithMetrics,
   {
     id: "beach-2",
@@ -145,7 +144,6 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
     is_private: false,
     created_at: new Date().toISOString(),
     best_conditions_prose: null,
-    region_id: null,
   } as unknown as BeachWithMetrics,
   {
     id: "beach-3",
@@ -169,7 +167,6 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
     is_private: false,
     created_at: new Date().toISOString(),
     best_conditions_prose: null,
-    region_id: null,
   } as unknown as BeachWithMetrics,
 ];
 
@@ -265,7 +262,6 @@ export function createMockBeachWithMetrics(
     is_private: false,
     created_at: new Date().toISOString(),
     best_conditions_prose: null,
-    region_id: null,
     ...overrides,
   } as unknown as BeachWithMetrics;
 }

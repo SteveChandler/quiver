@@ -13,6 +13,8 @@ interface BeachActionsProps {
   className?: string;
   onGetDirections?: () => void;
   canGetDirections?: boolean;
+  publicMode?: boolean;
+  onAuthRequired?: () => void;
 }
 
 export function BeachActions({
@@ -22,9 +24,14 @@ export function BeachActions({
   className,
   onGetDirections,
   canGetDirections,
+  publicMode,
+  onAuthRequired,
 }: BeachActionsProps) {
   const hasCoordinates = Boolean(beach.lat && beach.lon);
   const directionsEnabled = canGetDirections ?? hasCoordinates;
+
+  const handleLogSession = publicMode && onAuthRequired ? onAuthRequired : onLogSession;
+  const handlePlanSession = publicMode && onAuthRequired ? onAuthRequired : onPlanSession;
 
   const handleDirectionsClick = () => {
     if (onGetDirections) {
@@ -46,7 +53,7 @@ export function BeachActions({
         <Button
           data-testid="log-session-btn"
           variant="default"
-          onClick={onLogSession}
+          onClick={handleLogSession}
           className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -58,7 +65,7 @@ export function BeachActions({
         <Button
           data-testid="plan-session-btn"
           variant="default"
-          onClick={onPlanSession}
+          onClick={handlePlanSession}
           className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
         >
           <BookOpen className="h-5 w-5 mr-2" />
@@ -81,6 +88,8 @@ export function BeachActions({
         <HomeBeachBanner
           selectedBeachId={beach.id}
           selectedBeachName={beach.name}
+          publicMode={publicMode}
+          onAuthRequired={onAuthRequired}
         />
       </div>
 
@@ -89,6 +98,8 @@ export function BeachActions({
         <HomeBeachBanner
           selectedBeachId={beach.id}
           selectedBeachName={beach.name}
+          publicMode={publicMode}
+          onAuthRequired={onAuthRequired}
         />
       </div>
     </div>

@@ -246,6 +246,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     is_system_account: null,
     location: null,
     activity_level: null,
+    allow_implicit_tracking: false,
     crowd_preference: null,
     personality_type: null,
     posting_window: null,

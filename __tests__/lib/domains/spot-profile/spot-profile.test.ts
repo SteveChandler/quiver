@@ -25,7 +25,6 @@ function createMockBeach(overrides: Partial<Beach> = {}): Beach {
     state: 'CA',
     country: 'USA',
     region: null,
-    region_id: null,
     is_private: false,
     created_at: new Date().toISOString(),
     deleted_at: null,

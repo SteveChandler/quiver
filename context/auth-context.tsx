@@ -15,6 +15,7 @@ import {
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { z } from "zod";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Zod schema for validating signup metadata from OAuth flows.
@@ -271,6 +272,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Always remove regardless of whether we applied it
                 sessionStorage.removeItem("pending_signup_metadata");
               }
+              // Send immediate welcome email for new users
+              // Check if this is a fresh signup (created within last 60 seconds)
+              // and we haven't already triggered the welcome email in this session
+              if (session.user.created_at) {
+                const createdAt = new Date(session.user.created_at).getTime();
+                const isNewUser = Date.now() - createdAt < 60_000;
+                const welcomeEmailKey = `welcome_email_sent_${session.user.id}`;
+                const alreadyTriggered = sessionStorage.getItem(welcomeEmailKey);
+
+                if (isNewUser && !alreadyTriggered) {
+                  // Mark as triggered immediately to prevent duplicates
+                  sessionStorage.setItem(welcomeEmailKey, "true");
+
+                  // Fire and forget - don't block auth flow
+                  fetch("/api/internal/send-welcome-email", {
+                    method: "POST",
+                  }).catch((err) => {
+                    // Log to console in dev, track in Sentry for production
+                    if (process.env.NODE_ENV === "development") {
+                      console.error(
+                        "[AuthContext] Failed to trigger welcome email:",
+                        err
+                      );
+                    }
+                    // Track in Sentry for production monitoring
+                    Sentry.captureException(err, {
+                      tags: { context: "auth_welcome_email" },
+                      extra: { userId: session.user.id },
+                    });
+                  });
+                }
+              }
+
               // Note: We don't navigate here. The auth state update (below) will cause
               // React components to re-render and show authenticated content.
               // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts

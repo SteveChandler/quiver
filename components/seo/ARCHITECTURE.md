@@ -94,11 +94,8 @@ const homepageSchema = {
     price: "0",
     priceCurrency: "USD",
   },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    reviewCount: "150",
-  },
+  // NOTE: Do NOT add aggregateRating with fabricated numbers here.
+  // Google prohibits hardcoded ratings not sourced from real reviews.
 };
 ```
 

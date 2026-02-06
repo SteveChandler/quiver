@@ -20,7 +20,12 @@ export default function PWAAndPushListeners() {
       // eslint-disable-next-line no-restricted-properties
       window.location.hostname;
     const isLocalhost = host === "localhost" || host === "127.0.0.1";
-    const isDev = process.env.NODE_ENV !== "production";
+    // Check both NODE_ENV and VERCEL_ENV to properly detect preview deployments.
+    // On Vercel, NODE_ENV is always "production" but VERCEL_ENV distinguishes preview from production.
+    const vercelEnv = process.env.NEXT_PUBLIC_VERCEL_ENV;
+    const isDev =
+      process.env.NODE_ENV !== "production" ||
+      (vercelEnv && vercelEnv !== "production");
 
     const unregisterQuiverSwIfPresent = async () => {
       try {
@@ -113,19 +118,30 @@ export default function PWAAndPushListeners() {
     const isWebPlatform = !window.Capacitor;
     if (!isWebPlatform) return;
 
-    // Dynamically import web push notifications
-    // This won't load on mobile, only in web browsers
-    import("@/lib/web/push-notifications")
-      .then(({ setupWebPushListeners, registerWebPushNotifications }) => {
-        // Set up listeners once
-        setupWebPushListeners();
+    // Defer push registration by 2 seconds to avoid blocking page load
+    // and give service worker time to initialize
+    const timeoutId = setTimeout(() => {
+      // Dynamically import web push notifications
+      // This won't load on mobile, only in web browsers
+      import("@/lib/web/push-notifications")
+        .then(({ setupWebPushListeners, registerWebPushNotifications }) => {
+          // Set up listeners once
+          setupWebPushListeners();
 
-        // Register for push notifications
-        void registerWebPushNotifications();
-      })
-      .catch(() => {
-        // Silent fail - web push may not be available
-      });
+          // Register for push notifications (non-blocking)
+          registerWebPushNotifications().catch(() => {
+            // Non-critical failure - log but don't block
+            if (process.env.NODE_ENV === "development") {
+              console.warn("Push registration failed (non-blocking)");
+            }
+          });
+        })
+        .catch(() => {
+          // Silent fail - web push may not be available
+        });
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
   }, [user]);
 
   return null;

@@ -33,7 +33,7 @@ export function PopularCitiesForIntent({
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">
+      <h2 className="text-lg font-semibold text-gray-800">
         Popular cities for {intentLabel} in {stateName}
       </h2>
       <ul className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -41,7 +41,7 @@ export function PopularCitiesForIntent({
           <li key={city.slug}>
             <Link
               href={buildCityIntentUrl(intentKey, city.slug)}
-              className="block p-3 rounded-md border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="block p-3 rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 hover:border-blue-200 hover:shadow-md transition-all"
               aria-label={`${intentLabel} guide for ${city.name}`}
             >
               {city.name}

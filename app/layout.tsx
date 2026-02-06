@@ -38,7 +38,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: "#0f172a",
 };
 
 export const metadata: Metadata = {
@@ -103,6 +103,16 @@ export const metadata: Metadata = {
     site: SEO_CONFIG.twitter.site,
     creator: SEO_CONFIG.twitter.creator,
     images: ["/twitter-image.png"],
+  },
+
+  // Explicit robots so child pages (not-found, auth) can override cleanly
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
   },
 
   // Performance hints

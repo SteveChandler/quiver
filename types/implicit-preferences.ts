@@ -26,7 +26,12 @@ export type ImplicitEventType =
   | 'session_action'
   | 'profile_update'
   | 'onboarding_step'
-  | 'cta_click';
+  | 'cta_click'
+  // Review tracking events
+  | 'review_form_open'
+  | 'review_form_abandon'
+  | 'review_validation_error'
+  | 'review_submit';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -45,6 +50,11 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   profile_update: 0,
   onboarding_step: 0,
   cta_click: 0,
+  // Review tracking events (tracking only, no preference learning weight)
+  review_form_open: 0,
+  review_form_abandon: 0,
+  review_validation_error: 0,
+  review_submit: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -179,6 +189,34 @@ export interface CTAClickMetadata {
   location: string;
 }
 
+// -----------------------------------------------------------------------------
+// Review Tracking Metadata Interfaces
+// -----------------------------------------------------------------------------
+
+/**
+ * Valid sources that can trigger the review form
+ * @see lib/constants/review-tracking.ts for centralized constants
+ */
+export type ReviewTrackingSource = 'overview_cta' | 'reviews_tab' | 'post_session';
+
+/**
+ * Metadata for review form tracking events
+ */
+export interface ReviewFormMetadata {
+  /** Source that opened the review form */
+  source: ReviewTrackingSource;
+  /** Beach ID being reviewed */
+  beach_id: string;
+  /** Beach name for display/debugging */
+  beach_name?: string;
+  /** Duration in milliseconds (for abandon events) */
+  duration_ms?: number;
+  /** Validation error type (for validation_error events) */
+  error_type?: 'missing_ratings' | 'missing_content';
+  /** Whether user was editing an existing review */
+  is_edit?: boolean;
+}
+
 /**
  * Union type of all possible event metadata
  */
@@ -193,7 +231,8 @@ export type EventMetadata =
   | SessionActionMetadata
   | ProfileUpdateMetadata
   | OnboardingStepMetadata
-  | CTAClickMetadata;
+  | CTAClickMetadata
+  | ReviewFormMetadata;
 
 /**
  * Full user event record as stored in the database
@@ -386,6 +425,23 @@ export function isLocationUpdateMetadata(
 ): metadata is LocationUpdateMetadata {
   if (!metadata) return false;
   return 'lat' in metadata && 'lon' in metadata;
+}
+
+/**
+ * Type guard to check if metadata is ReviewFormMetadata
+ */
+export function isReviewFormMetadata(
+  metadata: EventMetadata | null
+): metadata is ReviewFormMetadata {
+  if (!metadata) return false;
+  return (
+    'source' in metadata &&
+    'beach_id' in metadata &&
+    typeof (metadata as ReviewFormMetadata).source === 'string' &&
+    ['overview_cta', 'reviews_tab', 'post_session'].includes(
+      (metadata as ReviewFormMetadata).source
+    )
+  );
 }
 
 /**

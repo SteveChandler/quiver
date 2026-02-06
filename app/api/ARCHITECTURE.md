@@ -409,6 +409,77 @@ export const GET = withAuth(handler);
 
 ---
 
+### 📊 `/events` - User Engagement Tracking
+
+#### `/events/route.ts`
+
+- **Methods**: `POST`
+- **Authentication**: Required (user session)
+- **Function**: Records user behavioral events for implicit preference learning and analytics
+- **Features**:
+  - Privacy-aware: Respects `allow_implicit_tracking` profile setting
+  - Per-user rate limiting (60 requests/minute)
+  - LRU cache (5000 entries) for tracking permission lookups
+  - Debounced event processing on client side
+
+**Event Types:**
+
+| Category | Events | Description |
+|----------|--------|-------------|
+| Implicit Preferences | `beach_view`, `discovery_click`, `discovery_skip`, `forecast_check`, `location_update` | Signals for preference learning |
+| Engagement Tracking | `page_view`, `forecast_interaction`, `session_action`, `profile_update`, `onboarding_step`, `cta_click` | Analytics and funnel tracking |
+
+**Request Body:**
+
+```typescript
+{
+  eventType: ImplicitEventType;   // Required: one of the valid event types
+  beachId?: string;               // Optional: associated beach UUID
+  metadata?: Record<string, any>; // Optional: additional event context
+}
+```
+
+**Response:**
+
+```json
+// Success
+{ "ok": true }
+
+// Tracking disabled by user
+{ "ok": true, "status": "tracking_disabled" }
+
+// Rate limited (429)
+{
+  "ok": false,
+  "status": "rate_limited",
+  "error": "Too many requests. Please try again later."
+}
+```
+
+**Rate Limiting Headers (429 response):**
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Max requests per window (60) |
+| `X-RateLimit-Remaining` | Remaining requests (0 when limited) |
+| `X-RateLimit-Reset` | Unix timestamp when limit resets |
+| `Retry-After` | Seconds until retry allowed |
+
+**Database:**
+
+| Table | Operation | Description |
+|-------|-----------|-------------|
+| `profiles` | SELECT | Check `allow_implicit_tracking` setting |
+| `user_events` | INSERT | Store event with user_id, event_type, beach_id, metadata |
+
+**Integration:**
+
+- **PageTracker** component fires `page_view` events on navigation
+- **useOnboardingTracking** hook fires `onboarding_step` events
+- **useTrackEvent** hook provides debounced event firing
+
+---
+
 ### 📍 `/intel` - Community Intelligence System
 
 #### `/intel/route.ts`

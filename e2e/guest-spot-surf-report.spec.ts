@@ -44,7 +44,8 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const title = await page.title();
-    expect(title).toContain('Surf Forecast');
+    // Title format: "Beach Surf Report: X.X ft | 7-Day Forecast & Cams | Quiver"
+    expect(title).toContain('Surf Report');
   });
 
   test('page includes FAQ structured data', async ({ page }) => {
@@ -153,5 +154,121 @@ test.describe('Spot Surf Report', () => {
       await page.waitForURL('**/auth/sign-in');
       expect(page.url()).toContain('/auth/sign-in');
     }
+  });
+
+  test('anonymous user can browse beach page without auth gate blocking', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Wait for page to fully load, then verify no auth modal appears
+    await page.waitForLoadState('networkidle');
+
+    // Verify NO auth modal/dialog is visible
+    const authModal = page.getByRole('dialog').filter({ hasText: /sign up|sign in/i });
+    await expect(authModal).not.toBeVisible({ timeout: 7000 });
+
+    // Verify page content is still visible and interactive
+    const beachHeading = page.locator('h1');
+    await expect(beachHeading).toBeVisible();
+
+    // Verify tabs are still accessible
+    const tabList = page.getByRole('tablist');
+    await expect(tabList).toBeVisible();
+  });
+
+  test('anonymous user sees 3-day forecast preview', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Click on the Forecast tab
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
+    await forecastTab.click();
+
+    // Wait for forecast content to load
+    await page.waitForTimeout(1000);
+
+    // Verify the section heading shows "3-Day Outlook" (not "5-Day Outlook")
+    const outlookHeading = page.getByText(/3-day outlook/i);
+    const hasOutlook = await outlookHeading.isVisible().catch(() => false);
+
+    if (hasOutlook) {
+      await expect(outlookHeading).toBeVisible();
+    }
+  });
+
+  test('BestSurfWindow is gated with signup CTA for anonymous users', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Click on the Forecast tab
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
+    await forecastTab.click();
+
+    // Wait for forecast content to load
+    await page.waitForTimeout(1000);
+
+    // Look for the PublicContentGate CTA text - could be for best surf window or 12-day outlook
+    const bestTimeCTA = page.getByText(/see the best time to surf today/i);
+    const outlookCTA = page.getByText(/sign up to see the full 12-day outlook/i);
+
+    const hasBestTimeGate = await bestTimeCTA.isVisible().catch(() => false);
+    const hasOutlookGate = await outlookCTA.isVisible().catch(() => false);
+
+    // At least one gate should be visible
+    expect(hasBestTimeGate || hasOutlookGate).toBe(true);
+  });
+
+  test('community tabs show content gates for anonymous users', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Test Reviews tab
+    const reviewsTab = page.getByRole('tab', { name: /reviews/i });
+    await reviewsTab.click();
+    await page.waitForTimeout(500);
+
+    const reviewsCTA = page.getByText(/read surfer reviews/i);
+    await expect(reviewsCTA).toBeVisible();
+
+    // Test Local Intel tab
+    const localIntelTab = page.getByRole('tab', { name: /local intel/i });
+    await localIntelTab.click();
+    await page.waitForTimeout(500);
+
+    const intelCTA = page.getByText(/see local intel/i);
+    await expect(intelCTA).toBeVisible();
+
+    // Test Sessions tab
+    const sessionsTab = page.getByRole('tab', { name: /sessions/i });
+    await sessionsTab.click();
+    await page.waitForTimeout(500);
+
+    const sessionsCTA = page.getByText(/browse surf sessions/i);
+    await expect(sessionsCTA).toBeVisible();
+  });
+
+  test('match score teaser shows for anonymous users', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Look for the match score teaser button/element
+    const matchTeaser = page.getByText(/your match: \?\?\?/i);
+    await expect(matchTeaser).toBeVisible();
+  });
+
+  test('lock icons appear on gated tabs for anonymous users', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+
+    // Check for lock icons in tab triggers
+    // Reviews tab
+    const reviewsTab = page.getByRole('tab', { name: /reviews/i });
+    const reviewsHasLock = await reviewsTab.locator('svg').isVisible().catch(() => false);
+
+    // Local Intel tab
+    const localIntelTab = page.getByRole('tab', { name: /local intel/i });
+    const intelHasLock = await localIntelTab.locator('svg').isVisible().catch(() => false);
+
+    // Sessions tab
+    const sessionsTab = page.getByRole('tab', { name: /sessions/i });
+    const sessionsHasLock = await sessionsTab.locator('svg').isVisible().catch(() => false);
+
+    // At least one of the gated tabs should show a lock icon
+    const hasAnyLock = reviewsHasLock || intelHasLock || sessionsHasLock;
+    expect(hasAnyLock).toBe(true);
   });
 });

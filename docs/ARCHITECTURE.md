@@ -119,8 +119,7 @@ Quiver's email system drives the core engagement loop: sending targeted, valuabl
 | Email Type | Schedule | Purpose |
 |------------|----------|---------|
 | Welcome | On signup | Capture preferences, set expectations |
-| Forecast Digest | Daily 6 AM PT | Morning surf call with best windows |
-| Weekend Outlook | Thu 1 PM PT | Weekend planning preview |
+| Forecast Digest | Mon/Thu 6 AM PT | Morning surf call with best windows |
 | Weekly Recap | Mon 6 PM PT | Session summary and stats |
 | Re-engagement | MWF 10 AM PT | Bring back inactive users when conditions are good |
 
@@ -147,12 +146,17 @@ Quiver's email system drives the core engagement loop: sending targeted, valuabl
 
 **Status**: Production (Fly.io)
 
-The ML bias correction pipeline improves NOAA wave height forecast accuracy using XGBoost.
+The ML bias correction pipeline improves NOAA wave height forecast accuracy using XGBoost v3 with terrain-aware features.
 
 **Components:**
 - **Python ML Service** (`ml/`): FastAPI service on Fly.io at `https://quiver-ml.fly.dev`
 - **TypeScript Parsers** (`lib/ml/`): NOAA text parsing utilities
-- **Cron Jobs** (`app/api/cron/ml/`): Batch correction and ground truth backfill
+- **Cron Jobs** (`app/api/cron/ml/`): Batch correction, ground truth backfill, and weekly retrain
+
+**Key Features (v3):**
+- **Terrain Factors**: `swell_access_factors` and `wind_exposure_factors` per-beach (72 directional bins)
+- **Automated Retraining**: Weekly pipeline (Sundays 6am UTC) with validation gates
+- **Training Data**: 90-day rolling window, max 50K samples
 
 **Data Flow:**
 ```
@@ -160,7 +164,7 @@ NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
                                     |
                               Backfill Ground Truth
                                     |
-                              Monitor Accuracy
+                    Weekly Retrain -> Validation Gates -> Deploy
 ```
 
 **Documentation:**
@@ -207,6 +211,40 @@ The terrain analysis system encodes beach-specific wind shelter and swell wrap b
                                                     v
 [Forecast] --> [Modified Scoring] --> [terrain-aware scores]
 ```
+
+---
+
+### Sitemap
+
+**Status**: Production
+
+Single flat sitemap at `/sitemap.xml` combining all 6 route groups (static, beaches, locations, intents, guides, forecasts) via `Promise.all()`. Reverted from segmented `generateSitemaps()` pattern due to a Next.js 16 bug ([#77304](https://github.com/vercel/next.js/issues/77304)) where the sitemap index at `/sitemap.xml` returns 404.
+
+**Implementation:** `app/sitemap.ts` (single file, ~330 lines)
+
+---
+
+### User Engagement Tracking
+
+**Status**: Production
+
+Tracks user behavior for implicit preference learning and analytics.
+
+**Components:**
+- **PageTracker** (`components/page-tracker.tsx`): Authenticated page view tracking
+- **useOnboardingTracking** (`hooks/use-onboarding-tracking.ts`): Onboarding step completion tracking
+- **useTrackEvent** (`hooks/use-track-event.ts`): Debounced event firing
+- **Events API** (`app/api/events/`): Event ingestion with rate limiting
+
+**Event Types:**
+- `page_view`: Page navigation tracking
+- `onboarding_step`: Onboarding funnel tracking
+- `beach_view`, `discovery_click`: Implicit preference signals
+
+**Privacy & Performance:**
+- Respects `allow_implicit_tracking` profile setting
+- Rate limited: 60 requests/minute per user
+- LRU cache (5000 entries) for tracking permission lookups
 
 ---
 

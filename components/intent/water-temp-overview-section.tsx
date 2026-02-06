@@ -95,9 +95,9 @@ export function WaterTempOverviewSection({
               >
                 {wetsuitRec.thickness}
               </Badge>
-              <p className="text-sm text-slate-600">{wetsuitRec.description}</p>
+              <p className="text-sm text-gray-600">{wetsuitRec.description}</p>
               {wetsuitRec.extras.length > 0 && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-gray-500">
                   Extras: {wetsuitRec.extras.join(", ")}
                 </p>
               )}
@@ -107,7 +107,7 @@ export function WaterTempOverviewSection({
           {/* 7-Day Trend Chart */}
           {showTrendChart && (
             <div className="mt-4">
-              <h4 className="text-sm font-medium text-slate-700 mb-2">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
                 7-Day Trend
               </h4>
               <div className="h-36 w-full">
@@ -175,7 +175,7 @@ export function WaterTempOverviewSection({
           )}
 
           {/* Attribution */}
-          <p className="text-xs text-slate-500">Data from {beachName}</p>
+          <p className="text-xs text-gray-500">Data from {beachName}</p>
         </CardContent>
       </Card>
     </section>

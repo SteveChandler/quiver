@@ -4,14 +4,12 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Lock } from "lucide-react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { track } from "@/lib/analytics";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { AuthBlockingOverlay } from "@/components/auth/auth-blocking-overlay";
 import {
   trackAuthModalOpened,
-  trackAuthModalReappeared,
 } from "@/lib/analytics/auth-events";
 
 interface PublicContentGateProps {
@@ -32,19 +30,10 @@ export function PublicContentGate({
   source = "unknown",
 }: PublicContentGateProps) {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
   const hasTrackedView = useRef(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
-  const [wasDismissed, setWasDismissed] = useState(false);
-
-  // Handle interaction with blocking overlay - immediately reopen modal
-  const handleOverlayInteraction = React.useCallback(() => {
-    setAuthModalOpen(true);
-    setWasDismissed(false);
-    trackAuthModalReappeared({ source: `public-content-gate-${source}` });
-  }, [source]);
 
   // Track CTA view for non-authenticated users (only once)
   useEffect(() => {
@@ -141,7 +130,7 @@ export function PublicContentGate({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Join thousands of surfers tracking conditions and logging sessions
+              ML-corrected forecasts powered by 30,000+ surf observations
             </p>
           </CardContent>
         </Card>
@@ -149,23 +138,11 @@ export function PublicContentGate({
 
       <UnifiedAuthModal
         isOpen={authModalOpen}
-        onClose={() => {
-          setAuthModalOpen(false);
-          setWasDismissed(true);
-        }}
+        onClose={() => setAuthModalOpen(false)}
         mode={authMode}
         source={`public-content-gate-${source}`}
         returnTo={pathname}
       />
-
-      {/* Show blocking overlay when modal is dismissed */}
-      {wasDismissed && !authModalOpen && (
-        <AuthBlockingOverlay
-          onInteraction={handleOverlayInteraction}
-          message="Please sign up to continue"
-          showHint={true}
-        />
-      )}
     </div>
   );
 }

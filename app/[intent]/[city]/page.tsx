@@ -19,7 +19,7 @@ import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { StateMapView } from "@/components/state/state-map-view";
-import { findCityBySlug, type CityMetadata } from "@/actions/city/city-metadata-actions";
+import { findCityBySlug, getCityMetadata, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
@@ -28,6 +28,9 @@ import {
   TideOverviewSection,
   WaterTempOverviewSection,
 } from "@/components/intent";
+import { CTASection } from "@/components/landing-page/cta-section";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { ZeroState } from "@/components/ui/zero-state";
 import {
@@ -36,10 +39,75 @@ import {
   type CityTideData,
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
+import { findCitiesMatchingPattern } from "@/actions/city/city-metadata-actions";
+import {
+  getBeginnerConditionsData,
+  getBeginnerBeachesWithEditorial,
+  getBeginnerCityEditorial,
+} from "@/actions/beginner/beginner-actions";
+import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 
-// ISR: Revalidate intent pages periodically for updated city/beach data
-// Note: generateStaticParams() pre-generates most routes at build time
+// Dynamic rendering for intent pages - database queries use no-store fetch
+// which prevents static generation. ISR revalidation still applies.
+export const dynamic = "force-dynamic";
 export const revalidate = 3600; // 1 hour
+
+/**
+ * Try to resolve a city slug with automatic state suffix detection.
+ * Uses a single batched database query instead of 13 parallel queries to avoid
+ * connection pool exhaustion under concurrent load.
+ *
+ * @param baseSlug - The city slug without state suffix (e.g., "belmar")
+ * @returns Object with cityMetadata and the resolved slug, or nulls if not found
+ */
+async function resolveCityWithStateSuffix(
+  baseSlug: string
+): Promise<{ cityMetadata: CityMetadata | null; resolvedSlug: string }> {
+  // First try the base slug directly (e.g., "santa-cruz" or "newport-ca")
+  const baseResult = await findCityBySlug(baseSlug);
+  if (baseResult.success && baseResult.data) {
+    return { cityMetadata: baseResult.data, resolvedSlug: baseSlug };
+  }
+
+  // If already has state suffix, don't try adding more
+  if (baseSlug.match(/-[a-z]{2}$/)) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  // Find all cities matching the pattern across all states with a SINGLE query
+  const citiesResult = await findCitiesMatchingPattern(baseSlug);
+  if (!citiesResult.success || !citiesResult.data || citiesResult.data.length === 0) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  // Filter to only coastal states and sort by priority (COASTAL_STATE_SUFFIXES order)
+  const coastalStateSet = new Set(COASTAL_STATE_SUFFIXES.map(s => s.toUpperCase()));
+  const coastalCities = citiesResult.data
+    .filter((c) => coastalStateSet.has(c.state))
+    .sort((a, b) => {
+      const aIndex = COASTAL_STATE_SUFFIXES.indexOf(a.state.toLowerCase() as any);
+      const bIndex = COASTAL_STATE_SUFFIXES.indexOf(b.state.toLowerCase() as any);
+      return aIndex - bIndex;
+    });
+
+  if (coastalCities.length === 0) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  // Get full metadata for the first (highest priority) match
+  const topMatch = coastalCities[0];
+  const resolvedSlug = buildCitySlug(topMatch.city, topMatch.state, new Map());
+
+  const metadataResult = await getCityMetadata(topMatch.city, topMatch.state);
+  if (!metadataResult.success || !metadataResult.data) {
+    return { cityMetadata: null, resolvedSlug: baseSlug };
+  }
+
+  return {
+    cityMetadata: metadataResult.data,
+    resolvedSlug: resolvedSlug || baseSlug,
+  };
+}
 
 function formatPacificDateTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -183,23 +251,9 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     };
   }
 
-  const cityResult = await findCityBySlug(params.city);
-  let cityMetadata = cityResult.success ? cityResult.data : null;
-  let canonicalCitySlug = params.city;
-
-  // If city lookup failed, check if a state-suffixed version exists
-  // This handles cases like "/tide/belmar" resolving to Belmar, NJ
-  if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
-    for (const stateSuffix of COASTAL_STATE_SUFFIXES) {
-      const suffixedSlug = `${params.city}-${stateSuffix}`;
-      const suffixedResult = await findCityBySlug(suffixedSlug);
-      if (suffixedResult.success && suffixedResult.data) {
-        cityMetadata = suffixedResult.data;
-        canonicalCitySlug = suffixedSlug; // Use suffixed version for canonical
-        break;
-      }
-    }
-  }
+  // Resolve city with automatic state suffix detection (parallel lookup for performance)
+  const { cityMetadata, resolvedSlug: canonicalCitySlug } =
+    await resolveCityWithStateSuffix(params.city);
 
   // City lookup failed: return 404-safe metadata with self-referential canonical
   // CRITICAL: Without this, Google picks an arbitrary canonical (e.g., /tide/hull for /beginner/nags-head)
@@ -226,15 +280,25 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     return true; // Non-skill intents always have results
   })();
 
+  const keywords =
+    params.intent === "beginner"
+      ? [
+          `${cityMetadata.cityName} beginner surf spots`,
+          `learn to surf ${cityMetadata.cityName}`,
+          `${cityMetadata.cityName} surf lessons`,
+          `${cityMetadata.stateName} beginner surfing`,
+        ]
+      : [
+          `${cityMetadata.cityName} ${definition.label}`,
+          `${cityMetadata.cityName} surf`,
+          `${cityMetadata.stateName} surfing`,
+        ];
+
   const metadata = buildPageMetadata({
     title: pageContent.title,
     description: pageContent.metaDescription,
     path: `/${params.intent}/${canonicalCitySlug}`,
-    keywords: [
-      `${cityMetadata.cityName} ${definition.label}`,
-      `${cityMetadata.cityName} surf`,
-      `${cityMetadata.stateName} surfing`,
-    ],
+    keywords,
   });
 
   // Prevent indexing of empty-state pages (thin content)
@@ -272,7 +336,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
     // Render state-level intent page (with empty state if no beaches)
     return (
-      <div className="bg-white">
+      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
         <BreadcrumbStructuredData
           items={[
             { name: "Quiver", url: baseUrl },
@@ -289,13 +353,13 @@ export default async function IntentPage(props: IntentPageParams) {
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
               {intentDefinition.heading({ cityName: stateName })}
             </h1>
             <p className="text-lg text-gray-600 mt-2">
               {beaches.length} spots across {stateName}
             </p>
-            <p className="text-base text-slate-700 mt-4">
+            <p className="text-base text-gray-700 mt-4">
               {intentDefinition.intro({ cityName: stateName })}
             </p>
           </header>
@@ -310,7 +374,7 @@ export default async function IntentPage(props: IntentPageParams) {
           ) : (
             <>
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                   {intentDefinition.label} spots in {stateName}
                 </h2>
                 <StateMapView
@@ -321,14 +385,14 @@ export default async function IntentPage(props: IntentPageParams) {
 
               {/* Focus Points */}
               <section>
-                <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                   What to focus on
                 </h2>
                 <ul className="grid gap-3 sm:grid-cols-2">
                   {intentDefinition.focusPoints.map((point) => (
                     <li
                       key={point}
-                      className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                      className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
                     >
                       {point}
                     </li>
@@ -354,29 +418,44 @@ export default async function IntentPage(props: IntentPageParams) {
     );
   }
 
-  // Database-driven city resolution (replaces hardcoded SURF_CITIES)
-  const cityResult = await findCityBySlug(params.city);
-  let cityMetadata = cityResult.success ? cityResult.data : null;
-
-  // If city lookup failed, check if a state-suffixed version exists
+  // Database-driven city resolution with automatic state suffix detection (parallel lookup)
   // This handles cases where sitemap has "/beginner/nags-head-nc" but user accesses "/beginner/nags-head"
   // NOTE: We serve content directly instead of redirecting to avoid redirect chains that Google flags
-  if (!cityMetadata && !params.city.match(/-[a-z]{2}$/)) {
-    // Try common coastal states (prioritize by surfing popularity)
-    for (const stateSuffix of COASTAL_STATE_SUFFIXES) {
-      const suffixedSlug = `${params.city}-${stateSuffix}`;
-      const suffixedResult = await findCityBySlug(suffixedSlug);
-      if (suffixedResult.success && suffixedResult.data) {
-        // Found a match with state suffix - use metadata directly (no redirect)
-        // The canonical URL in generateMetadata will point to the suffixed version
-        cityMetadata = suffixedResult.data;
-        break;
-      }
-    }
-  }
+  const { cityMetadata } = await resolveCityWithStateSuffix(params.city);
 
   if (!cityMetadata || !definition) {
     return notFound();
+  }
+
+  // Beginner intent: use dedicated page component with editorial + live conditions
+  if (params.intent === "beginner") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+    const [conditionsData, beaches, cityEditorial] =
+      await Promise.all([
+        getBeginnerConditionsData(params.city, stateSlugLower),
+        getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
+        getBeginnerCityEditorial(params.city, stateSlugLower),
+      ]);
+
+    const { badge: conditionsBadge, rightNow: rightNowConditions } = conditionsData;
+
+    return (
+      <BeginnerPageContent
+        cityName={cityMetadata.cityName}
+        citySlug={params.city}
+        stateSlug={stateSlugLower}
+        stateName={cityMetadata.stateName}
+        regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+        conditionsBadge={conditionsBadge}
+        rightNowConditions={rightNowConditions}
+        beaches={beaches}
+        cityEditorial={cityEditorial}
+        totalBeaches={beaches.length}
+        baseUrl={baseUrl}
+      />
+    );
   }
 
   // Generate content from templates
@@ -402,10 +481,10 @@ export default async function IntentPage(props: IntentPageParams) {
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
     return (
-      <div className="bg-white">
+      <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-800">
               {definition.heading({ cityName: cityMetadata.cityName })}
             </h1>
           </header>
@@ -434,7 +513,7 @@ export default async function IntentPage(props: IntentPageParams) {
   const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
 
   return (
-    <div className="bg-white">
+    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${baseUrl.replace(/\/$/, "")}/` },
@@ -469,22 +548,22 @@ export default async function IntentPage(props: IntentPageParams) {
             Back to {cityMetadata.cityName}
           </Link>
           <span className="text-gray-400 mx-2">›</span>
-          <span className="text-gray-900 font-medium">{definition.label}</span>
+          <span className="text-gray-800 font-medium">{definition.label}</span>
         </nav>
 
         {/* Header */}
         <header className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
             {pageContent.heading}
           </h1>
           <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
 
           <div className="space-y-2 mt-6">
-            <p className="text-base text-slate-700">
+            <p className="text-base text-gray-700">
               Updated {updatedAt} · Dialed recommendations refresh every 30
               minutes based on tide, wind, and crowd telemetry from Quiver.
             </p>
-            <p className="text-base text-slate-700">
+            <p className="text-base text-gray-700">
               {pageContent.intro}
             </p>
           </div>
@@ -499,10 +578,10 @@ export default async function IntentPage(props: IntentPageParams) {
         <div className="space-y-12">
           {/* Map & List Section */}
           <section>
-            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Top spot recommendations
             </h2>
-            <p className="mb-6 text-sm text-slate-600">
+            <p className="mb-6 text-sm text-gray-600">
               Sort your quiver, choose the right tide window, and jot down a
               backup in case the main peak gets stacked.
             </p>
@@ -516,16 +595,24 @@ export default async function IntentPage(props: IntentPageParams) {
             />
           </section>
 
+          {/* Inline Signup CTA */}
+          <InlineSignupCta
+            title={`Track Your ${cityMetadata.cityName} Sessions`}
+            description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
+            source={`intent-${params.intent}-${params.city}`}
+            className="my-8"
+          />
+
           {/* Editorial Focus Section */}
           <section>
-            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               What to focus on today
             </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {definition.focusPoints.map((point) => (
                 <li
                   key={point}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                  className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
                 >
                   {point}
                 </li>
@@ -536,10 +623,10 @@ export default async function IntentPage(props: IntentPageParams) {
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Logging Tips */}
             <section>
-              <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                 Session logging tips
               </h2>
-              <p className="text-slate-700 leading-relaxed">
+              <p className="text-gray-700 leading-relaxed">
                 Once you wrap the surf, drop a note in your Quiver journal with
                 tide, board, and crowd observations. Over time you&apos;ll see
                 crystal-clear patterns about when {cityMetadata.cityName} rewards this type
@@ -549,11 +636,11 @@ export default async function IntentPage(props: IntentPageParams) {
 
             {/* Checklist & Links */}
             <aside className="space-y-6">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-inner">
-                <h2 className="text-lg font-semibold text-slate-900">
+              <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border border-blue-200/50 shadow-sm p-5">
+                <h2 className="text-lg font-semibold text-gray-800">
                   Rapid-fire checklist
                 </h2>
-                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                <ul className="mt-3 space-y-2 text-sm text-gray-700">
                   <li>
                     Screenshot the tide window and share it with your crew.
                   </li>
@@ -566,8 +653,8 @@ export default async function IntentPage(props: IntentPageParams) {
                   </li>
                 </ul>
               </div>
-              <div className="rounded-xl border border-slate-200 p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">
+              <div className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
+                <h2 className="text-lg font-semibold text-gray-800">
                   Continue exploring
                 </h2>
                 <ul className="mt-3 space-y-2 text-sm text-sky-700">
@@ -609,6 +696,14 @@ export default async function IntentPage(props: IntentPageParams) {
           </div>
         </div>
       </div>
+
+      {/* Bottom CTA Section */}
+      <CTASection />
+
+      {/* Mobile Sticky Signup Bar */}
+      <StickySignupBar
+        source={`intent-${params.intent}-${params.city}`}
+      />
     </div>
   );
 }

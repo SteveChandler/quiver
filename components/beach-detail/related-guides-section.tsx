@@ -11,6 +11,8 @@ import {
   Sailboat,
 } from "lucide-react";
 import { slugify } from "@/lib/utils/text-utils";
+import { stateToSlug } from "@/lib/utils/beach-url-utils";
+import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import type { Beach } from "@/types/database";
 
 const INTENT_GUIDES = [
@@ -83,11 +85,11 @@ export function RelatedGuidesSection({
     return null;
   }
 
-  // For collision-aware slugs, append state if needed
+  // Use collision-aware slug for intent pages
   // Simple cities like "San Diego" become "san-diego"
-  // Common names like "Newport" that exist in multiple states would need "-ca" suffix
-  // For now, use simple city slug - the intent pages handle resolution
-  const intentSlug = citySlug;
+  // Common names like "Newport" that exist in multiple states get state suffix: "newport-ca"
+  const stateSlug = stateToSlug(beach.state);
+  const intentSlug = getIntentSlug(citySlug, stateSlug) || citySlug;
 
   return (
     <section className={`${className}`}>

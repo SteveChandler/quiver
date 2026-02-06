@@ -93,7 +93,7 @@ function getIntentTemplates(
     },
     "least-crowded": {
       title: `Least Crowded Surf Spots in ${cityName} | ${stateName}`,
-      heading: `Uncrowded surf spots in ${cityName}`,
+      heading: `Least crowded surf spots in ${cityName}`,
       intro: leastCrowdedIntro,
       metaDescription: truncateMetaDescription(
         `Discover less crowded surf spots in ${cityName}. ${totalBeaches} breaks with insider tips on timing. Avoid the crowds at ${topSpotNames}.`

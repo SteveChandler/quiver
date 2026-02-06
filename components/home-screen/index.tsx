@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
@@ -29,6 +29,7 @@ import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import { TopSpotsCarousel } from "./top-spots-carousel";
 import { TimeSlotSelector } from "./time-slot-selector";
 import { BottomNav } from "./bottom-nav";
+import { ForecastOutlookCard } from "./forecast-outlook-card";
 
 // Dynamic imports for below-fold components to reduce initial bundle size
 const CoastPulse = dynamic(
@@ -54,15 +55,22 @@ import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
 export function HomeScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { timeOfDay } = useTimeOfDay();
   const reducedMotion = useReducedMotion();
   const { track: trackEvent } = useTrackEvent();
 
-  // Time slot filter state
-  const [timeSlot, setTimeSlot] = useState<TimeSlot>('any');
+  // Time slot filter state (initialized from URL param for persistence)
+  const validTimeSlots: TimeSlot[] = ['any', 'dawn-patrol', 'lunch-session', 'afternoon'];
+  const urlSlot = searchParams.get('slot');
+  const initialSlot: TimeSlot = validTimeSlots.includes(urlSlot as TimeSlot)
+    ? (urlSlot as TimeSlot)
+    : 'any';
+  const [timeSlot, setTimeSlot] = useState<TimeSlot>(initialSlot);
 
-  // Wrapper to track time slot changes
+  // Wrapper to track time slot changes and persist to URL
   const handleTimeSlotChange = useCallback((newSlot: TimeSlot) => {
     trackEvent("forecast_interaction", {
       metadata: {
@@ -72,7 +80,17 @@ export function HomeScreen() {
       debounceMs: 200,
     });
     setTimeSlot(newSlot);
-  }, [trackEvent]);
+
+    // Update URL param for persistence
+    const params = new URLSearchParams(searchParams.toString());
+    if (newSlot === 'any') {
+      params.delete('slot');
+    } else {
+      params.set('slot', newSlot);
+    }
+    const newUrl = params.toString() ? `${pathname}?${params}` : pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [trackEvent, searchParams, pathname, router]);
 
   // Profile and home beach
   const { profile, homeBeach, refreshProfile } = useCachedProfile();
@@ -399,14 +417,21 @@ export function HomeScreen() {
             </section>
           )}
 
-          {/* 6. Coast Pulse Timeline - detailed vertical list */}
+          {/* 6. 7-Day Outlook Entry Point */}
+          {profile && (
+            <section className="centered-container px-4 sm:px-0">
+              <ForecastOutlookCard />
+            </section>
+          )}
+
+          {/* 7. Coast Pulse Timeline - detailed vertical list */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
               <CoastPulse lat={coastPulseCoords.lat} lon={coastPulseCoords.lon} />
             </section>
           )}
 
-          {/* 7. Profile Strength (auto-hides when complete) */}
+          {/* 8. Profile Strength (auto-hides when complete) */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
               <ProfileStrength strength={profileStrength} />

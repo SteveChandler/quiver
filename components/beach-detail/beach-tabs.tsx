@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReactNode, useState, useCallback } from "react";
+import { Lock } from "lucide-react";
 
 export type BeachTabValue =
   | "overview"
@@ -26,6 +27,7 @@ interface BeachTabsProps {
   children: ReactNode;
   className?: string;
   actions?: ReactNode;
+  publicMode?: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ export function BeachTabs({
   children,
   className,
   actions,
+  publicMode = false,
 }: BeachTabsProps) {
   // Determine if component is controlled or uncontrolled
   const isControlled = activeTab !== undefined && onTabChange !== undefined;
@@ -128,6 +131,12 @@ export function BeachTabs({
               onMouseEnter={() => handleTabHover("reviews")}
             >
               Reviews
+              {publicMode && (
+                <>
+                  <Lock className="ml-1 h-3 w-3 text-gray-400" aria-hidden="true" />
+                  <span className="sr-only">(requires sign-up)</span>
+                </>
+              )}
             </TabsTrigger>
             <TabsTrigger
               value="intel"
@@ -135,6 +144,12 @@ export function BeachTabs({
               onMouseEnter={() => handleTabHover("intel")}
             >
               Local Intel
+              {publicMode && (
+                <>
+                  <Lock className="ml-1 h-3 w-3 text-gray-400" aria-hidden="true" />
+                  <span className="sr-only">(requires sign-up)</span>
+                </>
+              )}
             </TabsTrigger>
             <TabsTrigger
               value="sessions"
@@ -142,6 +157,12 @@ export function BeachTabs({
               onMouseEnter={() => handleTabHover("sessions")}
             >
               Sessions
+              {publicMode && (
+                <>
+                  <Lock className="ml-1 h-3 w-3 text-gray-400" aria-hidden="true" />
+                  <span className="sr-only">(requires sign-up)</span>
+                </>
+              )}
             </TabsTrigger>
           </TabsList>
           {actions ? (

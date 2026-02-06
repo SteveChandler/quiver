@@ -37,7 +37,7 @@ export async function LandingPageShell({ children }: LandingPageShellProps) {
       <footer className="bg-gray-900 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-gray-400">
-            &copy; {new Date().getFullYear()} Quiver. All rights reserved.
+            &copy; 2026 Quiver. All rights reserved.
           </p>
         </div>
       </footer>

@@ -1,8 +1,17 @@
 /**
- * Tests for Sitemap Generation
+ * Tests for Flat Sitemap Generation
  *
- * Tests the sitemap.ts file that generates the XML sitemap for the application.
- * Sitemap now uses database-driven city resolution instead of hardcoded SURF_CITIES.
+ * Tests the sitemap.ts file that generates a single flat XML sitemap.
+ * Reverted from segmented pattern due to Next.js 16 bug where generateSitemaps()
+ * does NOT auto-generate a sitemap index at /sitemap.xml.
+ *
+ * Routes included:
+ * - static: Home, features, about, etc.
+ * - beaches: Beach detail pages + beach-level intent pages (tides, water-temp)
+ * - locations: City/state listing pages
+ * - intents: City and state intent pages (beginner, tide, etc.)
+ * - guides: Hub region guide pages
+ * - forecasts: Forecast hub and regional forecast pages
  */
 
 import sitemap from "@/app/sitemap";
@@ -90,6 +99,13 @@ describe("Sitemap Generation", () => {
       expect(route).toBeDefined();
     });
 
+    it("should include /beaches/usa route", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);
+
+      expect(route).toBeDefined();
+    });
+
     it("should set changeFrequency to daily for static routes", async () => {
       const result = await sitemap();
       const staticRoutes = ["/", "/features", "/about", "/privacy", "/map"];
@@ -155,10 +171,23 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // Should still return static routes
-      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
+      // Should still return state-level intent routes
+      expect(result.find((r) => r.url === `${baseUrl}/beginner/ca`)).toBeDefined();
 
       consoleSpy.mockRestore();
+    });
+
+    it("should include state-level intent routes", async () => {
+      const result = await sitemap();
+      const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
+      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+
+      for (const state of usStates) {
+        for (const intent of intents) {
+          const route = result.find((r) => r.url === `${baseUrl}/${intent}/${state}`);
+          expect(route).toBeDefined();
+        }
+      }
     });
   });
 
@@ -188,7 +217,7 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("should not generate intent routes when getAllCitiesWithBeachSkills returns empty", async () => {
+    it("should not generate city intent routes when getAllCitiesWithBeachSkills returns empty", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [],
@@ -196,7 +225,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // No city-level intent routes (state-level still exist)
+      // No city-level intent routes
       const cityIntentRoute = result.find(
         (r) => r.url === `${baseUrl}/beginner/san-diego`
       );
@@ -317,7 +346,7 @@ describe("Sitemap Generation", () => {
     });
   });
 
-  describe("Canonical Spot Routes", () => {
+  describe("Beach Routes", () => {
     it("should use hierarchical URL for beaches with complete location data", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
@@ -360,6 +389,257 @@ describe("Sitemap Generation", () => {
         r.url.includes("/spots/mystery-break")
       );
       expect(spotsRoute).toBeDefined();
+    });
+
+    it("should include beach routes using hierarchical URL for complete data", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+            updated_at: "2024-12-01T00:00:00Z",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      // Uses hierarchical URL when city and state are present (matches redirect in /spots/[slug])
+      const beachRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs")
+      );
+
+      expect(beachRoute).toBeDefined();
+    });
+
+    it("should include tides and water-temp pages for beaches with hierarchical URLs", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+
+      const tidesRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs/tides")
+      );
+      const waterTempRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
+      );
+
+      expect(tidesRoute).toBeDefined();
+      expect(waterTempRoute).toBeDefined();
+    });
+
+    it("should NOT include tides/water-temp for beaches without hierarchical URLs", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "mystery-break",
+            city: null,
+            state: null,
+          },
+        ],
+      });
+
+      const result = await sitemap();
+
+      // Main page should exist
+      expect(result.find((r) => r.url.includes("/spots/mystery-break"))).toBeDefined();
+
+      // No tides/water-temp for non-hierarchical URLs
+      expect(result.find((r) => r.url.includes("/mystery-break/tides"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("/mystery-break/water-temp"))).toBeUndefined();
+    });
+
+    it("should use hierarchical URL for international beaches with complete data", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "teresas",
+            city: "Rosarito",
+            state: "Baja California",
+            country: "Mexico",
+            updated_at: "2024-12-01T00:00:00Z",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      // Uses hierarchical URL for international beaches with complete data
+      const beachRoute = result.find((r) =>
+        r.url.includes("/mexico/baja-california/rosarito/teresas")
+      );
+
+      expect(beachRoute).toBeDefined();
+    });
+
+    it("should filter out beaches without slug from beach entries", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: null, // Missing slug
+            city: "San Diego",
+            state: "CA",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      // Beach with null slug should not be in beach entries
+      const beachRoute = result.find(
+        (r) => r.url.includes("/spots/") && r.url.includes("beach-1")
+      );
+
+      expect(beachRoute).toBeUndefined();
+    });
+
+    it("should use /spots/{slug} fallback for beaches without city", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: null, // Missing city - falls back to /spots/ URL
+            state: "CA",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const sunsetRoute = result.find((r) =>
+        r.url.includes("/spots/sunset-cliffs")
+      );
+
+      expect(sunsetRoute).toBeDefined();
+    });
+
+    it("should use /spots/{slug} fallback for beaches without state", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: null, // Missing state - falls back to /spots/ URL
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const sunsetRoute = result.find((r) =>
+        r.url.includes("/spots/sunset-cliffs")
+      );
+
+      expect(sunsetRoute).toBeDefined();
+    });
+
+    it("should set priority 0.6 for beach routes", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const beachRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
+      );
+
+      expect(beachRoute?.priority).toBe(0.6);
+    });
+
+    it("should set priority 0.55 for beach tides/water-temp routes", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const tidesRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs/tides")
+      );
+      const waterTempRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
+      );
+
+      expect(tidesRoute?.priority).toBe(0.55);
+      expect(waterTempRoute?.priority).toBe(0.55);
+    });
+
+    it("should use beach updated_at for lastModified", async () => {
+      const updatedAt = "2024-11-15T12:00:00Z";
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "sunset-cliffs",
+            city: "San Diego",
+            state: "CA",
+            country: "USA",
+            updated_at: updatedAt,
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const beachRoute = result.find((r) =>
+        r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
+      );
+
+      expect(beachRoute?.lastModified).toBe(updatedAt);
+    });
+
+    it("should handle getBeaches failure gracefully", async () => {
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: false,
+        data: null,
+      });
+
+      const result = await sitemap();
+
+      // Should still return other routes (static, locations, intents, guides, forecasts)
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
+      // Should not have any beach routes
+      expect(result.find((r) => r.url.includes("/spots/"))).toBeUndefined();
+      consoleSpy.mockRestore();
     });
   });
 
@@ -477,6 +757,7 @@ describe("Sitemap Generation", () => {
     });
 
     it("should handle getAllBeachLocations failure gracefully", async () => {
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
         success: false,
         data: null,
@@ -484,205 +765,77 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // Should still return other routes
+      // Should still return other routes (static, beaches, intents, guides, forecasts)
       expect(result.length).toBeGreaterThan(0);
       expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
-    });
-
-    it("should handle getAllBeachLocations exception gracefully", async () => {
-      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-      (getAllBeachLocations as jest.Mock).mockRejectedValue(
-        new Error("Database error")
-      );
-
-      const result = await sitemap();
-
-      // Should still return other routes
-      expect(result.length).toBeGreaterThan(0);
-      expect(consoleSpy).toHaveBeenCalled();
-
+      // Should not have any state-level or city-level location routes from the failed generator
+      // (though cities are still used for intent routes from a different data source)
       consoleSpy.mockRestore();
     });
   });
 
-  describe("Beach Routes", () => {
-    it("should include beach routes using hierarchical URL for complete data", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: "CA",
-            country: "USA",
-            updated_at: "2024-12-01T00:00:00Z",
-          },
-        ],
-      });
-
+  describe("Guide Routes", () => {
+    it("should include hub region guide routes", async () => {
       const result = await sitemap();
-      // Uses hierarchical URL when city and state are present (matches redirect in /spots/[slug])
-      const beachRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs")
-      );
 
-      expect(beachRoute).toBeDefined();
+      // Check for expected hub regions
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-southern-california`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-san-diego`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-orange-county`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-hawaii`)).toBeDefined();
     });
 
-    it("should use hierarchical URL for international beaches with complete data", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "teresas",
-            city: "Rosarito",
-            state: "Baja California",
-            country: "Mexico",
-            updated_at: "2024-12-01T00:00:00Z",
-          },
-        ],
-      });
-
+    it("should set priority 0.9 for guide routes", async () => {
       const result = await sitemap();
-      // Uses hierarchical URL for international beaches with complete data
-      const beachRoute = result.find((r) =>
-        r.url.includes("/mexico/baja-california/rosarito/teresas")
-      );
+      const guideRoute = result.find((r) => r.url.includes("/guides/surfing-"));
 
-      expect(beachRoute).toBeDefined();
+      expect(guideRoute?.priority).toBe(0.9);
     });
 
-    it("should filter out beaches without slug from beach entries", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: null, // Missing slug
-            city: "San Diego",
-            state: "CA",
-          },
-        ],
-      });
-
+    it("should set changeFrequency to weekly for guide routes", async () => {
       const result = await sitemap();
-      // Beach with null slug should not be in beach entries
-      const beachRoute = result.find(
-        (r) => r.url.includes("/spots/") && r.url.includes("beach-1")
-      );
+      const guideRoute = result.find((r) => r.url.includes("/guides/surfing-"));
 
-      expect(beachRoute).toBeUndefined();
-    });
-
-    it("should use /spots/{slug} fallback for beaches without city", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "sunset-cliffs",
-            city: null, // Missing city - falls back to /spots/ URL
-            state: "CA",
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const sunsetRoute = result.find((r) =>
-        r.url.includes("/spots/sunset-cliffs")
-      );
-
-      expect(sunsetRoute).toBeDefined();
-    });
-
-    it("should use /spots/{slug} fallback for beaches without state", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: null, // Missing state - falls back to /spots/ URL
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const sunsetRoute = result.find((r) =>
-        r.url.includes("/spots/sunset-cliffs")
-      );
-
-      expect(sunsetRoute).toBeDefined();
-    });
-
-    it("should set priority 0.6 for beach routes", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: "CA",
-            country: "USA",
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const beachRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs")
-      );
-
-      expect(beachRoute?.priority).toBe(0.6);
-    });
-
-    it("should use beach updated_at for lastModified", async () => {
-      const updatedAt = "2024-11-15T12:00:00Z";
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: "CA",
-            country: "USA",
-            updated_at: updatedAt,
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const beachRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs")
-      );
-
-      expect(beachRoute?.lastModified).toBe(updatedAt);
+      expect(guideRoute?.changeFrequency).toBe("weekly");
     });
   });
 
-  describe("Forecast Routes", () => {
-    it("should not include forecast routes (noindex + excluded from sitemap)", async () => {
+  describe("Combined Sitemap", () => {
+    it("should include all route types in single sitemap", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          {
-            id: "beach-123",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: "CA",
-          },
+          { id: "beach-1", slug: "sunset-cliffs", city: "San Diego", state: "CA" },
         ],
+      });
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ city: "La Jolla", state: "CA", country: "USA" }],
       });
 
       const result = await sitemap();
-      const hasForecastRoutes = result.some((r) => r.url.includes("/forecast/"));
 
-      expect(hasForecastRoutes).toBe(false);
+      // Static routes
+      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
+      expect(result.find((r) => r.url === `${baseUrl}/features`)).toBeDefined();
+
+      // Beach routes
+      expect(result.find((r) => r.url.includes("sunset-cliffs"))).toBeDefined();
+
+      // Location routes
+      expect(result.find((r) => r.url.endsWith("/ca/la-jolla"))).toBeDefined();
+
+      // Intent routes
+      expect(result.find((r) => r.url.includes("/beginner/"))).toBeDefined();
+
+      // Guide routes
+      expect(result.find((r) => r.url.includes("/guides/surfing-"))).toBeDefined();
+
+      // Forecast routes
+      expect(result.find((r) => r.url === `${baseUrl}/forecast`)).toBeDefined();
+
+      // Sanity check: flat sitemap should contain a meaningful number of URLs
+      expect(result.length).toBeGreaterThan(10);
     });
   });
 
@@ -735,35 +888,23 @@ describe("Sitemap Generation", () => {
     });
   });
 
-  describe("Error Handling", () => {
-    it("should continue if beach query fails", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: false,
-        data: null,
-      });
-
+  describe("Forecast Routes", () => {
+    it("should include forecast hub landing page", async () => {
       const result = await sitemap();
+      const forecastHub = result.find((r) => r.url === `${baseUrl}/forecast`);
 
-      // Should still include static routes
-      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
+      expect(forecastHub).toBeDefined();
+      expect(forecastHub?.priority).toBe(0.9);
+      expect(forecastHub?.changeFrequency).toBe("daily");
     });
 
-    it("should return valid sitemap even with all queries failing", async () => {
-      (getAllBeachLocations as jest.Mock).mockRejectedValue(
-        new Error("Database error")
-      );
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: false,
-        data: null,
-      });
-
-      jest.spyOn(console, "error").mockImplementation();
-
+    it("should include regional forecast pages", async () => {
       const result = await sitemap();
+      const regionalForecast = result.find((r) => r.url.includes("/forecast/southern-california"));
 
-      // Should still include static and city routes
-      expect(result.length).toBeGreaterThan(0);
-      expect(result.find((r) => r.url === `${baseUrl}/`)).toBeDefined();
+      expect(regionalForecast).toBeDefined();
+      expect(regionalForecast?.priority).toBe(0.8);
+      expect(regionalForecast?.changeFrequency).toBe("daily");
     });
   });
 });

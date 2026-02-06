@@ -1,8 +1,9 @@
 /**
  * Time Formatting Utilities
  *
- * Reusable functions for formatting time values across the application.
- * Used by CoastPulse, session history, activity feeds, and other time-sensitive displays.
+ * Reusable functions for formatting time and date values across the application.
+ * Used by CoastPulse, session history, activity feeds, forecast components,
+ * and other time-sensitive displays.
  */
 
 /**
@@ -87,16 +88,6 @@ export function formatDuration(minutes: number): string {
 }
 
 /**
- * Format a time window for display (e.g., "7-10am", "2-5pm")
- *
- * @param start - Start date
- * @param end - End date
- * @returns Formatted time window string
- *
- * @example
- * formatTimeWindow(new Date("2024-01-01T07:00"), new Date("2024-01-01T10:00")) // "7-10am"
- */
-/**
  * Determine whether a window start time is "today" or "tomorrow" in the given timezone
  *
  * @param start - Window start date
@@ -173,6 +164,16 @@ export function formatTimeWindowCompact(start: Date, end: Date, timezone: string
   return `${formatTime(startParts, true)}\u2013${formatTime(endParts, true)}`;
 }
 
+/**
+ * Format a time window for display (e.g., "7-10am", "2-5pm")
+ *
+ * @param start - Start date
+ * @param end - End date
+ * @returns Formatted time window string
+ *
+ * @example
+ * formatTimeWindow(new Date("2024-01-01T07:00"), new Date("2024-01-01T10:00")) // "7-10am"
+ */
 export function formatTimeWindow(start: Date, end: Date): string {
   const formatHour = (date: Date): string => {
     const hour = date.getHours();
@@ -194,4 +195,76 @@ export function formatTimeWindow(start: Date, end: Date): string {
 
   // Different periods: "11am-2pm"
   return `${formatHour(start)}-${formatHour(end)}`;
+}
+
+// =============================================================================
+// Date Formatters
+// =============================================================================
+
+/**
+ * Format a date with full details (e.g., "Saturday, Feb 8")
+ *
+ * @param date - Date to format
+ * @returns Formatted date string with weekday, month, and day
+ *
+ * @example
+ * formatFullDate(new Date("2025-02-08")) // "Saturday, Feb 8"
+ */
+export function formatFullDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Format a date for compact display (e.g., "Sat, Feb 8")
+ *
+ * @param date - Date to format
+ * @returns Formatted date string with short weekday, month, and day
+ *
+ * @example
+ * formatCompactDate(new Date("2025-02-08")) // "Sat, Feb 8"
+ */
+export function formatCompactDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Format a date with just day and abbreviated weekday (e.g., "Sat 8")
+ *
+ * @param date - Date to format
+ * @returns Formatted date string with short weekday and day number
+ *
+ * @example
+ * formatShortDate(new Date("2025-02-08")) // "Sat 8"
+ */
+export function formatShortDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Format a date with full details including year (e.g., "Saturday, February 8, 2025")
+ *
+ * @param date - Date to format
+ * @returns Formatted date string with weekday, full month, day, and year
+ *
+ * @example
+ * formatFullDateWithYear(new Date("2025-02-08")) // "Saturday, February 8, 2025"
+ */
+export function formatFullDateWithYear(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
