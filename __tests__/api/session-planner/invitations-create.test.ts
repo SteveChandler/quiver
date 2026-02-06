@@ -289,7 +289,6 @@ describe("/api/session-planner/invitations - POST", () => {
 
       // Mock session and invitation queries
       (mockSupabaseClient.from as jest.Mock).mockImplementation((table: string) => {
-        console.log("MOCK from() called with table:", table);
         if (table === "sessions") {
           return {
             select: jest.fn(() => ({
@@ -313,12 +312,12 @@ describe("/api/session-planner/invitations - POST", () => {
                 eq: jest.fn(() => ({
                   single: jest.fn().mockResolvedValue({ data: null, error: null }),
                 })),
-              })),
-              gt: jest.fn(() => ({
-                order: jest.fn(() => ({
-                  maybeSingle: jest
-                    .fn()
-                    .mockResolvedValue({ data: null, error: null }),
+                gt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    maybeSingle: jest
+                      .fn()
+                      .mockResolvedValue({ data: null, error: null }),
+                  })),
                 })),
               })),
             })),
@@ -377,10 +376,6 @@ describe("/api/session-planner/invitations - POST", () => {
       );
 
       const response = await POST(request);
-      if (response.status !== 200) {
-        const data = await response.json();
-        console.log("FAIL RESPONSE:", JSON.stringify(data, null, 2));
-      }
       expect(response.status).toBe(200);
     });
 
@@ -412,12 +407,12 @@ describe("/api/session-planner/invitations - POST", () => {
                 eq: jest.fn(() => ({
                   single: jest.fn().mockResolvedValue({ data: null, error: null }),
                 })),
-              })),
-              gt: jest.fn(() => ({
-                order: jest.fn(() => ({
-                  maybeSingle: jest
-                    .fn()
-                    .mockResolvedValue({ data: null, error: null }),
+                gt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    maybeSingle: jest
+                      .fn()
+                      .mockResolvedValue({ data: null, error: null }),
+                  })),
                 })),
               })),
             })),
@@ -639,12 +634,12 @@ describe("/api/session-planner/invitations - POST", () => {
                 eq: jest.fn(() => ({
                   single: jest.fn().mockResolvedValue({ data: null, error: null }),
                 })),
-              })),
-              gt: jest.fn(() => ({
-                order: jest.fn(() => ({
-                  maybeSingle: jest
-                    .fn()
-                    .mockResolvedValue({ data: null, error: null }),
+                gt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    maybeSingle: jest
+                      .fn()
+                      .mockResolvedValue({ data: null, error: null }),
+                  })),
                 })),
               })),
             })),
