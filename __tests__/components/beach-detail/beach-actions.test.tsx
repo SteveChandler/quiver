@@ -547,6 +547,63 @@ describe('BeachActions', () => {
     });
   });
 
+  describe('Public Mode Auth Gating', () => {
+    test('in publicMode, clicking Log Session calls onAuthRequired instead of onLogSession', () => {
+      const mockAuthRequired = jest.fn();
+      render(
+        <BeachActions
+          beach={mockBeach}
+          onLogSession={mockOnLogSession}
+          publicMode={true}
+          onAuthRequired={mockAuthRequired}
+        />
+      );
+
+      const logBtn = screen.getByRole('button', { name: /log session/i });
+      fireEvent.click(logBtn);
+
+      expect(mockAuthRequired).toHaveBeenCalledTimes(1);
+      expect(mockOnLogSession).not.toHaveBeenCalled();
+    });
+
+    test('in publicMode, clicking Plan Session calls onAuthRequired instead of onPlanSession', () => {
+      const mockAuthRequired = jest.fn();
+      render(
+        <BeachActions
+          beach={mockBeach}
+          onPlanSession={mockOnPlanSession}
+          publicMode={true}
+          onAuthRequired={mockAuthRequired}
+        />
+      );
+
+      const planBtn = screen.getByRole('button', { name: /plan session/i });
+      fireEvent.click(planBtn);
+
+      expect(mockAuthRequired).toHaveBeenCalledTimes(1);
+      expect(mockOnPlanSession).not.toHaveBeenCalled();
+    });
+
+    test('without publicMode, buttons call original handlers normally', () => {
+      const mockAuthRequired = jest.fn();
+      render(
+        <BeachActions
+          beach={mockBeach}
+          onLogSession={mockOnLogSession}
+          onPlanSession={mockOnPlanSession}
+          onAuthRequired={mockAuthRequired}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /log session/i }));
+      fireEvent.click(screen.getByRole('button', { name: /plan session/i }));
+
+      expect(mockOnLogSession).toHaveBeenCalledTimes(1);
+      expect(mockOnPlanSession).toHaveBeenCalledTimes(1);
+      expect(mockAuthRequired).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Integration', () => {
     test('components work together without conflicts', () => {
       render(

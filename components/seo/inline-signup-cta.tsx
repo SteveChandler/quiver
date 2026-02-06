@@ -122,7 +122,7 @@ export function InlineSignupCta({
         </div>
 
         <p className="mt-4 text-xs text-gray-500">
-          Join 1,200+ surfers tracking conditions and logging sessions
+          Forecasts updated every 3 hours with ML-corrected predictions
         </p>
       </div>
 

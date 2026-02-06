@@ -2,11 +2,11 @@
 
 import { BeachDetail } from "@/components/beach-detail";
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useState, useRef, Suspense, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { trackPublicPageView } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { Beach } from "@/types/database";
-import AuthGate from "@/components/auth/auth-gate";
+
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
@@ -84,9 +84,6 @@ export function BeachDetailClient({
 
   return (
     <>
-      <Suspense fallback={null}>
-        <AuthGate block />
-      </Suspense>
       <BeachDetail
         id={beach.id}
         publicMode={!user}

@@ -49,6 +49,7 @@ import {
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
 // Only load the active tab's code on-demand
@@ -132,6 +133,7 @@ function BeachDetailContent({
   const [sessionPlanningMode, setSessionPlanningMode] = useState<
     "log" | "plan"
   >("log");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(defaultTab || "overview");
 
   // Track whether we've already synced the tab from URL params
@@ -363,6 +365,10 @@ function BeachDetailContent({
     setSessionPlanningOpen(true);
   };
 
+  const handleAuthRequired = useCallback(() => {
+    setAuthModalOpen(true);
+  }, []);
+
   const tabActions = (
     <>
       <Button
@@ -421,6 +427,8 @@ function BeachDetailContent({
           onLogSession={handleLogSession}
           onGetDirections={handleGetDirections}
           canGetDirections={canGetDirections}
+          publicMode={publicMode}
+          onAuthRequired={handleAuthRequired}
           className="mb-8"
         />
 
@@ -556,6 +564,16 @@ function BeachDetailContent({
           />
         </DialogContent>
       </Dialog>
+
+      {/* Auth Modal for unauthenticated action button clicks */}
+      {publicMode && (
+        <UnifiedAuthModal
+          isOpen={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          mode="signup"
+          source="beach-action-buttons"
+        />
+      )}
     </div>
   );
 }
