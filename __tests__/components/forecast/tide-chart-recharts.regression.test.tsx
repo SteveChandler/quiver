@@ -17,6 +17,63 @@ beforeAll(() => {
   };
 });
 
+describe("TideChart extrema-only directData synthesis", () => {
+  it("renders smooth chart (not 'No tide data') when data prop contains only extrema", () => {
+    const now = new Date();
+    const HOUR = 60 * 60 * 1000;
+
+    // Simulate what TideOverviewSection passes: extrema-only points with isHigh/isLow flags
+    const extremaData = [
+      { t: new Date(now.getTime() - 3 * HOUR), h: 5.2, isHigh: true as const },
+      {
+        t: new Date(now.getTime() + 3 * HOUR),
+        h: -0.3,
+        isLow: true as const,
+      },
+      {
+        t: new Date(now.getTime() + 9 * HOUR),
+        h: 4.8,
+        isHigh: true as const,
+      },
+    ];
+
+    render(
+      <StrictMode>
+        <TideChart data={extremaData} now={now} />
+      </StrictMode>
+    );
+
+    // Chart should render with the accessible role
+    expect(
+      screen.getByRole("img", { name: /tide forecast/i })
+    ).toBeInTheDocument();
+    // Should NOT show empty state
+    expect(screen.queryByText("No tide data available")).toBeNull();
+  });
+
+  it("renders chart unchanged when data prop contains dense hourly points", () => {
+    const now = new Date();
+    const HOUR = 60 * 60 * 1000;
+
+    // Simulate what TideFullChart passes: dense hourly points, no isHigh/isLow flags
+    const denseData = Array.from({ length: 24 }, (_, i) => ({
+      t: new Date(now.getTime() + (i - 12) * HOUR),
+      h: Math.sin(i / 4) * 3 + 2,
+    }));
+
+    render(
+      <StrictMode>
+        <TideChart data={denseData} now={now} />
+      </StrictMode>
+    );
+
+    expect(
+      screen.getByRole("img", { name: /tide forecast/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No tide data available")).toBeNull();
+  });
+});
+
 describe("TideChart regression", () => {
   it("handles empty → loaded transitions under StrictMode without React errors", () => {
     const startErrors = (console.error as jest.Mock).mock.calls.length;

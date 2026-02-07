@@ -228,6 +228,11 @@ export const sortAndUnique = (points: InternalPoint[]): InternalPoint[] => {
   return Array.from(byTs.values()).sort((a, b) => a.timestamp - b.timestamp);
 };
 
+export const isExtremaOnly = (points: InternalPoint[]): boolean => {
+  if (points.length < 2) return false;
+  return points.every((p) => p.isHigh === true || p.isLow === true);
+};
+
 export const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
   if (extrema.length < 2) return extrema;
   const sorted = sortAndUnique(extrema);

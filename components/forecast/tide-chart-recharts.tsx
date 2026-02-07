@@ -30,6 +30,7 @@ import {
   normalizeTideSchedule as normalizeTideScheduleInternal,
   normalizeForecasts,
   sortAndUnique,
+  isExtremaOnly,
   synthesizeFromExtrema,
   annotateWithExtrema,
 } from "./tide-chart/tide-chart-helpers";
@@ -165,7 +166,11 @@ export function TideChart({
 
   const rawLine = React.useMemo(() => {
     // Priority: direct data > tide_schedule > hourly > events > forecasts
-    if (directData.length) return directData;
+    if (directData.length) {
+      return isExtremaOnly(directData)
+        ? synthesizeFromExtrema(directData)
+        : directData;
+    }
     if (tideScheduleData.length) return synthesizeFromExtrema(tideScheduleData);
     if (hourlyData.length) return hourlyData;
     if (eventData.length) return synthesizeFromExtrema(eventData);
