@@ -43,6 +43,8 @@ import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
+import { FAQSection } from "@/components/seo/faq-schema";
+import { generateCityContent } from "@/lib/seo/city-content-generator";
 import { LocationMapClient } from "./location-map-client";
 
 const SITE_ORIGIN = (
@@ -230,6 +232,15 @@ export default async function LocationPage(props: LocationPageProps) {
     );
   }
 
+  // Generate data-driven SEO content for non-editorial pages
+  const { summary: citySummary, faqs: cityFaqs } = generateCityContent({
+    cityName: displayCityName,
+    stateName: location.state,
+    stateSlug: params.state,
+    stats,
+    beaches,
+  });
+
   // Standard layout for cities without editorial content
   return (
     <>
@@ -293,6 +304,9 @@ export default async function LocationPage(props: LocationPageProps) {
             )}
           </div>
         </header>
+
+        {/* Data-driven summary for SEO */}
+        <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">{citySummary}</p>
 
         {/* Content Grid: Beach List + Map */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -418,6 +432,9 @@ export default async function LocationPage(props: LocationPageProps) {
           locationType="city"
           stateAbbrev={params.state.toUpperCase()}
         />
+
+        {/* FAQ Section for SEO */}
+        <FAQSection items={cityFaqs} locationName={displayCityName} />
 
         {/* Empty State (shouldn't happen due to notFound check above) */}
         {beaches.length === 0 && (
