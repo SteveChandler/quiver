@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SEO_CONFIG } from "@/lib/constants/seo";
+import { truncateMetaDescription } from "@/lib/utils/seo-utils";
 
 const baseUrlString =
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -267,4 +268,35 @@ export function buildDynamicWaterTempMetadata({
     : `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. Free surf conditions, no paywall.`;
 
   return { title, description };
+}
+
+/**
+ * Build an enriched meta description for beach pages using real data fields.
+ * Falls back to a generic description if beach data is sparse.
+ */
+export function buildEnrichedBeachMetaDescription(beach: {
+  name: string;
+  city?: string | null;
+  state?: string | null;
+  break_type?: string | null;
+  skill_level?: string | null;
+  best_months?: number[] | null;
+}): string {
+  const parts: string[] = [];
+
+  if (beach.break_type && beach.skill_level) {
+    parts.push(`${beach.name} is a ${beach.skill_level}-level ${beach.break_type} break`);
+  } else if (beach.break_type) {
+    parts.push(`${beach.name} is a ${beach.break_type} break`);
+  } else {
+    parts.push(`${beach.name} surf report`);
+  }
+
+  const location = beach.city && beach.state ? `in ${beach.city}, ${beach.state}` : '';
+  if (location) parts[0] += ` ${location}`;
+  parts[0] += '.';
+
+  parts.push('Free 7-day forecast, tide charts, wind & crowd intel. Updated hourly, no paywall.');
+
+  return truncateMetaDescription(parts.join(' '));
 }

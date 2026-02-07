@@ -26,17 +26,22 @@ import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/c
 import {
   PopularCitiesForIntent,
   TideOverviewSection,
+  TidePageContent,
   WaterTempOverviewSection,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
+import { ContinueExploring } from "@/components/shared/continue-exploring";
+import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { ZeroState } from "@/components/ui/zero-state";
 import {
   getCityTideData,
+  getCityTideDataExpanded,
   getCityWaterTempHistory,
   type CityTideData,
+  type CityTideDataExpanded,
   type CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
 import { findCitiesMatchingPattern } from "@/actions/city/city-metadata-actions";
@@ -348,7 +353,8 @@ export default async function IntentPage(props: IntentPageParams) {
           items={generateIntentFAQ(
             params.intent as SurfIntentSlug,
             stateName,
-            beaches.slice(0, 3).map((b) => b.name)
+            beaches.slice(0, 3).map((b) => b.name),
+            params.city
           )}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -360,7 +366,7 @@ export default async function IntentPage(props: IntentPageParams) {
               {beaches.length} spots across {stateName}
             </p>
             <p className="text-base text-gray-700 mt-4">
-              {intentDefinition.intro({ cityName: stateName })}
+              {intentDefinition.intro({ cityName: stateName, stateSlug: params.city })}
             </p>
           </header>
 
@@ -411,6 +417,14 @@ export default async function IntentPage(props: IntentPageParams) {
                   />
                 </section>
               )}
+
+              {/* Cross-intent navigation */}
+              <IntentGuidesGrid
+                locationSlug={params.city}
+                locationName={stateName}
+                locationType="state"
+                currentIntent={params.intent as IntentKey}
+              />
             </>
           )}
         </div>
@@ -456,6 +470,52 @@ export default async function IntentPage(props: IntentPageParams) {
         baseUrl={baseUrl}
       />
     );
+  }
+
+  // Tide intent: use dedicated page component with 7-day data + beach preferences
+  if (params.intent === "tide") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const tidePageContent = buildIntentPageContent("tide", cityMetadata);
+
+    const [expandedTideData, tideBeachesResult] = await Promise.all([
+      getCityTideDataExpanded(cityMetadata.cityName, cityMetadata.state),
+      getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower),
+    ]);
+
+    // If expanded data unavailable, fall through to generic intent flow
+    if (expandedTideData) {
+      const tideBeachesWithMetrics: BeachWithMetrics[] = (
+        tideBeachesResult.success && tideBeachesResult.data
+          ? tideBeachesResult.data
+          : []
+      ).map((beach) => ({
+        ...beach,
+        compositeScore: 0,
+        recentIntelCount: 0,
+        avgConfirmations: 0,
+      }));
+      const tideSpots: SurfSpot[] = transformBeachesToSurfSpots(tideBeachesWithMetrics);
+
+      const now = new Date();
+      const tideUpdatedAt = formatPacificDateTime(now);
+
+      return (
+        <TidePageContent
+          cityName={cityMetadata.cityName}
+          citySlug={params.city}
+          stateSlug={stateSlugLower}
+          stateName={cityMetadata.stateName}
+          regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+          pageContent={tidePageContent}
+          tideData={expandedTideData}
+          spots={tideSpots}
+          updatedAt={tideUpdatedAt}
+          baseUrl={baseUrl}
+        />
+      );
+    }
+    // Fall through to generic intent flow if expanded data unavailable
   }
 
   // Generate content from templates
@@ -531,7 +591,8 @@ export default async function IntentPage(props: IntentPageParams) {
         items={generateIntentFAQ(
           params.intent as SurfIntentSlug,
           cityMetadata.cityName,
-          spots.slice(0, 3).map((s) => s.name)
+          spots.slice(0, 3).map((s) => s.name),
+          cityMetadata.state.toLowerCase()
         )}
       />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -653,45 +714,13 @@ export default async function IntentPage(props: IntentPageParams) {
                   </li>
                 </ul>
               </div>
-              <div className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Continue exploring
-                </h2>
-                <ul className="mt-3 space-y-2 text-sm text-sky-700">
-                  <li>
-                    <a
-                      href={`/beaches/usa/${cityMetadata.state.toLowerCase()}/${params.city}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      Back to the {cityMetadata.cityName} surf hub
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={`/${params.intent}/${cityMetadata.state.toLowerCase()}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      {definition.label} spots across {cityMetadata.stateName}
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={`/least-crowded/${params.city}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      Less-crowded backups
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href={`/water-temp/${params.city}`}
-                      className="underline-offset-2 hover:underline"
-                    >
-                      Water temperature trends
-                    </a>
-                  </li>
-                </ul>
-              </div>
+              <ContinueExploring
+                currentIntent={params.intent as IntentKey}
+                citySlug={params.city}
+                cityName={cityMetadata.cityName}
+                stateSlug={cityMetadata.state.toLowerCase()}
+                stateName={cityMetadata.stateName}
+              />
             </aside>
           </div>
         </div>

@@ -4,6 +4,7 @@
  */
 
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
+import { getRegionalData } from "@/lib/seo/regional-surf-data";
 
 export interface FAQItem {
   question: string;
@@ -15,15 +16,18 @@ export interface FAQItem {
  * @param intent - The surf intent slug
  * @param locationName - Name of the city or state
  * @param topSpots - Array of top spot names (up to 3 will be used)
+ * @param stateSlug - Optional state slug for regional data (e.g., "ca", "hi")
  * @returns Array of FAQ items suitable for FAQSchema component
  */
 export function generateIntentFAQ(
   intent: SurfIntentSlug,
   locationName: string,
-  topSpots: string[]
+  topSpots: string[],
+  stateSlug?: string
 ): FAQItem[] {
   const spotList = topSpots.slice(0, 3).join(", ");
   const hasSpots = topSpots.length > 0;
+  const regional = stateSlug ? getRegionalData(stateSlug) : null;
 
   const faqs: Record<SurfIntentSlug, FAQItem[]> = {
     beginner: [
@@ -39,7 +43,9 @@ export function generateIntentFAQ(
       },
       {
         question: `Do I need a wetsuit for surfing in ${locationName}?`,
-        answer: `Wetsuit requirements in ${locationName} vary by season. Summer typically requires a spring suit or just board shorts, while winter calls for a full 3/2mm or 4/3mm wetsuit depending on water temperature.`,
+        answer: regional
+          ? `Wetsuit requirements in ${locationName} vary by season. Summer typically calls for ${regional.summerWetsuit}, while winter requires ${regional.winterWetsuit}. Water temperatures range from ${regional.waterTempRange}\u00B0F throughout the year.`
+          : `Wetsuit requirements in ${locationName} vary by season. Summer typically requires a spring suit or just board shorts, while winter calls for a full 3/2mm or 4/3mm wetsuit depending on water temperature.`,
       },
     ],
     "least-crowded": [
@@ -75,15 +81,23 @@ export function generateIntentFAQ(
     "water-temp": [
       {
         question: `What wetsuit do I need for ${locationName}?`,
-        answer: `Water temperatures in ${locationName} typically range from 55-70°F. A 3/2mm wetsuit works for summer, while 4/3mm is recommended for winter. Spring and fall may require a 4/3mm or 3/2mm depending on your cold tolerance.`,
+        answer: regional
+          ? `Water temperatures in ${locationName} typically range from ${regional.waterTempRange}\u00B0F. For summer, ${regional.summerWetsuit} is recommended. In winter, you'll want ${regional.winterWetsuit}. Spring and fall may require adjusting based on your cold tolerance.`
+          : `Water temperatures in ${locationName} typically range from 55-70\u00B0F. A 3/2mm wetsuit works for summer, while 4/3mm is recommended for winter. Spring and fall may require a 4/3mm or 3/2mm depending on your cold tolerance.`,
       },
       {
         question: `What is the water temperature in ${locationName} right now?`,
-        answer: `Water temperatures in ${locationName} vary by season. Check Quiver's live water temperature data for real-time readings at specific surf spots. Temperatures are typically warmest in late summer (68-72°F) and coldest in winter (55-60°F).`,
+        answer: regional
+          ? `Water temperatures in ${locationName} vary by season, ranging from ${regional.waterTempRange}\u00B0F. Check Quiver's live water temperature data for real-time readings at specific surf spots. Temperatures are typically warmest around ${regional.warmestMonth} and coldest in ${regional.coldestMonth}.`
+          : `Water temperatures in ${locationName} vary by season. Check Quiver's live water temperature data for real-time readings at specific surf spots. Temperatures are typically warmest in late summer (68-72\u00B0F) and coldest in winter (55-60\u00B0F).`,
       },
       {
         question: `Does ${locationName} get warm enough to surf without a wetsuit?`,
-        answer: `During peak summer months, water temperatures in ${locationName} can reach 68-72°F, making it possible to surf in board shorts or a spring suit. However, most surfers prefer at least a spring suit for longer sessions and early morning surfs.`,
+        answer: regional
+          ? regional.trunksSeason
+            ? `Yes! During ${regional.trunksSeason}, water temperatures in ${locationName} are warm enough to surf in boardshorts. Outside that window, ${regional.summerWetsuit} is a good baseline for comfortable sessions.`
+            : `Water temperatures in ${locationName} range from ${regional.waterTempRange}\u00B0F, so most surfers wear at least ${regional.summerWetsuit} even in summer. A wetsuit is recommended year-round for longer sessions and early morning surfs.`
+          : `During peak summer months, water temperatures in ${locationName} can reach 68-72\u00B0F, making it possible to surf in board shorts or a spring suit. However, most surfers prefer at least a spring suit for longer sessions and early morning surfs.`,
       },
     ],
     longboard: [

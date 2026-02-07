@@ -884,9 +884,9 @@ export const FEATURES_EXTENDED_CONTENT = {
     subtitle:
       "350+ intent-based pages help you find exactly the right break for any style, skill, or scenario.",
     examples: [
-      { label: "Best Beginner Spots", href: "/discover?level=beginner" },
-      { label: "Longboard-Friendly Waves", href: "/discover?type=longboard" },
-      { label: "Dawn Patrol Picks", href: "/discover?time=dawn" },
+      { label: "Best Beginner Spots", href: "/map?level=beginner" },
+      { label: "Longboard-Friendly Waves", href: "/map?type=longboard" },
+      { label: "Dawn Patrol Picks", href: "/map" },
       { label: "Regional Hub Guides", href: "/map" },
     ],
   },

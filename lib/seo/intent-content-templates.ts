@@ -7,6 +7,8 @@
 
 import type { CityMetadata } from "@/actions/city/city-metadata-actions";
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
+import { getClimateZone } from "@/lib/seo/regional-surf-data";
+import { truncateMetaDescription } from "@/lib/utils/seo-utils";
 
 export interface IntentPageContent {
   title: string;
@@ -18,6 +20,7 @@ export interface IntentPageContent {
 interface ContentTemplateArgs {
   cityName: string;
   stateName: string;
+  stateSlug: string;
   totalBeaches: number;
   beginnerCount: number;
   intermediateCount: number;
@@ -40,6 +43,7 @@ export function buildIntentPageContent(
   const args: ContentTemplateArgs = {
     cityName: metadata.cityName,
     stateName: metadata.stateName,
+    stateSlug: metadata.state.toLowerCase(),
     totalBeaches: metadata.totalBeaches,
     beginnerCount: metadata.beginnerCount,
     intermediateCount: metadata.intermediateCount,
@@ -61,26 +65,40 @@ export function buildIntentPageContent(
 function getIntentTemplates(
   args: ContentTemplateArgs
 ): Record<SurfIntentSlug, IntentPageContent> {
-  const { cityName, stateName, totalBeaches, beginnerCount, topSpotNames } = args;
+  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames } = args;
   // Note: advancedCount, intermediateCount, and allSpotNames are available for future template enhancements
 
   // Conditional intro text for cities with no beginner spots
   const beginnerIntro =
     beginnerCount > 0
-      ? `${cityName} offers ${totalBeaches} surf spots along the ${stateName} coast, including beginner-friendly options at spots like ${topSpotNames}. Whether you're catching your first wave or building fundamentals, this guide helps you find the right break for your skill level.`
+      ? `${cityName} has ${totalBeaches} breaks along the ${stateName} coast. ${beginnerCount} of those have gentle enough sandbars and small enough crowds for learning. Start at ${topSpotNames} and work your way up as you get comfortable reading the lineup.`
       : `${cityName} is known for more challenging waves suited to experienced surfers. While dedicated beginner spots are limited, the area offers ${totalBeaches} breaks including ${topSpotNames}. Consider visiting during smaller swells or checking nearby cities for more forgiving conditions.`;
 
-  const leastCrowdedIntro = `Looking to escape the crowds? ${cityName} has ${totalBeaches} surf spots with varying levels of popularity. Spots like ${topSpotNames} offer quality waves with room to breathe, especially during off-peak hours and weekday sessions.`;
+  const leastCrowdedIntro = `When ${cityName} lineups stack up, knowing a backup changes everything. These ${totalBeaches} breaks range from tucked-away reef passes to underrated sandbars that stay empty even on weekend south pulses.`;
 
-  const tideIntro = `Tide conditions significantly impact surfing in ${cityName}. With ${totalBeaches} breaks including ${topSpotNames}, each spot has optimal tide windows. This guide helps you time your sessions for the best conditions.`;
+  const tideIntro = `A foot of tide swing can shut down one break and light up another in ${cityName}. These ${totalBeaches} spots all respond differently - some need the low to expose the bar, others clean up on a rising mid.`;
 
-  const waterTempIntro = `Water temperatures in ${cityName}, ${stateName} vary throughout the year. Plan your sessions with our real-time water temp data for ${totalBeaches} local breaks including ${topSpotNames}. Know what wetsuit you need before you paddle out.`;
+  const waterTempIntro = (() => {
+    const zone = getClimateZone(stateSlug);
+    switch (zone) {
+      case "tropical":
+        return `${cityName} stays warm year-round with water temps rarely dipping below the mid-70s. A rashguard handles most sessions, and reef booties are more important than neoprene here. Use this guide to plan around trade wind shifts and seasonal swell patterns.`;
+      case "warm-atlantic":
+        return `${cityName} water stays swimmable most of the year, but winter cold fronts can drop temps fast. Hurricane season brings the warmest water alongside the best waves. This guide helps you pick the right rubber for each season.`;
+      case "cold-pacific":
+        return `${cityName} water runs cold year-round - you'll want a thick wetsuit even in summer. The upside: powerful swells, uncrowded lineups, and dramatic coastline. Use this guide to stay warm and surf longer.`;
+      case "temperate-pacific":
+        return `Pack the right rubber and you'll extend your sessions in ${cityName} by an hour. Temps swing from upwelling lows to summer peaks, and the difference between a 3/2 and a 4/3 day can come overnight.`;
+      case "cold-atlantic":
+        return `${cityName} water temps swing dramatically with the seasons - from frigid winter surf requiring full hooded suits to warm summer sessions in trunks or a spring suit. This guide helps you gear up right for every month.`;
+    }
+  })();
 
-  const longboardIntro = `${cityName} offers excellent longboard waves at spots like ${topSpotNames}. With ${totalBeaches} breaks in the area, you'll find gentle, peeling waves perfect for nose riding and classic longboard surfing.`;
+  const longboardIntro = `${cityName} delivers the kind of mellow walls that make nine-footers purr. These ${totalBeaches} breaks offer long shoulders, patient sections, and enough face to cross-step without rushing.`;
 
-  const dawnPatrolIntro = `Early morning surf sessions in ${cityName} deliver glassy conditions and uncrowded lineups. ${totalBeaches} spots await, including ${topSpotNames}. Get the inside scoop on dawn patrol timing and conditions.`;
+  const dawnPatrolIntro = `First light in ${cityName} means glass, empty peaks, and the best conditions of the day before thermal onshores build. These ${totalBeaches} spots are worth the 5am alarm.`;
 
-  const sunsetIntro = `Golden hour sessions in ${cityName} offer stunning views and often cleaner conditions as winds die down. Explore ${totalBeaches} breaks including ${topSpotNames} for your evening surf.`;
+  const sunsetIntro = `After-work glass-offs in ${cityName} can rival dawn patrol on good days. Afternoon thermals die, the crowd thins, and these ${totalBeaches} west-facing breaks catch the last clean sets of the day.`;
 
   return {
     beginner: {
@@ -140,24 +158,4 @@ function getIntentTemplates(
       ),
     },
   };
-}
-
-/**
- * Truncate meta description to 160 characters max.
- * Tries to break at word boundary.
- */
-function truncateMetaDescription(text: string): string {
-  if (text.length <= 160) {
-    return text;
-  }
-
-  // Find last space before 157 chars to allow for "..."
-  const truncated = text.slice(0, 157);
-  const lastSpace = truncated.lastIndexOf(" ");
-
-  if (lastSpace > 100) {
-    return truncated.slice(0, lastSpace) + "...";
-  }
-
-  return truncated + "...";
 }

@@ -20,6 +20,7 @@ import { SafetyEssentials } from "./SafetyEssentials";
 import { GearAndLessons } from "./GearAndLessons";
 import { SessionGallery } from "./SessionGallery";
 import { BeginnerFAQ } from "./BeginnerFAQ";
+import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { SectionFadeUp } from "./SectionFadeUp";
 
 interface BeginnerPageContentProps {
@@ -172,45 +173,13 @@ export function BeginnerPageContent({
 
           {/* Continue Exploring */}
           <SectionFadeUp>
-            <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">
-                Continue exploring
-              </h2>
-              <ul className="space-y-2 text-sm text-sky-700">
-                <li>
-                  <Link
-                    href={`/beaches/usa/${stateSlug}/${citySlug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Back to the {cityName} surf hub
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={`/tide/${citySlug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    {cityName} tide chart &amp; forecast
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={`/water-temp/${citySlug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Water temperature trends
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={`/least-crowded/${citySlug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Less-crowded backups
-                  </Link>
-                </li>
-              </ul>
-            </aside>
+            <ContinueExploring
+              currentIntent="beginner"
+              citySlug={citySlug}
+              cityName={cityName}
+              stateSlug={stateSlug}
+              stateName={stateName}
+            />
           </SectionFadeUp>
 
           {/* Planning Checklist */}

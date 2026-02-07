@@ -52,6 +52,7 @@ export interface ForecastInputs {
   weatherData: WeatherPeriod[];
   buoyData: NDBCBuoyRow | null;
   cdipData: CDIPBuoyData | null;
+  ioosWaterTempC: number | null;
 }
 
 /**
@@ -70,7 +71,7 @@ export class ForecastBuilder {
    * Build forecasts from raw data sources
    */
   async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastWithRawData[]> {
-    const { beach, waveData, tideData, weatherData, buoyData, cdipData } = inputs;
+    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
@@ -139,6 +140,7 @@ export class ForecastBuilder {
         isFirstOfDay,
         cdipData,
         now,
+        ioosWaterTempC,
       });
 
       forecasts.push(forecast);
@@ -167,6 +169,7 @@ export class ForecastBuilder {
     isFirstOfDay: boolean;
     cdipData: CDIPBuoyData | null;
     now: Date;
+    ioosWaterTempC: number | null;
   }): EnhancedForecastWithRawData {
     const {
       beach,
@@ -185,6 +188,7 @@ export class ForecastBuilder {
       isFirstOfDay,
       cdipData,
       now,
+      ioosWaterTempC,
     } = params;
 
     return {
@@ -212,7 +216,7 @@ export class ForecastBuilder {
       wind_wave_direction: this.getWindWaveDirection(cdipPoint, wavePoint, useCDIPData),
 
       // Water temperature
-      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime),
+      water_temp: this.getWaterTemperature(buoyData, beach, forecastTime, ioosWaterTempC),
 
       // Wind data
       wind_speed: this.getWindSpeed(weatherPoint),
@@ -584,10 +588,24 @@ export class ForecastBuilder {
     return null;
   }
 
-  private getWaterTemperature(buoyData: NDBCBuoyRow | null, beach: Beach, forecastTime: Date): string | null {
-    if (buoyData?.water_temperature) {
+  private getWaterTemperature(
+    buoyData: NDBCBuoyRow | null,
+    beach: Beach,
+    forecastTime: Date,
+    ioosWaterTempC: number | null
+  ): string | null {
+    // Priority 1: IOOS observed water temperature (most geographically accurate)
+    if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
+      const tempF = Math.round((ioosWaterTempC * 9) / 5 + 32);
+      return `${tempF}°F`;
+    }
+
+    // Priority 2: NDBC buoy water temperature
+    if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
       return `${Math.round((buoyData.water_temperature * 9) / 5 + 32)}°F`;
     }
+
+    // Priority 3: Latitude-based estimation
     return this.estimateWaterTemperature(beach.lat ?? 32.7, forecastTime);
   }
 
@@ -628,16 +646,73 @@ export class ForecastBuilder {
 
   private estimateWaterTemperature(lat: number, date: Date): string {
     const month = date.getMonth();
-    let baseTemp = 65;
-    const seasonalAdjustment = 10 * Math.sin(((month - 3) * Math.PI) / 6);
+    const absLat = Math.abs(lat);
+
+    // Base temperature varies by latitude zone (in degrees F)
+    let baseTemp: number;
+    let seasonalAmplitude: number;
+
+    if (absLat < 20) {
+      // Tropical: warm year-round, minimal seasonal variation
+      baseTemp = 80;
+      seasonalAmplitude = 3;
+    } else if (absLat < 30) {
+      // Subtropical: warm with moderate seasonal variation
+      baseTemp = 75;
+      seasonalAmplitude = 6;
+    } else if (absLat < 40) {
+      // Temperate: moderate with significant seasonal variation
+      baseTemp = 62;
+      seasonalAmplitude = 10;
+    } else if (absLat < 50) {
+      // Cool temperate: cooler with large seasonal swing
+      baseTemp = 54;
+      seasonalAmplitude = 12;
+    } else {
+      // Northern/polar: cold year-round
+      baseTemp = 48;
+      seasonalAmplitude = 10;
+    }
+
+    // Seasonal adjustment - water temp peaks around Aug-Sep (lags air by 1-2 months)
+    const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 2) * Math.PI) / 6);
+
     const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
     return `${estimatedTemp}°F`;
   }
 
   private estimateAirTemperature(lat: number, date: Date): string {
     const month = date.getMonth();
-    let baseTemp = 70;
-    const seasonalAdjustment = 15 * Math.sin(((month - 3) * Math.PI) / 6);
+    const absLat = Math.abs(lat);
+
+    // Base air temperature varies by latitude zone (in degrees F)
+    let baseTemp: number;
+    let seasonalAmplitude: number;
+
+    if (absLat < 20) {
+      // Tropical: warm year-round
+      baseTemp = 84;
+      seasonalAmplitude = 4;
+    } else if (absLat < 30) {
+      // Subtropical
+      baseTemp = 78;
+      seasonalAmplitude = 10;
+    } else if (absLat < 40) {
+      // Temperate
+      baseTemp = 65;
+      seasonalAmplitude = 15;
+    } else if (absLat < 50) {
+      // Cool temperate
+      baseTemp = 55;
+      seasonalAmplitude = 18;
+    } else {
+      // Northern/polar
+      baseTemp = 48;
+      seasonalAmplitude = 15;
+    }
+
+    // Air temp peaks ~July (month 6), earlier than water temp
+    const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 3) * Math.PI) / 6);
     const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
     return `${estimatedTemp}°F`;
   }

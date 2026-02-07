@@ -98,6 +98,25 @@ export function MapView() {
     }
   }, [searchParams, searchQuery, setSearchQuery]);
 
+  // Apply filters from URL params on initial mount (e.g. /map?type=reef or /map?level=beginner)
+  const VALID_BREAK_TYPES = new Set(["beach", "point", "reef", "longboard", "bodyboard"]);
+  const urlFiltersAppliedRef = useRef(false);
+  useEffect(() => {
+    if (urlFiltersAppliedRef.current) return;
+    urlFiltersAppliedRef.current = true;
+
+    const typeParam = searchParams.get("type")?.toLowerCase();
+    const levelParam = searchParams.get("level");
+
+    if (typeParam && VALID_BREAK_TYPES.has(typeParam)) {
+      toggleBreakType(typeParam);
+    }
+    if (levelParam === "beginner") {
+      toggleBeginnerFriendly();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
@@ -249,7 +268,7 @@ export function MapView() {
           >
             Beginner-friendly
           </Badge>
-          {["beach", "point", "reef"].map((t) => (
+          {["beach", "point", "reef", "longboard", "bodyboard"].map((t) => (
             <Badge
               key={t}
               variant={filters.breakTypes.has(t) ? "default" : "outline"}

@@ -25,38 +25,23 @@ const STATIC_MENU_ITEMS = [
   { label: "Los Angeles County", href: "/map", category: "Regions" },
   {
     label: "Reef Breaks",
-    href: "/discover?type=reef",
+    href: "/map?type=reef",
     category: "Surf Spot Types",
   },
   {
     label: "Point Breaks",
-    href: "/discover?type=point",
+    href: "/map?type=point",
     category: "Surf Spot Types",
   },
   {
     label: "Beach Breaks",
-    href: "/discover?type=beach",
+    href: "/map?type=beach",
     category: "Surf Spot Types",
   },
   {
     label: "Beginner-Friendly",
-    href: "/discover?level=beginner",
+    href: "/map?level=beginner",
     category: "Surf Spot Types",
-  },
-  {
-    label: "Offshore Winds",
-    href: "/discover?conditions=offshore",
-    category: "Conditions",
-  },
-  {
-    label: "Best Swell Size",
-    href: "/discover?conditions=swell",
-    category: "Conditions",
-  },
-  {
-    label: "Optimal Tide",
-    href: "/discover?conditions=tide",
-    category: "Conditions",
   },
 ];
 

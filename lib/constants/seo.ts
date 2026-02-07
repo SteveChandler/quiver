@@ -81,6 +81,8 @@ export const SEO_CONFIG = {
     title: "Quiver - Ultimate Surf Community Platform",
     description:
       "Find surf buddies, track sessions, get forecasts. Join the surf community that's revolutionizing how surfers connect.",
+    site: "@quiversurf",
+    creator: "@quiversurf",
   },
 
   // Structured Data (JSON-LD)
@@ -99,6 +101,22 @@ export const SEO_CONFIG = {
       operatingSystem: "Web, iOS, Android",
     },
 
+    softwareApplication: {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Quiver Surf Community App",
+      applicationCategory: "Sports & Recreation",
+      operatingSystem: "Web, iOS, Android",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      url: SITE_URL,
+      description:
+        "Find surf buddies, track sessions, get forecasts. Join the ultimate surf community.",
+    },
+
     website: {
       "@context": "https://schema.org",
       "@type": "WebSite",
@@ -114,7 +132,7 @@ export const SEO_CONFIG = {
       },
       potentialAction: {
         "@type": "SearchAction",
-        target: `${SITE_URL}/discover?search={search_term_string}`,
+        target: `${SITE_URL}/map?search={search_term_string}`,
         "query-input": "required name=search_term_string",
       },
     },

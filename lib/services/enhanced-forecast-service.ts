@@ -4,7 +4,6 @@ import { cardinalToDegrees } from "./forecast/forecast-transformer";
 import { calculateConfidenceScore, decimalToConfidence } from "./forecast/confidence-scorer";
 import { ForecastStorageService } from "./forecast/storage-service";
 import { getForecastWeightingService } from "./forecast-weighting-service";
-import { calculateDistance } from "@/lib/utils/distance-utils";
 import { ForecastBuilder } from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
 import {
@@ -93,13 +92,16 @@ export class EnhancedForecastService {
         }
 
         // Fetch all data sources in parallel with error handling
-        const [waveData, tideData, weatherData, buoyData, cdipData] =
+        // Note: NDBC buoy fetch was removed — it picked a random buoy (no geographic
+        // filtering) so its wave/temp data was incorrect for non-local beaches.
+        // Water temp is now sourced from IOOS; wave data from CDIP + WaveWatch.
+        const [waveData, tideData, weatherData, cdipData, ioosWaterTempResult] =
           await Promise.allSettled([
             this.fetchWaveDataWithRetry(beach),
             this.fetchTidalDataWithRetry(beach),
             this.fetchWeatherDataWithRetry(beach),
-            this.fetchNearbyBuoyDataWithRetry(beach),
             this.fetchCDIPDataWithRetry(beach),
+            this.fetchIOOSWaterTemp(beach),
           ]);
 
         // Process results and handle failures gracefully
@@ -109,8 +111,9 @@ export class EnhancedForecastService {
           tideData: tideData.status === "fulfilled" ? tideData.value : null,
           weatherData:
             weatherData.status === "fulfilled" ? weatherData.value : [],
-          buoyData: buoyData.status === "fulfilled" ? buoyData.value : null,
+          buoyData: null,
           cdipData: cdipData.status === "fulfilled" ? cdipData.value : null,
+          ioosWaterTempC: ioosWaterTempResult.status === "fulfilled" ? ioosWaterTempResult.value : null,
         };
 
         // Log any data source failures
@@ -123,10 +126,13 @@ export class EnhancedForecastService {
             beachId: beach.id,
             dataSource: "weather",
           });
-        if (buoyData.status === "rejected")
-          logError(buoyData.reason, { beachId: beach.id, dataSource: "buoy" });
         if (cdipData.status === "rejected")
           logError(cdipData.reason, { beachId: beach.id, dataSource: "cdip" });
+        if (ioosWaterTempResult.status === "rejected")
+          logError(ioosWaterTempResult.reason, {
+            beachId: beach.id,
+            dataSource: "ioos_water_temp",
+          });
 
         // Process and combine all data sources
         const forecasts = await this.combineDataSources(processedData);
@@ -230,15 +236,6 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Fetch buoy data with retry logic
-   */
-  private async fetchNearbyBuoyDataWithRetry(beach: Beach) {
-    return withRetry(async () => {
-      return this.fetchNearbyBuoyData(beach);
-    });
-  }
-
-  /**
    * Fetch CDIP data with retry logic
    */
   private async fetchCDIPDataWithRetry(beach: Beach) {
@@ -288,46 +285,57 @@ export class EnhancedForecastService {
     });
   }
 
+  /** Maximum age (in hours) for IOOS water temperature observations to be considered valid */
+  private static readonly IOOS_STALENESS_HOURS = 48;
+
   /**
-   * Fetch nearby buoy data for real-time conditions
+   * Fetch the latest IOOS water temperature for a beach.
+   * Uses ioos_stations.nearest_beach_id to find assigned stations,
+   * then gets the most recent water_temp_c observation.
    */
-  private async fetchNearbyBuoyData(beach: Beach) {
-    try {
+  private async fetchIOOSWaterTemp(beach: Beach): Promise<number | null> {
+    return withRetry(async () => {
       const supabase = await createSupabaseServiceRoleClient();
 
-      // If an override NDBC station is set, return it directly (if present in table)
-      const beachAny = beach as any;
-      if (beachAny.ndbc_station) {
-        const { data: overrideBuoy } = await supabase
-          .from("buoys")
-          .select("*")
-          .eq("buoy_uuid", beachAny.ndbc_station)
-          .eq("active", true)
-          .limit(1)
-          .maybeSingle();
-        if (overrideBuoy) {
-          return { ...overrideBuoy, distance: 0 } as any;
-        }
-      }
-
-      // Get nearby buoys with recent data (no coordinates in table; cannot distance-sort here reliably)
-      const { data: buoys, error } = await supabase
-        .from("buoys")
-        .select("*")
+      // Find IOOS stations assigned to this beach
+      const { data: stations, error: stationError } = await supabase
+        .from("ioos_stations")
+        .select("station_id")
+        .eq("nearest_beach_id", beach.id)
         .eq("active", true)
-        .not("wave_height", "is", null)
-        .not("water_temperature", "is", null);
+        .limit(5);
 
-      if (error || !buoys) {
+      if (stationError || !stations || stations.length === 0) {
         return null;
       }
 
-      // Without coordinates, pick the first active with wave data as a coarse fallback
-      return buoys[0] || null;
-    } catch (error) {
-      log.error("Error fetching buoy data:", error);
-      return null;
-    }
+      const stationIds = stations.map(s => s.station_id);
+
+      // Get latest water temp observation from any of these stations
+      const { data: obs, error: obsError } = await supabase
+        .from("ioos_observations")
+        .select("water_temp_c, observed_at")
+        .in("station_id", stationIds)
+        .not("water_temp_c", "is", null)
+        .order("observed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (obsError || !obs) {
+        return null;
+      }
+
+      // Only use if observation is recent
+      const obsAge = Date.now() - new Date(obs.observed_at).getTime();
+      const stalenessMs = EnhancedForecastService.IOOS_STALENESS_HOURS * 60 * 60 * 1000;
+      if (obsAge > stalenessMs) {
+        log.debug(`IOOS water temp for ${beach.name} is stale (${Math.round(obsAge / 3600000)}h old), skipping`);
+        return null;
+      }
+
+      const temp = Number(obs.water_temp_c);
+      return isFinite(temp) ? temp : null;
+    });
   }
 
   /**
@@ -340,6 +348,7 @@ export class EnhancedForecastService {
     weatherData,
     buoyData,
     cdipData,
+    ioosWaterTempC,
   }: {
     beach: Beach;
     waveData: any;
@@ -347,6 +356,7 @@ export class EnhancedForecastService {
     weatherData: any[];
     buoyData: any;
     cdipData: CDIPBuoyData | null;
+    ioosWaterTempC: number | null;
   }): Promise<EnhancedForecastWithRawData[]> {
     // Use ForecastBuilder to build forecasts
     const builder = new ForecastBuilder({
@@ -369,6 +379,7 @@ export class EnhancedForecastService {
       weatherData,
       buoyData,
       cdipData,
+      ioosWaterTempC,
     });
 
     // Apply expert weighting and validation
