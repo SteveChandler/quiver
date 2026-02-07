@@ -1,9 +1,6 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { ForecastDataSourceManager, NOAAWeatherDataSource } from "./forecast/data-source-manager";
-import { cardinalToDegrees } from "./forecast/forecast-transformer";
-import { calculateConfidenceScore, decimalToConfidence } from "./forecast/confidence-scorer";
 import { ForecastStorageService } from "./forecast/storage-service";
-import { getForecastWeightingService } from "./forecast-weighting-service";
 import { ForecastBuilder } from "./forecast/forecast-builder";
 import { hashString } from "./forecast/batch-update-coordinator";
 import {
@@ -55,7 +52,6 @@ import {
   withRetry,
   logError,
 } from "@/lib/errors/forecast-errors";
-import * as Sentry from '@sentry/nextjs';
 
 // Data source implementations moved to lib/services/forecast/data-source-manager.ts
 
@@ -63,8 +59,6 @@ const log = createContextLogger('EnhancedForecastService');
 
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
-
-  // cardinalToDegrees method moved to lib/services/forecast/forecast-transformer.ts
 
   private dataSourceManager: ForecastDataSourceManager;
   private storageService: ForecastStorageService;
@@ -135,9 +129,7 @@ export class EnhancedForecastService {
           });
 
         // Process and combine all data sources
-        const forecasts = await this.combineDataSources(processedData);
-
-        return forecasts;
+        return this.combineDataSources(processedData);
       },
       { beachId: beach.id }
     )();
@@ -382,114 +374,7 @@ export class EnhancedForecastService {
       ioosWaterTempC,
     });
 
-    // Apply expert weighting and validation
-    const weightedForecasts: EnhancedForecastWithRawData[] = [];
-    for (const forecast of forecasts) {
-      const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
-      const weighted = await this.applyExpertWeighting(forecast, beach.name, forecastTime);
-      weightedForecasts.push(weighted);
-    }
-
-    return weightedForecasts;
-  }
-
-  /**
-   * Apply expert weighting to forecasts silently
-   * Uses calibration data to improve forecast accuracy without exposing sources
-   */
-  private async applyExpertWeighting(
-    forecast: EnhancedForecastWithRawData,
-    beachName: string,
-    forecastTime: Date
-  ): Promise<EnhancedForecastWithRawData> {
-    try {
-      const weightingService = getForecastWeightingService();
-
-      // Parse current forecast values
-      const parseHeight = (str: string | null): number => {
-        if (!str) return 0;
-        const match = str.match(/(\d+\.?\d*)/);
-        return match ? parseFloat(match[1]) : 0;
-      };
-
-      const parsePeriod = (str: string | null): number => {
-        if (!str) return 0;
-        const match = str.match(/(\d+\.?\d*)/);
-        return match ? parseFloat(match[1]) : 0;
-      };
-
-      const parseDirection = (str: string | null): number => {
-        return cardinalToDegrees(str) ?? 0;
-      };
-
-      // Create automated forecast data object
-      // Note: confidence_score is 0-100 scale, but weighting service uses 0-1 scale
-      const confidenceDecimal = (forecast.confidence_score ?? 70) / 100;
-      const automatedForecast = {
-        wave_height_ft: parseHeight(forecast.wave_height ?? null),
-        wave_period_s: parsePeriod(forecast.wave_period ?? null),
-        wave_direction_deg: parseDirection(forecast.wave_direction ?? null),
-        wind_speed_mph: forecast.wind_speed ? parseFloat(forecast.wind_speed) : undefined,
-        wind_direction_deg: parseDirection(forecast.wind_direction ?? null),
-        confidence: confidenceDecimal,
-      };
-
-      // Skip weighting if forecast has no data
-      if (automatedForecast.wave_height_ft === 0) {
-        return forecast;
-      }
-
-      // Get weighted forecast from expert calibration
-      const weightedForecast = await weightingService.blendForecast(
-        automatedForecast,
-        beachName,
-        forecastTime
-      );
-
-      // Format values back to strings
-      const formatHeight = (ft: number): string => {
-        return `${Math.round(ft * 10) / 10} ft`;
-      };
-
-      const formatPeriod = (s: number): string => {
-        return `${Math.round(s * 10) / 10}s`;
-      };
-
-      // Calculate confidence with defensive minimum
-      const originalConfidence = forecast.confidence_score ?? 70;
-      const blendedConfidence = decimalToConfidence(weightedForecast.confidence);
-      const defensiveMinimumApplied = blendedConfidence < originalConfidence;
-
-      if (defensiveMinimumApplied) {
-        Sentry.captureMessage('Confidence defensive minimum applied', {
-          level: 'warning',
-          tags: { component: 'forecast-weighting' },
-          extra: {
-            beachId: forecast.beach_id,
-            beachName,
-            originalConfidence,
-            blendedConfidence,
-            delta: originalConfidence - blendedConfidence,
-          },
-        });
-      }
-
-      // Apply weighted values back to forecast
-      // Convert confidence back from 0-1 to 0-100 scale
-      const updatedForecast = {
-        ...forecast,
-        wave_height: formatHeight(weightedForecast.wave_height_ft),
-        wave_period: formatPeriod(weightedForecast.wave_period_s),
-        confidence_score: Math.max(originalConfidence, blendedConfidence),
-        // Note: No visible attribution to expert sources - silent integration
-      };
-
-      return updatedForecast;
-    } catch (error) {
-      // If weighting fails, return original forecast
-      log.warn('Expert weighting failed, using original forecast:', error);
-      return forecast;
-    }
+    return forecasts;
   }
 
   /**

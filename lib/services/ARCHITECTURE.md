@@ -1080,7 +1080,6 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 | System | Scale | Example |
 |--------|-------|---------|
 | `calculateConfidenceScore()` | 0-100 | 70 means 70% |
-| `ForecastWeightingService` | 0-1 | 0.7 means 70% |
 | Database `confidence_score` | 0-100 | Stored as integer |
 | UI display | 0-100% | Shown with % suffix |
 

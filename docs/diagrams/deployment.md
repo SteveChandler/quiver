@@ -468,10 +468,6 @@ cd android && ./gradlew bundleRelease
       "schedule": "0 12 * * *"
     },
     {
-      "path": "/api/cron/wavecast-scrape",
-      "schedule": "0 16 * * 0,2,4"
-    },
-    {
       "path": "/api/cron/update-user-preferences",
       "schedule": "0 3 * * *"
     },
