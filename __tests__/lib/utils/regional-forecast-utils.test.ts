@@ -301,15 +301,20 @@ describe("detectSwellEvents", () => {
   });
 });
 
+/** Helper: return YYYY-MM-DD for today + offsetDays */
+function futureDateString(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().split("T")[0];
+}
+
 describe("aggregateRegionalForecast", () => {
   it("should create 7-day forecast summary", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
 
-    // Create 7 days of forecasts for 2 beaches
+    // Create 7 days of forecasts for 2 beaches (today + 6 future days)
     for (let i = 0; i < 7; i++) {
-      const date = new Date("2024-01-15");
-      date.setDate(date.getDate() + i);
-      const dateString = date.toISOString().split("T")[0];
+      const dateString = futureDateString(i);
 
       const beach1Forecasts = [
         createMockForecast("beach-1", dateString, "06:00"),
@@ -348,19 +353,21 @@ describe("aggregateRegionalForecast", () => {
 
   it("should identify best day correctly", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    const today = futureDateString(0);
+    const tomorrow = futureDateString(1);
 
-    // Day 1: Poor conditions
+    // Day 1 (today): Poor conditions
     forecastMap.set("beach-1", [
-      createMockForecast("beach-1", "2024-01-15", "12:00", {
+      createMockForecast("beach-1", today, "12:00", {
         wave_height: "1.0",
         wind_direction: "W (onshore)",
       }),
     ]);
 
-    // Day 2: Excellent conditions
+    // Day 2 (tomorrow): Excellent conditions
     forecastMap.set("beach-1", [
       ...forecastMap.get("beach-1")!,
-      createMockForecast("beach-1", "2024-01-16", "12:00", {
+      createMockForecast("beach-1", tomorrow, "12:00", {
         wave_height: "5.0",
         wind_direction: "E (offshore)",
         swell_1_period: "14",
@@ -380,7 +387,7 @@ describe("aggregateRegionalForecast", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
 
     forecastMap.set("beach-1", [
-      createMockForecast("beach-1", "2024-01-15", "12:00"),
+      createMockForecast("beach-1", futureDateString(0), "12:00"),
     ]);
     // beach-2 has no data
 
@@ -397,10 +404,11 @@ describe("aggregateRegionalForecast", () => {
 
   it("should rank top beaches correctly", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    const today = futureDateString(0);
 
     // Beach 1: Excellent conditions
     forecastMap.set("beach-1", [
-      createMockForecast("beach-1", "2024-01-15", "12:00", {
+      createMockForecast("beach-1", today, "12:00", {
         wave_height: "5.0",
         wind_direction: "E (offshore)",
         swell_1_period: "14",
@@ -409,7 +417,7 @@ describe("aggregateRegionalForecast", () => {
 
     // Beach 2: Poor conditions
     forecastMap.set("beach-2", [
-      createMockForecast("beach-2", "2024-01-15", "12:00", {
+      createMockForecast("beach-2", today, "12:00", {
         wave_height: "1.0",
         wind_direction: "W (onshore)",
         swell_1_period: "6",
@@ -431,24 +439,25 @@ describe("aggregateRegionalForecast", () => {
 
   it("should calculate beachesWithGoodConditions correctly", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    const today = futureDateString(0);
 
     // Create 3 beaches with varying conditions
     forecastMap.set("beach-1", [
-      createMockForecast("beach-1", "2024-01-15", "12:00", {
+      createMockForecast("beach-1", today, "12:00", {
         wave_height: "5.0",
         wind_direction: "E (offshore)",
       }),
     ]);
 
     forecastMap.set("beach-2", [
-      createMockForecast("beach-2", "2024-01-15", "12:00", {
+      createMockForecast("beach-2", today, "12:00", {
         wave_height: "4.0",
         wind_direction: "E (offshore)",
       }),
     ]);
 
     forecastMap.set("beach-3", [
-      createMockForecast("beach-3", "2024-01-15", "12:00", {
+      createMockForecast("beach-3", today, "12:00", {
         wave_height: "1.0",
         wind_direction: "W (onshore)",
       }),
@@ -467,13 +476,14 @@ describe("aggregateRegionalForecast", () => {
 
   it("should detect trends correctly", () => {
     const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    const today = futureDateString(0);
 
     // Start with poor conditions and improve significantly
     const forecasts: EnhancedForecastEntity[] = [];
 
     // First forecast: poor conditions (low score)
     forecasts.push(
-      createMockForecast("beach-1", "2024-01-15", "06:00", {
+      createMockForecast("beach-1", today, "06:00", {
         wave_height: "1.5",
         wind_direction: "W (onshore)",
         swell_1_period: "6",
@@ -483,7 +493,7 @@ describe("aggregateRegionalForecast", () => {
     // Next forecasts: improving conditions (higher scores)
     for (let i = 1; i < 8; i++) {
       forecasts.push(
-        createMockForecast("beach-1", "2024-01-15", `${6 + i * 3}:00`, {
+        createMockForecast("beach-1", today, `${6 + i * 3}:00`, {
           wave_height: `${4 + i * 0.3}`, // Building to ideal range
           wind_direction: "E (offshore)",
           swell_1_period: `${12 + i}`, // Improving period

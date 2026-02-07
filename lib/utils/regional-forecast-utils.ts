@@ -13,6 +13,7 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
 import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
+import { classifyWindDirection, getWindScore } from "@/lib/utils/wind-classification";
 
 /**
  * Summary of forecast conditions for a single day across a region
@@ -196,23 +197,9 @@ export function calculateDayScore(
       score += 10; // Too big or extreme
     }
 
-    // Wind scoring (0-25 points)
-    const windDirection = forecast.wind_direction?.toLowerCase() || "";
-    if (
-      windDirection.includes("offshore") ||
-      windDirection.includes("e") ||
-      windDirection.includes("ne") ||
-      windDirection.includes("se")
-    ) {
-      score += 25; // Offshore winds
-    } else if (
-      windDirection.includes("light") ||
-      windDirection.includes("calm") ||
-      windDirection.includes("variable")
-    ) {
-      score += 15; // Light winds
-    }
-    // Onshore winds add 0
+    // Wind scoring (0-25 points) — exact compass/keyword matching
+    const windDirection = forecast.wind_direction || "";
+    score += getWindScore(classifyWindDirection(windDirection));
 
     // Swell period scoring (0-20 points)
     const swellPeriod = parseFloat(forecast.swell_1_period || forecast.wave_period || "0");
@@ -416,8 +403,15 @@ export function aggregateRegionalForecast(
     }
   }
 
-  // Sort dates and take first 7 days
-  const sortedDates = Array.from(dateMap.keys()).sort().slice(0, 7);
+  // Filter to today and future dates, then take first 7 days.
+  // Use HST offset (-10h) as the earliest US timezone so we never
+  // prematurely filter out "today" for any US-based user.
+  const nowWithOffset = new Date(Date.now() - 10 * 60 * 60 * 1000);
+  const today = nowWithOffset.toISOString().split("T")[0]; // YYYY-MM-DD
+  const sortedDates = Array.from(dateMap.keys())
+    .filter((date) => date >= today)
+    .sort()
+    .slice(0, 7);
 
   // Build day summaries
   for (const dateString of sortedDates) {
@@ -468,18 +462,10 @@ export function aggregateRegionalForecast(
     const dominantWindDirection =
       Array.from(windCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "Variable";
 
-    // Determine wind conditions
-    const offshoreCount = windDirections.filter((d) =>
-      d.toLowerCase().includes("offshore") ||
-      d.toLowerCase().includes("e") ||
-      d.toLowerCase().includes("ne") ||
-      d.toLowerCase().includes("se")
-    ).length;
-    const lightCount = windDirections.filter((d) =>
-      d.toLowerCase().includes("light") ||
-      d.toLowerCase().includes("calm") ||
-      d.toLowerCase().includes("variable")
-    ).length;
+    // Determine wind conditions using shared classification
+    const windClassifications = windDirections.map((d) => classifyWindDirection(d));
+    const offshoreCount = windClassifications.filter((c) => c === "offshore").length;
+    const lightCount = windClassifications.filter((c) => c === "light").length;
     const windConditions: "offshore" | "light" | "onshore" =
       offshoreCount > windDirections.length / 2
         ? "offshore"
