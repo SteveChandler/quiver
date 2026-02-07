@@ -340,8 +340,9 @@ export function TideChart({
               strokeOpacity={0.5}
             />
 
-            {/** Top axis: days */}
+            {/** Top axis: day labels (non-default, tooltip ignores) */}
             <XAxis
+              xAxisId="days"
               dataKey={(p: TidePoint) => +toDate(p.t)}
               type="number"
               domain={[minTs, maxTs]}
@@ -355,9 +356,8 @@ export function TideChart({
               orientation="top"
             />
 
-            {/** Bottom axis: time (every 3 hours) */}
+            {/** Bottom axis: time (default — tooltip tracks this axis) */}
             <XAxis
-              xAxisId="time"
               dataKey={(p: TidePoint) => +toDate(p.t)}
               type="number"
               domain={[minTs, maxTs]}
@@ -383,7 +383,6 @@ export function TideChart({
             />
 
             <Area
-              xAxisId="time"
               type="monotone"
               dataKey="h"
               stroke="#1e40af"
@@ -397,7 +396,6 @@ export function TideChart({
 
             {showNowLine && (
               <ReferenceLine
-                xAxisId="time"
                 x={windowBounds.nowTs}
                 stroke="#dc2626"
                 strokeDasharray="0"
