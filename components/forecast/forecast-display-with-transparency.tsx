@@ -457,7 +457,7 @@ export function ForecastDisplayWithTransparency({
 
       {/* Main Forecast Table */}
       <div role="region" aria-label="10-day forecast">
-        <MultiDayForecastTable forecasts={forecasts} />
+        <MultiDayForecastTable forecasts={forecasts} beachTimezone={beach?.timezone} />
       </div>
     </div>
   );

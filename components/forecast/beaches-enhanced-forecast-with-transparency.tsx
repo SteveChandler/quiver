@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +114,7 @@ export function BeachesEnhancedForecastWithTransparency({
     defaultDays: 12,
     immediate: Boolean(beachId),
     autoGenerate: true,
+    beachTimezone,
   });
 
   // Calculate transparency summary
@@ -147,7 +149,7 @@ export function BeachesEnhancedForecastWithTransparency({
   // Derivations used by both guest and authed renders.
   // Must be defined before any early returns to keep Hook order stable.
   const primaryForecast = forecasts.length > 0 ? forecasts[0] : null;
-  const todayKey = React.useMemo(() => getNormalizedDateString(new Date()), []);
+  const todayKey = React.useMemo(() => getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone)), [beachTimezone]);
   const todayForecast = React.useMemo(() => {
     if (!forecasts.length) return null;
     const match = forecasts.find((f) => {
@@ -221,7 +223,7 @@ export function BeachesEnhancedForecastWithTransparency({
       {/* Forecast table */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-slate-700">10‑Day Forecast</h4>
-        <MultiDayForecastTable forecasts={forecasts} />
+        <MultiDayForecastTable forecasts={forecasts} beachTimezone={beachTimezone} />
       </div>
 
       {/* Transparency section (optional) */}

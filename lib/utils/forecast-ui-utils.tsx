@@ -1,5 +1,6 @@
 import React from "react";
 
+/** @deprecated Use `getLocalDateString(new Date(), timezone)` from `@/lib/utils/timezone-utils` instead */
 export function getTodayDateString(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -8,8 +9,13 @@ export function getTodayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
+/** @deprecated Use timezone-aware date comparison instead */
 export function isToday(dateString: string): boolean {
-  return dateString === getTodayDateString();
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return dateString === `${y}-${m}-${d}`;
 }
 
 export function LoadingSpinner({ label }: { label?: string }) {

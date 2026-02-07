@@ -67,23 +67,5 @@ export function isNightHour(hour: number): boolean {
   return hour >= 21 || hour < 5;
 }
 
-/**
- * Check if a forecast time is during nighttime at a beach location.
- */
-export function isNightTimeAtBeach(
-  forecastDate: string,
-  forecastTime: string,
-  beachLat: number,
-  beachLon: number
-): boolean {
-  const beachTz = getTimezoneFromCoords(beachLat, beachLon);
-  // Parse as UTC since forecast times are stored in UTC
-  const utcDate = new Date(`${forecastDate}T${forecastTime}Z`);
-  const localHour = getLocalHour(utcDate, beachTz);
-  return isNightHour(localHour);
-}
-
-
-
 
 

@@ -35,7 +35,7 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { BestSurfWindow } from "./best-surf-window";
-import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 
 interface ForecastAndTidesProps {
   beach: Beach;
@@ -68,7 +68,7 @@ export function ForecastAndTides({
   ];
 
   const todayStr = useMemo(() => {
-    return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
+    return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
   }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
@@ -154,7 +154,7 @@ export function ForecastAndTides({
               <CollapsibleContent>
                 <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg mt-2">
                   <CardContent className="p-6">
-                    <SimplifiedForecastTable forecasts={todaysForecasts} />
+                    <SimplifiedForecastTable forecasts={todaysForecasts} beachTimezone={beachTimezone} />
                   </CardContent>
                 </Card>
               </CollapsibleContent>
@@ -169,7 +169,7 @@ export function ForecastAndTides({
             <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
               <CardContent className="p-6">
                 {/* Combined view: table already includes swell + wind */}
-                <SimplifiedForecastTable forecasts={safeForecasts} />
+                <SimplifiedForecastTable forecasts={safeForecasts} beachTimezone={beachTimezone} />
               </CardContent>
             </Card>
           </TabsContent>

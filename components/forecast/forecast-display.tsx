@@ -115,7 +115,7 @@ export function ForecastDisplay({
 
       <ForecastDataTransparency dataSource={dataSource} />
 
-      <MultiDayForecastTable forecasts={forecasts} />
+      <MultiDayForecastTable forecasts={forecasts} beachTimezone={beach?.timezone} />
     </div>
   );
 }

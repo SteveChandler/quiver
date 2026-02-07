@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useCachedApi } from "@/hooks/use-cached-api";
 import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
-import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface ForecastData {
@@ -17,6 +17,7 @@ interface UseEnhancedForecastOptions {
   defaultDays?: number;
   immediate?: boolean;
   autoGenerate?: boolean;
+  beachTimezone?: string | null;
 }
 
 interface UseEnhancedForecastReturn {
@@ -44,6 +45,7 @@ export function useEnhancedForecast({
   defaultDays = 12,
   immediate = true,
   autoGenerate = true,
+  beachTimezone,
 }: UseEnhancedForecastOptions): UseEnhancedForecastReturn {
   const [updating, setUpdating] = useState(false);
   const [autoGenerating, setAutoGenerating] = useState(false);
@@ -197,9 +199,9 @@ export function useEnhancedForecast({
   // Set default selected date when data loads
   useEffect(() => {
     if (availableDates.length > 0 && !selectedDate) {
-      setSelectedDate(getTodayDateString());
+      setSelectedDate(getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone)));
     }
-  }, [availableDates, selectedDate]);
+  }, [availableDates, selectedDate, beachTimezone]);
 
   // Simplified refresh handler - just refetch, let cache TTL handle staleness
   const handleRefresh = useCallback(async () => {
