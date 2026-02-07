@@ -144,23 +144,51 @@ module.exports = async (browser, context) => {
     // Encode session as base64url cookie value (matches @supabase/ssr v0.7.0 default cookieEncoding: "base64url")
     const sessionJson = JSON.stringify(session);
     const cookieValue = 'base64-' + Buffer.from(sessionJson, 'utf-8').toString('base64url');
+    console.log(`[Lighthouse Auth] Cookie value length: ${cookieValue.length} chars`);
 
     // Chunk the cookie if it exceeds browser size limits (mirrors @supabase/ssr createChunks)
     const chunks = createChunks(cookieName, cookieValue);
+    console.log(`[Lighthouse Auth] Chunked into ${chunks.length} piece(s): ${chunks.map(c => c.name).join(', ')}`);
 
-    // Set cookie(s) via Puppeteer (matches @supabase/ssr DEFAULT_COOKIE_OPTIONS)
+    // Navigate to home page to establish the localhost origin before setting cookies.
+    // page.setCookie() with domain:'localhost' can be unreliable in headless Chromium on Linux;
+    // document.cookie from the correct origin is the most portable approach.
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+    // Set cookies via document.cookie in the browser context.
+    // This is more reliable than page.setCookie() + domain:'localhost' in headless CI environments.
     for (const chunk of chunks) {
-      await page.setCookie({
-        name: chunk.name,
-        value: chunk.value,
-        domain: 'localhost',
-        path: '/',
-        sameSite: 'Lax',
-        httpOnly: false,
-      });
+      await page.evaluate(({ name, value }) => {
+        document.cookie = `${name}=${value}; path=/; samesite=lax; max-age=${400 * 24 * 60 * 60}`;
+      }, { name: chunk.name, value: chunk.value });
     }
 
-    console.log(`[Lighthouse Auth] Set ${chunks.length} cookie chunk(s) for "${cookieName}"`);
+    // Verify cookies were actually stored in the browser
+    const storedCookies = await page.cookies(BASE_URL);
+    const authCookies = storedCookies.filter(c =>
+      c.name === cookieName || c.name.startsWith(cookieName + '.')
+    );
+    console.log(`[Lighthouse Auth] Verified ${authCookies.length} auth cookie(s) in browser: ${authCookies.map(c => `${c.name} (${c.value.length} chars)`).join(', ')}`);
+
+    if (authCookies.length === 0) {
+      // Fallback: try page.setCookie() with url parameter
+      console.log('[Lighthouse Auth] document.cookie failed, trying page.setCookie fallback...');
+      for (const chunk of chunks) {
+        await page.setCookie({
+          name: chunk.name,
+          value: chunk.value,
+          url: BASE_URL,
+          path: '/',
+          sameSite: 'Lax',
+          httpOnly: false,
+        });
+      }
+      const fallbackCookies = await page.cookies(BASE_URL);
+      const fallbackAuth = fallbackCookies.filter(c =>
+        c.name === cookieName || c.name.startsWith(cookieName + '.')
+      );
+      console.log(`[Lighthouse Auth] Fallback: ${fallbackAuth.length} auth cookie(s) stored`);
+    }
 
     // Verify: navigate to /profile and confirm no redirect to sign-in
     await page.goto(`${BASE_URL}/profile`, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -171,9 +199,13 @@ module.exports = async (browser, context) => {
     const verifyUrl = page.url();
     // Middleware redirects unauthenticated users to /auth/sign-in; /login is a defensive fallback
     if (verifyUrl.includes('/auth/sign-in') || verifyUrl.includes('/login')) {
+      // Debug: dump all cookies to help diagnose
+      const debugCookies = await page.cookies(BASE_URL);
+      const debugAuth = debugCookies.filter(c => c.name.startsWith('sb-'));
+      console.log(`[Lighthouse Auth] Debug: ${debugAuth.length} sb-* cookies after redirect: ${debugAuth.map(c => c.name).join(', ')}`);
       throw new Error(
         `[Lighthouse Auth] AUTHENTICATION FAILED: Redirected to sign-in page (${verifyUrl}) after cookie injection. ` +
-        'Cookie may not be in the expected format.'
+        `Cookies found: ${debugAuth.length}. Cookie may not be in the expected format.`
       );
     }
 
