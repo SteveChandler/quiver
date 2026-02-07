@@ -240,6 +240,7 @@ export async function middleware(request: NextRequest) {
         "beach",
         "beaches",
         "discover",
+        "embed",
         "features",
         "forecast",
         "inbox",
@@ -358,9 +359,15 @@ function createSecureResponse(request: NextRequest): NextResponse {
   });
 
   // Add security headers to all responses
+  const isEmbedRoute = request.nextUrl.pathname.startsWith("/embed/");
   Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
+    // Allow embed routes to be framed by external sites
+    if (isEmbedRoute && key === "X-Frame-Options") return;
     response.headers.set(key, value as string);
   });
+  if (isEmbedRoute) {
+    response.headers.set("Content-Security-Policy", "frame-ancestors *");
+  }
 
   // Capture UTM attribution parameters
   captureAttributionParams(request, response);

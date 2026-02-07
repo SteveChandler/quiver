@@ -42,6 +42,7 @@ import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
+import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 
 const CamsSection = dynamic(
   () =>
@@ -735,9 +736,12 @@ export function ForecastTab({
         {/* Tides Tab */}
         <TabsContent value="tides" className="mt-6">
           <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg backdrop-blur">
-            <h2 className="text-xl font-roboto font-semibold text-dark-grey mb-4">
-              Tide Forecast
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                Tide Forecast
+              </h2>
+              <EmbedCodeButton beachSlug={beach.slug} beachName={beach.name} />
+            </div>
             <TideChartEnhanced
               forecasts={forecasts}
               diagnostics={tideDiagnostics ?? undefined}

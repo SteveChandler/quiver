@@ -27,6 +27,7 @@ export default function robots(): MetadataRoute.Robots {
               "/inbox/", // Private: notifications
               "/sessions/", // Private: user sessions
               "/auth/*", // Auth pages
+              "/embed/", // Embeddable widgets (prevent duplicate content)
             ],
           },
           {
