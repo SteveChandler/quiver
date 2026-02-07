@@ -56,7 +56,7 @@ jest.mock("@/lib/mailer/sessionInviteEmail", () => ({
   sendSessionInviteEmail: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock("@/lib/gamification-actions", () => ({
+jest.mock("@/lib/gamification", () => ({
   trackXP: jest.fn().mockResolvedValue(undefined),
 }));
 

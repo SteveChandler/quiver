@@ -36,39 +36,6 @@ export async function clickMobileMenuItem(page: Page, itemName: string) {
 }
 
 /**
- * @deprecated Bottom navigation has been removed. Use openMobileMenu() instead.
- * This function is kept temporarily for backwards compatibility.
- */
-export async function showBottomNavigation(page: Page) {
-  console.warn(
-    "showBottomNavigation is deprecated - bottom navigation removed in Phase 5. Use openMobileMenu() instead."
-  );
-  // Simple mouse movement to trigger activity (legacy behavior)
-  await page.mouse.move(100, 100);
-  await page.waitForTimeout(100);
-}
-
-/**
- * @deprecated Bottom navigation has been removed. Use openMobileMenu() instead.
- * This function will throw an error to alert developers to update their tests.
- */
-export async function getBottomNavigation(page: Page) {
-  throw new Error(
-    "Bottom navigation removed in Phase 5 - use openMobileMenu() and page.getByRole('dialog') instead."
-  );
-}
-
-/**
- * @deprecated Bottom navigation has been removed. Use clickMobileMenuItem() instead.
- * This function will throw an error to alert developers to update their tests.
- */
-export async function clickNavigationItem(page: Page, itemName: string) {
-  throw new Error(
-    "Bottom navigation removed in Phase 5 - use clickMobileMenuItem() instead."
-  );
-}
-
-/**
  * Wait for realtime-driven UI to settle (e.g., after Supabase changes)
  * Uses a generic data-loading flag pattern used across the app/tests
  */

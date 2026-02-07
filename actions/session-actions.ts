@@ -27,7 +27,7 @@ import type { BoardSnapshot } from "@/types/personalization";
 // Optional XP tracking - imported dynamically to avoid circular dependency
 async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
   try {
-    const { trackXP } = await import("@/lib/gamification-actions");
+    const { trackXP } = await import("@/lib/gamification");
     await trackXP(action as any, entityId, entityType as any);
   } catch (error) {
     console.warn("XP tracking failed:", error);

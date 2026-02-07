@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { useXPToastSystem } from "@/components/gamification/xp-toast-system";
-import { trackXP, getUserXPStatus, getUserBadges } from "@/lib/gamification-actions";
-import type { XPAction, XPTrackingResult } from "@/lib/gamification-actions";
+import { trackXP, getUserXPStatus, getUserBadges } from "@/lib/gamification";
+import type { XPAction, XPTrackingResult } from "@/lib/gamification";
 
 interface UseGamificationOptions {
   onSuccess?: (result: XPTrackingResult) => void;

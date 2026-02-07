@@ -13,7 +13,7 @@ jest.mock('@/lib/supabase/server', () => {
 });
 
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn(), revalidateTag: jest.fn() }));
-jest.mock('@/lib/gamification-actions', () => ({ creditAuthorWithXP: jest.fn(() => Promise.resolve({ success: true })) }));
+jest.mock('@/lib/gamification', () => ({ creditAuthorWithXP: jest.fn(() => Promise.resolve({ success: true })) }));
 
 const { toggleSessionLike, getSessionLikeStatus } = require('@/actions/like-actions');
 const supabaseModule = require('@/lib/supabase/server');

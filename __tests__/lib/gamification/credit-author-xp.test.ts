@@ -1,4 +1,4 @@
-import { creditAuthorWithXP } from "@/lib/gamification-actions";
+import { creditAuthorWithXP } from "@/lib/gamification";
 
 // Build a finely controlled supabase service-role mock
 const mockSupabase: any = {

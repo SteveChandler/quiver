@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { creditAuthorWithXP } from "@/lib/gamification-actions";
+import { creditAuthorWithXP } from "@/lib/gamification";
 
 export async function toggleSessionLike(sessionId: string) {
   const supabase = await createSupabaseServerClient();

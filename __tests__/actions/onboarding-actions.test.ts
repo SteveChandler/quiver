@@ -6,7 +6,7 @@ jest.mock("@/lib/analytics", () => ({
 }));
 
 // Mock gamification actions
-jest.mock("@/lib/gamification-actions", () => ({
+jest.mock("@/lib/gamification", () => ({
   trackXP: jest.fn().mockResolvedValue({ success: true, data: { xp_gained: 100 } }),
 }));
 
@@ -229,7 +229,7 @@ describe("saveOnboardingData", () => {
 
   describe("XP Awarding", () => {
     it("should award 100 XP for onboarding completion", async () => {
-      const { trackXP } = require("@/lib/gamification-actions");
+      const { trackXP } = require("@/lib/gamification");
 
       const onboardingData = {
         fullName: "Test User",
@@ -244,7 +244,7 @@ describe("saveOnboardingData", () => {
     });
 
     it("should not fail if XP tracking fails", async () => {
-      const { trackXP } = require("@/lib/gamification-actions");
+      const { trackXP } = require("@/lib/gamification");
       trackXP.mockRejectedValueOnce(new Error("XP system unavailable"));
 
       const onboardingData = {

@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useGamification } from "@/hooks/use-gamification";
 
 // Mock trackXP to simulate a successful XP award
-jest.mock("@/lib/gamification-actions", () => ({
+jest.mock("@/lib/gamification", () => ({
   trackXP: jest.fn(async () => ({
     success: true,
     data: {

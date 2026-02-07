@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import { __resetGamificationCacheForTests, trackXP, getUserXPStatus, getUserBadges, getAllBadgeDefinitions } from '@/lib/gamification-actions';
+import { __resetGamificationCacheForTests, trackXP, getUserXPStatus, getUserBadges, getAllBadgeDefinitions } from '@/lib/gamification';
 import { 
   mockStates, 
   mockBadgeDefinitions,

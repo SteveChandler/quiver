@@ -9,7 +9,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
-import { IntentGuidesGrid as CityIntentGuidesGrid } from "@/components/city/intent-guides-grid";
 
 // Mock next/link
 jest.mock("next/link", () => {
@@ -266,86 +265,6 @@ describe("IntentGuidesGrid - City Location Type", () => {
         name: /beginner spots surf guide for San Diego/i,
       });
       expect(beginnerLink).toHaveAttribute("href", "/beginner/san-diego");
-    });
-  });
-});
-
-describe("IntentGuidesGrid - Backwards Compatibility Wrapper", () => {
-  describe("Prop Mapping", () => {
-    it("should correctly map citySlug to locationSlug", () => {
-      render(
-        <CityIntentGuidesGrid
-          citySlug="san-diego"
-          cityName="San Diego"
-          stateAbbrev="CA"
-        />
-      );
-
-      const beginnerLink = screen.getByRole("link", {
-        name: /beginner spots surf guide for San Diego/i,
-      });
-      expect(beginnerLink).toHaveAttribute("href", "/beginner/san-diego");
-    });
-
-    it("should correctly map cityName to locationName", () => {
-      render(
-        <CityIntentGuidesGrid
-          citySlug="huntington-beach"
-          cityName="Huntington Beach"
-          stateAbbrev="CA"
-        />
-      );
-
-      expect(
-        screen.getByText("Surf Guides for Huntington Beach, CA")
-      ).toBeInTheDocument();
-    });
-
-    it("should correctly pass through stateAbbrev", () => {
-      render(
-        <CityIntentGuidesGrid
-          citySlug="newport"
-          cityName="Newport"
-          stateAbbrev="OR"
-        />
-      );
-
-      expect(
-        screen.getByText("Surf Guides for Newport, OR")
-      ).toBeInTheDocument();
-    });
-
-    it("should always set locationType to city (no mt-10 margin)", () => {
-      const { container } = render(
-        <CityIntentGuidesGrid
-          citySlug="san-diego"
-          cityName="San Diego"
-          stateAbbrev="CA"
-        />
-      );
-
-      const section = container.querySelector("section");
-      expect(section).not.toHaveClass("mt-10");
-    });
-  });
-
-  describe("Renders All Intents", () => {
-    it("should render all 7 intent links via wrapper", () => {
-      render(
-        <CityIntentGuidesGrid
-          citySlug="san-diego"
-          cityName="San Diego"
-          stateAbbrev="CA"
-        />
-      );
-
-      expect(screen.getByText("Dawn Patrol")).toBeInTheDocument();
-      expect(screen.getByText("Sunset Sessions")).toBeInTheDocument();
-      expect(screen.getByText("Tide Windows")).toBeInTheDocument();
-      expect(screen.getByText("Beginner Spots")).toBeInTheDocument();
-      expect(screen.getByText("Longboard Spots")).toBeInTheDocument();
-      expect(screen.getByText("Less Crowded")).toBeInTheDocument();
-      expect(screen.getByText("Water Temperature")).toBeInTheDocument();
     });
   });
 });
