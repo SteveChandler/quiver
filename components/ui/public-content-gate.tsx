@@ -130,7 +130,7 @@ export function PublicContentGate({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              ML-corrected forecasts powered by 30,000+ surf observations
+              Forecasts powered by 30,000+ surf observations
             </p>
           </CardContent>
         </Card>

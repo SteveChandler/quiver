@@ -248,7 +248,7 @@ export const SURF_ACTIVITIES = [
 export const CONTENT = {
   hero: {
     title: "Find your next wave",
-    subtitle: "ML-corrected forecasts, personalized match scores, and real-time conditions for every break.",
+    subtitle: "Forecasts, personalized match scores, and real-time conditions for every break.",
     cta: "Join Free Today",
     secondaryCta: "Explore Features",
     benefits: [
