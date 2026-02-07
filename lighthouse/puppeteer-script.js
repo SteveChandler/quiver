@@ -176,7 +176,7 @@ module.exports = async (browser, context) => {
       break;
     }
 
-    await page.waitForTimeout(pollInterval);
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
 
   if (!authVerified) {

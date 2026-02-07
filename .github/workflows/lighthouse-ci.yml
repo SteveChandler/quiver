@@ -184,6 +184,7 @@ jobs:
                   fi
               env:
                   CI: true
+                  SKIP_AUTH_SETUP: "true"
 
             - name: Upload Playwright results
               if: always()
