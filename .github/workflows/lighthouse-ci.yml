@@ -213,10 +213,17 @@ jobs:
                     echo "Please configure these secrets in GitHub repository settings."
                     exit 1
                   fi
-                  echo "✅ Test credentials configured (LIGHTHOUSE_TEST_EMAIL is set)"
+                  if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+                    echo "❌ Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY secrets"
+                    echo "These are required for programmatic API authentication."
+                    exit 1
+                  fi
+                  echo "✅ Test credentials and Supabase config verified"
               env:
                   LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
                   LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
+                  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+                  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
             - name: Run Lighthouse CI
               id: lighthouse
@@ -239,6 +246,9 @@ jobs:
                   # Test user credentials for authenticated Lighthouse tests
                   LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
                   LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
+                  # Supabase config for programmatic API authentication
+                  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+                  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
             - name: Verify Lighthouse authentication
               if: always() && steps.lighthouse.outcome != 'skipped'
@@ -334,7 +344,7 @@ jobs:
                   echo "- **Runs per URL:** 3" >> $GITHUB_STEP_SUMMARY
                   echo "- **Form Factor:** Mobile (Pixel 5 emulation)" >> $GITHUB_STEP_SUMMARY
                   echo "- **Categories:** Performance, Accessibility, Best Practices, SEO" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Authentication:** Puppeteer login script" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Authentication:** Programmatic API + cookie injection" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Thresholds" >> $GITHUB_STEP_SUMMARY
