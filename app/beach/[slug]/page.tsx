@@ -127,7 +127,13 @@ export async function generateMetadata(
       : null;
 
     const { title, description } = buildDynamicBeachMetadata({
-      beach,
+      beach: {
+        name: beach.name,
+        city: beach.city,
+        state: beach.state,
+        break_type: (beach as any).break_type,
+        skill_level: (beach as any).skill_level,
+      },
       forecast,
     });
 

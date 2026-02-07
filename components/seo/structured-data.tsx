@@ -119,9 +119,12 @@ export function BeachPageStructuredData({
       addressRegion: state || undefined,
       addressCountry: country || "US",
     },
-    // Intentionally omit AggregateRating/Review markup. Google review snippets do
-    // not support ratings on Place-based schemas like beaches, and emitting it
-    // can trigger Search Console "Review snippets" errors.
+    // Do NOT emit AggregateRating here. Google review snippets require eligible
+    // types (LocalBusiness, Product, etc.) — Place is not eligible. Even if we
+    // used SportsActivityLocation (a LocalBusiness subtype), Google's self-serving
+    // review policy blocks snippets when the site controls its own reviews.
+    // Emitting it only triggers Search Console "Review snippets" errors.
+    // See: https://developers.google.com/search/docs/appearance/structured-data/review-snippet
     amenityFeature: [
       {
         "@type": "LocationFeatureSpecification",

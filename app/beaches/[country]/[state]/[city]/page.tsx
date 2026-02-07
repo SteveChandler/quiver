@@ -511,17 +511,18 @@ export async function generateMetadata(props: LocationPageProps) {
       ? metroConfig.pageTitle
       : `Best Surf Beaches in ${displayCityName}, ${location.state}`;
 
+    const topBeachNames = response.data.beaches
+      .slice(0, 3)
+      .map((b: { name: string }) => b.name)
+      .join(', ');
+
     const description = metroConfig?.description
       ? `${
           metroConfig.description
         } Average rating: ${stats.averageRating.toFixed(1)}/5 from ${
           stats.totalReviews
         } reviews.`
-      : `Discover the top ${stats.totalBeaches} surf beaches in ${
-          displayCityName
-        }. Average rating: ${stats.averageRating.toFixed(1)}/5 from ${
-          stats.totalReviews
-        } reviews.`;
+      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more. Rated ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews. Forecast, tides & conditions.`;
 
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =
