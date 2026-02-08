@@ -2,248 +2,130 @@
 
 ## Overview
 
-The Lighthouse CI workflow automatically runs performance, accessibility, best practices, and SEO audits on every push to `main` and `develop` branches, as well as on pull requests targeting `main`.
+The Lighthouse CI workflow runs performance, accessibility, best practices, and SEO audits against Vercel deployments on every push to `main`/`develop` and on pull requests targeting `main`. It tests the actual deployed application rather than a local build.
 
-## Workflow Details
+## How It Works
 
-**File:** `.github/workflows/lighthouse-ci.yml`
+1. **Resolves the Vercel deployment URL** using the GitHub Deployments API (polls until the deployment is live, up to 10 minutes)
+2. **Verifies the deployment** is reachable via curl
+3. **Runs Playwright smoke tests** against the deployment (unauthenticated, guest project)
+4. **Runs Lighthouse CI** against 5 public URLs with mobile emulation
+5. **Uploads artifacts** and creates a GitHub step summary with results
 
-**Triggers:**
-- Push to `main` branch
-- Push to `develop` branch
-- Pull requests to `main` branch
+## Triggers
 
-**Runtime:** ~15-20 minutes (depends on build and audit time)
+- **Push** to `main` or `develop` branches
+- **Pull requests** to `main`
+- **Manual dispatch** (`workflow_dispatch`) with optional URL override
 
-## What It Does
+### Manual URL Override
 
-1. **Builds the Application**: Creates a production build of the Next.js application
-2. **Starts Production Server**: Runs the production server on `localhost:3000`
-3. **Runs Lighthouse Audits**: Executes Lighthouse CI using `.lighthouserc.json` configuration
-4. **Uploads Results**: Stores Lighthouse reports as GitHub Actions artifacts
+Use the `workflow_dispatch` trigger with the `url` input to test any deployment:
+
+```
+gh workflow run "Lighthouse CI" -f url=https://www.quiversurf.app
+```
 
 ## Audited Pages
 
-The workflow audits the following pages (configured in `.lighthouserc.json`):
+All pages are public (no authentication required):
 
-1. **Home**: `http://localhost:3000`
-2. **Discover**: `http://localhost:3000/discover`
-3. **Map**: `http://localhost:3000/map`
-4. **Forecast**: `http://localhost:3000/forecast/84d3468b-c1ec-46ad-8621-d8507e5f167a`
-5. **Beach**: `http://localhost:3000/beach/84d3468b-c1ec-46ad-8621-d8507e5f167a`
+| Page | Path |
+|------|------|
+| Home | `/` |
+| Discover | `/discover` |
+| Map | `/map` |
+| Spot (Blacks Beach) | `/spots/blacks-beach` |
+| Spot (Swamis) | `/spots/swamis` |
 
-Each page is audited 3 times, and the median scores are used.
+Each page is audited 3 times with the median scores used.
 
 ## Performance Thresholds
 
-The workflow enforces the following minimum scores:
+Configured in `.lighthouserc.json`:
 
-| Category | Minimum Score |
-|----------|--------------|
-| Performance | 85% |
-| Accessibility | 90% |
-| Best Practices | 90% |
-| SEO | 90% |
+| Category | Minimum Score | Level |
+|----------|--------------|-------|
+| Performance | 70% | warn |
+| Accessibility | 90% | error |
+| Best Practices | 85% | warn |
+| SEO | 85% | warn |
 
-**Core Web Vitals Thresholds:**
-- **First Contentful Paint (FCP)**: ≤3000ms (warning)
-- **Largest Contentful Paint (LCP)**: ≤4000ms (warning)
-- **Cumulative Layout Shift (CLS)**: ≤0.1 (error)
-- **Total Blocking Time (TBT)**: ≤500ms (warning)
-- **Speed Index**: ≤5800ms (warning)
-- **Time to Interactive (TTI)**: ≤7300ms (warning)
+**Core Web Vitals:**
+- **LCP:** <=4000ms
+- **CLS:** <=0.1 (error)
+- **FCP:** <=3000ms
+- **TBT:** <=600ms
+- **Speed Index:** <=6000ms
 
-## Required GitHub Secrets
+## Required Secrets
 
-The workflow requires the following secrets to be configured in your GitHub repository:
+| Secret | Purpose | Notes |
+|--------|---------|-------|
+| `LHCI_GITHUB_APP_TOKEN` | Lighthouse CI PR status comments | Already configured |
+| `VERCEL_BYPASS_TOKEN` | Bypass Vercel deployment protection | From Vercel dashboard: Project Settings > Deployment Protection |
 
-### Supabase Configuration
-- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon/public key
-- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
+`GITHUB_TOKEN` is provided automatically by GitHub Actions.
 
-### Mapbox Configuration
-- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` - Your Mapbox access token
+### Secrets No Longer Needed (by this workflow)
 
-### Firebase Configuration (Push Notifications)
-- `FIREBASE_PROJECT_ID` - Firebase project ID
-- `FIREBASE_CLIENT_EMAIL` - Firebase service account email
-- `FIREBASE_PRIVATE_KEY` - Firebase service account private key
-- `NEXT_PUBLIC_FIREBASE_API_KEY` - Firebase web API key
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` - Firebase auth domain
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID` - Firebase project ID
-- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
-- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` - Firebase messaging sender ID
-- `NEXT_PUBLIC_FIREBASE_APP_ID` - Firebase app ID
-- `NEXT_PUBLIC_FIREBASE_VAPID_KEY` - Firebase VAPID key
+The following secrets were used by the old localhost-based workflow and are no longer referenced:
+- `LIGHTHOUSE_TEST_EMAIL`, `LIGHTHOUSE_TEST_PASSWORD`
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`
+- All `FIREBASE_*` / `NEXT_PUBLIC_FIREBASE_*` secrets
 
-### Optional Secrets
-- `LHCI_GITHUB_APP_TOKEN` - Lighthouse CI GitHub app token for PR comments (optional)
-
-## Setting Up Secrets
-
-To add secrets to your GitHub repository:
-
-1. Navigate to your repository on GitHub
-2. Go to **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Add each secret with its name and value
-5. Click **Add secret**
+These may still be used by other workflows.
 
 ## Viewing Results
 
-### In GitHub Actions UI
+### GitHub Actions UI
 
-1. Go to the **Actions** tab in your repository
-2. Click on the **Lighthouse CI** workflow
-3. Select a specific workflow run
-4. View the performance summary in the workflow summary
-5. Download artifacts for detailed reports
+1. Go to **Actions** > **Lighthouse CI**
+2. View the performance summary in the workflow step summary
+3. Download artifacts for detailed reports
 
 ### Artifacts
 
-The workflow uploads the following artifacts (retained for 30 days for Lighthouse results, 7 days for logs):
-
-- `lighthouse-results-{run_number}` - Full Lighthouse CI reports and JSON data
-- `lighthouse-output-{run_number}` - Console output from Lighthouse CI
-- `server-log-{run_number}` - Next.js server logs
-- `build-log-{run_number}` - Build logs (only on build failure)
-
-### PR Comments (Optional)
-
-If you configure `LHCI_GITHUB_APP_TOKEN`, Lighthouse CI can automatically post comments on pull requests with performance scores and recommendations.
+| Artifact | Retention | Contents |
+|----------|-----------|----------|
+| `playwright-results-{run}` | 7 days | Playwright report, test results, output log |
+| `lighthouse-results-{run}` | 30 days | Full Lighthouse CI reports and JSON data |
+| `lighthouse-output-{run}` | 7 days | Lighthouse CI console output |
 
 ## Troubleshooting
 
-### Build Failures
+### Deployment URL Not Found
 
-If the build fails, check the `build-log` artifact for detailed error messages. Common issues:
+If the workflow times out waiting for a deployment:
+- Verify the Vercel GitHub integration is installed and active
+- Check that Vercel is deploying the commit (Vercel dashboard)
+- Use `workflow_dispatch` with a manual URL as a workaround
 
-- Missing environment variables
-- TypeScript errors
-- Dependency issues
+### Vercel Protection Blocking Requests
 
-### Server Start Failures
+If Lighthouse gets 401/403 errors:
+- Ensure `VERCEL_BYPASS_TOKEN` is set in GitHub Actions secrets
+- Get the token from: Vercel dashboard > Project Settings > Deployment Protection
+- The workflow passes this as an `x-vercel-protection-bypass` header
 
-If the server fails to start or health check fails:
+### Playwright Smoke Tests Failing
 
-1. Check the `server-log` artifact
-2. Verify all required environment variables are set
-3. Ensure the build completed successfully
+- Download the `playwright-results` artifact for traces and screenshots
+- Smoke tests run unauthenticated (guest project) - auth issues won't cause failures
+- Check if the deployment itself is broken
 
-### Lighthouse Audit Failures
-
-If Lighthouse audits fail or score below thresholds:
-
-1. Download the `lighthouse-results` artifact
-2. Review detailed reports in `.lighthouseci/` folder
-3. Check specific audit failures and recommendations
-4. Common issues:
-   - Images not optimized
-   - Missing alt text
-   - Slow API responses
-   - Large JavaScript bundles
-   - Missing meta tags
-
-### Timeout Issues
-
-If the workflow times out (20-minute limit):
-
-- Check if the build is taking too long
-- Verify server starts within 60 seconds
-- Review Lighthouse audit duration (5 pages × 3 runs = ~10-15 minutes)
-
-## Customizing the Workflow
+## Customizing
 
 ### Changing Audited Pages
 
-Edit `.lighthouserc.json` and update the `collect.url` array:
-
-```json
-{
-  "ci": {
-    "collect": {
-      "url": [
-        "http://localhost:3000",
-        "http://localhost:3000/your-new-page"
-      ]
-    }
-  }
-}
-```
+Edit the `--collect.url` arguments in the "Run Lighthouse CI" step of `lighthouse-ci.yml`.
 
 ### Adjusting Thresholds
 
-Edit `.lighthouserc.json` and update the `assert.assertions` section:
+Edit `.lighthouserc.json` > `assert.assertions`.
 
-```json
-{
-  "ci": {
-    "assert": {
-      "assertions": {
-        "categories:performance": ["error", { "minScore": 0.90 }]
-      }
-    }
-  }
-}
-```
+## Related Files
 
-### Changing Triggers
-
-Edit `.github/workflows/lighthouse-ci.yml` to modify when the workflow runs:
-
-```yaml
-on:
-  push:
-    branches: [main, develop, staging]  # Add more branches
-  pull_request:
-    branches: [main, develop]  # Add more target branches
-  schedule:
-    - cron: '0 0 * * 0'  # Add weekly schedule (Sundays at midnight)
-```
-
-## Best Practices
-
-1. **Monitor Trends**: Regularly review Lighthouse scores to catch performance regressions early
-2. **Fix Critical Issues First**: Focus on accessibility and performance errors before warnings
-3. **Test Locally**: Run `yarn lighthouse:ci` locally before pushing to verify changes
-4. **Incremental Improvements**: Gradually improve scores rather than trying to fix everything at once
-5. **Document Changes**: When making performance optimizations, document them in the CHANGELOG
-
-## Local Development
-
-To run Lighthouse CI locally:
-
-```bash
-# Build the application
-yarn build
-
-# Start the production server
-yarn start
-
-# In another terminal, run Lighthouse CI
-yarn lighthouse:ci
-```
-
-Or use the combined script:
-
-```bash
-yarn perf:monitor
-```
-
-## Related Documentation
-
-- [Lighthouse CI Configuration](../../.lighthouserc.json)
-- [Performance Monitoring](../../docs/PERFORMANCE.md)
-- [Core Web Vitals Guide](https://web.dev/vitals/)
-- [Lighthouse Scoring Guide](https://developer.chrome.com/docs/lighthouse/performance/performance-scoring/)
-
-## Support
-
-If you encounter issues with the Lighthouse CI workflow:
-
-1. Check the workflow logs and artifacts
-2. Review this documentation
-3. Check `.lighthouserc.json` configuration
-4. Consult the [Lighthouse CI documentation](https://github.com/GoogleChrome/lighthouse-ci/blob/main/docs/getting-started.md)
-5. Open a GitHub issue with workflow logs and error details
+- `.lighthouserc.json` - Lighthouse CI configuration (thresholds, mobile emulation, assertions)
+- `.github/workflows/lighthouse-ci.yml` - GitHub Actions workflow

@@ -19,21 +19,7 @@ The following secrets must be configured in your GitHub repository settings (Set
 - **MORNING_INTEL_SPOT_NAME** - Beach name for morning intel (e.g., `Ocean Beach Pier`)
 
 ### Lighthouse CI Workflow Secrets
-- **NEXT_PUBLIC_SUPABASE_URL** - Your Supabase project URL (same as SUPABASE_URL)
-- **NEXT_PUBLIC_SUPABASE_ANON_KEY** - Your Supabase anon/public key
-- **NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN** - Your Mapbox access token for maps
-- **FIREBASE_PROJECT_ID** - Firebase project ID for push notifications
-- **FIREBASE_CLIENT_EMAIL** - Firebase service account email
-- **FIREBASE_PRIVATE_KEY** - Firebase service account private key
-- **NEXT_PUBLIC_FIREBASE_API_KEY** - Firebase web API key
-- **NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN** - Firebase auth domain
-- **NEXT_PUBLIC_FIREBASE_PROJECT_ID** - Firebase project ID
-- **NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET** - Firebase storage bucket
-- **NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID** - Firebase messaging sender ID
-- **NEXT_PUBLIC_FIREBASE_APP_ID** - Firebase app ID
-- **NEXT_PUBLIC_FIREBASE_VAPID_KEY** - Firebase VAPID key
-- **LIGHTHOUSE_TEST_EMAIL** - Test user email for authenticated Lighthouse tests
-- **LIGHTHOUSE_TEST_PASSWORD** - Test user password for authenticated Lighthouse tests
+- **VERCEL_BYPASS_TOKEN** - Vercel deployment protection bypass token (from Vercel dashboard)
 
 ### Optional Secrets
 - **FLICKR_API_KEY** - API key for Flickr photo fetching (used by fetch-beach-photos.yml)
@@ -69,20 +55,21 @@ The following secrets must be configured in your GitHub repository settings (Set
 **Script:** `scripts/fetch-beach-photos.ts`
 
 ### 6. lighthouse-ci.yml
-**Triggers:** Push to main/develop, PRs to main
-**Purpose:** Runs Lighthouse performance, accessibility, SEO, and best practices audits
-**Runtime:** ~15-20 minutes
-**Configuration:** `.lighthouserc.json`, `lighthouse/puppeteer-script.js`
+**Triggers:** Push to main/develop, PRs to main, workflow_dispatch (with optional URL override)
+**Purpose:** Runs Lighthouse performance, accessibility, SEO, and best practices audits against Vercel deployments
+**Runtime:** ~10-15 minutes
+**Configuration:** `.lighthouserc.json`
 **Documentation:** [LIGHTHOUSE_CI.md](LIGHTHOUSE_CI.md)
 
 **Key Features:**
-- **Authenticated testing** via Puppeteer login script
-- Audits 6 critical pages (home, discover, map, profile, 2 beach pages)
+- Tests against Vercel deployments (no local build/server needed)
+- Audits 5 public pages (home, discover, map, 2 beach pages)
 - 3 runs per page for statistical accuracy
 - Mobile-first testing (Pixel 5 emulation with 4G throttling)
 - Enforces minimum scores (Performance: 70%, A11y: 90%, Best Practices/SEO: 85%)
 - Tracks Core Web Vitals (LCP ≤4s, CLS ≤0.1, TBT ≤600ms)
 - Uploads detailed reports as artifacts (30-day retention)
+- Manual URL override via workflow_dispatch
 
 ## Inactive Workflows
 
