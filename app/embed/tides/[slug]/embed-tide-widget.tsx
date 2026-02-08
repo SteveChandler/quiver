@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { TideChartEnhanced } from "@/components/forecast/tide-chart-enhanced";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface EmbedTideWidgetProps {
   beachName: string;
   beachUrl: string;
+  slug: string;
   forecasts: EnhancedForecastEntity[];
   windowHours: number;
   theme: "light" | "dark";
@@ -15,10 +16,23 @@ interface EmbedTideWidgetProps {
 export function EmbedTideWidget({
   beachName,
   beachUrl,
+  slug,
   forecasts,
   windowHours,
   theme,
 }: EmbedTideWidgetProps) {
+  const hasTracked = useRef(false);
+
+  useEffect(() => {
+    if (hasTracked.current) return;
+    hasTracked.current = true;
+    fetch('/api/embed-impressions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widgetType: 'tides', beachSlug: slug }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [slug]);
   const isDark = theme === "dark";
 
   return (

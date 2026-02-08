@@ -62,6 +62,7 @@ export default async function EmbedConditionsPage({
     <EmbedConditionsWidget
       beachName={beach.name}
       beachUrl={beachUrl}
+      slug={slug}
       conditions={currentConditions}
       theme={theme === "dark" ? "dark" : "light"}
     />

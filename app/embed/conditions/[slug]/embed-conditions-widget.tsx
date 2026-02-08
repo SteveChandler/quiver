@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 export interface ConditionData {
   waveHeight?: string | null;
   wavePeriod?: string | null;
@@ -14,6 +16,7 @@ export interface ConditionData {
 interface EmbedConditionsWidgetProps {
   beachName: string;
   beachUrl: string;
+  slug: string;
   conditions: ConditionData;
   theme: "light" | "dark";
 }
@@ -43,9 +46,23 @@ function ConditionRow({
 export function EmbedConditionsWidget({
   beachName,
   beachUrl,
+  slug,
   conditions,
   theme,
 }: EmbedConditionsWidgetProps) {
+  const hasTracked = useRef(false);
+
+  useEffect(() => {
+    if (hasTracked.current) return;
+    hasTracked.current = true;
+    fetch('/api/embed-impressions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widgetType: 'conditions', beachSlug: slug }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [slug]);
+
   const isDark = theme === "dark";
   const hasData = Object.values(conditions).some(Boolean);
 

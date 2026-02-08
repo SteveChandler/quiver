@@ -47,6 +47,7 @@ export default async function EmbedTidePage({
     <EmbedTideWidget
       beachName={beach.name}
       beachUrl={beachUrl}
+      slug={slug}
       forecasts={forecasts}
       windowHours={validHours}
       theme={theme === "dark" ? "dark" : "light"}
