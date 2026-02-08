@@ -47,7 +47,7 @@ describe("Middleware", () => {
   });
 
   test("passes through for API routes", async () => {
-    const request: any = { nextUrl: { pathname: "/api/health" }, method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    const request: any = { nextUrl: { pathname: "/api/health" }, method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
   });
@@ -61,7 +61,7 @@ describe("Middleware", () => {
       url: "http://localhost/",
       method: "GET",
       headers,
-      cookies: { get: () => undefined },
+      cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe("Middleware", () => {
       url: "http://localhost/?signup=confirm-email",
       method: "GET",
       headers,
-      cookies: { get: () => undefined },
+      cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe("Middleware", () => {
       url: "http://localhost/",
       method: "GET",
       headers,
-      cookies: { get: () => undefined },
+      cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
@@ -102,20 +102,20 @@ describe("Middleware", () => {
   });
 
   test("redirects to sign-in for protected path when unauthenticated", async () => {
-    const request: any = { nextUrl: { pathname: "/profile" }, url: "http://localhost/profile", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    const request: any = { nextUrl: { pathname: "/profile" }, url: "http://localhost/profile", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockRedirect).toHaveBeenCalled();
   });
 
   test("allows unauthenticated access to beach detail page (public for SEO)", async () => {
-    const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   test("allows unauthenticated access to forecast page (public for SEO)", async () => {
-    const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe("Middleware", () => {
   test("allows authenticated user to access beach page", async () => {
     mockUser = { id: "user-123", email: "test@example.com" };
     mockSession = { user: mockUser, access_token: "token" };
-    const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe("Middleware", () => {
   test("allows authenticated user to access forecast page", async () => {
     mockUser = { id: "user-123", email: "test@example.com" };
     mockSession = { user: mockUser, access_token: "token" };
-    const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
@@ -149,7 +149,7 @@ describe("Middleware", () => {
       url: "http://localhost/pr/rinc-n",
       method: "GET",
       headers: new Headers(),
-      cookies: { get: () => undefined },
+      cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
     expect(mockRedirect).toHaveBeenCalled();
@@ -166,7 +166,7 @@ describe("Middleware", () => {
       url: "http://localhost/ca/orange-county/seal-beach",
       method: "GET",
       headers: new Headers(),
-      cookies: { get: () => undefined },
+      cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
     expect(mockRedirect).toHaveBeenCalled();
@@ -183,7 +183,7 @@ describe("Middleware", () => {
       url: "http://localhost/CA/Orange-County/Bolsa-Chica",
       method: "GET",
       headers: new Headers(),
-      cookies: { get: () => undefined },
+      cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
     expect(mockRedirect).toHaveBeenCalled();

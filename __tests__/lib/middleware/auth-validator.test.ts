@@ -38,11 +38,10 @@ describe("AuthValidator", () => {
       } as any,
     } as Partial<NextRequest>;
 
-    // Mock cookie callbacks
+    // Mock cookie callbacks (updated to getAll/setAll interface)
     mockCookieCallbacks = {
-      get: jest.fn(),
-      set: jest.fn(),
-      remove: jest.fn(),
+      getAll: jest.fn(() => []),
+      setAll: jest.fn(),
     };
 
     // Mock Supabase client
@@ -219,8 +218,10 @@ describe("AuthValidator", () => {
 
   describe("Cookie Management", () => {
     it("should use provided cookie callbacks", async () => {
-      const mockCookieValue = "session-cookie-value";
-      mockCookieCallbacks.get.mockReturnValue(mockCookieValue);
+      const mockCookies = [
+        { name: "sb-test-auth-token", value: "session-cookie-value" }
+      ];
+      mockCookieCallbacks.getAll.mockReturnValue(mockCookies);
 
       const mockUser: Partial<User> = { id: "user-123" };
       mockSupabaseClient.auth.getSession.mockResolvedValue({
@@ -236,6 +237,8 @@ describe("AuthValidator", () => {
 
       const cookiesConfig = (createServerClient as jest.Mock).mock.calls[0][2];
       expect(cookiesConfig.cookies).toBeDefined();
+      expect(cookiesConfig.cookies.getAll).toBeDefined();
+      expect(cookiesConfig.cookies.setAll).toBeDefined();
     });
   });
 

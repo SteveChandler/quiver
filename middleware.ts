@@ -553,24 +553,16 @@ async function authenticateRequest(
   const authValidator = new AuthValidator(
     request,
     {
-      get(name) {
-        const cookie = request.cookies.get(name);
-        return cookie?.value;
+      getAll() {
+        return request.cookies.getAll();
       },
-      set(name, value, options) {
-        log(`[Middleware] Setting cookie: ${name}`);
-        response.cookies.set({
-          name,
-          value,
-          ...options,
-        });
-      },
-      remove(name, options) {
-        log(`[Middleware] Removing cookie: ${name}`);
-        response.cookies.delete({
-          name,
-          ...options,
-        });
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set({ name, value, ...options })
+        );
       },
     },
     isVerbose

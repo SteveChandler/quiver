@@ -146,6 +146,38 @@ module.exports = async (browser, context) => {
     const cookieValue = 'base64-' + Buffer.from(sessionJson, 'utf-8').toString('base64url');
     console.log(`[Lighthouse Auth] Cookie value length: ${cookieValue.length} chars`);
 
+    // Self-check: verify the cookie can be decoded back to valid JSON with access_token
+    try {
+      const decoded = Buffer.from(cookieValue.replace('base64-', ''), 'base64url').toString('utf-8');
+      const parsed = JSON.parse(decoded);
+      if (!parsed.access_token) {
+        throw new Error('Decoded session is missing access_token');
+      }
+      console.log(`[Lighthouse Auth] Self-check passed: cookie decodes to valid session with access_token`);
+    } catch (err) {
+      throw new Error(`[Lighthouse Auth] Self-check FAILED: Cookie encoding is invalid (${err.message})`);
+    }
+
+    // Direct API verification: confirm the access_token is valid before relying on middleware
+    try {
+      const userEndpoint = new URL('/auth/v1/user', parsedSupabaseUrl).href;
+      const userResponse = await fetch(userEndpoint, {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      if (!userResponse.ok) {
+        const errorBody = await userResponse.text();
+        throw new Error(`User verification failed: HTTP ${userResponse.status} ${errorBody}`);
+      }
+      const userData = await userResponse.json();
+      const userDomain = userData.email?.split('@')[1] || 'unknown';
+      console.log(`[Lighthouse Auth] Direct API verification passed: user ***@${userDomain}`);
+    } catch (err) {
+      throw new Error(`[Lighthouse Auth] Token verification FAILED: ${err.message}`);
+    }
+
     // Chunk the cookie if it exceeds browser size limits (mirrors @supabase/ssr createChunks)
     const chunks = createChunks(cookieName, cookieValue);
     console.log(`[Lighthouse Auth] Chunked into ${chunks.length} piece(s): ${chunks.map(c => c.name).join(', ')}`);
@@ -190,8 +222,9 @@ module.exports = async (browser, context) => {
       console.log(`[Lighthouse Auth] Fallback: ${fallbackAuth.length} auth cookie(s) stored`);
     }
 
-    // Verify: navigate to /profile and confirm no redirect to sign-in
-    await page.goto(`${BASE_URL}/profile`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    // Verify: navigate to /profile and confirm no redirect to sign-in.
+    // Capture the response to get HTTP status if auth fails.
+    const verifyResponse = await page.goto(`${BASE_URL}/profile`, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {
       console.log('[Lighthouse Auth] Network idle timeout during verification, proceeding');
     });
@@ -203,8 +236,12 @@ module.exports = async (browser, context) => {
       const debugCookies = await page.cookies(BASE_URL);
       const debugAuth = debugCookies.filter(c => c.name.startsWith('sb-'));
       console.log(`[Lighthouse Auth] Debug: ${debugAuth.length} sb-* cookies after redirect: ${debugAuth.map(c => c.name).join(', ')}`);
+
+      const httpStatus = verifyResponse ? verifyResponse.status() : 'unknown';
+
       throw new Error(
         `[Lighthouse Auth] AUTHENTICATION FAILED: Redirected to sign-in page (${verifyUrl}) after cookie injection. ` +
+        `HTTP Status: ${httpStatus}. ` +
         `Cookies found: ${debugAuth.length}. Cookie may not be in the expected format.`
       );
     }
