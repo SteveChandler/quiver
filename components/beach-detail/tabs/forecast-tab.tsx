@@ -16,7 +16,6 @@ import {
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
-import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 import { isDataStale, getLatestUpdatedAt } from "@/lib/utils/forecast-client-utils";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
@@ -34,7 +33,7 @@ import { generateTideDiagnosticsFromForecasts } from "@/lib/utils/tide-diagnosti
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
-import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 import { useSunTimes } from "@/hooks/use-sun-times";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
@@ -43,6 +42,7 @@ import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
+import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 
 const CamsSection = dynamic(
   () =>
@@ -99,7 +99,7 @@ export function ForecastTab({
 
   // Horizon Strip: selected date for filtering (defaults to today)
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
-    return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
+    return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
   });
 
   const forecastsByDate = useMemo(() => {
@@ -126,7 +126,7 @@ export function ForecastTab({
   );
 
   const miniForecastDays = useMemo(() => {
-    const today = getTodayDateString();
+    const today = getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
     return sortedDates
       .filter((date) => date >= today)
       .slice(0, 5)
@@ -149,7 +149,7 @@ export function ForecastTab({
       date: string;
       forecast: EnhancedForecastEntity;
     }[];
-  }, [sortedDates, forecastsByDate]);
+  }, [sortedDates, forecastsByDate, beachTimezone]);
 
   // Public mode: visible and hidden days for 5-Day Outlook
   const visibleDays = publicMode ? miniForecastDays.slice(0, 3) : miniForecastDays;
@@ -175,10 +175,10 @@ export function ForecastTab({
   // Public mode: allowed dates (first 3 days)
   const publicAllowedDates = useMemo(() => {
     if (!publicMode) return null;
-    const today = getTodayDateString();
+    const today = getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
     const futureDates = [...new Set(forecasts.filter(f => f.forecast_date >= today).map(f => f.forecast_date))].sort();
     return new Set(futureDates.slice(0, 3));
-  }, [publicMode, forecasts]);
+  }, [publicMode, forecasts, beachTimezone]);
 
   // Public mode: filter forecasts to 3 days (reuses publicAllowedDates)
   const publicFilteredForecasts = useMemo(() => {
@@ -187,7 +187,7 @@ export function ForecastTab({
   }, [publicMode, forecasts, publicAllowedDates]);
 
   const todayStr = useMemo(() => {
-    return getLocalDateString(new Date(), beachTimezone || DEFAULT_TIMEZONE);
+    return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
   }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
@@ -725,7 +725,7 @@ export function ForecastTab({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="mt-4">
-                    <SimplifiedForecastTable forecasts={publicFilteredForecasts} />
+                    <SimplifiedForecastTable forecasts={publicFilteredForecasts} beachTimezone={beachTimezone} />
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -736,9 +736,12 @@ export function ForecastTab({
         {/* Tides Tab */}
         <TabsContent value="tides" className="mt-6">
           <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg backdrop-blur">
-            <h2 className="text-xl font-roboto font-semibold text-dark-grey mb-4">
-              Tide Forecast
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                Tide Forecast
+              </h2>
+              <EmbedCodeButton beachSlug={beach.slug} beachName={beach.name} />
+            </div>
             <TideChartEnhanced
               forecasts={forecasts}
               diagnostics={tideDiagnostics ?? undefined}
@@ -770,7 +773,7 @@ export function ForecastTab({
             />
           ) : (
             <div className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg p-6">
-              <SimplifiedForecastTable forecasts={selectedDateForecasts} />
+              <SimplifiedForecastTable forecasts={selectedDateForecasts} beachTimezone={beachTimezone} />
             </div>
           )}
         </TabsContent>

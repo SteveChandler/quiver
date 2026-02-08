@@ -131,12 +131,42 @@ export default async function RootLayout({
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "/";
   const isLandingPage = pathname === "/";
+  const isEmbedRoute = pathname.startsWith("/embed");
 
   // Show the shared site footer on public content pages; hide on landing
-  // (has its own footer), auth pages, and authenticated app pages.
-  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs"];
+  // (has its own footer), auth pages, authenticated app pages, and embeds.
+  const hideFooterPrefixes = ["/auth", "/admin", "/profile", "/inbox", "/sessions", "/prefs", "/embed"];
   const showSiteFooter =
     !isLandingPage && !hideFooterPrefixes.some((p) => pathname.startsWith(p));
+
+  // Embed routes get a minimal shell — no providers, nav, footer, or heavy assets
+  if (isEmbedRoute) {
+    return (
+      <html lang="en" className={inter.variable}>
+        <head>
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+                :root {
+                  --background: 0 0% 100%;
+                  --foreground: 222.2 84% 4.9%;
+                  --card: 0 0% 100%;
+                  --card-foreground: 222.2 84% 4.9%;
+                  --border: 214.3 31.8% 91.4%;
+                  --muted: 210 40% 96.1%;
+                  --muted-foreground: 215.4 16.3% 46.9%;
+                }
+                body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+              `,
+            }}
+          />
+        </head>
+        <body className={`${inter.className} font-sans antialiased`}>
+          {children}
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html

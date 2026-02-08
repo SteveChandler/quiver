@@ -17,7 +17,7 @@ import {
 import { CDIPService } from "@/lib/services/cdip-service";
 import { CDIP_STATIONS } from "@/lib/constants/cdip-stations";
 import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
-import { CDIP_NDBC_OVERLAPS, isNDBCDuplicateOfCDIP } from "@/lib/constants/buoy-mappings";
+import { CDIP_NDBC_OVERLAPS, isNDBCDuplicateOfCDIP, isLocalBuoyNDBCStation } from "@/lib/constants/buoy-mappings";
 import {
   formatBuoyMessage,
   formatTideMessage,
@@ -189,12 +189,19 @@ async function fetchCoastPulseData(
     });
   }
 
-  // Process local buoys
+  // Process local buoys (with dedup against CDIP/NDBC)
   if (
     localBuoysResult.status === "fulfilled" &&
     localBuoysResult.value.length > 0
   ) {
-    items.push(...localBuoysResult.value);
+    for (const localItem of localBuoysResult.value) {
+      const localUuid = localItem.id.replace("local-", "");
+      // Skip if this is an NDBC station ID that overlaps with a CDIP station
+      if (isLocalBuoyNDBCStation(localUuid) && isNDBCDuplicateOfCDIP(localUuid)) {
+        continue;
+      }
+      items.push(localItem);
+    }
   }
 
   // Process forecasts
@@ -236,7 +243,7 @@ async function fetchCoastPulseData(
     items.push(...cdipResult.value);
   }
 
-  // Process live NDBC data (with deduplication check against CDIP)
+  // Process live NDBC data (with deduplication check against CDIP and LOCAL)
   if (ndbcResult.status === "fulfilled" && ndbcResult.value) {
     const ndbcItem = ndbcResult.value;
     const ndbcStationId = ndbcItem.id.replace("ndbc-", "");
@@ -250,8 +257,13 @@ async function fetchCoastPulseData(
         return CDIP_NDBC_OVERLAPS[cdipId] === ndbcStationId;
       });
 
-    // Only add NDBC if no CDIP duplicate exists (CDIP has higher credibility)
-    if (!hasCDIPDuplicate) {
+    // Check if we already have the same station as a LOCAL buoy
+    const hasLocalDuplicate = items.some(
+      (item) => item.source.type === "local" && item.id.replace("local-", "") === ndbcStationId
+    );
+
+    // Only add NDBC if no CDIP or LOCAL duplicate exists
+    if (!hasCDIPDuplicate && !hasLocalDuplicate) {
       items.push(ndbcItem);
     }
   }
@@ -266,8 +278,20 @@ async function fetchCoastPulseData(
     (item) => item.message !== "No current data"
   );
 
+  // Filter out stale buoy/sensor data (older than 6 hours)
+  const now = Date.now();
+  const sensorTypes = new Set(["local", "cdip", "ndbc", "tide"]);
+  const freshItems = itemsWithData.filter((item) => {
+    // Only apply age filter to sensor sources (not intel or forecast)
+    if (!sensorTypes.has(item.source.type)) return true;
+    return now - new Date(item.timestamp).getTime() <= TIME.MAX_BUOY_AGE_MS;
+  });
+
+  // Proximity-based dedup for buoy sources (catches geographic overlap even when station IDs don't match)
+  const deduped = deduplicateBuoyItems(freshItems);
+
   // Sort by timestamp (newest first), then by credibility for items within 30 min
-  const sorted = itemsWithData.sort((a, b) => {
+  const sorted = deduped.sort((a, b) => {
     const timeDiff =
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     if (Math.abs(timeDiff) < TIME.CREDIBILITY_GROUPING_MS) {
@@ -954,6 +978,39 @@ async function fetchTideData(
     console.error("Tide data fetch error:", err);
     return null;
   }
+}
+
+/**
+ * Deduplicate buoy items that are geographically close.
+ * When two buoy sources (local/cdip/ndbc) are within 5km,
+ * keep only the highest-credibility one.
+ */
+function deduplicateBuoyItems(items: CoastPulseItem[]): CoastPulseItem[] {
+  const buoyTypes = new Set(["local", "cdip", "ndbc"]);
+  const buoyItems = items.filter((i) => buoyTypes.has(i.source.type) && i.location);
+  const nonBuoyItems = items.filter((i) => !buoyTypes.has(i.source.type) || !i.location);
+
+  // Sort buoys by credibility (highest first) so we keep the best
+  buoyItems.sort((a, b) => b.source.credibility - a.source.credibility);
+
+  const kept: CoastPulseItem[] = [];
+  for (const item of buoyItems) {
+    const isDuplicate = kept.some((k) => {
+      if (!k.location || !item.location) return false;
+      const dist = haversineDistance(
+        k.location.lat,
+        k.location.lon,
+        item.location.lat,
+        item.location.lon
+      );
+      return dist < 5; // 5km threshold
+    });
+    if (!isDuplicate) {
+      kept.push(item);
+    }
+  }
+
+  return [...nonBuoyItems, ...kept];
 }
 
 /**

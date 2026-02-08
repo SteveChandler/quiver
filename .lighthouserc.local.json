@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicknisi/lighthouse-ci/main/packages/cli/src/schema.json",
-  "_comment": "Local development config - no puppeteerScript (runs unauthenticated)",
+  "_comment": "Local development config - relaxed thresholds for dev environment",
   "ci": {
     "collect": {
       "url": [

@@ -22,6 +22,8 @@ export const DISTANCE = {
 export const TIME = {
   /** 24 hours in milliseconds */
   TWENTY_FOUR_HOURS_MS: 24 * 60 * 60 * 1000,
+  /** Maximum age for buoy/sensor data before filtering out (6 hours) */
+  MAX_BUOY_AGE_MS: 6 * 60 * 60 * 1000,
   /** 2 hours in milliseconds */
   TWO_HOURS_MS: 2 * 60 * 60 * 1000,
   /** 30 minutes in milliseconds */

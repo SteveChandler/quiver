@@ -123,7 +123,7 @@ export async function saveOnboardingData(data: OnboardingData) {
 
       // Award welcome XP for completing onboarding
       try {
-        const { trackXP } = await import('@/lib/gamification-actions');
+        const { trackXP } = await import('@/lib/gamification');
         await trackXP('onboarding_completed', user.id);
       } catch (xpError) {
         console.log('XP tracking not available:', xpError);

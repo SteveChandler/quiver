@@ -12,6 +12,15 @@
 export const DEFAULT_TIMEZONE = "America/Los_Angeles";
 
 /**
+ * Resolve a beach timezone to a concrete IANA timezone string.
+ * Centralises the `tz || DEFAULT_TIMEZONE` fallback so callers never
+ * have to repeat it.
+ */
+export function resolveBeachTimezone(tz?: string | null): string {
+  return tz || DEFAULT_TIMEZONE;
+}
+
+/**
  * Get a YYYY-MM-DD date string for a given Date in a specific timezone.
  *
  * This is used anywhere we need "today" semantics aligned to a beach's local
@@ -119,32 +128,4 @@ export function isNightHour(hour: number): boolean {
   return hour >= 21 || hour < 5;
 }
 
-/**
- * Check if a forecast time is during nighttime at a beach location
- *
- * Combines coordinate-to-timezone lookup and night hour check
- * into a single convenience function.
- *
- * @param forecastDate - Forecast date string (YYYY-MM-DD)
- * @param forecastTime - Forecast time string (HH:MM:SS)
- * @param beachLat - Beach latitude
- * @param beachLon - Beach longitude
- * @returns true if the forecast time is during nighttime at the beach
- *
- * @example
- * // Check if 09:00:00 UTC is nighttime at San Diego
- * isNightTimeAtBeach('2025-11-25', '09:00:00', 32.7157, -117.1611) // → true (1 AM Pacific)
- */
-export function isNightTimeAtBeach(
-  forecastDate: string,
-  forecastTime: string,
-  beachLat: number,
-  beachLon: number
-): boolean {
-  const beachTz = getTimezoneFromCoords(beachLat, beachLon);
-  // Parse as UTC since forecast times are stored in UTC
-  const utcDate = new Date(`${forecastDate}T${forecastTime}Z`);
-  const localHour = getLocalHour(utcDate, beachTz);
-  return isNightHour(localHour);
-}
 

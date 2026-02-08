@@ -6,7 +6,7 @@ import {
   createSupabaseServiceRoleClient,
 } from "@/lib/supabase/server";
 import { getExpiryDate } from "@/lib/constants/intel";
-import { creditAuthorWithXP } from "@/lib/gamification-actions";
+import { creditAuthorWithXP } from "@/lib/gamification";
 import type { ActionResult } from "@/lib/action-utils";
 import type {
   CreateIntelPostData,
@@ -69,7 +69,7 @@ interface IntelPostRPCResult {
 /**
  * Create a new intel post
  */
-import type { XPAction } from "@/lib/gamification-actions";
+import type { XPAction } from "@/lib/gamification";
 import {
   withAuthenticatedAction,
   type ServerActionResponse,
@@ -447,7 +447,7 @@ export async function createIntelPost(
       try {
         const track = deps?.trackXP
           ? deps.trackXP
-          : (await import("@/lib/gamification-actions")).trackXP;
+          : (await import("@/lib/gamification")).trackXP;
         await track("post_beach_intel", createdIntelPost.id, "intel_post");
       } catch (xpErr) {
         console.warn("XP tracking failed for intel post:", xpErr);

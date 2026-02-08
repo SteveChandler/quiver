@@ -240,6 +240,7 @@ export async function middleware(request: NextRequest) {
         "beach",
         "beaches",
         "discover",
+        "embed",
         "features",
         "forecast",
         "inbox",
@@ -358,9 +359,15 @@ function createSecureResponse(request: NextRequest): NextResponse {
   });
 
   // Add security headers to all responses
+  const isEmbedRoute = request.nextUrl.pathname.startsWith("/embed/");
   Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
+    // Allow embed routes to be framed by external sites
+    if (isEmbedRoute && key === "X-Frame-Options") return;
     response.headers.set(key, value as string);
   });
+  if (isEmbedRoute) {
+    response.headers.set("Content-Security-Policy", "frame-ancestors *");
+  }
 
   // Capture UTM attribution parameters
   captureAttributionParams(request, response);
@@ -546,24 +553,16 @@ async function authenticateRequest(
   const authValidator = new AuthValidator(
     request,
     {
-      get(name) {
-        const cookie = request.cookies.get(name);
-        return cookie?.value;
+      getAll() {
+        return request.cookies.getAll();
       },
-      set(name, value, options) {
-        log(`[Middleware] Setting cookie: ${name}`);
-        response.cookies.set({
-          name,
-          value,
-          ...options,
-        });
-      },
-      remove(name, options) {
-        log(`[Middleware] Removing cookie: ${name}`);
-        response.cookies.delete({
-          name,
-          ...options,
-        });
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set({ name, value, ...options })
+        );
       },
     },
     isVerbose

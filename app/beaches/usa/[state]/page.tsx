@@ -17,6 +17,8 @@ import {
 } from "@/lib/utils/location-slug";
 import { StateMapView } from "@/components/state/state-map-view";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
+import { FAQSection } from "@/components/seo/faq-schema";
+import { generateStateSummary, generateStateFAQ } from "@/lib/seo/state-content-generator";
 
 export const dynamic = "force-dynamic";
 
@@ -141,6 +143,31 @@ export default async function UsaStatePage(
 
   const beaches = beachesResponse.success && beachesResponse.data ? beachesResponse.data : [];
 
+  // Compute per-city beach counts from extended beach data
+  const cityBeachCounts = new Map<string, number>();
+  for (const b of beaches) {
+    if (b.city) {
+      const slug = generateLocationSlug(b.city);
+      if (slug) {
+        cityBeachCounts.set(slug, (cityBeachCounts.get(slug) || 0) + 1);
+      }
+    }
+  }
+
+  // Generate data-driven SEO content
+  const stateSummary = generateStateSummary({
+    stateName,
+    stateSlug,
+    beaches,
+    cityCount: cities.length,
+  });
+  const stateFaqs = generateStateFAQ({
+    stateName,
+    stateSlug,
+    beaches,
+    cityCount: cities.length,
+  });
+
   return (
     <div className="container mx-auto px-4 py-10 max-w-7xl">
       <header className="mb-8">
@@ -159,11 +186,11 @@ export default async function UsaStatePage(
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
           Best surf beaches in {stateName}
         </h1>
-        <p className="mt-2 text-gray-600 max-w-3xl">
-          Explore surf cities across {stateName}. Tap a city to see a ranked list
-          of beaches and local intel.
-        </p>
       </header>
+
+      <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">
+        {stateSummary}
+      </p>
 
       <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
         <section aria-label="Cities" className="order-2 lg:order-1">
@@ -172,16 +199,24 @@ export default async function UsaStatePage(
           </h2>
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <ul className="grid gap-2">
-              {cities.map((c) => (
-                <li key={c.citySlug}>
-                  <Link
-                    href={`/beaches/usa/${stateSlug}/${c.citySlug}`}
-                    className="block rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
-                  >
-                    {c.cityName}
-                  </Link>
-                </li>
-              ))}
+              {cities.map((c) => {
+                const spotCount = cityBeachCounts.get(c.citySlug);
+                return (
+                  <li key={c.citySlug}>
+                    <Link
+                      href={`/beaches/usa/${stateSlug}/${c.citySlug}`}
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
+                    >
+                      <span>{c.cityName}</span>
+                      {spotCount && spotCount > 0 && (
+                        <span className="text-xs text-slate-500">
+                          {spotCount} {spotCount === 1 ? "spot" : "spots"}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </section>
@@ -197,6 +232,9 @@ export default async function UsaStatePage(
           </p>
         </section>
       </div>
+
+      {/* FAQ Section for SEO */}
+      <FAQSection items={stateFaqs} locationName={stateName} />
 
       <IntentGuidesGrid
         locationSlug={stateSlug}

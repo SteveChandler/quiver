@@ -14,7 +14,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => mockSupabase,
 }));
 
-jest.mock("@/lib/gamification-actions", () => ({
+jest.mock("@/lib/gamification", () => ({
   creditAuthorWithXP: (...args: any[]) => mockCreditAuthorWithXP(...args),
 }));
 

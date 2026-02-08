@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { DaySummary } from "@/lib/utils/regional-forecast-utils";
 import { getScoreColorClasses, SCORE_THRESHOLDS } from "@/lib/utils/score-color-utils";
 import { formatWaveRange } from "@/lib/utils/wave-formatters";
-import { formatFullDate } from "@/lib/utils/time-formatters";
+
 import { ScoreBadge } from "./score-badge";
 import { AnimatedScoreGauge } from "./animated-score-gauge";
 import { WaveBackground } from "@/components/ui/ocean-background";
@@ -23,6 +23,15 @@ import {
   Waves,
   Trophy,
 } from "lucide-react";
+
+/** Format a YYYY-MM-DD dateString to "Feb 6" style, timezone-safe */
+function formatDateStringUTC(dateString: string): string {
+  return new Date(dateString + "T12:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 /**
  * Props for the BestDaysSection component
@@ -199,7 +208,7 @@ function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardP
               {/* Date */}
               <div>
                 <h3 className="text-2xl font-bold text-foreground">
-                  {formatFullDate(day.date)}
+                  {day.dayOfWeek}, {formatDateStringUTC(day.dateString)}
                 </h3>
                 <p className="text-muted-foreground">
                   <AnimatedCounter
@@ -270,10 +279,7 @@ function BestDayCard({ day, isHero = false, className, index = 0 }: BestDayCardP
                 {day.dayOfWeek}
               </h4>
               <p className="text-xs text-muted-foreground">
-                {day.date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
+                {formatDateStringUTC(day.dateString)}
               </p>
 
               {/* Quick Stats */}

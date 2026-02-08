@@ -33,11 +33,6 @@ export interface ConfidenceParams {
  *
  * @returns Confidence score on 0-100 scale (e.g., 70 means 70%)
  *
- * IMPORTANT: ForecastWeightingService uses 0-1 scale internally.
- * Conversion happens at the boundary in enhanced-forecast-service.ts:
- * - Before weighting: confidenceDecimal = confidence_score / 100
- * - After weighting: confidence_score = Math.round(confidence * 100)
- *
  * Scoring breakdown:
  * - Base score: 50
  * - CDIP buoy data: +25 (premium quality)
@@ -97,8 +92,7 @@ export function calculateConfidenceScore({
 /**
  * Convert 0-100 confidence scale to 0-1 decimal scale.
  *
- * Use this when passing confidence to systems that expect 0-1 scale
- * (e.g., ForecastWeightingService, some ML models).
+ * Use this when passing confidence to systems that expect 0-1 scale.
  *
  * @param score - Confidence score on 0-100 scale
  * @returns Confidence on 0-1 scale, clamped to valid range

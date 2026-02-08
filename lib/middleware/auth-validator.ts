@@ -26,9 +26,8 @@ export type AuthResult =
   | { authenticated: false; error: string };
 
 export interface SupabaseCookieOptions {
-  get(name: string): string | undefined;
-  set(name: string, value: string, options: any): void;
-  remove(name: string, options: any): void;
+  getAll(): { name: string; value: string }[];
+  setAll(cookies: { name: string; value: string; options: any }[]): void;
 }
 
 export class AuthValidator {
@@ -59,14 +58,11 @@ export class AuthValidator {
       supabaseAnonKey,
       {
         cookies: {
-          get(name) {
-            return cookieCallbacks.get(name);
+          getAll() {
+            return cookieCallbacks.getAll();
           },
-          set(name, value, options) {
-            cookieCallbacks.set(name, value, options);
-          },
-          remove(name, options) {
-            cookieCallbacks.remove(name, options);
+          setAll(cookies) {
+            cookieCallbacks.setAll(cookies);
           },
         },
       }

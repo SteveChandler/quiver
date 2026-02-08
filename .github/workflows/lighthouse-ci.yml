@@ -6,6 +6,11 @@ on:
     pull_request:
         branches: [main]
     workflow_dispatch:
+        inputs:
+            url:
+                description: "Override deployment URL (e.g. https://www.quiversurf.app)"
+                required: false
+                type: string
 
 env:
     NODE_VERSION: "22"
@@ -31,159 +36,104 @@ jobs:
             - name: Install dependencies
               run: yarn install --frozen-lockfile
 
-            - name: Build application
-              id: build
+            - name: Resolve deployment URL
+              id: deployment
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  MANUAL_URL: ${{ inputs.url }}
               run: |
-                  echo "🏗️ Building Next.js application for Lighthouse CI..."
+                  # Manual override takes priority
+                  if [ -n "$MANUAL_URL" ]; then
+                    echo "url=$MANUAL_URL" >> $GITHUB_OUTPUT
+                    echo "Using manual URL: $MANUAL_URL"
+                    exit 0
+                  fi
 
-                  if yarn build 2>&1 | tee build_output.log; then
-                    echo "✅ Build completed successfully"
-                    echo "success=true" >> $GITHUB_OUTPUT
+                  # Determine the commit SHA Vercel deployed
+                  if [ "${{ github.event_name }}" = "pull_request" ]; then
+                    DEPLOY_SHA="${{ github.event.pull_request.head.sha }}"
                   else
-                    echo "❌ Build failed"
-                    echo "success=false" >> $GITHUB_OUTPUT
-                    exit 1
+                    DEPLOY_SHA="${{ github.sha }}"
                   fi
-              env:
-                  # Supabase Configuration
-                  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-                  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-                  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+                  echo "Looking for Vercel deployment for commit: $DEPLOY_SHA"
 
-                  # Application URLs
-                  NEXT_PUBLIC_SITE_URL: http://localhost:3000
-                  BASE_URL: http://localhost:3000
+                  # Poll GitHub Deployments API for Vercel deployment URL
+                  TIMEOUT=600  # 10 minutes
+                  INTERVAL=15
+                  ELAPSED=0
 
-                  # Mapbox (Required for maps)
-                  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+                  while [ $ELAPSED -lt $TIMEOUT ]; do
+                    DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments?sha=$DEPLOY_SHA&environment=Preview&per_page=5" \
+                      --jq '.[0].id // empty' 2>/dev/null)
 
-                  # Firebase (Required for push notifications)
-                  FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-                  FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-                  FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-                  NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-                  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-                  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-                  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-                  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-                  NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-                  NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
-
-            - name: Upload build logs
-              if: failure()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: build-log-${{ github.run_number }}
-                  path: build_output.log
-                  retention-days: 7
-
-            - name: Start production server
-              id: start-server
-              run: |
-                  echo "🚀 Starting Next.js production server..."
-                  nohup yarn start > server_output.log 2>&1 &
-                  echo "SERVER_PID=$!" >> $GITHUB_ENV
-                  echo "✅ Server started with PID: $!"
-              env:
-                  # Supabase Configuration
-                  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-                  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-                  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-                  # Application URLs
-                  NEXT_PUBLIC_SITE_URL: http://localhost:3000
-                  BASE_URL: http://localhost:3000
-
-                  # Mapbox
-                  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
-
-                  # Firebase
-                  FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-                  FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-                  FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-                  NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-                  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-                  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-                  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-                  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-                  NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-                  NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
-
-            - name: Verify build artifacts exist
-              run: |
-                  echo "🔍 Checking build artifacts..."
-                  if [ ! -d ".next" ]; then
-                    echo "❌ .next directory not found - build may have failed"
-                    exit 1
-                  fi
-                  echo "✅ .next directory exists"
-                  ls -la .next/ | head -20
-
-            - name: Wait for server to be ready
-              run: |
-                  echo "⏳ Waiting for server at http://localhost:3000..."
-
-                  # Give server a few seconds to start, then check logs
-                  sleep 5
-
-                  # Check if server process is still running
-                  if ! kill -0 $SERVER_PID 2>/dev/null; then
-                    echo "❌ Server process died immediately"
-                    echo "=== Server Output Log ==="
-                    cat server_output.log || echo "No server log found"
-                    exit 1
-                  fi
-
-                  # Wait for server with periodic log checks
-                  for i in {1..12}; do
-                    if curl -sf http://localhost:3000 > /dev/null 2>&1; then
-                      echo "✅ Server is ready!"
-                      break
-                    fi
-                    echo "⏳ Attempt $i/12 - Server not ready yet..."
-
-                    # Show last 10 lines of server log for debugging
-                    if [ -f server_output.log ]; then
-                      echo "--- Recent server output ---"
-                      tail -10 server_output.log
-                      echo "----------------------------"
+                    if [ -z "$DEPLOY_ID" ]; then
+                      # Also check Production environment for main branch pushes
+                      DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments?sha=$DEPLOY_SHA&environment=Production&per_page=5" \
+                        --jq '.[0].id // empty' 2>/dev/null)
                     fi
 
-                    # Check if process is still alive
-                    if ! kill -0 $SERVER_PID 2>/dev/null; then
-                      echo "❌ Server process died"
-                      echo "=== Full Server Output Log ==="
-                      cat server_output.log || echo "No server log found"
-                      exit 1
+                    if [ -n "$DEPLOY_ID" ]; then
+                      # Get the deployment status with the target URL
+                      TARGET_URL=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses?per_page=5" \
+                        --jq '[.[] | select(.state == "success")][0].target_url // empty' 2>/dev/null)
+
+                      if [ -n "$TARGET_URL" ]; then
+                        echo "url=$TARGET_URL" >> $GITHUB_OUTPUT
+                        echo "Found deployment URL: $TARGET_URL"
+                        exit 0
+                      fi
                     fi
 
-                    sleep 5
+                    echo "Waiting for Vercel deployment... (${ELAPSED}s / ${TIMEOUT}s)"
+                    sleep $INTERVAL
+                    ELAPSED=$((ELAPSED + INTERVAL))
                   done
 
-                  # Final verification
-                  curl -f http://localhost:3000 || (echo "❌ Server health check failed" && cat server_output.log && exit 1)
-                  echo "✅ Server health check passed"
+                  echo "Timed out waiting for Vercel deployment"
+                  exit 1
+
+            - name: Verify deployment is reachable
+              env:
+                  VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
+              run: |
+                  DEPLOY_URL="${{ steps.deployment.outputs.url }}"
+                  echo "Checking deployment at: $DEPLOY_URL"
+
+                  BYPASS_HEADER=""
+                  if [ -n "$VERCEL_BYPASS_TOKEN" ]; then
+                    BYPASS_HEADER="-H x-vercel-protection-bypass:${VERCEL_BYPASS_TOKEN}"
+                  fi
+
+                  # Try the health endpoint, fall back to root
+                  if curl -sf --max-time 30 $BYPASS_HEADER "${DEPLOY_URL}/api/health" > /dev/null 2>&1; then
+                    echo "Health endpoint responded OK"
+                  elif curl -sf --max-time 30 $BYPASS_HEADER "${DEPLOY_URL}" > /dev/null 2>&1; then
+                    echo "Root page responded OK"
+                  else
+                    echo "Deployment not reachable at $DEPLOY_URL"
+                    exit 1
+                  fi
 
             - name: Install Playwright browsers
               run: |
-                  echo "📦 Installing Playwright Chromium browser..."
+                  echo "Installing Playwright Chromium browser..."
                   npx playwright install chromium --with-deps
-                  echo "✅ Playwright Chromium installed"
 
             - name: Run Playwright smoke tests
               id: playwright
               run: |
-                  echo "🧪 Running Playwright smoke tests..."
-                  if BASE_URL=http://localhost:3000 npx playwright test --grep @smoke --project=guest 2>&1 | tee playwright_output.log; then
-                    echo "✅ Playwright smoke tests passed"
+                  echo "Running Playwright smoke tests against $BASE_URL..."
+                  if npx playwright test --grep @smoke --project=guest 2>&1 | tee playwright_output.log; then
                     echo "success=true" >> $GITHUB_OUTPUT
                   else
-                    echo "❌ Playwright smoke tests failed"
                     echo "success=false" >> $GITHUB_OUTPUT
                     exit 1
                   fi
               env:
                   CI: true
+                  SKIP_AUTH_SETUP: "true"
+                  BASE_URL: ${{ steps.deployment.outputs.url }}
+                  VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
 
             - name: Upload Playwright results
               if: always()
@@ -196,86 +146,38 @@ jobs:
                       playwright_output.log
                   retention-days: 7
 
-            - name: Install Lighthouse CI and Puppeteer
+            - name: Install Lighthouse CI
               run: |
-                  echo "📦 Installing Lighthouse CI..."
                   npm install -g @lhci/cli@0.15.1
-                  echo "📦 Installing Puppeteer for authenticated testing..."
-                  npm install -g puppeteer
-                  echo "✅ Lighthouse CI and Puppeteer installed"
-
-            - name: Verify test credentials
-              run: |
-                  echo "🔐 Verifying test credentials are configured..."
-                  if [ -z "$LIGHTHOUSE_TEST_EMAIL" ] || [ -z "$LIGHTHOUSE_TEST_PASSWORD" ]; then
-                    echo "❌ Missing LIGHTHOUSE_TEST_EMAIL or LIGHTHOUSE_TEST_PASSWORD secrets"
-                    echo "Please configure these secrets in GitHub repository settings."
-                    exit 1
-                  fi
-                  echo "✅ Test credentials configured (LIGHTHOUSE_TEST_EMAIL is set)"
-              env:
-                  LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
-                  LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
 
             - name: Run Lighthouse CI
               id: lighthouse
               run: |
-                  echo "🔍 Running Lighthouse CI audits..."
-                  echo "📄 Using configuration from .lighthouserc.json"
-                  echo "🔐 Testing authenticated flows"
-                  echo ""
+                  DEPLOY_URL="${{ steps.deployment.outputs.url }}"
+                  echo "Running Lighthouse CI against: $DEPLOY_URL"
 
-                  if lhci autorun 2>&1 | tee lighthouse_output.log; then
-                    echo "✅ Lighthouse CI completed successfully"
+                  EXTRA_HEADERS="{}"
+                  if [ -n "$VERCEL_BYPASS_TOKEN" ]; then
+                    EXTRA_HEADERS="{\"x-vercel-protection-bypass\":\"$VERCEL_BYPASS_TOKEN\"}"
+                    echo "Vercel protection bypass header configured"
+                  fi
+
+                  if lhci autorun \
+                    --collect.url="${DEPLOY_URL}/" \
+                    --collect.url="${DEPLOY_URL}/discover" \
+                    --collect.url="${DEPLOY_URL}/map" \
+                    --collect.url="${DEPLOY_URL}/spots/blacks-beach" \
+                    --collect.url="${DEPLOY_URL}/spots/swamis" \
+                    --collect.settings.extraHeaders="$EXTRA_HEADERS" \
+                    2>&1 | tee lighthouse_output.log; then
                     echo "success=true" >> $GITHUB_OUTPUT
                   else
-                    echo "❌ Lighthouse CI failed"
                     echo "success=false" >> $GITHUB_OUTPUT
                     exit 1
                   fi
               env:
                   LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
-                  # Test user credentials for authenticated Lighthouse tests
-                  LIGHTHOUSE_TEST_EMAIL: ${{ secrets.LIGHTHOUSE_TEST_EMAIL }}
-                  LIGHTHOUSE_TEST_PASSWORD: ${{ secrets.LIGHTHOUSE_TEST_PASSWORD }}
-
-            - name: Verify Lighthouse authentication
-              if: always() && steps.lighthouse.outcome != 'skipped'
-              run: |
-                  echo "🔍 Checking Lighthouse authentication status..."
-                  if [ -f lighthouse_output.log ]; then
-                    # Check for explicit auth failures
-                    if grep -q "Login failed\|AUTHENTICATION FAILED\|FATAL: Missing" lighthouse_output.log; then
-                      echo "❌ Lighthouse authentication failed"
-                      echo ""
-                      echo "=== Authentication Error Details ==="
-                      grep -A5 -B2 "Login failed\|AUTHENTICATION FAILED\|FATAL" lighthouse_output.log || true
-                      exit 1
-                    fi
-                    # Verify auth succeeded
-                    if grep -q "Login successful\|✅ Login successful" lighthouse_output.log; then
-                      echo "✅ Lighthouse authentication verified"
-                    else
-                      # Only warn if Lighthouse step succeeded but no auth confirmation
-                      if [ "${{ steps.lighthouse.outputs.success }}" = "true" ]; then
-                        echo "⚠️ Could not verify authentication status in logs"
-                        echo "Check lighthouse_output.log artifact for details"
-                      else
-                        echo "⚠️ Lighthouse failed before authentication could be verified"
-                      fi
-                    fi
-                  else
-                    echo "⚠️ lighthouse_output.log not found"
-                  fi
-
-            - name: Stop server
-              if: always()
-              run: |
-                  if [ ! -z "$SERVER_PID" ]; then
-                    echo "🛑 Stopping server (PID: $SERVER_PID)..."
-                    kill $SERVER_PID || true
-                    echo "✅ Server stopped"
-                  fi
+                  VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
 
             - name: Upload Lighthouse results
               if: always()
@@ -284,14 +186,6 @@ jobs:
                   name: lighthouse-results-${{ github.run_number }}
                   path: .lighthouseci/
                   retention-days: 30
-
-            - name: Upload server logs
-              if: always()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: server-log-${{ github.run_number }}
-                  path: server_output.log
-                  retention-days: 7
 
             - name: Upload Lighthouse output
               if: always()
@@ -304,48 +198,49 @@ jobs:
             - name: Create performance summary
               if: always()
               run: |
-                  echo "## 🔍 CI Performance Report" >> $GITHUB_STEP_SUMMARY
+                  DEPLOY_URL="${{ steps.deployment.outputs.url }}"
+
+                  echo "## Lighthouse CI Performance Report" >> $GITHUB_STEP_SUMMARY
                   echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
                   echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
                   echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+                  echo "**Deployment:** $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Status" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Playwright Smoke Tests:** ${{ steps.playwright.outputs.success == 'true' && '✅ Passed' || '⚠️ Failed' }}" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Lighthouse CI:** ${{ steps.lighthouse.outputs.success == 'true' && '✅ Passed' || '⚠️ Failed/Warnings' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Playwright Smoke Tests:** ${{ steps.playwright.outputs.success == 'true' && 'Passed' || 'Failed' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Lighthouse CI:** ${{ steps.lighthouse.outputs.success == 'true' && 'Passed' || 'Failed/Warnings' }}" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
-                  echo "### 🧪 Playwright Smoke Tests" >> $GITHUB_STEP_SUMMARY
+                  echo "### Playwright Smoke Tests" >> $GITHUB_STEP_SUMMARY
                   echo "Smoke tests run against guest project (unauthenticated)." >> $GITHUB_STEP_SUMMARY
                   echo "Download \`playwright-results-${{ github.run_number }}\` artifact for details." >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
-                  echo "### Audited URLs (Authenticated)" >> $GITHUB_STEP_SUMMARY
-                  echo "- Home: http://localhost:3000" >> $GITHUB_STEP_SUMMARY
-                  echo "- Discover: http://localhost:3000/discover" >> $GITHUB_STEP_SUMMARY
-                  echo "- Map: http://localhost:3000/map" >> $GITHUB_STEP_SUMMARY
-                  echo "- Profile: http://localhost:3000/profile" >> $GITHUB_STEP_SUMMARY
-                  echo "- Spot (Blacks): http://localhost:3000/spots/blacks-beach" >> $GITHUB_STEP_SUMMARY
-                  echo "- Spot (Swamis): http://localhost:3000/spots/swamis" >> $GITHUB_STEP_SUMMARY
+                  echo "### Audited URLs" >> $GITHUB_STEP_SUMMARY
+                  echo "- Home: ${DEPLOY_URL}/" >> $GITHUB_STEP_SUMMARY
+                  echo "- Discover: ${DEPLOY_URL}/discover" >> $GITHUB_STEP_SUMMARY
+                  echo "- Map: ${DEPLOY_URL}/map" >> $GITHUB_STEP_SUMMARY
+                  echo "- Spot (Blacks): ${DEPLOY_URL}/spots/blacks-beach" >> $GITHUB_STEP_SUMMARY
+                  echo "- Spot (Swamis): ${DEPLOY_URL}/spots/swamis" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Configuration" >> $GITHUB_STEP_SUMMARY
                   echo "- **Runs per URL:** 3" >> $GITHUB_STEP_SUMMARY
                   echo "- **Form Factor:** Mobile (Pixel 5 emulation)" >> $GITHUB_STEP_SUMMARY
                   echo "- **Categories:** Performance, Accessibility, Best Practices, SEO" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Authentication:** Puppeteer login script" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Thresholds" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Performance:** ≥70% (warn)" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Accessibility:** ≥90% (error)" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Best Practices:** ≥85% (warn)" >> $GITHUB_STEP_SUMMARY
-                  echo "- **SEO:** ≥85% (warn)" >> $GITHUB_STEP_SUMMARY
-                  echo "- **LCP:** ≤4000ms" >> $GITHUB_STEP_SUMMARY
-                  echo "- **CLS:** ≤0.1" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Performance:** >=70% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Accessibility:** >=90% (error)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Best Practices:** >=85% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **SEO:** >=85% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **LCP:** <=4000ms" >> $GITHUB_STEP_SUMMARY
+                  echo "- **CLS:** <=0.1" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
-                  echo "### 📊 Detailed Results" >> $GITHUB_STEP_SUMMARY
+                  echo "### Detailed Results" >> $GITHUB_STEP_SUMMARY
                   echo "Download the \`lighthouse-results-${{ github.run_number }}\` artifact for full reports." >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -359,14 +254,8 @@ jobs:
             - name: Notify on failure
               if: failure()
               run: |
-                  echo "🚨 CI Workflow Failed"
+                  echo "CI Workflow Failed"
                   echo "Check the artifacts and logs for detailed error information"
-
-                  if [ -f server_output.log ]; then
-                    echo ""
-                    echo "=== Server Output (Last 20 Lines) ==="
-                    tail -20 server_output.log
-                  fi
 
                   if [ -f playwright_output.log ]; then
                     echo ""

@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
     // Lazy import XP tracker to avoid module cost when not needed
     const trackInviteXP = async (inviteId: string) => {
       try {
-        const { trackXP } = await import("@/lib/gamification-actions");
+        const { trackXP } = await import("@/lib/gamification");
         await trackXP("invite_friend", inviteId, "invite");
       } catch (err) {
         console.warn("XP tracking failed for invite:", err);

@@ -2,7 +2,7 @@
 
 import { useToast } from "@/components/ui/use-toast";
 import { BadgeIcon } from "@/components/gamification/badge-icon";
-import type { XPTrackingResult, BadgeUnlock } from "@/lib/gamification-actions";
+import type { XPTrackingResult, BadgeUnlock } from "@/lib/gamification";
 import { cn } from "@/lib/utils";
 // Removed static import to fix SSR hydration errors
 // import confetti from "canvas-confetti";

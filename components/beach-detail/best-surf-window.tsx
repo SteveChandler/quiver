@@ -12,7 +12,7 @@ import { getWindowStatus } from "@/lib/utils/window-status";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { data } from "@/lib/data/client";
-import { DEFAULT_TIMEZONE, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
 import { UnifiedSurfCard } from "./unified-surf-card";
 import {
   Clock,
@@ -100,7 +100,7 @@ export function BestSurfWindow({
   };
 
   const forecastDate = useMemo(() => {
-    const timezone = beachTimezone || DEFAULT_TIMEZONE;
+    const timezone = resolveBeachTimezone(beachTimezone);
     const localDate = getLocalDateString(new Date(), timezone);
 
     // Dev-only logging to catch timezone issues

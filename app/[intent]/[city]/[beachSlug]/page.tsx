@@ -262,7 +262,13 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
       // Build CTR-optimized title and description
       const { title, description } = buildDynamicBeachMetadata({
-        beach,
+        beach: {
+          name: beach.name,
+          city: beach.city,
+          state: beach.state,
+          break_type: beach.break_type,
+          skill_level: beach.skill_level,
+        },
         forecast: forecastData,
       });
 

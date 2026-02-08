@@ -43,6 +43,8 @@ import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
+import { FAQSection } from "@/components/seo/faq-schema";
+import { generateCityContent } from "@/lib/seo/city-content-generator";
 import { LocationMapClient } from "./location-map-client";
 
 const SITE_ORIGIN = (
@@ -230,6 +232,15 @@ export default async function LocationPage(props: LocationPageProps) {
     );
   }
 
+  // Generate data-driven SEO content for non-editorial pages
+  const { summary: citySummary, faqs: cityFaqs } = generateCityContent({
+    cityName: displayCityName,
+    stateName: location.state,
+    stateSlug: params.state,
+    stats,
+    beaches,
+  });
+
   // Standard layout for cities without editorial content
   return (
     <>
@@ -293,6 +304,9 @@ export default async function LocationPage(props: LocationPageProps) {
             )}
           </div>
         </header>
+
+        {/* Data-driven summary for SEO */}
+        <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">{citySummary}</p>
 
         {/* Content Grid: Beach List + Map */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -419,6 +433,9 @@ export default async function LocationPage(props: LocationPageProps) {
           stateAbbrev={params.state.toUpperCase()}
         />
 
+        {/* FAQ Section for SEO */}
+        <FAQSection items={cityFaqs} locationName={displayCityName} />
+
         {/* Empty State (shouldn't happen due to notFound check above) */}
         {beaches.length === 0 && (
           <div className="text-center py-12">
@@ -511,17 +528,18 @@ export async function generateMetadata(props: LocationPageProps) {
       ? metroConfig.pageTitle
       : `Best Surf Beaches in ${displayCityName}, ${location.state}`;
 
+    const topBeachNames = response.data.beaches
+      .slice(0, 3)
+      .map((b: { name: string }) => b.name)
+      .join(', ');
+
     const description = metroConfig?.description
       ? `${
           metroConfig.description
         } Average rating: ${stats.averageRating.toFixed(1)}/5 from ${
           stats.totalReviews
         } reviews.`
-      : `Discover the top ${stats.totalBeaches} surf beaches in ${
-          displayCityName
-        }. Average rating: ${stats.averageRating.toFixed(1)}/5 from ${
-          stats.totalReviews
-        } reviews.`;
+      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more. Rated ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews. Forecast, tides & conditions.`;
 
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =

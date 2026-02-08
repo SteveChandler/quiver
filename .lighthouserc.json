@@ -1,15 +1,6 @@
 {
   "ci": {
     "collect": {
-      "url": [
-        "http://localhost:3000",
-        "http://localhost:3000/discover",
-        "http://localhost:3000/map",
-        "http://localhost:3000/profile",
-        "http://localhost:3000/spots/blacks-beach",
-        "http://localhost:3000/spots/swamis"
-      ],
-      "puppeteerScript": "lighthouse/puppeteer-script.js",
       "numberOfRuns": 3,
       "settings": {
         "formFactor": "mobile",

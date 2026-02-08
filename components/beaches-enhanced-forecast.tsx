@@ -28,6 +28,7 @@ import { BeachesEnhancedForecastWithTransparency } from "./forecast/beaches-enha
 interface BeachesEnhancedForecastProps {
   beachId?: string;
   beachName?: string;
+  beachTimezone?: string | null;
   showHeader?: boolean;
   defaultDays?: number;
   autoGenerate?: boolean;
@@ -43,6 +44,7 @@ interface BeachesEnhancedForecastProps {
 export function BeachesEnhancedForecast({
   beachId,
   beachName = "Beach",
+  beachTimezone,
   showHeader = true,
   defaultDays = 12,
   autoGenerate = true,
@@ -73,6 +75,7 @@ export function BeachesEnhancedForecast({
     defaultDays,
     immediate: Boolean(beachId),
     autoGenerate,
+    beachTimezone,
   });
 
   const staleHours =
@@ -86,6 +89,7 @@ export function BeachesEnhancedForecast({
       <BeachesEnhancedForecastWithTransparency
         beachId={beachId}
         beachName={beachName}
+        beachTimezone={beachTimezone}
         showHeader={showHeader}
         showTransparency={showTransparency}
         showTransparencySummary={showQualitySummary}
@@ -231,7 +235,7 @@ export function BeachesEnhancedForecast({
             {publicMode ? (
               <>
                 {/* Preview content - first 2 rows visible */}
-                <SimplifiedForecastTable forecasts={forecasts.slice(0, 2)} />
+                <SimplifiedForecastTable forecasts={forecasts.slice(0, 2)} beachTimezone={beachTimezone} />
 
                 {/* Gated detailed content */}
                 <PublicContentGate
@@ -255,7 +259,7 @@ export function BeachesEnhancedForecast({
                   <TideChart forecasts={forecasts} now={new Date()} />
 
                   {/* Full Forecast Table */}
-                  <SimplifiedForecastTable forecasts={forecasts} />
+                  <SimplifiedForecastTable forecasts={forecasts} beachTimezone={beachTimezone} />
 
                   {/* Data Sources Info - Collapsible */}
                   <details className="group mt-4">
@@ -309,7 +313,7 @@ export function BeachesEnhancedForecast({
                 <TideChart forecasts={forecasts} now={new Date()} />
 
                 {/* Simplified Forecast Table */}
-                <SimplifiedForecastTable forecasts={forecasts} />
+                <SimplifiedForecastTable forecasts={forecasts} beachTimezone={beachTimezone} />
 
                 {/* Data Sources Info - Collapsible */}
                 <details className="group mt-4">

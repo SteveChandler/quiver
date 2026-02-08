@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/auth-js";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { AuthBlockingOverlay } from "@/components/auth/auth-blocking-overlay";
 import {
@@ -25,7 +26,7 @@ export default function AuthGate({
   delayMs = 5000,
   closable = true,
 }: Props) {
-  const sb = React.useMemo(() => createSupabaseBrowser(), []);
+  const sb = React.useMemo(() => createClient(), []);
   const [checking, setChecking] = React.useState(true);
   const [open, setOpen] = React.useState(false);
   const [wasDismissed, setWasDismissed] = React.useState(false);
@@ -49,7 +50,7 @@ export default function AuthGate({
   }, [block]);
 
   React.useEffect(() => {
-    const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = sb.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       // If auth succeeds while the gate is open (or previously dismissed),
       // ensure we tear down any guest-blocking UI immediately.
       if (event === "SIGNED_IN" && session) {

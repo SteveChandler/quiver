@@ -67,6 +67,7 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
       name: spot.name,
       city: spot.city,
       state: spot.state || regionName,
+      skill_level: spot.skillLevel || null,
     },
     forecast: forecastData,
   });

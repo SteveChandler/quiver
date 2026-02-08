@@ -27,6 +27,7 @@ interface ContentTemplateArgs {
   advancedCount: number;
   topSpotNames: string;
   allSpotNames: string[];
+  tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
 }
 
 /**
@@ -34,11 +35,13 @@ interface ContentTemplateArgs {
  *
  * @param intent - The intent type (beginner, least-crowded, etc.)
  * @param metadata - City metadata from the database
+ * @param dynamicData - Optional dynamic data (e.g., tide data)
  * @returns Content object with title, heading, intro, and metaDescription
  */
 export function buildIntentPageContent(
   intent: SurfIntentSlug,
-  metadata: CityMetadata
+  metadata: CityMetadata,
+  dynamicData?: { tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null }
 ): IntentPageContent {
   const args: ContentTemplateArgs = {
     cityName: metadata.cityName,
@@ -53,6 +56,7 @@ export function buildIntentPageContent(
       .map((b) => b.name)
       .join(", "),
     allSpotNames: metadata.beaches.map((b) => b.name),
+    tideData: dynamicData?.tideData ?? null,
   };
 
   const templates = getIntentTemplates(args);
@@ -65,7 +69,7 @@ export function buildIntentPageContent(
 function getIntentTemplates(
   args: ContentTemplateArgs
 ): Record<SurfIntentSlug, IntentPageContent> {
-  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames } = args;
+  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames, tideData } = args;
   // Note: advancedCount, intermediateCount, and allSpotNames are available for future template enhancements
 
   // Conditional intro text for cities with no beginner spots
@@ -122,7 +126,9 @@ function getIntentTemplates(
       heading: `Tide conditions for ${cityName} surf spots`,
       intro: tideIntro,
       metaDescription: truncateMetaDescription(
-        `Tide charts and optimal tide times for ${cityName} surf spots. ${totalBeaches} breaks including ${topSpotNames}. Updated in real-time.`
+        tideData?.nextTideType && tideData?.nextTideTime && tideData?.nextTideHeight
+          ? `${cityName} tides today: Next ${tideData.nextTideType} ${tideData.nextTideTime} (${tideData.nextTideHeight}). Charts for ${totalBeaches} breaks including ${topSpotNames}.`
+          : `${cityName} tide charts today. High and low times for ${totalBeaches} surf spots including ${topSpotNames}. Updated hourly.`
       ),
     },
     "water-temp": {

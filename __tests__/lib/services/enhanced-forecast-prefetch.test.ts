@@ -33,12 +33,6 @@ jest.mock("@/lib/services/cdip-service", () => ({
   })),
 }));
 
-jest.mock("@/lib/services/forecast-weighting-service", () => ({
-  getForecastWeightingService: jest.fn().mockReturnValue({
-    blendForecast: jest.fn().mockImplementation((forecast) => forecast),
-  }),
-}));
-
 // Mock fetch
 global.fetch = jest.fn();
 

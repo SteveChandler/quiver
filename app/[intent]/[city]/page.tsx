@@ -272,7 +272,17 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       robots: { index: false, follow: true },
     };
   }
-  const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
+  // For tide intent, fetch live tide data to inject into meta description
+  let tideDataForMeta: CityTideData | null = null;
+  if (params.intent === "tide") {
+    tideDataForMeta = await getCityTideData(cityMetadata.cityName, cityMetadata.state);
+  }
+
+  const pageContent = buildIntentPageContent(
+    params.intent as SurfIntentSlug,
+    cityMetadata,
+    { tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null }
+  );
 
   // Determine if this skill-intent will produce results based on city skill counts
   const hasMatchingBeaches = (() => {

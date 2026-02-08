@@ -75,6 +75,7 @@ describe("Middleware Integration Tests", () => {
       headers: new Headers(),
       cookies: {
         get: jest.fn(() => undefined),
+        getAll: jest.fn(() => []),
         set: jest.fn(),
         delete: jest.fn(),
       },
@@ -116,6 +117,7 @@ describe("Middleware Integration Tests", () => {
           headers: new Headers(),
           cookies: {
             get: jest.fn(() => undefined),
+            getAll: jest.fn(() => []),
             set: jest.fn(),
             delete: jest.fn(),
           },
@@ -140,6 +142,7 @@ describe("Middleware Integration Tests", () => {
         headers: new Headers(),
         cookies: {
           get: jest.fn(() => undefined),
+          getAll: jest.fn(() => []),
           set: jest.fn(),
           delete: jest.fn(),
         },

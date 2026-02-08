@@ -1,6 +1,12 @@
 Query Quiver application metrics from Supabase and present a formatted dashboard.
 
-Run these 8 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using `execute_sql`:
+**Exclusion filter** (applied to all queries joining profiles):
+```
+p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid' AND p.email NOT LIKE '%@example.invalid'
+```
+This filters out test accounts, local dev accounts, and seed/demo data (`@example.invalid`).
+
+Run these 10 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using `execute_sql`:
 
 ### Query 1: Users
 ```sql
@@ -9,7 +15,7 @@ SELECT
   COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS new_users_7d,
   COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') AS new_users_24h
 FROM profiles
-WHERE email NOT ILIKE '%test%' AND email NOT LIKE '%@local.test';
+WHERE email NOT ILIKE '%test%' AND email NOT LIKE '%@local.test' AND email NOT LIKE '%@example.invalid';
 ```
 
 ### Query 2: Sessions
@@ -24,17 +30,17 @@ SELECT
 FROM sessions s
 JOIN profiles p ON s.user_id = p.id
 WHERE s.deleted_at IS NULL
-  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test';
+  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
 ```
 
 ### Query 3: Content
 ```sql
 SELECT
-  (SELECT COUNT(*) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS total_reviews,
-  (SELECT COUNT(*) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.created_at >= NOW() - INTERVAL '7 days' AND br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS reviews_7d,
-  (SELECT COUNT(*) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS total_intel,
-  (SELECT COUNT(*) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE ip.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS intel_7d,
-  (SELECT COUNT(*) FROM boards b JOIN profiles p ON b.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS total_boards,
+  (SELECT COUNT(*) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_reviews,
+  (SELECT COUNT(*) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.created_at >= NOW() - INTERVAL '7 days' AND br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS reviews_7d,
+  (SELECT COUNT(*) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_intel,
+  (SELECT COUNT(*) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE ip.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS intel_7d,
+  (SELECT COUNT(*) FROM boards b JOIN profiles p ON b.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS total_boards,
   (SELECT COUNT(*) FROM beaches) AS total_beaches;
 ```
 
@@ -49,7 +55,7 @@ SELECT
 FROM email_send_log esl
 JOIN profiles p ON esl.user_id = p.id
 WHERE esl.sent_at >= NOW() - INTERVAL '7 days'
-  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test';
+  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
 ```
 
 ### Query 5: User Behavior Events (7d)
@@ -68,7 +74,7 @@ SELECT
 FROM user_events ue
 JOIN profiles p ON ue.user_id = p.id
 WHERE ue.created_at >= NOW() - INTERVAL '7 days'
-  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test';
+  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid';
 ```
 
 ### Query 6: Content Creation Activity (7d)
@@ -76,45 +82,91 @@ WHERE ue.created_at >= NOW() - INTERVAL '7 days'
 SELECT
   (SELECT COUNT(*) FROM sessions s JOIN profiles p ON s.user_id = p.id
    WHERE s.created_at >= NOW() - INTERVAL '7 days' AND s.deleted_at IS NULL
-   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS sessions_created_7d,
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS sessions_created_7d,
   (SELECT COUNT(*) FROM boards b JOIN profiles p ON b.user_id = p.id
    WHERE b.created_at >= NOW() - INTERVAL '7 days'
-   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS boards_added_7d,
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS boards_added_7d,
   (SELECT COUNT(*) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id
    WHERE br.created_at >= NOW() - INTERVAL '7 days' AND br.deleted_at IS NULL
-   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS reviews_written_7d,
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS reviews_written_7d,
   (SELECT COUNT(*) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id
    WHERE ip.created_at >= NOW() - INTERVAL '7 days'
-   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test') AS intel_posted_7d;
+   AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS intel_posted_7d;
 ```
 
-### Query 7: Top Viewed Beaches (7d)
+### Query 7: Top Beaches by Activity (7d)
 ```sql
-SELECT
-  b.name AS beach_name,
-  COUNT(*) AS view_count
-FROM user_events ue
-JOIN profiles p ON ue.user_id = p.id
-JOIN beaches b ON ue.beach_id = b.id
-WHERE ue.event_type = 'beach_view'
-  AND ue.created_at >= NOW() - INTERVAL '7 days'
-  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test'
-GROUP BY b.id, b.name
-ORDER BY view_count DESC
-LIMIT 5;
+SELECT beach_name, total_activity FROM (
+  SELECT b.name AS beach_name, COUNT(*) AS total_activity
+  FROM (
+    SELECT s.beach_id FROM sessions s JOIN profiles p ON s.user_id = p.id WHERE s.created_at >= NOW() - INTERVAL '7 days' AND s.deleted_at IS NULL AND s.beach_id IS NOT NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+    UNION ALL
+    SELECT br.beach_id FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.created_at >= NOW() - INTERVAL '7 days' AND br.deleted_at IS NULL AND br.beach_id IS NOT NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+    UNION ALL
+    SELECT ip.beach_id FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE ip.created_at >= NOW() - INTERVAL '7 days' AND ip.beach_id IS NOT NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+    UNION ALL
+    SELECT ue.beach_id FROM user_events ue JOIN profiles p ON ue.user_id = p.id WHERE ue.created_at >= NOW() - INTERVAL '7 days' AND ue.event_type = 'beach_view' AND ue.beach_id IS NOT NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  ) activity
+  JOIN beaches b ON activity.beach_id = b.id
+  GROUP BY b.id, b.name
+  ORDER BY total_activity DESC
+  LIMIT 5
+) top_beaches;
 ```
 
-### Query 8: Daily Active Users (last 7 days trend)
+### Query 8: Daily Active Users — cross-table (last 7 days trend)
 ```sql
-SELECT
-  DATE(ue.created_at) AS day,
-  COUNT(DISTINCT ue.user_id) AS active_users
-FROM user_events ue
-JOIN profiles p ON ue.user_id = p.id
-WHERE ue.created_at >= NOW() - INTERVAL '7 days'
-  AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test'
-GROUP BY DATE(ue.created_at)
+SELECT day, COUNT(DISTINCT user_id) AS active_users FROM (
+  SELECT DATE(created_at) AS day, user_id FROM sessions WHERE created_at >= NOW() - INTERVAL '7 days' AND deleted_at IS NULL
+  UNION ALL
+  SELECT DATE(created_at), user_id FROM beach_reviews WHERE created_at >= NOW() - INTERVAL '7 days' AND deleted_at IS NULL
+  UNION ALL
+  SELECT DATE(created_at), user_id FROM intel_posts WHERE created_at >= NOW() - INTERVAL '7 days'
+  UNION ALL
+  SELECT DATE(created_at), user_id FROM user_events WHERE created_at >= NOW() - INTERVAL '7 days' AND user_id IS NOT NULL
+  UNION ALL
+  SELECT DATE(created_at), user_id FROM boards WHERE created_at >= NOW() - INTERVAL '7 days'
+) combined
+JOIN profiles p ON combined.user_id = p.id
+WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+GROUP BY day
 ORDER BY day DESC;
+```
+
+### Query 9: Data Freshness Check
+```sql
+SELECT
+  (SELECT MAX(p.created_at) FROM profiles p WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_signup,
+  (SELECT MAX(s.created_at) FROM sessions s JOIN profiles p ON s.user_id = p.id WHERE s.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_session,
+  (SELECT MAX(ue.created_at) FROM user_events ue JOIN profiles p ON ue.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_event,
+  (SELECT MAX(esl.sent_at) FROM email_send_log esl JOIN profiles p ON esl.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_email,
+  (SELECT MAX(br.created_at) FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_review,
+  (SELECT MAX(ip.created_at) FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid') AS latest_intel,
+  NOW() AS current_time;
+```
+
+### Query 10: Activity Source Health (7d)
+```sql
+SELECT source, unique_users_7d, rows_7d, latest FROM (
+  SELECT 'sessions' AS source, COUNT(DISTINCT s.user_id) AS unique_users_7d, COUNT(*) AS rows_7d, MAX(s.created_at) AS latest
+  FROM sessions s JOIN profiles p ON s.user_id = p.id WHERE s.created_at >= NOW() - INTERVAL '7 days' AND s.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  UNION ALL
+  SELECT 'beach_reviews', COUNT(DISTINCT br.user_id), COUNT(*), MAX(br.created_at)
+  FROM beach_reviews br JOIN profiles p ON br.user_id = p.id WHERE br.created_at >= NOW() - INTERVAL '7 days' AND br.deleted_at IS NULL AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  UNION ALL
+  SELECT 'intel_posts', COUNT(DISTINCT ip.user_id), COUNT(*), MAX(ip.created_at)
+  FROM intel_posts ip JOIN profiles p ON ip.user_id = p.id WHERE ip.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  UNION ALL
+  SELECT 'user_events', COUNT(DISTINCT ue.user_id), COUNT(*), MAX(ue.created_at)
+  FROM user_events ue JOIN profiles p ON ue.user_id = p.id WHERE ue.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  UNION ALL
+  SELECT 'boards', COUNT(DISTINCT b.user_id), COUNT(*), MAX(b.created_at)
+  FROM boards b JOIN profiles p ON b.user_id = p.id WHERE b.created_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+  UNION ALL
+  SELECT 'email_send_log', COUNT(DISTINCT esl.user_id), COUNT(*), MAX(esl.sent_at)
+  FROM email_send_log esl JOIN profiles p ON esl.user_id = p.id WHERE esl.sent_at >= NOW() - INTERVAL '7 days' AND p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT LIKE '%@example.invalid'
+) sources
+ORDER BY unique_users_7d DESC;
 ```
 
 ## Output Format
@@ -122,7 +174,7 @@ ORDER BY day DESC;
 Present results as a markdown dashboard:
 
 ```
-## App Dashboard (excluding test accounts)
+## App Dashboard (excluding test, seed & demo accounts)
 
 ### Users
 | Metric | Value |
@@ -141,19 +193,11 @@ Present results as a markdown dashboard:
 | Avg Rating | {avg_rating} |
 | Avg Duration | {avg_duration_min} min |
 
-### User Behavior (7d)
-| Metric | Value |
-|--------|-------|
-| Users with Events | {users_with_events_7d} |
-| Total Events | {total_events_7d} |
-| Avg Events/User | {avg_events_per_user} |
-| Page Views | {page_views} |
-| Beach Views | {beach_views} |
-| Discovery Clicks | {discovery_clicks} |
-| Discovery Skips | {discovery_skips} |
-| Forecast Checks | {forecast_checks} |
-| Session Actions | {session_actions} |
-| CTA Clicks | {cta_clicks} |
+### Daily Active Users (7d) — cross-table
+| Date | Users |
+|------|-------|
+| {day_1} | {dau_1} |
+| ... | ... |
 
 ### Content Created (7d)
 | Metric | Value |
@@ -163,25 +207,11 @@ Present results as a markdown dashboard:
 | Reviews Written | {reviews_written_7d} |
 | Intel Posted | {intel_posted_7d} |
 
-### Top Beaches Viewed (7d)
-| Beach | Views |
-|-------|-------|
-| {beach_1} | {views_1} |
-| {beach_2} | {views_2} |
-| {beach_3} | {views_3} |
-| {beach_4} | {views_4} |
-| {beach_5} | {views_5} |
-
-### Daily Active Users (7d)
-| Date | Users |
-|------|-------|
-| {day_1} | {dau_1} |
-| {day_2} | {dau_2} |
-| {day_3} | {dau_3} |
-| {day_4} | {dau_4} |
-| {day_5} | {dau_5} |
-| {day_6} | {dau_6} |
-| {day_7} | {dau_7} |
+### Top Beaches by Activity (7d)
+| Beach | Activity |
+|-------|----------|
+| {beach_1} | {count_1} |
+| ... | ... |
 
 ### Content (totals)
 | Metric | Value |
@@ -199,6 +229,35 @@ Present results as a markdown dashboard:
 | Forecast Digest | {forecast_digest_emails} |
 | Re-engagement | {reengagement_emails} |
 | Weekly Recap | {weekly_recap_emails} |
+
+### Event Tracking Health (7d)
+| Source | Unique Users | Rows | Latest |
+|--------|-------------|------|--------|
+| {source} | {unique_users} | {rows} | {latest} |
+| ... | ... | ... | ... |
+
+### Data Freshness
+| Table | Last Activity | Age |
+|-------|--------------|-----|
+| {table} | {timestamp} | {human_readable_age} |
+| ... | ... | ... |
+
+### User Behavior Events (7d) — KNOWN BROKEN
+| Metric | Value |
+|--------|-------|
+| Users with Events | {users_with_events_7d} |
+| Total Events | {total_events_7d} |
+| Beach Views | {beach_views} |
+| Page Views | {page_views} |
+| Discovery Clicks | {discovery_clicks} |
+| Forecast Checks | {forecast_checks} |
+
+> **Note**: user_events is undercounting due to an RLS policy bug.
+> The INSERT policy on user_events requires `allow_implicit_tracking = true`
+> on the profile row, but the API defaults to allowing tracking when no
+> profile preference exists — causing a silent mismatch. Most authenticated
+> users' events are rejected at the DB layer. See migration
+> `20260125120002_implicit_preference_learning.sql` lines 244-255.
 ```
 
 ## Anomaly Flags
@@ -207,8 +266,9 @@ After the dashboard, flag any of these conditions:
 
 - **No new users in 24h** (new_users_24h = 0) — "Zero signups in last 24h"
 - **No sessions in 7d** (sessions_7d = 0) — "No sessions logged in 7 days"
-- **No user events in 7d** (total_events_7d = 0) — "No user behavior tracked in 7 days"
 - **Zero content created** (sessions_created_7d + boards_added_7d + reviews_written_7d + intel_posted_7d = 0) — "No content created in 7 days"
-- **Low engagement** (avg_events_per_user < 2 AND total_events_7d > 0) — "Low user engagement (avg < 2 events/user)"
+- **DAU declining** (last 3 days of DAU trending downward) — "DAU trending down over last 3 days"
+- **Data source stale** (any source in Query 9 older than 48h) — "{source} has no activity in 48h+"
+- **Event tracking gap** (user_events unique_users_7d < 50% of cross-table DAU peak) — "Event tracking capturing <50% of real users — RLS bug likely still active"
 
 Display flags as a bulleted warnings list. If no anomalies, print "No anomalies detected."

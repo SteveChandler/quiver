@@ -5,11 +5,11 @@ import type { Beach } from "@/types/database";
 import { expandPartialBeach } from "@/lib/utils/beach-defaults";
 
 const STATE_MAP_BEACH_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, is_private, geog";
+  "id, name, slug, city, lat, lon, state, country, created_at, is_private, geog, skill_level, break_type, average_rating, review_count";
 
 type StateMapBeachRow = Pick<
   Beach,
-  "id" | "name" | "slug" | "city" | "lat" | "lon" | "state" | "country" | "created_at" | "is_private" | "geog"
+  "id" | "name" | "slug" | "city" | "lat" | "lon" | "state" | "country" | "created_at" | "is_private" | "geog" | "skill_level" | "break_type" | "average_rating" | "review_count"
 >;
 
 /**
@@ -31,6 +31,10 @@ function toFullBeach(row: StateMapBeachRow): Beach {
     lon: row.lon ?? null,
     slug: row.slug ?? null,
     state: row.state ?? null,
+    skill_level: row.skill_level ?? null,
+    break_type: row.break_type ?? null,
+    average_rating: row.average_rating ?? null,
+    review_count: row.review_count ?? null,
   });
 }
 

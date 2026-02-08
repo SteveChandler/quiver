@@ -20,11 +20,11 @@ import {
 } from "@/lib/auth/auth-utils";
 
 // Mock the Supabase browser client
-jest.mock("@/lib/supabase-browser", () => ({
-  createSupabaseBrowser: jest.fn(),
+jest.mock("@/lib/supabase/client", () => ({
+  createClient: jest.fn(),
 }));
 
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
 
 describe("auth-utils", () => {
   let localStorageMock: { [key: string]: string };
@@ -88,7 +88,7 @@ describe("auth-utils", () => {
         signInWithOtp: jest.fn(),
       },
     };
-    (createSupabaseBrowser as jest.Mock).mockReturnValue(mockSupabaseClient);
+    (createClient as jest.Mock).mockReturnValue(mockSupabaseClient);
 
     // Mock console methods
     jest.spyOn(console, "log").mockImplementation();

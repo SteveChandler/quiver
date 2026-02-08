@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { Badge } from "@/components/ui/badge";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 
 // Generic forecast type that can accept both EnhancedForecast and EnhancedForecastEntity
 type ForecastData = EnhancedForecastEntity | any; // Allow any to support both types
@@ -13,6 +14,7 @@ interface ForecastTableProps {
   forecasts: ForecastData[];
   variant?: "standard" | "simplified";
   className?: string;
+  beachTimezone?: string | null;
 }
 
 interface ForecastDayTableProps {
@@ -22,36 +24,29 @@ interface ForecastDayTableProps {
   onToggle: () => void;
   isToday: boolean;
   variant: "standard" | "simplified";
+  beachTimezone?: string | null;
 }
 
-// Helper function to get normalized date string (YYYY-MM-DD) in user's timezone
-function getNormalizedDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+// Helper function to get current date string in the beach's timezone
+function getCurrentDate(beachTimezone?: string | null): string {
+  return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
 }
 
-// Helper function to get current date in user's timezone
-function getCurrentDate(): string {
-  return getNormalizedDateString(new Date());
-}
-
-// Helper function to get tomorrow's date in user's timezone
-function getTomorrowDate(): string {
+// Helper function to get tomorrow's date string in the beach's timezone
+function getTomorrowDate(beachTimezone?: string | null): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return getNormalizedDateString(tomorrow);
+  return getLocalDateString(tomorrow, resolveBeachTimezone(beachTimezone));
 }
 
 // Helper function to check if a date string is today
-function isDateToday(dateString: string): boolean {
-  return dateString === getCurrentDate();
+function isDateToday(dateString: string, beachTimezone?: string | null): boolean {
+  return dateString === getCurrentDate(beachTimezone);
 }
 
 // Helper function to check if a date string is tomorrow
-function isDateTomorrow(dateString: string): boolean {
-  return dateString === getTomorrowDate();
+function isDateTomorrow(dateString: string, beachTimezone?: string | null): boolean {
+  return dateString === getTomorrowDate(beachTimezone);
 }
 
 // Helper function to format date string for display
@@ -82,6 +77,7 @@ function ForecastDayTable({
   onToggle,
   isToday,
   variant,
+  beachTimezone,
 }: ForecastDayTableProps) {
   const dateObj = createDateFromString(date);
 
@@ -177,8 +173,8 @@ function ForecastDayTable({
   };
 
   const formatDayLabel = () => {
-    if (isDateToday(date)) return "Today";
-    if (isDateTomorrow(date)) return "Tomorrow";
+    if (isDateToday(date, beachTimezone)) return "Today";
+    if (isDateTomorrow(date, beachTimezone)) return "Tomorrow";
 
     return dateObj.toLocaleDateString("en-US", {
       weekday: "long",
@@ -381,6 +377,7 @@ export function ForecastTable({
   forecasts,
   variant = "standard",
   className,
+  beachTimezone,
 }: ForecastTableProps) {
   const [expandedDates, setExpandedDates] = React.useState<Set<string>>(
     new Set()
@@ -405,12 +402,12 @@ export function ForecastTable({
   // Update expanded dates when grouped forecasts change
   React.useEffect(() => {
     const sortedDates = Object.keys(groupedForecasts).sort();
-    const today = getCurrentDate();
+    const today = getCurrentDate(beachTimezone);
 
     if (sortedDates.includes(today) && expandedDates.size === 0) {
       setExpandedDates(new Set([today]));
     }
-  }, [groupedForecasts, expandedDates.size]);
+  }, [groupedForecasts, expandedDates.size, beachTimezone]);
 
   const handleToggle = (date: string) => {
     setExpandedDates((prev) => {
@@ -443,8 +440,9 @@ export function ForecastTable({
           date={date}
           isExpanded={expandedDates.has(date)}
           onToggle={() => handleToggle(date)}
-          isToday={isDateToday(date)}
+          isToday={isDateToday(date, beachTimezone)}
           variant={variant}
+          beachTimezone={beachTimezone}
         />
       ))}
     </div>
@@ -453,9 +451,9 @@ export function ForecastTable({
 
 // Export with backward compatible names
 export const MultiDayForecastTable = (
-  props: Omit<ForecastTableProps, "variant">
+  props: Omit<ForecastTableProps, "variant"> & { beachTimezone?: string | null }
 ) => <ForecastTable {...props} variant="standard" />;
 
 export const SimplifiedForecastTable = (
-  props: Omit<ForecastTableProps, "variant">
+  props: Omit<ForecastTableProps, "variant"> & { beachTimezone?: string | null }
 ) => <ForecastTable {...props} variant="simplified" />;

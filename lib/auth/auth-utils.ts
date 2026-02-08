@@ -9,7 +9,7 @@
  * - User existence checks
  */
 
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase/client";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
@@ -93,7 +93,7 @@ export async function initiateOAuthFlow(
   metadata?: Record<string, any>
 ): Promise<{ error?: string }> {
   try {
-    const sb = createSupabaseBrowser();
+    const sb = createClient();
     const origin = window.location.origin; // eslint-disable-line no-restricted-properties
 
     // Store the intended return path in localStorage as a backup
@@ -146,7 +146,7 @@ export async function sendMagicLink(
   returnTo: string
 ): Promise<{ error?: string }> {
   try {
-    const sb = createSupabaseBrowser();
+    const sb = createClient();
     const origin = window.location.origin; // eslint-disable-line no-restricted-properties
 
     // Validate email format first

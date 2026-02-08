@@ -25,6 +25,9 @@ describe("SEO Structured Data components", () => {
       .map((n) => n.textContent || "")
       .join("\n");
 
+    // AggregateRating is intentionally omitted — Place is not an eligible type
+    // for Google review snippets, and self-served reviews are blocked even for
+    // LocalBusiness subtypes. See structured-data.tsx comment for details.
     expect(combined).toBeTruthy();
     expect(combined).not.toContain("AggregateRating");
     expect(combined).not.toContain("aggregateRating");

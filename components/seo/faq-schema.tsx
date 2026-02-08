@@ -37,6 +37,43 @@ export function FAQSchema({ items }: FAQSchemaProps) {
 }
 
 /**
+ * Combined FAQ Section — JSON-LD structured data + visible dl/dt/dd markup.
+ * Use on listing pages (city, state) that generate data-driven FAQs.
+ */
+export function FAQSection({
+  items,
+  locationName,
+}: {
+  items: FAQItem[];
+  locationName: string;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <>
+      <FAQSchema items={items} />
+      <section className="mt-12" aria-label={`FAQ about surfing in ${locationName}`}>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          Frequently Asked Questions About Surfing in {locationName}
+        </h2>
+        <dl className="space-y-6">
+          {items.map((faq) => (
+            <div key={faq.question}>
+              <dt className="text-lg font-semibold text-gray-900 mb-2">
+                {faq.question}
+              </dt>
+              <dd className="text-gray-700 leading-relaxed">
+                {faq.answer}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    </>
+  );
+}
+
+/**
  * Beach-specific FAQ Schema for individual beach pages
  * Targets common search queries: tide times, water temp, wave size
  */

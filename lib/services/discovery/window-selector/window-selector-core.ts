@@ -25,6 +25,7 @@ import type {
   TimeSlot,
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
+import { fromZonedTime } from 'date-fns-tz';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { createContextLogger } from '@/lib/logger';
 
@@ -70,7 +71,9 @@ function prepareForecasts(
 ): ScoredForecast[] {
   return forecasts
     .map((forecast) => {
-      const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
+      // forecast_date + forecast_time are in the beach's local timezone, NOT UTC.
+      // Use fromZonedTime to correctly convert beach-local → UTC Date.
+      const forecastTime = fromZonedTime(`${forecast.forecast_date}T${forecast.forecast_time}`, beachTz);
       const score = scoreWindowWithEngine(forecast, beach);
 
       // Check if forecast is for today (in beach timezone)
@@ -139,15 +142,24 @@ function filterByTimeSlot(
   });
 }
 
+interface LightCheckOptions {
+  startTime: Date;
+  sunsets: Date[];
+  sunrises: Date[];
+  beachTz: string;
+  getLocalDateStrForBeach: (d: Date) => string;
+}
+
 /**
  * Check if a forecast start time should be skipped due to night/sunset constraints.
  */
-function shouldSkipDueToLight(
-  startTime: Date,
-  sunsets: Date[],
-  beachTz: string,
-  getLocalDateStrForBeach: (d: Date) => string
-): boolean {
+function shouldSkipDueToLight({
+  startTime,
+  sunsets,
+  sunrises,
+  beachTz,
+  getLocalDateStrForBeach,
+}: LightCheckOptions): boolean {
   // Night Filter (using Local Hour)
   try {
     const localHour = parseInt(
@@ -167,8 +179,18 @@ function shouldSkipDueToLight(
     // If tz conversion fails, proceed to sunset check
   }
 
-  // Post-Sunset Rejection
+  // Pre-Sunrise Rejection (allow 30 min before sunrise for civil twilight)
   const forecastDateStr = getLocalDateStrForBeach(startTime);
+  const sameDaySunrise = sunrises.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
+
+  if (sameDaySunrise) {
+    const civilTwilightMs = 30 * 60 * 1000;
+    if (startTime.getTime() < sameDaySunrise.getTime() - civilTwilightMs) {
+      return true;
+    }
+  }
+
+  // Post-Sunset Rejection
   const sameDaySunset = sunsets.find(s => getLocalDateStrForBeach(s) === forecastDateStr);
 
   if (sameDaySunset && startTime.getTime() > sameDaySunset.getTime()) {
@@ -522,7 +544,7 @@ export function selectBestWindow(
     }
 
     // Light/sunset checks
-    if (shouldSkipDueToLight(startTime, sunsets, beachTz, getLocalDateStrForBeach)) {
+    if (shouldSkipDueToLight({ startTime, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
       log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} skipped due to light/sunset constraints`);
       continue;
     }
