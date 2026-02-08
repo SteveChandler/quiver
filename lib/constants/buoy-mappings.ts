@@ -58,3 +58,11 @@ export function getCDIPStationForNDBC(ndbcId: string): string | null {
 export function getNDBCStationForCDIP(cdipId: string): string | null {
   return CDIP_NDBC_OVERLAPS[cdipId] || null;
 }
+
+/**
+ * Check if a local buoy UUID is an NDBC station ID.
+ * Local buoys cache NDBC data, so their UUIDs are NDBC station IDs (e.g., "46225").
+ */
+export function isLocalBuoyNDBCStation(localBuoyUuid: string): boolean {
+  return /^\d{5}$/.test(localBuoyUuid);
+}

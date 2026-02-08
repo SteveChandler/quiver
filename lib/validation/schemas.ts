@@ -99,7 +99,7 @@ export const IntelPostCreateSchema = z.object({
     .max(100, 'Title cannot exceed 100 characters')
     .trim(),
   description: z.string()
-    .min(1, 'Description is required')
+    .min(10, 'Description must be at least 10 characters')
     .max(500, 'Description cannot exceed 500 characters')
     .trim(),
   emoji_rating: z.enum(['fire', 'shaka', 'meh', 'thumbsdown']).optional(),
