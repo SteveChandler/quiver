@@ -103,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Content voice guidelines and AI writing patterns to avoid
   - Competitive positioning vs Surfline
 
+
 - **Terrain-Aware ML Features:** Added terrain geometry factors to the ML bias correction pipeline. The model now incorporates beach-specific topography and bathymetry features for improved accuracy:
   - **New Features (13 total, up from 11):**
     - `swell_access_factor`: Swell accessibility at wave direction (0.0-1.0) extracted from 72-element array

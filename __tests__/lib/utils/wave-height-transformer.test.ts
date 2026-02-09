@@ -296,6 +296,20 @@ describe('Wave Height Transformer', () => {
         expect(result).toBeCloseTo(4.1, 1);
       });
 
+      it('should calculate reported bug scenario: 3.4ft @ 14.3s should produce ~6.6ft', () => {
+        // Bug report: Database shows 3.4 ft when Surfline shows 6-8 ft
+        // 3.4ft @ 14.3s, no terrain:
+        // period factor = 1.0 + (14.3 - 10) * 0.05 = 1.215
+        // 3.4 * 1.6 * 1.215 * 1.0 = 6.61, rounded to 6.6
+        const result = transformToFaceHeight({
+          rawHeightFt: 3.4,
+          periodS: 14.3,
+          swellDirectionDeg: null,
+          beach: null,
+        });
+        expect(result).toBeCloseTo(6.6, 1);
+      });
+
       it('should calculate moderate swell with partial blocking', () => {
         // 3.0ft @ 14s, half access (0.5):
         // direction factor = 0.6 + 0.5 * 0.4 = 0.8
