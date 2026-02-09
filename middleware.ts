@@ -22,6 +22,9 @@ import {
 const isDev = process.env.NODE_ENV === "development";
 const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
 
+// Known beach sub-pages with dedicated routes (e.g., /ca/city/beach/tides)
+const BEACH_SUBPATHS = new Set(["tides", "water-temp"]);
+
 function log(message: string, data?: any) {
   if (isDev && isVerbose) {
     console.warn(message, data || "");
@@ -50,12 +53,16 @@ export async function middleware(request: NextRequest) {
    *
    * This prevents 404s caused by the international route's state slug validation.
    */
-  const fourSegmentMatch = pathname.match(/^\/([a-z]{2})\/([^/]+)\/([^/]+)\/([^/]+)$/i);
+  const fourSegmentMatch = pathname.match(/^\/([a-z]{2})\/([^/]+)\/([^/]+)\/([^/]+?)\/?$/i);
   if (fourSegmentMatch && isValidStateSlug(fourSegmentMatch[1].toLowerCase())) {
-    const beachSlug = fourSegmentMatch[3]; // Use the 3rd segment as beach slug
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = `/spots/${beachSlug}`;
-    return NextResponse.redirect(redirectUrl, { status: 301 });
+    const fourthSegment = fourSegmentMatch[4].toLowerCase();
+    // Known beach sub-pages with dedicated routes — let these pass through
+    if (!BEACH_SUBPATHS.has(fourthSegment)) {
+      const beachSlug = fourSegmentMatch[3]; // Use the 3rd segment as beach slug
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/spots/${beachSlug}`;
+      return NextResponse.redirect(redirectUrl, { status: 301 });
+    }
   }
 
   /**

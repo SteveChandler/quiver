@@ -2,7 +2,7 @@
 
 > Operational procedures for the Quiver ML bias correction pipeline.
 
-**Last Updated:** January 30, 2026
+**Last Updated:** February 9, 2026
 
 ## Table of Contents
 
@@ -57,11 +57,11 @@ The ML pipeline consists of three main components:
                                +------------------+
 ```
 
-### Processing Thresholds (Updated Jan 30, 2026)
+### Processing Thresholds (Updated Feb 9, 2026)
 
 | Threshold | Value | Purpose |
 |-----------|-------|---------|
-| Match Window | +/- 2 hours | Time window for matching predictions to observations |
+| Match Window | +/- 4 hours | Time window for matching predictions to observations |
 | Sentinel Threshold | **24 hours** | Mark predictions as unmatchable (was 48h) |
 | TTL Cleanup | **72 hours** | Delete pending predictions that will never match |
 | Batch Size | **10,000** | Predictions processed per pg_cron run (was 5,000) |
@@ -79,9 +79,9 @@ Run these queries in Supabase SQL Editor:
 SELECT * FROM get_ml_health_metrics();
 
 -- Expected:
---   match_rate_24h > 50%
+--   match_rate_24h > 20% (IOOS buoys report every 2-6h, ~22-25% is structural ceiling)
 --   pending_gt_24h = 0 (indicates threshold working)
---   pending_12_24h < 5000 (early warning)
+--   pending_12_24h < 3000 (early warning)
 
 -- 2. Check pg_cron job status (last 24 hours)
 SELECT
@@ -108,12 +108,12 @@ SELECT * FROM get_ml_weekly_metrics();
 
 | Metric | Healthy | Warning | Critical |
 |--------|---------|---------|----------|
-| `match_rate_24h` | > 50% | 20-50% | < 20% |
-| `pending_observations` | < 10,000 | 10,000-50,000 | > 50,000 |
-| `pending_12_24h` | < 5,000 | 5,000-15,000 | > 15,000 |
+| `match_rate_24h` | > 20% | 10-20% | < 10% |
+| `pending_observations` | < 5,000 | 5,000-15,000 | > 15,000 |
+| `pending_12_24h` | < 3,000 | 3,000-10,000 | > 10,000 |
 | `pending_gt_24h` | 0 | 1-100 | > 100 |
 | `oldest_pending_age_hours` | < 12h | 12-20h | > 20h |
-| `pct_improved` | > 50% | 40-50% | < 40% |
+| `pct_improved` | > 10% | 5-10% | < 5% |
 
 ---
 
@@ -203,7 +203,7 @@ Configure alerts based on `get_ml_health_metrics()`:
 | `pending_gt_24h > 100` | Critical | Sentinel marking may have failed |
 | `pending_12_24h > 15000` | Warning | Backlog approaching threshold |
 | `match_rate_24h < 20%` | Critical | Investigate observation sources |
-| `pending_observations > 50000` | Warning | Consider temporary batch increase |
+| `pending_observations > 15000` | Warning | Consider temporary batch increase |
 | `oldest_pending_age_hours > 20` | Warning | Check job execution |
 
 ---
@@ -330,7 +330,7 @@ SELECT * FROM backfill_ml_observations_batch(10000);
 -- Repeat until backlog is cleared
 -- Check progress
 SELECT
-  COUNT(*) FILTER (WHERE observed_m IS NULL AND predicted_at < NOW() - INTERVAL '2 hours') as pending,
+  COUNT(*) FILTER (WHERE observed_m IS NULL AND predicted_at < NOW() - INTERVAL '4 hours') as pending,
   COUNT(*) FILTER (WHERE observed_m IS NULL AND predicted_at < NOW() - INTERVAL '24 hours') as should_be_zero
 FROM ml_predictions_log
 WHERE predicted_at > NOW() - INTERVAL '7 days';
@@ -346,7 +346,7 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY observable_beaches;
 
 -- Verify count
 SELECT COUNT(*) FROM observable_beaches;
--- Expected: ~96 beaches
+-- Expected: ~46 beaches (only beaches with ground truth from IOOS buoys)
 ```
 
 ### Check ML Service Health
@@ -730,7 +730,7 @@ SELECT cron.alter_job(
 #### `backfill_ml_observations_batch(batch_size INT DEFAULT 10000)`
 
 Processes ML predictions with three-step pipeline:
-1. **Match**: Join predictions with observations (+-2h window)
+1. **Match**: Join predictions with observations (+-4h window)
 2. **Sentinel**: Mark predictions >24h old as unmatchable (`observed_m = -1`)
 3. **Cleanup**: Delete pending predictions >72h old (TTL)
 

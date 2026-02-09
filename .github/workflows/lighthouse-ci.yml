@@ -164,10 +164,10 @@ jobs:
 
                   if lhci autorun \
                     --collect.url="${DEPLOY_URL}/" \
-                    --collect.url="${DEPLOY_URL}/discover" \
+                    --collect.url="${DEPLOY_URL}/features" \
                     --collect.url="${DEPLOY_URL}/map" \
-                    --collect.url="${DEPLOY_URL}/spots/blacks-beach" \
-                    --collect.url="${DEPLOY_URL}/spots/swamis" \
+                    --collect.url="${DEPLOY_URL}/ca/san-diego/blacks-beach" \
+                    --collect.url="${DEPLOY_URL}/ca/encinitas/swamis" \
                     --collect.settings.extraHeaders="$EXTRA_HEADERS" \
                     2>&1 | tee lighthouse_output.log; then
                     echo "success=true" >> $GITHUB_OUTPUT
@@ -219,10 +219,10 @@ jobs:
 
                   echo "### Audited URLs" >> $GITHUB_STEP_SUMMARY
                   echo "- Home: ${DEPLOY_URL}/" >> $GITHUB_STEP_SUMMARY
-                  echo "- Discover: ${DEPLOY_URL}/discover" >> $GITHUB_STEP_SUMMARY
+                  echo "- Features: ${DEPLOY_URL}/features" >> $GITHUB_STEP_SUMMARY
                   echo "- Map: ${DEPLOY_URL}/map" >> $GITHUB_STEP_SUMMARY
-                  echo "- Spot (Blacks): ${DEPLOY_URL}/spots/blacks-beach" >> $GITHUB_STEP_SUMMARY
-                  echo "- Spot (Swamis): ${DEPLOY_URL}/spots/swamis" >> $GITHUB_STEP_SUMMARY
+                  echo "- Beach (Blacks): ${DEPLOY_URL}/ca/san-diego/blacks-beach" >> $GITHUB_STEP_SUMMARY
+                  echo "- Beach (Swamis): ${DEPLOY_URL}/ca/encinitas/swamis" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Configuration" >> $GITHUB_STEP_SUMMARY
@@ -232,12 +232,14 @@ jobs:
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Thresholds" >> $GITHUB_STEP_SUMMARY
-                  echo "- **Performance:** >=70% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Performance:** >=60% non-map / >=50% map (warn)" >> $GITHUB_STEP_SUMMARY
                   echo "- **Accessibility:** >=90% (error)" >> $GITHUB_STEP_SUMMARY
                   echo "- **Best Practices:** >=85% (warn)" >> $GITHUB_STEP_SUMMARY
-                  echo "- **SEO:** >=85% (warn)" >> $GITHUB_STEP_SUMMARY
-                  echo "- **LCP:** <=4000ms" >> $GITHUB_STEP_SUMMARY
+                  echo "- **SEO:** >=80% (warn)" >> $GITHUB_STEP_SUMMARY
+                  echo "- **LCP:** <=5000ms" >> $GITHUB_STEP_SUMMARY
                   echo "- **CLS:** <=0.1" >> $GITHUB_STEP_SUMMARY
+                  echo "- **TBT:** <=2000ms non-map / <=5000ms map" >> $GITHUB_STEP_SUMMARY
+                  echo "- **TTI:** <=12s non-map / <=20s map" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Detailed Results" >> $GITHUB_STEP_SUMMARY
