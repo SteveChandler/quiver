@@ -122,8 +122,6 @@ Critical coordinate naming standards to prevent mapping bugs:
 
 Technical references and development tools:
 
-- **[reference/CHANGELOG.md](reference/CHANGELOG.md)** - Complete change history and recent updates
-- **[reference/CLAUDE.md](reference/CLAUDE.md)** - Claude Code contributor guide and development workflow
 - **[reference/CURSOR_AGENTS.md](reference/CURSOR_AGENTS.md)** - Cursor agent configurations and MCP integration
 - **[reference/DEPENDENCIES.md](reference/DEPENDENCIES.md)** - Dependency documentation
 - **[reference/PERSONALIZATION_STRATEGY.md](reference/PERSONALIZATION_STRATEGY.md)** - Personalization and recommendation engine strategy
@@ -248,7 +246,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 -> 
 - **Features**: 7 files (added NPC_INTEL_BOTS.md)
 - **Analytics**: 1 file
 - **Research**: 7 files
-- **Reference**: 6 files
+- **Reference**: 4 files
 - **Quick Start**: 3 files
 - **Data/Schema**: 5 files (added SUPABASE_GUIDE.md)
 - **Archives**: 50+ files preserved
