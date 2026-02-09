@@ -18,6 +18,7 @@ import {
   stateToSlug,
   cityToSlug,
 } from "@/lib/utils/beach-url-utils";
+import { COLLISION_CITY_SLUGS } from "@/lib/seo/city-collision-list";
 
 /**
  * Lightweight logger for SEO redirects (Edge-compatible, minimal bundle impact)
@@ -430,9 +431,10 @@ function handleIntentCityLegacyRedirect(pathname: string): SeoRedirectResult {
     return { redirect: false };
   }
 
-  // Redirect to 2-segment format with state suffix: /{intent}/{city}-{state}
-  // This avoids double redirect chains (e.g., /tide/or/seaside → /tide/seaside-or)
-  const redirectUrl = `/${intentSlug}/${citySlug}-${stateSlug}`;
+  // Only append state suffix for collision cities (matching sitemap canonical URLs)
+  const redirectUrl = COLLISION_CITY_SLUGS.has(citySlug)
+    ? `/${intentSlug}/${citySlug}-${stateSlug}`
+    : `/${intentSlug}/${citySlug}`;
   seoLog.info("Intent city legacy redirect", { from: pathname, to: redirectUrl });
   return { redirect: true, url: redirectUrl };
 }
@@ -460,9 +462,10 @@ function handleIntentBeachLegacyRedirect(pathname: string): SeoRedirectResult {
     return { redirect: false };
   }
 
-  // Redirect to 2-segment format with state suffix: /{intent}/{city}-{state}
-  // This avoids double redirect chains (e.g., /tide/or/seaside/beach → /tide/seaside-or)
-  const redirectUrl = `/${intentSlug}/${citySlug}-${stateSlug}`;
+  // Only append state suffix for collision cities (matching sitemap canonical URLs)
+  const redirectUrl = COLLISION_CITY_SLUGS.has(citySlug)
+    ? `/${intentSlug}/${citySlug}-${stateSlug}`
+    : `/${intentSlug}/${citySlug}`;
   seoLog.info("Intent beach legacy redirect", { from: pathname, to: redirectUrl });
   return { redirect: true, url: redirectUrl };
 }

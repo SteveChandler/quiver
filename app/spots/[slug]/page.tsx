@@ -386,7 +386,7 @@ export default async function SpotPage(props: SpotPageParams) {
                   {validNearbySpots.map((nearbySpot) => (
                     <li key={nearbySpot!.slug}>
                       <a
-                        href={`/spots/${nearbySpot!.slug}`}
+                        href={buildBeachUrl(nearbySpot!)}
                         className="underline-offset-2 hover:underline"
                       >
                         {nearbySpot!.name} tide chart
