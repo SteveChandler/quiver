@@ -177,7 +177,7 @@ export default async function LocationPage(props: LocationPageProps) {
                   {stats.averageRating.toFixed(1)}
                 </span>
                 <span>·</span>
-                <span>{stats.totalReviews} reviews</span>
+                <span>{stats.totalReviews} {stats.totalReviews === 1 ? "review" : "reviews"}</span>
               </div>
               <div className="flex items-center gap-1">
                 <MapPin className="h-5 w-5" />
@@ -291,7 +291,7 @@ export default async function LocationPage(props: LocationPageProps) {
                 {stats.averageRating.toFixed(1)}
               </span>
               <span>·</span>
-              <span>{stats.totalReviews} reviews</span>
+              <span>{stats.totalReviews} {stats.totalReviews === 1 ? "review" : "reviews"}</span>
             </div>
             <div className="flex items-center gap-1">
               <MapPin className="h-5 w-5" />
@@ -533,13 +533,13 @@ export async function generateMetadata(props: LocationPageProps) {
       .map((b: { name: string }) => b.name)
       .join(', ');
 
+    const ratingSnippet = stats.totalReviews >= 5
+      ? ` Rated ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`
+      : "";
+
     const description = metroConfig?.description
-      ? `${
-          metroConfig.description
-        } Average rating: ${stats.averageRating.toFixed(1)}/5 from ${
-          stats.totalReviews
-        } reviews.`
-      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more. Rated ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews. Forecast, tides & conditions.`;
+      ? `${metroConfig.description}${ratingSnippet || ` ${stats.totalBeaches} surf spots with forecasts, tides & crowd intel.`}`
+      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more.${ratingSnippet} Forecasts, tide charts, crowd levels & session windows.`;
 
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, MapPin } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { cache } from "react";
 
 import {
   SURF_INTENTS,
@@ -22,7 +23,8 @@ import { StateMapView } from "@/components/state/state-map-view";
 import { findCityBySlug, getCityMetadata, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
-import { detectCityCollisions, buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
+import { buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import {
   PopularCitiesForIntent,
   TideOverviewSection,
@@ -52,10 +54,9 @@ import {
 } from "@/actions/beginner/beginner-actions";
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 
-// Dynamic rendering for intent pages - database queries use no-store fetch
-// which prevents static generation. ISR revalidation still applies.
-export const dynamic = "force-dynamic";
-export const revalidate = 3600; // 1 hour
+// ISR: revalidate intent pages every hour. These are public pages with no
+// per-user data, so Next.js can cache the rendered HTML at the edge.
+export const revalidate = 3600;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -65,7 +66,7 @@ export const revalidate = 3600; // 1 hour
  * @param baseSlug - The city slug without state suffix (e.g., "belmar")
  * @returns Object with cityMetadata and the resolved slug, or nulls if not found
  */
-async function resolveCityWithStateSuffix(
+const resolveCityWithStateSuffix = cache(async function resolveCityWithStateSuffix(
   baseSlug: string
 ): Promise<{ cityMetadata: CityMetadata | null; resolvedSlug: string }> {
   // First try the base slug directly (e.g., "santa-cruz" or "newport-ca")
@@ -101,7 +102,7 @@ async function resolveCityWithStateSuffix(
 
   // Get full metadata for the first (highest priority) match
   const topMatch = coastalCities[0];
-  const resolvedSlug = buildCitySlug(topMatch.city, topMatch.state, new Map());
+  const resolvedSlug = buildCitySlug(topMatch.city, topMatch.state, COLLISION_CITY_MAP);
 
   const metadataResult = await getCityMetadata(topMatch.city, topMatch.state);
   if (!metadataResult.success || !metadataResult.data) {
@@ -112,15 +113,7 @@ async function resolveCityWithStateSuffix(
     cityMetadata: metadataResult.data,
     resolvedSlug: resolvedSlug || baseSlug,
   };
-}
-
-function formatPacificDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    dateStyle: "long",
-    timeStyle: "short",
-  }).format(date);
-}
+});
 
 /**
  * Shared empty state component for intent pages.
@@ -179,8 +172,8 @@ export async function generateStaticParams() {
     // Get all cities with skill-level flags for intent filtering
     const citiesResult = await getAllCitiesWithBeachSkills(1);
     if (citiesResult.success && citiesResult.data) {
-      // Detect collisions
-      const collisionMap = detectCityCollisions(citiesResult.data);
+      // Use static collision map for consistency with sitemap canonical URLs
+      const collisionMap = COLLISION_CITY_MAP;
 
       // Generate city × intent combinations (filtered by skill availability)
       for (const cityRecord of citiesResult.data) {
@@ -272,16 +265,22 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       robots: { index: false, follow: true },
     };
   }
-  // For tide intent, fetch live tide data to inject into meta description
+  // For tide/water-temp intents, fetch live data to inject into meta description
   let tideDataForMeta: CityTideData | null = null;
+  let waterTempDataForMeta: CityWaterTempData | null = null;
   if (params.intent === "tide") {
     tideDataForMeta = await getCityTideData(cityMetadata.cityName, cityMetadata.state);
+  } else if (params.intent === "water-temp") {
+    waterTempDataForMeta = await getCityWaterTempHistory(cityMetadata.cityName, cityMetadata.state);
   }
 
   const pageContent = buildIntentPageContent(
     params.intent as SurfIntentSlug,
     cityMetadata,
-    { tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null }
+    {
+      tideData: tideDataForMeta ? { nextTideType: tideDataForMeta.nextTideType, nextTideTime: tideDataForMeta.nextTideTime, nextTideHeight: tideDataForMeta.nextTideHeight } : null,
+      waterTempData: waterTempDataForMeta ? { currentTemp: waterTempDataForMeta.currentTemp } : null,
+    }
   );
 
   // Determine if this skill-intent will produce results based on city skill counts
@@ -507,9 +506,6 @@ export default async function IntentPage(props: IntentPageParams) {
       }));
       const tideSpots: SurfSpot[] = transformBeachesToSurfSpots(tideBeachesWithMetrics);
 
-      const now = new Date();
-      const tideUpdatedAt = formatPacificDateTime(now);
-
       return (
         <TidePageContent
           cityName={cityMetadata.cityName}
@@ -520,7 +516,7 @@ export default async function IntentPage(props: IntentPageParams) {
           pageContent={tidePageContent}
           tideData={expandedTideData}
           spots={tideSpots}
-          updatedAt={tideUpdatedAt}
+          updatedAt="Refreshed hourly"
           baseUrl={baseUrl}
         />
       );
@@ -576,8 +572,6 @@ export default async function IntentPage(props: IntentPageParams) {
   }));
   const spots: SurfSpot[] = transformBeachesToSurfSpots(beachesWithMetrics);
 
-  const now = new Date();
-  const updatedAt = formatPacificDateTime(now);
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
@@ -631,8 +625,8 @@ export default async function IntentPage(props: IntentPageParams) {
 
           <div className="space-y-2 mt-6">
             <p className="text-base text-gray-700">
-              Updated {updatedAt} · Dialed recommendations refresh every 30
-              minutes based on tide, wind, and crowd telemetry from Quiver.
+              Recommendations refresh every 30 minutes based on tide, wind,
+              and crowd telemetry from Quiver.
             </p>
             <p className="text-base text-gray-700">
               {pageContent.intro}

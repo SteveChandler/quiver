@@ -148,39 +148,40 @@ export function buildDynamicBeachMetadata({
     return `${base} | ${suffix}`;
   }
 
-  // Build title with state abbreviation when room allows
+  // Build title — differentiate from Surfline with unique value signals
   let title: string;
   if (forecast?.wave_height) {
-    const base = `${beach.name} Surf Report: ${forecast.wave_height}`;
-    const fullTitle = withState(base, "7-Day Forecast");
+    // Lead with wave height + unique signals (crowd, wind intel)
+    const base = `${beach.name} — ${forecast.wave_height} Today`;
+    const fullTitle = `${base} | Crowd & Wind Intel | ${beach.city || beach.state || "Surf"}`;
     if (fullTitle.length <= MAX_TITLE_LENGTH) {
       title = fullTitle;
     } else {
-      const shortTitle = `${base} | Forecast`;
+      const shortTitle = withState(base, "Forecast & Conditions");
       title = truncateTitleForSEO(shortTitle);
     }
   } else {
-    const fullTitle = `${beach.name} Surf Report & Forecast | ${locationContext || "Local"} Surf Conditions`;
+    const fullTitle = `${beach.name} Surf Conditions & Forecast | ${locationContext || "Surf Conditions"}`;
     if (fullTitle.length <= MAX_TITLE_LENGTH) {
       title = fullTitle;
     } else {
-      const shortTitle = `${beach.name} Surf Report | ${locationContext || "Local"} Conditions`;
+      const shortTitle = `${beach.name} Surf Conditions | ${locationContext || "Forecast"}`;
       title = truncateTitleForSEO(shortTitle);
     }
   }
 
-  // Build description with break_type + skill_level when available
+  // Build description highlighting unique features (crowd data, session windows)
   const hasBreakInfo = beach.break_type && beach.skill_level;
   let description: string;
 
   if (forecast?.wave_height) {
     description = hasBreakInfo
-      ? `${beach.name} is a ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"} showing ${forecast.wave_height} waves. 7-day forecast, tide charts, wind & crowd intel. Updated hourly.`
-      : `${beach.name} is showing ${forecast.wave_height} waves. 7-day forecast, tide charts, wind & crowd intel. Updated hourly.`;
+      ? `${forecast.wave_height} waves at ${beach.name}. ${beach.break_type} for ${beach.skill_level} surfers. 7-day forecast, tides, crowds & session windows — updated hourly.`
+      : `${forecast.wave_height} waves at ${beach.name} right now. 7-day forecast, live wind, tide chart & crowd intel — updated hourly.`;
   } else {
     description = hasBreakInfo
-      ? `${beach.name} is a ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. Surf report with wave height, wind, tides & best surf window. No paywall.`
-      : `Is ${beach.name} surfable today? Surf report with wave height, wind, tides & best surf window${locationContext ? ` in ${locationContext}` : ""}. No subscription required.`;
+      ? `${beach.name} is a ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. 7-day forecast, tide chart, wind & best session windows.`
+      : `Live surf conditions at ${beach.name}${locationContext ? `, ${locationContext}` : ""}. 7-day forecast, tide chart, wind, crowd levels & session windows — updated hourly.`;
   }
 
   return { title, description };

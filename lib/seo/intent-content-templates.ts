@@ -28,6 +28,7 @@ interface ContentTemplateArgs {
   topSpotNames: string;
   allSpotNames: string[];
   tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
+  waterTempData?: { currentTemp?: number | null } | null;
 }
 
 /**
@@ -41,7 +42,10 @@ interface ContentTemplateArgs {
 export function buildIntentPageContent(
   intent: SurfIntentSlug,
   metadata: CityMetadata,
-  dynamicData?: { tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null }
+  dynamicData?: {
+    tideData?: { nextTideType?: string | null; nextTideTime?: string | null; nextTideHeight?: string | null } | null;
+    waterTempData?: { currentTemp?: number | null } | null;
+  }
 ): IntentPageContent {
   const args: ContentTemplateArgs = {
     cityName: metadata.cityName,
@@ -57,6 +61,7 @@ export function buildIntentPageContent(
       .join(", "),
     allSpotNames: metadata.beaches.map((b) => b.name),
     tideData: dynamicData?.tideData ?? null,
+    waterTempData: dynamicData?.waterTempData ?? null,
   };
 
   const templates = getIntentTemplates(args);
@@ -69,7 +74,7 @@ export function buildIntentPageContent(
 function getIntentTemplates(
   args: ContentTemplateArgs
 ): Record<SurfIntentSlug, IntentPageContent> {
-  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames, tideData } = args;
+  const { cityName, stateName, stateSlug, totalBeaches, beginnerCount, topSpotNames, tideData, waterTempData } = args;
   // Note: advancedCount, intermediateCount, and allSpotNames are available for future template enhancements
 
   // Conditional intro text for cities with no beginner spots
@@ -118,7 +123,7 @@ function getIntentTemplates(
       heading: `Least crowded surf spots in ${cityName}`,
       intro: leastCrowdedIntro,
       metaDescription: truncateMetaDescription(
-        `Discover less crowded surf spots in ${cityName}. ${totalBeaches} breaks with insider tips on timing. Avoid the crowds at ${topSpotNames}.`
+        `Skip the crowds in ${cityName} — ${totalBeaches} surf spots ranked by crowd level with best times & real conditions. Updated daily.`
       ),
     },
     tide: {
@@ -136,7 +141,9 @@ function getIntentTemplates(
       heading: `Water temperature in ${cityName}`,
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
-        `Current water temperatures in ${cityName}, ${stateName}. Wetsuit recommendations for ${totalBeaches} surf spots. Plan your session.`
+        waterTempData?.currentTemp
+          ? `${cityName} water is ${waterTempData.currentTemp}°F today. Wetsuit guide & seasonal temps for ${totalBeaches} surf spots.`
+          : `Current water temperatures in ${cityName}, ${stateName}. Wetsuit recommendations for ${totalBeaches} surf spots. Updated daily.`
       ),
     },
     longboard: {

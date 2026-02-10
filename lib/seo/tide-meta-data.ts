@@ -61,14 +61,18 @@ export const getTideMetaData = cache(
       // Fetch beach coordinates for timezone calculation
       const { data: beach, error: beachError } = await supabase
         .from("beaches")
-        .select("lat, lon")
+        .select("lat, lon, timezone")
         .eq("id", beachId)
         .single();
 
-      // Determine timezone from beach coordinates or use default
+      // Determine timezone: prefer DB column, fallback to geo-tz, then default
       let timezone = DEFAULT_TIMEZONE;
-      if (!beachError && beach?.lat != null && beach?.lon != null) {
-        timezone = getTimezoneFromCoords(beach.lat, beach.lon) || DEFAULT_TIMEZONE;
+      if (!beachError && beach) {
+        if (beach.timezone) {
+          timezone = beach.timezone;
+        } else if (beach.lat != null && beach.lon != null) {
+          timezone = getTimezoneFromCoords(beach.lat, beach.lon) || DEFAULT_TIMEZONE;
+        }
       }
 
       const now = new Date();
