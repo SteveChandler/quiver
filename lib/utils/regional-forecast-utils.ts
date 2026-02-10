@@ -145,6 +145,17 @@ export function getBeachesForRegion(
     );
   }
 
+  // If region specifies latitude bounds, filter by latitude
+  if (region.latBounds) {
+    filtered = filtered.filter((beach) => {
+      const lat = beach.lat;
+      if (lat == null) return true; // Include beaches without coordinates
+      if (region.latBounds!.min != null && lat < region.latBounds!.min) return false;
+      if (region.latBounds!.max != null && lat >= region.latBounds!.max) return false;
+      return true;
+    });
+  }
+
   return filtered;
 }
 
@@ -578,6 +589,9 @@ export function aggregateRegionalForecast(
       bestDayScore,
     });
   }
+
+  // Sort by current score so the top beach is the best one
+  beachConditions.sort((a, b) => b.currentScore - a.currentScore);
 
   // Calculate stats
   const beachesWithData = Array.from(forecastMap.values()).filter((f) => f.length > 0).length;

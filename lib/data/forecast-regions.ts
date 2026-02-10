@@ -12,10 +12,14 @@ export interface ForecastRegion {
   metaDescription: string; // SEO meta description
   states: string[]; // State codes to filter beaches
   cities?: string[]; // Optional city filter for sub-regions
+  latBounds?: { min?: number; max?: number }; // Optional latitude boundaries
   centerLat: number;
   centerLon: number; // NOTE: Use 'lon' not 'lng' per CLAUDE.md coordinate conventions
   zoom: number;
 }
+
+/** Boundary between NorCal and SoCal regions. SoCal uses max (exclusive), NorCal uses min (inclusive). */
+const NORCAL_SOCAL_LATITUDE_BOUNDARY = 35.0;
 
 export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
   "southern-california": {
@@ -25,6 +29,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
     metaDescription:
       "Get the complete Southern California surf forecast. Daily conditions, swell analysis, and the best days to surf SoCal this week.",
     states: ["ca"],
+    latBounds: { max: NORCAL_SOCAL_LATITUDE_BOUNDARY },
     centerLat: 33.5,
     centerLon: -117.8,
     zoom: 8,
@@ -102,6 +107,7 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
     metaDescription:
       "NorCal surf forecast with conditions from Santa Cruz to San Francisco. Plan your session with our 7-day outlook.",
     states: ["ca"],
+    latBounds: { min: NORCAL_SOCAL_LATITUDE_BOUNDARY },
     centerLat: 37.5,
     centerLon: -122.3,
     zoom: 8,

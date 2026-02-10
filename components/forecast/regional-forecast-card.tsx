@@ -152,6 +152,54 @@ function RegionalForecastCardSkeleton({
   );
 }
 
+/**
+ * No-data state when summary exists but has no forecast days
+ */
+function RegionalForecastCardNoData({
+  region,
+  summary,
+  href,
+  className,
+}: {
+  region: ForecastRegion;
+  summary: RegionalForecastSummary;
+  href?: string;
+  className?: string;
+}) {
+  const cardHref = href || `/forecast/${region.slug}`;
+
+  return (
+    <Link href={cardHref} className={cn("block group", className)}>
+      <Card className="h-full transition-all duration-200 hover:shadow-lg">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <CardTitle className="text-lg group-hover:text-primary transition-colors">
+              {region.name}
+            </CardTitle>
+            <Badge variant="outline" className="text-sm text-muted-foreground">—</Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pb-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Stat label="Best Day" value="—" />
+            <Stat label="Waves" value="—" />
+            <Stat label="Conditions" value="No data" className="text-muted-foreground" />
+            <Stat label="Beaches" value={summary.stats.totalBeaches} animated />
+          </div>
+        </CardContent>
+
+        <CardFooter className="pt-0">
+          <span className="flex items-center gap-1 text-sm text-primary group-hover:underline">
+            View Full Forecast
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </CardFooter>
+      </Card>
+    </Link>
+  );
+}
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -182,6 +230,11 @@ export function RegionalForecastCard({
   // Show skeleton state when summary data is not yet loaded
   if (!summary) {
     return <RegionalForecastCardSkeleton region={region} className={className} />;
+  }
+
+  // Show no-data state when summary exists but has no forecast days
+  if (summary.days.length === 0) {
+    return <RegionalForecastCardNoData region={region} summary={summary} href={href} className={className} />;
   }
 
   const quality = getQualityConfig(summary.bestDay.score);

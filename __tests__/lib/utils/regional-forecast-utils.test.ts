@@ -150,6 +150,101 @@ describe("getBeachesForRegion", () => {
     const beaches = getBeachesForRegion(region, mockBeaches);
     expect(beaches).toHaveLength(3);
   });
+
+  describe("latBounds filtering", () => {
+    const beachAt33 = {
+      id: "b-33",
+      name: "Beach 33",
+      slug: "beach-33",
+      city: "San Diego",
+      state: "CA",
+      lat: 33.0,
+      center_lat: 33.0,
+      center_lng: -117.0,
+      created_at: "2024-01-01T00:00:00Z",
+    } as unknown as Beach;
+
+    const beachAt35 = {
+      id: "b-35",
+      name: "Beach 35",
+      slug: "beach-35",
+      city: "SLO",
+      state: "CA",
+      lat: 35.0,
+      center_lat: 35.0,
+      center_lng: -120.0,
+      created_at: "2024-01-01T00:00:00Z",
+    } as unknown as Beach;
+
+    const beachAt36 = {
+      id: "b-36",
+      name: "Beach 36",
+      slug: "beach-36",
+      city: "Santa Cruz",
+      state: "CA",
+      lat: 36.0,
+      center_lat: 36.0,
+      center_lng: -122.0,
+      created_at: "2024-01-01T00:00:00Z",
+    } as unknown as Beach;
+
+    const beachNullLat = {
+      id: "b-null",
+      name: "Beach Null",
+      slug: "beach-null",
+      city: "Unknown",
+      state: "CA",
+      lat: null,
+      center_lat: null,
+      center_lng: null,
+      created_at: "2024-01-01T00:00:00Z",
+    } as unknown as Beach;
+
+    const allLatBeaches = [beachAt33, beachAt35, beachAt36, beachNullLat];
+
+    it("should filter beaches by max latitude bound", () => {
+      const region: ForecastRegion = { ...mockRegion, latBounds: { max: 35.0 } };
+      const result = getBeachesForRegion(region, allLatBeaches);
+      expect(result.map((b) => b.id)).toContain("b-33");
+      expect(result.map((b) => b.id)).not.toContain("b-36");
+    });
+
+    it("should filter beaches by min latitude bound", () => {
+      const region: ForecastRegion = { ...mockRegion, latBounds: { min: 35.0 } };
+      const result = getBeachesForRegion(region, allLatBeaches);
+      expect(result.map((b) => b.id)).toContain("b-36");
+      expect(result.map((b) => b.id)).not.toContain("b-33");
+    });
+
+    it("should handle exact boundary value (max is exclusive)", () => {
+      const regionMax: ForecastRegion = { ...mockRegion, latBounds: { max: 35.0 } };
+      const regionMin: ForecastRegion = { ...mockRegion, latBounds: { min: 35.0 } };
+
+      const maxResult = getBeachesForRegion(regionMax, [beachAt35]);
+      const minResult = getBeachesForRegion(regionMin, [beachAt35]);
+
+      // max is exclusive: beach at exactly 35.0 should NOT be in max:35.0
+      expect(maxResult.map((b) => b.id)).not.toContain("b-35");
+      // min is inclusive: beach at exactly 35.0 should be in min:35.0
+      expect(minResult.map((b) => b.id)).toContain("b-35");
+    });
+
+    it("should include beaches with null lat in lat-bounded regions", () => {
+      const region: ForecastRegion = { ...mockRegion, latBounds: { max: 35.0 } };
+      const result = getBeachesForRegion(region, [beachNullLat]);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("b-null");
+    });
+
+    it("should apply both min and max bounds together", () => {
+      const region: ForecastRegion = { ...mockRegion, latBounds: { min: 33.0, max: 35.0 } };
+      const beachAt32 = { ...beachAt33, id: "b-32", lat: 32.0, center_lat: 32.0 } as unknown as Beach;
+      const beachAt34 = { ...beachAt33, id: "b-34", lat: 34.0, center_lat: 34.0 } as unknown as Beach;
+
+      const result = getBeachesForRegion(region, [beachAt32, beachAt34, beachAt36]);
+      expect(result.map((b) => b.id)).toEqual(["b-34"]);
+    });
+  });
 });
 
 describe("calculateDayScore", () => {
@@ -512,5 +607,48 @@ describe("aggregateRegionalForecast", () => {
       (b) => b.beachId === "beach-1"
     );
     expect(beach1Summary?.trend).toBe("improving");
+  });
+
+  it("should sort beachConditions by currentScore descending", () => {
+    const forecastMap = new Map<string, EnhancedForecastEntity[]>();
+    const today = futureDateString(0);
+
+    // Beach 1: poor conditions
+    forecastMap.set("beach-1", [
+      createMockForecast("beach-1", today, "12:00", {
+        wave_height: "1.0",
+        wind_direction: "W (onshore)",
+        swell_1_period: "6",
+      }),
+    ]);
+
+    // Beach 2: excellent conditions
+    forecastMap.set("beach-2", [
+      createMockForecast("beach-2", today, "12:00", {
+        wave_height: "5.0",
+        wind_direction: "E (offshore)",
+        swell_1_period: "14",
+      }),
+    ]);
+
+    // Beach 3: moderate conditions
+    forecastMap.set("beach-3", [
+      createMockForecast("beach-3", today, "12:00", {
+        wave_height: "3.0",
+        wind_direction: "N (cross-shore)",
+        swell_1_period: "10",
+      }),
+    ]);
+
+    const summary = aggregateRegionalForecast(
+      mockRegion,
+      [mockBeaches[0], mockBeaches[1], mockBeaches[2]],
+      forecastMap
+    );
+
+    const scores = summary.beachConditions.map((b) => b.currentScore);
+    for (let i = 1; i < scores.length; i++) {
+      expect(scores[i - 1]).toBeGreaterThanOrEqual(scores[i]);
+    }
   });
 });
