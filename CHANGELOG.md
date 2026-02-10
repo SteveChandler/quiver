@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Beach Page Engagement Quick Wins** (uncommitted) - Moved NearbySpots and RelatedGuidesSection outside tab system to SSR for SEO crawlability, added InlineSignupCta to all beach detail pages for anonymous visitor conversion, added city hub link to RelatedGuidesSection for better internal linking back to city pages.
 - **Internal Linking ("Looping") Overhaul** (uncommitted) - Site-wide `SiteFooter` server component (~14 crawlable links on ~35+ pages), shared `ContinueExploring` component replacing 3 hardcoded sidebars (now 8+ cross-links per intent page), `IntentGuidesGrid` with `currentIntent` highlighting on state-level intent pages, intent grid on standard city hubs, and browse links section on forecast hub.
 - **Beginner Page Redesign** (`aaaa944d2`) - Phase 1 city content hub with 11 modular components, editorial content DB schema (`city_beginner_editorial`), consolidated 16 state-specific routes into dynamic `[intent]/[city]` route, Framer Motion scroll animations via `SectionFadeUp`, FAQPage + BreadcrumbList structured data, and 15 E2E tests.
 - **7-Day Regional Forecast Hub** (`0c06d754e`) - `/forecast` hub landing + `/forecast/[region]` detail pages with animated UI components (score gauge, wave chart, sparkline), forecast outlook on home screen, LA beaches migration, and 34 E2E tests.
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Region-Aware 7-Day Outlook Link** — Home screen "7-Day Outlook" card now links to the user's regional forecast (e.g. `/forecast/san-diego`) based on top recommendation or home beach city, with fallback to `/forecast`.
 - **Intent Pages Design Language** (`4b5d561bf`) - Frosted glass aesthetic with `bg-white/60 backdrop-blur-md`, ocean-tinted borders (`border-blue-100/50`), and `rounded-2xl` across all 7 intent types.
 - **Auth Gate Pattern** (`2f9a5f01c`) - Modal-based auth gating replacing blocking overlay for unauthenticated users on beach detail page action buttons.
 

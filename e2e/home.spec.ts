@@ -497,7 +497,8 @@ test.describe('Home Page - Layout', () => {
 
       await forecastCard.click();
 
-      await page.waitForURL('/forecast', { timeout: TIMEOUTS.medium });
+      // Card links to /forecast or /forecast/{region} depending on user context
+      await page.waitForURL(/\/forecast/, { timeout: TIMEOUTS.medium });
       expect(page.url()).toContain('/forecast');
     });
 

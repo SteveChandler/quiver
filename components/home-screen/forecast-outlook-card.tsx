@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface ForecastOutlookCardProps {
   className?: string;
+  regionSlug?: string;
 }
 
 /**
@@ -14,12 +15,12 @@ interface ForecastOutlookCardProps {
  * A compact card that links to the forecast hub, providing
  * authenticated users quick access to regional surf outlooks.
  */
-export function ForecastOutlookCard({ className }: ForecastOutlookCardProps) {
+export function ForecastOutlookCard({ className, regionSlug }: ForecastOutlookCardProps) {
   const descriptionId = "forecast-outlook-description";
 
   return (
     <Link
-      href="/forecast"
+      href={regionSlug ? `/forecast/${regionSlug}` : "/forecast"}
       className={cn(
         "block rounded-xl bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50",
         "border border-sky-200 hover:border-sky-300",

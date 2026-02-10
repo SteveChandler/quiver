@@ -26,6 +26,7 @@ import { HeroRecommendation } from "./hero-recommendation";
 import { PrimaryActions } from "./primary-actions";
 import { buildSurfCallShareData } from "@/lib/share/share-data-builder";
 import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
+import { getForecastRegionForCity } from "@/lib/data/forecast-regions";
 import { TopSpotsCarousel } from "./top-spots-carousel";
 import { TimeSlotSelector } from "./time-slot-selector";
 import { BottomNav } from "./bottom-nav";
@@ -182,6 +183,12 @@ export function HomeScreen() {
   // Extract top recommendation and remaining spots (show all, no limit)
   const topRecommendation = discovery?.recommendations[0] || null;
   const topSpots = discovery?.recommendations.slice(1) || [];
+
+  // Derive forecast region from top recommendation or home beach city
+  const forecastRegionSlug = useMemo(() => {
+    const city = topRecommendation?.beach?.city ?? homeBeach?.city;
+    return city ? getForecastRegionForCity(city) : null;
+  }, [topRecommendation?.beach?.city, homeBeach?.city]);
 
   // Compute share data for the Share button in PrimaryActions
   const shareData = useMemo(() => {
@@ -420,7 +427,7 @@ export function HomeScreen() {
           {/* 6. 7-Day Outlook Entry Point */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
-              <ForecastOutlookCard />
+              <ForecastOutlookCard regionSlug={forecastRegionSlug ?? undefined} />
             </section>
           )}
 

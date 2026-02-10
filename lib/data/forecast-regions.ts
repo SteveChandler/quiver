@@ -158,3 +158,23 @@ const GUIDE_SLUG_OVERRIDES: Record<string, string> = {
 export function getGuideSlugForRegion(regionSlug: string): string {
   return GUIDE_SLUG_OVERRIDES[regionSlug] ?? regionSlug;
 }
+
+/**
+ * Get the forecast region slug for a given city name.
+ * Returns null if the city doesn't belong to any region with a cities list.
+ */
+let cityToRegionMap: Map<string, string> | null = null;
+
+export function getForecastRegionForCity(city: string): string | null {
+  if (!cityToRegionMap) {
+    cityToRegionMap = new Map();
+    for (const region of Object.values(FORECAST_REGIONS)) {
+      if (region.cities) {
+        for (const c of region.cities) {
+          cityToRegionMap.set(c.toLowerCase(), region.slug);
+        }
+      }
+    }
+  }
+  return cityToRegionMap.get(city.toLowerCase()) ?? null;
+}
