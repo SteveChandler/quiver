@@ -11,6 +11,11 @@ import { createServiceRoleClient } from '@/lib/supabase';
 // and validation can take time with large datasets
 export const maxDuration = 300; // 5 minutes
 
+// Shoaling change date floor - BASE_SHOALING was reduced from 1.6 to 1.0
+// on Feb 4 2026 (commit 0317b83). Data before this change has a different bias
+// profile and degrades model accuracy. Buffer included for deployment propagation.
+const SHOALING_CHANGE_DATE = new Date('2026-02-05T06:00:00Z');
+
 // Environment variables validated at runtime in POST handler
 // Using getters to avoid non-null assertion at module load time
 const getMLServiceUrl = () => process.env.ML_SERVICE_URL;
@@ -88,6 +93,12 @@ async function handleRetrain(request: Request) {
     const maxDaysBack = 90;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxDaysBack);
+
+    // Enforce shoaling change date floor (see constant definition at module level)
+    if (cutoffDate < SHOALING_CHANGE_DATE) {
+      cutoffDate.setTime(SHOALING_CHANGE_DATE.getTime());
+      console.log(`[ML Retrain] Cutoff raised to shoaling change date: ${cutoffDate.toISOString()}`);
+    }
 
     // Limit total samples to avoid 4-minute API timeout
     // Memory supports ~100K but request times out at ~60K samples

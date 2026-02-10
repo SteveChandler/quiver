@@ -1,13 +1,16 @@
 """Extract v2 training data from ml_predictions_log (pre-matched pairs)."""
+import argparse
 import os
 import sys
+from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 from supabase import create_client
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 
-def extract_training_data_v2(output_path: str = "data/training_data_v2.csv") -> pd.DataFrame:
+def extract_training_data_v2(output_path: str = "data/training_data_v2.csv", since: Optional[str] = None) -> pd.DataFrame:
     """
     Extract training data directly from ml_predictions_log.
 
@@ -17,8 +20,18 @@ def extract_training_data_v2(output_path: str = "data/training_data_v2.csv") -> 
     Returns:
         DataFrame with numeric features and residual target
     """
+    # Validate since parameter format early
+    if since:
+        try:
+            datetime.fromisoformat(since)
+        except ValueError:
+            raise ValueError(f"since must be an ISO 8601 date, e.g. 2026-02-05T06:00:00+00:00 (got: {since})")
+
     print("Connecting to Supabase...")
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    if since:
+        print(f"Filtering to predictions since {since}")
 
     print("Fetching matched pairs from ml_predictions_log...")
     all_rows = []
@@ -26,14 +39,19 @@ def extract_training_data_v2(output_path: str = "data/training_data_v2.csv") -> 
     offset = 0
 
     while True:
-        result = supabase.from_('ml_predictions_log').select(
+        query = supabase.from_('ml_predictions_log').select(
             'beach_id, predicted_at, raw_forecast_m, wave_period_s, '
             'wave_direction_deg, wind_speed_ms, wind_direction_deg, observed_m'
         ).not_.is_('observed_m', 'null').gt(
             'raw_forecast_m', 0
         ).gte(
             'observed_m', 0
-        ).order(
+        )
+
+        if since:
+            query = query.gte('predicted_at', since)
+
+        result = query.order(
             'predicted_at', desc=False
         ).range(offset, offset + page_size - 1).execute()
 
@@ -116,7 +134,18 @@ def extract_training_data_v2(output_path: str = "data/training_data_v2.csv") -> 
 
 
 if __name__ == "__main__":
-    df = extract_training_data_v2()
+    parser = argparse.ArgumentParser(description="Extract v2 training data from ml_predictions_log")
+    parser.add_argument("--since", type=str, default=None,
+                        help="Only include predictions after this ISO date (e.g. 2026-02-05T06:00:00+00:00)")
+    args = parser.parse_args()
+
+    if args.since:
+        try:
+            datetime.fromisoformat(args.since)
+        except ValueError:
+            parser.error(f"--since must be an ISO 8601 date, e.g. 2026-02-05T06:00:00+00:00 (got: {args.since})")
+
+    df = extract_training_data_v2(since=args.since)
     print(f"\nDataset summary:")
     print(f"  Rows: {len(df)}")
     print(f"  Date range: {df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}")

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Returning-User Auto-Login Prompt** (uncommitted) - Previously-authenticated users whose sessions expire now see the login modal auto-open when they return to the app, reducing friction compared to showing the cold landing page. Uses persistent `quiver_returning_user` localStorage flag set on first sign-in, with auto-open triggered via `autoOpenLogin` prop flow from ClientApp → LandingPage → Navbar.
 - **Beach Page Engagement Quick Wins** (uncommitted) - Moved NearbySpots and RelatedGuidesSection outside tab system to SSR for SEO crawlability, added InlineSignupCta to all beach detail pages for anonymous visitor conversion, added city hub link to RelatedGuidesSection for better internal linking back to city pages.
 - **Internal Linking ("Looping") Overhaul** (uncommitted) - Site-wide `SiteFooter` server component (~14 crawlable links on ~35+ pages), shared `ContinueExploring` component replacing 3 hardcoded sidebars (now 8+ cross-links per intent page), `IntentGuidesGrid` with `currentIntent` highlighting on state-level intent pages, intent grid on standard city hubs, and browse links section on forecast hub.
 - **Beginner Page Redesign** (`aaaa944d2`) - Phase 1 city content hub with 11 modular components, editorial content DB schema (`city_beginner_editorial`), consolidated 16 state-specific routes into dynamic `[intent]/[city]` route, Framer Motion scroll animations via `SectionFadeUp`, FAQPage + BreadcrumbList structured data, and 15 E2E tests.
@@ -18,12 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Supabase SSR Package Upgrade** — Upgraded `@supabase/ssr` from 0.7.0 to 0.8.0 and migrated all cookie handlers from deprecated `get/set/remove` interface to new `getAll/setAll` interface across all server clients (auth routes, API routes, middleware, server components).
+- **ML Retrain: Post-Shoaling Data Filter** — Added `--since` arg to `extract_training_data_v2.py` and shoaling change date floor (`2026-02-05`) in automated retrain route to exclude pre-shoaling training data.
 - **Region-Aware 7-Day Outlook Link** — Home screen "7-Day Outlook" card now links to the user's regional forecast (e.g. `/forecast/san-diego`) based on top recommendation or home beach city, with fallback to `/forecast`.
 - **Intent Pages Design Language** (`4b5d561bf`) - Frosted glass aesthetic with `bg-white/60 backdrop-blur-md`, ocean-tinted borders (`border-blue-100/50`), and `rounded-2xl` across all 7 intent types.
 - **Auth Gate Pattern** (`2f9a5f01c`) - Modal-based auth gating replacing blocking overlay for unauthenticated users on beach detail page action buttons.
 
 ### Fixed
 
+- **Forecast Hub Region Card Bugs** (uncommitted) - Sort `beachConditions` by `currentScore` descending so top beach displayed is actually the best beach; separate Northern/Southern California by latitude (35°N boundary) to prevent San Clemente beaches appearing in NorCal; gracefully handle no-data regions by showing "—" for stats instead of misleading "0 / 0ft / Poor".
 - **Lighthouse CI Failures** — Fixed 50+ assertion failures by replacing auth-gated/redirecting URLs with public canonical URLs, disabling environment-artifact audits (is-crawlable, bf-cache, insight audits), downgrading known-issue audits to warn, and relaxing thresholds for map page.
 - **GSC "Page with Redirect" Fixes** — 3 bugs causing ~1,285 redirect issues: (1) middleware 4-segment catch-all now excludes `/tides` and `/water-temp` sub-pages, (2) intent legacy redirects are now collision-aware (only append state suffix for ambiguous cities like long-beach, newport, koloa), (3) nearby spots links in `/spots/` page use `buildBeachUrl()` instead of hardcoded `/spots/` paths.
 - **Water Temperature Data** (`5399d05b9`) - 3-tier priority for non-California beaches: IOOS station > NDBC buoy > latitude-based estimate.
