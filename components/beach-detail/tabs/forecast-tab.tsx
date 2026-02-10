@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowUp,
@@ -16,9 +16,6 @@ import {
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
-import { isDataStale, getLatestUpdatedAt } from "@/lib/utils/forecast-client-utils";
-import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
-import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,14 +55,6 @@ const DetailedSwellModal = dynamic(
   { ssr: false }
 );
 
-interface RawForecastData {
-  data_sources?: string[];
-  cdip_data?: {
-    stationId?: string;
-    stationName?: string;
-  };
-}
-
 interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
@@ -101,6 +90,11 @@ export function ForecastTab({
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
     return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
   });
+
+  const handleHorizonDaySelect = useCallback((date: string) => {
+    setHorizonSelectedDate(date);
+    setActiveSubTab("conditions");
+  }, []); // State setters are stable refs
 
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
@@ -341,35 +335,6 @@ export function ForecastTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forecasts, beach.name, dynamicTide.minutesUntil]);
 
-  // Extract transparency metadata from current forecast
-  const forecastMetadata = useMemo(() => {
-    if (!currentForecast) return null;
-
-    const rawForecast =
-      currentForecast.raw_forecast as unknown as RawForecastData | null;
-    const dataSource = currentForecast.data_source || "FALLBACK";
-
-    // CRITICAL FIX: Use max(updated_at) across all forecasts for freshness display.
-    // The forecasts array includes lookback days (sorted ASC), so currentForecast
-    // may have an older updated_at than the latest write. Use the helper function
-    // to get the true latest timestamp.
-    const latestUpdatedAt = getLatestUpdatedAt(forecasts) || currentForecast.updated_at;
-
-    // Use source-specific staleness thresholds with the CORRECT timestamp
-    const isStale = isDataStale(latestUpdatedAt, dataSource);
-
-    return {
-      dataSource,
-      confidenceScore: currentForecast.confidence_score ?? 50,
-      dataSources: rawForecast?.data_sources || [dataSource],
-      lastUpdated: latestUpdatedAt,
-      isRealTimeData: currentForecast.data_source === "CDIP",
-      isStaleData: isStale,
-      cdipStation: rawForecast?.cdip_data?.stationId,
-      cdipStationName: rawForecast?.cdip_data?.stationName,
-    };
-  }, [currentForecast, forecasts]);
-
   return (
     <div className="space-y-6 py-6">
       {/* 12-Day Horizon Strip */}
@@ -386,7 +351,7 @@ export function ForecastTab({
           <HorizonStrip
             days={publicHorizonDays}
             selectedDate={horizonSelectedDate}
-            onSelectDate={setHorizonSelectedDate}
+            onSelectDate={handleHorizonDaySelect}
             beachSlug={slugify(beach.name)}
           />
           {publicMode && horizonDaySummaries.length > 3 && (
@@ -397,37 +362,6 @@ export function ForecastTab({
               </p>
             </div>
           )}
-        </section>
-      )}
-
-      {/* Forecast Transparency Section */}
-      {currentForecast && forecastMetadata && (
-        <section className="rounded-2xl bg-blue-50/50 border border-blue-100 p-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex-1 space-y-3">
-              <ForecastDataSourceIndicator
-                dataSource={forecastMetadata.dataSource}
-                confidenceScore={forecastMetadata.confidenceScore}
-                dataSources={forecastMetadata.dataSources}
-                isRealTimeData={forecastMetadata.isRealTimeData}
-                isStaleData={forecastMetadata.isStaleData}
-                lastUpdated={forecastMetadata.lastUpdated}
-                expandable={true}
-              />
-              {forecastMetadata.cdipStation &&
-                forecastMetadata.cdipStationName && (
-                  <BuoyStationLink
-                    stationId={forecastMetadata.cdipStation}
-                    stationName={forecastMetadata.cdipStationName}
-                    beachLocation={{
-                      latitude: beach.lat ?? 0,
-                      longitude: beach.lon ?? 0,
-                    }}
-                    variant="compact"
-                  />
-                )}
-            </div>
-          </div>
         </section>
       )}
 

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Conditions Alert Email** (uncommitted) - Daily 6:30 AM PT email to users with a home beach when conditions are good (score >= 7/10). Includes score badge, conditions summary, best window, and CTAs to check forecast or log a session. Skips users already active in the app today. Max one email per user per day across all email types.
+- **Session Prompt Email** (uncommitted) - Daily 10:00 AM PT "How was your session?" email sent to users whose home beach had good conditions yesterday but who didn't log a session. Nudges toward session logging to build community data.
 - **Returning-User Auto-Login Prompt** (uncommitted) - Previously-authenticated users whose sessions expire now see the login modal auto-open when they return to the app, reducing friction compared to showing the cold landing page. Uses persistent `quiver_returning_user` localStorage flag set on first sign-in, with auto-open triggered via `autoOpenLogin` prop flow from ClientApp → LandingPage → Navbar.
 - **Beach Page Engagement Quick Wins** (uncommitted) - Moved NearbySpots and RelatedGuidesSection outside tab system to SSR for SEO crawlability, added InlineSignupCta to all beach detail pages for anonymous visitor conversion, added city hub link to RelatedGuidesSection for better internal linking back to city pages.
 - **Internal Linking ("Looping") Overhaul** (uncommitted) - Site-wide `SiteFooter` server component (~14 crawlable links on ~35+ pages), shared `ContinueExploring` component replacing 3 hardcoded sidebars (now 8+ cross-links per intent page), `IntentGuidesGrid` with `currentIntent` highlighting on state-level intent pages, intent grid on standard city hubs, and browse links section on forecast hub.
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **12-Day Outlook Code Review Fixes** (uncommitted) - Removed 5 dead E2E tests from `forecast-transparency.spec.ts` targeting the removed forecast transparency section; re-enabled 3 previously-skipped keyboard/ARIA tests in `forecast-tabs.spec.ts` (Enter key, Space key, ARIA attributes) that Radix UI handles correctly; simplified horizon-strip button width by moving `w-[72px]` mobile sizing to wrapper div.
 - **PR & HI Timezone Data Fix** (uncommitted) - Puerto Rico beaches had `America/Los_Angeles` timezone (4 hours wrong), Hawaii beaches were 2 hours off. Migration sets PR → `America/Puerto_Rico`, HI → `Pacific/Honolulu`. Tide meta data helper now prefers DB timezone column over geo-tz fallback.
 - **SERP Snippet Overhaul** (uncommitted) - Beach page titles differentiated from Surfline (lead with wave height + crowd/wind intel signals), descriptions highlight unique features (session windows, crowd levels). Directory pages suppress low-credibility ratings (<5 reviews), fix "1 reviews" grammar bug. Intent pages enrich least-crowded and water-temp meta descriptions with live data.
 - **Legacy `/beach/{slug}` SEO Fixes** (uncommitted) - Changed redirect from 307 temporary to 308 permanent so Google consolidates link equity to hierarchical URLs; fixed canonical meta tag and breadcrumb structured data to reference hierarchical URL instead of legacy UUID path.

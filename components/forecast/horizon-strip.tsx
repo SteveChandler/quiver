@@ -74,8 +74,8 @@ function DayCard({
       onClick={onClick}
       className={cn(
         // Base layout
-        "relative flex-shrink-0 snap-start",
-        "w-[72px] h-[88px] rounded-xl border-2",
+        "relative snap-start",
+        "w-full h-[88px] rounded-xl border-2",
         "flex flex-col items-center justify-between p-2",
         // Tier colors
         colors.bg,
@@ -222,7 +222,7 @@ export function HorizonStrip({
         aria-label="Forecast days - select a day to view details"
       >
         {days.map((day) => (
-          <div key={day.fullDate} data-day-card>
+          <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[72px] sm:flex-1 sm:min-w-0">
             <DayCard
               day={day}
               isSelected={day.fullDate === selectedDate}

@@ -28,8 +28,8 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       // Ignore networkidle timeout - forecast may have long-polling
     });
 
-    // Wait for forecast transparency section (indicator that forecast loaded)
-    await expect(page.getByTestId('data-source-indicator')).toBeVisible({ timeout: TIMEOUTS.medium });
+    // Wait for forecast content to load (Current Conditions heading appears when forecast data is ready)
+    await expect(page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
   test.describe('Default Tab Behavior', () => {
@@ -226,8 +226,8 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       // If the heading isn't visible, check for the overall section
       if (!hasBestSurf) {
         // Some beaches may not have best surf window data - this is acceptable
-        const forecastSection = page.getByTestId('data-source-indicator');
-        await expect(forecastSection).toBeVisible();
+        const currentConditions = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
+        await expect(currentConditions).toBeVisible();
       }
     });
 
@@ -268,26 +268,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       // Verify forecast table appears
       const forecastTable = page.getByRole('table').first();
       await expect(forecastTable).toBeVisible({ timeout: TIMEOUTS.short });
-    });
-
-    test('should display forecast transparency section', async ({ page }) => {
-      // Data source indicator should be visible
-      const dataSourceIndicator = page.getByTestId('data-source-indicator');
-      await expect(dataSourceIndicator).toBeVisible({ timeout: TIMEOUTS.short });
-
-      // Forecast transparency section should contain forecast metadata text
-      // Check for any time-related text (freshness indicator)
-      const transparencySection = page.locator('section').filter({
-        has: dataSourceIndicator
-      });
-
-      await expect(transparencySection).toBeVisible({ timeout: TIMEOUTS.short });
-
-      // The section should contain some forecast metadata
-      // (freshness badge, data sources, etc.)
-      const hasContent = await transparencySection.textContent();
-      expect(hasContent).toBeTruthy();
-      expect(hasContent!.length).toBeGreaterThan(0);
     });
 
     test('should conditionally display Live Cam section if beach has camera', async ({ page }) => {
@@ -486,8 +466,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       expect(isFocused).toBe(true);
     });
 
-    // TODO: Test drift - keyboard activation may not work with current tab implementation
-    test.skip('should activate tab on Enter key', async ({ page }) => {
+    test('should activate tab on Enter key', async ({ page }) => {
       const tidesTab = page.getByRole('tab', { name: /tides/i });
 
       // Focus the Tides tab
@@ -500,8 +479,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
     });
 
-    // TODO: Test drift - keyboard activation may not work with current tab implementation
-    test.skip('should activate tab on Space key', async ({ page }) => {
+    test('should activate tab on Space key', async ({ page }) => {
       const conditionsTab = page.getByRole('tab', { name: /conditions/i });
 
       // Focus the Conditions tab
@@ -516,16 +494,14 @@ test.describe('ForecastTab - Tabbed Interface', () => {
   });
 
   test.describe('Tab Accessibility', () => {
-    // TODO: Test drift - Radix UI tabs use data-state, not aria-selected
-    test.skip('should have proper ARIA attributes on tabs', async ({ page }) => {
+    test('should have proper ARIA attributes on tabs', async ({ page }) => {
       const todayTab = page.getByRole('tab', { name: /today/i });
 
       // Verify tab role
       await expect(todayTab).toHaveAttribute('role', 'tab');
 
-      // Verify aria-selected (should be true for active tab)
-      const ariaSelected = await todayTab.getAttribute('aria-selected');
-      expect(ariaSelected).toBe('true');
+      // Verify aria-selected on the active tab (Radix sets both data-state and aria-selected)
+      await expect(todayTab).toHaveAttribute('aria-selected', 'true');
     });
 
     test('should have proper ARIA attributes on tab panels', async ({ page }) => {
