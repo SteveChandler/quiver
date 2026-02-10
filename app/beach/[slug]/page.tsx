@@ -3,13 +3,18 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "./beach-detail-client";
+import { NearbySpotsSsr } from "@/components/beach-detail/nearby-spots-server";
+import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { getBeachForecastPreview } from "@/actions/forecast-actions";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
+import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import type { Beach } from "@/types/database";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -41,7 +46,18 @@ export default async function BeachDetailBySlugPage(
 
       // Only redirect if the hierarchical URL is different from current path
       if (hierarchicalUrl !== currentPath) {
-        redirect(hierarchicalUrl);
+        permanentRedirect(hierarchicalUrl);
+      }
+    }
+
+    // Fetch nearby beaches for SSR SEO section
+    let nearbyBeaches: Beach[] = [];
+    if (beach.lat && beach.lon) {
+      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
+      if (nearbyResult.success && nearbyResult.data) {
+        nearbyBeaches = nearbyResult.data
+          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+          .slice(0, 6);
       }
     }
 
@@ -65,7 +81,7 @@ export default async function BeachDetailBySlugPage(
           items={[
             { name: "Home", url: baseUrl },
             { name: "Surf Spots Map", url: `${baseUrl}/map` },
-            { name: beach.name, url: `${baseUrl}/beach/${params.slug}` },
+            { name: beach.name, url: `${baseUrl}${buildBeachUrl(beach)}` },
           ]}
         />
 
@@ -78,6 +94,21 @@ export default async function BeachDetailBySlugPage(
           slug={params.slug}
           beachTimezone={beachTimezone}
         />
+
+        {/* Signup CTA for anonymous visitors */}
+        <div className="container mx-auto px-4 pt-6">
+          <InlineSignupCta
+            title={`Track Your Sessions at ${beach.name}`}
+            description="Log your surf sessions, get personalized forecasts, and join the community"
+            source={`beach-detail-${params.slug}`}
+          />
+        </div>
+
+        {/* SSR sections below tabs for SEO crawlability */}
+        <div className="container mx-auto px-4 pb-8 space-y-8">
+          <NearbySpotsSsr nearbyBeaches={nearbyBeaches} />
+          <RelatedGuidesSection beach={beach} />
+        </div>
       </>
     );
   } catch (error) {
@@ -120,6 +151,16 @@ export async function generateMetadata(
   const beach = await getBeachBySlugOrId(params.slug);
 
   if (beach) {
+    // Compute canonical path: prefer hierarchical URL, fallback to UUID path
+    let canonicalPath = `/beach/${params.slug}`;
+    if (beach.slug && beach.city && beach.state) {
+      try {
+        canonicalPath = buildBeachUrl(beach);
+      } catch {
+        // Keep fallback UUID path
+      }
+    }
+
     // Fetch live forecast data for dynamic title with wave heights
     const forecastResult = await getBeachForecastPreview(beach.id);
     const forecast = forecastResult.success && forecastResult.data
@@ -140,7 +181,7 @@ export async function generateMetadata(
     return buildPageMetadata({
       title,
       description,
-      path: `/beach/${params.slug}`,
+      path: canonicalPath,
       image: `/api/og/beach?slug=${params.slug}`,
     });
   }
