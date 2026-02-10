@@ -63,7 +63,7 @@ function defaultCalculateDistance(
   if (formatted === "—") {
     return "—";
   }
-  return `${formatted}`;
+  return `${formatted} away`;
 }
 
 /**

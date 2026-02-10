@@ -319,7 +319,6 @@ export function MapView() {
             selectedBeach={selectedBeach}
             onBeachSelect={handleBeachSelect}
             onViewModeChange={setViewMode}
-            getDistanceFromUser={getDistanceFromUser}
             userLocation={userLocation}
           />
         </div>

@@ -12,7 +12,6 @@ interface NearbyBeachScrollProps {
   selectedBeach: Beach | null;
   onBeachSelect: (beach: Beach) => void;
   onViewModeChange: (mode: "map" | "list") => void;
-  getDistanceFromUser: (beachLat: number, beachLng: number) => string;
   userLocation: { lat: number; lon: number } | null;
   showForecastPreviews?: boolean;
 }
@@ -22,7 +21,6 @@ export function NearbyBeachScroll({
   selectedBeach,
   onBeachSelect,
   onViewModeChange,
-  getDistanceFromUser,
   userLocation,
   showForecastPreviews = true,
 }: NearbyBeachScrollProps) {
@@ -31,7 +29,6 @@ export function NearbyBeachScroll({
   // Use the centralized beach card data hook with standardized presets
   const { beachCardData } = useBeachCardData(nearbyBeachesForScroll, {
     userLocation: userLocation ?? undefined,
-    calculateDistance: userLocation ? getDistanceFromUser : undefined,
     defaultLocationText: "San Diego",
     mapOptions: MAP_PRESET_USAGE.BEACH_CARD_SCROLL,
   });
