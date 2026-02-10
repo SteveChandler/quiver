@@ -263,7 +263,6 @@ export function getVerificationStatus(
 
   // Partial if non-critical issues
   if (!isPrimaryStation) return "partial";
-  if (dataFreshness === "stale") return "partial";
 
   // Verified if all checks pass
   return "verified";
@@ -282,8 +281,7 @@ export function calculateConfidenceScore(
   // Deduct for fallback station
   if (!isPrimaryStation) score -= 15;
 
-  // Deduct for stale data
-  if (dataFreshness === "stale") score -= 20;
+  // Deduct for cached data
   if (dataFreshness === "cached") score -= 5;
 
   // Deduct for validation errors
@@ -301,16 +299,6 @@ export function calculateConfidenceScore(
  */
 export function generateWarnings(diagnostics: TideDiagnostics): TideWarning[] {
   const warnings: TideWarning[] = [];
-
-  if (diagnostics.dataFreshness === "stale") {
-    warnings.push({
-      type: "stale_data",
-      message: "Tide data may be outdated",
-      severity: "warning",
-      details: `Last updated ${diagnostics.lastFetchTime.toLocaleString()}`,
-      dismissible: true,
-    });
-  }
 
   if (!diagnostics.isPrimaryStation) {
     warnings.push({

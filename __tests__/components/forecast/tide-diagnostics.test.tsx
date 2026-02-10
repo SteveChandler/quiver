@@ -21,12 +21,6 @@ jest.mock("next/navigation", () => ({
 describe("TideWarningBanner", () => {
   const mockWarnings: TideWarning[] = [
     {
-      type: "stale_data",
-      message: "Tide data may be outdated",
-      severity: "warning",
-      dismissible: true,
-    },
-    {
       type: "fallback_station",
       message: "Using fallback station",
       severity: "info",
@@ -37,7 +31,6 @@ describe("TideWarningBanner", () => {
   it("renders warnings correctly", () => {
     render(<TideWarningBanner warnings={mockWarnings} />);
 
-    expect(screen.getByText("Tide data may be outdated")).toBeInTheDocument();
     expect(screen.getByText("Using fallback station")).toBeInTheDocument();
   });
 
@@ -54,12 +47,12 @@ describe("TideWarningBanner", () => {
     fireEvent.click(dismissButtons[0]);
 
     // Warning should be hidden after dismissal
-    expect(screen.queryByText("Tide data may be outdated")).not.toBeInTheDocument();
+    expect(screen.queryByText("Using fallback station")).not.toBeInTheDocument();
   });
 
   it("sorts warnings by severity", () => {
     const mixedWarnings: TideWarning[] = [
-      { type: "stale_data", message: "Info message", severity: "info", dismissible: false },
+      { type: "partial_data", message: "Info message", severity: "info", dismissible: false },
       { type: "api_error", message: "Error message", severity: "error", dismissible: false },
       { type: "partial_data", message: "Warning message", severity: "warning", dismissible: false },
     ];
