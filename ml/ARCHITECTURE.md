@@ -30,7 +30,7 @@ ml/
 +-- transformers_v3.py          # v3 feature engineering (recency weighting)
 +-- config.py                   # Environment configuration
 +-- extract_training_data.py    # v1 extraction (enhanced_forecasts text parsing)
-+-- extract_training_data_v2.py # v2 extraction (ml_predictions_log numeric pairs)
++-- extract_training_data_v2.py # v2 extraction (ml_predictions_log numeric pairs, --since filter)
 +-- extract_training_data_v3.py # v3 extraction (recency-weighted samples)
 +-- train.py                    # v1 training script
 +-- train_v2.py                 # v2 training with monotone constraints and go/no-go gates
@@ -62,6 +62,7 @@ The v3 model introduces a rolling auto-retrain pipeline that keeps the model con
 - **Recency weighting:** Recent observations (14 days) weighted 2x, improving adaptation to current conditions
 - **Relaxed guardrails:** 75% max correction (vs v2's 50%), 0.5m floor (vs v2's 0.3m)
 - **Extended training window:** Uses up to 90 days of data (vs v2's fixed dataset)
+- **Post-shoaling data filter:** Training data floored at 2026-02-05 to exclude pre-shoaling bias profile
 
 **v3 Configuration:**
 ```python
@@ -112,7 +113,8 @@ The v3 model introduces an automated retraining pipeline that keeps the model co
 +--------+---------------------------+---------+              |
 |           /api/cron/ml/retrain               |              |
 |  +-------------------------------------+     |              |
-|  | 1. Extract training data (90d)      |     |              |
+|  | 1. Extract training data (90d,      |     |              |
+|  |    floored at SHOALING_CHANGE_DATE) |     |              |
 |  | 2. Apply recency weighting          |     |              |
 |  | 3. Train new XGBoost model          |     |              |
 |  | 4. Validate against holdout         |     |              |
@@ -140,12 +142,34 @@ export const config = {
 ```
 
 **Retrain Steps:**
-1. Extract all matched predictions from last 90 days
+1. Extract all matched predictions from last 90 days (floored at `SHOALING_CHANGE_DATE = 2026-02-05T06:00:00Z`)
 2. Apply 2x recency weight to observations from last 14 days
 3. Train new XGBoost model with v3 hyperparameters
 4. Validate on temporal holdout (last 7 days)
 5. Compare improvement rate to current production model
 6. If gates pass, register new model and deploy to Fly.io
+
+### Post-Shoaling Data Floor
+
+The retrain route enforces a hard floor on the training data cutoff date to exclude data collected before the `BASE_SHOALING` constant was reduced from 1.6 to 1.0 (commit `0317b83`, Feb 4 2026). Pre-shoaling data has a different bias profile that degrades model accuracy.
+
+```typescript
+// app/api/cron/ml/retrain/route.ts
+const SHOALING_CHANGE_DATE = new Date('2026-02-05T06:00:00Z');
+
+// The rolling 90-day cutoff is raised if it falls before the shoaling change
+if (cutoffDate < SHOALING_CHANGE_DATE) {
+  cutoffDate.setTime(SHOALING_CHANGE_DATE.getTime());
+}
+```
+
+This floor will become inert naturally after May 2026 when `now() - 90 days` exceeds `2026-02-05`.
+
+For manual extraction, the same filtering is available via the `--since` CLI argument on `extract_training_data_v2.py`:
+
+```bash
+python3 extract_training_data_v2.py --since 2026-02-05T06:00:00+00:00
+```
 
 ### Emergency Retrain Triggers
 
@@ -806,16 +830,24 @@ SELECT COUNT(*) FROM observable_beaches;
 
 #### Data Extraction
 
-v3 training data uses the same source as v2 (`ml_predictions_log`) but extracts a larger window (up to 90 days) and applies recency weighting:
+v3 training data uses the same source as v2 (`ml_predictions_log`) but extracts a larger window (up to 90 days) and applies recency weighting. The automated pipeline floors the cutoff at `SHOALING_CHANGE_DATE` to exclude pre-shoaling bias data.
 
 ```bash
 cd ml
+
+# Automated pipeline uses SHOALING_CHANGE_DATE floor automatically
+
+# Manual extraction (recommended: use --since to exclude pre-shoaling data)
+SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> \
+  python3 extract_training_data_v2.py --since 2026-02-05T06:00:00+00:00
+
+# Legacy v3-specific extraction
 SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> python3 extract_training_data_v3.py
 ```
 
 **v3 data characteristics:**
 - Source: `ml_predictions_log` (pre-matched numeric pairs)
-- Window: Up to 90 days of historical data
+- Window: Up to 90 days of historical data (floored at 2026-02-05 for shoaling change)
 - Recency weighting: Last 14 days weighted 2x
 - Output: `data/training_data_v3.csv` (gitignored)
 
@@ -856,6 +888,12 @@ v2 training data comes from the `ml_predictions_log` table, which contains pre-m
 
 ```bash
 cd ml
+
+# With --since filter (recommended for post-shoaling training)
+SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> \
+  python3 extract_training_data_v2.py --since 2026-02-05T06:00:00+00:00
+
+# Without filter (all available data)
 SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> python3 extract_training_data_v2.py
 ```
 

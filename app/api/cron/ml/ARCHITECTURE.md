@@ -263,14 +263,15 @@ Orchestrates weekly model retraining with terrain-aware features (v3 pipeline). 
 
 ```
 1. Verify CRON_SECRET header
-2. Extract training data from ml_predictions_log (90-day window, max 50K samples)
-3. Fetch terrain factors (swell_access_factors, wind_exposure_factors) per beach
-4. Create ml_model_registry entry with status='training'
-5. POST training data to ML service /train endpoint
-6. ML service runs validation gates on holdout set (2-day holdout)
-7. If PASS: Upload model to Supabase Storage, deploy to Fly.io
-8. If FAIL: Log failure, keep current model
-9. Update registry with final status and metrics
+2. Calculate training data cutoff (90 days, floored at SHOALING_CHANGE_DATE)
+3. Extract training data from ml_predictions_log (max 50K samples)
+4. Fetch terrain factors (swell_access_factors, wind_exposure_factors) per beach
+5. Create ml_model_registry entry with status='training'
+6. POST training data to ML service /train endpoint
+7. ML service runs validation gates on holdout set (2-day holdout)
+8. If PASS: Upload model to Supabase Storage, deploy to Fly.io
+9. If FAIL: Log failure, keep current model
+10. Update registry with final status and metrics
 ```
 
 ### Configuration
@@ -281,7 +282,24 @@ export const maxDuration = 300;  // 5 minute timeout for full pipeline
 // Training constraints (2GB Fly.io instance)
 const MAX_TRAINING_SAMPLES = 50000;
 const maxDaysBack = 90;
+
+// Post-shoaling data floor (see below)
+const SHOALING_CHANGE_DATE = new Date('2026-02-05T06:00:00Z');
 ```
+
+### Post-Shoaling Data Floor
+
+The retrain route enforces a hard floor on the training data cutoff date to exclude data collected before the `BASE_SHOALING` constant was reduced from 1.6 to 1.0 (commit `0317b83`, Feb 4 2026). Pre-shoaling data has a systematically different bias profile because the wave height transformation pipeline produced different values, which makes it incompatible with post-shoaling ground truth.
+
+```typescript
+// Enforce shoaling change date floor
+if (cutoffDate < SHOALING_CHANGE_DATE) {
+  cutoffDate.setTime(SHOALING_CHANGE_DATE.getTime());
+  console.log(`[ML Retrain] Cutoff raised to shoaling change date: ${cutoffDate.toISOString()}`);
+}
+```
+
+The floor is applied as `max(now - 90d, SHOALING_CHANGE_DATE)`. It will become inert naturally after May 2026 when the 90-day window no longer reaches back to Feb 5. Post-shoaling data has 106K+ matched samples as of Feb 2026, well above the 5K minimum required for training.
 
 ### Terrain Factors Integration
 
@@ -315,19 +333,18 @@ Model must pass these thresholds before deployment:
 | Gate | Threshold | Description |
 |------|-----------|-------------|
 | Holdout improvement | >0% | Corrected MAE must be better than raw |
-| Sample count | ≥1000 | Minimum training samples required |
-| Max bias | ≤75% | Maximum correction as percentage of raw |
-| Bias floor | ≥0.5m | Minimum correction magnitude |
+| Sample count | >=1000 | Minimum training samples required |
+| Max bias | <=75% | Maximum correction as percentage of raw |
+| Bias floor | >=0.5m | Minimum correction magnitude |
 
 ### Deployment Process
 
 ```
-1. Download model artifact from ML service
+1. Download/decode model artifact from ML service (prefers inline base64)
 2. Upload to Supabase Storage (ml-artifacts bucket)
-3. Get Fly.io machines list
-4. Update MODEL_VERSION and MODEL_PATH env vars
-5. Restart machines
-6. Poll /health endpoint until new version confirmed (60s timeout)
+3. Set Fly.io secrets (MODEL_VERSION, MODEL_PATH) via GraphQL API
+4. Secrets trigger automatic rolling redeployment
+5. Poll /health endpoint until new version confirmed (90s timeout)
 ```
 
 ### Response

@@ -36,7 +36,9 @@ curl -X POST https://quiver.vercel.app/api/cron/ml/retrain \
 cd ml
 
 # 1. Extract training data from ml_predictions_log
-SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> python3 extract_training_data_v2.py
+#    Use --since to exclude pre-shoaling data (recommended)
+SUPABASE_URL=<prod_url> SUPABASE_SERVICE_ROLE_KEY=<key> \
+  python3 extract_training_data_v2.py --since 2026-02-05T06:00:00+00:00
 
 # 2. Train model (exits non-zero if go/no-go gates fail)
 python3 train_v2.py --data data/training_data_v2.csv --output models/bias_model_v3.json
@@ -114,7 +116,7 @@ curl https://quiver-ml.fly.dev/health
 | `transformers.py` | v1 feature engineering (FeatureEngineer class, 10 features) |
 | `transformers_v2.py` | v2/v3 feature engineering (preprocess_v2 function, 13 features with terrain) |
 | `extract_training_data.py` | v1 extraction (enhanced_forecasts text parsing) |
-| `extract_training_data_v2.py` | v2/v3 extraction (ml_predictions_log numeric pairs) |
+| `extract_training_data_v2.py` | v2/v3 extraction (ml_predictions_log numeric pairs, supports `--since` filter) |
 | `train.py` | v1 training script |
 | `train_v2.py` | v2/v3 training with go/no-go gates |
 | `config.py` | Environment configuration, model paths, and taper thresholds |
@@ -216,6 +218,10 @@ The v1 XGBoost model systematically added ~+0.7m to ALL forecasts regardless of 
 
 v3 training data comes from `ml_predictions_log` joined with `beaches` table for terrain factors. The automated pipeline extracts data with pagination (5000 rows per page) to handle large datasets.
 
+**Post-Shoaling Data Filter (Feb 2026):**
+
+The automated retrain pipeline enforces a hard floor on the training data cutoff date (`SHOALING_CHANGE_DATE = 2026-02-05T06:00:00Z`). This prevents the model from training on data collected before the `BASE_SHOALING` constant was reduced from 1.6 to 1.0 (commit `0317b83`, Feb 4 2026). Pre-shoaling data has a different bias profile that degrades model accuracy. The floor is applied as `max(rolling_90d_cutoff, SHOALING_CHANGE_DATE)` and will become inert naturally after May 2026 when the 90-day window no longer reaches back that far.
+
 **Automatic Extraction (in retrain pipeline):**
 ```sql
 SELECT
@@ -225,13 +231,22 @@ SELECT
 FROM ml_predictions_log p
 JOIN beaches b ON p.beach_id = b.id
 WHERE p.observed_m IS NOT NULL
-  AND p.predicted_at > now() - interval '365 days'
+  AND p.predicted_at >= '2026-02-05T06:00:00Z'  -- shoaling change date floor
+  AND p.predicted_at > now() - interval '90 days'
 ```
 
 **Manual Extraction:**
 ```bash
-SUPABASE_URL=<url> SUPABASE_SERVICE_ROLE_KEY=<key> python3 extract_training_data_v2.py
+# Recommended: exclude pre-shoaling data
+SUPABASE_URL=<url> SUPABASE_SERVICE_ROLE_KEY=<key> \
+  python3 extract_training_data_v2.py --since 2026-02-05T06:00:00+00:00
+
+# Without filter (all available data -- not recommended for training)
+SUPABASE_URL=<url> SUPABASE_SERVICE_ROLE_KEY=<key> \
+  python3 extract_training_data_v2.py
 ```
+
+The `--since` argument accepts any ISO 8601 date string and applies a `.gte('predicted_at', since)` filter to the Supabase query. Input is validated via `datetime.fromisoformat()` at both the CLI argument parser and the function entry point.
 
 ### Minimum Training Data Requirements
 
@@ -250,7 +265,7 @@ SUPABASE_URL=<url> SUPABASE_SERVICE_ROLE_KEY=<key> python3 extract_training_data
 
 The retrain pipeline at `/api/cron/ml/retrain` handles the full training and deployment cycle:
 
-1. **Extract Data**: Fetches up to 365 days of matched predictions with terrain factors
+1. **Extract Data**: Fetches up to 90 days of matched predictions with terrain factors (floored at shoaling change date)
 2. **Create Registry Entry**: Tracks training in `ml_model_registry`
 3. **Train Model**: Calls ML service `/train` endpoint with:
    - Recency weighting (last 14 days get 2x weight)
@@ -317,15 +332,30 @@ SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 
 ### Pipeline Steps
 
-1. **Extract Training Data** (paginated, 5000 rows/page, max 500k rows)
+1. **Extract Training Data** (paginated, 1000 rows/page, max 50K samples, floored at `SHOALING_CHANGE_DATE`)
 2. **Create Registry Entry** (status: 'training')
-3. **Call ML Service /train** (4-minute timeout)
+3. **Call ML Service /train** (4.5-minute timeout)
 4. **Deploy to Fly.io**:
    - Upload model to Supabase Storage (`ml-artifacts` bucket)
-   - Update Fly.io machine env vars (`MODEL_VERSION`, `MODEL_PATH`)
-   - Restart machines
+   - Set Fly.io secrets (`MODEL_VERSION`, `MODEL_PATH`) via GraphQL API
+   - Secrets trigger automatic rolling redeployment
    - Poll health endpoint for confirmation
 5. **Update Registry** (status: 'deployed' or 'failed')
+
+### Post-Shoaling Data Floor
+
+The pipeline enforces a hard floor on the training data cutoff:
+
+```typescript
+const SHOALING_CHANGE_DATE = new Date('2026-02-05T06:00:00Z');
+
+// In data extraction:
+if (cutoffDate < SHOALING_CHANGE_DATE) {
+  cutoffDate.setTime(SHOALING_CHANGE_DATE.getTime());
+}
+```
+
+This ensures the automated Sunday retrain never uses pre-shoaling data, even when the 90-day rolling window would otherwise include it. The floor will become inert after May 2026 when `now() - 90 days` naturally exceeds `2026-02-05`.
 
 ### Security
 
@@ -643,7 +673,7 @@ ml/
 ├── transformers.py             # v1 feature engineering (10 features)
 ├── transformers_v2.py          # v2/v3 feature engineering (13 features)
 ├── extract_training_data.py    # v1 extraction
-├── extract_training_data_v2.py # v2/v3 extraction
+├── extract_training_data_v2.py # v2/v3 extraction (supports --since filter)
 ├── train.py                    # v1 training script
 ├── train_v2.py                 # v2/v3 training with go/no-go gates
 ├── config.py                   # Configuration (taper thresholds, model paths)

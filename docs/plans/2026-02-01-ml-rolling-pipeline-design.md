@@ -220,3 +220,17 @@ ml/ARCHITECTURE.md   - Document v3 changes
 - [ ] Weekly retrain runs successfully
 - [ ] Rollback works if new model underperforms
 - [ ] `/ml-stats` shows current model version and registry status
+
+---
+
+## Addendum: Post-Shoaling Data Filter (2026-02-10)
+
+**Commit:** `a5ad1b80b`
+
+After the `BASE_SHOALING` constant was reduced from 1.6 to 1.0 on Feb 4 2026 (commit `0317b83`), the wave height transformation pipeline produces systematically different values. Training data collected before this change has a different bias profile that degrades model accuracy when mixed with post-shoaling data.
+
+**Changes implemented:**
+- **`app/api/cron/ml/retrain/route.ts`**: Added `SHOALING_CHANGE_DATE = new Date('2026-02-05T06:00:00Z')` as a hard floor on the rolling 90-day training window cutoff. The buffer (Feb 5 vs Feb 4) accounts for deployment propagation.
+- **`ml/extract_training_data_v2.py`**: Added `--since` CLI argument (argparse) that applies `.gte('predicted_at', since)` to the Supabase query. Input validated via `datetime.fromisoformat()`. Backward-compatible (omitting `--since` fetches all data).
+
+**Rationale:** Post-shoaling data (Feb 5+) had 106K+ matched samples at time of implementation, well above the 5K minimum. Local training validation passed with 64.5% overall improvement. The `SHOALING_CHANGE_DATE` floor becomes inert after May 2026 when `now() - 90 days` naturally exceeds it.
