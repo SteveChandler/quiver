@@ -44,8 +44,8 @@ export function ConditionsOverview({
   publicMode = false,
 }: ConditionsOverviewProps) {
   const enrichedDays = useMemo(
-    () => enrichDaySummaries(horizonDaySummaries, forecasts),
-    [horizonDaySummaries, forecasts]
+    () => enrichDaySummaries(horizonDaySummaries, forecasts, beach.wind_offshore_deg),
+    [horizonDaySummaries, forecasts, beach.wind_offshore_deg]
   );
 
   // No data available

@@ -50,8 +50,8 @@ jest.mock("next/dynamic", () => ({
 // Mock enrichDaySummaries utility
 const mockEnrichDaySummaries = jest.fn();
 jest.mock("@/lib/utils/enriched-day-summary", () => ({
-  enrichDaySummaries: (days: DaySummary[], forecasts: EnhancedForecastEntity[]) =>
-    mockEnrichDaySummaries(days, forecasts),
+  enrichDaySummaries: (days: DaySummary[], forecasts: EnhancedForecastEntity[], windOffshoreDeg?: number | null) =>
+    mockEnrichDaySummaries(days, forecasts, windOffshoreDeg),
 }));
 
 function createMockDay(overrides: Partial<EnrichedDaySummary> = {}): EnrichedDaySummary {

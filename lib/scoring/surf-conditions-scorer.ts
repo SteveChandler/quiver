@@ -16,7 +16,7 @@ import type {
 
 // Default thresholds
 const DEFAULT_MAX_WIND_ONSHORE_MPH = 10;
-const DEFAULT_MAX_WIND_ANY_MPH = 18;
+const DEFAULT_MAX_WIND_ANY_MPH = 25;
 const DEFAULT_WIND_OFFSHORE_TOL_DEG = 45;
 
 // Max raw points per subscore

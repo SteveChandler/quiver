@@ -64,6 +64,71 @@ describe("classifyWindDirection", () => {
     );
   });
 
+  describe("beach-aware classification with windOffshoreDeg", () => {
+    it("classifies E wind as onshore for east-facing Hawaii beach (windOffshoreDeg=270)", () => {
+      expect(classifyWindDirection("E", 270)).toBe("onshore");
+    });
+
+    it("classifies W wind as offshore for east-facing Hawaii beach (windOffshoreDeg=270)", () => {
+      expect(classifyWindDirection("W", 270)).toBe("offshore");
+    });
+
+    it("classifies E wind as offshore for west-facing CA beach (windOffshoreDeg=90)", () => {
+      expect(classifyWindDirection("E", 90)).toBe("offshore");
+    });
+
+    it("classifies W wind as onshore for west-facing CA beach (windOffshoreDeg=90)", () => {
+      expect(classifyWindDirection("W", 90)).toBe("onshore");
+    });
+
+    it("classifies NE wind as offshore when windOffshoreDeg=45", () => {
+      expect(classifyWindDirection("NE", 45)).toBe("offshore");
+    });
+
+    it("classifies SW wind as onshore when windOffshoreDeg=45", () => {
+      expect(classifyWindDirection("SW", 45)).toBe("onshore");
+    });
+
+    it("classifies cross-shore wind as onshore (conservative)", () => {
+      // N wind with windOffshoreDeg=90 (E offshore) — N is cross-shore
+      expect(classifyWindDirection("N", 90)).toBe("onshore");
+    });
+
+    it("still returns light for light/variable keywords regardless of windOffshoreDeg", () => {
+      expect(classifyWindDirection("Light", 270)).toBe("light");
+      expect(classifyWindDirection("Calm", 90)).toBe("light");
+      expect(classifyWindDirection("Variable", 180)).toBe("light");
+    });
+
+    it("parses composite labels like 'E (offshore)' using cardinal prefix", () => {
+      // E (offshore) on east-facing HI beach — E is onshore, not offshore
+      expect(classifyWindDirection("E (offshore)", 270)).toBe("onshore");
+      // NE (offshore) on west-facing CA beach — NE is near-offshore
+      expect(classifyWindDirection("NE (offshore)", 90)).toBe("offshore");
+    });
+
+    it("parses composite labels like 'W (onshore)' using cardinal prefix", () => {
+      expect(classifyWindDirection("W (onshore)", 270)).toBe("offshore");
+    });
+
+    it("handles explicit offshore label with windOffshoreDeg", () => {
+      expect(classifyWindDirection("offshore", 270)).toBe("offshore");
+    });
+
+    it("falls back to onshore for unparseable direction with windOffshoreDeg", () => {
+      expect(classifyWindDirection("unknown", 270)).toBe("onshore");
+    });
+
+    it("without windOffshoreDeg uses legacy CA-centric logic", () => {
+      // E is offshore in legacy mode (California assumption)
+      expect(classifyWindDirection("E")).toBe("offshore");
+      // E is offshore when windOffshoreDeg is null
+      expect(classifyWindDirection("E", null)).toBe("offshore");
+      // E is offshore when windOffshoreDeg is undefined
+      expect(classifyWindDirection("E", undefined)).toBe("offshore");
+    });
+  });
+
   describe("edge cases", () => {
     it("should classify empty string as onshore", () => {
       expect(classifyWindDirection("")).toBe("onshore");

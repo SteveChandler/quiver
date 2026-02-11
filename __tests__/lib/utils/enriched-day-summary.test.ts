@@ -427,6 +427,47 @@ describe("enrichDaySummaries", () => {
     });
   });
 
+  describe("Beach-aware wind classification with windOffshoreDeg", () => {
+    it("classifies E wind as onshore for Hawaii beach (windOffshoreDeg=270)", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "09:00",
+        wind_direction: "E",
+      });
+
+      const result = enrichDaySummaries([day], [forecast], 270);
+
+      expect(result[0].windConditions).toBe("onshore");
+    });
+
+    it("classifies W wind as offshore for Hawaii beach (windOffshoreDeg=270)", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "09:00",
+        wind_direction: "W",
+      });
+
+      const result = enrichDaySummaries([day], [forecast], 270);
+
+      expect(result[0].windConditions).toBe("offshore");
+    });
+
+    it("without windOffshoreDeg, E wind is still offshore (backward compat)", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "09:00",
+        wind_direction: "E",
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      expect(result[0].windConditions).toBe("offshore");
+    });
+  });
+
   describe("Edge cases", () => {
     it("handles empty days array", () => {
       const result = enrichDaySummaries([], [makeForecast()]);

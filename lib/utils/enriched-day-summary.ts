@@ -46,7 +46,8 @@ function deriveTimeSlot(hour: number): TimeSlot {
 
 export function enrichDaySummaries(
   days: DaySummary[],
-  forecasts: EnhancedForecastEntity[]
+  forecasts: EnhancedForecastEntity[],
+  windOffshoreDeg?: number | null,
 ): EnrichedDaySummary[] {
   const byDate = new Map<string, EnhancedForecastEntity[]>();
   for (const f of forecasts) {
@@ -81,7 +82,7 @@ export function enrichDaySummaries(
 
     return {
       ...day,
-      windConditions: classifyWindDirection(closest.wind_direction || ""),
+      windConditions: classifyWindDirection(closest.wind_direction || "", windOffshoreDeg),
       windSpeed: closest.wind_speed || null,
       bestTimeSlot: deriveTimeSlot(targetHour),
     };
