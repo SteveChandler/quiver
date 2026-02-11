@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tide Intent Page** (uncommitted) - Dedicated `/tide/[city]` pages with `TideHeroSection`, `TideFullChart` (24h/72h/168h tabs), `SevenDayTideTable`, `BeachTideCards`. Server action `getCityTideDataExpanded()` with extrema detection via `TideExtremaDetector`.
 - **Conversion CTAs** (`2f745542c`) - `InlineSignupCta` and `StickySignupBar` on programmatic SEO pages for unauthenticated visitors.
 
+- **Slim Onboarding (3 Steps + Payoff)** (uncommitted) - Cut onboarding from 6 steps to 3: Home Beach → Level + Time → "Your Next Best Window" payoff. New `LevelAndTimeStep` combines experience level (2x2 grid) and surf time preference. New `PayoffStep` shows personalized best surf window from daily intel with conditions score, wave/wind details, and XP badge. `saveOnboardingData` now conditionally sets profile fields and uses `preferredTime` for email prefs.
+
+### Fixed
+
+- **Landing Page Local Beaches** (uncommitted) - "Popular surf spots" section now shows nearby beaches when user location is available via IP geolocation. Falls back to global list when location is unavailable or fewer than 4 beaches are within 50 miles. Heading updates to "Popular surf spots near {location}". SSR footer list unchanged for SEO crawlers.
+
 ### Changed
 
 - **UI Consistency & Design Debt Cleanup** (uncommitted) - Fixed raw markdown rendering in beach descriptions, auth overlay opacity on map page, raw pathname in auth dialog, empty gallery card showing when no photos. Changed misleading "Near San Diego" heading to "Popular surf spots". Refactored error boundary buttons and loading skeletons to use design system components. Migrated empty states to ZeroState component. Added semantic status color tokens (success/warning/info) to CSS and Tailwind config. Added z-index scale (overlay/toast/auth-wall). Created `docs/STYLE_GUIDE.md`.
@@ -33,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Hawaii Beaches Score 0 on Conditions Tab** (uncommitted) - Fixed two bugs causing all Hawaii beaches to show Score: 0. (1) Raised `wind_onshore_bad_kt` from 8 to 18 for HI beaches — persistent trade winds (15-22 mph) exceeded the 9.2 mph threshold, triggering skip on every forecast. (2) Made `classifyWindDirection()` beach-aware with optional `windOffshoreDeg` param — E wind was mislabeled "offshore" for east-facing beaches (California-centric assumption). Also raised global `DEFAULT_MAX_WIND_ANY_MPH` from 18 to 25 to prevent absolute wind skip on moderate tropical trades.
 - **12-Day Outlook Code Review Fixes** (uncommitted) - Removed 5 dead E2E tests from `forecast-transparency.spec.ts` targeting the removed forecast transparency section; re-enabled 3 previously-skipped keyboard/ARIA tests in `forecast-tabs.spec.ts` (Enter key, Space key, ARIA attributes) that Radix UI handles correctly; simplified horizon-strip button width by moving `w-[72px]` mobile sizing to wrapper div.
 - **PR & HI Timezone Data Fix** (uncommitted) - Puerto Rico beaches had `America/Los_Angeles` timezone (4 hours wrong), Hawaii beaches were 2 hours off. Migration sets PR → `America/Puerto_Rico`, HI → `Pacific/Honolulu`. Tide meta data helper now prefers DB timezone column over geo-tz fallback.
 - **SERP Snippet Overhaul** (uncommitted) - Beach page titles differentiated from Surfline (lead with wave height + crowd/wind intel signals), descriptions highlight unique features (session windows, crowd levels). Directory pages suppress low-credibility ratings (<5 reviews), fix "1 reviews" grammar bug. Intent pages enrich least-crowded and water-temp meta descriptions with live data.

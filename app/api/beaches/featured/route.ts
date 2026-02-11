@@ -7,6 +7,7 @@ import {
 } from "@/lib/api-utils";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { getFeaturedBeaches } from "@/lib/data/server/featured-beaches";
+import { isValidLatitude, isValidLongitude } from "@/lib/coordinate-validation";
 
 /**
  * GET /api/beaches/featured
@@ -26,7 +27,27 @@ import { getFeaturedBeaches } from "@/lib/data/server/featured-beaches";
  */
 async function featuredBeachesHandler(request: NextRequest) {
   try {
-    const beaches = await getFeaturedBeaches();
+    const { searchParams } = new URL(request.url);
+    const latParam = searchParams.get("lat");
+    const lonParam = searchParams.get("lon");
+
+    let coordinates: { lat: number; lon: number } | null = null;
+    if (latParam && lonParam) {
+      const lat = parseFloat(latParam);
+      const lon = parseFloat(lonParam);
+      if (isValidLatitude(lat) && isValidLongitude(lon)) {
+        coordinates = { lat, lon };
+      }
+    }
+
+    const beaches = await getFeaturedBeaches(
+      coordinates ? { coordinates } : undefined
+    );
+
+    // Skip long cache when personalized by location
+    if (coordinates) {
+      return createSuccessResponse(beaches);
+    }
     return await createCachedResponse(beaches, CacheDuration.MEDIUM);
   } catch (error) {
     console.error("Error fetching featured beaches:", error);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
 import { CONTENT } from "@/lib/constants/features";
 import { ChevronRight } from "lucide-react";
@@ -8,6 +8,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLocationSafe } from "@/context/location-context";
 
 interface Beach {
   id: string;
@@ -24,10 +25,25 @@ interface Beach {
 export function SurfHighlightsSection() {
   const [page, setPage] = useState(0);
   const pageSize = 4;
+  const locationCtx = useLocationSafe();
+  const location = locationCtx?.location;
+  const coordinates = location?.coordinates ?? null;
+  const displayName = location?.displayName ?? null;
+  const locationSource = location?.source;
+  const hasResolvedLocation = locationSource === "ip" || locationSource === "browser";
+
+  // Serialize coordinates to a stable string to use as dependency (rounded for privacy + cacheability)
+  const coordsKey = coordinates
+    ? `${coordinates.lat.toFixed(2)},${coordinates.lon.toFixed(2)}`
+    : "";
 
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
     try {
-      const response = await fetch("/api/beaches/featured");
+      let url = "/api/beaches/featured";
+      if (coordinates) {
+        url += `?lat=${coordinates.lat.toFixed(2)}&lon=${coordinates.lon.toFixed(2)}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch beaches");
       }
@@ -93,9 +109,18 @@ export function SurfHighlightsSection() {
       console.error("Error fetching beaches:", error);
       return [];
     }
-  }, []);
+  }, [coordinates, coordsKey]);
 
-  const { data: surfSpots, loading } = useDataFetcher(fetchBeaches);
+  const { data: surfSpots, loading, refetch } = useDataFetcher(fetchBeaches);
+
+  // Re-fetch when coordinates resolve (useDataFetcher only fires on mount)
+  const initialCoordsRef = useRef(coordsKey);
+  useEffect(() => {
+    if (coordsKey && coordsKey !== initialCoordsRef.current) {
+      initialCoordsRef.current = coordsKey;
+      refetch();
+    }
+  }, [coordsKey, refetch]);
 
   const total = surfSpots?.length ?? 0;
   const pageCount = useMemo(() => {
@@ -129,7 +154,9 @@ export function SurfHighlightsSection() {
       <div className="max-w-7xl mx-auto px-6">
         {/* AllTrails-style editorial header - left-aligned with location emphasis */}
         <h2 className="text-2xl md:text-3xl font-roboto font-semibold text-dark-grey mb-8 text-left">
-          Popular surf spots
+          {displayName && hasResolvedLocation
+            ? `Popular surf spots near ${displayName}`
+            : "Popular surf spots"}
         </h2>
 
         {loading ? (
