@@ -246,22 +246,22 @@ test.describe("Forecast Hub Landing Page", () => {
   test("should display CTA section", async ({ page }) => {
     // Scroll to CTA
     await page
-      .getByRole("heading", { name: /Get Personalized Forecast Alerts/i })
+      .getByRole("heading", { name: /Track Your Sessions & Spots/i })
       .scrollIntoViewIfNeeded();
 
     // Check CTA heading
     await expect(
-      page.getByRole("heading", { name: /Get Personalized Forecast Alerts/i })
+      page.getByRole("heading", { name: /Track Your Sessions & Spots/i })
     ).toBeVisible();
 
     // Check CTA description
     await expect(
-      page.getByText(/Sign up to receive notifications/i)
+      page.getByText(/Sign up to log sessions/i)
     ).toBeVisible();
 
     // Check CTA button/link
     const ctaButton = page.getByRole("link", { name: /Sign Up for Free/i });
     await expect(ctaButton).toBeVisible();
-    await expect(ctaButton).toHaveAttribute("href", "/register");
+    await expect(ctaButton).toHaveAttribute("href", "/auth/sign-up");
   });
 });

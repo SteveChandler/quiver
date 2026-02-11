@@ -10,6 +10,7 @@ import {
   getForecastRegion,
   getAllForecastRegionSlugs,
   getGuideSlugForRegion,
+  hasHubGuide,
 } from "@/lib/data/forecast-regions";
 import { formatFullDateWithYear } from "@/lib/utils/time-formatters";
 import {
@@ -182,6 +183,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
 
   // Map region slug to guide slug (some regions share guides)
   const guideSlug = getGuideSlugForRegion(region.slug);
+  const showGuideLink = hasHubGuide(region.slug);
 
   return (
     <OceanBackground variant="ocean" showWaves animated={false}>
@@ -350,23 +352,25 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">
               Explore More
             </h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Link to Regional Guide */}
-              <Link
-                href={`/guides/surfing-${guideSlug}`}
-                className="block p-6 rounded-lg border border-gray-200 bg-white hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
-              >
-                <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                  {region.name} Surf Guide
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  Explore surf spots, local knowledge, and conditions across{" "}
-                  {region.name}
-                </p>
-                <span className="text-sm font-medium text-blue-600 group-hover:underline">
-                  View Guide &rarr;
-                </span>
-              </Link>
+            <div className={`grid ${showGuideLink ? "md:grid-cols-2" : ""} gap-4`}>
+              {/* Link to Regional Guide - only if hub guide exists */}
+              {showGuideLink && (
+                <Link
+                  href={`/guides/surfing-${guideSlug}`}
+                  className="block p-6 rounded-lg border border-gray-200 bg-white hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
+                >
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                    {region.name} Surf Guide
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Explore surf spots, local knowledge, and conditions across{" "}
+                    {region.name}
+                  </p>
+                  <span className="text-sm font-medium text-blue-600 group-hover:underline">
+                    View Guide &rarr;
+                  </span>
+                </Link>
+              )}
 
               {/* Link back to Forecast Hub */}
               <Link

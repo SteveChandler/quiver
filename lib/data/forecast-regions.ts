@@ -5,6 +5,8 @@
  * These provide 7-day surf forecasts for specific geographic areas
  */
 
+import { getHubRegion } from "@/lib/data/hub-regions";
+
 export interface ForecastRegion {
   slug: string;
   name: string;
@@ -123,6 +125,130 @@ export const FORECAST_REGIONS: Record<string, ForecastRegion> = {
     centerLon: -67.15,
     zoom: 9,
   },
+  hawaii: {
+    slug: "hawaii",
+    name: "Hawaii",
+    title: "Hawaii Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Hawaii surf forecast covering North Shore, Waikiki, and Maui. Pipeline to Waikiki — find the best waves in the islands.",
+    states: ["hi"],
+    centerLat: 21.3,
+    centerLon: -157.8,
+    zoom: 7,
+  },
+  oregon: {
+    slug: "oregon",
+    name: "Oregon",
+    title: "Oregon Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Oregon surf forecast from Seaside to Brookings. Cold water, powerful waves, and uncrowded lineups on the Pacific Northwest coast.",
+    states: ["or"],
+    centerLat: 44.6,
+    centerLon: -124.1,
+    zoom: 7,
+  },
+  washington: {
+    slug: "washington",
+    name: "Washington",
+    title: "Washington Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Washington surf forecast covering Westport, Long Beach, and the Olympic Peninsula. Pacific Northwest surf conditions updated daily.",
+    states: ["wa"],
+    centerLat: 47.0,
+    centerLon: -124.3,
+    zoom: 7,
+  },
+  "baja-california": {
+    slug: "baja-california",
+    name: "Baja California",
+    title: "Baja California Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Baja California surf forecast for Rosarito, Puerto Nuevo, and the northern Baja coast. Cross-border waves just south of San Diego.",
+    states: ["baja california"],
+    centerLat: 32.3,
+    centerLon: -117.0,
+    zoom: 10,
+  },
+  "santa-cruz": {
+    slug: "santa-cruz",
+    name: "Santa Cruz",
+    title: "Santa Cruz Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Santa Cruz surf forecast covering Steamer Lane, Pleasure Point, and the greater Santa Cruz coast. Cold water, world-class waves.",
+    states: ["ca"],
+    cities: [
+      "Santa Cruz",
+      "Capitola",
+      "Davenport",
+      "Half Moon Bay",
+    ],
+    centerLat: 36.97,
+    centerLon: -122.03,
+    zoom: 10,
+  },
+  "ventura-santa-barbara": {
+    slug: "ventura-santa-barbara",
+    name: "Ventura & Santa Barbara",
+    title: "Ventura & Santa Barbara Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Ventura and Santa Barbara surf forecast from Rincon to Jalama. Point breaks, beach breaks, and some of California's best waves.",
+    states: ["ca"],
+    cities: [
+      "Ventura",
+      "Santa Barbara",
+      "Carpinteria",
+      "Goleta",
+      "Isla Vista",
+      "Jalama",
+    ],
+    centerLat: 34.35,
+    centerLon: -119.4,
+    zoom: 10,
+  },
+  florida: {
+    slug: "florida",
+    name: "Florida",
+    title: "Florida Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Florida surf forecast covering New Smyrna, Sebastian Inlet, and Jacksonville. Atlantic swells, hurricane season updates, and daily conditions.",
+    states: ["fl"],
+    centerLat: 28.5,
+    centerLon: -80.6,
+    zoom: 6,
+  },
+  "outer-banks": {
+    slug: "outer-banks",
+    name: "Outer Banks",
+    title: "Outer Banks Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "Outer Banks surf forecast for Cape Hatteras, Rodanthe, and the NC barrier islands. Nor'easter swells and uncrowded East Coast peaks.",
+    states: ["nc"],
+    centerLat: 35.75,
+    centerLon: -75.55,
+    zoom: 9,
+  },
+  "new-york": {
+    slug: "new-york",
+    name: "New York",
+    title: "New York Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "New York surf forecast covering Long Island, Rockaway Beach, and Montauk. Atlantic swells and urban surf conditions.",
+    states: ["ny"],
+    centerLat: 40.6,
+    centerLon: -73.7,
+    zoom: 9,
+  },
+  "new-jersey": {
+    slug: "new-jersey",
+    name: "New Jersey",
+    title: "New Jersey Surf Forecast - 7 Day Outlook",
+    metaDescription:
+      "New Jersey surf forecast from Manasquan to Cape May. Beach break barrels, nor'easter swells, and East Coast surf conditions.",
+    states: ["nj"],
+    centerLat: 39.8,
+    centerLon: -74.1,
+    zoom: 8,
+  },
 };
 
 /**
@@ -143,6 +269,7 @@ export function getForecastRegion(slug: string): ForecastRegion | undefined {
 /** Forecast regions that don't have their own guide and map to a parent */
 const GUIDE_SLUG_OVERRIDES: Record<string, string> = {
   "los-angeles": "southern-california",
+  "ventura-santa-barbara": "ventura",
 };
 
 /**
@@ -163,6 +290,14 @@ const GUIDE_SLUG_OVERRIDES: Record<string, string> = {
  */
 export function getGuideSlugForRegion(regionSlug: string): string {
   return GUIDE_SLUG_OVERRIDES[regionSlug] ?? regionSlug;
+}
+
+/**
+ * Check if a forecast region has an associated hub guide page
+ */
+export function hasHubGuide(regionSlug: string): boolean {
+  const guideSlug = getGuideSlugForRegion(regionSlug);
+  return getHubRegion(guideSlug) !== null;
 }
 
 /**

@@ -226,14 +226,14 @@ test.describe("Regional Forecast Pages", () => {
     // Check CTA heading
     await expect(
       page.getByRole("heading", {
-        name: new RegExp(`Get ${testRegionName}.*Forecast Alerts`, "i"),
+        name: new RegExp(`Unlock ${testRegionName} Insights`, "i"),
       })
     ).toBeVisible();
 
     // Check for sign up button
     const signUpButton = page.getByRole("link", { name: /Sign Up for Free/i });
     await expect(signUpButton).toBeVisible();
-    await expect(signUpButton).toHaveAttribute("href", "/register");
+    await expect(signUpButton).toHaveAttribute("href", "/auth/sign-up");
   });
 
   test("should have proper JSON-LD structured data", async ({ page }) => {
@@ -281,10 +281,12 @@ test.describe("Regional Forecast Pages", () => {
   test("should navigate back to forecast hub", async ({ page }) => {
     // Click the back link (first occurrence in nav)
     const backLink = page.locator('nav a[href="/forecast"]').first();
+    await backLink.scrollIntoViewIfNeeded();
     await backLink.click();
 
-    // Wait for navigation
-    await waitForPageLoad(page);
+    // Wait for client-side navigation to the hub page (16 regions = heavier load)
+    await page.waitForURL(/\/forecast$/, { timeout: 30000 });
+    await page.waitForLoadState("load");
 
     // Should be on forecast hub
     await expect(page).toHaveURL("/forecast");

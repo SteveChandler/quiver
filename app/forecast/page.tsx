@@ -6,6 +6,7 @@ import {
   FORECAST_REGIONS,
   getAllForecastRegionSlugs,
   getGuideSlugForRegion,
+  hasHubGuide,
   type ForecastRegion,
 } from "@/lib/data/forecast-regions";
 import { formatFullDateWithYear } from "@/lib/utils/time-formatters";
@@ -46,6 +47,10 @@ export const metadata: Metadata = buildPageMetadata({
     "California surf forecast",
     "Hawaii surf forecast",
     "Puerto Rico surf forecast",
+    "Florida surf forecast",
+    "Oregon surf forecast",
+    "New Jersey surf forecast",
+    "Outer Banks surf forecast",
     "surf report",
   ],
 });
@@ -344,24 +349,36 @@ export default async function ForecastHubPage() {
               Regional Surf Guides
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {regions.map((region) => {
-                const guideSlug = getGuideSlugForRegion(region.slug);
+              {(() => {
+                // Deduplicate by guide slug (e.g. LA and SoCal both map to southern-california)
+                const seen = new Set<string>();
+                return regions
+                  .filter((region) => {
+                    if (!hasHubGuide(region.slug)) return false;
+                    const guideSlug = getGuideSlugForRegion(region.slug);
+                    if (seen.has(guideSlug)) return false;
+                    seen.add(guideSlug);
+                    return true;
+                  })
+                  .map((region) => {
+                    const guideSlug = getGuideSlugForRegion(region.slug);
 
-                return (
-                  <Link
-                    key={region.slug}
-                    href={`/guides/surfing-${guideSlug}`}
-                    className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
-                  >
-                    <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                      {region.name} Guide
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Explore surf spots, local knowledge, and conditions
-                    </p>
-                  </Link>
-                );
-              })}
+                    return (
+                      <Link
+                        key={guideSlug}
+                        href={`/guides/surfing-${guideSlug}`}
+                        className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group"
+                      >
+                        <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                          {region.name} Guide
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Explore surf spots, local knowledge, and conditions
+                        </p>
+                      </Link>
+                    );
+                  });
+              })()}
             </div>
           </section>
         </ScrollReveal>
