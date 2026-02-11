@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Fix San Diego Swell Windows** (uncommitted) - Corrected swell_window_min/max_deg for 12 SD beaches using terrain ray-tracing data as ground truth. Key fixes: La Jolla Shores extended NW (peak at 340°, not 270°), Tijuana Sloughs opened to NW (was capped at 270°), Mission Beach Central expanded from 40° to 85° window, Pacific Beach narrowed to match actual W-dominant exposure. Blacks and La Jolla Shores no longer share identical windows.
+
 - **Fix Fallback Antipatterns Masking Bad Data** (uncommitted) - Eliminated ~40 instances where hardcoded fallback values silently masked missing or broken data:
   - **Coordinate safety**: Added NOT NULL + CHECK constraints on `beaches.lat/lon`, removed `?? 0` and `?? 32.7157` (San Diego) fallbacks across 8 files, deprecated hardcoded `beach-coordinates.ts` dictionary
   - **API error honesty**: Bulk forecast API now returns HTTP 500 on DB errors instead of silently returning 200 with empty data; added amber warning banner on beach detail page when forecast data fails to load
