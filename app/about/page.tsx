@@ -8,7 +8,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = buildPageMetadata({
   title: "About - The Surf Community Story | Our Mission",
   description:
-    "Learn about Quiver's mission to connect surfers worldwide. Built by surfers, for surfers. Join 1,200+ surfers tracking sessions, finding buddies, and sharing the stoke. Our story, values, and vision for the future of surf community.",
+    "Learn about Quiver's mission to connect surfers worldwide. Built by surfers, for surfers. Track sessions, find buddies, and share the stoke. Our story, values, and vision for the future of surf community.",
   path: "/about",
   keywords: [
     "about Quiver",

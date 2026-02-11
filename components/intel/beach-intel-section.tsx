@@ -18,7 +18,7 @@ import {
   confirmIntelPost,
   removeIntelPostConfirmation,
 } from "@/actions/intel-actions";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getDisplayName, cleanTitle } from "@/lib/utils/display-name-utils";
 import { validateCoordinates } from "@/lib/coordinate-validation";
 import {
@@ -393,10 +393,11 @@ export function BeachIntelSection({
                     size="sm"
                     onClick={() => {
                       if (!showAll && navigateOnViewAll) {
-                        // Generate hierarchical URL if beach data available, otherwise fall back to ID
+                        // Generate hierarchical URL with safe fallback chain
                         const baseUrl = beach
-                          ? getBeachUrlSafe({ id: beachId, ...beach })
-                          : `/beach/${beachId}`;
+                          ? getBeachHrefSafe({ id: beachId, ...beach })
+                          : getBeachHrefSafe({ id: beachId });
+                        if (!baseUrl) return;
                         router.push(`${baseUrl}?section=intel&show=all`);
                         return;
                       }

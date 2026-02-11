@@ -71,7 +71,7 @@ export function CTASection() {
           className="text-white/80 text-sm font-open-sans animate-fade-in-up"
           style={{ animationDelay: "600ms" }}
         >
-          🏄‍♀️ No credit card required • Join 1,200+ surfers already connecting
+          Free to join — no credit card required
         </p>
       </div>
     </section>

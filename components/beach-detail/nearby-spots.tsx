@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MapPin, ChevronRight, Loader2 } from "lucide-react";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { cn } from "@/lib/utils";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
@@ -106,7 +106,8 @@ export function NearbySpots({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {nearbyBeaches.map((nearbyBeach) => {
-          const url = getBeachUrlSafe(nearbyBeach) || `/beach/${nearbyBeach.id}`;
+          const url = getBeachHrefSafe(nearbyBeach);
+          if (!url) return null;
           const location = [nearbyBeach.city, nearbyBeach.state]
             .filter(Boolean)
             .join(", ");
@@ -139,10 +140,6 @@ export function NearbySpots({
     </section>
   );
 }
-
-
-
-
 
 
 

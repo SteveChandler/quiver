@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MapPin, ChevronRight } from "lucide-react";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { cn } from "@/lib/utils";
 import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
@@ -39,7 +39,8 @@ export function NearbySpotsSsr({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {nearbyBeaches.map((nearbyBeach) => {
-          const url = getBeachUrlSafe(nearbyBeach) || `/beach/${nearbyBeach.id}`;
+          const url = getBeachHrefSafe(nearbyBeach);
+          if (!url) return null;
           const location = [nearbyBeach.city, nearbyBeach.state]
             .filter(Boolean)
             .join(", ");

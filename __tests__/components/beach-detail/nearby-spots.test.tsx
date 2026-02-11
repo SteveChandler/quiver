@@ -34,7 +34,7 @@ jest.mock("lucide-react", () => ({
 
 // Mock beach-url-utils
 jest.mock("@/lib/utils/beach-url-utils", () => ({
-  getBeachUrlSafe: jest.fn(
+  getBeachHrefSafe: jest.fn(
     (beach: Beach) => `/beach/${beach.slug || beach.id}`
   ),
 }));

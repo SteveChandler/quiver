@@ -18,7 +18,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Star, Waves, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
 import { CONTENT } from "@/lib/constants/features";
@@ -57,12 +57,12 @@ function getBeachImageUrl(beach: EnrichedBeach): string {
  */
 function BeachCard({ beach }: { beach: EnrichedBeach }) {
   const beachUrl =
-    getBeachUrlSafe({
+    getBeachHrefSafe({
       id: beach.id,
       slug: beach.slug,
       city: beach.city,
       state: beach.state,
-    }) || `/beach/${beach.id}`;
+    }) || "/";
 
   const imageUrl = getBeachImageUrl(beach);
   const location =

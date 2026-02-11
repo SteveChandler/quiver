@@ -265,7 +265,7 @@ export const CONTENT = {
     upgradeSession: {
       title: "Upgrade your next Session",
       subtitle:
-        "Where you want to explore breaks or create your own, create a forecast that helps you make the most of every minute in the water.",
+        "Whether you want to explore new breaks or plan your next session, Quiver helps you make the most of every minute in the water.",
       primaryCta: "Sign up",
     },
     social: {

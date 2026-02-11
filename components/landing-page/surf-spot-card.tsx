@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bookmark, Star, Waves } from "lucide-react";
 import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 
 export interface SurfSpotCardProps {
   id: string;
@@ -72,8 +72,8 @@ export function SurfSpotCard({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Generate beach URL using hierarchical format if data available, otherwise fall back to ID
-  const beachUrl = getBeachUrlSafe({ id, slug, city, state }) || `/beach/${id}`;
+  // Generate beach URL using hierarchical format with safe fallback chain
+  const beachUrl = getBeachHrefSafe({ id, slug, city, state }) || "/";
 
   // Show fallback if no imageUrl or if image failed to load
   const showFallback = !imageUrl || imageError;

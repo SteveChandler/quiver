@@ -272,8 +272,8 @@ export default function AboutPageClient() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Join 1,200+ surfers who are already building the future of surf
-            community on Quiver.
+            Join surfers who are already building the future of surf community
+            on Quiver.
           </motion.p>
 
           <motion.div

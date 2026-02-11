@@ -18,7 +18,7 @@ import type { Beach } from '@/types/database';
 
 // Mock beach URL utils
 jest.mock('@/lib/utils/beach-url-utils', () => ({
-  getBeachUrlSafe: jest.fn((beach) => {
+  getBeachHrefSafe: jest.fn((beach) => {
     if (!beach.slug) return null;
     return `/ca/${beach.city?.toLowerCase().replace(/\s+/g, '-')}/${beach.slug}`;
   }),
@@ -159,17 +159,17 @@ describe('NearbySpotsSsr Component', () => {
       expect(link).toHaveAttribute('href', '/ca/san-diego/ocean-beach');
     });
 
-    it('uses fallback URL when getBeachUrlSafe returns null', () => {
+    it('skips rendering beach when getBeachHrefSafe returns null', () => {
       const beaches = [
         createMockNearbyBeach({
           id: 'beach-123',
-          slug: undefined, // No slug, so getBeachUrlSafe will return null
+          slug: undefined, // No slug, so getBeachHrefSafe will return null
         }),
       ];
       render(<NearbySpotsSsr nearbyBeaches={beaches} />);
 
-      const link = screen.getByRole('link');
-      expect(link).toHaveAttribute('href', '/beach/beach-123');
+      const link = screen.queryByRole('link');
+      expect(link).not.toBeInTheDocument();
     });
 
     it('generates unique keys for each beach card', () => {
