@@ -31,6 +31,8 @@ export interface AnimatedScoreGaugeProps {
   duration?: number;
   /** Whether to enable glow effect on high scores (default: true) */
   enableGlow?: boolean;
+  /** Color variant: "default" for light backgrounds, "hero" for dark blue hero cards */
+  variant?: "default" | "hero";
   /** Additional CSS classes */
   className?: string;
 }
@@ -116,6 +118,7 @@ export function AnimatedScoreGauge({
   showLabel = false,
   duration = 1200,
   enableGlow = true,
+  variant = "default",
   className,
 }: AnimatedScoreGaugeProps) {
   const [displayScore, setDisplayScore] = useState(0);
@@ -125,11 +128,12 @@ export function AnimatedScoreGauge({
   const animationRef = useRef<number | undefined>(undefined);
   const reducedMotion = useReducedMotion();
 
+  const isHero = variant === "hero";
   const config = SIZE_CONFIG[size];
   const radius = (config.size - config.strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeColor = getStrokeColor(score);
-  const glowColor = getGlowColor(score);
+  const strokeColor = isHero ? "#ffffff" : getStrokeColor(score);
+  const glowColor = isHero ? "rgba(255,255,255,0.3)" : getGlowColor(score);
   const scoreColors = getScoreColorClasses(score);
 
   // Calculate target offset (0 = full, circumference = empty)
@@ -229,9 +233,9 @@ export function AnimatedScoreGauge({
             cy={config.size / 2}
             r={radius}
             fill="none"
-            stroke="currentColor"
+            stroke={isHero ? "rgba(255,255,255,0.25)" : "currentColor"}
             strokeWidth={config.strokeWidth}
-            className="text-gray-200 dark:text-gray-700"
+            className={isHero ? undefined : "text-gray-200 dark:text-gray-700"}
           />
 
           {/* Animated progress arc */}
@@ -255,7 +259,7 @@ export function AnimatedScoreGauge({
             className={cn(
               "font-bold tabular-nums",
               config.fontSize,
-              scoreColors.text
+              isHero ? "text-white" : scoreColors.text
             )}
           >
             {displayScore}
@@ -269,7 +273,7 @@ export function AnimatedScoreGauge({
           className={cn(
             "font-medium",
             config.labelSize,
-            scoreColors.text,
+            isHero ? "text-white/80" : scoreColors.text,
             !hasAnimated && !reducedMotion && "opacity-0",
             hasAnimated && "animate-fade-in"
           )}

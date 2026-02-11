@@ -66,6 +66,7 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected }: BestDayH
               score={bestDay.score}
               size="xl"
               showLabel
+              variant="hero"
               className="shrink-0"
             />
 

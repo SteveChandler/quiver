@@ -44,8 +44,8 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const title = await page.title();
-    // Title format: "Beach Surf Report: X.X ft | 7-Day Forecast & Cams | Quiver"
-    expect(title).toContain('Surf Report');
+    // Title format: "{Beach} — X.X ft Today | Crowd & Wind Intel | {City} | Quiver"
+    expect(title).toMatch(/\d+(\.\d+)?\s*ft/i);
   });
 
   test('page includes FAQ structured data', async ({ page }) => {
@@ -201,15 +201,16 @@ test.describe('Spot Surf Report', () => {
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await forecastTab.click();
 
-    // Wait for forecast content to load
-    await page.waitForTimeout(1000);
+    // Wait for forecast sub-tabs to appear (indicates ForecastTab has mounted with data)
+    await page.getByRole('tab', { name: /today/i }).waitFor({ state: 'visible', timeout: 10000 });
 
     // Look for the PublicContentGate CTA text - could be for best surf window or 12-day outlook
     const bestTimeCTA = page.getByText(/see the best time to surf today/i);
     const outlookCTA = page.getByText(/sign up to see the full 12-day outlook/i);
 
-    const hasBestTimeGate = await bestTimeCTA.isVisible().catch(() => false);
-    const hasOutlookGate = await outlookCTA.isVisible().catch(() => false);
+    // Scroll down to ensure CTA gates are in view
+    const hasBestTimeGate = await bestTimeCTA.scrollIntoViewIfNeeded().then(() => bestTimeCTA.isVisible()).catch(() => false);
+    const hasOutlookGate = await outlookCTA.scrollIntoViewIfNeeded().then(() => outlookCTA.isVisible()).catch(() => false);
 
     // At least one gate should be visible
     expect(hasBestTimeGate || hasOutlookGate).toBe(true);
