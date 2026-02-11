@@ -80,9 +80,19 @@ export function enrichDaySummaries(
       }
     }
 
+    // If wind speed is ≤5 mph, classify as "light" regardless of direction.
+    // This aligns the display label with the scorer (which gives 20/20 wind
+    // points for ≤3 mph) and avoids confusing "Onshore" labels at dawn patrol
+    // when wind is essentially calm.
+    const windSpeedMph = parseFloat(closest.wind_speed || "0");
+    const windConditions: WindClassification =
+      !Number.isNaN(windSpeedMph) && windSpeedMph >= 0 && windSpeedMph <= 5
+        ? "light"
+        : classifyWindDirection(closest.wind_direction || "", windOffshoreDeg);
+
     return {
       ...day,
-      windConditions: classifyWindDirection(closest.wind_direction || "", windOffshoreDeg),
+      windConditions,
       windSpeed: closest.wind_speed || null,
       bestTimeSlot: deriveTimeSlot(targetHour),
     };

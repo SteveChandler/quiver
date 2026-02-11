@@ -427,6 +427,107 @@ describe("enrichDaySummaries", () => {
     });
   });
 
+  describe("Light-wind speed override", () => {
+    it("classifies as 'light' when wind speed is ≤5 mph regardless of direction", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "06:00",
+        wind_direction: "W", // Onshore for CA west coast
+        wind_speed: "3 mph",
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      expect(result[0].windConditions).toBe("light");
+    });
+
+    it("classifies as 'light' at exactly 5 mph", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "06:00",
+        wind_direction: "W",
+        wind_speed: "5 mph",
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      expect(result[0].windConditions).toBe("light");
+    });
+
+    it("uses normal classification when wind speed is >5 mph", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "09:00",
+        wind_direction: "W", // Onshore for CA west coast
+        wind_speed: "8 mph",
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      expect(result[0].windConditions).toBe("onshore");
+    });
+
+    it("classifies as 'light' at 0 mph", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "06:00",
+        wind_direction: "SW",
+        wind_speed: "0 mph",
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      expect(result[0].windConditions).toBe("light");
+    });
+
+    it("classifies as 'light' when wind_speed is null or missing", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "06:00",
+        wind_direction: "W",
+        wind_speed: null,
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      // parseFloat(null || "0") = 0, which is ≤5, so "light"
+      expect(result[0].windConditions).toBe("light");
+    });
+
+    it("preserves offshore classification when wind speed is >5 mph", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "09:00",
+        wind_direction: "E", // Offshore for CA west coast
+        wind_speed: "10 mph",
+      });
+
+      const result = enrichDaySummaries([day], [forecast]);
+
+      expect(result[0].windConditions).toBe("offshore");
+    });
+
+    it("overrides onshore with light for beach-aware classification too", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
+      const forecast = makeForecast({
+        forecast_date: "2026-02-10",
+        forecast_time: "06:00",
+        wind_direction: "E", // Would be onshore for Hawaii (windOffshoreDeg=270)
+        wind_speed: "2 mph",
+      });
+
+      const result = enrichDaySummaries([day], [forecast], 270);
+
+      expect(result[0].windConditions).toBe("light");
+    });
+  });
+
   describe("Beach-aware wind classification with windOffshoreDeg", () => {
     it("classifies E wind as onshore for Hawaii beach (windOffshoreDeg=270)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });

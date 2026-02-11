@@ -40,6 +40,8 @@ import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 
 const CamsSection = dynamic(
   () =>
@@ -93,6 +95,7 @@ export function ForecastTab({
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
+  const [horizonAuthModal, setHorizonAuthModal] = useState(false);
 
   // Horizon Strip: selected date for filtering (defaults to today)
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
@@ -350,7 +353,7 @@ export function ForecastTab({
         <section className="space-y-2">
           <div className="flex items-center justify-between px-4 sm:px-6">
             <h2 className="text-sm font-medium text-muted-foreground">
-              12-Day Outlook
+              {publicHorizonDays.length}-Day Outlook
             </h2>
             <span className="text-xs text-muted-foreground">
               Tap a day to view details
@@ -364,10 +367,24 @@ export function ForecastTab({
           />
           {publicMode && horizonDaySummaries.length > 3 && (
             <div className="mt-2 text-center">
-              <p className="text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  track("signup_cta_click", { source: "horizon-strip-outlook" });
+                  trackAuthModalOpened({ mode: "signup", source: "horizon-strip-outlook" });
+                  setHorizonAuthModal(true);
+                }}
+                className="text-xs text-ocean-blue hover:text-ocean-blue/80 transition-colors cursor-pointer"
+              >
                 <Lock className="inline h-3 w-3 mr-1" />
                 Sign up to see the full 12-day outlook
-              </p>
+              </button>
+              <UnifiedAuthModal
+                isOpen={horizonAuthModal}
+                onClose={() => setHorizonAuthModal(false)}
+                mode="signup"
+                source="horizon-strip-outlook"
+              />
             </div>
           )}
         </section>
@@ -710,6 +727,7 @@ export function ForecastTab({
             forecasts={publicMode ? publicFilteredForecasts : forecasts}
             beach={beach}
             publicMode={publicMode}
+            selectedDate={horizonSelectedDate}
           />
         </TabsContent>
       </Tabs>

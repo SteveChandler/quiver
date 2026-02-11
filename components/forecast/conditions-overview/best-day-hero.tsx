@@ -22,6 +22,8 @@ import type { EnrichedDaySummary } from "@/lib/utils/enriched-day-summary";
 interface BestDayHeroProps {
   bestDay: EnrichedDaySummary;
   otherGoodDays: EnrichedDaySummary[];
+  /** When true, the hero shows a user-selected date instead of the overall best */
+  isUserSelected?: boolean;
 }
 
 const WIND_DISPLAY: Record<
@@ -33,7 +35,7 @@ const WIND_DISPLAY: Record<
   onshore: { label: "Onshore", color: "text-amber-300", icon: false },
 };
 
-export function BestDayHero({ bestDay, otherGoodDays }: BestDayHeroProps) {
+export function BestDayHero({ bestDay, otherGoodDays, isUserSelected }: BestDayHeroProps) {
   const wind = WIND_DISPLAY[bestDay.windConditions] ?? WIND_DISPLAY.onshore;
 
   return (
@@ -71,9 +73,14 @@ export function BestDayHero({ bestDay, otherGoodDays }: BestDayHeroProps) {
             <div className="flex flex-col gap-2 text-center sm:text-left">
               <Badge
                 variant="secondary"
-                className="w-fit self-center bg-amber-400/90 text-amber-950 hover:bg-amber-400 sm:self-start"
+                className={cn(
+                  "w-fit self-center sm:self-start",
+                  isUserSelected
+                    ? "bg-blue-400/90 text-blue-950 hover:bg-blue-400"
+                    : "bg-amber-400/90 text-amber-950 hover:bg-amber-400"
+                )}
               >
-                Best Day This Week
+                {isUserSelected ? "Selected Day" : "Best Day This Week"}
               </Badge>
 
               <h3 className="text-2xl font-bold leading-tight">

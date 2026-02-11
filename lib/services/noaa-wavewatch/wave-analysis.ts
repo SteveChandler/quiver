@@ -51,6 +51,16 @@ export function getBaseWaveHeight(lat: number, lon: number): number {
     return WAVE_REGIONS.GULF_OF_MEXICO.baseWaveHeight;
   }
 
+  // Hawaii
+  if (
+    lon > WAVE_REGIONS.HAWAII.longitudeRange.min &&
+    lon < WAVE_REGIONS.HAWAII.longitudeRange.max &&
+    lat > WAVE_REGIONS.HAWAII.latitudeRange.min &&
+    lat < WAVE_REGIONS.HAWAII.latitudeRange.max
+  ) {
+    return WAVE_REGIONS.HAWAII.baseWaveHeight;
+  }
+
   // Default ocean
   return WAVE_REGIONS.DEFAULT_OCEAN.baseWaveHeight;
 }
@@ -112,6 +122,16 @@ export function getPrevailingWaveDirection(lat: number, lon: number): number {
     lat < WAVE_REGIONS.ATLANTIC_COAST.latitudeRange.max
   ) {
     return WAVE_REGIONS.ATLANTIC_COAST.prevailingDirection;
+  }
+
+  // Hawaii - waves typically from NNW
+  if (
+    lon > WAVE_REGIONS.HAWAII.longitudeRange.min &&
+    lon < WAVE_REGIONS.HAWAII.longitudeRange.max &&
+    lat > WAVE_REGIONS.HAWAII.latitudeRange.min &&
+    lat < WAVE_REGIONS.HAWAII.latitudeRange.max
+  ) {
+    return WAVE_REGIONS.HAWAII.prevailingDirection;
   }
 
   // Default

@@ -326,6 +326,20 @@ export function aggregateDayForecasts(
     });
   }
 
+  // Trim trailing days where ALL forecasts are FALLBACK-sourced
+  // These produce identical, obviously fake values beyond real API data range
+  while (summaries.length > 0) {
+    const lastDate = summaries[summaries.length - 1].fullDate;
+    const lastDayForecasts = forecastsByDate.get(lastDate) || [];
+    const allFallback = lastDayForecasts.length > 0 &&
+      lastDayForecasts.every((f) => f.data_source === 'FALLBACK');
+    if (allFallback) {
+      summaries.pop();
+    } else {
+      break;
+    }
+  }
+
   return summaries;
 }
 
@@ -337,14 +351,14 @@ export function formatWaveRange(minHeight: number, maxHeight: number): string {
     return 'Flat';
   }
 
-  const minStr = minHeight.toFixed(0);
-  const maxStr = maxHeight.toFixed(0);
+  const minInt = Math.max(0, Math.floor(minHeight));
+  const maxInt = Math.ceil(maxHeight);
 
-  if (minStr === maxStr) {
-    return `${minStr}ft`;
+  if (minInt === maxInt) {
+    return `${minInt}ft`;
   }
 
-  return `${minStr}-${maxStr}ft`;
+  return `${minInt}-${maxInt}ft`;
 }
 
 /**

@@ -35,6 +35,8 @@ interface ConditionsOverviewProps {
   forecasts: EnhancedForecastEntity[];
   beach: Beach;
   publicMode?: boolean;
+  /** When set, the hero shows this day instead of the overall best */
+  selectedDate?: string;
 }
 
 export function ConditionsOverview({
@@ -42,6 +44,7 @@ export function ConditionsOverview({
   forecasts,
   beach,
   publicMode = false,
+  selectedDate,
 }: ConditionsOverviewProps) {
   const enrichedDays = useMemo(
     () => enrichDaySummaries(horizonDaySummaries, forecasts, beach.wind_offshore_deg),
@@ -59,12 +62,20 @@ export function ConditionsOverview({
 
   // In public mode, only consider first 3 days for bestDay
   const daysForBest = publicMode ? enrichedDays.slice(0, 3) : enrichedDays;
-  const bestDay = daysForBest.reduce((prev, curr) =>
+  const overallBest = daysForBest.reduce((prev, curr) =>
     curr.score > prev.score ? curr : prev
   );
 
+  // If user selected a specific date in the horizon strip, show that day;
+  // otherwise fall back to the overall best day.
+  const selectedDay = selectedDate
+    ? enrichedDays.find((d) => d.fullDate === selectedDate)
+    : undefined;
+  const heroDay = selectedDay ?? overallBest;
+  const isUserSelected = !!selectedDay;
+
   // Compute other good days: remaining days sorted by score, take top 4
-  const otherDays = enrichedDays.filter((d) => d.fullDate !== bestDay.fullDate);
+  const otherDays = enrichedDays.filter((d) => d.fullDate !== heroDay.fullDate);
   const sortedOthers = [...otherDays].sort((a, b) => b.score - a.score);
 
   // If all days score below "good", show top 3 with actual tier colors
@@ -76,7 +87,7 @@ export function ConditionsOverview({
   return (
     <div className="space-y-6">
       {/* Hero - always visible (in public mode, only best from first 3 days) */}
-      <BestDayHero bestDay={bestDay} otherGoodDays={publicMode ? [] : otherGoodDays} />
+      <BestDayHero bestDay={heroDay} otherGoodDays={publicMode ? [] : otherGoodDays} isUserSelected={isUserSelected} />
 
       {/* Other good days + chart - gated for public */}
       {publicMode ? (
@@ -88,7 +99,7 @@ export function ConditionsOverview({
         >
           <div className="space-y-6">
             {otherGoodDays.length > 0 && (
-              <BestDayHero bestDay={bestDay} otherGoodDays={otherGoodDays} />
+              <BestDayHero bestDay={heroDay} otherGoodDays={otherGoodDays} />
             )}
             <ErrorBoundary fallback={() => <p className="text-sm text-muted-foreground py-4">Unable to load chart.</p>}>
               <OutlookBarChart days={enrichedDays} />

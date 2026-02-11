@@ -44,6 +44,13 @@ export const WAVE_REGIONS = {
     baseWaveHeight: 0.6, // meters
     prevailingDirection: 225, // Southwest
   },
+  /** Hawaii */
+  HAWAII: {
+    longitudeRange: { min: -161, max: -154 },
+    latitudeRange: { min: 18, max: 23 },
+    baseWaveHeight: 1.0, // meters (~3.3ft, Hawaii gets larger swells)
+    prevailingDirection: 340, // NNW (dominant winter swell)
+  },
   /** Default ocean conditions */
   DEFAULT_OCEAN: {
     baseWaveHeight: 0.8, // meters

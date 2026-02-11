@@ -2,13 +2,64 @@
  * Tests for Horizon Strip utility functions
  */
 
+// Mock date-fns submodule paths for ESM compat
+jest.mock('date-fns/format', () => {
+  return (date: Date, pattern: string) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    if (pattern === 'yyyy-MM-dd') {
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+    if (pattern === 'MMM d') {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${months[date.getMonth()]} ${date.getDate()}`;
+    }
+    return date.toISOString();
+  };
+});
+jest.mock('date-fns/parseISO', () => {
+  return (str: string) => new Date(str + 'T00:00:00');
+});
+jest.mock('date-fns/isToday', () => {
+  return (date: Date) => {
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate();
+  };
+});
+jest.mock('date-fns/startOfDay', () => {
+  return (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+});
+jest.mock('date-fns-tz', () => ({
+  formatInTimeZone: (_date: Date, _tz: string, pattern: string) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    if (pattern === 'MMM d') {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${months[_date.getMonth()]} ${_date.getDate()}`;
+    }
+    if (pattern === 'EEE') {
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return days[_date.getDay()];
+    }
+    return _date.toISOString();
+  },
+  toZonedTime: (date: Date, _tz: string) => new Date(date),
+}));
+
 import {
   getConditionTier,
   formatWaveRange,
   getTierLabel,
+  aggregateDayForecasts,
   TIER_COLORS,
   type ConditionTier,
 } from '@/lib/utils/horizon-strip-utils';
+import type { EnhancedForecastEntity } from '@/types/forecast';
+import type { Beach } from '@/types/database';
 
 describe('horizon-strip-utils', () => {
   describe('getConditionTier', () => {
@@ -60,6 +111,19 @@ describe('horizon-strip-utils', () => {
     it('returns "Flat" when both are negative', () => {
       expect(formatWaveRange(-1, -1)).toBe('Flat');
     });
+
+    it('shows range for values that straddle an integer', () => {
+      // 5.7 → floor=5, 6.2 → ceil=7 → "5-7ft"
+      expect(formatWaveRange(5.7, 6.2)).toBe('5-7ft');
+    });
+
+    it('shows single value for exact integers', () => {
+      expect(formatWaveRange(6.0, 6.0)).toBe('6ft');
+    });
+
+    it('shows range when min and max are different integers', () => {
+      expect(formatWaveRange(3.0, 5.0)).toBe('3-5ft');
+    });
   });
 
   describe('getTierLabel', () => {
@@ -91,7 +155,7 @@ describe('horizon-strip-utils', () => {
       }
     });
 
-    it('uses appropriate semantic colors', () => {
+    it('uses appropriate semantic colors for each tier', () => {
       // Great should be amber/gold
       expect(TIER_COLORS.great.bg).toContain('amber');
 
@@ -103,6 +167,109 @@ describe('horizon-strip-utils', () => {
 
       // Marginal should be slate/gray
       expect(TIER_COLORS.marginal.bg).toContain('slate');
+    });
+  });
+
+  describe('aggregateDayForecasts', () => {
+    // Helper to create a minimal forecast entity
+    function makeForecast(
+      date: string,
+      time: string,
+      dataSource: 'NOAA_NWS' | 'FALLBACK',
+      waveHeight = '2.0',
+    ): EnhancedForecastEntity {
+      return {
+        id: `${date}-${time}`,
+        beach_id: 'test-beach',
+        forecast_date: date,
+        forecast_time: time,
+        wave_height: waveHeight,
+        wave_period: '10s',
+        wave_direction: 'W',
+        wind_speed: '5 mph',
+        wind_direction: 'NW',
+        data_source: dataSource,
+        swell_1_height: null,
+        swell_1_period: null,
+        swell_1_direction: null,
+        swell_2_height: null,
+        swell_2_period: null,
+        swell_2_direction: null,
+        tide_height: null,
+        tide_status: null,
+        next_tide_type: null,
+        next_tide_time: null,
+        next_tide_height: null,
+        next_tide_at: null,
+        water_temp: null,
+        air_temp: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as unknown as EnhancedForecastEntity;
+    }
+
+    const mockBeach = {
+      id: 'test-beach',
+      name: 'Test Beach',
+      lat: 21.0,
+      lon: -157.0,
+      timezone: 'Pacific/Honolulu',
+      wind_offshore_deg: 0,
+      wind_offshore_tol_deg: 45,
+      wind_onshore_bad_kt: null,
+      preferred_tide_ft_min: null,
+      preferred_tide_ft_max: null,
+    } as unknown as Beach;
+
+    it('trims trailing FALLBACK-only days', () => {
+      const today = new Date();
+      const dates = Array.from({ length: 5 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        return d.toISOString().split('T')[0];
+      });
+
+      const forecasts = [
+        // Days 0-2: real data
+        makeForecast(dates[0], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[0], '12:00', 'NOAA_NWS'),
+        makeForecast(dates[1], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[1], '12:00', 'NOAA_NWS'),
+        makeForecast(dates[2], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[2], '12:00', 'NOAA_NWS'),
+        // Days 3-4: fallback only
+        makeForecast(dates[3], '06:00', 'FALLBACK'),
+        makeForecast(dates[3], '12:00', 'FALLBACK'),
+        makeForecast(dates[4], '06:00', 'FALLBACK'),
+        makeForecast(dates[4], '12:00', 'FALLBACK'),
+      ];
+
+      const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
+
+      // Should only have 3 days (the real data), not 5
+      expect(result.length).toBe(3);
+      expect(result.map((d) => d.fullDate)).toEqual([dates[0], dates[1], dates[2]]);
+    });
+
+    it('keeps days with mixed real and fallback forecasts', () => {
+      const today = new Date();
+      const dates = Array.from({ length: 3 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        return d.toISOString().split('T')[0];
+      });
+
+      const forecasts = [
+        makeForecast(dates[0], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[1], '06:00', 'NOAA_NWS'),
+        // Day 2 has a mix of real and fallback — should NOT be trimmed
+        makeForecast(dates[2], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[2], '12:00', 'FALLBACK'),
+      ];
+
+      const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
+
+      expect(result.length).toBe(3);
     });
   });
 });

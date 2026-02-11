@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Beach Detail Forecast Error Visibility** (uncommitted) - Added amber warning banner in beach detail page when forecast data fails to load. Users now see "Forecast data is temporarily unavailable. Some information may be missing." with AlertTriangle icon instead of silently missing sections.
 - **Landing Page Local Beaches** (uncommitted) - "Popular surf spots" section now shows nearby beaches when user location is available via IP geolocation. Falls back to global list when location is unavailable or fewer than 4 beaches are within 50 miles. Heading updates to "Popular surf spots near {location}". SSR footer list unchanged for SEO crawlers.
 
 ### Changed
@@ -40,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Hawaii Beaches Score 0 on Conditions Tab** (uncommitted) - Fixed two bugs causing all Hawaii beaches to show Score: 0. (1) Raised `wind_onshore_bad_kt` from 8 to 18 for HI beaches — persistent trade winds (15-22 mph) exceeded the 9.2 mph threshold, triggering skip on every forecast. (2) Made `classifyWindDirection()` beach-aware with optional `windOffshoreDeg` param — E wind was mislabeled "offshore" for east-facing beaches (California-centric assumption). Also raised global `DEFAULT_MAX_WIND_ANY_MPH` from 18 to 25 to prevent absolute wind skip on moderate tropical trades.
+- **Horizon Strip Fallback Trim + Light-Wind Label** (uncommitted) - Horizon strip now trims trailing FALLBACK-only days (fixes repeating "1ft / 17s" beyond real API data range), adds Hawaii to WAVE_REGIONS for proper base wave heights, uses `Math.floor`/`Math.ceil` in `formatWaveRange()` for cleaner rounding, and shows dynamic `{n}-Day Outlook` labels. Wind classification now checks speed before direction: wind ≤5 mph is labeled "Light Wind" regardless of direction, fixing Score 99 + "Onshore" confusion at dawn patrol.
 - **12-Day Outlook Code Review Fixes** (uncommitted) - Removed 5 dead E2E tests from `forecast-transparency.spec.ts` targeting the removed forecast transparency section; re-enabled 3 previously-skipped keyboard/ARIA tests in `forecast-tabs.spec.ts` (Enter key, Space key, ARIA attributes) that Radix UI handles correctly; simplified horizon-strip button width by moving `w-[72px]` mobile sizing to wrapper div.
 - **PR & HI Timezone Data Fix** (uncommitted) - Puerto Rico beaches had `America/Los_Angeles` timezone (4 hours wrong), Hawaii beaches were 2 hours off. Migration sets PR → `America/Puerto_Rico`, HI → `Pacific/Honolulu`. Tide meta data helper now prefers DB timezone column over geo-tz fallback.
 - **SERP Snippet Overhaul** (uncommitted) - Beach page titles differentiated from Surfline (lead with wave height + crowd/wind intel signals), descriptions highlight unique features (session windows, crowd levels). Directory pages suppress low-credibility ratings (<5 reviews), fix "1 reviews" grammar bug. Intent pages enrich least-crowded and water-temp meta descriptions with live data.
