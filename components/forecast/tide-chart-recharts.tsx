@@ -242,8 +242,12 @@ export function TideChart({
   }, [minTs, maxTs]);
 
   const baseTimeTicks = React.useMemo(() => {
-    // For 18-hour window, show ticks every 3 hours
-    return generateTicks(windowBounds, 3);
+    const totalHours =
+      (windowBounds.windowEnd - windowBounds.windowStart) / (60 * 60 * 1000);
+    let intervalHours = 3; // default for today
+    if (totalHours > 120) intervalHours = 12; // 7-day: every 12 hours
+    else if (totalHours > 48) intervalHours = 6; // 3-day: every 6 hours
+    return generateTicks(windowBounds, intervalHours);
   }, [windowBounds]);
 
   const timeTicks = React.useMemo(() => {
@@ -328,8 +332,8 @@ export function TideChart({
           >
             <defs>
               <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1e40af" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#1e40af" stopOpacity={0} />
+                <stop offset="0%" stopColor="#1e40af" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#1e40af" stopOpacity={0.06} />
               </linearGradient>
             </defs>
 

@@ -122,7 +122,7 @@ export const createServerClient = async () => {
   }
 
   // Validate cookieStore has the expected interface before using it
-  if (cookieStore && typeof cookieStore.get === "function") {
+  if (cookieStore && typeof cookieStore.getAll === "function") {
     try {
       const noStoreFetch = createNoStoreFetch(globalThis.fetch);
       return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
@@ -130,23 +130,18 @@ export const createServerClient = async () => {
           fetch: noStoreFetch as any,
         },
         cookies: {
-          get(name) {
+          getAll() {
             try {
-              return cookieStore.get(name)?.value;
+              return cookieStore.getAll();
             } catch {
-              // Cookie access failed - return undefined to use anon auth
-              return undefined;
+              // Cookie access failed - return empty array to use anon auth
+              return [];
             }
           },
-          set(_name, _value, _options) {
+          setAll(_cookiesToSet) {
             // No-op in Server Components and server actions to avoid
             // Next.js "mutable cookies" errors during RSC refresh.
             // API routes should use createAPIServerClient* which supports writes.
-            return;
-          },
-          remove(_name, _options) {
-            // No-op in Server Components and server actions; see comment above.
-            return;
           },
         },
       });

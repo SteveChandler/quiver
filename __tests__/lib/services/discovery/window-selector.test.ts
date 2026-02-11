@@ -397,7 +397,7 @@ describe('selectBestWindow', () => {
       createForecast({
         id: 'forecast-poor',
         forecast_date: '2024-01-15',
-        forecast_time: '17:00', // 9am PST
+        forecast_time: '09:00', // 9am PT (local) → 17:00 UTC
         wave_height: '1', // Too small
         wave_period: '6s', // Too short
         wind_speed: '20', // Too windy
@@ -406,7 +406,7 @@ describe('selectBestWindow', () => {
       createForecast({
         id: 'forecast-good',
         forecast_date: '2024-01-15',
-        forecast_time: '18:00', // 10am PST
+        forecast_time: '10:00', // 10am PT (local) → 18:00 UTC
         wave_height: '4',
         wave_period: '12s',
         wind_speed: '5',
@@ -418,7 +418,7 @@ describe('selectBestWindow', () => {
       createForecast({
         id: 'forecast-mediocre',
         forecast_date: '2024-01-15',
-        forecast_time: '19:00', // 11am PST
+        forecast_time: '11:00', // 11am PT (local) → 19:00 UTC
         wave_height: '3',
         wave_period: '10s',
         wind_speed: '12',
@@ -548,16 +548,16 @@ describe('selectBestWindow past window filtering with tolerance', () => {
   });
 
   it('should exclude window that ended beyond 15 min tolerance', () => {
-    // Current time: 4:20pm UTC
-    // Window: 3:30pm-4:00pm UTC (ended 20 min ago)
-    // Cutoff: 4:20pm - 15min = 4:05pm UTC
-    // 4:00pm end < 4:05pm cutoff = EXCLUDED
-    jest.setSystemTime(new Date('2024-01-15T16:20:00Z'));
+    // Current time: 8:20am PT = 16:20 UTC
+    // Window: 7:30am-8:00am PT (ended 20 min ago) = 15:30-16:00 UTC
+    // Cutoff: 8:20am - 15min = 8:05am PT = 16:05 UTC
+    // 8:00am end (16:00 UTC) < 8:05am cutoff (16:05 UTC) = EXCLUDED
+    jest.setSystemTime(new Date('2024-01-15T16:20:00Z')); // 8:20am PT
 
     const forecasts = [
       createForecast({
         forecast_date: '2024-01-15',
-        forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
+        forecast_time: '07:30', // 7:30am PT (local), window ends at 8:00am PT (16:00 UTC)
         wave_height: '4',
         wave_period: '12s',
         confidence_score: 80,
@@ -611,16 +611,16 @@ describe('selectBestWindow past window filtering with tolerance', () => {
   });
 
   it('should exclude window that ended 1 minute beyond tolerance', () => {
-    // Current time: 4:16pm UTC
-    // Window: 3:30pm-4:00pm UTC (ended 16 min ago)
-    // Cutoff: 4:16pm - 15min = 4:01pm UTC
-    // 4:00pm end < 4:01pm cutoff = EXCLUDED
-    jest.setSystemTime(new Date('2024-01-15T16:16:00Z'));
+    // Current time: 8:16am PT = 16:16 UTC
+    // Window: 7:30am-8:00am PT (ended 16 min ago) = 15:30-16:00 UTC
+    // Cutoff: 8:16am - 15min = 8:01am PT = 16:01 UTC
+    // 8:00am end (16:00 UTC) < 8:01am cutoff (16:01 UTC) = EXCLUDED
+    jest.setSystemTime(new Date('2024-01-15T16:16:00Z')); // 8:16am PT
 
     const forecasts = [
       createForecast({
         forecast_date: '2024-01-15',
-        forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
+        forecast_time: '07:30', // 7:30am PT (local), window ends at 8:00am PT (16:00 UTC)
         wave_height: '4',
         wave_period: '12s',
         confidence_score: 80,
@@ -632,17 +632,17 @@ describe('selectBestWindow past window filtering with tolerance', () => {
   });
 
   it('should exclude the original bug scenario (4-4:30pm shown at 6:07pm)', () => {
-    // Original bug: At 6:07pm, the 4:00-4:30pm window was shown
-    // Current time: 6:07pm UTC
-    // Window: 4:00pm-4:30pm UTC (ended 1hr 37min ago)
-    // Cutoff: 6:07pm - 15min = 5:52pm UTC
+    // Original bug: At 6:07pm PT, the 4:00-4:30pm PT window was shown
+    // Current time: 6:07pm PT = 2:07am UTC next day
+    // Window: 4:00pm-4:30pm PT (ended 1hr 37min ago) = 00:00-00:30 UTC next day
+    // Cutoff: 6:07pm - 15min = 5:52pm PT
     // 4:30pm end < 5:52pm cutoff = EXCLUDED
-    jest.setSystemTime(new Date('2024-01-15T18:07:00Z'));
+    jest.setSystemTime(new Date('2024-01-16T02:07:00Z')); // 6:07pm PST
 
     const forecasts = [
       createForecast({
         forecast_date: '2024-01-15',
-        forecast_time: '16:00', // 4:00pm UTC, window ends at 4:30pm
+        forecast_time: '16:00', // 4:00pm PT (local), window ends at 4:30pm PT
         wave_height: '4',
         wave_period: '12s',
         confidence_score: 80,
@@ -737,19 +737,19 @@ describe('selectBestWindow with tide-driven boundaries', () => {
   });
 
   it('should use tide threshold crossings for window boundaries when data available', () => {
-    // Tide schedule: Low at 14:47 (1.2ft), High at 20:52 (5.8ft)
-    // The 2.0ft crossing occurs around 16:28, the 4.0ft crossing around 18:30
+    // Tide schedule: Low at 14:47 UTC (6:47am PT), High at 20:52 UTC (12:52pm PT)
+    // The 2.0ft crossing occurs around 15:50 UTC (~7:50am PT), the 4.0ft crossing around 18:29 UTC (~10:29am PT)
     const tideSchedule = [
       { time: Math.floor(new Date('2024-01-15T14:47:00Z').getTime() / 1000), height: 1.2, type: 'low' as const },
       { time: Math.floor(new Date('2024-01-15T20:52:00Z').getTime() / 1000), height: 5.8, type: 'high' as const },
     ];
 
-    // Forecast starts at 15:00 (7am PST) - BEFORE the 2.0ft crossing at ~16:28
+    // Forecast starts at 7am PT (local) - BEFORE the 2.0ft crossing at ~7:50am PT
     const forecasts = [
       createForecast({
         id: 'forecast-with-tide',
         forecast_date: '2024-01-15',
-        forecast_time: '15:00', // 7am PST - before 2.0ft crossing
+        forecast_time: '07:00', // 7am PT (local) → 15:00 UTC - before 2.0ft crossing
         wave_height: '4',
         wave_period: '12s',
         tide_height: '1.5', // Tide is still low
@@ -762,7 +762,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       } as any),
     ];
 
-    // Adjust fixed time to be at 15:00 for this test
+    // Adjust fixed time to be at 7am PT = 15:00 UTC for this test
     jest.setSystemTime(new Date('2024-01-15T15:00:00Z'));
 
     const beachWithTidePrefs = {
@@ -844,17 +844,17 @@ describe('selectBestWindow with tide-driven boundaries', () => {
 
   it('should cap tide-driven window at sunset', () => {
     // Tide schedule where tide window would extend past sunset
-    // Rising tide from 2pm to 10pm - but sunset is at 5pm
+    // Rising tide from 2pm PT to 8pm PT - but sunset is at 5pm PT
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T22:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 2pm PST
-      { time: Math.floor(new Date('2024-01-16T04:00:00Z').getTime() / 1000), height: 6.0, type: 'high' as const }, // 8pm PST
+      { time: Math.floor(new Date('2024-01-15T22:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 2pm PT = 22:00 UTC
+      { time: Math.floor(new Date('2024-01-16T04:00:00Z').getTime() / 1000), height: 6.0, type: 'high' as const }, // 8pm PT = 04:00 UTC+1
     ];
 
     const forecasts = [
       createForecast({
         id: 'forecast-late',
         forecast_date: '2024-01-15',
-        forecast_time: '22:30', // 2:30pm PST - rising tide starting
+        forecast_time: '14:30', // 2:30pm PT (local) → 22:30 UTC - rising tide starting
         wave_height: '4',
         wave_period: '12s',
         tide_height: '1.5',
@@ -867,7 +867,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       } as any),
     ];
 
-    // Set time to 2:30pm PST
+    // Set time to 2:30pm PT = 22:30 UTC
     jest.setSystemTime(new Date('2024-01-15T22:30:00Z'));
 
     // Sunset at 5pm PST (01:00 UTC next day)
@@ -962,15 +962,15 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     // Tide schedule with tide window extending past 9am
     // Tide-driven windows should show full duration, not be capped at time slot boundary
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.2, type: 'low' as const }, // 6am PST
-      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 12pm PST
+      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.2, type: 'low' as const }, // 6am PT = 14:00 UTC
+      { time: Math.floor(new Date('2024-01-15T20:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 12pm PT = 20:00 UTC
     ];
 
     const forecasts = [
       createForecast({
         id: 'forecast-morning',
         forecast_date: '2024-01-15',
-        forecast_time: '15:00', // 7am PST - rising tide
+        forecast_time: '07:00', // 7am PT (local) → 15:00 UTC - rising tide
         wave_height: '4',
         wave_period: '12s',
         tide_height: '2.0',
@@ -983,7 +983,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       } as any),
     ];
 
-    // Set time to 7am PST
+    // Set time to 7am PT = 15:00 UTC
     jest.setSystemTime(new Date('2024-01-15T15:00:00Z'));
 
     const beachWithTidePrefs = {
@@ -1329,19 +1329,19 @@ describe('selectBestWindow time slot with tide boundaries', () => {
   });
 
   it('should show tide-driven boundaries for lunch-session slot (not hourly)', () => {
-    // Tide: low at 10am PST (1.0ft), high at 4pm PST (5.5ft)
+    // Tide: low at 10am PT (1.0ft) = 18:00 UTC, high at 4pm PT (5.5ft) = 00:00 UTC+1
     // Preferred range 2.0-4.0ft - crossings will span the lunch session window
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T18:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 10am PST
-      { time: Math.floor(new Date('2024-01-16T00:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 4pm PST
+      { time: Math.floor(new Date('2024-01-15T18:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 10am PT = 18:00 UTC
+      { time: Math.floor(new Date('2024-01-16T00:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 4pm PT = 00:00 UTC+1
     ];
 
-    // Forecast at 11am PST - within lunch session window
+    // Forecast at 11am PT (local) - within lunch session window
     const forecasts = [
       createForecast({
         id: 'forecast-lunch',
         forecast_date: '2024-01-15',
-        forecast_time: '19:00', // 11am PST
+        forecast_time: '11:00', // 11am PT (local) → 19:00 UTC
         wave_height: '4',
         wave_period: '12s',
         tide_height: '1.5',
@@ -1378,17 +1378,17 @@ describe('selectBestWindow time slot with tide boundaries', () => {
 
   it('should show full tide window even if it extends past time slot', () => {
     // Tide window that starts in lunch session but extends PAST 2pm
-    // High tide at 4pm PST (10 hours after 6am low) means 4.5ft crossing is around 12:48pm PST
+    // High tide at 4pm PT (10 hours after 6am low) means 4.5ft crossing is around 12:48pm PT
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 6am PST
-      { time: Math.floor(new Date('2024-01-16T00:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 4pm PST
+      { time: Math.floor(new Date('2024-01-15T14:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 6am PT = 14:00 UTC
+      { time: Math.floor(new Date('2024-01-16T00:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 4pm PT = 00:00 UTC+1
     ];
 
     const forecasts = [
       createForecast({
         id: 'forecast-morning-extended',
         forecast_date: '2024-01-15',
-        forecast_time: '19:00', // 11am PST - within lunch-session window
+        forecast_time: '11:00', // 11am PT (local) → 19:00 UTC - within lunch-session window
         wave_height: '4',
         wave_period: '12s',
         tide_height: '2.5',
@@ -1401,7 +1401,7 @@ describe('selectBestWindow time slot with tide boundaries', () => {
       } as any),
     ];
 
-    // Set time to 11am PST (start of lunch session)
+    // Set time to 11am PT = 19:00 UTC (start of lunch session)
     jest.setSystemTime(new Date('2024-01-15T19:00:00Z'));
 
     const beachWithTidePrefs = {
@@ -1435,19 +1435,19 @@ describe('selectBestWindow time slot with tide boundaries', () => {
   });
 
   it('should show tide-driven boundaries for afternoon slot', () => {
-    // Tide: low at 1pm PST (1.0ft), high at 7pm PST (5.5ft)
+    // Tide: low at 1pm PT (1.0ft) = 21:00 UTC, high at 7pm PT (5.5ft) = 03:00 UTC+1
     // Preferred range 2.0-4.0ft - crossings will be AFTER 2pm forecast
     const tideSchedule = [
-      { time: Math.floor(new Date('2024-01-15T21:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 1pm PST
-      { time: Math.floor(new Date('2024-01-16T03:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 7pm PST
+      { time: Math.floor(new Date('2024-01-15T21:00:00Z').getTime() / 1000), height: 1.0, type: 'low' as const }, // 1pm PT = 21:00 UTC
+      { time: Math.floor(new Date('2024-01-16T03:00:00Z').getTime() / 1000), height: 5.5, type: 'high' as const }, // 7pm PT = 03:00 UTC+1
     ];
 
-    // Forecast at 2pm PST - within the afternoon slot (2pm-6pm)
+    // Forecast at 2pm PT (local) - within the afternoon slot (2pm-6pm)
     const forecasts = [
       createForecast({
         id: 'forecast-afternoon',
         forecast_date: '2024-01-15',
-        forecast_time: '22:00', // 2pm PST
+        forecast_time: '14:00', // 2pm PT (local) → 22:00 UTC
         wave_height: '4',
         wave_period: '12s',
         tide_height: '1.5',
@@ -1460,7 +1460,7 @@ describe('selectBestWindow time slot with tide boundaries', () => {
       } as any),
     ];
 
-    jest.setSystemTime(new Date('2024-01-15T22:00:00Z')); // 2pm PST
+    jest.setSystemTime(new Date('2024-01-15T22:00:00Z')); // 2pm PT = 22:00 UTC
 
     const beachWithTidePrefs = {
       ...mockBeach,
@@ -1653,12 +1653,12 @@ describe('sub-hour window refinement integration', () => {
   it('produces sub-hour times when light constraints trim the window', () => {
     // Test that sunset constraints cause sub-hour end time refinement
 
-    // Forecasts spanning 2pm to 6pm PST
+    // Forecasts spanning 2pm to 5pm PT (local times)
     const forecasts = [
       createForecast({
         id: 'forecast-1400',
         forecast_date: '2024-01-15',
-        forecast_time: '22:00', // 2pm PST
+        forecast_time: '14:00', // 2pm PT (local) → 22:00 UTC
         wave_height: '4',
         wave_period: '12s',
         tide_height: '3.0',
@@ -1668,7 +1668,7 @@ describe('sub-hour window refinement integration', () => {
       createForecast({
         id: 'forecast-1500',
         forecast_date: '2024-01-15',
-        forecast_time: '23:00', // 3pm PST
+        forecast_time: '15:00', // 3pm PT (local) → 23:00 UTC
         wave_height: '4',
         wave_period: '12s',
         tide_height: '2.8',
@@ -1677,8 +1677,8 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1600',
-        forecast_date: '2024-01-16',
-        forecast_time: '00:00', // 4pm PST
+        forecast_date: '2024-01-15',
+        forecast_time: '16:00', // 4pm PT (local) → 00:00 UTC Jan 16
         wave_height: '4',
         wave_period: '12s',
         tide_height: '2.5',
@@ -1687,8 +1687,8 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1700',
-        forecast_date: '2024-01-16',
-        forecast_time: '01:00', // 5pm PST
+        forecast_date: '2024-01-15',
+        forecast_time: '17:00', // 5pm PT (local) → 01:00 UTC Jan 16
         wave_height: '4',
         wave_period: '12s',
         tide_height: '2.2',
@@ -1697,7 +1697,7 @@ describe('sub-hour window refinement integration', () => {
       }),
     ];
 
-    // Set system time to 2pm PST
+    // Set system time to 2pm PT = 22:00 UTC
     jest.setSystemTime(new Date('2024-01-15T22:00:00Z'));
 
     // Sunset at 4:45pm PST (00:45 UTC next day) - creates sub-hour constraint

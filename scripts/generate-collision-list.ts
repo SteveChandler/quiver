@@ -45,6 +45,12 @@ async function main() {
   for (const slug of sorted) {
     console.log(`  "${slug}",`);
   }
+  console.log(`]);\n`);
+
+  console.log(`export const COLLISION_CITY_MAP = new Map<string, number>([`);
+  for (const slug of sorted) {
+    console.log(`  ["${slug}", ${collisions.get(slug)}],`);
+  }
   console.log(`]);`);
 }
 

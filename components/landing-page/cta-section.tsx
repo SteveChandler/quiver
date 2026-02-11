@@ -5,9 +5,14 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
+import { useAuth } from "@/context/auth-context";
 
 export function CTASection() {
   const searchParams = useSearchParams();
+  const { user, isLoading } = useAuth();
+
+  // Don't render for authenticated users (show during loading to avoid CLS)
+  if (!isLoading && user) return null;
 
   return (
     <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden">

@@ -1,10 +1,10 @@
 # Supabase Integration Architecture
 
-## 🎯 **PURPOSE**
+## PURPOSE
 
 The `/lib/supabase` directory provides comprehensive Supabase integration utilities, including client configuration, server-side authentication, and file storage management for the Quiver surf community platform.
 
-## 📁 **DIRECTORY STRUCTURE**
+## DIRECTORY STRUCTURE
 
 ```
 lib/supabase/
@@ -14,7 +14,7 @@ lib/supabase/
 └── storage.ts              # File storage utilities and management
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## ARCHITECTURE PATTERNS
 
 ### **Client Separation Pattern**
 
@@ -48,7 +48,23 @@ AuthenticationFlow
 └── Storage → Authenticated Client → File Operations
 ```
 
-## 📊 **COMPONENT RESPONSIBILITIES**
+### **Cookie Interface (`getAll`/`setAll` pattern)**
+
+As of `@supabase/ssr` v0.8.0, all Supabase server clients use the `getAll`/`setAll` cookie interface. The previous `get`/`set`/`remove` interface is deprecated and has been fully migrated.
+
+**Why `getAll`/`setAll`**: Supabase Auth may store session data across multiple cookies (e.g., chunked tokens). The `getAll`/`setAll` interface ensures all cookie chunks are read and written atomically, preventing session corruption and silent auth failures.
+
+**Affected files (migrated February 2026)**:
+- `lib/supabase/api-server-client.ts` -- both `createAPIServerClient` and `createAPIServerClientWithResponse`
+- `lib/supabase.ts` -- `createServerClient` (guard check changed from `typeof cookieStore.get` to `typeof cookieStore.getAll`)
+- `app/api/auth/[...supabase]/route.ts`
+- `app/api/auth/check-session/route.ts`
+- `app/api/auth/refresh-session/route.ts`
+- `app/api/auth/supabase/resend-confirmation/route.ts`
+- `app/api/plan-session/route.ts`
+- `middleware.ts` (already used `getAll`/`setAll` before the migration)
+
+## COMPONENT RESPONSIBILITIES
 
 ### **client.ts** (Browser Client)
 
@@ -86,7 +102,7 @@ export const createClient = () => {
 
 - **Purpose**: Server-side Supabase client for SSR and server components
 - **Features**:
-  - Cookie-based session management
+  - Cookie-based session management via `getAll`/`setAll`
   - Server-side rendering support
   - Secure server-to-server communication
   - Request context preservation
@@ -96,58 +112,57 @@ export const createClient = () => {
 - **Purpose**: Specialized client for API routes with enhanced security
 - **Features**:
   - API route-specific configuration
-  - Request/response cookie handling
+  - Request/response cookie handling via `getAll`/`setAll`
   - Admin authentication support
   - Configuration validation
 
-**Core API Client:**
+**Core API Client (current `getAll`/`setAll` pattern):**
 
 ```typescript
-export function createAPIServerClient() {
-  return createSupabaseServerClient(
+export async function createAPIServerClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name) {
-          return cookies().get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        set(name, value, options) {
-          cookies().set(name, value, options);
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
         },
-        remove(name, options) {
-          cookies().set(name, "", { ...options, maxAge: 0 });
-        },
-      },
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
       },
     }
   );
 }
 ```
 
-**Request/Response Client:**
+**Request/Response Client (current `getAll`/`setAll` pattern):**
 
 ```typescript
 export function createAPIServerClientWithResponse(
   request: NextRequest,
   response: NextResponse
 ) {
-  return createSupabaseServerClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name, value, options) {
-          response.cookies.set(name, value, options);
-        },
-        remove(name, options) {
-          response.cookies.set(name, "", { ...options, maxAge: 0 });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set({ name, value, ...options })
+          );
         },
       },
     }
@@ -159,7 +174,7 @@ export function createAPIServerClientWithResponse(
 
 ```typescript
 export async function getAuthenticatedAPIClient() {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   try {
     const {
@@ -392,7 +407,7 @@ async function compressImage(file: File): Promise<File> {
 }
 ```
 
-## 🔒 **SECURITY PATTERNS**
+## SECURITY PATTERNS
 
 ### **Configuration Validation**
 
@@ -467,7 +482,7 @@ function validateFile(file: File): { valid: boolean; error?: string } {
 }
 ```
 
-## 🚀 **USAGE PATTERNS**
+## USAGE PATTERNS
 
 ### **Client-Side Usage**
 
@@ -534,7 +549,7 @@ async function ServerComponent() {
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 
 export async function GET() {
-  const supabase = createAPIServerClient();
+  const supabase = await createAPIServerClient();
 
   const {
     data: { user },
@@ -572,7 +587,7 @@ async function handlePhotoUpload(file: File, sessionId: string) {
 }
 ```
 
-## 🧪 **TESTING STRATEGIES**
+## TESTING STRATEGIES
 
 ### **Client Testing**
 
@@ -588,7 +603,7 @@ async function handlePhotoUpload(file: File, sessionId: string) {
 - Test compression functionality
 - Validate error scenarios
 
-## 🔮 **FUTURE ENHANCEMENTS**
+## FUTURE ENHANCEMENTS
 
 ### **Planned Features**
 
@@ -606,7 +621,7 @@ async function handlePhotoUpload(file: File, sessionId: string) {
 - Background sync capabilities
 - Edge function integration
 
-## 🏆 **BEST PRACTICES**
+## BEST PRACTICES
 
 ### **Client Management Guidelines**
 
@@ -615,6 +630,13 @@ async function handlePhotoUpload(file: File, sessionId: string) {
 3. **Error Handling**: Comprehensive error handling across all operations
 4. **Resource Cleanup**: Proper cleanup of subscriptions and connections
 5. **Security**: Validate all inputs and sanitize data
+
+### **Cookie Interface Guidelines**
+
+1. **Always use `getAll`/`setAll`**: The `get`/`set`/`remove` interface is deprecated in `@supabase/ssr` v0.8.0+
+2. **Request/Response pattern**: In `createAPIServerClientWithResponse`, set cookies on both the request (for subsequent reads within the same request) and the response (for the browser)
+3. **Server Components**: `setAll` is a no-op in `lib/supabase.ts` (server components cannot write cookies); API routes use `api-server-client.ts` which does support writes
+4. **Guard check**: `lib/supabase.ts` validates `typeof cookieStore.getAll === "function"` before using the SSR client; falls back to a basic client without cookies otherwise
 
 ### **Storage Management Guidelines**
 
@@ -626,6 +648,6 @@ async function handlePhotoUpload(file: File, sessionId: string) {
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive Supabase integration  
+**Last Updated**: February 2026
+**Status**: Production-ready with comprehensive Supabase integration
 **Next Review**: After CDN integration and advanced image processing

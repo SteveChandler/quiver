@@ -62,18 +62,28 @@ jest.mock("@/lib/utils/beach-faq-utils", () => ({
   generateBeachFAQ: jest.fn().mockReturnValue([]),
 }));
 
+jest.mock("@/actions/beach/beach-location-actions", () => ({
+  getNearbyBeaches: jest.fn().mockResolvedValue({
+    success: true,
+    data: [],
+  }),
+  getAllCitiesWithBeachSkills: jest.fn(),
+}));
+
 function makeBeach(overrides: Partial<Beach>) {
   return {
     id: overrides.id ?? "beach-1",
     name: overrides.name ?? "Test Beach",
     slug: overrides.slug ?? "lowers-trestles",
-    city: overrides.city ?? "Orange County",
+    city: overrides.city ?? "Dana Point",
     state: overrides.state ?? "CA",
     country: overrides.country ?? "USA",
-    lat: overrides.lat ?? 33.0,
-    lon: overrides.lon ?? -117.0,
+    lat: overrides.lat ?? 33.3827,
+    lon: overrides.lon ?? -117.5922,
     created_at: overrides.created_at ?? "2026-01-01T00:00:00Z",
     review_count: overrides.review_count ?? 0,
+    center_lat: overrides.lat ?? 33.3827,
+    center_lng: overrides.lon ?? -117.5922,
     // other Beach fields unused by this page are intentionally omitted for test brevity
   } as unknown as Beach;
 }
@@ -111,7 +121,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
         makeBeach({
           id: "right-match",
           state: "CA",
-          city: "Orange County",
+          city: "Dana Point", // Match the actual city where Lowers Trestles is
           created_at: "2025-12-01T00:00:00Z",
         }),
       ],
@@ -121,7 +131,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     // We don't assert on JSX output here; we just assert it does NOT trigger `notFound()`.
     await expect(
       GenericBeachDetailPage({
-        params: Promise.resolve({ intent: "ca", city: "orange-county", beachSlug: "lowers-trestles" }),
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lowers-trestles" }),
       })
     ).resolves.toBeTruthy();
 

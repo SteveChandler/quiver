@@ -99,6 +99,14 @@
     {
       "path": "/api/cron/ml/retrain",
       "schedule": "0 6 * * 0"
+    },
+    {
+      "path": "/api/cron/conditions-alert-email",
+      "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/session-prompt-email",
+      "schedule": "30 18 * * *"
     }
   ]
 }

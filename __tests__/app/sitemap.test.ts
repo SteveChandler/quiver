@@ -302,24 +302,24 @@ describe("Sitemap Generation", () => {
           { city: "Newport", state: "OR", country: "USA", beachCount: 5, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
           { city: "Newport Beach", state: "CA", country: "USA", beachCount: 10, hasBeginnerBeaches: true, hasAdvancedBeaches: true },
           { city: "Koloa", state: "HI", country: "USA", beachCount: 3, hasBeginnerBeaches: true, hasAdvancedBeaches: false },
-          { city: "Waikoloa", state: "HI", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+          { city: "Waikoloa", state: "HI", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
         ],
       });
 
       const result = await sitemap();
 
-      // "newport" is substring of "newport-beach" → gets state suffix
+      // "newport" is in COLLISION_CITY_SLUGS → gets state suffix
       expect(result.find((r) => r.url === `${baseUrl}/tide/newport-or`)).toBeDefined();
       expect(result.find((r) => r.url === `${baseUrl}/tide/newport`)).toBeUndefined();
 
-      // "newport-beach" is NOT a substring of any other → no suffix needed
+      // "newport-beach" is NOT in collision list → no suffix
       expect(result.find((r) => r.url === `${baseUrl}/tide/newport-beach`)).toBeDefined();
 
-      // "koloa" is substring of "waikoloa" → gets state suffix
+      // "koloa" is in COLLISION_CITY_SLUGS → gets state suffix
       expect(result.find((r) => r.url === `${baseUrl}/tide/koloa-hi`)).toBeDefined();
       expect(result.find((r) => r.url === `${baseUrl}/tide/koloa`)).toBeUndefined();
 
-      // "waikoloa" is NOT a substring of anything else → no suffix needed
+      // "waikoloa" is NOT in collision list → no suffix
       expect(result.find((r) => r.url === `${baseUrl}/tide/waikoloa`)).toBeDefined();
     });
 
@@ -327,20 +327,20 @@ describe("Sitemap Generation", () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { city: "No Skill Data", state: "FL", country: "USA", beachCount: 2, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
+          { city: "No Skill Data", state: "FL", country: "USA", beachCount: 5, hasBeginnerBeaches: false, hasAdvancedBeaches: false },
         ],
       });
 
       const result = await sitemap();
 
-      // Non-skill intents always included
+      // Non-skill intents always included (no state suffix since not in collision list)
       expect(result.find((r) => r.url === `${baseUrl}/tide/no-skill-data`)).toBeDefined();
       expect(result.find((r) => r.url === `${baseUrl}/water-temp/no-skill-data`)).toBeDefined();
       expect(result.find((r) => r.url === `${baseUrl}/least-crowded/no-skill-data`)).toBeDefined();
       expect(result.find((r) => r.url === `${baseUrl}/dawn-patrol/no-skill-data`)).toBeDefined();
       expect(result.find((r) => r.url === `${baseUrl}/sunset/no-skill-data`)).toBeDefined();
 
-      // Skill intents excluded
+      // Skill intents excluded (no beginner beaches)
       expect(result.find((r) => r.url === `${baseUrl}/beginner/no-skill-data`)).toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/longboard/no-skill-data`)).toBeUndefined();
     });
@@ -431,6 +431,8 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
+      // NOTE: Tides/water-temp sub-pages are excluded from sitemap to reduce thin content signals
+      // They are discoverable via internal links on beach detail pages
       const tidesRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs/tides")
       );
@@ -438,8 +440,8 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
       );
 
-      expect(tidesRoute).toBeDefined();
-      expect(waterTempRoute).toBeDefined();
+      expect(tidesRoute).toBeUndefined();
+      expect(waterTempRoute).toBeUndefined();
     });
 
     it("should NOT include tides/water-temp for beaches without hierarchical URLs", async () => {
@@ -553,7 +555,7 @@ describe("Sitemap Generation", () => {
       expect(sunsetRoute).toBeDefined();
     });
 
-    it("should set priority 0.6 for beach routes", async () => {
+    it("should set priority 0.7 for beach routes", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -572,7 +574,7 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
       );
 
-      expect(beachRoute?.priority).toBe(0.6);
+      expect(beachRoute?.priority).toBe(0.7);
     });
 
     it("should set priority 0.55 for beach tides/water-temp routes", async () => {
@@ -590,6 +592,8 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
+
+      // NOTE: Tides/water-temp sub-pages are excluded from sitemap to reduce thin content signals
       const tidesRoute = result.find((r) =>
         r.url.includes("/ca/san-diego/sunset-cliffs/tides")
       );
@@ -597,8 +601,8 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs/water-temp")
       );
 
-      expect(tidesRoute?.priority).toBe(0.55);
-      expect(waterTempRoute?.priority).toBe(0.55);
+      expect(tidesRoute).toBeUndefined();
+      expect(waterTempRoute).toBeUndefined();
     });
 
     it("should use beach updated_at for lastModified", async () => {

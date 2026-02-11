@@ -78,15 +78,16 @@ describe('selectBestWindow with sunset', () => {
   });
 
   it('caps window end at sunset', () => {
-    // Forecasts starting at noon PT (20:00 UTC) through 6pm PT (02:00 UTC next day)
+    // forecast_time is interpreted as LOCAL time (Pacific), not UTC
+    // Forecasts from noon PT through 6pm PT
     const forecasts = [
-      createMockForecast({ forecast_time: '20:00:00' }), // 12pm PT
-      createMockForecast({ forecast_time: '21:00:00' }), // 1pm PT
-      createMockForecast({ forecast_time: '22:00:00' }), // 2pm PT
-      createMockForecast({ forecast_time: '23:00:00' }), // 3pm PT
-      createMockForecast({ forecast_date: '2026-01-14', forecast_time: '00:00:00' }), // 4pm PT
-      createMockForecast({ forecast_date: '2026-01-14', forecast_time: '01:00:00' }), // 5pm PT
-      createMockForecast({ forecast_date: '2026-01-14', forecast_time: '02:00:00' }), // 6pm PT
+      createMockForecast({ forecast_time: '12:00:00' }), // 12pm PT
+      createMockForecast({ forecast_time: '13:00:00' }), // 1pm PT
+      createMockForecast({ forecast_time: '14:00:00' }), // 2pm PT
+      createMockForecast({ forecast_time: '15:00:00' }), // 3pm PT
+      createMockForecast({ forecast_time: '16:00:00' }), // 4pm PT
+      createMockForecast({ forecast_time: '17:00:00' }), // 5pm PT
+      createMockForecast({ forecast_time: '18:00:00' }), // 6pm PT
     ];
 
     const beach = createMockBeach();
@@ -118,8 +119,8 @@ describe('selectBestWindow with sunset', () => {
 
     const forecasts = [
       createMockForecast({
-        forecast_date: '2026-01-14',
-        forecast_time: '00:45:00', // 4:45pm PT, only 20 min before sunset at 5:05pm
+        forecast_date: '2026-01-13',
+        forecast_time: '16:45:00', // 4:45pm PT, only 20 min before sunset at 5:05pm
       }),
     ];
 
@@ -138,9 +139,9 @@ describe('selectBestWindow with sunset', () => {
   });
 
   it('works without sunset cache (backwards compatible)', () => {
-    // Forecast at 1pm PT = 21:00 UTC (after "now" at 10am PT)
+    // Forecast at 1pm PT (after "now" at 10am PT)
     const forecasts = [
-      createMockForecast({ forecast_time: '21:00:00' }), // 1pm PT (valid daytime)
+      createMockForecast({ forecast_time: '13:00:00' }), // 1pm PT (valid daytime)
     ];
 
     const beach = createMockBeach();
@@ -149,6 +150,7 @@ describe('selectBestWindow with sunset', () => {
     const result = selectBestWindow(forecasts, beach, null, 24);
 
     expect(result).not.toBeNull();
+    // 1pm PST (13:00 local) = 21:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T21:00:00Z'));
   });
 
@@ -156,7 +158,7 @@ describe('selectBestWindow with sunset', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT, 5+ hours before 5:05pm sunset
+        forecast_time: '12:00:00', // 12pm PT, 5+ hours before 5:05pm sunset
       }),
     ];
 
@@ -171,6 +173,7 @@ describe('selectBestWindow with sunset', () => {
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
 
     expect(result).not.toBeNull();
+    // 12pm PST = 20:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T20:00:00Z'));
   });
 
@@ -184,22 +187,22 @@ describe('selectBestWindow with sunset', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT
+        forecast_time: '12:00:00', // 12pm PT
         wind_speed: '5', // Light wind = good score ~63
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '21:00:00', // 1pm PT
+        forecast_time: '13:00:00', // 1pm PT
         wind_speed: '5', // Good
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '22:00:00', // 2pm PT
+        forecast_time: '14:00:00', // 2pm PT
         wind_speed: '5', // Good
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '23:00:00', // 3pm PT
+        forecast_time: '15:00:00', // 3pm PT
         wind_speed: '25', // Strong wind = poor score ~48 (below 50)
       }),
     ];
@@ -210,29 +213,29 @@ describe('selectBestWindow with sunset', () => {
     const result = selectBestWindow(forecasts, beach, null, 24);
 
     expect(result).not.toBeNull();
-    // Window should start at 12pm
+    // Window should start at 12pm PST = 20:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T20:00:00Z'));
     // Window end should be interpolated between 2pm and 3pm when conditions degrade
     // The exact time depends on the interpolation formula
     const endTime = result!.end.getTime();
-    const threepm = new Date('2026-01-13T23:00:00Z').getTime();
+    const threepm = new Date('2026-01-13T23:00:00Z').getTime(); // 3pm PST = 23:00 UTC
     // End time should be at or before 3pm (when conditions become poor)
     expect(endTime).toBeLessThanOrEqual(threepm);
     // End time should be at or after 2pm (still had good conditions)
     // Note: Sub-hour refinement floor-snaps to 15-minute boundaries, so end may be exactly 2pm
-    const twopm = new Date('2026-01-13T22:00:00Z').getTime();
+    const twopm = new Date('2026-01-13T22:00:00Z').getTime(); // 2pm PST = 22:00 UTC
     expect(endTime).toBeGreaterThanOrEqual(twopm);
   });
 
   it('respects MAX_WINDOW_HOURS cap', () => {
     // All forecasts have good conditions
     const forecasts = [
-      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '19:00:00' }), // 11am PT
-      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '20:00:00' }), // 12pm PT
-      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '21:00:00' }), // 1pm PT
-      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '22:00:00' }), // 2pm PT
-      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '23:00:00' }), // 3pm PT
-      createMockForecast({ forecast_date: '2026-01-14', forecast_time: '00:00:00' }), // 4pm PT
+      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '11:00:00' }), // 11am PT
+      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '12:00:00' }), // 12pm PT
+      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '13:00:00' }), // 1pm PT
+      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '14:00:00' }), // 2pm PT
+      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '15:00:00' }), // 3pm PT
+      createMockForecast({ forecast_date: '2026-01-13', forecast_time: '16:00:00' }), // 4pm PT
     ];
 
     const beach = createMockBeach();
@@ -261,11 +264,11 @@ describe('selectBestWindow with sunset', () => {
   });
 
   it('returns null when all forecasts are in the past (beyond lookback)', () => {
-    // Now is 10am PT (18:00 UTC). With 3-hour lookback, anything before 7am PT (15:00 UTC) is too old.
+    // Now is 10am PT (18:00 UTC). With 3-hour lookback, anything before 7am PT is too old.
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '14:00:00', // 6am PT, more than 3 hours before "now" at 10am PT
+        forecast_time: '06:00:00', // 6am PT, more than 3 hours before "now" at 10am PT
       }),
     ];
 
@@ -295,16 +298,16 @@ describe('selectBestWindow with lookback (current window)', () => {
   });
 
   it('includes window that started within last 3 hours', () => {
-    // Forecast at 9am PT (17:00 UTC) - started 20 minutes ago
+    // Forecast at 9am PT - started 20 minutes ago
     // Should still be eligible since it's within 3-hour lookback
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '17:00:00', // 9am PT, 20 min ago
+        forecast_time: '09:00:00', // 9am PT
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT, 2h 40min away
+        forecast_time: '12:00:00', // 12pm PT, 2h 40min away
       }),
     ];
 
@@ -313,6 +316,7 @@ describe('selectBestWindow with lookback (current window)', () => {
 
     expect(result).not.toBeNull();
     // Should select the 9am window (underway) because of underway bonus
+    // 9am PST = 17:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T17:00:00Z'));
   });
 
@@ -323,11 +327,11 @@ describe('selectBestWindow with lookback (current window)', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '17:00:00', // 9am PT, 4 hours ago - should be excluded
+        forecast_time: '09:00:00', // 9am PT, 4 hours ago - should be excluded
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '22:00:00', // 2pm PT, 1 hour away
+        forecast_time: '14:00:00', // 2pm PT, 1 hour away
       }),
     ];
 
@@ -336,6 +340,7 @@ describe('selectBestWindow with lookback (current window)', () => {
 
     expect(result).not.toBeNull();
     // Should select 2pm (the 9am is too old)
+    // 2pm PST = 22:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T22:00:00Z'));
   });
 
@@ -344,11 +349,11 @@ describe('selectBestWindow with lookback (current window)', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '16:20:00', // 8:20am PT, 1 hour ago
+        forecast_time: '08:20:00', // 8:20am PT, 1 hour ago
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT, 2h 40min away
+        forecast_time: '12:00:00', // 12pm PT, 2h 40min away
       }),
     ];
 
@@ -381,13 +386,13 @@ describe('selectBestWindow time priority bonuses', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '19:00:00', // 11am PT, 1h away - gets +8 soon bonus
+        forecast_time: '11:00:00', // 11am PT, 1h away - gets +8 soon bonus
         wave_height: '4.0',
         wind_speed: '8',
       }),
       createMockForecast({
-        forecast_date: '2026-01-14',
-        forecast_time: '02:00:00', // 6pm PT, 8h away - no soon bonus
+        forecast_date: '2026-01-13',
+        forecast_time: '18:00:00', // 6pm PT, 8h away - no soon bonus
         wave_height: '4.5',        // Slightly better
         wind_speed: '6',           // Slightly better
       }),
@@ -398,6 +403,7 @@ describe('selectBestWindow time priority bonuses', () => {
 
     expect(result).not.toBeNull();
     // 11am should win due to soon bonus overcoming small condition difference
+    // 11am PST = 19:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T19:00:00Z'));
   });
 
@@ -406,12 +412,12 @@ describe('selectBestWindow time priority bonuses', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '17:30:00', // 9:30am PT, 30 min ago - gets underway bonus
+        forecast_time: '09:30:00', // 9:30am PT, 30 min ago - gets underway bonus
         wave_height: '4.0',
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT, 2h away
+        forecast_time: '12:00:00', // 12pm PT, 2h away
         wave_height: '4.0',        // Same conditions
       }),
     ];
@@ -421,6 +427,7 @@ describe('selectBestWindow time priority bonuses', () => {
 
     expect(result).not.toBeNull();
     // Underway window should win
+    // 9:30am PST = 17:30 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T17:30:00Z'));
   });
 
@@ -430,17 +437,17 @@ describe('selectBestWindow time priority bonuses', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT today, 2h away
+        forecast_time: '12:00:00', // 12pm PT today, 2h away
         wave_height: '3.5',        // Decent
         wind_speed: '10',
       }),
       createMockForecast({
-        forecast_date: '2026-01-14',
-        forecast_time: '06:00:00', // 10pm PT, 12h away (note: filtered by night check)
+        forecast_date: '2026-01-13',
+        forecast_time: '22:00:00', // 10pm PT, 12h away (note: filtered by night check)
       }),
       createMockForecast({
         forecast_date: '2026-01-14',
-        forecast_time: '16:00:00', // 8am PT tomorrow, 22h away
+        forecast_time: '08:00:00', // 8am PT tomorrow, 22h away
         wave_height: '4.5',        // Better
         wind_speed: '7',           // Better
       }),
@@ -453,6 +460,7 @@ describe('selectBestWindow time priority bonuses', () => {
     // Today 12pm should win despite worse conditions
     // Today: ~58 base + 8 soon - 2 decay = ~64
     // Tomorrow 8am: ~65 base + 0 bonus - 22 decay = ~43
+    // 12pm PST = 20:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-13T20:00:00Z'));
   });
 });
@@ -485,19 +493,19 @@ describe('selectBestWindow local date boundary', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '23:00:00', // 3pm PT on Jan 13 local - GOOD
+        forecast_time: '15:00:00', // 3pm PT on Jan 13 local - GOOD
         wave_height: '4.0',
         wind_speed: '5',
       }),
       createMockForecast({
-        forecast_date: '2026-01-14', // UTC date flipped!
-        forecast_time: '00:00:00', // 4pm PT - still Jan 13 local - GOOD
+        forecast_date: '2026-01-13',
+        forecast_time: '16:00:00', // 4pm PT - still Jan 13 local - GOOD
         wave_height: '4.0',
         wind_speed: '5',
       }),
       createMockForecast({
-        forecast_date: '2026-01-14',
-        forecast_time: '01:00:00', // 5pm PT - still Jan 13 local - BAD (triggers interpolation)
+        forecast_date: '2026-01-13',
+        forecast_time: '17:00:00', // 5pm PT - still Jan 13 local - BAD (triggers interpolation)
         wave_height: '4.0',
         wind_speed: '25', // Strong wind = poor score below threshold
       }),
@@ -563,7 +571,7 @@ describe('selectBestWindow threshold consistency', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '17:00:00', // 9am PT
+        forecast_time: '09:00:00', // 9am PT
         wave_height: '1.5',        // Out of 2-6ft range = 10pts
         wave_period: '8s',         // Below 9s = 5pts
         wind_speed: '8',           // Light wind = 15pts
@@ -571,7 +579,7 @@ describe('selectBestWindow threshold consistency', () => {
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '18:00:00', // 10am PT
+        forecast_time: '10:00:00', // 10am PT
         wave_height: '1.5',        // Same conditions = 38pts
         wave_period: '8s',
         wind_speed: '8',
@@ -579,7 +587,7 @@ describe('selectBestWindow threshold consistency', () => {
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '19:00:00', // 11am PT
+        forecast_time: '11:00:00', // 11am PT
         wave_height: '1.5',        // Same conditions = 38pts
         wave_period: '8s',
         wind_speed: '8',
@@ -620,7 +628,7 @@ describe('selectBestWindow threshold consistency', () => {
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '17:00:00', // 9am PT - DECENT
+        forecast_time: '09:00:00', // 9am PT - DECENT
         wave_height: '2.0',
         wave_period: '9s',
         wind_speed: '8',
@@ -628,7 +636,7 @@ describe('selectBestWindow threshold consistency', () => {
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '18:00:00', // 10am PT - DECENT
+        forecast_time: '10:00:00', // 10am PT - DECENT
         wave_height: '2.0',
         wave_period: '9s',
         wind_speed: '8',
@@ -636,7 +644,7 @@ describe('selectBestWindow threshold consistency', () => {
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '19:00:00', // 11am PT - VERY POOR (should be well below 40)
+        forecast_time: '11:00:00', // 11am PT - VERY POOR (should be well below 40)
         wave_height: '0.5',        // Flat
         wave_period: '4s',         // Very short/choppy
         wind_speed: '25',          // Very strong wind
@@ -644,7 +652,7 @@ describe('selectBestWindow threshold consistency', () => {
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
-        forecast_time: '20:00:00', // 12pm PT - VERY POOR
+        forecast_time: '12:00:00', // 12pm PT - VERY POOR
         wave_height: '0.5',
         wave_period: '4s',
         wind_speed: '25',
@@ -703,8 +711,8 @@ describe('selectBestWindow with stale sunset data', () => {
 
     const forecasts = [
       createMockForecast({
-        forecast_date: '2026-01-19', // 6pm PT = 02:00 UTC Jan 19
-        forecast_time: '02:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '18:00:00', // 6pm PT on Jan 18
       }),
     ];
 
@@ -736,8 +744,8 @@ describe('selectBestWindow with stale sunset data', () => {
     // Same stale data scenario, but with a 3pm forecast (before 6pm cutoff)
     const forecasts = [
       createMockForecast({
-        forecast_date: '2026-01-18', // 3pm PT = 23:00 UTC Jan 18
-        forecast_time: '23:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '15:00:00', // 3pm PT on Jan 18
       }),
     ];
 
@@ -759,6 +767,7 @@ describe('selectBestWindow with stale sunset data', () => {
 
     // Should return the 3pm forecast because it's before 6pm cutoff
     expect(result).not.toBeNull();
+    // 3pm PST = 23:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-18T23:00:00Z'));
   });
 
@@ -766,12 +775,12 @@ describe('selectBestWindow with stale sunset data', () => {
     // When sunset data exists for the forecast's date, use it properly
     const forecasts = [
       createMockForecast({
-        forecast_date: '2026-01-18', // 3pm PT = 23:00 UTC Jan 18
-        forecast_time: '23:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '15:00:00', // 3pm PT on Jan 18
       }),
       createMockForecast({
-        forecast_date: '2026-01-19', // 6pm PT = 02:00 UTC Jan 19
-        forecast_time: '02:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '18:00:00', // 6pm PT on Jan 18
       }),
     ];
 
@@ -809,16 +818,16 @@ describe('selectBestWindow with stale sunset data', () => {
 
     const forecasts = [
       createMockForecast({
-        forecast_date: '2026-01-18', // 3pm PT = 23:00 UTC Jan 18
-        forecast_time: '23:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '15:00:00', // 3pm PT on Jan 18
       }),
       createMockForecast({
-        forecast_date: '2026-01-19', // 4pm PT = 00:00 UTC Jan 19
-        forecast_time: '00:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '16:00:00', // 4pm PT on Jan 18
       }),
       createMockForecast({
-        forecast_date: '2026-01-19', // 5pm PT = 01:00 UTC Jan 19
-        forecast_time: '01:00:00',
+        forecast_date: '2026-01-18',
+        forecast_time: '17:00:00', // 5pm PT on Jan 18
       }),
     ];
 
@@ -841,10 +850,11 @@ describe('selectBestWindow with stale sunset data', () => {
     const result = selectBestWindow(forecasts, beach, null, 24, sunTimesCache);
 
     expect(result).not.toBeNull();
+    // 3pm PST = 23:00 UTC
     expect(result!.start).toEqual(new Date('2026-01-18T23:00:00Z')); // 3pm PT
 
-    // Window end should be capped at 6pm PT (02:00 UTC Jan 19)
-    // NOT 7pm PT (03:00 UTC Jan 19) which would be 3pm + 4hr MAX_WINDOW
+    // Window end should be capped at 6pm PT (6pm PST = 02:00 UTC next day)
+    // NOT 7pm PT which would be 3pm + 4hr MAX_WINDOW
     const sixPmPT = new Date('2026-01-19T02:00:00Z').getTime();
     expect(result!.end.getTime()).toBeLessThanOrEqual(sixPmPT);
   });

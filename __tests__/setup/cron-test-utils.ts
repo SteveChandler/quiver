@@ -904,6 +904,82 @@ export function createApiUtilsMocks() {
 }
 
 // ============================================================================
+// Email Testing Utilities
+// ============================================================================
+
+/**
+ * Creates a mock for the Resend mailer client.
+ * Replaces the (global as any).__mockEmailsSend pattern with a clean approach.
+ *
+ * Usage in jest.mock factory (module scope):
+ * ```typescript
+ * const { mockSend, mailerMock } = createResendMailerMock();
+ * jest.mock("@/lib/mailer/client", () => mailerMock);
+ * ```
+ */
+export function createResendMailerMock() {
+  const mockSend = jest.fn();
+  const mailerMock = {
+    resend: {
+      emails: {
+        send: mockSend,
+      },
+    },
+    MAIL_FROM: "Quiver <test@quiversurf.app>",
+    MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
+    getBaseUrl: () => "https://quiversurf.app",
+  };
+  return { mockSend, mailerMock };
+}
+
+/**
+ * Creates a mock for the email logging service.
+ */
+export function createEmailLoggingMock() {
+  const mockLogger = {
+    logDelivery: jest.fn().mockResolvedValue(undefined),
+    logEmailSent: jest.fn(),
+    logEmailFailed: jest.fn(),
+  };
+  const factory = jest.fn(() => mockLogger);
+  return { mockLogger, factory };
+}
+
+/**
+ * Creates a mock for the Resend rate limiter.
+ */
+export function createRateLimiterMock() {
+  const mockThrottle = jest.fn().mockResolvedValue(undefined);
+  const factory = jest.fn(() => ({
+    throttle: mockThrottle,
+    waitForSlot: jest.fn().mockResolvedValue(undefined),
+  }));
+  return { mockThrottle, factory };
+}
+
+/**
+ * Shared mock for email formatters used across cron + email template tests.
+ */
+export function mockEmailFormatters() {
+  jest.mock("@/lib/email/email-formatters", () => ({
+    formatDatabaseTime: jest.fn((time: string) => {
+      if (!time) return null;
+      const parts = time.split(":");
+      const hours = parseInt(parts[0], 10);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const displayHour = hours > 12 ? hours - 12 : hours || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    }),
+    getConditionLabel: jest.fn((score: number) => {
+      if (score >= 9) return { label: "Perfect", color: "#10b981", emoji: "🔥" };
+      if (score >= 8) return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
+      return { label: "Good", color: "#22c55e", emoji: "🌊" };
+    }),
+  }));
+}
+
+// ============================================================================
 // Export All
 // ============================================================================
 

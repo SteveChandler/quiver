@@ -77,6 +77,14 @@ export function AuthAwareLandingWrapper() {
 }
 ```
 
+### Returning-User Auto-Login (`autoOpenLogin` prop)
+
+`LandingPage` accepts an optional `autoOpenLogin?: boolean` prop, which is forwarded to `Navbar`. When `true`, `Navbar` auto-opens the `UnifiedAuthModal` in login mode on first mount (guarded by a `hasAutoOpened` ref to prevent re-triggering).
+
+The prop originates from `app/client-app.tsx`, which reads the `quiver_returning_user` localStorage flag set by `AuthProvider` on successful sign-in. This creates a low-friction re-authentication flow for returning users whose sessions have expired.
+
+**Prop chain**: `ClientApp` (reads localStorage) -> `LandingPage({ autoOpenLogin })` -> `Navbar({ autoOpenLogin })` -> opens `UnifiedAuthModal`
+
 **Architecture Decisions:**
 
 1. **Server Components for Static Content**
@@ -1110,6 +1118,6 @@ While the landing page removed framer-motion for performance (bundle reduction),
 
 ---
 
-**Last Updated:** December 2025
+\*\*Last Updated:\*\* February 2026
 **Maintainer:** Engineering Team
 **Next Review:** February 2026

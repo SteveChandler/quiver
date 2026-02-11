@@ -61,7 +61,7 @@ export function ReengagementEmail({
   const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
   const displayScore = scoreToDisplayPercent(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
-  const logSessionUrl = `${baseUrl}/sessions/log?beach=${beachSlug}`;
+  const logSessionUrl = `${baseUrl}/sessions/new?mode=log`;
 
   return (
     <div

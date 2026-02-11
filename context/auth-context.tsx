@@ -214,6 +214,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 localStorage.removeItem("auth_redirect_path");
               }
 
+              // Mark user as returning for future session recovery
+              localStorage.setItem("quiver_returning_user", "true");
+
               // Handle pending signup metadata from OAuth flow
               // Only apply if this is a fresh signup (created within last 60 seconds)
               const pendingMetadata = sessionStorage.getItem(

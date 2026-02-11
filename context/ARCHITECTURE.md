@@ -150,6 +150,16 @@ try {
 }
 ```
 
+### **Returning-User Auto-Login Prompt**
+
+When a user signs in successfully, the `onAuthStateChange` listener in `AuthProvider` sets `localStorage.setItem("quiver_returning_user", "true")`. This flag persists across sessions and is intentionally NOT cleared on sign-out (the user still has an account).
+
+**Consumer**: `app/client-app.tsx` reads this flag on mount via `useState`/`useEffect` and passes `autoOpenLogin={true}` through `LandingPage` to `Navbar`, which auto-opens the `UnifiedAuthModal` in login mode.
+
+**Guard**: `Navbar` uses a `hasAutoOpened` ref to prevent the modal from re-opening on subsequent renders or hot reloads.
+
+**Prop flow**: `ClientApp` -> `LandingPage({ autoOpenLogin })` -> `Navbar({ autoOpenLogin })` -> `UnifiedAuthModal`
+
 ## 🚀 **PERFORMANCE OPTIMIZATIONS**
 
 ### **Memory Management**
@@ -370,6 +380,6 @@ useEffect(() => {
 
 ---
 
-**Last Updated**: January 2025  
+\*\*Last Updated\*\*: February 2026  
 **Status**: Production-ready with comprehensive authentication management  
 **Next Review**: After multi-factor authentication implementation

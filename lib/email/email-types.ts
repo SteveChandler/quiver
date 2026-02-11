@@ -29,3 +29,36 @@ export interface ReengagementCandidate {
   best_window_end: string | null;
   recommendation: string | null;
 }
+
+/**
+ * Conditions alert email candidate returned by get_conditions_alert_candidates RPC.
+ */
+export interface ConditionsAlertCandidate {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  home_beach_id: string;
+  beach_name: string;
+  beach_slug: string;
+  conditions_score: number;
+  surf_description: string | null;
+  wind_description: string | null;
+  best_window_start: string | null;
+  best_window_end: string | null;
+  recommendation: string | null;
+}
+
+/**
+ * Session prompt email candidate returned by get_session_prompt_candidates RPC.
+ */
+export interface SessionPromptCandidate {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  home_beach_id: string;
+  beach_name: string;
+  beach_slug: string;
+  conditions_score: number;
+  surf_description: string | null;
+  wind_description: string | null;
+}

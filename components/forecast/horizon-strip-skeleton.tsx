@@ -25,7 +25,7 @@ export function HorizonStripSkeleton({ count = 7 }: HorizonStripSkeletonProps) {
         <div
           key={index}
           className={cn(
-            "flex-shrink-0 w-[72px] h-[88px] rounded-xl",
+            "flex-shrink-0 sm:flex-1 sm:min-w-0 w-[72px] sm:w-auto h-[88px] rounded-xl",
             "bg-slate-100 border-2 border-slate-200",
             "flex flex-col items-center justify-between p-2",
             "animate-pulse"

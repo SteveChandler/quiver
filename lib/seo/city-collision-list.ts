@@ -8,10 +8,23 @@
  * Generated from production beach data using detectCityCollisions().
  * Re-generate with: npx tsx scripts/generate-collision-list.ts
  *
- * Last updated: 2026-02-08
+ * Last updated: 2026-02-10
  */
-export const COLLISION_CITY_SLUGS = new Set([
-  "koloa",       // HI - substring collision in ILIKE lookup (matches waikoloa)
-  "long-beach",  // CA, NY, WA
-  "newport",     // OR - substring of newport-beach, newport-coast
+/**
+ * Static collision map matching the output of detectCityCollisions().
+ * Maps slugified city name → number of states (or 2 for substring collisions).
+ *
+ * Used by sitemap, intent pages, and redirect handlers to build correct
+ * canonical URLs without a runtime database query.
+ */
+export const COLLISION_CITY_MAP = new Map<string, number>([
+  ["koloa", 2],       // HI - substring collision (matches waikoloa)
+  ["long-beach", 3],  // CA, NY, WA
+  ["newport", 2],     // OR - substring of newport-beach, newport-coast
 ]);
+
+/**
+ * Set of city slugs that collide — derived from COLLISION_CITY_MAP.
+ * Use for O(1) has() checks. Use the Map when count values are needed.
+ */
+export const COLLISION_CITY_SLUGS = new Set(COLLISION_CITY_MAP.keys());

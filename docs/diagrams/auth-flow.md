@@ -5,7 +5,7 @@
 **Audience**: Security team, backend developers, architects
 
 **Created**: October 28, 2025
-**Last Updated**: October 28, 2025
+**Last Updated**: February 2026
 
 ---
 
@@ -276,31 +276,26 @@ graph TB
 **Implementation**: `lib/supabase/client.ts`
 
 ```typescript
-export const createClient = () => {
-  return createBrowserClient(
+// Browser client - @supabase/ssr manages cookies internally
+export const createBrowserClient = () => {
+  return createSupabaseBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookies: {
-        get(name: string) {
-          return getCookie(name);
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          setCookie(name, value, options);
-        },
-        remove(name: string, options: CookieOptions) {
-          deleteCookie(name, options);
-        },
-      },
       auth: {
-        autoRefreshToken: true, // Auto-refresh when expiring
-        persistSession: true, // Persist across browser sessions
+        autoRefreshToken: true,  // Auto-refresh when expiring
+        persistSession: true,    // Persist across browser sessions
         detectSessionInUrl: true, // Handle OAuth callbacks
+        flowType: "pkce",
       },
     }
   );
 };
 ```
+
+> **Note**: The browser client does not require explicit `cookies` configuration.
+> `@supabase/ssr` v0.8.0+ manages browser cookies internally. Only server-side
+> clients (`createServerClient`) need explicit `getAll`/`setAll` cookie handlers.
 
 ---
 
@@ -482,14 +477,16 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          response.cookies.delete({ name, ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value)
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set({ name, value, ...options })
+          );
         },
       },
     }

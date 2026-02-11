@@ -10,6 +10,8 @@
  * - weekly-recap-email
  * - welcome-email
  * - forecast-digest-email
+ * - conditions-alert-email
+ * - session-prompt-email
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -21,7 +23,9 @@ export type EmailType =
   | "welcome"
   | "forecast_digest"
   | "reengagement"
-  | "weekly_recap";
+  | "weekly_recap"
+  | "conditions_alert"
+  | "session_prompt";
 
 /**
  * Email log entry with all optional fields for flexibility

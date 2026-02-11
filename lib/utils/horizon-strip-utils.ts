@@ -87,6 +87,14 @@ export const TIER_COLORS: Record<ConditionTier, {
   },
 };
 
+/** Hex color values for each tier (for use in Recharts/SVG contexts) */
+export const TIER_COLOR_HEX: Record<ConditionTier, string> = {
+  great: "#f59e0b",
+  good: "#10b981",
+  fair: "#60a5fa",
+  marginal: "#e2e8f0",
+};
+
 /**
  * Get a unified className string for a tier card
  */

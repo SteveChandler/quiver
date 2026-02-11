@@ -37,7 +37,7 @@ export function BeachHero({ beach, mapImageUrl }: BeachHeroProps) {
                 }`}
               />
             ))}
-          <span className="ml-1">(128 reviews)</span>
+          <span className="ml-1">({beach.review_count ?? 0} {(beach.review_count ?? 0) === 1 ? 'review' : 'reviews'})</span>
         </div>
       </div>
     </div>

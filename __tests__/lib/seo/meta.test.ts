@@ -353,7 +353,7 @@ describe("SEO Meta Builder", () => {
           forecast: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Surf Report");
+        expect(result.title).toContain("Surf Conditions");
       });
 
       it("should use fallback title when wave_height is null", () => {

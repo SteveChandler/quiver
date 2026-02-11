@@ -85,7 +85,7 @@ function ProgressiveSection({
   );
 }
 
-export default function LandingPage() {
+export default function LandingPage({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   // Preload critical resources immediately
   useEffect(() => {
     PerformanceUtils.preloadCriticalResources();
@@ -108,7 +108,7 @@ export default function LandingPage() {
       </Link>
 
       {/* Modern Navigation */}
-      <Navbar />
+      <Navbar autoOpenLogin={autoOpenLogin} />
 
       <main role="main">
         {/* Hero Section - Search-Centric */}

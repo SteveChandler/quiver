@@ -352,13 +352,24 @@ export async function withRetry<T>(
  * Log errors with proper context
  */
 export function logError(
-  error: ForecastError,
+  error: ForecastError | Error | unknown,
   additionalContext?: Record<string, any>
 ) {
-  const logData = {
-    ...error.toJSON(),
-    ...additionalContext,
-  };
-
-  console.error(`[ForecastError] ${error.code}: ${error.message}`, logData);
+  if (error instanceof ForecastError) {
+    const logData = {
+      ...error.toJSON(),
+      ...additionalContext,
+    };
+    console.error(`[ForecastError] ${error.code}: ${error.message}`, logData);
+  } else if (error instanceof Error) {
+    const logData = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      ...additionalContext,
+    };
+    console.error(`[Error] ${error.message}`, logData);
+  } else {
+    console.error(`[UnknownError]`, { error, ...additionalContext });
+  }
 }

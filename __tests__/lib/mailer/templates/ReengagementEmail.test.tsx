@@ -83,12 +83,12 @@ describe("ReengagementEmail", () => {
         <ReengagementEmail {...propsWithoutBaseUrl} />
       );
       const logSessionLink = container.querySelector(
-        'a[href*="/sessions/log"]'
+        'a[href*="/sessions/new"]'
       );
 
       expect(logSessionLink).toHaveAttribute(
         "href",
-        "https://quiversurf.app/sessions/log?beach=ocean-beach"
+        "https://quiversurf.app/sessions/new?mode=log"
       );
     });
   });
@@ -340,11 +340,11 @@ describe("ReengagementEmail", () => {
       expect(ctaButton?.textContent).toContain("Check Full Forecast");
     });
 
-    it("should construct logSessionUrl from baseUrl and beachSlug", () => {
+    it("should construct logSessionUrl from baseUrl", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
       const logSessionLink = container.querySelector(
-        'a[href="https://quiversurf.app/sessions/log?beach=ocean-beach"]'
+        'a[href="https://quiversurf.app/sessions/new?mode=log"]'
       );
       expect(logSessionLink).toBeInTheDocument();
       expect(logSessionLink?.textContent).toContain("Log Your Session");
@@ -371,7 +371,7 @@ describe("ReengagementEmail", () => {
       const { container } = render(<ReengagementEmail {...props} />);
 
       const logSessionLink = container.querySelector(
-        'a[href="https://staging.quiversurf.app/sessions/log?beach=ocean-beach"]'
+        'a[href="https://staging.quiversurf.app/sessions/new?mode=log"]'
       );
       expect(logSessionLink).toBeInTheDocument();
     });
@@ -501,8 +501,9 @@ describe("ReengagementEmail", () => {
 
       const { container } = render(<ReengagementEmail {...props} />);
 
+      // Log session URL no longer includes beach slug, just check it exists
       const logSessionLink = container.querySelector(
-        'a[href*="beach=ocean-beach-&-cove"]'
+        'a[href*="/sessions/new?mode=log"]'
       );
       expect(logSessionLink).toBeInTheDocument();
     });

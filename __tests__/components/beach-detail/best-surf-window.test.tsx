@@ -18,6 +18,7 @@ jest.mock("next/navigation", () => ({
 // Mock timezone-utils so forecastDate is always "2024-01-15" (matching mockIntel/mockForecasts)
 jest.mock("@/lib/utils/timezone-utils", () => ({
   DEFAULT_TIMEZONE: "America/Los_Angeles",
+  resolveBeachTimezone: jest.fn((tz?: string | null) => tz || "America/Los_Angeles"),
   getLocalDateString: jest.fn(() => "2024-01-15"),
 }));
 

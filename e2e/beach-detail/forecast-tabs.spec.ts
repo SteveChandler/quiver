@@ -112,16 +112,16 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(todayTab).toHaveAttribute('data-state', 'inactive');
     });
 
-    test('should display forecast table when "Conditions" tab is active', async ({ page }) => {
+    test('should display conditions overview when "Conditions" tab is active', async ({ page }) => {
       const conditionsTab = page.getByRole('tab', { name: /conditions/i });
 
       // Click Conditions tab
       await conditionsTab.click();
       await page.waitForTimeout(500); // Allow tab transition
 
-      // Verify forecast table becomes visible
-      const forecastTable = page.getByRole('table').first();
-      await expect(forecastTable).toBeVisible({ timeout: TIMEOUTS.short });
+      // Verify conditions overview content becomes visible (hero section)
+      const heroSection = page.locator('text=/Best Day This Week/i');
+      await expect(heroSection).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
     test('should return to "Today" tab when clicked after switching', async ({ page }) => {
@@ -332,50 +332,38 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await page.waitForTimeout(500); // Allow tab transition
     });
 
-    test('should render SimplifiedForecastTable component', async ({ page }) => {
-      // Verify forecast table is visible
-      const forecastTable = page.getByRole('table').first();
-      await expect(forecastTable).toBeVisible({ timeout: TIMEOUTS.medium });
+    test('should render Best Day hero section', async ({ page }) => {
+      // The hero card should display with a gradient background
+      const heroSection = page.locator('text=/Best Day This Week/i');
+      await expect(heroSection).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
-    test('should display forecast table with data rows', async ({ page }) => {
-      // Check for table rows
-      const tableRows = page.getByRole('row');
-      const rowCount = await tableRows.count();
-
-      // Should have at least header row + 1 data row
-      expect(rowCount).toBeGreaterThanOrEqual(2);
+    test('should display score gauge in hero', async ({ page }) => {
+      // AnimatedScoreGauge renders an SVG
+      const conditionsPanel = page.getByRole('tabpanel');
+      const svgGauge = conditionsPanel.locator('svg').first();
+      await expect(svgGauge).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
-    test('should display table columns (Time, Wave, Wind, etc.)', async ({ page }) => {
-      // Look for common forecast table headers
-      const timeHeader = page.getByRole('columnheader', { name: /time|day/i }).first();
-      const hasTime = await timeHeader.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
-
-      // Check for wave-related columns
-      const waveContent = page.getByRole('cell').filter({ hasText: /ft|wave/i }).first();
-      const hasWave = await waveContent.isVisible().catch(() => false);
-
-      // At minimum, should have time or wave data
-      expect(hasTime || hasWave).toBe(true);
+    test('should display wave and wind information in hero', async ({ page }) => {
+      // Hero should show wave height (ft) and wind conditions
+      const heroWaveInfo = page.locator('text=/\\d+-?\\d*ft/i').first();
+      await expect(heroWaveInfo).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
-    test('should display forecast data in table cells', async ({ page }) => {
-      // Check for cells with forecast data (wave heights)
-      const waveHeightCells = page.getByRole('cell').filter({ hasText: /\d+(\.\d+)?\s*ft/i });
-      const cellCount = await waveHeightCells.count();
-
-      // Should have multiple cells with wave height data
-      expect(cellCount).toBeGreaterThanOrEqual(1);
+    test('should display 12-Day Outlook chart section', async ({ page }) => {
+      // The bar chart section heading (h3 inside the chart card)
+      const chartHeading = page.locator('h3:text-is("12-Day Outlook")');
+      await expect(chartHeading).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
-    test('should display wind information in table', async ({ page }) => {
-      // Check for wind-related data in cells
-      const windCells = page.getByRole('cell').filter({ hasText: /mph|kts|kt|knots/i });
-      const windCount = await windCells.count();
+    test('should display Explore More links', async ({ page }) => {
+      // Should show "Surf Guide" and "Map" explore links
+      const surfGuideLink = page.locator('text=/Surf Guide/i').first();
+      await expect(surfGuideLink).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      // Should have wind data
-      expect(windCount).toBeGreaterThanOrEqual(1);
+      const mapLink = page.locator('text=/Nearby Beaches on Map/i');
+      await expect(mapLink).toBeVisible({ timeout: TIMEOUTS.medium });
     });
   });
 

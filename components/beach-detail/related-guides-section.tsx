@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import {
   Compass,
@@ -9,9 +7,11 @@ import {
   Users,
   Thermometer,
   Sailboat,
+  MapPin,
+  ArrowRight,
 } from "lucide-react";
 import { slugify } from "@/lib/utils/text-utils";
-import { stateToSlug } from "@/lib/utils/beach-url-utils";
+import { stateToSlug, buildCityUrl } from "@/lib/utils/beach-url-utils";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import type { Beach } from "@/types/database";
 
@@ -96,6 +96,19 @@ export function RelatedGuidesSection({
       <h2 className="text-lg font-semibold text-gray-900 mb-4">
         Surf Guides for {beach.city}
       </h2>
+      {/* City hub link - primary navigation back to city page */}
+      <Link
+        href={buildCityUrl(beach.state, beach.city)}
+        className="group flex items-center justify-between gap-3 rounded-lg border border-sky-200 bg-sky-50/80 p-4 mb-3 transition-all hover:border-sky-400 hover:bg-sky-50 hover:shadow-sm"
+      >
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-sky-700" />
+          <span className="font-medium text-sky-900 text-sm">
+            Explore all {beach.city} surf spots
+          </span>
+        </div>
+        <ArrowRight className="h-4 w-4 text-sky-600 group-hover:translate-x-0.5 transition-transform" />
+      </Link>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {INTENT_GUIDES.map(({ key, label, icon: Icon, description }) => (
           <Link

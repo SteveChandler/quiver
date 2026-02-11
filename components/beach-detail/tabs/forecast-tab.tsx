@@ -55,6 +55,14 @@ const DetailedSwellModal = dynamic(
   { ssr: false }
 );
 
+const ConditionsOverview = dynamic(
+  () =>
+    import("@/components/forecast/conditions-overview/conditions-overview").then(
+      (m) => ({ default: m.ConditionsOverview })
+    ),
+  { ssr: false }
+);
+
 interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
@@ -697,19 +705,12 @@ export function ForecastTab({
 
         {/* Conditions Tab */}
         <TabsContent value="conditions" className="mt-6">
-          {publicMode && publicAllowedDates && !publicAllowedDates.has(horizonSelectedDate) ? (
-            <PublicContentGate
-              ctaTitle="Unlock the 5-Day Forecast"
-              ctaDescription="Sign up to see extended conditions and plan your week"
-              blurLevel="md"
-              source="forecast-gate"
-              className="min-h-[200px]"
-            />
-          ) : (
-            <div className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg p-6">
-              <SimplifiedForecastTable forecasts={selectedDateForecasts} beachTimezone={beachTimezone} />
-            </div>
-          )}
+          <ConditionsOverview
+            horizonDaySummaries={publicMode ? publicHorizonDays : horizonDaySummaries}
+            forecasts={publicMode ? publicFilteredForecasts : forecasts}
+            beach={beach}
+            publicMode={publicMode}
+          />
         </TabsContent>
       </Tabs>
 

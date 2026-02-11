@@ -11,12 +11,14 @@ describe("robots.txt", () => {
 
   it("disallows crawling Next.js build assets (/_next/*) when indexing is enabled", () => {
     delete process.env.DISALLOW_ROBOTS;
+    process.env.NODE_ENV = "production";
 
     jest.resetModules();
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const robots = require("@/app/robots").default as () => any;
     const r = robots();
 
+    // When indexing is enabled, rules is an array with the first rule having allow: "/"
     const rules = Array.isArray(r.rules) ? r.rules[0] : r.rules;
     expect(rules.userAgent).toBe("*");
     expect(rules.allow).toBe("/");

@@ -11,10 +11,8 @@ import {
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
-import {
-  detectCityCollisions,
-  buildCitySlug,
-} from "@/lib/seo/city-slug-utils";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -32,9 +30,6 @@ export const dynamic = "force-dynamic";
  * causing a 404. This flat approach ensures /sitemap.xml is properly served.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
-  const lastmod = now.toISOString();
-
   // Sitemap protocol limit: 50,000 URLs / 50 MB per file.
   // Current estimate: ~8,500 URLs — well under the limit.
 
@@ -47,12 +42,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     guideRoutes,
     forecastRoutes,
   ] = await Promise.all([
-    Promise.resolve(getStaticRoutes(lastmod)),
-    getBeachRoutes(lastmod),
-    getLocationRoutes(lastmod),
-    getIntentRoutes(lastmod),
-    Promise.resolve(getGuideRoutes(lastmod)),
-    Promise.resolve(getForecastRoutes(lastmod)),
+    Promise.resolve(getStaticRoutes()),
+    getBeachRoutes(),
+    getLocationRoutes(),
+    getIntentRoutes(),
+    Promise.resolve(getGuideRoutes()),
+    Promise.resolve(getForecastRoutes()),
   ]);
 
   return [
@@ -72,7 +67,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 /**
  * Static pages - home, features, about, etc.
  */
-function getStaticRoutes(lastmod: string): MetadataRoute.Sitemap {
+function getStaticRoutes(): MetadataRoute.Sitemap {
+  // Use fixed date - these pages change when content updates, not per-request
+  const staticPageDate = "2026-02-10";
+
   return [
     "/",
     "/features",
@@ -84,16 +82,19 @@ function getStaticRoutes(lastmod: string): MetadataRoute.Sitemap {
     "/beaches/usa",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
-    lastModified: lastmod,
+    lastModified: staticPageDate,
     changeFrequency: "daily",
     priority: route === "/" ? 1 : 0.7,
   }));
 }
 
 /**
- * Beach detail pages + beach-level intent pages (tides, water-temp).
+ * Beach detail pages.
+ *
+ * NOTE: Tides/water-temp sub-pages are excluded to reduce thin content signals.
+ * These are discoverable via internal links on beach detail pages.
  */
-async function getBeachRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
+async function getBeachRoutes(): Promise<MetadataRoute.Sitemap> {
   const beachesResponse = await getBeaches();
   if (!beachesResponse.success || !beachesResponse.data) {
     console.error("Sitemap: Failed to fetch beaches");
@@ -101,10 +102,11 @@ async function getBeachRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
   }
 
   const beaches = beachesResponse.data;
+  const fallbackDate = "2026-02-10";
 
   return beaches
     .filter((b) => b.slug) // Only include beaches with a slug
-    .flatMap((beach) => {
+    .map((beach) => {
       // Use hierarchical URL if we have complete location data
       const beachUrl = beach.city && beach.state
         ? `${baseUrl}${buildBeachUrl(beach)}`
@@ -113,46 +115,30 @@ async function getBeachRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
       const lastModifiedDate =
         (beach as { updated_at?: string | null }).updated_at ||
         beach.created_at ||
-        lastmod;
+        fallbackDate;
 
-      // Main beach page
-      const mainEntry = {
+      // Main beach page only
+      return {
         url: beachUrl,
         lastModified: lastModifiedDate,
         changeFrequency: "weekly" as const,
-        priority: 0.6,
+        priority: 0.7,
       };
-
-      // Tide and water-temp intent pages (only for beaches with hierarchical URLs)
-      if (beach.city && beach.state) {
-        const tidesEntry = {
-          url: `${beachUrl}/tides`,
-          lastModified: lastModifiedDate,
-          changeFrequency: "daily" as const,
-          priority: 0.55,
-        };
-        const waterTempEntry = {
-          url: `${beachUrl}/water-temp`,
-          lastModified: lastModifiedDate,
-          changeFrequency: "daily" as const,
-          priority: 0.55,
-        };
-        return [mainEntry, tidesEntry, waterTempEntry];
-      }
-
-      return [mainEntry];
     });
 }
 
 /**
  * Location pages - city and state listing pages.
  */
-async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
+async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
   const response = await getAllBeachLocations();
   if (!response.success || !response.data) {
     console.error("Sitemap: Failed to load beach locations");
     return [];
   }
+
+  // Use fixed date - location pages change when template updates, not per-request
+  const locationPageDate = "2026-02-01";
 
   const usaStates = new Set<string>();
   const locationRoutes: MetadataRoute.Sitemap = [];
@@ -173,13 +159,13 @@ async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap
       locationRoutes.push(
         {
           url: `${baseUrl}/beaches/usa/hi/waimea-kauai`,
-          lastModified: lastmod,
+          lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
         },
         {
           url: `${baseUrl}/beaches/usa/hi/waimea-big-island`,
-          lastModified: lastmod,
+          lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
         }
@@ -194,7 +180,7 @@ async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap
         usaStates.add(stateSlug);
         locationRoutes.push({
           url: `${baseUrl}/beaches/usa/${stateSlug}/${citySlug}`,
-          lastModified: lastmod,
+          lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
         });
@@ -206,7 +192,7 @@ async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap
       if (countrySlug && regionSlug && citySlug) {
         locationRoutes.push({
           url: `${baseUrl}/beaches/${countrySlug}/${regionSlug}/${citySlug}`,
-          lastModified: lastmod,
+          lastModified: locationPageDate,
           changeFrequency: "weekly",
           priority: 0.75,
         });
@@ -217,7 +203,7 @@ async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap
   // Add state-level pages
   const stateRoutes: MetadataRoute.Sitemap = [...usaStates].map((stateSlug) => ({
     url: `${baseUrl}/beaches/usa/${stateSlug}`,
-    lastModified: lastmod,
+    lastModified: locationPageDate,
     changeFrequency: "weekly",
     priority: 0.7,
   }));
@@ -228,11 +214,16 @@ async function getLocationRoutes(lastmod: string): Promise<MetadataRoute.Sitemap
 /**
  * Intent pages - city and state level intent pages.
  *
- * IMPORTANT: Filters out skill-based intent pages (beginner, longboard, advanced)
- * for cities that don't have beaches matching those skill levels.
- * This prevents empty intent pages from being included in the sitemap.
+ * IMPORTANT: Filters out:
+ * 1. Skill-based intent pages (beginner, longboard) for cities without matching beaches
+ * 2. Cities with fewer than 3 beaches (thin content)
+ *
+ * This prevents empty or thin intent pages from being included in the sitemap.
  */
-async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> {
+async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
+  // Use template version date - intent pages change when template updates
+  const intentTemplateDate = "2026-02-10";
+
   // Skill-based intents that require cities to have matching beach skill levels
   const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
   const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
@@ -247,11 +238,14 @@ async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> 
       const usCities = citiesResult.data.filter(
         (c) => c.country?.toUpperCase() === "USA" || c.country?.toUpperCase() === "US"
       );
-      const collisionMap = detectCityCollisions(usCities);
+      const collisionMap = COLLISION_CITY_MAP;
 
       for (const cityRecord of usCities) {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) continue;
+
+        // Filter out cities with fewer than 3 beaches (thin content)
+        if (cityRecord.beachCount < 3) continue;
 
         for (const intent of intents) {
           // Filter skill-based intents to cities with matching beaches.
@@ -259,11 +253,14 @@ async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> 
           // Cities without beginner-friendly beaches skip beginner/longboard intents.
           if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
 
+          // Dynamic priority based on beach count
+          const priority = cityRecord.beachCount >= 10 ? 0.8 : 0.7;
+
           routes.push({
             url: `${baseUrl}/${intent}/${citySlug}`,
-            lastModified: lastmod,
+            lastModified: intentTemplateDate,
             changeFrequency: "daily" as const,
-            priority: intent === "beginner" ? 0.85 : 0.8,
+            priority: intent === "beginner" ? Math.min(0.85, priority + 0.05) : priority,
           });
         }
       }
@@ -280,7 +277,7 @@ async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> 
     for (const intent of intents) {
       routes.push({
         url: `${baseUrl}/${intent}/${state}`,
-        lastModified: lastmod,
+        lastModified: intentTemplateDate,
         changeFrequency: "daily" as const,
         priority: 0.75,
       });
@@ -293,10 +290,13 @@ async function getIntentRoutes(lastmod: string): Promise<MetadataRoute.Sitemap> 
 /**
  * Hub region guide pages.
  */
-function getGuideRoutes(lastmod: string): MetadataRoute.Sitemap {
+function getGuideRoutes(): MetadataRoute.Sitemap {
+  // Use fixed date - guide pages change when content is updated
+  const guidePageDate = "2026-01-15";
+
   return HUB_REGION_SLUGS.map((region) => ({
     url: `${baseUrl}/guides/surfing-${region}`,
-    lastModified: lastmod,
+    lastModified: guidePageDate,
     changeFrequency: "weekly" as const,
     priority: 0.9,
   }));
@@ -305,13 +305,16 @@ function getGuideRoutes(lastmod: string): MetadataRoute.Sitemap {
 /**
  * Forecast pages - hub landing page and regional forecast pages.
  */
-function getForecastRoutes(lastmod: string): MetadataRoute.Sitemap {
+function getForecastRoutes(): MetadataRoute.Sitemap {
+  // Use fixed date - forecast pages are templated, data updates frequently but pages don't
+  const forecastTemplateDate = "2026-02-10";
+
   const routes: MetadataRoute.Sitemap = [];
 
   // Forecast hub landing page
   routes.push({
     url: `${baseUrl}/forecast`,
-    lastModified: lastmod,
+    lastModified: forecastTemplateDate,
     changeFrequency: "daily" as const,
     priority: 0.9,
   });
@@ -321,7 +324,7 @@ function getForecastRoutes(lastmod: string): MetadataRoute.Sitemap {
   for (const slug of regionSlugs) {
     routes.push({
       url: `${baseUrl}/forecast/${slug}`,
-      lastModified: lastmod,
+      lastModified: forecastTemplateDate,
       changeFrequency: "daily" as const,
       priority: 0.8,
     });

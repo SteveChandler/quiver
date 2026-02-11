@@ -190,6 +190,8 @@ export const GET = withAuth(handler);
 **Provider**: Supabase Auth
 **Runtime**: Edge functions for optimal performance
 
+**Cookie Migration (February 2026)**: All auth routes have been migrated from the deprecated `get`/`set`/`remove` cookie interface to `getAll`/`setAll` per `@supabase/ssr` v0.8.0. This ensures atomic read/write of chunked session cookies and prevents silent session corruption. See `lib/supabase/ARCHITECTURE.md` for the full migration inventory.
+
 #### `/auth/[...supabase]/route.ts`
 
 - **Methods**: `GET`, `POST`, `DELETE`

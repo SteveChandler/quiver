@@ -151,14 +151,14 @@ export function isTomorrowInTimezone(date: Date, timezone: string): boolean;
 
 - **Purpose**: Transform raw buoy significant wave height (Hs) into estimated face heights that match surfer expectations
 - **Features**:
-  - Base shoaling factor (1.6x) - waves steepen approaching shore
+  - Base shoaling factor (1.0x) - neutral baseline (raw model data may already account for shoaling)
   - Period amplification (0.8x-1.4x) - longer periods = bigger faces
   - Beach-specific direction factor (0.6x-1.0x) using terrain swell_access_factors
   - Wave height range calculation for average to set waves
 
 ```typescript
 // Transformation constants
-export const BASE_SHOALING = 1.6;
+export const BASE_SHOALING = 1.0; // Reduced from 1.6 on Feb 4, 2026 (commit 0317b83)
 export const PERIOD_REF = 10;
 export const PERIOD_MULT = 0.05;
 export const PERIOD_FACTOR_MIN = 0.8;
@@ -195,8 +195,8 @@ export function transformToFaceHeightRange(params: TransformParams): WaveHeightR
 **Example transformation:**
 ```typescript
 // 1.9ft Hs @ 16s with good SW access
-// = 1.9 x 1.6 (shoaling) x 1.3 (period) x 1.0 (direction)
-// = 4.0ft face height
+// = 1.9 x 1.0 (shoaling) x 1.3 (period) x 1.0 (direction)
+// = 2.5ft face height
 transformToFaceHeight({
   rawHeightFt: 1.9,
   periodS: 16,
@@ -482,9 +482,10 @@ When adding new utilities:
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
 **Status**: Production-ready with comprehensive utility library
 **Recent Changes**:
+- Fixed stale `BASE_SHOALING` constant in docs (1.6 -> 1.0, reduced Feb 4 2026 commit 0317b83)
 - Added `condition-tier-utils.ts` for centralized condition tier logic
 - Added `wave-height-transformer.ts` for beach-specific wave height transformation
 - Enhanced `wave-height-formatter.ts` with shared utilities and source selection

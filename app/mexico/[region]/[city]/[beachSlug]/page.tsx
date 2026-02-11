@@ -2,6 +2,9 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
+import { NearbySpotsSsr } from "@/components/beach-detail/nearby-spots-server";
+import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
+import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import type { Metadata } from "next";
@@ -11,6 +14,8 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 import { regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
+import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import type { Beach } from "@/types/database";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -86,6 +91,17 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
 
+    // Fetch nearby beaches for SSR SEO section
+    let nearbyBeaches: Beach[] = [];
+    if (beach.lat && beach.lon) {
+      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
+      if (nearbyResult.success && nearbyResult.data) {
+        nearbyBeaches = nearbyResult.data
+          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+          .slice(0, 6);
+      }
+    }
+
     const beachPath = `/mexico/${params.region}/${params.city}/${params.beachSlug}`;
 
     // Build Mexico-specific breadcrumbs
@@ -152,6 +168,21 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
         />
+
+        {/* Signup CTA for anonymous visitors */}
+        <div className="container mx-auto px-4 pt-6">
+          <InlineSignupCta
+            title={`Track Your Sessions at ${beach.name}`}
+            description="Log your surf sessions, get personalized forecasts, and join the community"
+            source={`beach-detail-${params.beachSlug}`}
+          />
+        </div>
+
+        {/* SSR sections below tabs for SEO crawlability */}
+        <div className="container mx-auto px-4 pb-8 space-y-8">
+          <NearbySpotsSsr nearbyBeaches={nearbyBeaches} />
+          <RelatedGuidesSection beach={beach} />
+        </div>
       </>
     );
   } catch (error) {

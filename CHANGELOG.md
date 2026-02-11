@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Conditions Subtab Overhaul** (uncommitted) - Replaced plain forecast table in the Conditions subtab with a rich multi-section view: Best Day Hero with animated score gauge, Other Good Days grid, 12-Day Outlook bar chart (Recharts), and Explore More navigation links. Public mode gates chart/other-days behind `PublicContentGate` while keeping hero visible as teaser.
 - **Conditions Alert Email** (uncommitted) - Daily 6:30 AM PT email to users with a home beach when conditions are good (score >= 7/10). Includes score badge, conditions summary, best window, and CTAs to check forecast or log a session. Skips users already active in the app today. Max one email per user per day across all email types.
 - **Session Prompt Email** (uncommitted) - Daily 10:00 AM PT "How was your session?" email sent to users whose home beach had good conditions yesterday but who didn't log a session. Nudges toward session logging to build community data.
 - **Returning-User Auto-Login Prompt** (uncommitted) - Previously-authenticated users whose sessions expire now see the login modal auto-open when they return to the app, reducing friction compared to showing the cold landing page. Uses persistent `quiver_returning_user` localStorage flag set on first sign-in, with auto-open triggered via `autoOpenLogin` prop flow from ClientApp → LandingPage → Navbar.

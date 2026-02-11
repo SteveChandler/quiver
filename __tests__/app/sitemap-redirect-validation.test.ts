@@ -342,12 +342,12 @@ describe("Sitemap URLs are Canonical", () => {
       { url: "/ca", expectedTarget: "/beaches/usa/ca" },
       { url: "/nj", expectedTarget: "/beaches/usa/nj" },
 
-      // Legacy 3-segment intent → canonical 2-segment (with state suffix to avoid redirect chains)
-      { url: "/sunset/ca/san-diego", expectedTarget: "/sunset/san-diego-ca" },
-      { url: "/tide/nj/asbury-park", expectedTarget: "/tide/asbury-park-nj" },
+      // Legacy 3-segment intent → canonical 2-segment (no state suffix unless collision city)
+      { url: "/sunset/ca/san-diego", expectedTarget: "/sunset/san-diego" },
+      { url: "/tide/nj/asbury-park", expectedTarget: "/tide/asbury-park" },
 
-      // Legacy 4-segment intent → canonical 2-segment (with state suffix to avoid redirect chains)
-      { url: "/sunset/ca/san-diego/blacks", expectedTarget: "/sunset/san-diego-ca" },
+      // Legacy 4-segment intent → canonical 2-segment (no state suffix unless collision city)
+      { url: "/sunset/ca/san-diego/blacks", expectedTarget: "/sunset/san-diego" },
     ];
 
     it.each(shouldRedirectUrls)(
@@ -382,14 +382,14 @@ describe("Sitemap URL Format Reference", () => {
       const canonical = await handleSeoRedirect("/beginner/san-diego");
       expect(canonical.redirect).toBe(false);
 
-      // Legacy formats - should redirect to canonical (with state suffix to avoid redirect chains)
+      // Legacy formats - should redirect to canonical (no state suffix unless collision city)
       const legacy3 = await handleSeoRedirect("/beginner/ca/san-diego");
       expect(legacy3.redirect).toBe(true);
-      expect(legacy3.url).toBe("/beginner/san-diego-ca");
+      expect(legacy3.url).toBe("/beginner/san-diego");
 
       const legacy4 = await handleSeoRedirect("/beginner/ca/san-diego/blacks");
       expect(legacy4.redirect).toBe(true);
-      expect(legacy4.url).toBe("/beginner/san-diego-ca");
+      expect(legacy4.url).toBe("/beginner/san-diego");
     });
 
     /**

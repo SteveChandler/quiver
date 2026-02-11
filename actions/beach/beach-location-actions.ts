@@ -419,11 +419,10 @@ export async function getTopCitiesInState(
       .sort((a, b) => b.beachCount - a.beachCount)
       .slice(0, limit);
 
-    // Detect collisions for slug building
-    const { detectCityCollisions, buildCitySlug } = await import(
-      "@/lib/seo/city-slug-utils"
-    );
-    const collisionMap = detectCityCollisions(citiesResult.data);
+    // Use static collision map for consistency with sitemap canonical URLs
+    const { buildCitySlug } = await import("@/lib/seo/city-slug-utils");
+    const { COLLISION_CITY_MAP } = await import("@/lib/seo/city-collision-list");
+    const collisionMap = COLLISION_CITY_MAP;
 
     // Transform to TopCityInState format
     return sortedCities.map((city) => ({

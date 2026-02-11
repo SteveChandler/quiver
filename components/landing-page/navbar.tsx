@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -45,7 +45,7 @@ const STATIC_MENU_ITEMS = [
   },
 ];
 
-export function Navbar() {
+export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -56,6 +56,20 @@ export function Navbar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-open login modal for returning users (once per mount)
+  const hasAutoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpenLogin && mounted && !hasAutoOpened.current) {
+      hasAutoOpened.current = true;
+      setAuthMode("login");
+      setAuthModalOpen(true);
+      trackAuthModalOpened({
+        mode: "login",
+        source: "returning-user-auto",
+      });
+    }
+  }, [autoOpenLogin, mounted]);
 
   // Build menu items with dynamic first region based on user's location
   const exploreMenuItems = useMemo(() => {

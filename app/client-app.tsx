@@ -10,7 +10,7 @@
  */
 
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
@@ -60,6 +60,14 @@ function ComponentErrorFallback({
 export default function ClientApp() {
   const { user, isLoading } = useAuth();
   const didInit = useRef(false);
+  const [isReturningUser, setIsReturningUser] = useState(false);
+
+  // Check returning user flag from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsReturningUser(localStorage.getItem("quiver_returning_user") === "true");
+    }
+  }, []);
 
   // Initialize performance monitoring and preload critical resources
   useEffect(() => {
@@ -95,5 +103,5 @@ export default function ClientApp() {
     return <HomeScreen />;
   }
 
-  return <LandingPage />;
+  return <LandingPage autoOpenLogin={isReturningUser} />;
 }

@@ -15,6 +15,14 @@
  * slugify("O'ahu's North Shore") // "oahus-north-shore"
  * ```
  */
+/** Capitalize first letter of each hyphen-separated word: "dawn-patrol" → "Dawn Patrol" */
+export function capitalize(s: string): string {
+  return s
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export function slugify(input: string): string {
   return (input || "")
     .toString()

@@ -226,6 +226,116 @@ import { mockSupabase } from '@/__tests__/setup/supabase-mock';
 
 ---
 
+### data-factories.ts
+**Purpose:** Shared mock data factories for domain entities
+
+**What it provides:**
+- `createMockBeach()` - Beach entity with sensible defaults
+- `createMockSurfCallResult()` - SurfCallResult for forecast tests
+- `createMockDaySummary()` - DaySummary for forecast day views
+- `createMockEnrichedDay()` - EnrichedDay for enriched forecast data
+- `createMockNearbyBeach()` - NearbyBeach for proximity-based features
+
+**Usage:**
+```typescript
+import { createMockBeach, createMockNearbyBeach } from '@/__tests__/setup/data-factories';
+
+test('should render beach card', () => {
+  const beach = createMockBeach({ name: 'Blacks Beach' });
+  const nearby = createMockNearbyBeach({ distance_miles: 2.5 });
+  // Use in test...
+});
+```
+
+---
+
+### ui-component-mocks.tsx
+**Purpose:** Reusable UI component mock functions for JSX-heavy tests
+
+**What it provides:**
+- `mockCardComponents()` - Mocks Card, CardHeader, CardContent, etc.
+- `mockLucideIcons()` - Mocks Lucide React icon components
+- `mockNextComponents()` - Mocks Next.js Link and Image components
+- `mockCnUtility()` - Mocks the `cn()` Tailwind merge utility
+
+**Usage:**
+```typescript
+import { mockCardComponents, mockLucideIcons } from '@/__tests__/setup/ui-component-mocks';
+
+// Call in module scope (before describe block)
+mockCardComponents();
+mockLucideIcons();
+```
+
+---
+
+### typed-mocks.ts
+**Purpose:** Type-safe Supabase query chain mocks and entity factories
+
+**What it provides:**
+- `createMockSupabaseQueryChain()` - Full query builder chain (`.from().select().eq()...`)
+- `createMockUseDataFetcher()` - Mock for the `useDataFetcher` hook
+- Type-safe entity factories with full TypeScript inference
+
+**Usage:**
+```typescript
+import { createMockSupabaseQueryChain } from '@/__tests__/setup/typed-mocks';
+
+const { chain, mockSelect } = createMockSupabaseQueryChain();
+mockSelect.mockResolvedValue({ data: [...], error: null });
+```
+
+---
+
+### component-mocks.tsx
+**Purpose:** Forecast-related component mocks and common hook mocks
+
+**What it provides:**
+- Forecast component mocks (TideChart, HorizonStrip, etc.)
+- Common hook mocks (useRouter, usePathname, useSearchParams)
+- Next.js component mocks (Image, Link) for component tests
+
+**Usage:**
+```typescript
+import { mockForecastComponents } from '@/__tests__/setup/component-mocks';
+
+// Call in module scope
+mockForecastComponents();
+```
+
+---
+
+### cron-test-utils.ts
+**Purpose:** Comprehensive utilities for testing cron job API routes
+
+**What it provides:**
+- `setupCronTestEnvironment()` - Environment setup with cleanup
+- `createCronRequest()` / `createMockCronRequest()` - Request factories with auth
+- `mockExternalAPI()` / `mockFetchForExternalAPIs()` - External service mocks
+- `verifyIdempotency()` - Idempotency verification helper
+- `expectCronSuccess()` / `expectCronError()` - Response assertion helpers
+- `createMockEmailCandidate()` / `createMockForecastSyncResult()` - Data factories
+
+**Email testing utilities (new):**
+- `createResendMailerMock()` - Clean mock for the Resend mailer client
+- `createEmailLoggingMock()` - Mock for the email logging service
+- `createRateLimiterMock()` - Mock for the Resend rate limiter
+- `mockEmailFormatters()` - Shared mock for email formatter functions
+
+**Usage:**
+```typescript
+import {
+  setupCronTestEnvironment,
+  createMockCronRequest,
+  createResendMailerMock,
+} from '@/__tests__/setup/cron-test-utils';
+
+const { mockSend, mailerMock } = createResendMailerMock();
+jest.mock('@/lib/mailer/client', () => mailerMock);
+```
+
+---
+
 ## 🔧 Configuration
 
 ### jest.config.js Integration
@@ -369,5 +479,5 @@ const forecast = createMockForecast({ waveHeight: 5 });
 
 ---
 
-**Last Updated:** January 2025
+**Last Updated:** February 2026
 **Maintainer:** Quiver Development Team
