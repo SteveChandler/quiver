@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
-import { isStandaloneApp } from "@/lib/isStandaloneApp";
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
@@ -12,10 +11,6 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
-}));
-
-jest.mock("@/lib/isStandaloneApp", () => ({
-  isStandaloneApp: jest.fn(() => false),
 }));
 
 jest.mock("@/lib/utils/performance-utils", () => ({
@@ -61,8 +56,6 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     (useRouter as jest.Mock).mockReturnValue({ replace });
     // Default: no query params
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
-    // Default: not in standalone/PWA mode
-    (isStandaloneApp as jest.Mock).mockReturnValue(false);
     // Reset mock location before each test
     delete (window as any).location;
     (window as any).location = { ...originalLocation, href: "http://localhost/" };
@@ -175,7 +168,6 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   });
 
   it("shows modal before redirecting in PWA standalone mode", async () => {
-    (isStandaloneApp as jest.Mock).mockReturnValue(true);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     const mockSearchParams = new URLSearchParams("?signup=confirm-email");
     (useSearchParams as jest.Mock).mockReturnValue(mockSearchParams);
@@ -220,7 +212,6 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   // --- Regression Tests ---
 
   it("renders landing page without modal when no signup param is present", () => {
-    (isStandaloneApp as jest.Mock).mockReturnValue(false);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
 
@@ -258,7 +249,6 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   });
 
   it("renders landing page in PWA mode when unauthenticated (no forced redirect)", () => {
-    (isStandaloneApp as jest.Mock).mockReturnValue(true);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
 
@@ -276,7 +266,6 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   // --- Edge Case Tests ---
 
   it("does not show modal for invalid signup param values", () => {
-    (isStandaloneApp as jest.Mock).mockReturnValue(false);
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     // Use a different value than "confirm-email"
     const mockSearchParams = new URLSearchParams("?signup=invalid-value");
