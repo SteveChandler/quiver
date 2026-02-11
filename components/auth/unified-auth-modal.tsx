@@ -81,15 +81,12 @@ export interface UnifiedAuthModalProps {
 
   /** Explicit return path after auth */
   returnTo?: string;
-  /** Source identifier for analytics (e.g., 'landing-navbar', 'auth-gate') */
+  /** Source identifier for analytics (e.g., 'landing-navbar', 'content-gate') */
   source?: string;
 
   /** UI customization */
   dismissible?: boolean;
   showCloseButton?: boolean;
-
-  /** Auth gate context - shows guest-specific messaging */
-  isAuthGate?: boolean;
 
   /** Feature flags */
   enableMagicLink?: boolean;
@@ -121,7 +118,6 @@ export function UnifiedAuthModal({
   source = "unknown",
   dismissible = true,
   showCloseButton = true,
-  isAuthGate = false,
   enableMagicLink = true,
   enablePassword = true,
   enableOAuth = true,
@@ -376,7 +372,7 @@ export function UnifiedAuthModal({
         // Return users to landing and show a confirmation toast there.
         router.replace("/?signup=confirm-email");
 
-        // Close modal when it's an overlay (e.g. landing/auth-gate).
+        // Close modal when it's an overlay (e.g. landing page).
         // If we're on the dedicated /auth/sign-up page, onClose() navigates to "/"
         // and would strip the query param before the landing toast can read it.
         if (pathname !== "/auth/sign-up") {
@@ -506,16 +502,10 @@ export function UnifiedAuthModal({
       >
         <DialogHeader>
           <DialogTitle>
-            {isAuthGate
-              ? "Keep Exploring with Quiver"
-              : activeMode === "login"
-              ? "Log in to Quiver"
-              : "Sign Up"}
+            {activeMode === "login" ? "Log in to Quiver" : "Sign Up"}
           </DialogTitle>
           <DialogDescription>
-            {isAuthGate
-              ? "Log in or sign up to access interactive maps, save sessions, and connect with the community."
-              : activeMode === "login"
+            {activeMode === "login"
               ? "Access your sessions, forecasts, and community."
               : "Join Quiver to plan sessions and connect with surfers."}
           </DialogDescription>

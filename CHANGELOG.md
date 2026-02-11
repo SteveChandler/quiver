@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Remove Auth Gate from Map Page** - Removed `<AuthGate block />` from `/map` so unauthenticated users can browse the full map without a login modal or blocking overlay, turning the map into a top-of-funnel acquisition channel. Deleted now-unused `auth-gate.tsx` and `auth-blocking-overlay.tsx` components, removed `isAuthGate` prop from `UnifiedAuthModal`.
 - **Extract ForecastSectionContainer Component** (uncommitted) - Created shared `ForecastSectionContainer` to DRY up repeated `<section className="py-10 px-4"><div className="max-w-3xl mx-auto">` wrapper pattern. Updated `BestRightNow` and `ConditionsSnapshot` components to use the new container, preserving existing `data-testid` values and styling.
 
 ### Performance

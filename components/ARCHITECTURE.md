@@ -222,13 +222,6 @@ function Providers({ children }) {
 
 #### Core Authentication Components
 
-- **`auth-gate.tsx`** - Preview-based authentication wall
-  - Preview mode: 5-second delay before showing auth prompt
-  - Dismissible with smart reappearance (30s after dismissal)
-  - Google OAuth and Email Magic Link options
-  - Return URL preservation for seamless post-auth redirect
-  - Analytics tracking for conversion funnel optimization
-  - Used on `/map` and `/beach/[slug]` for growth-focused acquisition
 - **`sign-in-form.tsx`** - Traditional sign-in form with dual authentication methods
   - Google OAuth with "Continue with Google" button
   - Email/password authentication
@@ -242,14 +235,13 @@ function Providers({ children }) {
 
 #### When to Use Each Pattern
 
-**Use `<AuthGate />`** for:
+**Public pages** (no auth required):
 
-- Public preview pages where SEO is important
-- Growth-focused features where you want to show value first
-- Pages that benefit from preview-based delayed auth prompts
-- Example: `/map`, `/beach/[slug]`, future public session feeds
+- Discovery and acquisition pages (`/map`, `/beach/[slug]`, `/forecast`)
+- SEO-important pages where you want to show value first
+- Use `PublicContentGate` for soft content gating (teaser → sign-up prompt)
 
-**Use Traditional Protected Routes** for:
+**Traditional Protected Routes** for:
 
 - User-specific content (profiles, journals, settings)
 - Pages with no preview value
