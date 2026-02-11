@@ -1,3 +1,7 @@
+// TODO: Migrate away from deprecated beach-coordinates.ts
+// This file uses the legacy beachCoordinates dictionary for beach name resolution and
+// nearest-beach lookups. These should be migrated to database queries against the `beaches`
+// table for accuracy and maintainability. See deprecation notice in beach-coordinates.ts.
 import {
   beachCoordinates,
   beachNames,
@@ -325,8 +329,8 @@ export async function getSurfForecast({
         const matchedBeach = matchingBeaches[0];
         beachName = matchedBeach.name;
         coordinates = {
-          lat: matchedBeach.lat ?? 0,
-          lng: matchedBeach.lon ?? 0,
+          lat: matchedBeach.lat,
+          lng: matchedBeach.lon,
         };
 
         // Get forecast from database
@@ -365,8 +369,8 @@ export async function getSurfForecast({
               if (beach.id === matchedBeach.id) continue; // Skip the current beach
 
               const distance = getDistanceInKm(
-                { lat: matchedBeach.lat ?? 0, lng: matchedBeach.lon ?? 0 },
-                { lat: beach.lat ?? 0, lng: beach.lon ?? 0 }
+                { lat: matchedBeach.lat, lng: matchedBeach.lon },
+                { lat: beach.lat, lng: beach.lon }
               );
 
               // Look for beaches within 20 miles (32 km)

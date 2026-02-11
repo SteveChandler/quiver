@@ -1,3 +1,7 @@
+// TODO: Migrate away from deprecated beach-coordinates.ts
+// This file uses the legacy beachCoordinates dictionary for nearest-beach calculations.
+// This should be migrated to database queries against the `beaches` table for accuracy
+// and to include all active beaches. See deprecation notice in beach-coordinates.ts.
 import { beachCoordinates } from "@/lib/constants/beach-coordinates";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 

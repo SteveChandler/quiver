@@ -194,38 +194,6 @@ export async function getBatchSunTimes(
 // ============================================================================
 
 /**
- * Load beach affinity scores for multiple beaches
- */
-async function loadBeachAffinity(
-  userId: string,
-  beachIds: string[]
-): Promise<Map<string, { affinity_score: number; session_count: number }>> {
-  const supabase = createSupabaseServiceRoleClient();
-  const map = new Map<string, { affinity_score: number; session_count: number }>();
-
-  try {
-    const { data } = await supabase
-      .from('user_beach_affinity')
-      .select('beach_id, affinity_score, session_count')
-      .eq('user_id', userId)
-      .in('beach_id', beachIds);
-
-    if (data) {
-      for (const row of data) {
-        map.set(row.beach_id, {
-          affinity_score: row.affinity_score,
-          session_count: row.session_count,
-        });
-      }
-    }
-  } catch (error) {
-    log.error('Error loading beach affinity:', error);
-  }
-
-  return map;
-}
-
-/**
  * Calculate distance between two coordinates (Haversine formula)
  */
 function calculateDistance(
@@ -292,19 +260,15 @@ export async function scoreBeachForDiscovery(args: {
   preferredWaveSize: string | null;
   /** Pre-parsed and validated skill level from candidate pool builder */
   userSkillLevel: SkillLevel | null;
-  affinity?: { affinity_score: number; session_count: number };
   distanceMiles?: number;
 }): Promise<DetailedScore> {
-  const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, affinity, distanceMiles } =
+  const { beach, forecast, userPrefs, preferredWaveSize, userSkillLevel, distanceMiles } =
     args;
 
   // Use the new domain-driven scoring engine
   const engine = getDiscoveryScoringEngine();
 
-  // Affinity bonus disabled - let conditions drive rankings instead of session history.
-  // When enabled, affinity would boost beaches based on user familiarity, but we want
-  // discovery recommendations to prioritize current surf conditions over past behavior.
-  // The affinityMap is still loaded but intentionally unused here.
+  // Affinity scoring disabled in discovery; active in personalized-scoring-service.ts
   const affinityBonus = 0;
 
   // Calculate distance penalty (0 to -20 points)
@@ -502,13 +466,8 @@ export async function discoverSurfSpots(
     // 3. Score each beach with detailed breakdown
     const scored: SurfDiscoveryRecommendation[] = [];
 
-    // Pre-load user preferences and affinity (1 query each)
-    // NOTE: affinityMap is loaded but currently unused (affinityBonus = 0).
-    // Kept for future reactivation when we want to factor in user familiarity with beaches.
-    const [userPrefs, affinityMap] = await Promise.all([
-      getUserSurfPreferences(userId),
-      loadBeachAffinity(userId, finalCandidates.map((b) => b.id)),
-    ]);
+    // Pre-load user preferences
+    const userPrefs = await getUserSurfPreferences(userId);
 
     const beachesWithNoWindow: string[] = [];
     for (const { beach, forecasts } of beachForecasts) {
@@ -536,9 +495,6 @@ export async function discoverSurfSpots(
           })
         : undefined;
 
-      // Get affinity score
-      const affinity = affinityMap.get(beach.id);
-
       // Detailed scoring
       const detailedScore = await scoreBeachForDiscovery({
         beach,
@@ -546,7 +502,6 @@ export async function discoverSurfSpots(
         userPrefs,
         preferredWaveSize,
         userSkillLevel,
-        affinity,
         distanceMiles,
       });
 

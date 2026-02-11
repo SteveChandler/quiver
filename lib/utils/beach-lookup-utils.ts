@@ -4,6 +4,7 @@ import {
   getBeachesBySlug,
 } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
+import { nullsLast } from "@/lib/utils/nullable-display-utils";
 
 /**
  * Selects the best beach candidate from a list using deterministic sorting.
@@ -16,9 +17,8 @@ export function selectBestCandidate(candidates: Beach[]): Beach | null {
     const bHasCoords = Number(Boolean(b.lat && b.lon));
     if (aHasCoords !== bHasCoords) return bHasCoords - aHasCoords;
 
-    const aReviews = a.review_count ?? 0;
-    const bReviews = b.review_count ?? 0;
-    if (aReviews !== bReviews) return bReviews - aReviews;
+    const reviewCompare = nullsLast((beach: Beach) => beach.review_count, 'desc')(a, b);
+    if (reviewCompare !== 0) return reviewCompare;
 
     const aCreated = a.created_at ? Date.parse(a.created_at) : 0;
     const bCreated = b.created_at ? Date.parse(b.created_at) : 0;

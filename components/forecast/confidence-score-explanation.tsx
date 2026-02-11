@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { displayPercent } from "@/lib/utils/nullable-display-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +35,7 @@ interface HistoricalAccuracy {
 }
 
 interface ConfidenceScoreExplanationProps {
-  score: number;
+  score: number | null;
   factors?: ConfidenceFactors;
   explanation?: string;
   userFriendlyText?: string;
@@ -74,6 +75,7 @@ export function ConfidenceScoreExplanation({
     high: "High Confidence",
     medium: "Moderate Confidence",
     low: "Low Confidence",
+    unknown: "Confidence Unknown",
   };
 
   const levelDescriptions: Record<typeof baseConfidenceInfo.level, string> = {
@@ -81,6 +83,7 @@ export function ConfidenceScoreExplanation({
     medium:
       "Forecast is reasonably accurate - check conditions before heading out",
     low: "Forecast may be unreliable - consider checking local conditions",
+    unknown: "Confidence data is not available for this forecast",
   };
 
   const confidenceInfo = {
@@ -138,9 +141,10 @@ export function ConfidenceScoreExplanation({
             "bg-green-100 text-green-700": confidenceInfo.color === "green",
             "bg-yellow-100 text-yellow-700": confidenceInfo.color === "yellow",
             "bg-red-100 text-red-700": confidenceInfo.color === "red",
+            "bg-gray-100 text-gray-600": confidenceInfo.color === "gray",
           })}
         >
-          {score}%
+          {displayPercent(score)}
         </Badge>
         {userFriendlyText && (
           <span className="text-xs text-gray-600">{userFriendlyText}</span>
@@ -161,9 +165,9 @@ export function ConfidenceScoreExplanation({
               confidenceInfo.textColor
             )}
             data-testid="confidence-score"
-            aria-label={`Forecast confidence: ${score}% - ${confidenceInfo.level}`}
+            aria-label={`Forecast confidence: ${displayPercent(score)} - ${confidenceInfo.level}`}
           >
-            {score}%
+            {displayPercent(score)}
           </div>
           <div>
             <h3 className={cn("font-medium", confidenceInfo.textColor)}>
@@ -209,7 +213,7 @@ export function ConfidenceScoreExplanation({
       </div>
 
       {/* Warning for low confidence */}
-      {(showWarning || score < 50) && score < 50 && (
+      {(showWarning || (score !== null && score < 50)) && score !== null && score < 50 && (
         <Alert
           className="border-red-200 bg-red-50"
           data-testid="confidence-warning"

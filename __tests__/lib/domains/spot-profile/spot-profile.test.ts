@@ -327,8 +327,8 @@ describe('Spot Profile Domain', () => {
       expect(createSpotProfile(hawaii).timezone).toBe('Pacific/Honolulu');
     });
 
-    it('should handle null coordinates gracefully', () => {
-      const beach = createMockBeach({ lat: null, lon: null });
+    it('should handle zero coordinates gracefully', () => {
+      const beach = createMockBeach({ lat: 0, lon: 0 });
       const profile = createSpotProfile(beach);
 
       expect(profile.coordinates.lat).toBe(0);

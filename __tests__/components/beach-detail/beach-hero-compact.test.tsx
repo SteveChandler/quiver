@@ -144,6 +144,7 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       };
       render(<BeachHeroCompact beach={noRatingBeach} />);
       expect(screen.queryByText("0.0")).not.toBeInTheDocument();
+      expect(screen.queryByText("0")).not.toBeInTheDocument();
     });
 
     it("should use average_rating if available", () => {
@@ -160,6 +161,16 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       render(<BeachHeroCompact beach={beach} />);
       // Component only uses average_rating, not wave_quality_rating as fallback
       expect(screen.queryByText("3.8")).not.toBeInTheDocument();
+    });
+
+    it("should not display rating section when average_rating is undefined", () => {
+      const beach = {
+        ...mockBeach,
+        average_rating: undefined,
+      } as any;
+      render(<BeachHeroCompact beach={beach} />);
+      const star = document.querySelector(".lucide-star");
+      expect(star).not.toBeInTheDocument();
     });
   });
 

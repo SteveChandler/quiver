@@ -350,17 +350,27 @@ export class ForecastDataSourceManager {
 
   /**
    * Get latest cached observations for multiple stations
+   *
+   * Returns an object with:
+   * - data: Map of station_id -> observation data
+   * - cacheError: true if the cache fetch failed, false otherwise
+   *
+   * When cacheError is true, callers should log a warning and proceed
+   * to live fetch normally.
    */
   private async getLatestCachedObservations(
     stationIds: string[],
     maxAgeHours: number = IOOS_OBSERVATION_CONFIG.maxCacheAgeHours
-  ): Promise<Map<string, {
-    observed_at: string;
-    wave_height_m: number | null;
-    wave_period_s: number | null;
-    wave_direction_deg: number | null;
-    water_temp_c: number | null;
-  }>> {
+  ): Promise<{
+    data: Map<string, {
+      observed_at: string;
+      wave_height_m: number | null;
+      wave_period_s: number | null;
+      wave_direction_deg: number | null;
+      water_temp_c: number | null;
+    }>;
+    cacheError: boolean;
+  }> {
     const supabase = createSupabaseServiceRoleClient();
     const cutoff = new Date(Date.now() - maxAgeHours * 3600_000).toISOString();
 
@@ -373,7 +383,7 @@ export class ForecastDataSourceManager {
 
     if (error) {
       console.error("[DataSourceManager] Error fetching cached observations:", error);
-      return new Map();
+      return { data: new Map(), cacheError: true };
     }
 
     // Group by station, keep only most recent per station
@@ -384,7 +394,7 @@ export class ForecastDataSourceManager {
       }
     }
 
-    return result;
+    return { data: result, cacheError: false };
   }
 
   /**
@@ -475,7 +485,15 @@ export class ForecastDataSourceManager {
 
       // 2. Get cached observations
       const stationIds = ioosStations.map(s => s.station_id);
-      const cachedObs = await this.getLatestCachedObservations(stationIds);
+      const { data: cachedObs, cacheError } = await this.getLatestCachedObservations(stationIds);
+
+      if (cacheError) {
+        console.warn('[DataSourceManager] Cache fetch failed for IOOS observations, proceeding with live fetch', {
+          lat: location.latitude,
+          lon: location.longitude,
+          stationCount: stationIds.length,
+        });
+      }
 
       // 3. Build candidates with observation data
       const now = new Date();
@@ -483,7 +501,7 @@ export class ForecastDataSourceManager {
         const obs = cachedObs.get(s.station_id);
         return {
           stationId: s.station_id,
-          distanceKm: s.distance_to_beach_km || 999,
+          distanceKm: s.distance_to_beach_km ?? Infinity,
           network: s.source_network,
           latestObservedAt: obs ? new Date(obs.observed_at) : null,
           hasWaveHeight: obs?.wave_height_m != null,

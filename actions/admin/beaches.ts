@@ -80,16 +80,19 @@ export const createBeach = withAdminActionAndUser(
     // Validate input
     const validated = beachFormSchema.parse(formData);
 
+    if (validated.latitude == null || validated.longitude == null) {
+      throw new Error("Latitude and longitude are required to create a beach");
+    }
+
     // Create beach
     const { data, error } = await supabaseAdmin
       .from("beaches")
       .insert({
         name: validated.name,
-        location: validated.location,
         region: validated.region,
         country: validated.country,
-        center_lat: validated.latitude,
-        center_lng: validated.longitude,
+        lat: validated.latitude,
+        lon: validated.longitude,
         break_type: validated.break_type,
         skill_level: validated.skill_level,
         is_private: validated.is_private,
@@ -131,21 +134,22 @@ export const updateBeach = withAdminActionAndUser(
       .eq("id", beachId)
       .single();
 
-    // Update beach
+    // Update beach — only include lat/lon if provided (they're NOT NULL in DB)
+    const updatePayload: Record<string, unknown> = {
+      name: validated.name,
+      region: validated.region,
+      country: validated.country,
+      break_type: validated.break_type,
+      skill_level: validated.skill_level,
+      is_private: validated.is_private,
+      hazards: validated.hazards,
+    };
+    if (validated.latitude != null) updatePayload.lat = validated.latitude;
+    if (validated.longitude != null) updatePayload.lon = validated.longitude;
+
     const { data, error } = await supabaseAdmin
       .from("beaches")
-      .update({
-        name: validated.name,
-        location: validated.location,
-        region: validated.region,
-        country: validated.country,
-        center_lat: validated.latitude,
-        center_lng: validated.longitude,
-        break_type: validated.break_type,
-        skill_level: validated.skill_level,
-        is_private: validated.is_private,
-        hazards: validated.hazards,
-      })
+      .update(updatePayload)
       .eq("id", beachId)
       .select()
       .single();

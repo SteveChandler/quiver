@@ -606,7 +606,7 @@ export class ForecastBuilder {
     }
 
     // Priority 3: Latitude-based estimation
-    return this.estimateWaterTemperature(beach.lat ?? 32.7, forecastTime);
+    return this.estimateWaterTemperature(beach.lat, forecastTime);
   }
 
   private getWindSpeed(weatherPoint: WeatherPeriod | null): string | null {
@@ -622,7 +622,7 @@ export class ForecastBuilder {
     if (weatherPoint) {
       return `${weatherPoint.temperature}°F`;
     }
-    return this.estimateAirTemperature(beach.lat ?? 32.7, forecastTime);
+    return this.estimateAirTemperature(beach.lat, forecastTime);
   }
 
   /**

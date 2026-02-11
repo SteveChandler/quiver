@@ -34,8 +34,8 @@ export function EnhancedForecastWithTransparency({
   const rawForecast = forecast.raw_forecast as any;
   const dataSources = rawForecast?.data_sources || [forecast.data_source];
   const isFallback = forecast.data_source === "FALLBACK";
-  const confidenceScore = forecast.confidence_score ?? 0;
-  const isLowConfidence = confidenceScore < 50;
+  const confidenceScore = forecast.confidence_score;
+  const isLowConfidence = confidenceScore != null && confidenceScore < 50;
 
   // Determine container styling based on data quality
   const getContainerStyling = () => {
@@ -85,7 +85,7 @@ export function EnhancedForecastWithTransparency({
             </div>
 
             {/* Quick confidence indicator */}
-            {showConfidence && (
+            {showConfidence && confidenceScore != null && (
               <Badge
                 variant={
                   confidenceScore >= 75 ? "default" : "secondary"

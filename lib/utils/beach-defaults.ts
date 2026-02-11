@@ -35,9 +35,9 @@ export function getBeachDefaults(): Omit<
   "id" | "name" | "created_at" | "is_private" | "cdip_eligible" | "terrain_enabled"
 > {
   return {
-    // Location fields
-    lat: null,
-    lon: null,
+    // Location fields (lat/lon are NOT NULL in DB but default to 0 here for test mocks)
+    lat: 0,
+    lon: 0,
     city: null,
     state: null,
     country: null,

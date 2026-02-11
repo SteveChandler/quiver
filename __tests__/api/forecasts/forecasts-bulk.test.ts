@@ -316,7 +316,7 @@ describe("GET /api/forecasts/bulk", () => {
       expect(result.data.forecasts).not.toHaveProperty(beach2Id);
     });
 
-    it("returns empty forecasts on database error", async () => {
+    it("returns 500 error on database error", async () => {
       const beachIds = "beach-1,beach-2";
 
       const chain: any = {
@@ -336,13 +336,13 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      // Should return empty forecasts instead of throwing
-      expect(result.data.forecasts).toEqual({});
+      expect(response.status).toBe(500);
+      const data = await response.json();
+      expect(data.success).toBe(false);
     });
 
-    it("returns empty forecasts on unexpected error", async () => {
+    it("returns 500 error on unexpected error", async () => {
       const beachIds = "beach-1,beach-2";
 
       (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
@@ -354,10 +354,10 @@ describe("GET /api/forecasts/bulk", () => {
       });
 
       const response = await GET(request);
-      const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      // Should return empty forecasts instead of throwing
-      expect(result.data.forecasts).toEqual({});
+      expect(response.status).toBe(500);
+      const data = await response.json();
+      expect(data.success).toBe(false);
     });
 
     it("handles forecasts with undefined wave_height", async () => {
@@ -373,16 +373,19 @@ describe("GET /api/forecasts/bulk", () => {
       ];
 
       (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
-        const chain = {
+        const chain: any = {
           select: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
           gte: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
+          order: jest.fn(function(this: any) { return this; }),
         };
-        (chain.order as jest.Mock).mockResolvedValue({
-          data: mockForecasts,
-          error: null,
-        });
+        chain.order
+          .mockReturnValueOnce(chain)
+          .mockReturnValueOnce(chain)
+          .mockResolvedValueOnce({
+            data: mockForecasts,
+            error: null,
+          });
         return chain;
       });
 

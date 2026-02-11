@@ -4,10 +4,11 @@ import type { ConfidenceLevel, DataFreshness } from "@/types/api/recommendations
  * Unified confidence level information with colors for UI display.
  */
 export interface ConfidenceInfo {
-  level: 'high' | 'medium' | 'low';
-  color: 'green' | 'yellow' | 'red';
+  level: 'high' | 'medium' | 'low' | 'unknown';
+  color: 'green' | 'yellow' | 'red' | 'gray';
   bgColor: string;   // Tailwind class like 'bg-green-100'
   textColor: string; // Tailwind class like 'text-green-700'
+  label: string;     // Display label like 'High Confidence' or 'N/A'
 }
 
 /**
@@ -18,14 +19,25 @@ export interface ConfidenceInfo {
  * - Score >= 75: high confidence, green colors
  * - Score >= 50: medium confidence, yellow/amber colors
  * - Score < 50: low confidence, red colors
+ * - Score null: unknown confidence, gray/neutral colors
  */
-export function getConfidenceInfo(score: number): ConfidenceInfo {
+export function getConfidenceInfo(score: number | null): ConfidenceInfo {
+  if (score === null) {
+    return {
+      level: 'unknown',
+      color: 'gray',
+      bgColor: 'bg-gray-100',
+      textColor: 'text-gray-600',
+      label: 'N/A',
+    };
+  }
   if (score >= 75) {
     return {
       level: 'high',
       color: 'green',
       bgColor: 'bg-green-100',
       textColor: 'text-green-700',
+      label: 'High Confidence',
     };
   }
   if (score >= 50) {
@@ -34,6 +46,7 @@ export function getConfidenceInfo(score: number): ConfidenceInfo {
       color: 'yellow',
       bgColor: 'bg-yellow-100',
       textColor: 'text-yellow-700',
+      label: 'Moderate Confidence',
     };
   }
   return {
@@ -41,6 +54,7 @@ export function getConfidenceInfo(score: number): ConfidenceInfo {
     color: 'red',
     bgColor: 'bg-red-100',
     textColor: 'text-red-700',
+    label: 'Low Confidence',
   };
 }
 

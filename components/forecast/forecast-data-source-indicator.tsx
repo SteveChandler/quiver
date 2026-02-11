@@ -22,7 +22,7 @@ interface DataQuality {
 
 interface ForecastDataSourceIndicatorProps {
   dataSource: string;
-  confidenceScore: number;
+  confidenceScore: number | null;
   dataSources: string[];
   // Compact display flag used by some callers; noop here for compatibility
   compact?: boolean;
@@ -76,7 +76,7 @@ export function ForecastDataSourceIndicator({
   const [isExpanded, setIsExpanded] = React.useState(false);
 
   // Determine confidence level and styling using shared utility
-  const { level: confidenceLevel, color } = getConfidenceInfo(confidenceScore);
+  const { level: confidenceLevel, color, label } = getConfidenceInfo(confidenceScore);
 
   // Get data source display info
   const getDataSourceInfo = (source: string) => {
@@ -354,9 +354,10 @@ export function ForecastDataSourceIndicator({
                 "bg-green-100 text-green-700": color === "green",
                 "bg-yellow-100 text-yellow-700": color === "yellow",
                 "bg-red-100 text-red-700": color === "red",
+                "bg-gray-100 text-gray-600": color === "gray",
               })}
             >
-              {confidenceScore}% confidence
+              {confidenceScore !== null ? `${confidenceScore}% confidence` : "Confidence unavailable"}
             </Badge>
 
             {/* Expandable details */}

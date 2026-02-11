@@ -59,9 +59,9 @@ export function pickBestUsaBeachMatch(params: BeachMatchParams): Beach | null {
       return bHasCoords - aHasCoords;
     }
 
-    // Prefer beaches with more reviews
-    const aReviews = a.review_count ?? 0;
-    const bReviews = b.review_count ?? 0;
+    // Prefer beaches with more reviews (null sorts last)
+    const aReviews = a.review_count ?? -1;
+    const bReviews = b.review_count ?? -1;
     if (aReviews !== bReviews) {
       return bReviews - aReviews;
     }

@@ -73,8 +73,7 @@ async function bulkForecastHandler(request: NextRequest) {
 
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
-      // Return empty forecasts instead of throwing
-      return createSuccessResponse({ forecasts: {} });
+      return handleApiError(new Error(error.message), "Failed to fetch bulk forecasts");
     }
 
     // Group forecasts by beach_id and apply forward-looking time selection
@@ -96,8 +95,7 @@ async function bulkForecastHandler(request: NextRequest) {
     return createSuccessResponse({ forecasts: waveHeightMap });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);
-    // Return empty forecasts instead of 500
-    return createSuccessResponse({ forecasts: {} });
+    return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");
   }
 }
 

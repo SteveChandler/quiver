@@ -123,12 +123,12 @@ describe('scoreConditions', () => {
       expect(result.total).toBe(0);
     });
 
-    it('uses default max_wind_any_mph of 18 when not specified', () => {
+    it('uses default max_wind_any_mph of 25 when not specified', () => {
       const beachWithoutThresholds = {
         ...baseBeach,
         max_wind_any_mph: undefined,
       } as BeachWithThresholds;
-      const forecast = { ...baseForecast, windSpeed: 20 };
+      const forecast = { ...baseForecast, windSpeed: 27 };
       const result = scoreConditions(forecast, beachWithoutThresholds);
       expect(result.matchQuality).toBe('skip');
     });

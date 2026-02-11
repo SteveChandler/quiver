@@ -41,8 +41,8 @@ export function BeachHeroCompact({
   publicMode
 }: BeachHeroCompactProps) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const rating = beach.average_rating || 0;
-  const reviewCount = beach.review_count || 0;
+  const rating = beach.average_rating;
+  const reviewCount = beach.review_count;
   const breakType = beach.break_type || "Beach Break";
   const location = getBeachLocation(beach);
 

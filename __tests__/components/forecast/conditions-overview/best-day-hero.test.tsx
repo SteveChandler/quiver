@@ -60,6 +60,7 @@ function createMockDay(overrides: Partial<EnrichedDaySummary> = {}): EnrichedDay
     windConditions: "offshore",
     bestTimeSlot: "morning",
     windSpeed: "5 mph",
+    isToday: false,
     ...overrides,
   };
 }

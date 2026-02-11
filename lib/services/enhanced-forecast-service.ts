@@ -141,8 +141,8 @@ export class EnhancedForecastService {
   private async fetchWaveDataWithRetry(beach: Beach) {
     return withRetry(async () => {
       const result = await this.dataSourceManager.getWaveWatchService().fetchWaveWatchForecast(
-        beach.lat ?? 0,
-        beach.lon ?? 0,
+        beach.lat,
+        beach.lon,
         FORECAST_CONSTANTS.DAYS
       );
       if (!result) {
@@ -180,8 +180,8 @@ export class EnhancedForecastService {
         log.warn(`No cached tides for beach ${beach.name}, falling back to live CO-OPS API`);
         const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
           beach.name,
-          beach.lat ?? 0,
-          beach.lon ?? 0
+          beach.lat,
+          beach.lon
         );
         const result = await this.dataSourceManager.getCOOPSService().fetchCOOPSData(
           stationId,
@@ -191,7 +191,7 @@ export class EnhancedForecastService {
       } catch (error) {
         throw new DataSourceError("CO-OPS", error as Error, {
           beachId: beach.id,
-          location: { lat: beach.lat ?? 0, lng: beach.lon ?? 0 },
+          location: { lat: beach.lat, lng: beach.lon },
         });
       }
     });
@@ -243,8 +243,8 @@ export class EnhancedForecastService {
         } else {
           log.debug(`Looking for nearest CDIP station for ${beach.name}`);
           selectedStation = await this.dataSourceManager.getCDIPService().getNearestStation(
-            beach.lat ?? 0,
-            beach.lon ?? 0,
+            beach.lat,
+            beach.lon,
             150 // 150km radius to cover regional gaps (CDIP station density varies)
           );
         }
@@ -271,7 +271,7 @@ export class EnhancedForecastService {
         log.error(`Error fetching CDIP data for ${beach.name}:`, error);
         throw new DataSourceError("CDIP", error as Error, {
           beachId: beach.id,
-          location: { lat: beach.lat ?? 0, lng: beach.lon ?? 0 },
+          location: { lat: beach.lat, lng: beach.lon },
         });
       }
     });
@@ -653,8 +653,8 @@ export class EnhancedForecastService {
     for (const beach of beaches) {
       const stationId = this.dataSourceManager.getCOOPSService().getStationForLocation(
         beach.name,
-        beach.lat ?? 0,
-        beach.lon ?? 0
+        beach.lat,
+        beach.lon
       );
       stationIds.add(stationId);
     }

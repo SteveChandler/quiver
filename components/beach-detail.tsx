@@ -12,7 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
-import { Navigation } from "lucide-react";
+import { Navigation, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
@@ -431,6 +432,16 @@ function BeachDetailContent({
           onAuthRequired={handleAuthRequired}
           className="mb-8"
         />
+
+        {/* Forecast Error Warning Banner */}
+        {errors.forecasts && (
+          <Alert className="border-amber-200/70 bg-amber-50 text-amber-900 mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Forecast data is temporarily unavailable. Some information may be missing.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Tabbed Content */}
         <BeachTabs

@@ -844,8 +844,8 @@ function generateIntelPost(npc: MockUser, beach: Beach): any {
   const { title, description } = generateIntelContent(npc, beach, tag, createdAt, baselineConditions);
 
   // Add slight coordinate offset for realistic posting
-  const latitude = (beach.lat ?? 0) + (Math.random() - 0.5) * 0.002; // ~200m variance
-  const longitude = (beach.lon ?? 0) + (Math.random() - 0.5) * 0.002;
+  const latitude = beach.lat + (Math.random() - 0.5) * 0.002; // ~200m variance
+  const longitude = beach.lon + (Math.random() - 0.5) * 0.002;
 
   return {
     user_id: npc.id,

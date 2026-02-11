@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_beach_timezones_pr_hi: {
+        Row: {
+          id: string | null
+          name: string | null
+          state: string | null
+          timezone: string | null
+        }
+        Insert: {
+          id?: string | null
+          name?: string | null
+          state?: string | null
+          timezone?: string | null
+        }
+        Update: {
+          id?: string | null
+          name?: string | null
+          state?: string | null
+          timezone?: string | null
+        }
+        Relationships: []
+      }
       admin_audit_log: {
         Row: {
           action: string
@@ -1064,9 +1085,9 @@ export type Database = {
           hazards: string[] | null
           id: string
           is_private: boolean
-          lat: number | null
+          lat: number
           local_etiquette: string | null
-          lon: number | null
+          lon: number
           name: string
           owner_id: string | null
           parking_tips: string | null
@@ -1125,9 +1146,9 @@ export type Database = {
           hazards?: string[] | null
           id?: string
           is_private?: boolean
-          lat?: number | null
+          lat: number
           local_etiquette?: string | null
-          lon?: number | null
+          lon: number
           name: string
           owner_id?: string | null
           parking_tips?: string | null
@@ -1186,9 +1207,9 @@ export type Database = {
           hazards?: string[] | null
           id?: string
           is_private?: boolean
-          lat?: number | null
+          lat?: number
           local_etiquette?: string | null
-          lon?: number | null
+          lon?: number
           name?: string
           owner_id?: string | null
           parking_tips?: string | null
@@ -1901,6 +1922,33 @@ export type Database = {
             referencedColumns: ["beach_id"]
           },
         ]
+      }
+      embed_impressions: {
+        Row: {
+          beach_slug: string
+          created_at: string
+          expires_at: string
+          id: string
+          referrer_domain: string | null
+          widget_type: string
+        }
+        Insert: {
+          beach_slug: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          referrer_domain?: string | null
+          widget_type: string
+        }
+        Update: {
+          beach_slug?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          referrer_domain?: string | null
+          widget_type?: string
+        }
+        Relationships: []
       }
       enhanced_forecasts: {
         Row: {
@@ -6449,6 +6497,23 @@ export type Database = {
           score: number
         }[]
       }
+      get_conditions_alert_candidates: {
+        Args: { p_cooldown_hours?: number; p_min_score?: number }
+        Returns: {
+          beach_name: string
+          beach_slug: string
+          best_window_end: string
+          best_window_start: string
+          conditions_score: number
+          display_name: string
+          email: string
+          home_beach_id: string
+          recommendation: string
+          surf_description: string
+          user_id: string
+          wind_description: string
+        }[]
+      }
       get_current_production_model: {
         Args: never
         Returns: {
@@ -6666,6 +6731,20 @@ export type Database = {
           email: string
           home_beach_id: string
           recommendation: string
+          surf_description: string
+          user_id: string
+          wind_description: string
+        }[]
+      }
+      get_session_prompt_candidates: {
+        Args: { p_cooldown_hours?: number; p_min_score?: number }
+        Returns: {
+          beach_name: string
+          beach_slug: string
+          conditions_score: number
+          display_name: string
+          email: string
+          home_beach_id: string
           surf_description: string
           user_id: string
           wind_description: string

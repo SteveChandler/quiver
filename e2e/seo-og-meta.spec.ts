@@ -5,7 +5,7 @@
  * - og:image points to the dynamic OG image endpoint with absolute URL
  * - og:title matches page title format
  * - Twitter card meta tags present
- * - Title format: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams | Quiver"
+ * - Title format: "{Beach Name} — X ft Today | Crowd & Wind Intel | {City} | Quiver"
  *   (CTR-optimized format with dynamic wave height)
  *
  * @project guest (public pages)
@@ -24,10 +24,10 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
 
       const title = await page.title();
 
-      // CTR-optimized format: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams | Quiver"
-      expect(title).toContain('Surf Report');
+      // CTR-optimized format: "{Beach Name} — X ft Today | Crowd & Wind Intel | {City} | Quiver"
+      expect(title).toContain('Blacks');
       expect(title).toContain('Quiver');
-      // Should contain dynamic wave height (e.g., "5.7 ft" or "3-5ft")
+      // Should contain dynamic wave height (e.g., "3.1 ft")
       expect(title).toMatch(/\d+(\.\d+)?(-\d+)?\s*ft/i);
     });
 
@@ -56,8 +56,8 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
         .getAttribute('content');
 
       expect(ogTitle).not.toBeNull();
-      // CTR-optimized: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams"
-      expect(ogTitle).toContain('Surf Report');
+      // CTR-optimized: "{Beach Name} — X ft Today | Crowd & Wind Intel | {City}"
+      expect(ogTitle).toContain('Blacks');
       // Should contain dynamic wave height
       expect(ogTitle).toMatch(/\d+(\.\d+)?(-\d+)?\s*ft/i);
     });
@@ -118,8 +118,8 @@ test.describe('Beach Page SEO & OG Meta Tags', () => {
 
       const title = await page.title();
 
-      // CTR-optimized format: "{Beach Name} Surf Report: X ft | 7-Day Forecast & Cams | Quiver"
-      expect(title).toContain('Surf Report');
+      // CTR-optimized format: "{Beach Name} — X ft Today | Crowd & Wind Intel | {City} | Quiver"
+      expect(title).toContain('Blacks');
       expect(title).toContain('Quiver');
       // Should contain dynamic wave height
       expect(title).toMatch(/\d+(\.\d+)?(-\d+)?\s*ft/i);

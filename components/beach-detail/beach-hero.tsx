@@ -2,6 +2,7 @@ import { Star, MapPin } from "lucide-react";
 import Image from "next/image";
 import type { Beach } from "@/types/database";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { hasValue } from "@/lib/utils/nullable-display-utils";
 
 interface BeachHeroProps {
   beach: Beach;
@@ -24,21 +25,23 @@ export function BeachHero({ beach, mapImageUrl }: BeachHeroProps) {
           <MapPin className="h-4 w-4 mr-1" />
           <span>{getBeachLocation(beach)}</span>
         </div>
-        <div className="flex items-center mt-1">
-          {Array(5)
-            .fill(0)
-            .map((_, i) => (
-              <Star
-                key={i}
-                className={`h-4 w-4 ${
-                  i < Math.round(beach.average_rating || 0)
-                    ? "text-yellow-500 fill-yellow-500"
-                    : "text-gray-300"
-                }`}
-              />
-            ))}
-          <span className="ml-1">({beach.review_count ?? 0} {(beach.review_count ?? 0) === 1 ? 'review' : 'reviews'})</span>
-        </div>
+        {hasValue(beach.average_rating) && (
+          <div className="flex items-center mt-1">
+            {Array(5)
+              .fill(0)
+              .map((_, i) => (
+                <Star
+                  key={i}
+                  className={`h-4 w-4 ${
+                    i < Math.round(beach.average_rating || 0)
+                      ? "text-yellow-500 fill-yellow-500"
+                      : "text-gray-300"
+                  }`}
+                />
+              ))}
+            <span className="ml-1">({beach.review_count ?? 0} {(beach.review_count ?? 0) === 1 ? 'review' : 'reviews'})</span>
+          </div>
+        )}
       </div>
     </div>
   );

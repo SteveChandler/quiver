@@ -1,7 +1,8 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { EnhancedBeachOverview } from "@/components/beach-detail/enhanced-beach-overview";
-import type { Beach } from "@/types/beach";
+import type { Beach } from "@/types/database";
+import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
 
 // Mock child components
 jest.mock("@/components/beach-detail/feature-grid", () => ({
@@ -40,41 +41,18 @@ jest.mock("@/components/ui/card", () => ({
 }));
 
 describe("EnhancedBeachOverview", () => {
-  const createMockBeach = (overrides = {}): Beach & {
-    features?: string[];
-    parking_tips?: string | null;
-    access_tips?: string | null;
-    wave_tips?: string | null;
-    crowd_tips?: string | null;
-    best_conditions_prose?: string | null;
-    warnings?: string[];
-    description?: string | null;
-    local_etiquette?: string | null;
-    average_rating?: number;
-    review_count?: number;
-  } => ({
+  const createMockBeach = (overrides = {}) => createBeachWithDefaults({
     id: "test-beach-id",
     name: "Test Beach",
     slug: "test-beach",
-    center_lat: 32.7157,
-    center_lng: -117.1611,
-    county: "San Diego",
+    lat: 32.7157,
+    lon: -117.1611,
+    city: "San Diego",
     state: "CA",
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-    features: [],
-    parking_tips: null,
-    access_tips: null,
-    wave_tips: null,
-    crowd_tips: null,
-    best_conditions_prose: null,
-    warnings: [],
-    description: null,
-    local_etiquette: null,
     average_rating: 0,
     review_count: 0,
     ...overrides,
-  });
+  }) as any;
 
   beforeEach(() => {
     jest.clearAllMocks();

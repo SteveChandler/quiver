@@ -58,19 +58,19 @@ describe("Beach to SurfSpot Transformer", () => {
         expect(result.coordinates.lng).toBe(mockBeachComplete.lon);
       });
 
-      it("should use San Diego default coordinates when lat is null", () => {
+      it("should pass through null lat without San Diego fallback", () => {
         const beachWithNullLat: BeachWithMetrics = {
           ...mockBeachComplete,
           lat: null as unknown as number,
         };
         const result = transformBeachToSurfSpot(beachWithNullLat);
 
-        // Default San Diego center
-        expect(result.coordinates.lat).toBe(32.7157);
+        // No fallback — null passes through (NOT NULL constraint enforced at DB level)
+        expect(result.coordinates.lat).toBeNull();
         expect(result.coordinates.lng).toBe(mockBeachComplete.lon);
       });
 
-      it("should use San Diego default coordinates when lon is null", () => {
+      it("should pass through null lon without San Diego fallback", () => {
         const beachWithNullLon: BeachWithMetrics = {
           ...mockBeachComplete,
           lat: 32.8,
@@ -79,8 +79,9 @@ describe("Beach to SurfSpot Transformer", () => {
 
         const result = transformBeachToSurfSpot(beachWithNullLon);
 
-        expect(result.coordinates.lat).toBe(32.8); // Uses provided lat
-        expect(result.coordinates.lng).toBe(-117.1611); // Uses default lon
+        expect(result.coordinates.lat).toBe(32.8);
+        // No fallback — null passes through (NOT NULL constraint enforced at DB level)
+        expect(result.coordinates.lng).toBeNull();
       });
 
       it("should preserve coordinate precision", () => {

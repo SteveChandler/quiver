@@ -227,7 +227,6 @@ describe("Conditions Alert Email Cron Job API", () => {
 
       expect(mockRpc).toHaveBeenCalledWith("get_conditions_alert_candidates", {
         p_min_score: 7,
-        p_cooldown_hours: 20,
       });
     });
 

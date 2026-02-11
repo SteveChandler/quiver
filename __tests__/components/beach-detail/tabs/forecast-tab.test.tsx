@@ -306,7 +306,7 @@ describe("ForecastTab", () => {
   });
 
   describe("HorizonStrip Rendering", () => {
-    it("renders 12-Day Outlook section when forecasts exist", () => {
+    it("renders dynamic N-Day Outlook section when forecasts exist", () => {
       const mockDaySummaries = [
         { date: "2026-02-10", waveHeight: 4.5 },
         { date: "2026-02-11", waveHeight: 5.0 },
@@ -315,7 +315,7 @@ describe("ForecastTab", () => {
 
       render(<ForecastTab {...defaultProps} />);
 
-      expect(screen.getByText("12-Day Outlook")).toBeInTheDocument();
+      expect(screen.getByText("2-Day Outlook")).toBeInTheDocument();
       expect(screen.getByText("Tap a day to view details")).toBeInTheDocument();
       expect(screen.getByTestId("horizon-strip")).toBeInTheDocument();
     });
@@ -338,7 +338,6 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} forecasts={[]} />);
 
       expect(screen.queryByTestId("horizon-strip")).not.toBeInTheDocument();
-      expect(screen.queryByText("12-Day Outlook")).not.toBeInTheDocument();
     });
   });
 
@@ -346,7 +345,7 @@ describe("ForecastTab", () => {
     it("shows 3-Day Outlook instead of 5-Day Outlook in public mode", () => {
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      expect(screen.getByText("3-Day Outlook")).toBeInTheDocument();
+      expect(screen.getAllByText("3-Day Outlook").length).toBeGreaterThanOrEqual(1);
       expect(screen.queryByText("5-Day Outlook")).not.toBeInTheDocument();
     });
 

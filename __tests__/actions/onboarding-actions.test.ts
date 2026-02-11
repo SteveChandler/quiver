@@ -139,14 +139,14 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(lastProfileUpdate.preferred_wave_size).toBe(null);
-      expect(lastProfileUpdate.preferred_break_type).toBe(null);
-      expect(lastProfileUpdate.crowd_preference).toBe(null);
+      expect(lastProfileUpdate.preferred_wave_size).toBeUndefined();
+      expect(lastProfileUpdate.preferred_break_type).toBeUndefined();
+      expect(lastProfileUpdate.crowd_preference).toBeUndefined();
       expect(lastProfileUpdate.home_beach_id).toBe("beach-123");
-      expect(lastProfileUpdate.experience_level).toBe(null);
+      expect(lastProfileUpdate.experience_level).toBeUndefined();
     });
 
-    it("should default notification preferences when not provided", async () => {
+    it("should not set notification preferences when not provided", async () => {
       const onboardingData = {
         fullName: "Test User",
         displayName: "test_user",
@@ -157,8 +157,8 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(lastProfileUpdate.notif_push_enabled).toBe(true); // Default true
-      expect(lastProfileUpdate.notif_email_enabled).toBe(true); // Default true
+      expect(lastProfileUpdate.notif_push_enabled).toBeUndefined();
+      expect(lastProfileUpdate.notif_email_enabled).toBeUndefined();
     });
 
     it("should preserve explicit false values for notifications", async () => {
@@ -322,7 +322,7 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(lastProfileUpdate.surf_styles).toEqual([]);
+      expect(lastProfileUpdate.surf_styles).toBeUndefined();
     });
 
     it("should handle all preference fields as 'any'", async () => {

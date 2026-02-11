@@ -116,15 +116,11 @@ describe("Sitemap Generation", () => {
       });
     });
 
-    it("should set lastModified to current date", async () => {
-      const beforeTest = new Date().toISOString().split("T")[0];
+    it("should set lastModified to fixed date for static routes", async () => {
       const result = await sitemap();
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
-      expect(homeRoute?.lastModified).toBeDefined();
-      expect(
-        (homeRoute?.lastModified as string).startsWith(beforeTest)
-      ).toBe(true);
+      expect(homeRoute?.lastModified).toBe("2026-02-10");
     });
   });
 

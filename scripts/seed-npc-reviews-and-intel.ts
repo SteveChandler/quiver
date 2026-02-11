@@ -940,8 +940,8 @@ async function seedIntelPosts(
       const createdAt = randomDateInRange(14); // Within last 2 weeks (increased from 10 days)
       
       // Add slight offset to beach coordinates for realistic intel posting
-      const latitude = addRandomOffset(beach.lat ?? 0);
-      const longitude = addRandomOffset(beach.lon ?? 0);
+      const latitude = addRandomOffset(beach.lat);
+      const longitude = addRandomOffset(beach.lon);
       
       const intelData: Record<string, any> = {
         user_id: user.id,

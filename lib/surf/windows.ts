@@ -1,5 +1,6 @@
 import { boardCall, computeHourScore, HourInputs, BeachMeta, HourlyMarine, HourlyTide } from "./scoring";
 import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
+import { displayNumber } from "@/lib/utils/nullable-display-utils";
 
 interface HourSample extends HourInputs {
   ts: string; // ISO timestamp (hourly)
@@ -176,13 +177,9 @@ export function windowBlurbDetailed(w: any) {
       w.meanScore
     })`,
     reasons: [
-      `Swell ~${Math.round(w.avgHsFt)} ft avg, ${Math.round(
-        w.swellAtStart.tp_s ?? 0
-      )}s, ${Math.round(w.swellAtStart.dir ?? 0)}°`,
-      `Wind ${Math.round(w.windAtStart.spd_kts ?? 0)} kt @ ${Math.round(
-        w.windAtStart.dir ?? 0
-      )}° at start`,
-      `Tide ${Number(w.tideAtStartFt ?? 0).toFixed(1)} ft`,
+      `Swell ~${Math.round(w.avgHsFt)} ft avg, ${displayNumber(w.swellAtStart.tp_s, { format: n => Math.round(n).toString() })}s, ${displayNumber(w.swellAtStart.dir, { format: n => Math.round(n).toString() })}°`,
+      `Wind ${displayNumber(w.windAtStart.spd_kts, { format: n => Math.round(n).toString() })} kt @ ${displayNumber(w.windAtStart.dir, { format: n => Math.round(n).toString() })}° at start`,
+      `Tide ${displayNumber(w.tideAtStartFt, { format: n => n.toFixed(1) })} ft`,
       `Board: ${board}`,
     ],
   };

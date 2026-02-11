@@ -9,7 +9,7 @@ The `/lib/constants` directory provides centralized configuration and constant v
 ```
 lib/constants/
 ├── animations.ts                # Motion and animation configurations
-├── beach-coordinates.ts         # Static beach location coordinates
+├── beach-coordinates.ts         # ⚠️ DEPRECATED - Legacy static beach coordinates (use beaches table)
 ├── cdip-stations.ts            # CDIP buoy station configurations
 ├── content.ts                  # Static content for pages (About, Privacy, Features)
 ├── coverage-areas.ts           # Geographic coverage area definitions
@@ -95,14 +95,13 @@ export const DURATIONS = {
 } as const;
 ```
 
-### **beach-coordinates.ts** (Geographic Data)
+### **beach-coordinates.ts** (Geographic Data) ⚠️ DEPRECATED
 
-- **Purpose**: Static coordinate data for known surf beaches
-- **Features**:
-  - Precise latitude/longitude coordinates
-  - Normalized beach name keys
-  - Southern California focus
-  - Easy lookup and validation
+- **Status**: ⚠️ **DEPRECATED** - Retained only for historical session map images of deleted beaches
+- **Purpose**: Legacy static coordinate data for 27 hardcoded surf beaches
+- **Migration**: Use the `beaches` table directly via server actions or Supabase queries instead
+- **Why deprecated**: All active beaches now have NOT NULL lat/lon columns in the database, eliminating the need for this hardcoded dictionary
+- **Remaining use case**: Historical session data referencing beaches that no longer exist in the `beaches` table
 
 **Coordinate Structure:**
 
@@ -429,6 +428,8 @@ function AboutPage() {
 ### **Geographic Validation**
 
 ```typescript
+// ⚠️ DEPRECATED EXAMPLE - DO NOT USE FOR NEW CODE
+// Use the beaches table directly instead of beachCoordinates dictionary
 import { beachCoordinates } from "@/lib/constants/beach-coordinates";
 import { isWithinSanDiegoCoverage } from "@/lib/constants/coverage-areas";
 

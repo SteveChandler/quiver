@@ -369,29 +369,29 @@ describe("NearbySpots", () => {
     });
   });
 
-  describe("Missing Coordinates", () => {
-    it("should render nothing when beach has no lat coordinate", () => {
-      const beachWithoutLat = { ...mockBeach, lat: null };
+  describe("Zero Coordinates", () => {
+    it("should render nothing when beach has zero lat coordinate", () => {
+      const beachWithZeroLat = { ...mockBeach, lat: 0 };
 
-      const { container } = render(<NearbySpots beach={beachWithoutLat} />);
-
-      expect(container.firstChild).toBeNull();
-      expect(getNearbyBeaches).not.toHaveBeenCalled();
-    });
-
-    it("should render nothing when beach has no lon coordinate", () => {
-      const beachWithoutLon = { ...mockBeach, lon: null };
-
-      const { container } = render(<NearbySpots beach={beachWithoutLon} />);
+      const { container } = render(<NearbySpots beach={beachWithZeroLat as any} />);
 
       expect(container.firstChild).toBeNull();
       expect(getNearbyBeaches).not.toHaveBeenCalled();
     });
 
-    it("should render nothing when beach has no coordinates at all", () => {
-      const beachWithoutCoords = { ...mockBeach, lat: null, lon: null };
+    it("should render nothing when beach has zero lon coordinate", () => {
+      const beachWithZeroLon = { ...mockBeach, lon: 0 };
 
-      const { container } = render(<NearbySpots beach={beachWithoutCoords} />);
+      const { container } = render(<NearbySpots beach={beachWithZeroLon as any} />);
+
+      expect(container.firstChild).toBeNull();
+      expect(getNearbyBeaches).not.toHaveBeenCalled();
+    });
+
+    it("should render nothing when beach has zero coordinates", () => {
+      const beachWithZeroCoords = { ...mockBeach, lat: 0, lon: 0 };
+
+      const { container } = render(<NearbySpots beach={beachWithZeroCoords as any} />);
 
       expect(container.firstChild).toBeNull();
       expect(getNearbyBeaches).not.toHaveBeenCalled();

@@ -96,12 +96,9 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("beaches")
           .insert({
             name: "Test Beach for Stats Flow",
-            latitude: 33.7,
-            longitude: -118.4,
-            location: "Test Location",
+            lat: 33.7,
+            lon: -118.4,
             region: "test",
-            review_count: 0,
-            average_rating: null,
           })
           .select("id")
           .single();

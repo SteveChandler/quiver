@@ -3,6 +3,21 @@ interface BeachCoordinates {
   lng: number;
 }
 
+/**
+ * Legacy hardcoded beach coordinates dictionary
+ *
+ * @deprecated This 27-entry coordinate dictionary is deprecated and should not be used for new code.
+ *
+ * **Retained only for:** Historical session map images of deleted beaches (beaches that no longer
+ * exist in the `beaches` table but have associated session data).
+ *
+ * **For active beaches:** Use the `beaches` table directly via server actions or Supabase queries.
+ * All active beaches have NOT NULL lat/lon columns in the database.
+ *
+ * **Migration path:** Any code using this dictionary for active beach lookups should be refactored
+ * to query the `beaches` table instead. This provides accurate, up-to-date coordinates for all
+ * active beaches without hardcoding.
+ */
 export const beachCoordinates: Record<string, BeachCoordinates> = {
   "oceanside pier": { lat: 33.1959, lng: -117.3795 },
   "oceanside harbor beach": { lat: 33.188, lng: -117.38 },
@@ -33,4 +48,8 @@ export const beachCoordinates: Record<string, BeachCoordinates> = {
   "silver strand": { lat: 32.6895, lng: -117.1332 },
 };
 
+/**
+ * @deprecated See deprecation notice on `beachCoordinates` constant above.
+ * Use the `beaches` table for active beach lookups.
+ */
 export const beachNames = Object.keys(beachCoordinates);

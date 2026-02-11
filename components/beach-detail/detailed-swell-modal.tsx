@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { displayPercent } from "@/lib/utils/nullable-display-utils";
 import {
   Accordion,
   AccordionItem,
@@ -128,7 +129,7 @@ export function DetailedSwellModal({
                     Confidence:
                   </strong>{" "}
                   <span className="font-open-sans text-emerald-600">
-                    {Math.round(forecast.confidence_score ?? 0)}%
+                    {displayPercent(forecast.confidence_score)}
                   </span>
                 </div>
               </div>

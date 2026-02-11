@@ -90,7 +90,7 @@ export function ForecastDisplayWithTransparency({
     if (!forecasts.length) return null;
 
     const highConfidenceCount = forecasts.filter(
-      (f) => (f.confidence_score ?? 0) >= 75
+      (f) => f.confidence_score != null && f.confidence_score >= 75
     ).length;
     const fallbackCount = forecasts.filter(
       (f) => f.data_source === "FALLBACK"
@@ -311,7 +311,7 @@ export function ForecastDisplayWithTransparency({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ForecastDataSourceIndicator
               dataSource={primaryForecast.data_source}
-              confidenceScore={primaryForecast.confidence_score ?? 0}
+              confidenceScore={primaryForecast.confidence_score}
               dataSources={
                 primaryForecast.raw_forecast?.data_sources || [
                   primaryForecast.data_source,
@@ -326,7 +326,7 @@ export function ForecastDisplayWithTransparency({
             />
 
             <ConfidenceScoreExplanation
-              score={primaryForecast.confidence_score ?? 0}
+              score={primaryForecast.confidence_score}
               beachName={beach?.name}
               compact={compact}
               data-testid="detailed-confidence-explanation"
@@ -401,6 +401,11 @@ export function ForecastDisplayWithTransparency({
                         month: "short",
                         day: "numeric",
                       });
+                      const score = forecast.confidence_score;
+                      const isHigh = score != null && score >= 75;
+                      const isMedium = score != null && score >= 50 && score < 75;
+                      const isLow = score != null && score < 50;
+                      const isUnknown = score == null;
 
                       return (
                         <div
@@ -410,23 +415,20 @@ export function ForecastDisplayWithTransparency({
                           <span>{dateString}:</span>
                           <div className="flex items-center space-x-2">
                             <Badge
-                              variant={
-                                (forecast.confidence_score ?? 0) >= 75
-                                  ? "default"
-                                  : "secondary"
-                              }
+                              variant={isHigh ? "default" : "secondary"}
                               className={cn("text-xs", {
-                                "bg-green-100 text-green-700":
-                                  (forecast.confidence_score ?? 0) >= 75,
-                                "bg-red-100 text-red-700":
-                                  (forecast.confidence_score ?? 0) < 50,
+                                "bg-green-100 text-green-700": isHigh,
+                                "bg-red-100 text-red-700": isLow,
+                                "bg-gray-100 text-gray-600": isUnknown,
                               })}
                             >
-                              {(forecast.confidence_score ?? 0) >= 75
+                              {isHigh
                                 ? "High confidence"
-                                : (forecast.confidence_score ?? 0) >= 50
+                                : isMedium
                                 ? "Medium confidence"
-                                : "Low confidence"}
+                                : isLow
+                                ? "Low confidence"
+                                : "Unknown confidence"}
                             </Badge>
                             <span className="text-gray-500 text-xs">
                               {forecast.data_source}

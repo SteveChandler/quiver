@@ -11,7 +11,7 @@ describe("robots.txt", () => {
 
   it("disallows crawling Next.js build assets (/_next/*) when indexing is enabled", () => {
     delete process.env.DISALLOW_ROBOTS;
-    process.env.NODE_ENV = "production";
+    (process.env as any).NODE_ENV = "production";
 
     jest.resetModules();
     // eslint-disable-next-line @typescript-eslint/no-var-requires

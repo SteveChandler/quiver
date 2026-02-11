@@ -25,7 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Beach Detail Forecast Error Visibility** (uncommitted) - Added amber warning banner in beach detail page when forecast data fails to load. Users now see "Forecast data is temporarily unavailable. Some information may be missing." with AlertTriangle icon instead of silently missing sections.
+- **Fix Fallback Antipatterns Masking Bad Data** (uncommitted) - Eliminated ~40 instances where hardcoded fallback values silently masked missing or broken data:
+  - **Coordinate safety**: Added NOT NULL + CHECK constraints on `beaches.lat/lon`, removed `?? 0` and `?? 32.7157` (San Diego) fallbacks across 8 files, deprecated hardcoded `beach-coordinates.ts` dictionary
+  - **API error honesty**: Bulk forecast API now returns HTTP 500 on DB errors instead of silently returning 200 with empty data; added amber warning banner on beach detail page when forecast data fails to load
+  - **Null display integrity**: Created `nullable-display-utils.ts` (displayNumber, displayPercent, hasValue, nullsLast); confidence scores show "—" instead of "0%" when data is missing; review ratings section hidden when no rating exists instead of showing "0 stars (0 reviews)"
+  - **Dead code removal**: Removed unused `loadBeachAffinity()` DB query from discovery orchestrator; cache layer now distinguishes errors from empty results via `{ data, cacheError }` pattern
 - **Landing Page Local Beaches** (uncommitted) - "Popular surf spots" section now shows nearby beaches when user location is available via IP geolocation. Falls back to global list when location is unavailable or fewer than 4 beaches are within 50 miles. Heading updates to "Popular surf spots near {location}". SSR footer list unchanged for SEO crawlers.
 
 ### Changed

@@ -29,8 +29,8 @@ export function createSpotProfile(beach: Beach): SpotProfile {
     name: beach.name,
     timezone: getTimezone(beach),
     coordinates: {
-      lat: beach.lat ?? 0,
-      lon: beach.lon ?? 0,
+      lat: beach.lat,
+      lon: beach.lon,
     },
     swellWindow: createSwellWindow(beach),
     windThresholds: createWindThresholds(beach),
@@ -47,8 +47,8 @@ function getTimezone(beach: Beach): string {
   // Beach may have timezone column (added in recent migration)
   // For now, use Pacific Time as default for US beaches
   // TODO: Use actual timezone column when available in types
-  const lat = beach.lat ?? 0;
-  const lon = beach.lon ?? 0;
+  const lat = beach.lat;
+  const lon = beach.lon;
 
   // Check Hawaii first (before generic longitude checks)
   if (lat > 19 && lat < 23 && lon > -161 && lon < -154) {

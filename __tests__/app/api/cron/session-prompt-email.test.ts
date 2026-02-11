@@ -209,7 +209,6 @@ describe("Session Prompt Email Cron Job API", () => {
 
       expect(mockRpc).toHaveBeenCalledWith("get_session_prompt_candidates", {
         p_min_score: 7,
-        p_cooldown_hours: 20,
       });
     });
 

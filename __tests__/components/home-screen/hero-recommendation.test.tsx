@@ -98,7 +98,7 @@ function createMockRecommendation(
       start: new Date("2026-02-10T07:00:00"),
       end: new Date("2026-02-10T10:00:00"),
       timezone: "America/Los_Angeles",
-      peakTime: null,
+      peakTime: undefined,
       tide: "Rising",
       wind: "5 mph SW",
       waveHeight: "3-5 ft",
@@ -126,7 +126,7 @@ function createMockRecommendation(
     warnings: [],
     generated_at: "2026-02-10T00:00:00Z",
     message: "Clean offshore conditions all morning.",
-    conditionBadges: [{ label: "Offshore" }, { label: "Clean" }],
+    conditionBadges: [{ label: "Offshore", contribution: 10 }, { label: "Clean", contribution: 10 }],
     waveHeightBadge: "3-5ft",
     ...overrides,
   } as unknown as SurfDiscoveryRecommendation;
@@ -456,7 +456,7 @@ describe("HeroRecommendation - Message Text", () => {
 describe("HeroRecommendation - Condition Badges", () => {
   it("renders condition badges when provided", () => {
     const mockRecommendation = createMockRecommendation({
-      conditionBadges: [{ label: "Offshore" }, { label: "Clean" }, { label: "Rising Tide" }],
+      conditionBadges: [{ label: "Offshore", contribution: 10 }, { label: "Clean", contribution: 10 }, { label: "Rising Tide", contribution: 10 }],
     });
 
     render(
@@ -475,11 +475,11 @@ describe("HeroRecommendation - Condition Badges", () => {
   it("renders only first 3 condition badges", () => {
     const mockRecommendation = createMockRecommendation({
       conditionBadges: [
-        { label: "Badge 1" },
-        { label: "Badge 2" },
-        { label: "Badge 3" },
-        { label: "Badge 4" },
-        { label: "Badge 5" },
+        { label: "Badge 1", contribution: 10 },
+        { label: "Badge 2", contribution: 10 },
+        { label: "Badge 3", contribution: 10 },
+        { label: "Badge 4", contribution: 10 },
+        { label: "Badge 5", contribution: 10 },
       ],
     });
 
@@ -581,13 +581,13 @@ describe("HeroRecommendation - Peak Time Badge", () => {
     expect(screen.getByText(/Best at/i)).toBeInTheDocument();
   });
 
-  it("does not render peak time badge when peakTime is null", () => {
+  it("does not render peak time badge when peakTime is undefined", () => {
     const mockRecommendation = createMockRecommendation({
       window: {
         start: new Date("2026-02-10T07:00:00"),
         end: new Date("2026-02-10T10:00:00"),
         timezone: "America/Los_Angeles",
-        peakTime: null,
+        peakTime: undefined,
         tide: "Rising",
         wind: "5 mph SW",
         waveHeight: "3-5 ft",
@@ -710,7 +710,7 @@ describe("HeroRecommendation - Edge Cases", () => {
         id: "b1",
         name: "Super Long Beach Name With Many Words That Might Cause Layout Issues",
         timezone: "America/Los_Angeles",
-      },
+      } as any,
     });
 
     render(

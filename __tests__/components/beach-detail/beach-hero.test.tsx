@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { BeachHero } from "@/components/beach-detail/beach-hero";
 import type { Beach } from "@/types/database";
+import { createBeachWithDefaults } from "@/lib/utils/beach-defaults";
 
 // Mock next/image
 jest.mock("next/image", () => ({
@@ -44,16 +45,14 @@ jest.mock("lucide-react", () => ({
 }));
 
 describe("BeachHero", () => {
-  const createMockBeach = (overrides = {}): Beach => ({
+  const createMockBeach = (overrides = {}): Beach => createBeachWithDefaults({
     id: "test-beach-id",
     name: "Test Beach",
     slug: "test-beach",
-    center_lat: 32.7157,
-    center_lng: -117.1611,
-    county: "San Diego",
+    lat: 32.7157,
+    lon: -117.1611,
+    city: "San Diego",
     state: "CA",
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
     average_rating: 0,
     ...overrides,
   });
@@ -118,8 +117,8 @@ describe("BeachHero", () => {
   });
 
   describe("Star Rating Display", () => {
-    it("renders 5 star icons", () => {
-      const beach = createMockBeach();
+    it("renders 5 star icons when rating exists", () => {
+      const beach = createMockBeach({ average_rating: 4 });
 
       render(<BeachHero beach={beach} mapImageUrl={mockMapImageUrl} />);
 
@@ -151,12 +150,13 @@ describe("BeachHero", () => {
       expect(filledStars).toHaveLength(3);
     });
 
-    it("fills stars based on average_rating (0 stars)", () => {
+    it("shows rating section with 0 filled stars when average_rating is 0", () => {
       const beach = createMockBeach({ average_rating: 0 });
 
       render(<BeachHero beach={beach} mapImageUrl={mockMapImageUrl} />);
 
       const stars = screen.getAllByTestId("star-icon");
+      expect(stars).toHaveLength(5);
       const filledStars = stars.filter((star) =>
         (star.getAttribute("class") || "").includes("fill-yellow-500")
       );
@@ -213,7 +213,7 @@ describe("BeachHero", () => {
       expect(screen.getByText(/\(1 review\)/)).toBeInTheDocument();
     });
 
-    it("shows 0 reviews when null", () => {
+    it("shows 0 reviews when null but rating exists", () => {
       const beach = createMockBeach({
         average_rating: 4,
         review_count: null,
@@ -226,23 +226,29 @@ describe("BeachHero", () => {
   });
 
   describe("Edge Cases", () => {
-    it("handles missing average_rating gracefully", () => {
+    it("hides rating section when average_rating is undefined", () => {
       const beach = createMockBeach({
         average_rating: undefined as any,
       });
 
       render(<BeachHero beach={beach} mapImageUrl={mockMapImageUrl} />);
 
-      const stars = screen.getAllByTestId("star-icon");
-      expect(stars).toHaveLength(5);
-      // All should be unfilled when rating is undefined
-      const filledStars = stars.filter((star) =>
-        (star.getAttribute("class") || "").includes("fill-yellow-500")
-      );
-      expect(filledStars).toHaveLength(0);
+      const stars = screen.queryAllByTestId("star-icon");
+      expect(stars).toHaveLength(0);
     });
 
-    it("handles negative average_rating (edge case)", () => {
+    it("hides rating section when average_rating is null", () => {
+      const beach = createMockBeach({
+        average_rating: null as any,
+      });
+
+      render(<BeachHero beach={beach} mapImageUrl={mockMapImageUrl} />);
+
+      const stars = screen.queryAllByTestId("star-icon");
+      expect(stars).toHaveLength(0);
+    });
+
+    it("shows rating section for negative average_rating (edge case)", () => {
       const beach = createMockBeach({
         average_rating: -1,
       });
@@ -253,7 +259,7 @@ describe("BeachHero", () => {
       const filledStars = stars.filter((star) =>
         (star.getAttribute("class") || "").includes("fill-yellow-500")
       );
-      // Should treat negative as 0
+      // Should treat negative as 0 filled stars
       expect(filledStars).toHaveLength(0);
     });
 

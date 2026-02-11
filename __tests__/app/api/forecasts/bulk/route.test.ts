@@ -287,17 +287,23 @@ describe("/api/forecasts/bulk", () => {
       expect(mockIn).toHaveBeenCalledWith("beach_id", ["beach-1", "beach-2"]);
     });
 
-    it("should return empty forecasts gracefully when database errors occur", async () => {
-      // Mock database error
+    it("should return 500 error when database errors occur", async () => {
+      // Mock database error with proper 3-order chain
+      const mockOrderChain: any = {
+        order: jest.fn(function(this: any) { return this; }),
+      };
+      mockOrderChain.order
+        .mockReturnValueOnce(mockOrderChain)
+        .mockReturnValueOnce(mockOrderChain)
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: "Database connection failed" },
+        });
+
       mockFrom({
         select: jest.fn(() => ({
           in: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(() => Promise.resolve({
-                data: null,
-                error: { message: "Database connection failed" },
-              })),
-            })),
+            gte: jest.fn(() => mockOrderChain),
           })),
         })),
       });
@@ -305,21 +311,26 @@ describe("/api/forecasts/bulk", () => {
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1");
       const response = await GET(request);
 
-      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      expect(data.data).toEqual({ forecasts: {} });
+      expect(response.status).toBe(500);
+      const data = await response.json();
+      expect(data.success).toBe(false);
+      expect(data.error).toContain("Failed to fetch bulk forecasts");
     });
 
     it("should return empty forecasts when no forecasts exist for beach", async () => {
-      // Mock empty result
+      // Mock empty result with proper 3-order chain
+      const mockOrderChain: any = {
+        order: jest.fn(function(this: any) { return this; }),
+      };
+      mockOrderChain.order
+        .mockReturnValueOnce(mockOrderChain)
+        .mockReturnValueOnce(mockOrderChain)
+        .mockResolvedValueOnce({ data: [], error: null });
+
       mockFrom({
         select: jest.fn(() => ({
           in: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(() => Promise.resolve({
-                data: [],
-                error: null,
-              })),
-            })),
+            gte: jest.fn(() => mockOrderChain),
           })),
         })),
       });
@@ -332,16 +343,19 @@ describe("/api/forecasts/bulk", () => {
     });
 
     it("should handle null data from database", async () => {
-      // Mock null data
+      // Mock null data with proper 3-order chain
+      const mockOrderChain: any = {
+        order: jest.fn(function(this: any) { return this; }),
+      };
+      mockOrderChain.order
+        .mockReturnValueOnce(mockOrderChain)
+        .mockReturnValueOnce(mockOrderChain)
+        .mockResolvedValueOnce({ data: null, error: null });
+
       mockFrom({
         select: jest.fn(() => ({
           in: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(() => Promise.resolve({
-                data: null,
-                error: null,
-              })),
-            })),
+            gte: jest.fn(() => mockOrderChain),
           })),
         })),
       });
@@ -461,15 +475,18 @@ describe("/api/forecasts/bulk", () => {
       // Mock getCurrentForecast to return null
       mockGetCurrentForecast.mockReturnValue(null);
 
+      const mockOrderChain: any = {
+        order: jest.fn(function(this: any) { return this; }),
+      };
+      mockOrderChain.order
+        .mockReturnValueOnce(mockOrderChain)
+        .mockReturnValueOnce(mockOrderChain)
+        .mockResolvedValueOnce({ data: mockForecasts, error: null });
+
       mockFrom({
         select: jest.fn(() => ({
           in: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(() => Promise.resolve({
-                data: mockForecasts,
-                error: null,
-              })),
-            })),
+            gte: jest.fn(() => mockOrderChain),
           })),
         })),
       });
@@ -478,7 +495,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      
+
       // Should not include beach-1 in forecasts when getCurrentForecast returns null
       expect(data.data.forecasts).toEqual({});
     });
@@ -495,15 +512,18 @@ describe("/api/forecasts/bulk", () => {
 
       mockGetCurrentForecast.mockImplementation((forecasts: ForecastItem[]) => forecasts[0]);
 
+      const mockOrderChain: any = {
+        order: jest.fn(function(this: any) { return this; }),
+      };
+      mockOrderChain.order
+        .mockReturnValueOnce(mockOrderChain)
+        .mockReturnValueOnce(mockOrderChain)
+        .mockResolvedValueOnce({ data: mockForecasts, error: null });
+
       mockFrom({
         select: jest.fn(() => ({
           in: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(() => Promise.resolve({
-                data: mockForecasts,
-                error: null,
-              })),
-            })),
+            gte: jest.fn(() => mockOrderChain),
           })),
         })),
       });
@@ -512,7 +532,7 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(request);
 
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
-      
+
       // Should not include beach when wave_height is undefined
       expect(data.data.forecasts).toEqual({});
     });

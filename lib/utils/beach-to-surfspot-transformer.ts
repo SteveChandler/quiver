@@ -86,8 +86,6 @@ function deriveCitySlug(cityName: string | null): SurfCitySlug {
  */
 export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
   // CRITICAL: Map lon → lng for coordinate naming convention
-  const lat = beach.lat ?? 32.7157; // San Diego default
-  const lon = beach.lon ?? -117.1611;
   const fallbackSlug = beach.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -105,8 +103,8 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
 
     // COORDINATE MAPPING: lon (database) → lng (SurfSpot)
     coordinates: {
-      lat: lat,
-      lng: lon, // Explicit lon → lng mapping
+      lat: beach.lat,
+      lng: beach.lon, // Explicit lon → lng mapping
     },
 
     // Content fields - sanitize description to strip leading **BeachName** markers
