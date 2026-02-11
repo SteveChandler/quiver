@@ -86,20 +86,22 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Get surf report for unified surf window card
-    const surfReportResult = await getSpotSurfReport(beach);
+    // Fetch surf report and nearby beaches in parallel
+    const [surfReportResult, nearbyResult] = await Promise.all([
+      getSpotSurfReport(beach),
+      beach.lat && beach.lon
+        ? getNearbyBeaches(beach.lat, beach.lon, 25)
+        : Promise.resolve(null),
+    ]);
+
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
 
-    // Fetch nearby beaches for SSR SEO section
     let nearbyBeaches: Beach[] = [];
-    if (beach.lat && beach.lon) {
-      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
-      if (nearbyResult.success && nearbyResult.data) {
-        nearbyBeaches = nearbyResult.data
-          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-          .slice(0, 6);
-      }
+    if (nearbyResult?.success && nearbyResult.data) {
+      nearbyBeaches = nearbyResult.data
+        .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+        .slice(0, 6);
     }
 
     const beachPath = `/mexico/${params.region}/${params.city}/${params.beachSlug}`;

@@ -53,8 +53,7 @@ COMMENT ON CONSTRAINT forecast_alert_deliveries_alert_type_check ON public.forec
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.get_conditions_alert_candidates(
-  p_min_score int DEFAULT 7,
-  p_cooldown_hours int DEFAULT 20
+  p_min_score int DEFAULT 7
 )
 RETURNS TABLE (
   user_id uuid,
@@ -63,6 +62,8 @@ RETURNS TABLE (
   home_beach_id uuid,
   beach_name text,
   beach_slug text,
+  beach_state text,
+  beach_city text,
   conditions_score int,
   surf_description text,
   wind_description text,
@@ -130,6 +131,8 @@ BEGIN
     ed.home_beach_id,
     b.name AS beach_name,
     b.slug AS beach_slug,
+    b.state AS beach_state,
+    b.city AS beach_city,
     li.conditions_score,
     li.surf_description,
     li.wind_description,
@@ -142,18 +145,17 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_conditions_alert_candidates(int, int) IS
+COMMENT ON FUNCTION public.get_conditions_alert_candidates(int) IS
   'Returns users eligible for conditions alert emails based on high beach_daily_intel scores today. Excludes users active in app today or who received any email today.';
 
-GRANT EXECUTE ON FUNCTION public.get_conditions_alert_candidates(int, int) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_conditions_alert_candidates(int) TO service_role;
 
 -- ============================================================================
 -- 3. CREATE get_session_prompt_candidates RPC
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.get_session_prompt_candidates(
-  p_min_score int DEFAULT 7,
-  p_cooldown_hours int DEFAULT 20
+  p_min_score int DEFAULT 7
 )
 RETURNS TABLE (
   user_id uuid,
@@ -243,9 +245,9 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_session_prompt_candidates(int, int) IS
+COMMENT ON FUNCTION public.get_session_prompt_candidates(int) IS
   'Returns users eligible for session prompt emails based on high beach_daily_intel scores yesterday but no logged session. Excludes users active in app today or who received any email today.';
 
-GRANT EXECUTE ON FUNCTION public.get_session_prompt_candidates(int, int) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_session_prompt_candidates(int) TO service_role;
 
 COMMIT;

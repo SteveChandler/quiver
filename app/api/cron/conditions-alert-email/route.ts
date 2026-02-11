@@ -34,6 +34,7 @@ import {
 import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -46,7 +47,7 @@ export const maxDuration = 300; // 5 minutes for processing all users
 
 const CONTEXT_TAG = "[conditions-alert-email]";
 const MIN_SCORE = 7; // Minimum conditions_score (0-10 scale) to trigger email
-const DEDUPE_HOURS = 20; // ~1 day between conditions alerts
+const DEDUPE_HOURS = 20; // Cooldown for claim_forecast_delivery_slot dedup
 const ALERT_TYPE = "conditions_alert";
 
 // ============================================================================
@@ -136,7 +137,7 @@ async function processCandidate(
       : null;
 
   // 3. Prepare email content
-  const ctaUrl = `${baseUrl}/beach/${candidate.beach_slug}`;
+  const ctaUrl = `${baseUrl}${buildBeachUrl({ slug: candidate.beach_slug, city: candidate.beach_city, state: candidate.beach_state })}`;
   const logSessionUrl = `${baseUrl}/sessions/new?mode=log&beach=${candidate.home_beach_id}`;
   const unsubscribeUrl = `${baseUrl}/settings`;
   const { emoji } = getConditionLabel(candidate.conditions_score);
@@ -165,7 +166,7 @@ async function processCandidate(
 
   if (sendError) {
     console.error(
-      `${CONTEXT_TAG} Failed to send to ${candidate.email}:`,
+      `${CONTEXT_TAG} Failed to send to user ${candidate.user_id}:`,
       sendError
     );
     return { status: "send_failed", error: sendError };
@@ -185,7 +186,7 @@ async function processCandidate(
   });
 
   console.log(
-    `${CONTEXT_TAG} Sent to ${candidate.email} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
+    `${CONTEXT_TAG} Sent to user ${candidate.user_id} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
   );
 
   return { status: "success" };
@@ -228,7 +229,6 @@ export async function GET(request: Request) {
       "get_conditions_alert_candidates",
       {
         p_min_score: MIN_SCORE,
-        p_cooldown_hours: DEDUPE_HOURS,
       }
     );
 

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Code Review Follow-Up Fixes** (uncommitted) - Removed unused `p_cooldown_hours` param from `get_conditions_alert_candidates` and `get_session_prompt_candidates` SQL RPCs; conditions alert CTA now uses canonical hierarchical URLs (`buildBeachUrl()`) instead of legacy `/beach/{slug}`; redacted email addresses from console.log in both email cron handlers (PII compliance); moved `pg`/`@types/pg` to devDependencies; parallelized `getSpotSurfReport` and `getNearbyBeaches` on beach detail pages via `Promise.all`.
 - **Supabase SSR Package Upgrade** — Upgraded `@supabase/ssr` from 0.7.0 to 0.8.0 and migrated all cookie handlers from deprecated `get/set/remove` interface to new `getAll/setAll` interface across all server clients (auth routes, API routes, middleware, server components).
 - **ML Retrain: Post-Shoaling Data Filter** — Added `--since` arg to `extract_training_data_v2.py` and shoaling change date floor (`2026-02-05`) in automated retrain route to exclude pre-shoaling training data.
 - **Region-Aware 7-Day Outlook Link** — Home screen "7-Day Outlook" card now links to the user's regional forecast (e.g. `/forecast/san-diego`) based on top recommendation or home beach city, with fallback to `/forecast`.

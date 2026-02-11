@@ -40,6 +40,8 @@ export interface ConditionsAlertCandidate {
   home_beach_id: string;
   beach_name: string;
   beach_slug: string;
+  beach_state: string | null;
+  beach_city: string | null;
   conditions_score: number;
   surf_description: string | null;
   wind_description: string | null;

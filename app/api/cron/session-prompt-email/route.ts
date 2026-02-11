@@ -42,7 +42,7 @@ export const maxDuration = 300; // 5 minutes for processing all users
 
 const CONTEXT_TAG = "[session-prompt-email]";
 const MIN_SCORE = 7; // Minimum conditions_score (0-10 scale) to trigger email
-const DEDUPE_HOURS = 20; // 20 hours between session prompt emails
+const DEDUPE_HOURS = 20; // Cooldown for claim_forecast_delivery_slot dedup
 const ALERT_TYPE = "session_prompt";
 
 // ============================================================================
@@ -147,7 +147,7 @@ async function processCandidate(
 
   if (sendError) {
     console.error(
-      `${CONTEXT_TAG} Failed to send to ${candidate.email}:`,
+      `${CONTEXT_TAG} Failed to send to user ${candidate.user_id}:`,
       sendError
     );
     return { status: "send_failed", error: sendError };
@@ -167,7 +167,7 @@ async function processCandidate(
   });
 
   console.log(
-    `${CONTEXT_TAG} Sent to ${candidate.email} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
+    `${CONTEXT_TAG} Sent to user ${candidate.user_id} for ${candidate.beach_name} (score: ${candidate.conditions_score})`
   );
 
   return { status: "success" };
@@ -210,7 +210,6 @@ export async function GET(request: Request) {
       "get_session_prompt_candidates",
       {
         p_min_score: MIN_SCORE,
-        p_cooldown_hours: DEDUPE_HOURS,
       }
     );
 
