@@ -16,8 +16,14 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/components/onboarding/stepper", () => ({
   Stepper: () => <div data-testid="stepper" />,
 }));
-jest.mock("@/components/onboarding/steps/welcome-step", () => ({
-  WelcomeStep: () => <div data-testid="welcome-step" />,
+jest.mock("@/components/onboarding/steps/home-beach-step", () => ({
+  HomeBeachStep: () => <div data-testid="home-beach-step" />,
+}));
+jest.mock("@/components/onboarding/steps/level-and-time-step", () => ({
+  LevelAndTimeStep: () => <div data-testid="level-and-time-step" />,
+}));
+jest.mock("@/components/onboarding/steps/payoff-step", () => ({
+  PayoffStep: () => <div data-testid="payoff-step" />,
 }));
 jest.mock("@/hooks/use-onboarding-tracking", () => ({
   useOnboardingTracking: jest.fn(),

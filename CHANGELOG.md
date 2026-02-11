@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tide Intent Page** (uncommitted) - Dedicated `/tide/[city]` pages with `TideHeroSection`, `TideFullChart` (24h/72h/168h tabs), `SevenDayTideTable`, `BeachTideCards`. Server action `getCityTideDataExpanded()` with extrema detection via `TideExtremaDetector`.
 - **Conversion CTAs** (`2f745542c`) - `InlineSignupCta` and `StickySignupBar` on programmatic SEO pages for unauthenticated visitors.
 
-- **Slim Onboarding (3 Steps + Payoff)** (uncommitted) - Cut onboarding from 6 steps to 3: Home Beach → Level + Time → "Your Next Best Window" payoff. New `LevelAndTimeStep` combines experience level (2x2 grid) and surf time preference. New `PayoffStep` shows personalized best surf window from daily intel with conditions score, wave/wind details, and XP badge. `saveOnboardingData` now conditionally sets profile fields and uses `preferredTime` for email prefs.
+- **Slim Onboarding (3 Steps + Payoff)** (uncommitted) - Cut onboarding from 6 steps to 3: Home Beach → Level + Time → "Your Next Best Window" payoff. New `LevelAndTimeStep` combines experience level (2x2 grid) and surf time preference. New `PayoffStep` shows personalized best surf window from daily intel with conditions score, wave/wind details, and XP badge. `saveOnboardingData` now conditionally sets profile fields and uses `preferredTime` for email prefs. Deleted 5 orphaned old step components, cleaned up unused Zod schemas, and added 25 new unit tests for the new steps.
 
 ### Fixed
 

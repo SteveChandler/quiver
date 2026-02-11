@@ -1,26 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Total number of onboarding steps (0-indexed: steps 0-5)
-export const TOTAL_ONBOARDING_STEPS = 6;
+// Total number of onboarding steps (0-indexed: steps 0-2)
+export const TOTAL_ONBOARDING_STEPS = 3;
 
 // Signal value indicating onboarding completion (used in step change callbacks)
 export const ONBOARDING_COMPLETION_SIGNAL = -1;
 
 // Step names for analytics tracking
 export const ONBOARDING_STEP_NAMES: Record<number, string> = {
-  0: 'welcome',
-  1: 'home_beach',
-  2: 'profile',
-  3: 'experience',
-  4: 'wave_preferences',
-  5: 'completion',
+  0: 'home_beach',
+  1: 'level_and_time',
+  2: 'payoff',
 };
 
 interface OnboardingData {
-  // Step 1: Welcome (no data stored)
-
-  // Step 2: Home Beach
+  // Step 1: Home Beach
   homeBeachId?: string;
   homeBeachName?: string;
   homeBeachSlug?: string;
@@ -28,20 +23,19 @@ interface OnboardingData {
   homeBeachState?: string;
   homeBeachCountry?: string;
 
-  // Step 3: Profile
+  // Step 2: Level + Time
+  experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  preferredTime?: 'dawn' | 'after_work' | 'weekends';
+
+  // Step 3: Payoff (no data stored)
+
+  // Legacy fields (kept for backwards compatibility with persisted localStorage)
   fullName?: string;
   displayName?: string;
-
-  // Step 4: Experience
-  experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-
-  // Step 5: Wave Preferences
   surfStyles?: string[];
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
   preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
   crowdPreference?: 'social' | 'moderate' | 'solitude';
-
-  // Step 6: Completion (no data stored)
 }
 
 /** Callback for tracking step transitions */

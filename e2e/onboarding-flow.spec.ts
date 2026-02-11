@@ -29,8 +29,8 @@ test.describe("Onboarding - close + view full forecast", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // Confirm first step is visible.
-    await expect(page.getByTestId("welcome-step")).toBeVisible({
+    // Confirm first step (Home Beach) is visible.
+    await expect(page.getByText(/where do you usually surf/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 
@@ -42,17 +42,11 @@ test.describe("Onboarding - close + view full forecast", () => {
     // Re-open and run through steps.
     await page.goto("/?showOnboarding=1&debugOnboarding=1");
     await waitForPageLoad(page);
-    await expect(page.getByTestId("welcome-step")).toBeVisible({
-      timeout: TIMEOUTS.long,
-    });
-
-    // Step 1: Welcome
-    await page.getByTestId("welcome-get-started").click();
-
-    // Step 2: Home beach (auto-advances on selection)
     await expect(page.getByText(/where do you usually surf/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });
+
+    // Step 1: Home beach
     await page.getByLabel(/search for your beach/i).fill("Blacks");
 
     // Home beach results are rendered as buttons in an absolute dropdown beneath the input.
@@ -64,28 +58,15 @@ test.describe("Onboarding - close + view full forecast", () => {
     await expect(firstBeachOption).toBeVisible({ timeout: TIMEOUTS.long });
     await firstBeachOption.click();
 
-    // Should immediately advance to Profile after selecting a beach.
-    await expect(page.getByLabel(/full name/i)).toBeVisible({
+    // Step 2: Level + Time
+    await expect(page.getByTestId("level-and-time-step")).toBeVisible({
       timeout: TIMEOUTS.long,
     });
-
-    // Step 3: Profile
-    await page.getByLabel(/full name/i).fill("Test User");
-    await page.getByLabel(/display name/i).fill("TestSurfer");
+    await page.getByText("Intermediate").click();
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 4: Experience
-    await page.getByTestId("experience-intermediate").click();
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // Step 5: Wave preferences
-    await page.getByTestId("wave-size-medium").click();
-    await page.getByTestId("break-type-beach").click();
-    await page.getByTestId("surf-style-shortboard").click();
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // Step 6: Completion
-    await expect(page.getByTestId("completion-step")).toBeVisible({
+    // Step 3: Payoff
+    await expect(page.getByTestId("payoff-step")).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 

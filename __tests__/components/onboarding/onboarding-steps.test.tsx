@@ -1,39 +1,69 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ProfileStep } from "@/components/onboarding/steps/profile-step";
 import { HomeBeachStep } from "@/components/onboarding/steps/home-beach-step";
-import { ExperienceStep } from "@/components/onboarding/steps/experience-step";
-import { WavePreferencesStep } from "@/components/onboarding/steps/wave-preferences-step";
-import { WelcomeStep } from "@/components/onboarding/steps/welcome-step";
-import { CompletionStep } from "@/components/onboarding/steps/completion-step";
+import { LevelAndTimeStep } from "@/components/onboarding/steps/level-and-time-step";
+import { PayoffStep } from "@/components/onboarding/steps/payoff-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
+import { useProfileContext } from "@/context/profile-context";
+import { useForecastPreview } from "@/hooks/use-forecast-preview";
+import { saveOnboardingData } from "@/actions/onboarding-actions";
+import { data as dataClient } from "@/lib/data/client";
+import { getLocalDateString } from "@/lib/utils/timezone-utils";
+import { toast } from "sonner";
 
 // Mock the store
 jest.mock("@/store/onboarding-store");
 const mockUseOnboardingStore = useOnboardingStore as unknown as jest.Mock;
 
-// Mock global fetch for HomeBeachStep and CompletionStep
+// Mock global fetch for HomeBeachStep
 global.fetch = jest.fn();
 
-// Mock profile context for CompletionStep
+// Mock dependencies for PayoffStep
 jest.mock("@/context/profile-context", () => ({
   useProfileContext: () => ({ updateProfile: jest.fn() }),
 }));
 
-// Mock onboarding actions for CompletionStep
-// Note: The actual response is wrapped by withAuthenticatedAction which returns
-// { success: true, data: { success: true, profile: {...} } }
-jest.mock("@/actions/onboarding-actions", () => ({
-  saveOnboardingData: jest
-    .fn()
-    .mockResolvedValue({ success: true, data: { success: true, profile: {} } }),
+jest.mock("@/hooks/use-forecast-preview");
+const mockUseForecastPreview = useForecastPreview as jest.Mock;
+
+jest.mock("@/actions/onboarding-actions");
+const mockSaveOnboardingData = saveOnboardingData as jest.Mock;
+
+jest.mock("@/lib/data/client", () => ({
+  data: {
+    intel: {
+      getDaily: jest.fn(),
+    },
+  },
+}));
+const mockGetDaily = dataClient.intel.getDaily as jest.Mock;
+
+jest.mock("@/lib/utils/timezone-utils");
+const mockGetLocalDateString = getLocalDateString as jest.Mock;
+
+jest.mock("sonner", () => ({
+  toast: {
+    error: jest.fn(),
+    success: jest.fn(),
+  },
 }));
 
-describe("Onboarding Step Components", () => {
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    refresh: jest.fn(),
+  }),
+  useSearchParams: () => ({
+    get: jest.fn(() => null),
+  }),
+}));
+
+describe("Onboarding Step Components - New 3-Step Flow", () => {
   const mockUpdateData = jest.fn();
   const mockNextStep = jest.fn();
   const mockPrevStep = jest.fn();
+  const mockCompleteOnboarding = jest.fn();
 
   // Default store state
   const defaultStore = {
@@ -41,60 +71,17 @@ describe("Onboarding Step Components", () => {
     updateData: mockUpdateData,
     nextStep: mockNextStep,
     prevStep: mockPrevStep,
+    completeOnboarding: mockCompleteOnboarding,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseOnboardingStore.mockReturnValue(defaultStore);
-  });
-
-  describe("ProfileStep", () => {
-    it("renders the profile form correctly", () => {
-      render(<ProfileStep />);
-
-      expect(screen.getByLabelText(/Full Name/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Display Name/i)).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /Continue/i })
-      ).toBeInTheDocument();
+    mockUseForecastPreview.mockReturnValue({
+      forecastPreview: null,
+      loading: false,
     });
-
-    it("pre-fills data from store", () => {
-      mockUseOnboardingStore.mockReturnValue({
-        ...defaultStore,
-        data: { fullName: "Existing User", displayName: "ExistingDisplay" },
-      });
-
-      render(<ProfileStep />);
-
-      expect(screen.getByLabelText(/Full Name/i)).toHaveValue("Existing User");
-      expect(screen.getByLabelText(/Display Name/i)).toHaveValue(
-        "ExistingDisplay"
-      );
-    });
-
-    it("renders form fields with correct placeholder text", () => {
-      render(<ProfileStep />);
-
-      expect(
-        screen.getByPlaceholderText(/e.g., Sarah Johnson/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByPlaceholderText(/e.g., WaveRider/i)
-      ).toBeInTheDocument();
-    });
-
-    it("displays helper text for display name", () => {
-      render(<ProfileStep />);
-
-      expect(
-        screen.getByText(/This is how you'll appear to other surfers/i)
-      ).toBeInTheDocument();
-    });
-
-    // Note: Validation tests that interact with react-hook-form Controller are skipped
-    // due to Jest/JSDOM environment limitations with zodResolver.
-    // These behaviors are verified in E2E tests (e2e/onboarding.spec.ts).
+    mockGetLocalDateString.mockReturnValue("2026-02-10");
   });
 
   describe("HomeBeachStep", () => {
@@ -127,27 +114,57 @@ describe("Onboarding Step Components", () => {
     // Full flow tested in E2E (e2e/onboarding.spec.ts).
   });
 
-  describe("ExperienceStep", () => {
-    it("renders experience level cards", () => {
-      render(<ExperienceStep />);
-      expect(screen.getByText(/What's your experience/i)).toBeInTheDocument();
-      expect(screen.getByTestId("experience-beginner")).toBeInTheDocument();
-      expect(screen.getByTestId("experience-intermediate")).toBeInTheDocument();
-      expect(screen.getByTestId("experience-advanced")).toBeInTheDocument();
-      expect(screen.getByTestId("experience-expert")).toBeInTheDocument();
+  describe("LevelAndTimeStep", () => {
+    it("renders both sections (experience level and time)", () => {
+      render(<LevelAndTimeStep />);
+
+      expect(
+        screen.getByText(/What's your experience level\?/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/When do you surf\?/i)).toBeInTheDocument();
     });
 
-    it("renders continue and back buttons", () => {
-      render(<ExperienceStep />);
+    it("renders all 4 experience level options", () => {
+      render(<LevelAndTimeStep />);
+
+      expect(screen.getByText("Beginner")).toBeInTheDocument();
+      expect(screen.getByText("Intermediate")).toBeInTheDocument();
+      expect(screen.getByText("Advanced")).toBeInTheDocument();
+      expect(screen.getByText("Expert")).toBeInTheDocument();
+    });
+
+    it("renders all 3 time preference options", () => {
+      render(<LevelAndTimeStep />);
+
+      expect(screen.getByText("Dawn Patrol")).toBeInTheDocument();
+      expect(screen.getByText("After Work")).toBeInTheDocument();
+      expect(screen.getByText("Weekends")).toBeInTheDocument();
+    });
+
+    it("renders Back, Skip, and Continue buttons", () => {
+      render(<LevelAndTimeStep />);
+
+      expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Skip/i })).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /Continue/i })
       ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
     });
 
-    it("calls prevStep when back button is clicked", async () => {
+    it("clicking Skip calls nextStep without calling updateData", async () => {
       const user = userEvent.setup();
-      render(<ExperienceStep />);
+      render(<LevelAndTimeStep />);
+
+      const skipBtn = screen.getByRole("button", { name: /Skip/i });
+      await user.click(skipBtn);
+
+      expect(mockNextStep).toHaveBeenCalled();
+      expect(mockUpdateData).not.toHaveBeenCalled();
+    });
+
+    it("clicking Back calls prevStep", async () => {
+      const user = userEvent.setup();
+      render(<LevelAndTimeStep />);
 
       const backBtn = screen.getByRole("button", { name: /Back/i });
       await user.click(backBtn);
@@ -155,147 +172,420 @@ describe("Onboarding Step Components", () => {
       expect(mockPrevStep).toHaveBeenCalled();
     });
 
-    it("selects an experience level and enables continue", async () => {
+    it("selecting a level and clicking Continue calls updateData with experienceLevel then nextStep", async () => {
       const user = userEvent.setup();
-      render(<ExperienceStep />);
+      render(<LevelAndTimeStep />);
 
-      const intermediateCard = screen.getByTestId("experience-intermediate");
-      await user.click(intermediateCard);
+      // Select intermediate level
+      const intermediateBtn = screen.getByText("Intermediate").closest("button");
+      if (intermediateBtn) {
+        await user.click(intermediateBtn);
+      }
 
-      expect(
-        screen.getByRole("button", { name: /Continue/i })
-      ).not.toBeDisabled();
-    });
-  });
+      const continueBtn = screen.getByRole("button", { name: /Continue/i });
+      await user.click(continueBtn);
 
-  describe("WavePreferencesStep", () => {
-    it("renders wave size and break type sections", () => {
-      render(<WavePreferencesStep />);
-      expect(screen.getByText(/What waves do you prefer/i)).toBeInTheDocument();
-      expect(screen.getByText(/Wave Size/i)).toBeInTheDocument();
-      expect(screen.getByText(/Break Type/i)).toBeInTheDocument();
-      expect(screen.getByText(/Surf Styles/i)).toBeInTheDocument();
+      expect(mockUpdateData).toHaveBeenCalledWith({
+        experienceLevel: "intermediate",
+        preferredTime: undefined,
+      });
+      expect(mockNextStep).toHaveBeenCalled();
     });
 
-    it("renders continue and back buttons", () => {
-      render(<WavePreferencesStep />);
-      expect(
-        screen.getByRole("button", { name: /Continue/i })
-      ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
-    });
-
-    it("calls prevStep when back button is clicked", async () => {
+    it("selecting a time and clicking Continue calls updateData with preferredTime then nextStep", async () => {
       const user = userEvent.setup();
-      render(<WavePreferencesStep />);
+      render(<LevelAndTimeStep />);
 
-      const backBtn = screen.getByRole("button", { name: /Back/i });
-      await user.click(backBtn);
+      // Select dawn patrol
+      const dawnBtn = screen.getByText("Dawn Patrol").closest("button");
+      if (dawnBtn) {
+        await user.click(dawnBtn);
+      }
 
-      expect(mockPrevStep).toHaveBeenCalled();
+      const continueBtn = screen.getByRole("button", { name: /Continue/i });
+      await user.click(continueBtn);
+
+      expect(mockUpdateData).toHaveBeenCalledWith({
+        experienceLevel: undefined,
+        preferredTime: "dawn",
+      });
+      expect(mockNextStep).toHaveBeenCalled();
     });
 
-    it("requires at least one surf style to continue", () => {
-      render(<WavePreferencesStep />);
-      // Continue should be disabled initially (no surf styles selected)
-      expect(screen.getByRole("button", { name: /Continue/i })).toBeDisabled();
+    it("pre-fills from store data", () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          experienceLevel: "intermediate",
+          preferredTime: "dawn",
+        },
+      });
+
+      render(<LevelAndTimeStep />);
+
+      // Check that selected items have the ocean-blue border class
+      const intermediateBtn = screen.getByText("Intermediate").closest("button");
+      const dawnBtn = screen.getByText("Dawn Patrol").closest("button");
+
+      expect(intermediateBtn?.className).toContain("border-ocean-blue");
+      expect(dawnBtn?.className).toContain("border-ocean-blue");
     });
 
-    it("enables continue when surf style is selected", async () => {
+    it("Continue without any selection still calls nextStep (acts like skip)", async () => {
       const user = userEvent.setup();
-      render(<WavePreferencesStep />);
+      render(<LevelAndTimeStep />);
 
-      const shortboardBtn = screen.getByTestId("surf-style-shortboard");
-      await user.click(shortboardBtn);
+      const continueBtn = screen.getByRole("button", { name: /Continue/i });
+      await user.click(continueBtn);
 
-      expect(
-        screen.getByRole("button", { name: /Continue/i })
-      ).not.toBeDisabled();
-    });
-  });
-
-  describe("WelcomeStep", () => {
-    it("renders welcome content correctly", () => {
-      render(<WelcomeStep />);
-
-      expect(screen.getByTestId("welcome-step")).toBeInTheDocument();
-      expect(screen.getByTestId("welcome-logo")).toBeInTheDocument();
-      expect(screen.getByText(/Welcome to Quiver/i)).toBeInTheDocument();
-      expect(
-        screen.getByText(/Your personal surf companion/i)
-      ).toBeInTheDocument();
+      expect(mockNextStep).toHaveBeenCalled();
     });
 
-    it("renders Get Started button", () => {
-      render(<WelcomeStep />);
-
-      expect(screen.getByTestId("welcome-get-started")).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /Get Started/i })
-      ).toBeInTheDocument();
-    });
-
-    it("calls nextStep when Get Started is clicked", async () => {
+    it("selecting both level and time then clicking Continue updates both", async () => {
       const user = userEvent.setup();
-      render(<WelcomeStep />);
+      render(<LevelAndTimeStep />);
 
-      await user.click(screen.getByTestId("welcome-get-started"));
+      // Select advanced level
+      const advancedBtn = screen.getByText("Advanced").closest("button");
+      if (advancedBtn) {
+        await user.click(advancedBtn);
+      }
 
+      // Select weekends
+      const weekendsBtn = screen.getByText("Weekends").closest("button");
+      if (weekendsBtn) {
+        await user.click(weekendsBtn);
+      }
+
+      const continueBtn = screen.getByRole("button", { name: /Continue/i });
+      await user.click(continueBtn);
+
+      expect(mockUpdateData).toHaveBeenCalledWith({
+        experienceLevel: "advanced",
+        preferredTime: "weekends",
+      });
       expect(mockNextStep).toHaveBeenCalled();
     });
   });
 
-  describe("CompletionStep", () => {
-    const mockCompleteOnboarding = jest.fn();
-
+  describe("PayoffStep", () => {
     beforeEach(() => {
+      // Default successful save response
+      mockSaveOnboardingData.mockResolvedValue({
+        success: true,
+        data: { success: true, profile: { id: "user-123" } },
+      });
+
+      // Default no intel
+      mockGetDaily.mockResolvedValue(null);
+    });
+
+    it("renders payoff-step test ID", () => {
+      render(<PayoffStep />);
+      expect(screen.getByTestId("payoff-step")).toBeInTheDocument();
+    });
+
+    it("shows loading skeleton initially", () => {
+      render(<PayoffStep />);
+
+      // Check for loading skeletons (animated pulse divs)
+      const container = screen.getByTestId("payoff-step");
+      const skeletons = container.querySelectorAll(".animate-pulse");
+      expect(skeletons.length).toBeGreaterThan(0);
+    });
+
+    it("shows beach name from store data", async () => {
       mockUseOnboardingStore.mockReturnValue({
         ...defaultStore,
-        completeOnboarding: mockCompleteOnboarding,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Pipeline",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Pipeline")).toBeInTheDocument();
       });
     });
 
-    it("renders completion content correctly", () => {
-      render(<CompletionStep />);
+    it("shows Your Best Window card when intel resolves with data", async () => {
+      const mockIntel = {
+        best_window_start: "06:00:00",
+        best_window_end: "09:00:00",
+        best_window_description: "Perfect offshore winds",
+        conditions_score: 8,
+        surf_min_ft: 3,
+        surf_max_ft: 5,
+        wind_quality: "offshore",
+        wind_speed_mph: 10,
+      };
 
-      expect(screen.getByTestId("completion-step")).toBeInTheDocument();
-      expect(screen.getByText(/You're all set/i)).toBeInTheDocument();
-      expect(screen.getByText(/\+100 XP earned/i)).toBeInTheDocument();
-    });
+      mockGetDaily.mockResolvedValue(mockIntel);
 
-    it("renders View Full Forecast button", () => {
-      render(<CompletionStep />);
-
-      expect(
-        screen.getByTestId("complete-onboarding-button")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /View Full Forecast/i })
-      ).toBeInTheDocument();
-    });
-
-    it("shows personalized welcome when fullName is set", () => {
       mockUseOnboardingStore.mockReturnValue({
         ...defaultStore,
-        data: { fullName: "John Doe" },
-        completeOnboarding: mockCompleteOnboarding,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Pipeline",
+        },
       });
-      render(<CompletionStep />);
 
-      expect(screen.getByText(/Welcome, John/i)).toBeInTheDocument();
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Your Best Window/i)).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/Perfect offshore winds/i)).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/8\/10/i)).toBeInTheDocument();
+      });
     });
 
-    it("shows forecast preview section when home beach is set", () => {
+    it("shows fallback forecast card when no intel but forecastPreview available", async () => {
+      mockUseForecastPreview.mockReturnValue({
+        forecastPreview: {
+          wave_height: "3-5 ft",
+          wind_speed: "10 mph",
+          wind_direction: "offshore",
+        },
+        loading: false,
+      });
+
       mockUseOnboardingStore.mockReturnValue({
         ...defaultStore,
-        data: { homeBeachId: "beach-123", homeBeachName: "Malibu" },
-        completeOnboarding: mockCompleteOnboarding,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
       });
-      render(<CompletionStep />);
 
-      expect(screen.getByText(/Today at Malibu/i)).toBeInTheDocument();
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Today's Conditions/i)).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/3-5 ft/i)).toBeInTheDocument();
+      });
     });
 
-    // Note: Save flow and async operations tested in E2E
+    it("shows no-data card when neither intel nor forecast available", async () => {
+      mockUseForecastPreview.mockReturnValue({
+        forecastPreview: null,
+        loading: false,
+      });
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Your personalized forecast is ready on the home page/i)
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("shows XP badge after loading", async () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/\+100 XP earned!/i)).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Welcome to the surf community/i)
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("shows Check Full Forecast CTA button after loading", async () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /Check Full Forecast/i })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("calls saveOnboardingData on mount", async () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(mockSaveOnboardingData).toHaveBeenCalledWith({
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        });
+      });
+    });
+
+    it("shows complete-onboarding-button test ID on CTA", async () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("complete-onboarding-button")
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("shows error toast when save fails", async () => {
+      mockSaveOnboardingData.mockResolvedValue({
+        success: false,
+        error: "Database error",
+      });
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(
+          expect.stringContaining("Database error")
+        );
+      });
+    });
+
+    it("fetches daily intel with correct parameters", async () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-456",
+          homeBeachName: "Rincon",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(mockGetDaily).toHaveBeenCalledWith("beach-456", "2026-02-10");
+      });
+    });
+
+    it("displays formatted time from intel best window", async () => {
+      const mockIntel = {
+        best_window_start: "06:00:00",
+        best_window_end: "09:00:00",
+      };
+
+      mockGetDaily.mockResolvedValue(mockIntel);
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Pipeline",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        // Time formatting is locale-dependent, just check that times are displayed
+        const timeElements = screen.getAllByText(/AM|PM/i);
+        expect(timeElements.length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it("completes onboarding and navigates when CTA clicked", async () => {
+      const mockPush = jest.fn();
+      const mockRefresh = jest.fn();
+
+      jest.spyOn(require("next/navigation"), "useRouter").mockReturnValue({
+        push: mockPush,
+        refresh: mockRefresh,
+      });
+
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Malibu",
+        },
+      });
+
+      const user = userEvent.setup();
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /Check Full Forecast/i })
+        ).toBeInTheDocument();
+      });
+
+      const ctaButton = screen.getByRole("button", {
+        name: /Check Full Forecast/i,
+      });
+      await user.click(ctaButton);
+
+      await waitFor(() => {
+        expect(mockCompleteOnboarding).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith("/?tab=forecast");
+      });
+
+      await waitFor(() => {
+        expect(mockRefresh).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Welcome to Quiver!");
+      });
+    });
   });
 });

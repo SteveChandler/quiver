@@ -61,3 +61,11 @@ export const BOARD_WAVE_MATCHING = {
 } as const;
 
 export type BoardTypeKey = keyof typeof BOARD_WAVE_MATCHING;
+
+export const TIME_PREFERENCES = [
+  { value: 'dawn', label: 'Dawn Patrol', emoji: '🌅', description: 'Early morning sessions' },
+  { value: 'after_work', label: 'After Work', emoji: '🌇', description: 'Evening glass-off' },
+  { value: 'weekends', label: 'Weekends', emoji: '📅', description: 'Weekend warrior' },
+] as const;
+
+export type TimePreference = typeof TIME_PREFERENCES[number]['value'];

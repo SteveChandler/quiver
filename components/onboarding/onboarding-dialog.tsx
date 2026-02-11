@@ -9,12 +9,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { WelcomeStep } from "./steps/welcome-step";
-import { ProfileStep } from "./steps/profile-step";
-import { ExperienceStep } from "./steps/experience-step";
-import { WavePreferencesStep } from "./steps/wave-preferences-step";
 import { HomeBeachStep } from "./steps/home-beach-step";
-import { CompletionStep } from "./steps/completion-step";
+import { LevelAndTimeStep } from "./steps/level-and-time-step";
+import { PayoffStep } from "./steps/payoff-step";
 import { OnboardingProgress } from "./onboarding-progress";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
@@ -23,12 +20,9 @@ import { useOnboardingTracking } from "@/hooks/use-onboarding-tracking";
 import type { Profile } from "@/types/database";
 
 const STEPS = [
-  WelcomeStep,
   HomeBeachStep,
-  ProfileStep,
-  ExperienceStep,
-  WavePreferencesStep,
-  CompletionStep,
+  LevelAndTimeStep,
+  PayoffStep,
 ];
 
 // Delays for dialog opening (ms)

@@ -9,6 +9,7 @@ interface OnboardingData {
   homeBeachId?: string;
   homeBeachName?: string;
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  preferredTime?: 'dawn' | 'after_work' | 'weekends';
   surfStyles?: string[];
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
   preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
@@ -46,7 +47,7 @@ export async function skipOnboarding() {
 export async function saveOnboardingData(data: OnboardingData) {
   return withAuthenticatedAction(async (user, supabase) => {
     try {
-      console.log('Saving onboarding data for user:', user.id);
+      console.log('[onboarding] Saving data...');
 
       // Enforce required field for onboarding completion.
       // (Hybrid approach: only home beach is required; everything else may be skipped.)
@@ -74,22 +75,28 @@ export async function saveOnboardingData(data: OnboardingData) {
         }
       }
 
-      // Update profile with all collected data
+      // Update profile with all collected data (only set fields that were collected)
+      const profileUpdate: Record<string, unknown> = {
+        home_beach_id: data.homeBeachId,
+        onboarding_completed_at: new Date().toISOString(),
+      };
+
+      // Only override notification prefs if explicitly provided
+      if (data.pushEnabled !== undefined) profileUpdate.notif_push_enabled = data.pushEnabled;
+      if (data.emailEnabled !== undefined) profileUpdate.notif_email_enabled = data.emailEnabled;
+
+      // Only set fields that were actually collected
+      if (data.fullName) profileUpdate.full_name = data.fullName;
+      if (data.displayName) profileUpdate.display_name = data.displayName;
+      if (data.experienceLevel) profileUpdate.experience_level = data.experienceLevel;
+      if (data.surfStyles?.length) profileUpdate.surf_styles = data.surfStyles;
+      if (data.preferredWaveSize) profileUpdate.preferred_wave_size = data.preferredWaveSize;
+      if (data.preferredBreakType) profileUpdate.preferred_break_type = data.preferredBreakType;
+      if (data.crowdPreference) profileUpdate.crowd_preference = data.crowdPreference;
+
       const { data: updatedProfile, error: profileError } = await supabase
         .from('profiles')
-        .update({
-          full_name: data.fullName,
-          display_name: data.displayName,
-          home_beach_id: data.homeBeachId,
-          experience_level: data.experienceLevel || null,
-          surf_styles: data.surfStyles || [],
-          preferred_wave_size: data.preferredWaveSize || null,
-          preferred_break_type: data.preferredBreakType || null,
-          crowd_preference: data.crowdPreference || null,
-          notif_push_enabled: data.pushEnabled ?? true,
-          notif_email_enabled: data.emailEnabled ?? true,
-          onboarding_completed_at: new Date().toISOString(),
-        })
+        .update(profileUpdate)
         .eq('id', user.id)
         .select()
         .single();
@@ -111,8 +118,8 @@ export async function saveOnboardingData(data: OnboardingData) {
             user_id: user.id,
             email_frequency: 'daily',
             min_good_score: 6.0,
-            skill_level: data.experienceLevel?.toLowerCase() || 'beginner',
-            pref_time_bucket: 'dawn',
+            skill_level: data.experienceLevel === 'expert' ? 'advanced' : (data.experienceLevel || 'beginner'),
+            pref_time_bucket: data.preferredTime || 'dawn',
             timezone: 'America/Los_Angeles',
             home_beach_id: data.homeBeachId,
           }, { onConflict: 'user_id' });
