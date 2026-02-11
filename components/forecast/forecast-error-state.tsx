@@ -7,6 +7,7 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Loader2,
   RefreshCw,
@@ -33,26 +34,26 @@ function getStateIcon(state: ForecastDataState, className?: string) {
 
   switch (state) {
     case "loading":
-      return <Loader2 className={`${iconClass} animate-spin text-blue-500`} />;
+      return <Loader2 className={`${iconClass} animate-spin text-info`} />;
 
     case "refreshing":
-      return <RefreshCw className={`${iconClass} animate-spin text-blue-500`} />;
+      return <RefreshCw className={`${iconClass} animate-spin text-info`} />;
 
     case "failed":
-      return <AlertTriangle className={`${iconClass} text-red-500`} />;
+      return <AlertTriangle className={`${iconClass} text-destructive`} />;
 
     case "rate_limited":
-      return <Clock className={`${iconClass} text-yellow-500`} />;
+      return <Clock className={`${iconClass} text-warning`} />;
 
     case "no_coverage":
-      return <MapPin className={`${iconClass} text-gray-400`} />;
+      return <MapPin className={`${iconClass} text-muted-foreground`} />;
 
     case "stale":
-      return <AlertTriangle className={`${iconClass} text-amber-500`} />;
+      return <AlertTriangle className={`${iconClass} text-warning`} />;
 
     case "unavailable":
     default:
-      return <Info className={`${iconClass} text-yellow-500`} />;
+      return <Info className={`${iconClass} text-warning`} />;
   }
 }
 
@@ -63,23 +64,23 @@ function getStateBgClass(state: ForecastDataState): string {
   switch (state) {
     case "loading":
     case "refreshing":
-      return "bg-blue-50 border-blue-200";
+      return "bg-info/10 border-info/20";
 
     case "failed":
-      return "bg-red-50 border-red-200";
+      return "bg-destructive/10 border-destructive/20";
 
     case "rate_limited":
-      return "bg-yellow-50 border-yellow-200";
+      return "bg-warning/10 border-warning/20";
 
     case "no_coverage":
-      return "bg-gray-50 border-gray-200";
+      return "bg-muted border-border";
 
     case "stale":
-      return "bg-amber-50 border-amber-200";
+      return "bg-warning/10 border-warning/20";
 
     case "unavailable":
     default:
-      return "bg-yellow-50 border-yellow-200";
+      return "bg-warning/10 border-warning/20";
   }
 }
 
@@ -100,7 +101,7 @@ export function ForecastErrorStateInline({
           <div>
             <div className="font-medium text-sm">{stateInfo.message}</div>
             {stateInfo.description && (
-              <div className="text-xs text-gray-600 mt-1">
+              <div className="text-xs text-muted-foreground mt-1">
                 {stateInfo.description}
               </div>
             )}
@@ -119,7 +120,7 @@ export function ForecastErrorStateInline({
         )}
       </div>
       {stateInfo.action && (
-        <div className="text-xs text-gray-500 mt-2">{stateInfo.action}</div>
+        <div className="text-xs text-muted-foreground mt-2">{stateInfo.action}</div>
       )}
     </Alert>
   );
@@ -141,18 +142,18 @@ export function ForecastErrorStateCard({
           {getStateIcon(state)}
 
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-gray-700">
+            <h3 className="text-lg font-semibold text-foreground">
               {stateInfo.message}
             </h3>
 
             {stateInfo.description && (
-              <p className="text-sm text-gray-600 max-w-md">
+              <p className="text-sm text-muted-foreground max-w-md">
                 {stateInfo.description}
               </p>
             )}
 
             {stateInfo.action && (
-              <p className="text-xs text-gray-500 mt-2">{stateInfo.action}</p>
+              <p className="text-xs text-muted-foreground mt-2">{stateInfo.action}</p>
             )}
           </div>
 
@@ -178,15 +179,15 @@ export function ForecastErrorStateCard({
  */
 export function ForecastLoadingSkeleton({ className = "" }: { className?: string }) {
   return (
-    <div className={`animate-pulse space-y-4 ${className}`} data-testid="forecast-loading-skeleton">
-      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+    <div className={`space-y-4 ${className}`} data-testid="forecast-loading-skeleton">
+      <Skeleton className="h-4 w-1/4" />
       <div className="space-y-3">
-        <div className="h-32 bg-gray-200 rounded"></div>
+        <Skeleton className="h-32 w-full" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="h-24 bg-gray-200 rounded"></div>
-          <div className="h-24 bg-gray-200 rounded"></div>
-          <div className="h-24 bg-gray-200 rounded"></div>
-          <div className="h-24 bg-gray-200 rounded"></div>
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
         </div>
       </div>
     </div>
@@ -202,7 +203,7 @@ export function ForecastRefreshingOverlay({ className = "" }: { className?: stri
       className={`absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg z-10 ${className}`}
       data-testid="forecast-refreshing-overlay"
     >
-      <div className="flex items-center space-x-3 text-blue-600">
+      <div className="flex items-center space-x-3 text-info">
         <RefreshCw className="h-6 w-6 animate-spin" />
         <span className="font-medium">Updating forecast...</span>
       </div>

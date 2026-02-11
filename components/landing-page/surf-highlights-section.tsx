@@ -7,7 +7,7 @@ import { ChevronRight } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
-import { useLandingLocation } from "@/hooks/use-landing-location";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Beach {
   id: string;
@@ -24,7 +24,6 @@ interface Beach {
 export function SurfHighlightsSection() {
   const [page, setPage] = useState(0);
   const pageSize = 4;
-  const { regionName, isLoading: locationLoading } = useLandingLocation();
 
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
     try {
@@ -130,23 +129,13 @@ export function SurfHighlightsSection() {
       <div className="max-w-7xl mx-auto px-6">
         {/* AllTrails-style editorial header - left-aligned with location emphasis */}
         <h2 className="text-2xl md:text-3xl font-roboto font-semibold text-dark-grey mb-8 text-left">
-          Local surf favorites near{" "}
-          {locationLoading ? (
-            <span className="inline-block w-28 h-7 bg-gray-200 animate-pulse rounded align-middle" />
-          ) : (
-            <span className="underline underline-offset-4 decoration-ocean-blue/40">
-              {regionName}
-            </span>
-          )}
+          Popular surf spots
         </h2>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="h-80 bg-gray-200 rounded-2xl animate-pulse"
-              />
+              <Skeleton key={i} className="h-80 rounded-2xl" />
             ))}
           </div>
         ) : (

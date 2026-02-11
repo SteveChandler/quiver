@@ -50,7 +50,7 @@ export function AuthBlockingOverlay({
     <>
       {/* Full-page blocking overlay */}
       <div
-        className="fixed inset-0 z-[9998] bg-background/95 backdrop-blur-sm animate-in fade-in duration-200"
+        className="fixed inset-0 z-auth-wall bg-background/60 backdrop-blur-md animate-in fade-in duration-200"
         onClick={handleInteraction}
         onTouchStart={handleInteraction}
         onMouseMove={handleInteraction}

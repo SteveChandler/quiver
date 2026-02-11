@@ -134,17 +134,17 @@ describe("UnifiedAuthModal", () => {
       });
     });
 
-    it("should show return path when provided", () => {
+    it("should show friendly return label when returnTo is provided", () => {
       render(
         <UnifiedAuthModal
           isOpen={true}
           onClose={mockOnClose}
           mode="login"
-          returnTo="/beach/123"
+          returnTo="/map"
         />
       );
 
-      expect(screen.getByText("/beach/123")).toBeInTheDocument();
+      expect(screen.getByText("the map")).toBeInTheDocument();
     });
   });
 

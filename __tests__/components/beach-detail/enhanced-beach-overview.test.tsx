@@ -19,6 +19,7 @@ jest.mock("@/components/beach-detail/quick-stats", () => ({
 // Mock utility functions
 jest.mock("@/lib/utils/text-utils", () => ({
   sanitizeBeachDescription: jest.fn((desc) => desc),
+  stripMarkdownEmphasis: jest.fn((text) => text),
 }));
 
 jest.mock("@/lib/seo/beach-content-utils", () => ({

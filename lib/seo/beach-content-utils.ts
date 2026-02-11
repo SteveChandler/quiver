@@ -58,7 +58,7 @@ export function buildEnrichedBeachContent(beach: Beach & {
 
   // Crowd level
   if (beach.crowd_level) {
-    sentences.push(`Expect ${beach.crowd_level} crowds.`);
+    sentences.push(`Expect ${beach.crowd_level.replace(/_/g, ' ')} crowds.`);
   }
 
   // Wind

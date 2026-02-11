@@ -47,6 +47,23 @@ import {
 } from "./auth-modal";
 
 /**
+ * Convert a raw pathname into a user-friendly label for the auth dialog.
+ */
+function friendlyPathName(path: string): string {
+  const map: Record<string, string> = {
+    "/map": "the map",
+    "/discover": "discovery",
+    "/sessions": "your sessions",
+    "/profile": "your profile",
+    "/inbox": "your inbox",
+  };
+  if (map[path]) return map[path];
+  // Beach paths: /XX/city/beach or /ca/city/beach
+  if (/^\/[a-z]{2}\/[^/]+\/[^/]+$/.test(path)) return "this spot";
+  return "this page";
+}
+
+/**
  * Props for the UnifiedAuthModal component
  */
 export interface UnifiedAuthModalProps {
@@ -506,7 +523,7 @@ export function UnifiedAuthModal({
 
         {returnTo && returnTo !== "/" && (
           <p className="text-xs text-muted-foreground">
-            Return to <span className="font-medium">{returnTo}</span> after you
+            Return to <span className="font-medium">{friendlyPathName(returnTo)}</span> after you
             sign in.
           </p>
         )}

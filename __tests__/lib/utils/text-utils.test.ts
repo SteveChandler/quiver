@@ -4,7 +4,7 @@
  * Comprehensive test coverage for slugification and text manipulation functions.
  */
 
-import { slugify, slugifyAscii, sanitizeBeachDescription } from "@/lib/utils/text-utils";
+import { slugify, slugifyAscii, sanitizeBeachDescription, stripMarkdownEmphasis } from "@/lib/utils/text-utils";
 describe("Text Utilities", () => {
   describe("slugify", () => {
     it("should convert text to lowercase hyphenated slug", () => {
@@ -166,9 +166,11 @@ describe("Text Utilities", () => {
       );
     });
 
-    it("should not strip bold markup if the bolded segment doesn't match the beach name", () => {
+    it("should strip all markdown emphasis even if the bolded segment doesn't match the beach name", () => {
       const desc = "**Not The Name** represents something else.";
-      expect(sanitizeBeachDescription(desc, "Terramar Point")).toBe(desc);
+      expect(sanitizeBeachDescription(desc, "Terramar Point")).toBe(
+        "Not The Name represents something else."
+      );
     });
 
     it("should pass through descriptions without a leading bold segment", () => {
@@ -202,10 +204,43 @@ describe("Text Utilities", () => {
       );
     });
 
-    it("should not strip bold markup when parenthetical-stripped name doesn't match", () => {
+    it("should strip all markdown emphasis when parenthetical-stripped name doesn't match", () => {
       const desc = "**Pipeline** is a legendary spot.";
-      // "Sunset Cliffs" without parens doesn't match "Pipeline"
-      expect(sanitizeBeachDescription(desc, "Sunset Cliffs (Garbage)")).toBe(desc);
+      // "Sunset Cliffs" without parens doesn't match "Pipeline", but markdown is still stripped
+      expect(sanitizeBeachDescription(desc, "Sunset Cliffs (Garbage)")).toBe(
+        "Pipeline is a legendary spot."
+      );
+    });
+  });
+
+  describe("stripMarkdownEmphasis", () => {
+    it("should strip bold markers (**text**)", () => {
+      expect(stripMarkdownEmphasis("**Blacks Beach** is great")).toBe("Blacks Beach is great");
+    });
+
+    it("should strip italic markers (*text*)", () => {
+      expect(stripMarkdownEmphasis("This is *italic* text")).toBe("This is italic text");
+    });
+
+    it("should strip underscore italic markers (_text_)", () => {
+      expect(stripMarkdownEmphasis("This is _italic_ text")).toBe("This is italic text");
+    });
+
+    it("should strip mixed bold and italic", () => {
+      expect(stripMarkdownEmphasis("**bold** and *italic* here")).toBe("bold and italic here");
+    });
+
+    it("should preserve mid-word underscores (snake_case)", () => {
+      expect(stripMarkdownEmphasis("very_crowded")).toBe("very_crowded");
+      expect(stripMarkdownEmphasis("some_variable_name")).toBe("some_variable_name");
+    });
+
+    it("should handle text with no markdown", () => {
+      expect(stripMarkdownEmphasis("plain text")).toBe("plain text");
+    });
+
+    it("should handle empty string", () => {
+      expect(stripMarkdownEmphasis("")).toBe("");
     });
   });
 });

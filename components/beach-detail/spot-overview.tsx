@@ -189,17 +189,15 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
         </CardContent>
       </Card>
 
-      {/* Best-of gallery */}
-      <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
-        <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
-            <Images className="h-5 w-5 text-blue-600" /> Best-of Gallery
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!validPhotos || validPhotos.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No photos yet</div>
-          ) : (
+      {/* Best-of gallery — only render when photos exist */}
+      {validPhotos.length > 0 && (
+        <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
+          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
+            <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
+              <Images className="h-5 w-5 text-blue-600" /> Best-of Gallery
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {validPhotos.map((p) => (
                 <div
@@ -220,9 +218,9 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
                 </div>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

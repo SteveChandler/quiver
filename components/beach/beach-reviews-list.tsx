@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import { StarRating } from "@/components/ui/star-rating";
 import { Loader2, MessageSquare, Trash2, Edit3, Calendar } from "lucide-react";
+import { ZeroState } from "@/components/ui/zero-state";
 import {
   getBeachReviews,
   deleteBeachReview,
@@ -109,13 +110,11 @@ export function BeachReviewsList({
 
   if (reviews.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-        <p className="text-lg font-medium mb-2">No reviews yet</p>
-        <p className="text-sm">
-          Be the first to share your experience at this beach!
-        </p>
-      </div>
+      <ZeroState
+        icon={MessageSquare}
+        title="No reviews yet"
+        description="Be the first to share your experience at this beach!"
+      />
     );
   }
 

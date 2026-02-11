@@ -76,10 +76,10 @@ export function sanitizeBeachDescription(
   beachName: string | null | undefined
 ): string | null {
   if (!description) return null;
-  if (!beachName) return description;
+  if (!beachName) return stripMarkdownEmphasis(description);
 
   const name = beachName.trim();
-  if (!name) return description;
+  if (!name) return stripMarkdownEmphasis(description);
 
   // Match only a leading "**...**" segment (optionally preceded by whitespace).
   // Capture:
@@ -88,7 +88,7 @@ export function sanitizeBeachDescription(
   // - 3: any immediate whitespace after the segment
   // - 4: the rest of the description
   const match = description.match(/^(\s*)\*\*([^*]+)\*\*(\s*)([\s\S]*)$/);
-  if (!match) return description;
+  if (!match) return stripMarkdownEmphasis(description);
 
   const leadingWhitespace = match[1] ?? "";
   const bolded = match[2]?.trim() ?? "";
@@ -106,7 +106,7 @@ export function sanitizeBeachDescription(
 
   // Primary: exact match with the provided beach name.
   if (boldedNorm === nameNorm) {
-    return `${leadingWhitespace}${name}${afterSpace}${rest}`;
+    return stripMarkdownEmphasis(`${leadingWhitespace}${name}${afterSpace}${rest}`);
   }
 
   // Secondary: handle cases where the DB record uses a shorter canonical name
@@ -122,7 +122,7 @@ export function sanitizeBeachDescription(
   const allowedSuffixes = ["beach", "pier", "point", "reef"];
   for (const suffix of allowedSuffixes) {
     if (boldedNorm === `${nameNorm} ${suffix}`) {
-      return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
+      return stripMarkdownEmphasis(`${leadingWhitespace}${bolded}${afterSpace}${rest}`);
     }
   }
 
@@ -133,7 +133,7 @@ export function sanitizeBeachDescription(
   //   beachName = "Sunset Cliffs (Garbage)"
   //   description starts with "**Sunset Cliffs** ..."
   if (nameWithoutParens !== nameNorm && boldedNorm === nameWithoutParens) {
-    return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
+    return stripMarkdownEmphasis(`${leadingWhitespace}${bolded}${afterSpace}${rest}`);
   }
 
   // Quaternary: combine parenthetical stripping with suffix handling.
@@ -144,10 +144,31 @@ export function sanitizeBeachDescription(
   if (nameWithoutParens !== nameNorm) {
     for (const suffix of allowedSuffixes) {
       if (boldedNorm === `${nameWithoutParens} ${suffix}`) {
-        return `${leadingWhitespace}${bolded}${afterSpace}${rest}`;
+        return stripMarkdownEmphasis(`${leadingWhitespace}${bolded}${afterSpace}${rest}`);
       }
     }
   }
 
-  return description;
+  return stripMarkdownEmphasis(description);
+}
+
+/**
+ * Strip all markdown bold and italic markers from a string.
+ *
+ * Processing order matters: bold (`**`) is stripped before italic (`*` / `_`)
+ * to avoid partial matches.
+ *
+ * Examples:
+ *   "**Blacks Beach** is great"  -> "Blacks Beach is great"
+ *   "a *hidden* gem"             -> "a hidden gem"
+ *   "very_crowded"               -> left alone (no matching pair of markers)
+ */
+export function stripMarkdownEmphasis(text: string): string {
+  // Bold: **text**
+  let result = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+  // Italic: *text* (but not inside words — require word boundary or start/end)
+  result = result.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '$1');
+  // Italic: _text_ (underscore-delimited, require word boundary)
+  result = result.replace(/(?<!\w)_([^_]+)_(?!\w)/g, '$1');
+  return result;
 }

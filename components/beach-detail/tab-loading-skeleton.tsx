@@ -5,24 +5,26 @@
  * Improves perceived performance by providing visual feedback.
  */
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 export function TabLoadingSkeleton() {
   return (
-    <div className="animate-pulse space-y-4 py-4">
+    <div className="space-y-4 py-4">
       {/* Title skeleton */}
-      <div className="h-6 w-48 bg-gray-200 rounded" />
+      <Skeleton className="h-6 w-48" />
 
       {/* Content blocks */}
       <div className="space-y-3">
-        <div className="h-4 w-full bg-gray-200 rounded" />
-        <div className="h-4 w-5/6 bg-gray-200 rounded" />
-        <div className="h-4 w-4/6 bg-gray-200 rounded" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-4 w-4/6" />
       </div>
 
       {/* Additional content blocks */}
       <div className="space-y-3 mt-6">
-        <div className="h-4 w-full bg-gray-200 rounded" />
-        <div className="h-4 w-3/4 bg-gray-200 rounded" />
-        <div className="h-4 w-5/6 bg-gray-200 rounded" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-5/6" />
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { FeatureGrid } from "./feature-grid";
 import { PracticalTipsSection } from "./practical-tips-section";
 import { QuickStats } from "./quick-stats";
 import type { Beach } from "@/types/database";
-import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
+import { sanitizeBeachDescription, stripMarkdownEmphasis } from "@/lib/utils/text-utils";
 import { buildEnrichedBeachContent, isBeachDescriptionThin } from "@/lib/seo/beach-content-utils";
 
 interface EnhancedBeachOverviewProps {
@@ -49,7 +49,8 @@ export function EnhancedBeachOverview({
   const enrichedContent = isBeachDescriptionThin(sanitizedDescription)
     ? buildEnrichedBeachContent(beach)
     : null;
-  const displayDescription = enrichedContent?.description || sanitizedDescription;
+  const rawDescription = enrichedContent?.description || sanitizedDescription;
+  const displayDescription = rawDescription ? stripMarkdownEmphasis(rawDescription) : rawDescription;
   const highlights = enrichedContent?.highlights || [];
 
   return (

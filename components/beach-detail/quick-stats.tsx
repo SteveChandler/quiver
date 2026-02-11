@@ -50,7 +50,7 @@ export function QuickStats({
     >
       {/* Break Type */}
       <div className="flex flex-col items-center text-center gap-1">
-        <Waves className="h-5 w-5 text-blue-600" />
+        <Waves className="h-5 w-5 text-primary" />
         <div className="text-xs text-muted-foreground">Break</div>
         <div className="text-sm font-semibold">
           {formatBreakType(breakType)}
@@ -59,7 +59,7 @@ export function QuickStats({
 
       {/* Skill Level */}
       <div className="flex flex-col items-center text-center gap-1">
-        <TrendingUp className="h-5 w-5 text-blue-600" />
+        <TrendingUp className="h-5 w-5 text-primary" />
         <div className="text-xs text-muted-foreground">Skill</div>
         <div className="text-sm font-semibold">
           {formatSkillLevel(skillLevel)}
@@ -77,7 +77,7 @@ export function QuickStats({
 
       {/* Review Count */}
       <div className="flex flex-col items-center text-center gap-1">
-        <MessageSquare className="h-5 w-5 text-blue-600" />
+        <MessageSquare className="h-5 w-5 text-primary" />
         <div className="text-xs text-muted-foreground">Reviews</div>
         <div className="text-sm font-semibold">{reviewCount || 0}</div>
       </div>

@@ -47,9 +47,9 @@ export function ZeroState({
         className
       )}
     >
-      <Icon className="h-16 w-16 text-gray-400" />
-      <h3 className="text-xl font-semibold text-gray-900 mt-4">{title}</h3>
-      <p className="text-sm text-gray-600 mt-2 max-w-xs text-center">
+      <Icon className="h-16 w-16 text-muted-foreground" />
+      <h3 className="text-xl font-semibold text-foreground mt-4">{title}</h3>
+      <p className="text-sm text-muted-foreground mt-2 max-w-xs text-center">
         {description}
       </p>
 
@@ -65,10 +65,10 @@ export function ZeroState({
 
       {/* Pro tip */}
       {proTip && (
-        <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-4 max-w-sm">
+        <div className="mt-6 bg-info/10 border border-info/20 rounded-lg p-4 max-w-sm">
           <div className="flex items-start gap-2">
-            <Lightbulb className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-blue-700">{proTip}</p>
+            <Lightbulb className="h-4 w-4 text-info mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">{proTip}</p>
           </div>
         </div>
       )}

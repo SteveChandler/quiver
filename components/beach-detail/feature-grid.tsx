@@ -62,7 +62,7 @@ export function FeatureGrid({
             return (
               <div
                 key={idx}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-sm text-green-800"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/20 text-sm text-success"
               >
                 <span className="text-base">{icon}</span>
                 <span className="font-medium">{feature}</span>
@@ -78,7 +78,7 @@ export function FeatureGrid({
           {warnings.map((warning, idx) => (
             <div
               key={idx}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-sm text-amber-800"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/10 border border-warning/20 text-sm text-warning"
             >
               <AlertTriangle className="h-3.5 w-3.5" />
               <span className="font-medium">{warning}</span>

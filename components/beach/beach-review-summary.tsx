@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
 import { Waves, Users, Car, MapPin, Star, Plus, Loader2 } from "lucide-react";
+import { ZeroState } from "@/components/ui/zero-state";
 import { getBeachReviewStats } from "@/actions/beach-review-actions";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -114,20 +115,17 @@ export function BeachReviewSummary({
             </Button>
           )}
         </div>
-        <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
-          <Star className="h-12 w-12 text-yellow-500/60" />
-          <p className="text-lg font-medium text-dark-grey">No reviews yet</p>
-          <p className="text-sm">Be the first to share how this spot breaks.</p>
-          {user && onWriteReview && (
-            <Button
-              onClick={onWriteReview}
-              size="sm"
-              className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Write the first review
-            </Button>
-          )}
-        </div>
+        <ZeroState
+          icon={Star}
+          title="No reviews yet"
+          description="Be the first to share how this spot breaks."
+          action={
+            user && onWriteReview
+              ? { label: "Write the first review", onClick: onWriteReview, icon: Plus }
+              : undefined
+          }
+          className="p-8"
+        />
       </div>
     );
   }

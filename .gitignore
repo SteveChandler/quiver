@@ -159,5 +159,8 @@ ml/models/*.json
 # ML model artifacts
 models/
 
+# Python cache
+__pycache__/
+
 # Android debug build artifacts
 quiver/android/debug/

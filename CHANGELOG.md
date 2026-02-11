@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Guest Smoke Tests for Lighthouse CI** (uncommitted) - Added `e2e/guest-smoke.spec.ts` with 7 new `@smoke` tests covering features page, map, beach detail, intent state pages, 404 handling, sitemap XML, and OG image endpoint. These run in the `guest` project during CI, matching the Lighthouse-audited URLs that previously had zero Playwright coverage.
 - **Conditions Subtab Overhaul** (uncommitted) - Replaced plain forecast table in the Conditions subtab with a rich multi-section view: Best Day Hero with animated score gauge, Other Good Days grid, 12-Day Outlook bar chart (Recharts), and Explore More navigation links. Public mode gates chart/other-days behind `PublicContentGate` while keeping hero visible as teaser.
 - **Conditions Alert Email** (uncommitted) - Daily 6:30 AM PT email to users with a home beach when conditions are good (score >= 7/10). Includes score badge, conditions summary, best window, and CTAs to check forecast or log a session. Skips users already active in the app today. Max one email per user per day across all email types.
 - **Session Prompt Email** (uncommitted) - Daily 10:00 AM PT "How was your session?" email sent to users whose home beach had good conditions yesterday but who didn't log a session. Nudges toward session logging to build community data.
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **UI Consistency & Design Debt Cleanup** (uncommitted) - Fixed raw markdown rendering in beach descriptions, auth overlay opacity on map page, raw pathname in auth dialog, empty gallery card showing when no photos. Changed misleading "Near San Diego" heading to "Popular surf spots". Refactored error boundary buttons and loading skeletons to use design system components. Migrated empty states to ZeroState component. Added semantic status color tokens (success/warning/info) to CSS and Tailwind config. Added z-index scale (overlay/toast/auth-wall). Created `docs/STYLE_GUIDE.md`.
 - **Code Review Follow-Up Fixes** (uncommitted) - Removed unused `p_cooldown_hours` param from `get_conditions_alert_candidates` and `get_session_prompt_candidates` SQL RPCs; conditions alert CTA now uses canonical hierarchical URLs (`buildBeachUrl()`) instead of legacy `/beach/{slug}`; redacted email addresses from console.log in both email cron handlers (PII compliance); moved `pg`/`@types/pg` to devDependencies; parallelized `getSpotSurfReport` and `getNearbyBeaches` on beach detail pages via `Promise.all`.
 - **Supabase SSR Package Upgrade** — Upgraded `@supabase/ssr` from 0.7.0 to 0.8.0 and migrated all cookie handlers from deprecated `get/set/remove` interface to new `getAll/setAll` interface across all server clients (auth routes, API routes, middleware, server components).
 - **ML Retrain: Post-Shoaling Data Filter** — Added `--since` arg to `extract_training_data_v2.py` and shoaling change date floor (`2026-02-05`) in automated retrain route to exclude pre-shoaling training data.
