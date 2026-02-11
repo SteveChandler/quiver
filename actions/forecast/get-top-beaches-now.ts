@@ -9,12 +9,8 @@
  * @module actions/forecast/get-top-beaches-now
  */
 
-import {
-  getTopBeachesRightNow,
-  type TopBeachEntry,
-} from "@/lib/utils/forecast-hub-utils";
-
-export type { TopBeachEntry };
+import { getTopBeachesRightNow } from "@/lib/utils/forecast-hub-utils";
+import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 
 /**
  * Fetch the top beaches by current forecast score.

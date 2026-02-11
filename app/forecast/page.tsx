@@ -10,8 +10,10 @@ import {
 import { formatFullDateWithYear } from "@/lib/utils/time-formatters";
 import {
   getRegionalSummaries,
-  getBestRegionToday,
+  getBestRegionForUser,
 } from "@/lib/utils/forecast-hub-utils";
+import { extractIPLocation } from "@/lib/location/ip-location";
+import { headers } from "next/headers";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import {
@@ -59,7 +61,22 @@ export const metadata: Metadata = buildPageMetadata({
 export default async function ForecastHubPage() {
   const summaries = await getRegionalSummaries();
   const regions = Object.values(FORECAST_REGIONS);
-  const bestToday = getBestRegionToday(summaries);
+
+  // Extract user location from Vercel IP headers
+  const reqHeaders = await headers();
+  const ipLocation = extractIPLocation(reqHeaders);
+  let userCoords: { lat: number; lon: number } | null = null;
+  if (ipLocation.latitude !== null && ipLocation.longitude !== null) {
+    userCoords = { lat: ipLocation.latitude, lon: ipLocation.longitude };
+  } else if (process.env.DEV_IP_LAT && process.env.DEV_IP_LON) {
+    // Dev fallback for local testing without Vercel headers
+    userCoords = {
+      lat: parseFloat(process.env.DEV_IP_LAT),
+      lon: parseFloat(process.env.DEV_IP_LON),
+    };
+  }
+
+  const bestResult = getBestRegionForUser(summaries, userCoords);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -135,7 +152,7 @@ export default async function ForecastHubPage() {
         </ScrollReveal>
 
         {/* Best Today Section - Enhanced Hero */}
-        {bestToday && bestToday.summary.days[0] && (
+        {bestResult && bestResult.summary.days[0] && (
           <ScrollReveal variant="scale" delay={100}>
             <section className="mb-10 bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50 rounded-xl p-6 border border-sky-200 relative overflow-hidden">
               {/* Subtle wave pattern */}
@@ -157,7 +174,7 @@ export default async function ForecastHubPage() {
                 {/* Animated Score Gauge */}
                 <div className="flex-shrink-0">
                   <AnimatedScoreGauge
-                    score={bestToday.summary.days[0].score}
+                    score={bestResult.summary.days[0].score}
                     size="lg"
                     showLabel
                   />
@@ -166,32 +183,34 @@ export default async function ForecastHubPage() {
                 {/* Content */}
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Best Conditions Today
+                    {bestResult.isLocationPersonalized
+                      ? "Best Conditions Near You"
+                      : "Best Conditions Today"}
                   </h2>
                   <div className="flex flex-wrap items-center gap-4 text-gray-700">
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-sky-600" />
                       <Link
-                        href={`/forecast/${bestToday.region.slug}`}
+                        href={`/forecast/${bestResult.region.slug}`}
                         className="font-medium hover:text-sky-600 hover:underline transition-colors"
                       >
-                        {bestToday.region.name}
+                        {bestResult.region.name}
                       </Link>
                     </div>
                     <span className="text-gray-400">|</span>
                     <span>
-                      {Math.round(bestToday.summary.days[0].avgWaveHeight)}ft{" "}
+                      {Math.round(bestResult.summary.days[0].avgWaveHeight)}ft{" "}
                       waves
                     </span>
                     <span className="text-gray-400">|</span>
                     <span>
-                      Score: {bestToday.summary.days[0].score}/100
+                      Score: {bestResult.summary.days[0].score}/100
                     </span>
-                    {bestToday.summary.upcomingSwells.length > 0 && (
+                    {bestResult.summary.upcomingSwells.length > 0 && (
                       <>
                         <span className="text-gray-400">|</span>
                         <span className="text-blue-600 font-medium animate-pulse">
-                          {bestToday.summary.upcomingSwells[0].size} swell incoming
+                          {bestResult.summary.upcomingSwells[0].size} swell incoming
                         </span>
                       </>
                     )}
@@ -200,7 +219,7 @@ export default async function ForecastHubPage() {
 
                 {/* CTA */}
                 <Link
-                  href={`/forecast/${bestToday.region.slug}`}
+                  href={`/forecast/${bestResult.region.slug}`}
                   className="hidden md:inline-flex items-center gap-2 px-4 py-2 bg-sky-600 text-white font-medium rounded-lg hover:bg-sky-700 transition-colors"
                 >
                   <TrendingUp className="h-4 w-4" />

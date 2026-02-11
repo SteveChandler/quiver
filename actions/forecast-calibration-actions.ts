@@ -68,7 +68,7 @@ export async function getUserSessionSnapshots(
           beach_name,
           arrival_time,
           rating,
-          wave_height,
+          wave_height_ft,
           wave_quality
         )
       `
@@ -104,7 +104,7 @@ export async function getBeachSessionSnapshots(
           beach_name,
           arrival_time,
           rating,
-          wave_height,
+          wave_height_ft,
           wave_quality
         ),
         user:profiles(

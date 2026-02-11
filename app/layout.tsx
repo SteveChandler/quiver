@@ -129,7 +129,7 @@ export default async function RootLayout({
 }>) {
   // Get pathname from middleware header for conditional SSR
   const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "/";
+  const pathname = headersList.get("x-pathname") || "";
   const isLandingPage = pathname === "/";
   const isEmbedRoute = pathname.startsWith("/embed");
 

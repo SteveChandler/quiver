@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { BestRightNow } from "@/components/forecast/best-right-now";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import type { TopBeachEntry } from "@/actions/forecast/get-top-beaches-now";
+import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 
 // Mock Next.js Link component
 jest.mock("next/link", () => {

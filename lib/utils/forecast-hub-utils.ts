@@ -19,6 +19,7 @@ import {
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 /**
@@ -114,6 +115,64 @@ export function getBestRegionToday(
   }
 
   return null;
+}
+
+export interface BestRegionResult {
+  region: ForecastRegion;
+  summary: RegionalForecastSummary;
+  isLocationPersonalized: boolean;
+}
+
+/**
+ * Get the best region for today, personalized to user location when available.
+ *
+ * If userCoords are provided, filters to regions within maxDistanceMiles and
+ * picks the highest-scoring one. Falls back to global best if no coords or
+ * no nearby regions have data.
+ */
+export function getBestRegionForUser(
+  summaries: Record<string, RegionalForecastSummary>,
+  userCoords: { lat: number; lon: number } | null,
+  maxDistanceMiles: number = 300
+): BestRegionResult | null {
+  if (userCoords) {
+    // Find regions within range
+    const nearbyRegions: { region: ForecastRegion; distance: number }[] = [];
+    for (const region of Object.values(FORECAST_REGIONS)) {
+      const distance = calculateDistanceInMiles(userCoords, {
+        lat: region.centerLat,
+        lon: region.centerLon,
+      });
+      if (!isNaN(distance) && distance <= maxDistanceMiles) {
+        nearbyRegions.push({ region, distance });
+      }
+    }
+
+    // Pick the highest-scoring nearby region
+    let bestRegion: ForecastRegion | null = null;
+    let bestSummary: RegionalForecastSummary | null = null;
+    let bestScore = 0;
+
+    for (const { region } of nearbyRegions) {
+      const summary = summaries[region.slug];
+      if (!summary) continue;
+      const todayScore = summary.days[0]?.score || 0;
+      if (todayScore > bestScore) {
+        bestScore = todayScore;
+        bestRegion = region;
+        bestSummary = summary;
+      }
+    }
+
+    if (bestRegion && bestSummary) {
+      return { region: bestRegion, summary: bestSummary, isLocationPersonalized: true };
+    }
+  }
+
+  // Fall back to global best
+  const globalBest = getBestRegionToday(summaries);
+  if (!globalBest) return null;
+  return { ...globalBest, isLocationPersonalized: false };
 }
 
 /**

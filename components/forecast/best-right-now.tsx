@@ -14,10 +14,8 @@ import { useCallback } from "react";
 import Link from "next/link";
 import { Waves, Trophy } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import {
-  getTopBeachesNow,
-  type TopBeachEntry,
-} from "@/actions/forecast/get-top-beaches-now";
+import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
+import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
 import { ForecastSectionContainer } from "./forecast-section-container";
 

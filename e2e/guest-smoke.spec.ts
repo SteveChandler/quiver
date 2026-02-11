@@ -60,7 +60,7 @@ test.describe('Guest Smoke: Critical Pages', () => {
     await page.waitForLoadState('load', { timeout: 15000 });
 
     // Beach name heading should be visible
-    const heading = page.getByRole('heading', { name: /blacks/i });
+    const heading = page.getByRole('heading', { name: /blacks/i, level: 1 });
     await expect(heading).toBeVisible({ timeout: 10000 });
 
     // Forecast section or wave info should render
