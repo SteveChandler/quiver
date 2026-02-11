@@ -232,7 +232,7 @@ export async function GET(request: Request) {
           // Rate limit before sending
           await rateLimiter.throttle();
 
-          await resend.emails.send({
+          const { data: sendData, error: sendError } = await resend.emails.send({
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
             to: profile.email,
@@ -247,6 +247,10 @@ export async function GET(request: Request) {
             }),
           });
 
+          if (sendError) {
+            throw sendError;
+          }
+
           console.log(
             `${CONTEXT_TAG} Sent to ${profile.email}: ${stats.totalSessions} sessions, ${stats.totalHours}h`
           );
@@ -256,6 +260,7 @@ export async function GET(request: Request) {
             userId: profile.id,
             emailType: EMAIL_TYPE,
             subject: emailSubject,
+            resendMessageId: sendData?.id,
             meta: { session_count: stats.totalSessions },
           });
 

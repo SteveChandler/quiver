@@ -176,7 +176,8 @@ describe("Re-engagement Email Cron Job API", () => {
 
     // Default Resend response
     mockEmailsSend.mockResolvedValue({
-      id: "test-email-id",
+      data: { id: "test-email-id" },
+      error: null,
     });
   });
 
@@ -575,7 +576,10 @@ describe("Re-engagement Email Cron Job API", () => {
         .mockResolvedValueOnce({ data: true, error: null }); // claim slot
 
       mockLimit.mockResolvedValueOnce({ data: [], error: null });
-      mockEmailsSend.mockRejectedValueOnce(new Error("Resend API error"));
+      mockEmailsSend.mockResolvedValueOnce({
+        data: null,
+        error: new Error("Resend API error"),
+      });
 
       const request = mockRequest({
         authorization: "Bearer valid-cron-secret",
@@ -920,8 +924,8 @@ describe("Re-engagement Email Cron Job API", () => {
 
       // user-3 send fails
       mockEmailsSend
-        .mockResolvedValueOnce({ id: "email-1" })
-        .mockRejectedValueOnce(new Error("Send failed"));
+        .mockResolvedValueOnce({ data: { id: "email-1" }, error: null })
+        .mockResolvedValueOnce({ data: null, error: new Error("Send failed") });
 
       const request = mockRequest({ authorization: "Bearer valid" });
       const response = await GET(request);

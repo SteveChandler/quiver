@@ -131,7 +131,7 @@ export async function GET(request: Request) {
         );
 
         // Send via Resend
-        const { error: sendError } = await resend.emails.send({
+        const { data: sendData, error: sendError } = await resend.emails.send({
           from: MAIL_FROM,
           replyTo: MAIL_REPLY_TO,
           to: candidate.email,
@@ -173,6 +173,7 @@ export async function GET(request: Request) {
           userId: candidate.user_id,
           emailType: EMAIL_TYPE,
           subject,
+          resendMessageId: sendData?.id,
           localDate: today,
           meta: { case_type: candidate.case_type },
         });

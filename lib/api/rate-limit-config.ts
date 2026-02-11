@@ -175,6 +175,21 @@ export const RATE_LIMITS = {
     requestsPerHour: 100,
     burstLimit: 3,
   } as RateLimiterConfig,
+
+  /**
+   * Webhook - Resend
+   *
+   * Endpoint: /api/webhooks/resend
+   * Risk: External webhook delivery
+   * Cost: Single database update per event
+   *
+   * Higher limits to accommodate burst webhook deliveries
+   */
+  "webhook-resend": {
+    requestsPerMinute: 120,
+    requestsPerHour: 5000,
+    burstLimit: 50,
+  } as RateLimiterConfig,
 } as const;
 
 /**
@@ -203,6 +218,8 @@ const RATE_LIMIT_MESSAGES = {
     "Surf discovery rate limit exceeded. Please wait before requesting more recommendations.",
   "surf-insights":
     "Surf insights rate limit exceeded. Please wait before requesting more insights.",
+  "webhook-resend":
+    "Webhook rate limit exceeded. Events will be retried by Resend.",
 } as const;
 
 /**

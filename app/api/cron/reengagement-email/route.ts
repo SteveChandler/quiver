@@ -178,7 +178,7 @@ async function processCandidate(
   // 5. Rate limit and send email
   await rateLimiter.throttle();
 
-  const { error: sendError } = await resend.emails.send({
+  const { data: sendData, error: sendError } = await resend.emails.send({
     from: MAIL_FROM,
     replyTo: MAIL_REPLY_TO,
     to: candidate.email,
@@ -213,6 +213,7 @@ async function processCandidate(
     subject: emailSubject,
     bestScore: candidate.conditions_score,
     bestBeachId: candidate.home_beach_id,
+    resendMessageId: sendData?.id,
     meta: {
       beach_name: candidate.beach_name,
       beach_slug: candidate.beach_slug,

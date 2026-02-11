@@ -124,6 +124,7 @@ describe("Session Prompt Email Cron Job API", () => {
 
     // Default Resend response
     mockEmailsSend.mockResolvedValue({
+      data: { id: "mock-resend-id" },
       error: null,
     });
   });
@@ -512,6 +513,7 @@ describe("Session Prompt Email Cron Job API", () => {
         .mockResolvedValueOnce({ data: true, error: null }); // claim slot
 
       mockEmailsSend.mockResolvedValueOnce({
+        data: null,
         error: new Error("Resend API error"),
       });
 
@@ -638,6 +640,7 @@ describe("Session Prompt Email Cron Job API", () => {
         subject: "How was your session at Test Beach?",
         bestScore: 9,
         bestBeachId: "beach-1",
+        resendMessageId: "mock-resend-id",
         meta: {
           beach_name: "Test Beach",
           beach_slug: "test-beach",
@@ -689,8 +692,8 @@ describe("Session Prompt Email Cron Job API", () => {
 
       // user-3 send fails
       mockEmailsSend
-        .mockResolvedValueOnce({ error: null })
-        .mockResolvedValueOnce({ error: new Error("Send failed") });
+        .mockResolvedValueOnce({ data: { id: "mock-resend-id" }, error: null })
+        .mockResolvedValueOnce({ data: null, error: new Error("Send failed") });
 
       const request = mockRequest({ authorization: "Bearer valid" });
       const response = await GET(request);

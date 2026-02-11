@@ -39,6 +39,7 @@ export interface EmailLogEntry {
   bestScore?: number;
   bestBeachId?: string;
   meta?: Record<string, unknown>;
+  resendMessageId?: string;
 }
 
 /**
@@ -76,6 +77,7 @@ export class EmailLoggingService {
       best_score: entry.bestScore ?? null,
       best_beach_id: entry.bestBeachId ?? null,
       meta: entry.meta ?? {},
+      resend_message_id: entry.resendMessageId ?? null,
     });
 
     if (error) {
@@ -111,6 +113,7 @@ export class EmailLoggingService {
       best_score: entry.bestScore ?? null,
       best_beach_id: entry.bestBeachId ?? null,
       meta: entry.meta ?? {},
+      resend_message_id: entry.resendMessageId ?? null,
     }));
 
     const { error } = await this.supabase.from("email_send_log").insert(records);

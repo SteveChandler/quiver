@@ -29,6 +29,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { ForecastDigestEmail } from "@/lib/mailer/templates/ForecastDigestEmail";
 import {
   evaluateDigestMatch,
@@ -455,6 +456,7 @@ export async function GET(request: Request) {
 
     // Initialize rate limiter for Resend API
     const rateLimiter = createResendRateLimiter();
+    const emailLogger = createEmailLogger(supabase, "[forecast-digest-email]");
 
     // 3. Process each user
     for (const user of users) {
@@ -565,52 +567,66 @@ export async function GET(request: Request) {
 
           const emailSubject = `${matchQualityEmoji} ${beach.name}: ${capitalizeFirst(matchResult.matchQuality)} Conditions Today`;
 
-          try {
-            // Rate limit before sending
-            await rateLimiter.throttle();
+          // Rate limit before sending
+          await rateLimiter.throttle();
 
-            await resend.emails.send({
-              from: MAIL_FROM,
-              replyTo: MAIL_REPLY_TO,
-              to: user.email,
-              subject: emailSubject,
-              react: ForecastDigestEmail(emailProps),
-            });
+          const { data: sendData, error: sendError } = await resend.emails.send({
+            from: MAIL_FROM,
+            replyTo: MAIL_REPLY_TO,
+            to: user.email,
+            subject: emailSubject,
+            react: ForecastDigestEmail(emailProps),
+          });
 
-            console.log(
-              `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
-            );
-            // Note: Delivery already tracked atomically by claimDeliverySlot()
-            summary.sent++;
-
-            // Send push notification
-            const matchQualityCapitalized = capitalizeFirst(matchResult.matchQuality);
-            const pushBody = matchResult.bestWindow
-              ? `${matchQualityCapitalized} conditions ${matchResult.bestWindow.windowStart}-${matchResult.bestWindow.windowEnd}`
-              : `${matchQualityCapitalized} conditions today`;
-
-            await sendDigestPush(
-              supabase,
-              user.id,
-              user.email,
-              `${matchQualityEmoji} ${beach.name}`,
-              pushBody,
-              {
-                type: "daily_digest",
-                beach_id: user.home_beach_id,
-                beach_slug: beach.slug,
-                match_quality: matchResult.matchQuality,
-                url: `/beaches/${beach.slug}`,
-              },
-              summary
-            );
-          } catch (sendError) {
+          if (sendError) {
             console.error(
               `❌ [forecast-digest-email] Failed to send email to ${user.email}:`,
               sendError
             );
             summary.skipped.sendFailed++;
+            continue;
           }
+
+          console.log(
+            `✅ [forecast-digest-email] Sent digest to ${user.email} for ${beach.name} (${matchResult.matchQuality})`
+          );
+          // Note: Delivery slot already tracked atomically by claimDeliverySlot()
+          summary.sent++;
+
+          // Log to email_send_log for tracking (includes Resend message ID)
+          await emailLogger.logDelivery({
+            userId: user.id,
+            emailType: "forecast_digest",
+            subject: emailSubject,
+            resendMessageId: sendData?.id,
+            bestBeachId: user.home_beach_id,
+            meta: {
+              beach_name: beach.name,
+              match_quality: matchResult.matchQuality,
+            },
+          });
+
+          // Send push notification
+          const matchQualityCapitalized = capitalizeFirst(matchResult.matchQuality);
+          const pushBody = matchResult.bestWindow
+            ? `${matchQualityCapitalized} conditions ${matchResult.bestWindow.windowStart}-${matchResult.bestWindow.windowEnd}`
+            : `${matchQualityCapitalized} conditions today`;
+
+          await sendDigestPush(
+            supabase,
+            user.id,
+            user.email,
+            `${matchQualityEmoji} ${beach.name}`,
+            pushBody,
+            {
+              type: "daily_digest",
+              beach_id: user.home_beach_id,
+              beach_slug: beach.slug,
+              match_quality: matchResult.matchQuality,
+              url: `/beaches/${beach.slug}`,
+            },
+            summary
+          );
         } else {
           // NO MATCH: Skip entirely - no more "bad day" emails
           console.log(

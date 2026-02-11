@@ -84,7 +84,7 @@ async function handler(request: NextRequest) {
       secret
     );
 
-    const { error: sendError } = await resend.emails.send({
+    const { data: sendData, error: sendError } = await resend.emails.send({
       from: MAIL_FROM,
       replyTo: MAIL_REPLY_TO,
       to: userEmail,
@@ -106,6 +106,7 @@ async function handler(request: NextRequest) {
       userId: user.id,
       emailType: EMAIL_TYPE,
       subject,
+      resendMessageId: sendData?.id,
       localDate: today,
       meta: { trigger: "immediate_signup" },
     });
