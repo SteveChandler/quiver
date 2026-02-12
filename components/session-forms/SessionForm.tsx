@@ -25,17 +25,10 @@ import {
   getModeStyles,
 } from "@/lib/constants/session-form-constants";
 
-import {
-  createPlannedSession,
-  createLoggedSession,
-  getPlannedSessionForConversion,
-} from "@/actions/session-actions";
-import { createActivity } from "@/actions/activity-actions";
-import { handleSessionConversion } from "./session-conversion-handler";
-import { uploadSessionPhotos } from "./session-photo-handler";
+import { getPlannedSessionForConversion } from "@/actions/session-actions";
 
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
-import { buildSessionPayload } from "@/lib/utils/session-data-builder";
+import { handleSessionSubmit } from "./session-submit-handler";
 
 interface SessionFormProps {
   initialMode?: SessionFormMode;
@@ -273,162 +266,20 @@ export function SessionForm({
       return;
     }
 
-    // Validate required fields
-    if (!formState.selectedBeach) {
-      toast.error("Please select a beach location");
-      return;
-    }
-
-    // For plan mode, allow saving with beach name even if not selected from dropdown (no beachId)
-
-    if (!formState.selectedDate) {
-      toast.error("Please select a date");
-      return;
-    }
-
-    if (isPlanning && !formState.selectedTime) {
-      toast.error("Please select a start time");
-      return;
-    }
-
-    // Ensure a default duration exists
-    if (!formState.duration) {
-      updateField("duration", "60m");
-    }
-
-    setLoading(true);
-
-    try {
-      // Analytics: planning attempt (non-blocking)
-      void createActivity("session_planning_attempt", "session", "", {
-        beachId: formState.selectedBeachId || null,
-        beachName: formState.selectedBeach || null,
-        selectedDate: formState.selectedDate || null,
-        selectedTime: formState.selectedTime || null,
-        mode,
-      });
-
-      // Handle converting planned session to completed
-      if (convertingFromPlanned && !isPlanning) {
-        await handleSessionConversion(
-          convertingFromPlanned,
-          formState,
-          user.id,
-          selectedPhotos
-        );
-        setSessionCreated(true);
-        return;
-      }
-
-      // Build session payload using shared builder (single source of truth for field mapping)
-      const sessionData = buildSessionPayload(formState, user.id, isPlanning);
-
-      if (isPlanning) {
-        const result = await createPlannedSession(sessionData);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-
-        // Success feedback immediately
-        toast.success("Session planned successfully!");
-
-        // Analytics: success (non-blocking)
-        void createActivity("session_planned", "session", result.data.id, {
-          inviteesCount: formState.invitees?.length || 0,
-        });
-
-        // If embedded, let parent handle completion
-        if (onSuccess) {
-          onSuccess();
-          return;
-        }
-
-        // Fire-and-forget invitations to avoid blocking redirect
-        if (formState.invitees && formState.invitees.length > 0) {
-          void (async () => {
-            try {
-              const response = await fetch("/api/session-planner/invitations", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  sessionId: result.data.id,
-                  invitees: formState.invitees,
-                  message: formState.invitationMessage,
-                }),
-              });
-              const payload = await response.json().catch(() => null);
-
-              if (!response.ok || !payload?.success) {
-                const errMessage =
-                  payload?.error ||
-                  (typeof payload?.details === "string"
-                    ? payload.details
-                    : response.statusText) ||
-                  "Failed to send invitations";
-                console.error("Invitation API error:", errMessage, payload);
-                toast.error("Failed to send invitations");
-                return;
-              }
-
-              const inviteErrors: string[] = payload?.data?.errors ?? [];
-              if (inviteErrors.length > 0) {
-                console.warn("Invitation warnings:", inviteErrors);
-                toast.warning(inviteErrors[0]);
-              }
-            } catch (invitationError) {
-              console.error("Error sending invitations:", invitationError);
-              toast.error("Failed to send invitations");
-            }
-          })();
-        }
-      } else {
-        // sessionData already includes all condition + rating fields via buildSessionPayload
-        const sessionResult = await createLoggedSession(sessionData);
-        if (!sessionResult.success || !sessionResult.data) {
-          throw new Error(sessionResult.error || "Failed to create session");
-        }
-        const session = sessionResult.data;
-        setCreatedSession(session);
-
-        // Upload photos and show appropriate success toast
-        await uploadSessionPhotos(session.id, selectedPhotos, "logged");
-
-        setSessionCreated(true);
-
-        // If embedded, let parent handle completion (avoid redirect)
-        if (onSuccess) {
-          onSuccess();
-          return;
-        }
-      }
-
-      // Handle completion - redirect to profile for both planned and logged sessions
-      if (isPlanning) {
-        router.push("/profile");
-      } else {
-        // For logged sessions, redirect to profile after a brief delay to show success message
-        setTimeout(() => {
-          router.push("/profile");
-        }, 1500);
-      }
-    } catch (error) {
-      console.error("Error saving session:", error);
-      // Analytics: failure (non-blocking)
-      void createActivity("session_plan_failed", "session", "n/a", {
-        error: error instanceof Error ? error.message : "Unknown error",
-        beachId: formState.selectedBeachId || null,
-        selectedDate: formState.selectedDate || null,
-        selectedTime: formState.selectedTime || null,
-        mode,
-      });
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to save session. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
+    await handleSessionSubmit({
+      userId: user.id,
+      formState,
+      mode,
+      isPlanning,
+      selectedPhotos,
+      convertingFromPlanned,
+      updateField,
+      setLoading,
+      setSessionCreated,
+      setCreatedSession,
+      onSuccess,
+      routerPush: router.push,
+    });
   };
 
   return (
