@@ -1,8 +1,8 @@
 /**
  * Tests for Beach to SurfSpot Transformer
  *
- * CRITICAL: This transformer handles coordinate mapping from database format (lon)
- * to SurfSpot format (lng). Errors here would cause map markers to display
+ * CRITICAL: This transformer handles coordinate mapping from database format (lat/lon)
+ * to SurfSpot format (lat/lon). Errors here would cause map markers to display
  * in wrong locations.
  *
  * Priority 1 test coverage for San Diego page redesign.
@@ -38,12 +38,12 @@ describe("Beach to SurfSpot Transformer", () => {
         expect(result.coordinates.lat).toBe(32.7198);
       });
 
-      it("should map database lon to coordinates.lng (lon→lng mapping)", () => {
+      it("should map database lon to coordinates.lon", () => {
         const result = transformBeachToSurfSpot(mockBeachComplete);
 
-        // CRITICAL: lon from database should become lng in SurfSpot
-        expect(result.coordinates.lng).toBe(mockBeachComplete.lon);
-        expect(result.coordinates.lng).toBe(-117.2557);
+        // CRITICAL: lon from database should map to lon in SurfSpot
+        expect(result.coordinates.lon).toBe(mockBeachComplete.lon);
+        expect(result.coordinates.lon).toBe(-117.2557);
       });
 
       it("should NOT access beach.lng property (does not exist)", () => {
@@ -55,7 +55,7 @@ describe("Beach to SurfSpot Transformer", () => {
         const result = transformBeachToSurfSpot(mockBeachComplete);
 
         // The transformer should use lon, not lng
-        expect(result.coordinates.lng).toBe(mockBeachComplete.lon);
+        expect(result.coordinates.lon).toBe(mockBeachComplete.lon);
       });
 
       it("should pass through null lat without San Diego fallback", () => {
@@ -67,7 +67,7 @@ describe("Beach to SurfSpot Transformer", () => {
 
         // No fallback — null passes through (NOT NULL constraint enforced at DB level)
         expect(result.coordinates.lat).toBeNull();
-        expect(result.coordinates.lng).toBe(mockBeachComplete.lon);
+        expect(result.coordinates.lon).toBe(mockBeachComplete.lon);
       });
 
       it("should pass through null lon without San Diego fallback", () => {
@@ -81,7 +81,7 @@ describe("Beach to SurfSpot Transformer", () => {
 
         expect(result.coordinates.lat).toBe(32.8);
         // No fallback — null passes through (NOT NULL constraint enforced at DB level)
-        expect(result.coordinates.lng).toBeNull();
+        expect(result.coordinates.lon).toBeNull();
       });
 
       it("should preserve coordinate precision", () => {
@@ -94,7 +94,7 @@ describe("Beach to SurfSpot Transformer", () => {
         const result = transformBeachToSurfSpot(beachWithPrecision);
 
         expect(result.coordinates.lat).toBe(32.71984567);
-        expect(result.coordinates.lng).toBe(-117.25571234);
+        expect(result.coordinates.lon).toBe(-117.25571234);
       });
 
       it("should handle negative latitude (southern hemisphere)", () => {
@@ -107,7 +107,7 @@ describe("Beach to SurfSpot Transformer", () => {
         const result = transformBeachToSurfSpot(beachSouthern);
 
         expect(result.coordinates.lat).toBe(-33.9258);
-        expect(result.coordinates.lng).toBe(151.2543);
+        expect(result.coordinates.lon).toBe(151.2543);
       });
 
       it("should handle coordinate edge cases near international date line", () => {
@@ -120,7 +120,7 @@ describe("Beach to SurfSpot Transformer", () => {
         const result = transformBeachToSurfSpot(beachNearDateLine);
 
         expect(result.coordinates.lat).toBe(21.3069);
-        expect(result.coordinates.lng).toBe(-157.8583);
+        expect(result.coordinates.lon).toBe(-157.8583);
       });
     });
 
@@ -560,7 +560,7 @@ describe("Beach to SurfSpot Transformer", () => {
       results.forEach((result, index) => {
         const original = mockBeachCollection[index];
         expect(result.coordinates.lat).toBe(original.lat);
-        expect(result.coordinates.lng).toBe(original.lon);
+        expect(result.coordinates.lon).toBe(original.lon);
       });
     });
   });
@@ -719,7 +719,7 @@ describe("Beach to SurfSpot Transformer", () => {
       expect(result).toHaveProperty("region");
       expect(result).toHaveProperty("coordinates");
       expect(result).toHaveProperty("coordinates.lat");
-      expect(result).toHaveProperty("coordinates.lng");
+      expect(result).toHaveProperty("coordinates.lon");
       expect(result).toHaveProperty("overview");
       expect(result).toHaveProperty("history");
       expect(result).toHaveProperty("conditions");
@@ -743,7 +743,7 @@ describe("Beach to SurfSpot Transformer", () => {
       const result = transformBeachToSurfSpot(mockBeachComplete);
 
       expect(typeof result.coordinates.lat).toBe("number");
-      expect(typeof result.coordinates.lng).toBe("number");
+      expect(typeof result.coordinates.lon).toBe("number");
     });
 
     it("should have intentTags as array of strings", () => {

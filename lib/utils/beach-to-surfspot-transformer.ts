@@ -6,8 +6,8 @@
  *
  * CRITICAL COORDINATE MAPPING:
  * - Database uses: lat, lon
- * - SurfSpot uses: coordinates.lat, coordinates.lng
- * - This transformer explicitly maps lon → lng
+ * - SurfSpot uses: coordinates.lat, coordinates.lon
+ * - Both use the same naming convention (no mapping needed)
  */
 
 import type { BeachWithMetrics } from "@/types/location";
@@ -85,7 +85,7 @@ function deriveCitySlug(cityName: string | null): SurfCitySlug {
  * @returns SurfSpot-compatible object for CityMapView
  */
 export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
-  // CRITICAL: Map lon → lng for coordinate naming convention
+  // Map database coordinates to SurfSpot format
   const fallbackSlug = beach.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -101,10 +101,10 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
     citySlug: deriveCitySlug(beach.city),
     region: beach.region ?? `${beach.city ?? "Unknown"}, ${beach.state ?? "CA"}`,
 
-    // COORDINATE MAPPING: lon (database) → lng (SurfSpot)
+    // Coordinates: database and SurfSpot both use lat/lon
     coordinates: {
       lat: beach.lat,
-      lng: beach.lon, // Explicit lon → lng mapping
+      lon: beach.lon,
     },
 
     // Content fields - sanitize description to strip leading **BeachName** markers

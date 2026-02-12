@@ -53,6 +53,12 @@ describe("BestRightNow", () => {
       waveHeight: 6.5,
       regionName: "San Diego",
       href: "/ca/san-diego/blacks",
+      slug: "blacks",
+      city: "San Diego",
+      state: "CA",
+      imageUrl: null,
+      averageRating: null,
+      skillLevel: null,
     },
     {
       beachId: "beach-2",
@@ -61,6 +67,12 @@ describe("BestRightNow", () => {
       waveHeight: 4.2,
       regionName: "Orange County",
       href: "/ca/orange-county/trestles",
+      slug: "trestles",
+      city: "Orange County",
+      state: "CA",
+      imageUrl: null,
+      averageRating: null,
+      skillLevel: null,
     },
     {
       beachId: "beach-3",
@@ -69,6 +81,12 @@ describe("BestRightNow", () => {
       waveHeight: 5.8,
       regionName: "Santa Barbara",
       href: "/ca/santa-barbara/rincon",
+      slug: "rincon",
+      city: "Santa Barbara",
+      state: "CA",
+      imageUrl: null,
+      averageRating: null,
+      skillLevel: null,
     },
     {
       beachId: "beach-4",
@@ -77,6 +95,12 @@ describe("BestRightNow", () => {
       waveHeight: 3.1,
       regionName: "San Francisco",
       href: "/ca/san-francisco/ocean-beach",
+      slug: "ocean-beach",
+      city: "San Francisco",
+      state: "CA",
+      imageUrl: null,
+      averageRating: null,
+      skillLevel: null,
     },
     {
       beachId: "beach-5",
@@ -85,6 +109,12 @@ describe("BestRightNow", () => {
       waveHeight: 2.9,
       regionName: "Orange County",
       href: null, // Test beach without href
+      slug: null,
+      city: null,
+      state: null,
+      imageUrl: null,
+      averageRating: null,
+      skillLevel: null,
     },
   ];
 
@@ -594,6 +624,12 @@ describe("BestRightNow", () => {
         waveHeight: 0.4,
         regionName: "San Diego",
         href: "/ca/san-diego/flat-beach",
+        slug: "flat-beach",
+        city: "San Diego",
+        state: "CA",
+        imageUrl: null,
+        averageRating: null,
+        skillLevel: null,
       };
 
       (useDataFetcher as jest.Mock).mockReturnValue({
@@ -615,6 +651,12 @@ describe("BestRightNow", () => {
         waveHeight: 10.7,
         regionName: "San Diego",
         href: "/ca/san-diego/big-wave-beach",
+        slug: "big-wave-beach",
+        city: "San Diego",
+        state: "CA",
+        imageUrl: null,
+        averageRating: null,
+        skillLevel: null,
       };
 
       (useDataFetcher as jest.Mock).mockReturnValue({

@@ -10,6 +10,10 @@ import type { Beach } from "@/types/database";
 import type { FAQItem } from "@/lib/utils/beach-faq-utils";
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
 import { countValues, pluralize, joinList } from "@/lib/seo/content-helpers";
+import type { RichContent } from "@/lib/seo/rich-content";
+import { linkFirstMentions } from "@/lib/seo/rich-content";
+import { slugifyAscii } from "@/lib/utils/text-utils";
+import type { RichFAQItem } from "@/lib/seo/city-content-generator";
 
 export interface StateContentInput {
   stateName: string;
@@ -163,4 +167,47 @@ export function generateStateFAQ(input: StateContentInput): FAQItem[] {
   }
 
   return faqs;
+}
+
+/**
+ * Generate rich content for the state summary and FAQs.
+ *
+ * City names mentioned in the summary and FAQ answers are converted to links
+ * pointing to the city listing pages. Only the first mention of each city name
+ * is linked per section.
+ */
+export function generateStateRichContent(input: StateContentInput): {
+  summary: RichContent;
+  faqs: RichFAQItem[];
+} {
+  const plainSummary = generateStateSummary(input);
+  const plainFaqs = generateStateFAQ(input);
+
+  const { stateSlug, beaches } = input;
+
+  // Collect unique city names from beaches and build links to their listing pages
+  const seen = new Set<string>();
+  const cityLinks: Array<{ name: string; href: string }> = [];
+  for (const b of beaches) {
+    if (b.city && !seen.has(b.city)) {
+      seen.add(b.city);
+      const citySlug = slugifyAscii(b.city);
+      if (citySlug) {
+        cityLinks.push({
+          name: b.city,
+          href: `/beaches/usa/${stateSlug}/${citySlug}`,
+        });
+      }
+    }
+  }
+
+  const richSummary = linkFirstMentions(plainSummary, cityLinks);
+
+  const richFaqs: RichFAQItem[] = plainFaqs.map((faq) => ({
+    question: faq.question,
+    answer: faq.answer,
+    richAnswer: linkFirstMentions(faq.answer, cityLinks),
+  }));
+
+  return { summary: richSummary, faqs: richFaqs };
 }

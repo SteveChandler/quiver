@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, CameraOff, PlayCircle, RefreshCw } from "lucide-react";
+import { Loader2, CameraOff, RefreshCw } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 
@@ -103,24 +103,8 @@ export function CamsSection({ beachId }: CamsSectionProps) {
       </div>
     );
   } else {
-    visual = (
-      <div className="relative flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 text-white">
-        <PlayCircle className="h-12 w-12 text-white/80" />
-        <div className="text-sm text-white/80">
-          Preview unavailable. Pop open the cam instead.
-        </div>
-        <Button
-          asChild
-          variant="secondary"
-          size="sm"
-          className="bg-white/20 hover:bg-white/30"
-        >
-          <a href={cameraUrl} target="_blank" rel="noopener noreferrer">
-            Open camera
-          </a>
-        </Button>
-      </div>
-    );
+    // Camera exists but can't be embedded — hide section entirely
+    return null;
   }
 
   return (

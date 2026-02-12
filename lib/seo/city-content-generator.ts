@@ -10,6 +10,16 @@ import type { BeachWithMetrics, LocationStats } from "@/types/location";
 import type { FAQItem } from "@/lib/utils/beach-faq-utils";
 import { getRegionalData } from "@/lib/seo/regional-surf-data";
 import { countValues, pluralize, joinList } from "@/lib/seo/content-helpers";
+import type { RichContent } from "@/lib/seo/rich-content";
+import { linkFirstMentions } from "@/lib/seo/rich-content";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+
+/** FAQ item with rich-content answer that can include internal links. */
+export interface RichFAQItem {
+  question: string;
+  answer: string;
+  richAnswer: RichContent;
+}
 
 export interface CityContentInput {
   cityName: string;
@@ -36,6 +46,44 @@ export function generateCityContent(input: CityContentInput): {
     summary: buildSummary({ cityName, stateName, stats, beaches, skillCounts, regional }),
     faqs: buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional }),
   };
+}
+
+/**
+ * Generate rich content (with internal links) for both summary and FAQ.
+ *
+ * Beach names in the summary and FAQ answers are converted to links
+ * pointing to the beach detail pages. Only the first mention of each
+ * beach name is linked per section.
+ */
+export function generateCityRichContent(input: CityContentInput): {
+  summary: RichContent;
+  faqs: RichFAQItem[];
+} {
+  const { cityName, stateName, stateSlug, stats, beaches } = input;
+
+  const skillCounts = countValues(beaches.map((b) => b.skill_level));
+  const regional = getRegionalData(stateSlug);
+
+  const plainSummary = buildSummary({ cityName, stateName, stats, beaches, skillCounts, regional });
+  const plainFaqs = buildFAQ({ cityName, stateSlug, stats, beaches, skillCounts, regional });
+
+  // Build name -> href pairs for beaches that have valid URLs
+  const beachLinks = beaches
+    .filter((b) => b.slug && b.city && b.state)
+    .map((b) => ({
+      name: b.name,
+      href: buildBeachUrl({ slug: b.slug, city: b.city, state: b.state, country: b.country }),
+    }));
+
+  const richSummary = linkFirstMentions(plainSummary, beachLinks);
+
+  const richFaqs: RichFAQItem[] = plainFaqs.map((faq) => ({
+    question: faq.question,
+    answer: faq.answer,
+    richAnswer: linkFirstMentions(faq.answer, beachLinks),
+  }));
+
+  return { summary: richSummary, faqs: richFaqs };
 }
 
 /** @deprecated Use generateCityContent() instead for efficiency. */

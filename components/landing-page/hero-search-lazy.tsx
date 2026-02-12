@@ -148,7 +148,7 @@ export default function HeroSearchLazy({
       <input
         type="text"
         placeholder="Search by beach, spot, or region"
-        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full
+        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg text-center bg-white/95 text-dark-grey rounded-full
                    shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
                    placeholder:text-slate-500 transition-all duration-200"
         value={searchValue}
@@ -176,7 +176,7 @@ export default function HeroSearchLazy({
       <input
         type="text"
         placeholder="Search by beach, spot, or region"
-        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full
+        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg text-center bg-white/95 text-dark-grey rounded-full
                    shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
                    placeholder:text-slate-500 transition-all duration-200"
         value={searchValue}
@@ -197,6 +197,7 @@ export default function HeroSearchLazy({
         initialValue={searchValue}
         placeholder="Search by beach, spot, or region"
         className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden placeholder:text-slate-500"
+        inputClassName="text-center"
         maxResults={8}
         requireExplicitSelection
         onFallback={onFallback}

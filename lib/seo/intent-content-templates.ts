@@ -8,6 +8,7 @@
 import type { CityMetadata } from "@/actions/city/city-metadata-actions";
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getClimateZone } from "@/lib/seo/regional-surf-data";
+import { truncateTitleForSEO } from "@/lib/seo/meta";
 import { truncateMetaDescription } from "@/lib/utils/seo-utils";
 
 export interface IntentPageContent {
@@ -109,65 +110,88 @@ function getIntentTemplates(
 
   const sunsetIntro = `After-work glass-offs in ${cityName} can rival dawn patrol on good days. Afternoon thermals die, the crowd thins, and these ${totalBeaches} west-facing breaks catch the last clean sets of the day.`;
 
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().toLocaleDateString("en-US", { month: "long" });
+  const spotCount = beginnerCount > 0 ? beginnerCount : totalBeaches;
+  const FREE_SUFFIX = "Free, updated hourly — no subscription needed.";
+
   return {
     beginner: {
-      title: `${cityName} Beginner Surf Spots & Lessons | ${stateName}`,
+      title: truncateTitleForSEO(
+        `${spotCount} Beginner Surf Spots in ${cityName} (${currentYear}) | Rated by Difficulty`
+      ),
       heading: `Beginner-friendly waves in ${cityName}`,
       intro: beginnerIntro,
       metaDescription: truncateMetaDescription(
-        `Find beginner-friendly surf spots in ${cityName}, ${stateName}. ${totalBeaches} breaks including ${topSpotNames}. Updated daily.`
+        `${spotCount} beginner-friendly surf spots in ${cityName}. Rated by difficulty with real conditions at ${topSpotNames}. ${FREE_SUFFIX}`
       ),
     },
     "least-crowded": {
-      title: `Least Crowded Surf Spots in ${cityName} | ${stateName}`,
+      title: truncateTitleForSEO(
+        `${totalBeaches} Uncrowded Surf Spots Near ${cityName} | Crowd Data Updated Daily`
+      ),
       heading: `Least crowded surf spots in ${cityName}`,
       intro: leastCrowdedIntro,
       metaDescription: truncateMetaDescription(
-        `Skip the crowds in ${cityName} — ${totalBeaches} surf spots ranked by crowd level with best times & real conditions. Updated daily.`
+        `${totalBeaches} uncrowded surf spots near ${cityName}. Real crowd data and best times to paddle out. ${FREE_SUFFIX}`
       ),
     },
     tide: {
-      title: `${cityName} Tide Charts & Best Tides for Surfing | ${stateName}`,
+      title: truncateTitleForSEO(
+        tideData?.nextTideType && tideData?.nextTideTime
+          ? `${cityName} Tide Chart Today: Next ${tideData.nextTideType} ${tideData.nextTideTime} | ${totalBeaches} Spots`
+          : `${cityName} Tide Charts Today | ${totalBeaches} Surf Spot Guides`
+      ),
       heading: `Tide conditions for ${cityName} surf spots`,
       intro: tideIntro,
       metaDescription: truncateMetaDescription(
         tideData?.nextTideType && tideData?.nextTideTime && tideData?.nextTideHeight
-          ? `${cityName} tides today: Next ${tideData.nextTideType} ${tideData.nextTideTime} (${tideData.nextTideHeight}). Charts for ${totalBeaches} breaks including ${topSpotNames}.`
-          : `${cityName} tide charts today. High and low times for ${totalBeaches} surf spots including ${topSpotNames}. Updated hourly.`
+          ? `${cityName} tides today: Next ${tideData.nextTideType} ${tideData.nextTideTime} (${tideData.nextTideHeight}). Charts for ${totalBeaches} breaks including ${topSpotNames}. ${FREE_SUFFIX}`
+          : `${cityName} tide charts today. High and low times for ${totalBeaches} surf spots including ${topSpotNames}. ${FREE_SUFFIX}`
       ),
     },
     "water-temp": {
-      title: `${cityName} Water Temperature & Wetsuit Guide | ${stateName}`,
+      title: truncateTitleForSEO(
+        waterTempData?.currentTemp
+          ? `${cityName} Water Temp: ${waterTempData.currentTemp}°F Today | Wetsuit Guide for ${currentMonth}`
+          : `${cityName} Water Temp Today | Wetsuit Guide (${currentYear})`
+      ),
       heading: `Water temperature in ${cityName}`,
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
         waterTempData?.currentTemp
-          ? `${cityName} water is ${waterTempData.currentTemp}°F today. Wetsuit guide & seasonal temps for ${totalBeaches} surf spots.`
-          : `Current water temperatures in ${cityName}, ${stateName}. Wetsuit recommendations for ${totalBeaches} surf spots. Updated daily.`
+          ? `${cityName} water is ${waterTempData.currentTemp}°F today. Wetsuit guide & seasonal temps for ${totalBeaches} surf spots. ${FREE_SUFFIX}`
+          : `Current water temperatures in ${cityName}. Wetsuit recommendations for ${totalBeaches} surf spots. ${FREE_SUFFIX}`
       ),
     },
     longboard: {
-      title: `${cityName} Longboard Spots & Conditions | ${stateName}`,
+      title: truncateTitleForSEO(
+        `${totalBeaches} Longboard Waves in ${cityName} | Mellow Points & Beach Breaks`
+      ),
       heading: `Longboard-friendly waves in ${cityName}`,
       intro: longboardIntro,
       metaDescription: truncateMetaDescription(
-        `Best longboard surf spots in ${cityName}. ${totalBeaches} breaks with mellow waves including ${topSpotNames}. Perfect for cruising.`
+        `${totalBeaches} longboard spots in ${cityName} with mellow waves at ${topSpotNames}. ${FREE_SUFFIX}`
       ),
     },
     "dawn-patrol": {
-      title: `${cityName} Dawn Patrol Surf Guide | Early Morning Sessions`,
+      title: truncateTitleForSEO(
+        `Dawn Patrol ${cityName}: ${totalBeaches} Spots with Glass-Off Conditions`
+      ),
       heading: `Dawn patrol surfing in ${cityName}`,
       intro: dawnPatrolIntro,
       metaDescription: truncateMetaDescription(
-        `Dawn patrol surf guide for ${cityName}. Early morning conditions at ${totalBeaches} breaks including ${topSpotNames}. Beat the crowds.`
+        `Dawn patrol in ${cityName}: glass-off conditions at ${totalBeaches} breaks including ${topSpotNames}. ${FREE_SUFFIX}`
       ),
     },
     sunset: {
-      title: `${cityName} Sunset Surf Sessions | Evening Conditions`,
+      title: truncateTitleForSEO(
+        `Sunset Surf ${cityName}: Golden Hour at ${totalBeaches} Spots`
+      ),
       heading: `Sunset sessions in ${cityName}`,
       intro: sunsetIntro,
       metaDescription: truncateMetaDescription(
-        `Sunset surf spots in ${cityName}. Golden hour sessions at ${totalBeaches} breaks including ${topSpotNames}. Evening conditions guide.`
+        `Sunset surf in ${cityName}: golden hour at ${totalBeaches} spots as afternoon winds die. ${FREE_SUFFIX}`
       ),
     },
   };

@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
+import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
@@ -41,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     intentRoutes,
     guideRoutes,
     forecastRoutes,
+    camRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
     getBeachRoutes(),
@@ -48,6 +50,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getIntentRoutes(),
     Promise.resolve(getGuideRoutes()),
     Promise.resolve(getForecastRoutes()),
+    Promise.resolve(getCamRoutes()),
   ]);
 
   return [
@@ -57,6 +60,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...intentRoutes,
     ...guideRoutes,
     ...forecastRoutes,
+    ...camRoutes,
   ];
 }
 
@@ -80,6 +84,8 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/map",
     "/beaches",
     "/beaches/usa",
+    "/for-surf-schools",
+    "/for-businesses",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: staticPageDate,
@@ -325,6 +331,36 @@ function getForecastRoutes(): MetadataRoute.Sitemap {
     routes.push({
       url: `${baseUrl}/forecast/${slug}`,
       lastModified: forecastTemplateDate,
+      changeFrequency: "daily" as const,
+      priority: 0.8,
+    });
+  }
+
+  return routes;
+}
+
+/**
+ * Cam directory pages - hub and regional cam listings.
+ */
+function getCamRoutes(): MetadataRoute.Sitemap {
+  const camPageDate = "2026-02-11";
+
+  const routes: MetadataRoute.Sitemap = [];
+
+  // Cam hub page
+  routes.push({
+    url: `${baseUrl}/cams`,
+    lastModified: camPageDate,
+    changeFrequency: "daily" as const,
+    priority: 0.9,
+  });
+
+  // Regional cam pages (e.g., /cams/southern-california)
+  const camRegionSlugs = getAllCamRegionSlugs();
+  for (const slug of camRegionSlugs) {
+    routes.push({
+      url: `${baseUrl}/cams/${slug}`,
+      lastModified: camPageDate,
       changeFrequency: "daily" as const,
       priority: 0.8,
     });

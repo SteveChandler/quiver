@@ -12,10 +12,11 @@ import type { SurfSpot } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
+import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
-import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES, buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
@@ -366,6 +367,14 @@ export default async function IntentPage(props: IntentPageParams) {
             params.city
           )}
         />
+        <ItemListSchema
+          items={beaches.map((b, i) => ({
+            name: b.name,
+            url: `${baseUrl.replace(/\/$/, "")}${buildBeachUrl(b)}`,
+            position: i + 1,
+          }))}
+          name={`${intentDefinition.label} Spots in ${stateName}`}
+        />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-800">
@@ -598,6 +607,14 @@ export default async function IntentPage(props: IntentPageParams) {
           spots.slice(0, 3).map((s) => s.name),
           cityMetadata.state.toLowerCase()
         )}
+      />
+      <ItemListSchema
+        items={beachesResult.data!.map((b, i) => ({
+          name: b.name,
+          url: `${baseUrl.replace(/\/$/, "")}${buildBeachUrl(b)}`,
+          position: i + 1,
+        }))}
+        name={`${definition.label} Spots in ${cityMetadata.cityName}`}
       />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}

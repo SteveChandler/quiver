@@ -4,8 +4,8 @@
 
 jest.mock("@/lib/constants/beach-coordinates", () => ({
   beachCoordinates: {
-    "ocean beach": { lat: 32.75, lng: -117.25 },
-    "blacks beach": { lat: 32.885, lng: -117.252 },
+    "ocean beach": { lat: 32.75, lon: -117.25 },
+    "blacks beach": { lat: 32.885, lon: -117.252 },
   },
   beachNames: ["ocean beach", "blacks beach"],
 }));
@@ -59,7 +59,7 @@ describe("app/api/surf/utils", () => {
   test("resolveBeach: direct match by name", async () => {
     const { resolveBeach } = await import("@/app/api/surf/utils");
     const res = resolveBeach("Ocean Beach");
-    expect(res).toEqual({ name: "ocean beach", lat: 32.75, lng: -117.25 });
+    expect(res).toEqual({ name: "ocean beach", lat: 32.75, lon: -117.25 });
   });
 
   test("resolveBeach: fuzzy match finds contained beach name", async () => {
@@ -70,7 +70,7 @@ describe("app/api/surf/utils", () => {
 
   test("resolveBeach: coordinates input returns nearest beach", async () => {
     const { resolveBeach } = await import("@/app/api/surf/utils");
-    const res = resolveBeach({ lat: 32.8849, lng: -117.2521 });
+    const res = resolveBeach({ lat: 32.8849, lon: -117.2521 });
     expect(res.name).toBe("blacks beach");
   });
 
@@ -145,7 +145,7 @@ describe("app/api/surf/utils", () => {
     const res = await getSurfForecast({ beach: "ocean" });
 
     expect(res.beach).toBe("Ocean Beach");
-    expect(res.coords).toEqual({ lat: 32.75, lng: -117.25 });
+    expect(res.coords).toEqual({ lat: 32.75, lon: -117.25 });
     expect(res.forecast.forecast_date).toBe("2026-01-01");
   });
 

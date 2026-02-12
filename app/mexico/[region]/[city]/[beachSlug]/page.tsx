@@ -2,7 +2,8 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { SpotSurfReportStream } from "@/components/spots/spot-surf-report";
-import { NearbySpotsSsr } from "@/components/beach-detail/nearby-spots-server";
+import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { FAQSchema } from "@/components/seo/faq-schema";
@@ -97,12 +98,15 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
 
-    let nearbyBeaches: Beach[] = [];
+    let nearbyBeachesRaw: Beach[] = [];
     if (nearbyResult?.success && nearbyResult.data) {
-      nearbyBeaches = nearbyResult.data
+      nearbyBeachesRaw = nearbyResult.data
         .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-        .slice(0, 6);
+        .slice(0, 4);
     }
+
+    // Enrich nearby beaches with live conditions and photos
+    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
     const beachPath = `/mexico/${params.region}/${params.city}/${params.beachSlug}`;
 
@@ -182,7 +186,12 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
 
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">
-          <NearbySpotsSsr nearbyBeaches={nearbyBeaches} />
+          <NearbyBeachesEnriched
+              beaches={nearbyBeaches}
+              sourceBeachName={beach.name}
+              sourceBeachLat={beach.lat}
+              sourceBeachLon={beach.lon}
+            />
           <RelatedGuidesSection beach={beach} />
         </div>
       </>

@@ -28,17 +28,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { PartialContentGate } from "@/components/ui/partial-content-gate";
 
 interface BeachReviewsListProps {
   beachId: string;
   onEditReview?: (review: BeachReviewWithUser) => void;
   refreshTrigger?: number; // To trigger refresh from parent
+  publicMode?: boolean;
+  previewCount?: number;
 }
 
 export function BeachReviewsList({
   beachId,
   onEditReview,
   refreshTrigger,
+  publicMode = false,
+  previewCount = 3,
 }: BeachReviewsListProps) {
   const { user } = useAuth();
   const [reviews, setReviews] = useState<BeachReviewWithUser[]>([]);
@@ -118,9 +123,12 @@ export function BeachReviewsList({
     );
   }
 
+  const previewReviews = publicMode ? reviews.slice(0, previewCount) : reviews;
+  const hasMore = publicMode && reviews.length > previewCount;
+
   return (
     <div className="space-y-4">
-      {reviews.map((review) => (
+      {previewReviews.map((review) => (
         <Card key={review.id}>
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
@@ -250,6 +258,14 @@ export function BeachReviewsList({
           </CardContent>
         </Card>
       ))}
+
+      {hasMore && (
+        <PartialContentGate
+          contentType="reviews"
+          totalCount={reviews.length}
+          previewCount={previewCount}
+        />
+      )}
     </div>
   );
 }

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Content Gravity: Enriched Nearby Beaches** - Beach detail pages now show enriched `SurfSpotCard` components (with score badges, wave heights, photos) instead of plain text links for nearby spots. Horizontal scroll on mobile, responsive grid on desktop. IntersectionObserver-based engagement tracking.
+- **Content Gravity: Best Conditions Right Now (Homepage)** - New landing page section above featured highlights showing the top 6 highest-scored beaches with live conditions, wave heights, and photos. Skeleton loading state, graceful null fallback.
+- **Content Gravity: Partial Community Content for Guests** - Beach detail Reviews, Intel, and Sessions tabs now show 2-3 real items of content to unauthenticated visitors before a gradient fade + sign-up CTA, replacing the full blur lockout that caused high bounce rates. New `PartialContentGate` component with IntersectionObserver-based analytics tracking. Lock icons removed from tab labels.
+- **Content Gravity: Engagement Tracking** - Dual-fire analytics utility (`lib/analytics/engagement-tracking.ts`) sends events to both GA4 and Vercel Analytics. Tracks nearby beach clicks/views, best conditions clicks/views, and partial gate views/signups. New `/engagement-metrics` skill for querying feature CTR and bounce rate trends.
 - **Grouped Region Cards on /forecast** - Regional forecast cards are now organized into California, Pacific, East Coast, and International sections instead of a flat grid.
 - **Local "Best Near You" Leaderboard** - "Best Right Now" section on /forecast now filters to the user's closest region when location is available, showing "Best Near You" heading.
 - **Closest Region Hero** - Hero card shows the user's closest region (by distance) instead of the highest-scoring nearby region.

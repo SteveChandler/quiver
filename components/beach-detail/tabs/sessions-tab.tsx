@@ -23,16 +23,27 @@ const SessionForecastComparison = dynamic(
 interface SessionsTabProps {
   beach: Beach;
   sessionSnapshots?: SessionForecastSnapshot[] | null;
+  publicMode?: boolean;
+  previewCount?: number;
 }
 
-export function SessionsTab({ beach, sessionSnapshots }: SessionsTabProps) {
+export function SessionsTab({
+  beach,
+  sessionSnapshots,
+  publicMode = false,
+  previewCount,
+}: SessionsTabProps) {
   return (
     <div className="space-y-6 py-6">
       {/* Recent Sessions */}
-      <RecentSessionsSection beachId={beach.id} />
+      <RecentSessionsSection
+        beachId={beach.id}
+        publicMode={publicMode}
+        previewCount={previewCount}
+      />
 
-      {/* Forecast Accuracy Comparison */}
-      {sessionSnapshots && sessionSnapshots.length > 0 && (
+      {/* Forecast Accuracy Comparison - hidden in public mode */}
+      {!publicMode && sessionSnapshots && sessionSnapshots.length > 0 && (
         <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
           <h2 className="text-xl font-roboto font-semibold text-dark-grey mb-4">
             Forecast Accuracy

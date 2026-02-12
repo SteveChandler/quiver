@@ -11,7 +11,6 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { Navigation, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -489,15 +488,7 @@ function BeachDetailContent({
 
           {/* Reviews Tab */}
           <BeachTabContent value="reviews">
-            {publicMode ? (
-              <PublicContentGate
-                ctaTitle="Read Surfer Reviews"
-                ctaDescription="Community tips, conditions reports, and ratings from surfers who know this break"
-                blurLevel="md"
-                source="reviews-gate"
-                className="min-h-[300px]"
-              />
-            ) : tabDataLoading ? (
+            {tabDataLoading ? (
               <TabLoadingSkeleton />
             ) : (
               <Suspense fallback={<TabLoadingSkeleton />}>
@@ -505,6 +496,8 @@ function BeachDetailContent({
                   beach={beach}
                   onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.REVIEWS_TAB)}
                   reviewRefreshTrigger={reviewRefreshTrigger}
+                  publicMode={publicMode}
+                  previewCount={3}
                 />
               </Suspense>
             )}
@@ -512,21 +505,15 @@ function BeachDetailContent({
 
           {/* Local Intel Tab */}
           <BeachTabContent value="intel">
-            {publicMode ? (
-              <PublicContentGate
-                ctaTitle="See Local Intel"
-                ctaDescription="Real-time reports, crowd updates, and insider knowledge from local surfers"
-                blurLevel="md"
-                source="intel-gate"
-                className="min-h-[300px]"
-              />
-            ) : tabDataLoading ? (
+            {tabDataLoading ? (
               <TabLoadingSkeleton />
             ) : (
               <Suspense fallback={<TabLoadingSkeleton />}>
                 <IntelTab
                   beach={beach}
                   initialShowAll={searchParams?.get("show") === "all"}
+                  publicMode={publicMode}
+                  previewCount={1}
                 />
               </Suspense>
             )}
@@ -534,19 +521,14 @@ function BeachDetailContent({
 
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
-            {publicMode ? (
-              <PublicContentGate
-                ctaTitle="Browse Surf Sessions"
-                ctaDescription="See session logs, wave counts, and conditions from surfers at this spot"
-                blurLevel="md"
-                source="sessions-gate"
-                className="min-h-[300px]"
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <SessionsTab
+                beach={beach}
+                sessionSnapshots={sessionSnapshots}
+                publicMode={publicMode}
+                previewCount={2}
               />
-            ) : (
-              <Suspense fallback={<TabLoadingSkeleton />}>
-                <SessionsTab beach={beach} sessionSnapshots={sessionSnapshots} />
-              </Suspense>
-            )}
+            </Suspense>
           </BeachTabContent>
         </BeachTabs>
       </div>

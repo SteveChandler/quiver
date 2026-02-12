@@ -96,11 +96,11 @@ describe("lib/data/surf-spots", () => {
 
       // Coordinates sanity
       expect(Number.isFinite(spot.coordinates.lat)).toBe(true);
-      expect(Number.isFinite(spot.coordinates.lng)).toBe(true);
+      expect(Number.isFinite(spot.coordinates.lon)).toBe(true);
       expect(spot.coordinates.lat).toBeGreaterThanOrEqual(-90);
       expect(spot.coordinates.lat).toBeLessThanOrEqual(90);
-      expect(spot.coordinates.lng).toBeGreaterThanOrEqual(-180);
-      expect(spot.coordinates.lng).toBeLessThanOrEqual(180);
+      expect(spot.coordinates.lon).toBeGreaterThanOrEqual(-180);
+      expect(spot.coordinates.lon).toBeLessThanOrEqual(180);
 
       // Core text fields should be non-empty (SEO content)
       expect(typeof spot.overview).toBe("string");

@@ -30,7 +30,7 @@ export interface SurfSpot {
   name: string;
   citySlug: SurfCitySlug;
   region: string;
-  coordinates: { lat: number; lng: number };
+  coordinates: { lat: number; lon: number };
   overview: string;
   history: string;
   conditions: string;
@@ -66,7 +66,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Blacks Beach",
     citySlug: "san-diego",
     region: "La Jolla, San Diego",
-    coordinates: { lat: 32.8851, lng: -117.252 },
+    coordinates: { lat: 32.8851, lon: -117.252 },
     overview:
       "Blacks Beach channels canyon energy into powerful wedges that break with more punch than any other San Diego beachbreak. Long-period northwest swells focus into double-up peaks, while south swells wrap in with surprising consistency.",
     history:
@@ -119,7 +119,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Swami's",
     citySlug: "san-diego",
     region: "Encinitas, San Diego",
-    coordinates: { lat: 33.0356, lng: -117.2923 },
+    coordinates: { lat: 33.0356, lon: -117.2923 },
     overview:
       "Swami's is a reef point that peels with machine-like precision when combo swells line up. The right wraps around the kelp line, offering long walls for carves and noserides alike.",
     history:
@@ -175,7 +175,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Windansea",
     citySlug: "san-diego",
     region: "La Jolla, San Diego",
-    coordinates: { lat: 32.8324, lng: -117.2806 },
+    coordinates: { lat: 32.8324, lon: -117.2806 },
     overview:
       "Windansea is a shallow reef that draws in west swells and unloads with punchy peaks and hollow pockets. The takeoff is steep, rewarding precise positioning.",
     history:
@@ -231,7 +231,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "La Jolla Shores",
     citySlug: "san-diego",
     region: "La Jolla, San Diego",
-    coordinates: { lat: 32.8578, lng: -117.2561 },
+    coordinates: { lat: 32.8578, lon: -117.2561 },
     overview:
       "La Jolla Shores is San Diego's training ground, offering forgiving sandbars and a wide beach that disperses crowds. The gently sloping bathymetry keeps waves approachable.",
     history:
@@ -290,7 +290,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Mission Beach",
     citySlug: "san-diego",
     region: "Mission Beach, San Diego",
-    coordinates: { lat: 32.7662, lng: -117.2529 },
+    coordinates: { lat: 32.7662, lon: -117.2529 },
     overview:
       "Mission Beach features sandbars that shift with every tide swing, creating fun peaks for longboards and fish when combo swells arrive.",
     history:
@@ -348,7 +348,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Pacific Beach",
     citySlug: "san-diego",
     region: "Pacific Beach, San Diego",
-    coordinates: { lat: 32.7946, lng: -117.2557 },
+    coordinates: { lat: 32.7946, lon: -117.2557 },
     overview:
       "Pacific Beach combines multiple sandbars with a pier that refracts swell, creating playful peaks and occasional barrels for quick turns.",
     history:
@@ -404,7 +404,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Ocean Beach Pier",
     citySlug: "san-diego",
     region: "Ocean Beach, San Diego",
-    coordinates: { lat: 32.7491, lng: -117.2523 },
+    coordinates: { lat: 32.7491, lon: -117.2523 },
     overview:
       "Ocean Beach offers a mix of pier bowls and outer sandbars that light up on west swells. The municipal pier refracts swell energy into wedgy peaks that entice shortboarders and body surfers alike.",
     history:
@@ -460,7 +460,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Sunset Cliffs",
     citySlug: "san-diego",
     region: "Point Loma, San Diego",
-    coordinates: { lat: 32.7263, lng: -117.2545 },
+    coordinates: { lat: 32.7263, lon: -117.2545 },
     overview:
       "Sunset Cliffs is a collection of reef bowls tucked beneath sandstone bluffs. Different coves switch on depending on swell direction, rewarding exploration and confident entries.",
     history:
@@ -516,7 +516,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Cardiff Reef",
     citySlug: "san-diego",
     region: "Cardiff-by-the-Sea, San Diego",
-    coordinates: { lat: 33.0207, lng: -117.2799 },
+    coordinates: { lat: 33.0207, lon: -117.2799 },
     overview:
       "Cardiff Reef is a mellow kelp-covered reef that turns combo swells into playful rights and cruisey lefts. The wave stands up softly, making it a haven for fish, mid-lengths, and logs.",
     history:
@@ -572,7 +572,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Pipes",
     citySlug: "san-diego",
     region: "Cardiff-by-the-Sea, San Diego",
-    coordinates: { lat: 33.0324, lng: -117.2942 },
+    coordinates: { lat: 33.0324, lon: -117.2942 },
     overview:
       "Pipes is a high-tide favorite with playful peaks that run along a cobblestone bottom. The wave has more punch than Cardiff, attracting shortboarders and fish riders.",
     history:
@@ -628,7 +628,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Del Mar 15th Street",
     citySlug: "san-diego",
     region: "Del Mar, San Diego",
-    coordinates: { lat: 32.9633, lng: -117.2648 },
+    coordinates: { lat: 32.9633, lon: -117.2648 },
     overview:
       "Del Mar’s main break features shifting sandbars anchored by subtle reefs, serving up forgiving shoulders that suit every craft. The sand replenishes every winter, keeping the banks fresh.",
     history:
@@ -686,7 +686,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Torrey Pines",
     citySlug: "san-diego",
     region: "Torrey Pines, San Diego",
-    coordinates: { lat: 32.9216, lng: -117.2603 },
+    coordinates: { lat: 32.9216, lon: -117.2603 },
     overview:
       "Torrey Pines State Beach stretches beneath dramatic cliffs, producing a variety of sandbars that favor combo swells. The north end near the river mouth offers the most consistent peaks.",
     history:
@@ -742,7 +742,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "San Elijo State Beach",
     citySlug: "san-diego",
     region: "Cardiff-by-the-Sea, San Diego",
-    coordinates: { lat: 33.0194, lng: -117.2788 },
+    coordinates: { lat: 33.0194, lon: -117.2788 },
     overview:
       "San Elijo combines beachbreak peaks with a few rocky shelves that add extra punch. The campground above keeps dawn patrol lively as campers roll straight into the lineup.",
     history:
@@ -798,7 +798,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Silver Strand",
     citySlug: "san-diego",
     region: "Coronado, San Diego",
-    coordinates: { lat: 32.6223, lng: -117.1442 },
+    coordinates: { lat: 32.6223, lon: -117.1442 },
     overview:
       "Silver Strand is a military-adjacent stretch of beach that catches south swells and offers hollow peaks when sandbars align. The wide beach spreads surfers out, helping sessions feel relaxed.",
     history:
@@ -854,7 +854,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Imperial Beach Pier",
     citySlug: "san-diego",
     region: "Imperial Beach, San Diego",
-    coordinates: { lat: 32.578, lng: -117.1303 },
+    coordinates: { lat: 32.578, lon: -117.1303 },
     overview:
       "Imperial Beach is the southernmost surf town in California, offering sandbars that come alive on combo swells. The pier area produces punchy peaks, while the south end near the border stays playful.",
     history:
@@ -912,7 +912,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Doheny State Beach",
     citySlug: "dana-point",
     region: "Dana Point, Orange County",
-    coordinates: { lat: 33.4616, lng: -117.6902 },
+    coordinates: { lat: 33.4616, lon: -117.6902 },
     overview:
       "Doheny State Beach is Orange County’s most forgiving break, with rolling point-style waves created by cobblestone reefs and dredged sand. It’s a magnet for longboarders, surf schools, and families.",
     history:
@@ -970,7 +970,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "San Onofre Trails",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
-    coordinates: { lat: 33.3764, lng: -117.5725 },
+    coordinates: { lat: 33.3764, lon: -117.5725 },
     overview:
       "San Onofre is a sprawling surf zone with cobblestone reefs, mellow points, and beachbreak peaks stretching from the power plant to Trail 6. Long rides and retro equipment define the vibe.",
     history:
@@ -1026,7 +1026,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Old Man's",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
-    coordinates: { lat: 33.3846, lng: -117.5699 },
+    coordinates: { lat: 33.3846, lon: -117.5699 },
     overview:
       "Old Man’s is the heart of San Onofre, delivering soft, rolling rights and lefts that are tailor-made for logging and family sessions. The gentle takeoff makes it accessible for all ages.",
     history:
@@ -1084,7 +1084,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Churches",
     citySlug: "san-clemente",
     region: "San Onofre, Orange County",
-    coordinates: { lat: 33.3873, lng: -117.579 },
+    coordinates: { lat: 33.3873, lon: -117.579 },
     overview:
       "Churches is the northernmost peak in the San Onofre State Beach stretch, delivering faster, more performance-friendly waves than its neighbors. The cobblestone reef shapes punchy rights with plenty of face.",
     history:
@@ -1140,7 +1140,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Lower Trestles",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
-    coordinates: { lat: 33.384, lng: -117.5931 },
+    coordinates: { lat: 33.384, lon: -117.5931 },
     overview:
       "Lower Trestles is Southern California’s high-performance playground, delivering ruler-straight rights and playful lefts over a meticulously shaped cobblestone reef.",
     history:
@@ -1196,7 +1196,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Upper Trestles",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
-    coordinates: { lat: 33.3854, lng: -117.5963 },
+    coordinates: { lat: 33.3854, lon: -117.5963 },
     overview:
       "Upper Trestles sits just north of Lowers and offers a punchier, more sectiony wave with fewer surfers. It’s a great alternative when Lowers is maxed or overcrowded.",
     history:
@@ -1252,7 +1252,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Huntington Beach Pier",
     citySlug: "huntington-beach",
     region: "Huntington Beach, Orange County",
-    coordinates: { lat: 33.6542, lng: -118.002 },
+    coordinates: { lat: 33.6542, lon: -118.002 },
     overview:
       "Huntington Pier is the surf city epicenter, offering punchy beachbreak peaks amplified by the pier pilings. Contests, night sessions, and photogenic sunsets are part of the daily routine.",
     history:
@@ -1308,7 +1308,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Newport 56th Street",
     citySlug: "newport-beach",
     region: "Newport Beach, Orange County",
-    coordinates: { lat: 33.6118, lng: -117.9342 },
+    coordinates: { lat: 33.6118, lon: -117.9342 },
     overview:
       "Newport’s 56th Street jetty produces punchy, hollow waves when west swells stack up. The jetties sculpt peaks that favor advanced surfers ready for steep drops.",
     history:
@@ -1364,7 +1364,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Bolsa Chica",
     citySlug: "huntington-beach",
     region: "Huntington Beach, Orange County",
-    coordinates: { lat: 33.6962, lng: -118.0454 },
+    coordinates: { lat: 33.6962, lon: -118.0454 },
     overview:
       "Bolsa Chica State Beach is Huntington’s laid-back counterpart, featuring long, rolling waves that welcome longboards, beginners, and surf campers.",
     history:
@@ -1422,7 +1422,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     name: "Seal Beach Pier",
     citySlug: "huntington-beach",
     region: "Seal Beach, Orange County",
-    coordinates: { lat: 33.7414, lng: -118.1048 },
+    coordinates: { lat: 33.7414, lon: -118.1048 },
     overview:
       "Seal Beach offers a mix of pier peaks and river-mouth sandbars that love combo swells. The quiet town vibe makes it a solid fallback when nearby zones are slammed.",
     history:

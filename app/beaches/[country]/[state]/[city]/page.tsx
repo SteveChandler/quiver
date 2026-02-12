@@ -44,7 +44,9 @@ import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { FAQSection } from "@/components/seo/faq-schema";
-import { generateCityContent } from "@/lib/seo/city-content-generator";
+import { ItemListSchema } from "@/components/seo/item-list-schema";
+import { generateCityRichContent } from "@/lib/seo/city-content-generator";
+import { RichContentRenderer } from "@/lib/seo/rich-content";
 import { LocationMapClient } from "./location-map-client";
 
 const SITE_ORIGIN = (
@@ -121,6 +123,17 @@ export default async function LocationPage(props: LocationPageProps) {
     }),
   });
 
+  // Build ItemList items for structured data (carousel SERP feature)
+  const itemListItems = beaches.flatMap((beach, index) => {
+    const href = getBeachHrefSafe(beach);
+    if (!href) return [];
+    return [{
+      name: beach.name,
+      url: `${SITE_ORIGIN}${href}`,
+      position: index + 1,
+    }];
+  });
+
   // If editorial content exists, render the enhanced editorial layout
   if (editorial) {
     // Transform beaches to SurfSpot format for CityMapView
@@ -135,6 +148,10 @@ export default async function LocationPage(props: LocationPageProps) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <ItemListSchema
+          items={itemListItems}
+          name={`Surf Spots in ${displayCityName}`}
         />
 
         <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -232,8 +249,8 @@ export default async function LocationPage(props: LocationPageProps) {
     );
   }
 
-  // Generate data-driven SEO content for non-editorial pages
-  const { summary: citySummary, faqs: cityFaqs } = generateCityContent({
+  // Generate data-driven SEO content for non-editorial pages (with internal links)
+  const { summary: citySummary, faqs: cityFaqs } = generateCityRichContent({
     cityName: displayCityName,
     stateName: location.state,
     stateSlug: params.state,
@@ -248,6 +265,10 @@ export default async function LocationPage(props: LocationPageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ItemListSchema
+        items={itemListItems}
+        name={`Surf Spots in ${displayCityName}`}
       />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -306,7 +327,9 @@ export default async function LocationPage(props: LocationPageProps) {
         </header>
 
         {/* Data-driven summary for SEO */}
-        <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">{citySummary}</p>
+        <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">
+          <RichContentRenderer content={citySummary} />
+        </p>
 
         {/* Content Grid: Beach List + Map */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

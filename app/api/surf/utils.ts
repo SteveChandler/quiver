@@ -13,13 +13,13 @@ import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 
 export interface Coordinates {
   lat: number;
-  lng: number;
+  lon: number;
 }
 
 export interface Beach {
   name: string;
   lat: number;
-  lng: number;
+  lon: number;
 }
 
 export interface ForecastParams {
@@ -78,13 +78,13 @@ async function getCachedBeaches() {
 function getDistanceInKm(coords1: Coordinates, coords2: Coordinates): number {
   const R = EARTH_RADIUS_KM;
   const dLat = (coords2.lat - coords1.lat) * (Math.PI / 180);
-  const dLng = (coords2.lng - coords1.lng) * (Math.PI / 180);
+  const dLon = (coords2.lon - coords1.lon) * (Math.PI / 180);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(coords1.lat * (Math.PI / 180)) *
       Math.cos(coords2.lat * (Math.PI / 180)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -103,7 +103,7 @@ export function resolveBeach(input: string | Coordinates): Beach {
       return {
         name: normalizedName,
         lat: coords.lat,
-        lng: coords.lng,
+        lon: coords.lon,
       };
     }
 
@@ -126,7 +126,7 @@ export function resolveBeach(input: string | Coordinates): Beach {
       return {
         name: match,
         lat: beachCoordinates[match].lat,
-        lng: beachCoordinates[match].lng,
+        lon: beachCoordinates[match].lon,
       };
     }
 
@@ -149,7 +149,7 @@ export function resolveBeach(input: string | Coordinates): Beach {
     return {
       name: nearestBeach,
       lat: beachCoordinates[nearestBeach].lat,
-      lng: beachCoordinates[nearestBeach].lng,
+      lon: beachCoordinates[nearestBeach].lon,
     };
   }
 }
@@ -158,7 +158,7 @@ export function resolveBeach(input: string | Coordinates): Beach {
  * Fetches forecast data for given coordinates by using the existing app's API
  * This function is modified to work with the Supabase database
  */
-export async function fetchForecast(lat: number, lng: number): Promise<any> {
+export async function fetchForecast(lat: number, lon: number): Promise<any> {
   try {
     const supabase = await createSupabaseServiceRoleClient();
     // Use cached beaches to reduce database calls
@@ -170,8 +170,8 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
 
     for (const beach of allBeaches) {
       const distance = getDistanceInKm(
-        { lat, lng },
-        { lat: beach.lat, lng: beach.lon }
+        { lat, lon },
+        { lat: beach.lat, lon: beach.lon }
       );
 
       if (distance < minDistance) {
@@ -226,8 +226,8 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
         .map((beach) => ({
           ...beach,
           distance: getDistanceInKm(
-            { lat, lng },
-            { lat: beach.lat, lng: beach.lon }
+            { lat, lon },
+            { lat: beach.lat, lon: beach.lon }
           ),
         }))
         .filter((beach) => beach.distance <= 32) // 20 miles
@@ -303,9 +303,9 @@ export async function getSurfForecast({
         try {
           const resolvedBeach = resolveBeach(beach);
           beachName = resolvedBeach.name;
-          coordinates = { lat: resolvedBeach.lat, lng: resolvedBeach.lng };
+          coordinates = { lat: resolvedBeach.lat, lon: resolvedBeach.lon };
 
-          forecast = await fetchForecast(coordinates.lat, coordinates.lng);
+          forecast = await fetchForecast(coordinates.lat, coordinates.lon);
         } catch (staticError) {
           // Provide more helpful error message
           const availableBeaches = allBeachesResult.data
@@ -331,7 +331,7 @@ export async function getSurfForecast({
         beachName = matchedBeach.name;
         coordinates = {
           lat: matchedBeach.lat,
-          lng: matchedBeach.lon,
+          lon: matchedBeach.lon,
         };
 
         // Get forecast from database
@@ -370,8 +370,8 @@ export async function getSurfForecast({
               if (beach.id === matchedBeach.id) continue; // Skip the current beach
 
               const distance = getDistanceInKm(
-                { lat: matchedBeach.lat, lng: matchedBeach.lon },
-                { lat: beach.lat, lng: beach.lon }
+                { lat: matchedBeach.lat, lon: matchedBeach.lon },
+                { lat: beach.lat, lon: beach.lon }
               );
 
               // Look for beaches within 20 miles (32 km)
@@ -416,9 +416,9 @@ export async function getSurfForecast({
       // Find nearest beach using coordinates
       const resolvedBeach = resolveBeach(coords);
       beachName = resolvedBeach.name;
-      coordinates = { lat: resolvedBeach.lat, lng: resolvedBeach.lng };
+      coordinates = { lat: resolvedBeach.lat, lon: resolvedBeach.lon };
 
-      forecast = await fetchForecast(coordinates.lat, coordinates.lng);
+      forecast = await fetchForecast(coordinates.lat, coordinates.lon);
     } else {
       throw new Error("Invalid input");
     }

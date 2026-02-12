@@ -16,7 +16,7 @@ function toTitleCase(name: string): string {
 
 function getNearestBeach(
   lat: number,
-  lng: number
+  lon: number
 ): {
   key: string;
   name: string;
@@ -28,8 +28,8 @@ function getNearestBeach(
   for (const key of Object.keys(beachCoordinates)) {
     const coords = beachCoordinates[key];
     const d = calculateDistance(
-      { lat, lon: lng },
-      { lat: coords.lat, lon: coords.lng },
+      { lat, lon },
+      { lat: coords.lat, lon: coords.lon },
       "km"
     );
     if (d < minDistanceKm) {
@@ -42,6 +42,6 @@ function getNearestBeach(
   return { key: nearestKey, name: formatted, distanceKm: minDistanceKm };
 }
 
-export function getNearestBeachName(lat: number, lng: number): string {
-  return getNearestBeach(lat, lng).name;
+export function getNearestBeachName(lat: number, lon: number): string {
+  return getNearestBeach(lat, lon).name;
 }

@@ -16,9 +16,16 @@ const BeachIntelSection = dynamic(
 interface IntelTabProps {
   beach: Beach;
   initialShowAll?: boolean;
+  publicMode?: boolean;
+  previewCount?: number;
 }
 
-export function IntelTab({ beach, initialShowAll = false }: IntelTabProps) {
+export function IntelTab({
+  beach,
+  initialShowAll = false,
+  publicMode = false,
+  previewCount,
+}: IntelTabProps) {
   // Validate coordinates in development
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -40,6 +47,8 @@ export function IntelTab({ beach, initialShowAll = false }: IntelTabProps) {
         longitude={beach.lon}
         navigateOnViewAll={false}
         initialShowAll={initialShowAll}
+        publicMode={publicMode}
+        previewCount={previewCount}
       />
     </div>
   );

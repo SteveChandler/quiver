@@ -214,7 +214,7 @@ export default async function SpotPage(props: SpotPageParams) {
           name: spot.name,
           coordinates: {
             lat: spot.latitude || 0,
-            lng: spot.longitude || 0,
+            lon: spot.longitude || 0,
           },
           speakableSummary: spot.speakableSummary || spot.overview || "",
           faq: spot.faq || [],

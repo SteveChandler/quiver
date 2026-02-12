@@ -23,23 +23,31 @@ interface ReviewsTabProps {
   beach: Beach;
   onWriteReview: () => void;
   reviewRefreshTrigger: number;
+  publicMode?: boolean;
+  previewCount?: number;
 }
 
 export function ReviewsTab({
   beach,
   onWriteReview,
   reviewRefreshTrigger,
+  publicMode = false,
+  previewCount,
 }: ReviewsTabProps) {
   return (
     <div className="space-y-6 py-6">
-      <BeachReviewSummary
-        beachId={beach.id}
-        onWriteReview={onWriteReview}
-        refreshTrigger={reviewRefreshTrigger}
-      />
+      {!publicMode && (
+        <BeachReviewSummary
+          beachId={beach.id}
+          onWriteReview={onWriteReview}
+          refreshTrigger={reviewRefreshTrigger}
+        />
+      )}
       <BeachReviewsList
         beachId={beach.id}
         refreshTrigger={reviewRefreshTrigger}
+        publicMode={publicMode}
+        previewCount={previewCount}
       />
     </div>
   );

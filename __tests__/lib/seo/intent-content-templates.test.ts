@@ -34,7 +34,7 @@ describe("buildIntentPageContent", () => {
   it("generates least-crowded page content", () => {
     const content = buildIntentPageContent("least-crowded", mockMetadata);
 
-    expect(content.title).toContain("Crowded");
+    expect(content.title.toLowerCase()).toContain("crowded");
     expect(content.heading.toLowerCase()).toContain("crowded");
   });
 
@@ -118,6 +118,61 @@ describe("buildIntentPageContent", () => {
       const content = buildIntentPageContent("sunset", mockMetadata);
 
       expect(content.title.toLowerCase()).toMatch(/sunset|evening/);
+    });
+  });
+
+  describe("SEO differentiator", () => {
+    const intents = [
+      "beginner",
+      "least-crowded",
+      "tide",
+      "water-temp",
+      "longboard",
+      "dawn-patrol",
+      "sunset",
+    ] as const;
+
+    intents.forEach((intent) => {
+      it(`includes free differentiator in ${intent} meta description`, () => {
+        const content = buildIntentPageContent(intent, mockMetadata);
+        expect(content.metaDescription.toLowerCase()).toContain("free");
+      });
+    });
+
+    it("keeps all titles within 60 characters", () => {
+      intents.forEach((intent) => {
+        const content = buildIntentPageContent(intent, mockMetadata);
+        expect(content.title.length).toBeLessThanOrEqual(60);
+      });
+    });
+  });
+
+  describe("dynamic data in titles", () => {
+    it("includes tide data in tide title when available", () => {
+      const content = buildIntentPageContent("tide", mockMetadata, {
+        tideData: { nextTideType: "High", nextTideTime: "2:30 PM", nextTideHeight: "5.2 ft" },
+      });
+      expect(content.title).toContain("High");
+      expect(content.title).toContain("2:30 PM");
+    });
+
+    it("uses fallback tide title when no tide data", () => {
+      const content = buildIntentPageContent("tide", mockMetadata);
+      expect(content.title.toLowerCase()).toContain("tide");
+      expect(content.title).not.toContain("Next");
+    });
+
+    it("includes water temp in title when available", () => {
+      const content = buildIntentPageContent("water-temp", mockMetadata, {
+        waterTempData: { currentTemp: 62 },
+      });
+      expect(content.title).toContain("62°F");
+    });
+
+    it("uses fallback water-temp title when no temp data", () => {
+      const content = buildIntentPageContent("water-temp", mockMetadata);
+      expect(content.title.toLowerCase()).toContain("water temp");
+      expect(content.title).not.toContain("°F");
     });
   });
 });

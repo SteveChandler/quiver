@@ -91,7 +91,7 @@ function shouldIndex(): boolean {
  */
 const MAX_TITLE_LENGTH = 60;
 
-function truncateTitleForSEO(title: string, maxLength: number = MAX_TITLE_LENGTH): string {
+export function truncateTitleForSEO(title: string, maxLength: number = MAX_TITLE_LENGTH): string {
   if (title.length <= maxLength) {
     return title;
   }

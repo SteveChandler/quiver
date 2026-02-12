@@ -154,9 +154,9 @@ export function transformStaticSpotToSpotData(spot: SurfSpot): SpotPageData {
     slug: spot.slug,
     name: spot.name,
 
-    // Location - note: static data uses 'lng', we convert to 'longitude'
+    // Location - static data uses 'lon', same convention as database
     latitude: spot.coordinates.lat,
-    longitude: spot.coordinates.lng, // Converting lng to longitude
+    longitude: spot.coordinates.lon,
     city: null,
     state: null,
     region: spot.region,

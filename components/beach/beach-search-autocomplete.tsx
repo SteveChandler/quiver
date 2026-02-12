@@ -21,6 +21,7 @@ interface BeachSearchAutocompleteProps {
   onSelect?: (beach: Beach) => void;
   placeholder?: string;
   className?: string;
+  inputClassName?: string;
   showCurrentConditions?: boolean;
   maxResults?: number;
   /**
@@ -66,6 +67,7 @@ export function BeachSearchAutocomplete({
   onSelect,
   placeholder = "Search surf spots...",
   className,
+  inputClassName,
   showCurrentConditions = false,
   maxResults = 5,
   initialValue = "",
@@ -163,7 +165,7 @@ export function BeachSearchAutocomplete({
           placeholder={placeholder}
           value={query}
           onValueChange={handleQueryChange}
-          className="border-none focus:ring-0"
+          className={cn("border-none focus:ring-0", inputClassName)}
         />
         {loading && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />

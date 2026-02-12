@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Prepare parameters for getSurfForecast
     const params = beach
       ? { beach }
-      : { coords: { lat: coords!.lat, lng: coords!.lon } };
+      : { coords: { lat: coords!.lat, lon: coords!.lon } };
 
     // Get forecast data
     let forecastData = await getSurfForecast(params);

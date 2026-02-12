@@ -3,13 +3,21 @@
  * Provides structured data for FAQ sections to enhance SEO with rich snippets
  */
 
+import type { RichContent } from "@/lib/seo/rich-content";
+import { RichContentRenderer } from "@/lib/seo/rich-content";
+
 interface FAQItem {
   question: string;
   answer: string;
 }
 
+/** FAQ item with optional rich-content answer containing internal links. */
+export interface RichFAQItem extends FAQItem {
+  richAnswer?: RichContent;
+}
+
 interface FAQSchemaProps {
-  items: FAQItem[];
+  items: FAQItem[] | RichFAQItem[];
 }
 
 export function FAQSchema({ items }: FAQSchemaProps) {
@@ -44,7 +52,7 @@ export function FAQSection({
   items,
   locationName,
 }: {
-  items: FAQItem[];
+  items: FAQItem[] | RichFAQItem[];
   locationName: string;
 }) {
   if (items.length === 0) return null;
@@ -57,16 +65,23 @@ export function FAQSection({
           Frequently Asked Questions About Surfing in {locationName}
         </h2>
         <dl className="space-y-6">
-          {items.map((faq) => (
-            <div key={faq.question}>
-              <dt className="text-lg font-semibold text-gray-900 mb-2">
-                {faq.question}
-              </dt>
-              <dd className="text-gray-700 leading-relaxed">
-                {faq.answer}
-              </dd>
-            </div>
-          ))}
+          {items.map((faq) => {
+            const richAnswer = "richAnswer" in faq ? faq.richAnswer : undefined;
+            return (
+              <div key={faq.question}>
+                <dt className="text-lg font-semibold text-gray-900 mb-2">
+                  {faq.question}
+                </dt>
+                <dd className="text-gray-700 leading-relaxed">
+                  {richAnswer ? (
+                    <RichContentRenderer content={richAnswer} />
+                  ) : (
+                    faq.answer
+                  )}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       </section>
     </>
@@ -138,7 +153,7 @@ export function QuiverFAQSchema() {
     {
       question: "What areas does Quiver cover?",
       answer:
-        "Quiver currently focuses on San Diego surf spots including Pacific Beach, La Jolla, Encinitas, and more. We're continuously expanding to cover more surf destinations worldwide. Can't find your spot? Let us know and we'll add it!",
+        "Quiver covers 279+ surf spots across the US, including California, Hawaii, Florida, Oregon, Washington, the East Coast (NJ, NY, NC, SC), New England, Texas, and Baja Mexico. Every spot includes live conditions, forecasts, tide charts, and crowd data — all free.",
     },
     {
       question: "Is my data private on Quiver?",

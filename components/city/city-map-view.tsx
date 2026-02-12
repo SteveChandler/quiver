@@ -92,7 +92,7 @@ function transformSpotToBeach(spot: SurfSpot): Beach {
     id: spot.id || spot.slug, // Use UUID for forecast lookups, fallback to slug
     name: spot.name,
     lat: spot.coordinates.lat,
-    lon: spot.coordinates.lng,
+    lon: spot.coordinates.lon,
     slug: spot.slug,
     city: spot.region.split(",")[0]?.trim() || null,
     state: "California",
@@ -214,7 +214,7 @@ export function CityMapView({
     const avgLat =
       spots.reduce((sum, s) => sum + s.coordinates.lat, 0) / spots.length;
     const avgLng =
-      spots.reduce((sum, s) => sum + s.coordinates.lng, 0) / spots.length;
+      spots.reduce((sum, s) => sum + s.coordinates.lon, 0) / spots.length;
 
     return [avgLat, avgLng];
   }, [spots]);

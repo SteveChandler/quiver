@@ -3,7 +3,8 @@ import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
 import { BeachDetailClient } from "./beach-detail-client";
-import { NearbySpotsSsr } from "@/components/beach-detail/nearby-spots-server";
+import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import type { Metadata } from "next";
@@ -51,15 +52,18 @@ export default async function BeachDetailBySlugPage(
     }
 
     // Fetch nearby beaches for SSR SEO section
-    let nearbyBeaches: Beach[] = [];
+    let nearbyBeachesRaw: Beach[] = [];
     if (beach.lat && beach.lon) {
       const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
       if (nearbyResult.success && nearbyResult.data) {
-        nearbyBeaches = nearbyResult.data
+        nearbyBeachesRaw = nearbyResult.data
           .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-          .slice(0, 6);
+          .slice(0, 4);
       }
     }
+
+    // Enrich nearby beaches with live conditions and photos
+    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
     return (
       <>
@@ -106,7 +110,12 @@ export default async function BeachDetailBySlugPage(
 
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">
-          <NearbySpotsSsr nearbyBeaches={nearbyBeaches} />
+          <NearbyBeachesEnriched
+              beaches={nearbyBeaches}
+              sourceBeachName={beach.name}
+              sourceBeachLat={beach.lat}
+              sourceBeachLon={beach.lon}
+            />
           <RelatedGuidesSection beach={beach} />
         </div>
       </>

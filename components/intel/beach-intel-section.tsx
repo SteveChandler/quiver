@@ -44,6 +44,7 @@ import {
   getConfidenceLabel,
 } from "@/lib/constants/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
+import { PartialContentGate } from "@/components/ui/partial-content-gate";
 
 interface BeachIntelSectionProps {
   beachId: string;
@@ -54,6 +55,8 @@ interface BeachIntelSectionProps {
   className?: string;
   initialShowAll?: boolean;
   navigateOnViewAll?: boolean; // when true, clicking View all navigates to beach page
+  publicMode?: boolean;
+  previewCount?: number;
 }
 
 export function BeachIntelSection({
@@ -65,6 +68,8 @@ export function BeachIntelSection({
   className = "",
   initialShowAll = false,
   navigateOnViewAll = true,
+  publicMode = false,
+  previewCount = 1,
 }: BeachIntelSectionProps) {
   const router = useRouter();
   const [showPostForm, setShowPostForm] = useState(false);
@@ -311,15 +316,17 @@ export function BeachIntelSection({
               )}
             </CardTitle>
 
-            <Button
-              data-testid="add-intel"
-              onClick={() => setShowPostForm(true)}
-              size="sm"
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Intel
-            </Button>
+            {!publicMode && (
+              <Button
+                data-testid="add-intel"
+                onClick={() => setShowPostForm(true)}
+                size="sm"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Intel
+              </Button>
+            )}
           </div>
         </CardHeader>
 
@@ -372,21 +379,31 @@ export function BeachIntelSection({
             </div>
           ) : (
             <div className="space-y-3">
-              {posts.slice(0, showAll ? posts.length : 3).map((post) => (
-                <IntelPostCard
-                  key={post.id}
-                  post={post}
-                  onConfirm={handleConfirmPost}
-                  canConfirm={!!user}
-                  isExpanded={expandedPost === post.id}
-                  onToggleExpand={() =>
-                    setExpandedPost(expandedPost === post.id ? null : post.id)
-                  }
-                  isConfirming={confirmingPosts.has(post.id)}
-                />
-              ))}
+              {posts
+                .slice(0, publicMode ? previewCount : showAll ? posts.length : 3)
+                .map((post) => (
+                  <IntelPostCard
+                    key={post.id}
+                    post={post}
+                    onConfirm={handleConfirmPost}
+                    canConfirm={!!user}
+                    isExpanded={expandedPost === post.id}
+                    onToggleExpand={() =>
+                      setExpandedPost(expandedPost === post.id ? null : post.id)
+                    }
+                    isConfirming={confirmingPosts.has(post.id)}
+                  />
+                ))}
 
-              {posts.length > 3 && (
+              {publicMode && posts.length > previewCount && (
+                <PartialContentGate
+                  contentType="intel posts"
+                  totalCount={posts.length}
+                  previewCount={previewCount}
+                />
+              )}
+
+              {!publicMode && posts.length > 3 && (
                 <div className="pt-2 border-t border-blue-100">
                   <Button
                     variant="ghost"

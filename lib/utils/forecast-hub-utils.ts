@@ -20,6 +20,8 @@ import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-ut
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import type { Beach } from "@/types/database";
 
 /**
@@ -199,6 +201,12 @@ export interface TopBeachEntry {
   waveHeight: number;
   regionName: string;
   href: string | null;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  imageUrl: string | null;
+  averageRating: number | null;
+  skillLevel: string | null;
 }
 
 /**
@@ -266,6 +274,29 @@ export async function getTopBeachesRightNow(
     .sort((a, b) => b.currentScore - a.currentScore)
     .slice(0, limit);
 
+  // Batch fetch approved photos for the top beaches
+  const topBeachIds = sorted.map((bc) => bc.beachId);
+  const photoMap = new Map<string, string>();
+  try {
+    const supabase = createSupabaseServiceRoleClient();
+    const baseQuery = supabase
+      .from("beach_photos")
+      .select("beach_id, image_url")
+      .in("beach_id", topBeachIds)
+      .order("fetched_at", { ascending: false });
+    const { data: photos } = await withApprovedPhotos(baseQuery);
+    if (photos) {
+      for (const photo of photos) {
+        // Keep only the first (most recent) photo per beach
+        if (!photoMap.has(photo.beach_id)) {
+          photoMap.set(photo.beach_id, photo.image_url);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to fetch beach photos for top beaches:", err);
+  }
+
   return sorted.map((bc) => {
     const beach = beachMap.get(bc.beachId);
     const href = beach
@@ -285,6 +316,12 @@ export async function getTopBeachesRightNow(
       waveHeight: bc.currentWaveHeight,
       regionName: beachRegionMap.get(bc.beachId) || "Unknown",
       href,
+      slug: beach?.slug || null,
+      city: beach?.city || null,
+      state: beach?.state || null,
+      imageUrl: photoMap.get(bc.beachId) || null,
+      averageRating: beach?.average_rating || null,
+      skillLevel: beach?.skill_level || null,
     };
   });
 }

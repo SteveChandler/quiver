@@ -18,7 +18,8 @@ import {
 import { StateMapView } from "@/components/state/state-map-view";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { FAQSection } from "@/components/seo/faq-schema";
-import { generateStateSummary, generateStateFAQ } from "@/lib/seo/state-content-generator";
+import { generateStateRichContent } from "@/lib/seo/state-content-generator";
+import { RichContentRenderer } from "@/lib/seo/rich-content";
 
 export const dynamic = "force-dynamic";
 
@@ -154,14 +155,8 @@ export default async function UsaStatePage(
     }
   }
 
-  // Generate data-driven SEO content
-  const stateSummary = generateStateSummary({
-    stateName,
-    stateSlug,
-    beaches,
-    cityCount: cities.length,
-  });
-  const stateFaqs = generateStateFAQ({
+  // Generate data-driven SEO content (with internal links to city pages)
+  const { summary: stateSummary, faqs: stateFaqs } = generateStateRichContent({
     stateName,
     stateSlug,
     beaches,
@@ -189,7 +184,7 @@ export default async function UsaStatePage(
       </header>
 
       <p className="text-gray-700 leading-relaxed max-w-3xl mb-8">
-        {stateSummary}
+        <RichContentRenderer content={stateSummary} />
       </p>
 
       <div className="grid gap-8 lg:grid-cols-[420px_1fr]">

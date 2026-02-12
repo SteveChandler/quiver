@@ -1,6 +1,6 @@
 interface BeachCoordinates {
   lat: number;
-  lng: number;
+  lon: number;
 }
 
 /**
@@ -19,33 +19,33 @@ interface BeachCoordinates {
  * active beaches without hardcoding.
  */
 export const beachCoordinates: Record<string, BeachCoordinates> = {
-  "oceanside pier": { lat: 33.1959, lng: -117.3795 },
-  "oceanside harbor beach": { lat: 33.188, lng: -117.38 },
-  "carlsbad state beach": { lat: 33.1581, lng: -117.3478 },
-  "carlsbad reef": { lat: 33.1435, lng: -117.349 },
-  "carlsbad point": { lat: 33.1628, lng: -117.344 },
-  "leucadia state beach": { lat: 33.0423, lng: -117.2867 },
-  grandview: { lat: 33.0373, lng: -117.2891 },
-  "stone steps": { lat: 33.0374, lng: -117.2857 },
-  encinitas: { lat: 33.0369, lng: -117.292 },
-  "swami's": { lat: 33.0362, lng: -117.3032 },
-  "cardiff reef": { lat: 33.0265, lng: -117.2822 },
-  "moonlight state beach": { lat: 33.0673, lng: -117.2927 },
-  "solana beach": { lat: 32.993, lng: -117.271 },
-  "del mar beach": { lat: 32.9573, lng: -117.2653 },
-  "torrey pines state beach": { lat: 32.9212, lng: -117.2628 },
-  "blacks beach": { lat: 32.9016, lng: -117.2524 },
-  "windansea beach": { lat: 32.8217, lng: -117.2837 },
-  "la jolla shores": { lat: 32.8507, lng: -117.2726 },
-  "tourmaline surf park": { lat: 32.8563, lng: -117.256 },
-  "crystal pier": { lat: 32.811, lng: -117.2544 },
-  "pacific beach": { lat: 32.803, lng: -117.2405 },
-  "mission beach": { lat: 32.7801, lng: -117.2549 },
-  "ocean beach": { lat: 32.7507, lng: -117.254 },
-  "sunset cliffs": { lat: 32.7351, lng: -117.2519 },
-  "coronado beach": { lat: 32.6859, lng: -117.1899 },
-  "imperial beach": { lat: 32.5743, lng: -117.1131 },
-  "silver strand": { lat: 32.6895, lng: -117.1332 },
+  "oceanside pier": { lat: 33.1959, lon: -117.3795 },
+  "oceanside harbor beach": { lat: 33.188, lon: -117.38 },
+  "carlsbad state beach": { lat: 33.1581, lon: -117.3478 },
+  "carlsbad reef": { lat: 33.1435, lon: -117.349 },
+  "carlsbad point": { lat: 33.1628, lon: -117.344 },
+  "leucadia state beach": { lat: 33.0423, lon: -117.2867 },
+  grandview: { lat: 33.0373, lon: -117.2891 },
+  "stone steps": { lat: 33.0374, lon: -117.2857 },
+  encinitas: { lat: 33.0369, lon: -117.292 },
+  "swami's": { lat: 33.0362, lon: -117.3032 },
+  "cardiff reef": { lat: 33.0265, lon: -117.2822 },
+  "moonlight state beach": { lat: 33.0673, lon: -117.2927 },
+  "solana beach": { lat: 32.993, lon: -117.271 },
+  "del mar beach": { lat: 32.9573, lon: -117.2653 },
+  "torrey pines state beach": { lat: 32.9212, lon: -117.2628 },
+  "blacks beach": { lat: 32.9016, lon: -117.2524 },
+  "windansea beach": { lat: 32.8217, lon: -117.2837 },
+  "la jolla shores": { lat: 32.8507, lon: -117.2726 },
+  "tourmaline surf park": { lat: 32.8563, lon: -117.256 },
+  "crystal pier": { lat: 32.811, lon: -117.2544 },
+  "pacific beach": { lat: 32.803, lon: -117.2405 },
+  "mission beach": { lat: 32.7801, lon: -117.2549 },
+  "ocean beach": { lat: 32.7507, lon: -117.254 },
+  "sunset cliffs": { lat: 32.7351, lon: -117.2519 },
+  "coronado beach": { lat: 32.6859, lon: -117.1899 },
+  "imperial beach": { lat: 32.5743, lon: -117.1131 },
+  "silver strand": { lat: 32.6895, lon: -117.1332 },
 };
 
 /**
