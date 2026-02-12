@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `/app` directory follows Next.js 13+ App Router conventions, implementing a modern, scalable architecture for the Quiver surf community platform. This directory contains both client-side pages and server-side API routes, providing a comprehensive full-stack application structure.
+The `/app` directory follows Next.js 16 App Router conventions, implementing a modern, scalable architecture for the Quiver surf community platform. This directory contains both client-side pages and server-side API routes, providing a comprehensive full-stack application structure.
 
 ## Directory Structure & Functions
 

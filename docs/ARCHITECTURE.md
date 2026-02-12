@@ -8,7 +8,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 
 ### Stack and System Overview
 
-- **Next.js 14 App Router** (React, Server Actions)
+- **Next.js 16 App Router** (React 19, Server Actions)
 - **Supabase** (PostgreSQL, Auth, RLS, Realtime)
 - **Tailwind CSS + shadcn/ui**
 - **TypeScript** across frontend and backend

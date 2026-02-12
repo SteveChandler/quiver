@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `/app/api` directory implements a comprehensive REST API layer using Next.js 13+ App Router conventions. This API serves as the backend for the Quiver surf community platform, providing data access, authentication, real-time integrations, and automated services across multiple domains.
+The `/app/api` directory implements a comprehensive REST API layer using Next.js 16 App Router conventions. This API serves as the backend for the Quiver surf community platform, providing data access, authentication, real-time integrations, and automated services across multiple domains.
 
 ## Core Architecture Patterns
 
@@ -33,9 +33,9 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 All API routes should use the centralized middleware wrappers from `lib/middleware/api-wrappers/`. These provide authentication, rate limiting, bot blocking, and error handling in a composable pattern.
 
-### Next.js 15+ Compatibility (CRITICAL)
+### Next.js 16 Async Params (CRITICAL)
 
-**Breaking Change:** In Next.js 15+, route `params` is a **Promise** that must be awaited before accessing properties like `params.id`.
+**Breaking Change:** In Next.js 16, route `params` is a **Promise** that must be awaited before accessing properties like `params.id`.
 
 The API wrappers handle this automatically. When using `withAuth`, `withProtection`, or `createApiHandler`:
 
@@ -52,7 +52,7 @@ export const GET = withAuth(async (request, { user, supabase, params }) => {
 
 // INCORRECT - DO NOT access params outside the wrapper
 export async function GET(request: NextRequest, { params }: RouteContext) {
-  const id = params.id; // DANGER: params.id may be undefined in Next.js 15+
+  const id = params.id; // DANGER: params.id may be undefined in Next.js 16
   // ...
 }
 ```

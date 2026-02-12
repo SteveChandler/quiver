@@ -13,7 +13,7 @@ Quiver is a community-driven social surf tracking platform built with modern web
 ### Key Characteristics
 
 - **Architecture Style**: Monolithic-first with serverless deployment
-- **Primary Stack**: Next.js 14, TypeScript, Supabase, Capacitor
+- **Primary Stack**: Next.js 16, TypeScript, Supabase, Capacitor
 - **Deployment**: Vercel (serverless) + Supabase (managed backend)
 - **Scalability**: Ready for 10,000+ concurrent users
 - **Security**: Enterprise-grade (JWT auth, RLS, HTTPS/TLS 1.3)
@@ -139,12 +139,12 @@ Quiver is a mobile-first social platform for surfers that combines:
 The Quiver platform consists of the following major containers:
 
 #### 1. Web Application (Next.js)
-- **Technology**: Next.js 14 with App Router
+- **Technology**: Next.js 16 with App Router
 - **Hosting**: Vercel Edge Network (global CDN)
 - **Features**:
   - Server-side rendering (SSR)
   - Static generation for marketing pages
-  - Client-side interactivity (React 18)
+  - Client-side interactivity (React 19)
   - Progressive Web App capabilities
 
 #### 2. API Layer (Next.js API Routes)
