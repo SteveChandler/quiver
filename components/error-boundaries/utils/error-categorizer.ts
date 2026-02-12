@@ -1,4 +1,5 @@
 export type ErrorCategory =
+  | 'chunk_load'
   | 'network'
   | 'data_parsing'
   | 'rendering'
@@ -7,11 +8,33 @@ export type ErrorCategory =
   | 'unknown';
 
 /**
+ * Detect chunk load errors caused by stale deployments.
+ * Shared by the global ChunkErrorHandler and categorizeError().
+ */
+export function isChunkLoadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  if (error.name === 'ChunkLoadError') return true;
+
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes('loading chunk') ||
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('/_next/static/chunks/')
+  );
+}
+
+/**
  * Categorize error type
  */
 export function categorizeError(error: Error): ErrorCategory {
   const message = error.message.toLowerCase();
   const errorName = error.name.toLowerCase();
+
+  // Chunk load errors (stale deployments)
+  if (isChunkLoadError(error)) {
+    return 'chunk_load';
+  }
 
   // Network errors
   if (

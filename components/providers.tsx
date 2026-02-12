@@ -10,6 +10,7 @@ import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import dynamic from "next/dynamic";
+import { ChunkErrorHandler } from "@/components/chunk-error-handler";
 
 // Dynamic imports for analytics components
 const GoogleAnalytics = dynamic(
@@ -119,6 +120,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Auto-reload on stale chunk errors after deployments */}
+      <ChunkErrorHandler />
+
       {/* Analytics Loader - Conditional based on route (handled internally) */}
       <Suspense fallback={null}>
         <AnalyticsLoader />

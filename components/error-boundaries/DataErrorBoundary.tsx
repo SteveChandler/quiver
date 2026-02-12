@@ -5,7 +5,7 @@ import * as Sentry from '@sentry/nextjs';
 import { NetworkErrorFallback } from './NetworkErrorFallback';
 import { DataLoadErrorFallback } from './DataLoadErrorFallback';
 import { retryWithBackoff, RetryStrategy } from './utils/retry-strategies';
-import { categorizeError, ErrorCategory } from './utils/error-categorizer';
+import { categorizeError, ErrorCategory, isChunkLoadError } from './utils/error-categorizer';
 
 export interface DataErrorBoundaryProps {
   /**
@@ -121,6 +121,16 @@ export class DataErrorBoundary extends Component<
     });
 
     this.setState({ errorInfo });
+
+    // Chunk load errors need a full page reload, not a component retry.
+    // Delegate to ChunkErrorHandler's global listener by re-dispatching,
+    // since error boundaries swallow errors before they reach window.
+    if (isChunkLoadError(error)) {
+      window.dispatchEvent(
+        new ErrorEvent('error', { error })
+      );
+      return;
+    }
 
     // Start automatic retry if appropriate
     if (this.shouldAutoRetry()) {
