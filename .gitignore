@@ -23,6 +23,11 @@
 .DS_Store
 *.pem
 
+# screenshots (QA/testing artifacts)
+/*.png
+/*.jpeg
+/*.jpg
+
 # debug
 npm-debug.log*
 yarn-debug.log*
