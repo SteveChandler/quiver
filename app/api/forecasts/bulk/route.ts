@@ -4,7 +4,6 @@ import {
   handleApiError,
 } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/server";
-import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';
@@ -56,44 +55,23 @@ async function bulkForecastHandler(request: NextRequest) {
 
     const supabase = await createAPIServerClient();
 
-    // Get today and tomorrow for SQL filtering
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-
-    // Fetch only today + tomorrow forecasts to stay under Supabase's 1,000-row default limit.
-    // getCurrentForecast() only needs today (next slot at/after now) or tomorrow (fallback).
-    // Previously .gte("forecast_date", today) fetched 12 days out (~4,700 rows for 50 beaches),
-    // causing silent truncation — beaches with later-sorting UUIDs got no forecast data.
-    const { data: forecasts, error } = await supabase
-      .from("enhanced_forecasts")
-      .select("beach_id, forecast_date, forecast_time, wave_height")
-      .in("beach_id", limitedBeachIds)
-      .in("forecast_date", [today, tomorrow])
-      .order("beach_id", { ascending: true })
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
+    // Use RPC to get exactly 1 row per beach (database-side aggregation).
+    // This eliminates the risk of PostgREST's 1,000-row default limit silently
+    // truncating results — the old .gte("forecast_date", today) query fetched
+    // ~4,700 rows for 50 beaches, cutting off later-sorting UUIDs.
+    const { data, error } = await supabase.rpc("get_bulk_current_forecasts", {
+      p_beach_ids: limitedBeachIds,
+    });
 
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
       return handleApiError(new Error(error.message), "Failed to fetch bulk forecasts");
     }
 
-    // Group forecasts by beach_id and apply forward-looking time selection
     const waveHeightMap: Record<string, number | undefined> = {};
-    
-    limitedBeachIds.forEach((beachId) => {
-      // Filter forecasts for this beach
-      const beachForecasts = (forecasts || []).filter(f => f.beach_id === beachId);
-      
-      if (beachForecasts.length > 0) {
-        // Find first forecast at or after current time today, or earliest tomorrow
-        const currentForecast = getCurrentForecast(beachForecasts);
-        if (currentForecast?.wave_height !== undefined) {
-          waveHeightMap[beachId] = currentForecast.wave_height;
-        }
+    (data || []).forEach((row: { beach_id: string; wave_height: string | null }) => {
+      if (row.wave_height !== null) {
+        waveHeightMap[row.beach_id] = row.wave_height as unknown as number;
       }
     });
 
