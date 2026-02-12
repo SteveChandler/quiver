@@ -111,8 +111,6 @@ export function withBearerAuth(
 
   return async (request: NextRequest, context?: RouteContext) => {
     try {
-      const supabase = await createSupabaseServiceRoleClient();
-
       // In Next.js 15+, params is a Promise that must be awaited
       const resolvedParams = context?.params
         ? typeof context.params === "object" && "then" in context.params
@@ -120,13 +118,14 @@ export function withBearerAuth(
           : (context.params as Record<string, string>)
         : {};
 
-      // Check for service role bearer token
+      // Check for service role bearer token (strict exact match)
       const authHeader = request.headers.get("authorization");
-      const isServiceRole =
-        authHeader?.startsWith("Bearer ") &&
-        authHeader.includes(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      const isServiceRole = !!(serviceKey && serviceKey.length > 0 && token === serviceKey);
 
       if (isServiceRole) {
+        const supabase = await createSupabaseServiceRoleClient();
         const bearerContext: BearerAuthContext = {
           params: resolvedParams,
           user: null,
@@ -145,6 +144,7 @@ export function withBearerAuth(
         );
       }
 
+      const supabase = await createSupabaseServiceRoleClient();
       const adminContext: BearerAuthContext = {
         params: resolvedParams,
         user: authResult.user,

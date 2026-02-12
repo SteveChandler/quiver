@@ -3,7 +3,6 @@
  * Extracted from SessionForm.tsx to reduce component complexity.
  */
 
-import { toast } from "sonner";
 import {
   updatePlannedSessionToCompleted,
 } from "@/actions/session-actions";

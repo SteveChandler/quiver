@@ -428,17 +428,18 @@ describe("/api/admin/sync-buoys", () => {
       expect(mockAuthenticateAdmin).toHaveBeenCalled();
     });
 
-    it("should handle missing service role environment variable", async () => {
+    it("should reject bearer auth when service role key is missing", async () => {
       // Override environment to remove service role key
       restoreEnv();
       restoreEnv = mockEnvVars({
         SUPABASE_SERVICE_ROLE_KEY: "", // Missing service role key (empty string)
       });
 
-      mockNOAABuoySync.syncBuoysForExistingBeaches.mockResolvedValue({
-        success: true,
-        buoysAdded: 5,
-        stationsAdded: 3,
+      // Admin auth fallback also fails
+      mockAuthenticateAdmin.mockResolvedValue({
+        success: false,
+        error: "Unauthorized",
+        status: 401,
       });
 
       const request = createMockRequest("POST", "http://localhost:3000/api/admin/sync-buoys", {
@@ -450,11 +451,11 @@ describe("/api/admin/sync-buoys", () => {
 
       const response = await POST(request);
       const data = await response.json();
-      
-      // When service role key is missing/empty, empty string matches any header
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(mockAuthenticateAdmin).not.toHaveBeenCalled(); // Should not call admin auth
+
+      // When service role key is missing/empty, bearer auth is rejected (security fix)
+      // Falls through to admin session auth, which also fails
+      expect(response.status).toBe(401);
+      expect(data.error).toBeDefined();
     });
 
     it("should log different auth methods appropriately", async () => {
