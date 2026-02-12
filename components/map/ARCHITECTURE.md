@@ -9,15 +9,35 @@ The map components provide an interactive beach discovery system with dual map/l
 ```
 components/map/
 ├── map-content.tsx           # Main map container with dynamic loading
-├── interactive-map.tsx       # Mapbox interactive map with wave markers + clustering
+├── interactive-map.tsx       # Mapbox interactive map core (~550 LOC, orchestration + lifecycle)
+├── map-marker-builder.ts    # createWaveHeightBadge — beach marker DOM creation + styling
+├── map-favorites-loader.ts  # loadFavoriteBeaches — async fetch of user's favorite beach IDs
+├── map-beach-loader.ts      # loadBeachesAndWaveHeights — beach resolution + wave height fetching
+├── map-cluster-renderer.ts  # createClusterMapMarker — cluster marker creation + click-to-expand
+├── cluster-marker.tsx       # createClusterMarkerElement — cluster marker DOM element factory
 ├── map-display.tsx           # Static map with wave height overlays
 ├── beach-list.tsx           # Searchable beach list with reviews
 ├── map-header.tsx           # Navigation header (legacy)
 ├── map-search-header.tsx    # Search header with view toggles
 ├── nearby-beach-scroll.tsx  # Horizontal beach scroller
-├── selected-beach-card.tsx  # Selected beach detail card
-└── cluster-marker.tsx       # Cluster marker element for grouped beaches
+└── selected-beach-card.tsx  # Selected beach detail card
 ```
+
+### **InteractiveMap Module Decomposition**
+
+The `interactive-map.tsx` component (originally 854 LOC) was split into pure, testable modules:
+
+| Module | Responsibility | LOC |
+|--------|---------------|-----|
+| `interactive-map.tsx` | Component lifecycle, refs, effects, rendering | ~550 |
+| `map-marker-builder.ts` | Wave height badge DOM creation with MarkerBuilderDeps interface | ~180 |
+| `map-beach-loader.ts` | Beach resolution + wave height fetching + interpolation | ~185 |
+| `map-cluster-renderer.ts` | Cluster marker creation with ClusterRendererDeps interface | ~70 |
+| `map-favorites-loader.ts` | Favorite beach ID fetching | ~40 |
+
+**Design pattern**: Each extracted module receives all dependencies via explicit parameter interfaces
+(e.g., `MarkerBuilderDeps`, `ClusterRendererDeps`, `BeachLoaderDeps`) rather than closing over
+component state. This makes them independently unit-testable.
 
 ## **BEACH MARKER CLUSTERING**
 

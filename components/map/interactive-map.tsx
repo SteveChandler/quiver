@@ -13,7 +13,7 @@ import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-cluster
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createWaveHeightBadge, type MarkerBuilderDeps } from "@/components/map/map-marker-builder";
 import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
-import { createClusterMarkerElement } from "@/components/map/cluster-marker";
+import { createClusterMapMarker, type ClusterRendererDeps } from "@/components/map/map-cluster-renderer";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -186,46 +186,18 @@ export function InteractiveMap({
     [onLocationClick, router]
   );
 
-  // Offshore position calculation moved to utility function
-
-  // Create cluster marker for rendering clustered beaches
-  const createClusterMarker = useCallback(
+  // Create cluster marker using extracted module with deps from refs
+  const buildClusterMarker = useCallback(
     (cluster: ClusterPoint): mapboxgl.Marker => {
-      const hasFavorite = cluster.beachIds?.some((id) =>
-        favoriteBeachIdsRef.current.has(id)
-      ) || false;
-
-      const { element, cleanup } = createClusterMarkerElement({
-        waveHeights: cluster.waveHeights || [],
-        pointCount: cluster.pointCount || 0,
-        hasFavorite,
-        onHover: () => {}, // Can add tooltip later
-        onLeave: () => {},
-      });
-
-      // Store cleanup function
-      const clusterId = `cluster-${cluster.clusterId}`;
-      clusterCleanupRef.current.set(clusterId, cleanup);
-
-      // Handle cluster click - zoom to expansion level
-      element.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (mapRef.current && cluster.clusterId !== undefined) {
-          const expansionZoom = getExpansionZoom(cluster.clusterId);
-          mapRef.current.flyTo({
-            center: [cluster.longitude, cluster.latitude],
-            zoom: Math.min(expansionZoom, 16),
-            duration: 500,
-          });
-        }
-      });
-
-      const marker = new mapboxgl.Marker({
-        element,
-        anchor: "center",
-      }).setLngLat([cluster.longitude, cluster.latitude]);
-
-      return marker;
+      const deps: ClusterRendererDeps = {
+        favoriteBeachIds: favoriteBeachIdsRef.current,
+        clusterCleanupMap: clusterCleanupRef.current,
+        getExpansionZoom,
+        flyTo: (center, zoom) => {
+          mapRef.current?.flyTo({ center, zoom, duration: 500 });
+        },
+      };
+      return createClusterMapMarker(cluster, deps);
     },
     [getExpansionZoom]
   );
@@ -499,7 +471,7 @@ export function InteractiveMap({
     clusters.forEach((cluster) => {
       if (cluster.isCluster && cluster.clusterId !== undefined) {
         // Render cluster marker
-        const marker = createClusterMarker(cluster);
+        const marker = buildClusterMarker(cluster);
         const markerId = `cluster-${cluster.clusterId}`;
         if (mapRef.current?.getCanvasContainer()) {
           marker.addTo(mapRef.current);
@@ -525,7 +497,7 @@ export function InteractiveMap({
         markersRef.current[markerId] = marker;
       }
     });
-  }, [clusters, isMapReady, createClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
+  }, [clusters, isMapReady, buildClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
 
   // Add CSS for popup animations
   useEffect(() => {
