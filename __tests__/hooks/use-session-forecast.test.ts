@@ -52,6 +52,7 @@ describe("useSessionForecast", () => {
     expect(mockGetEnhanced).toHaveBeenCalledWith("beach-1", 10);
     expect(result.current.forecastData).toEqual({
       wave_height: 5,
+      wave_height_range: "5-8ft",
       wind_speed: 10,
       wind_direction: "W",
       water_temp: 61,
@@ -111,6 +112,7 @@ describe("useSessionForecast", () => {
 
     expect(result.current.forecastData).toEqual({
       wave_height: 3.5,
+      wave_height_range: "4-5ft",
       wind_speed: 5,
       wind_direction: "SW",
       water_temp: 58,
@@ -218,6 +220,7 @@ describe("useSessionForecast", () => {
 
       expect(result.current.forecastData).toEqual({
         wave_height: 3,
+        wave_height_range: "3-5ft",
         wind_speed: 7,
         wind_direction: "E",
         water_temp: 62,
@@ -636,6 +639,7 @@ describe("useSessionForecast", () => {
 
       expect(result.current.forecastData).toEqual({
         wave_height: 3,
+        wave_height_range: "3-5ft",
         wind_speed: 8,
         wind_direction: "offshore",
         water_temp: 60,
@@ -670,6 +674,7 @@ describe("useSessionForecast", () => {
 
       expect(result.current.forecastData).toEqual({
         wave_height: 4,
+        wave_height_range: "4-6ft",
         wind_speed: 6,
         wind_direction: "NW",
         water_temp: 58,
@@ -677,6 +682,160 @@ describe("useSessionForecast", () => {
         tide_status: "low",
         isNightSession: false,
       });
+    });
+  });
+
+  describe("wave_height_range computation", () => {
+    it("computes range with SET_WAVE_VARIANCE (1.5x) for typical waves", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "08:00",
+            wave_height: 3,
+            wind_speed: 8,
+            wind_direction: "NW",
+            water_temp: 60,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "08:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 3ft avg * 1.5 = 4.5ft sets → "3-5ft"
+      expect(result.current.forecastData?.wave_height).toBe(3);
+      expect(result.current.forecastData?.wave_height_range).toBe("3-5ft");
+    });
+
+    it("computes range for small waves", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "10:00",
+            wave_height: 1,
+            wind_speed: 5,
+            wind_direction: "W",
+            water_temp: 62,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "10:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 1ft avg * 1.5 = 1.5ft sets → "1-1.5ft" (half-foot precision, range < 1ft)
+      expect(result.current.forecastData?.wave_height_range).toBe("1-1.5ft");
+    });
+
+    it("computes range for large waves", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "07:00",
+            wave_height: 8,
+            wind_speed: 15,
+            wind_direction: "NW",
+            water_temp: 56,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "07:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 8ft avg * 1.5 = 12ft sets → "8-12ft"
+      expect(result.current.forecastData?.wave_height_range).toBe("8-12ft");
+    });
+
+    it("returns undefined wave_height_range when wave_height is 0", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "09:00",
+            wave_height: 0,
+            wind_speed: 3,
+            wind_direction: "S",
+            water_temp: 64,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "09:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.forecastData?.wave_height).toBe(0);
+      expect(result.current.forecastData?.wave_height_range).toBeUndefined();
+    });
+
+    it("returns undefined wave_height_range when wave_height is undefined", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "11:00",
+            // wave_height not present
+            wind_speed: 10,
+            wind_direction: "E",
+            water_temp: 65,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "11:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.forecastData?.wave_height).toBeUndefined();
+      expect(result.current.forecastData?.wave_height_range).toBeUndefined();
+    });
+
+    it("computes range from string wave_height values", async () => {
+      mockGetEnhanced.mockResolvedValue({
+        success: true,
+        data: [
+          {
+            forecast_date: "2024-01-17",
+            forecast_time: "06:00",
+            wave_height: "2.5 ft",
+            wind_speed: 7,
+            wind_direction: "NW",
+            water_temp: 58,
+          },
+        ],
+      });
+
+      const { result } = renderHook(() =>
+        useSessionForecast("beach-1", "2024-01-17", "06:00")
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 2.5ft avg * 1.5 = 3.75ft sets → "3-4ft"
+      expect(result.current.forecastData?.wave_height).toBe(2.5);
+      expect(result.current.forecastData?.wave_height_range).toBe("3-4ft");
     });
   });
 });

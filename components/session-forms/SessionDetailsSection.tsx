@@ -1,23 +1,23 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Activity,
   Star,
   Users,
   Car,
-  Waves,
   Wind,
   Thermometer,
   CheckCircle2,
   AlertCircle,
-  XCircle,
   Camera,
   Upload,
   X,
   Loader2,
 } from "lucide-react";
 import { useSessionForecast } from "@/hooks/use-session-forecast";
+import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
+import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 import { SimpleCardLayout } from "@/components/ui/form-layout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,10 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  getRatingDescription,
-  SessionFormMode,
-} from "@/lib/constants/session-form-constants";
+import { SessionFormMode } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
 import { cn } from "@/lib/utils";
 import {
@@ -82,6 +79,15 @@ interface FilePreview {
   originalSize: number;
 }
 
+// Field state tracking for auto-prefill
+type FieldState = "empty" | "prefilled" | "user-edited";
+type FieldStateTracking = {
+  waveHeight: FieldState;
+  windSpeed: FieldState;
+  windDirection: FieldState;
+  waterTemp: FieldState;
+};
+
 /**
  * Main SessionDetailsSection Component
  *
@@ -109,6 +115,48 @@ export function SessionDetailsSection({
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Track field states for auto-prefill logic
+  const fieldStatesRef = useRef<FieldStateTracking>({
+    waveHeight: "empty",
+    windSpeed: "empty",
+    windDirection: "empty",
+    waterTemp: "empty",
+  });
+
+  // Track the last beach/date/time combination to detect changes
+  const lastPrefillKeyRef = useRef<string>("");
+
+  // Helper to check if a field is empty (for prefill logic)
+  const isFieldEmpty = useCallback(
+    (field: keyof FieldStateTracking): boolean => {
+      switch (field) {
+        case "waveHeight":
+          return formState.waveHeight === undefined || formState.waveHeight === null;
+        case "windSpeed":
+          return formState.windSpeed === undefined || formState.windSpeed === null;
+        case "windDirection":
+          return !formState.windDirection;
+        case "waterTemp":
+          return !formState.waterTemp;
+        default:
+          return true;
+      }
+    },
+    [formState.waveHeight, formState.windSpeed, formState.windDirection, formState.waterTemp]
+  );
+
+  // Wrapper for updateField that tracks user edits
+  const handleFieldUpdate = useCallback(
+    <K extends keyof SessionFormState>(field: K, value: SessionFormState[K]) => {
+      const trackedField = field as keyof FieldStateTracking;
+      if (trackedField in fieldStatesRef.current) {
+        fieldStatesRef.current[trackedField] = "user-edited";
+      }
+      updateField(field, value);
+    },
+    [updateField]
+  );
+
   // Fetch forecast data for comparison
   const {
     forecastData,
@@ -119,6 +167,65 @@ export function SessionDetailsSection({
     formState.selectedDate ?? null,
     formState.selectedTime ?? null
   );
+
+  // Auto-prefill effect: Only for "log" mode, only when fields are empty
+  useEffect(() => {
+    if (mode !== "log") return;
+    if (!forecastData || forecastLoading) return;
+
+    // Create a key for this beach/date/time combination
+    const currentPrefillKey = `${formState.selectedBeachId}-${formState.selectedDate}-${formState.selectedTime}`;
+
+    // If beach/date/time changed, reset tracking to allow new prefill
+    if (currentPrefillKey !== lastPrefillKeyRef.current) {
+      lastPrefillKeyRef.current = currentPrefillKey;
+      Object.keys(fieldStatesRef.current).forEach((key) => {
+        const field = key as keyof FieldStateTracking;
+        if (isFieldEmpty(field)) {
+          fieldStatesRef.current[field] = "empty";
+        }
+      });
+    }
+
+    // Wave Height
+    if (
+      fieldStatesRef.current.waveHeight === "empty" &&
+      forecastData.wave_height !== undefined
+    ) {
+      updateField("waveHeight", forecastData.wave_height);
+      fieldStatesRef.current.waveHeight = "prefilled";
+    }
+
+    // Wind Speed
+    if (
+      fieldStatesRef.current.windSpeed === "empty" &&
+      forecastData.wind_speed !== undefined
+    ) {
+      updateField("windSpeed", forecastData.wind_speed);
+      fieldStatesRef.current.windSpeed = "prefilled";
+    }
+
+    // Wind Direction
+    if (
+      fieldStatesRef.current.windDirection === "empty" &&
+      forecastData.wind_direction
+    ) {
+      updateField("windDirection", forecastData.wind_direction);
+      fieldStatesRef.current.windDirection = "prefilled";
+    }
+
+    // Water Temp
+    if (
+      fieldStatesRef.current.waterTemp === "empty" &&
+      forecastData.water_temp !== undefined
+    ) {
+      updateField("waterTemp", String(forecastData.water_temp));
+      fieldStatesRef.current.waterTemp = "prefilled";
+    }
+    // updateField is stable (useCallback with no deps in use-session-form.ts);
+    // isFieldEmpty intentionally excluded to prevent re-trigger loops on unrelated field changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forecastData, forecastLoading, mode, formState.selectedBeachId, formState.selectedDate, formState.selectedTime]);
 
   // Photo upload helpers
   const formatFileSize = (bytes: number): string => {
@@ -306,8 +413,8 @@ export function SessionDetailsSection({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               {Number.isFinite(forecastData.wave_height) && (
                 <div className="flex items-center gap-2">
-                  <Waves className="h-4 w-4 text-blue-600" />
-                  <span>{forecastData.wave_height} waves</span>
+                  <span role="img" aria-label="Wave height" className="text-base leading-none">🌊</span>
+                  <span>{forecastData.wave_height_range || `${forecastData.wave_height}ft`} waves</span>
                 </div>
               )}
               {Number.isFinite(forecastData.wind_speed) && (
@@ -363,7 +470,7 @@ export function SessionDetailsSection({
                 className="mb-2 flex items-center gap-2 text-sm font-medium"
                 htmlFor="wave-height-input"
               >
-                <Waves className="h-4 w-4" />
+                <span role="img" aria-label="Wave height" className="text-base leading-none">🌊</span>
                 Wave Height (ft)
               </label>
               <Input
@@ -375,12 +482,26 @@ export function SessionDetailsSection({
                 placeholder="3.5"
                 value={formState.waveHeight || ""}
                 onChange={(e) =>
-                  updateField(
+                  handleFieldUpdate(
                     "waveHeight",
                     e.target.value ? parseFloat(e.target.value) : undefined
                   )
                 }
+                aria-describedby={
+                  formState.waveHeight != null && formState.waveHeight > 0
+                    ? "wave-height-range-hint"
+                    : undefined
+                }
               />
+              {formState.waveHeight != null && formState.waveHeight > 0 && (
+                <p id="wave-height-range-hint" className="text-xs text-muted-foreground mt-1">
+                  Estimated range:{" "}
+                  {formatWaveHeightRangeString(
+                    formState.waveHeight,
+                    formState.waveHeight * SET_WAVE_VARIANCE
+                  )}
+                </p>
+              )}
             </div>
 
             {/* Water Temperature */}
@@ -399,7 +520,7 @@ export function SessionDetailsSection({
                 max="100"
                 placeholder="68"
                 value={formState.waterTemp}
-                onChange={(e) => updateField("waterTemp", e.target.value)}
+                onChange={(e) => handleFieldUpdate("waterTemp", e.target.value)}
               />
             </div>
 
@@ -421,7 +542,7 @@ export function SessionDetailsSection({
                 placeholder="10"
                 value={formState.windSpeed || ""}
                 onChange={(e) =>
-                  updateField(
+                  handleFieldUpdate(
                     "windSpeed",
                     e.target.value ? parseFloat(e.target.value) : undefined
                   )
@@ -439,7 +560,7 @@ export function SessionDetailsSection({
               </span>
               <Select
                 value={formState.windDirection || ""}
-                onValueChange={(value) => updateField("windDirection", value)}
+                onValueChange={(value) => handleFieldUpdate("windDirection", value)}
               >
                 <SelectTrigger aria-labelledby="wind-direction-label">
                   <SelectValue placeholder="Select direction" />

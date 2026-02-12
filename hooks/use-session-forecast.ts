@@ -3,9 +3,12 @@
 import { useMemo, useCallback } from "react";
 import { useDataFetcher } from "./use-data-fetcher";
 import { isNightHour } from "@/lib/utils/timezone-utils";
+import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
+import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
 
 interface SessionForecastData {
   wave_height?: number;
+  wave_height_range?: string;
   wind_speed?: number;
   wind_direction?: string;
   water_temp?: number;
@@ -120,8 +123,18 @@ export function useSessionForecast(
     const forecastHour = bestForecast.forecastHour ?? 0;
     const isNightSession = isNightHour(Math.floor(forecastHour));
 
+    // Compute wave height range string (e.g., "2-3ft")
+    const waveHeightRange =
+      parsedWaveHeight !== undefined && parsedWaveHeight > 0
+        ? formatWaveHeightRangeString(
+            parsedWaveHeight,
+            parsedWaveHeight * SET_WAVE_VARIANCE
+          )
+        : undefined;
+
     return {
       wave_height: parsedWaveHeight,
+      wave_height_range: waveHeightRange,
       wind_speed: parsedWindSpeed,
       wind_direction: bestForecast.wind_direction || undefined,
       water_temp: parsedWaterTemp,
