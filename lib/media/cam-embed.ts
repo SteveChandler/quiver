@@ -67,7 +67,10 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
     }
 
     // HDOnTap - resolve to HLS stream server-side (iframe embedding blocked)
-    if (href.includes("hdontap.com/stream/")) {
+    if (
+      (u.hostname === "hdontap.com" || u.hostname === "www.hdontap.com") &&
+      u.pathname.startsWith("/stream/")
+    ) {
       return { kind: "hdontap", pageUrl: href };
     }
 

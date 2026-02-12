@@ -20,9 +20,6 @@ import { render, screen, act } from "@testing-library/react";
 // MOCK SETUP
 // =============================================================================
 
-// Track event listeners on video elements
-const videoListeners: Record<string, Function[]> = {};
-
 // Mock hls.js module
 const mockHlsInstance = {
   loadSource: jest.fn(),

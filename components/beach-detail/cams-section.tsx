@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, RefreshCw } from "lucide-react";
@@ -49,6 +49,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
 
   const cameraUrl = sources?.camera_url as string | undefined;
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
+  const viewableUrl = useMemo(() => getViewableUrl(cameraUrl), [cameraUrl]);
   const allowIframe =
     intent &&
     intent.kind === "iframe" &&
@@ -183,13 +184,13 @@ export function CamsSection({ beachId }: CamsSectionProps) {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          {getViewableUrl(cameraUrl) ? (
+          {viewableUrl ? (
             <Button
               asChild
               size="sm"
               className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
             >
-              <a href={getViewableUrl(cameraUrl)!} target="_blank" rel="noopener noreferrer">
+              <a href={viewableUrl} target="_blank" rel="noopener noreferrer">
                 Open cam
               </a>
             </Button>

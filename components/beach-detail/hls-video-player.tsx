@@ -12,13 +12,15 @@ interface HLSVideoPlayerProps {
 export default function HLSVideoPlayer({ src, title, onError }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Propagate error to parent
+  // Propagate error to parent (stable ref avoids re-render loops)
   useEffect(() => {
-    if (error && onError) onError();
-  }, [error, onError]);
+    if (error) onErrorRef.current?.();
+  }, [error]);
 
   useEffect(() => {
     const video = videoRef.current;
