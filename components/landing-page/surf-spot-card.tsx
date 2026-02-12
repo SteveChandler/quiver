@@ -100,12 +100,12 @@ export function SurfSpotCard({
 
   return (
     <div
-      className="animate-fade-in-up"
+      className="animate-fade-in-up h-full"
       style={{ animationDelay: `${delay * 100}ms`, animationFillMode: "both" }}
     >
-      <Link href={beachUrl} prefetch={false} className="block group">
+      <Link href={beachUrl} prefetch={false} className="block group h-full">
         {/* AllTrails-style card: rounded-2xl, subtle shadow transition */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 h-full flex flex-col">
           {/* Image Section */}
           <div className="relative h-44 bg-gray-100 overflow-hidden rounded-t-2xl">
             {/* Score badge - top-left corner of image */}
@@ -145,7 +145,7 @@ export function SurfSpotCard({
           </div>
 
           {/* Content Section */}
-          <div className="p-4">
+          <div className="p-4 flex-1">
             {/* Name */}
             <h3 className="text-base font-semibold font-roboto text-gray-900 mb-1 line-clamp-1">
               {name}
