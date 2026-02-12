@@ -355,9 +355,9 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(heroWaveInfo).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
-    test('should display 12-Day Outlook chart section', async ({ page }) => {
-      // The bar chart section heading (h3 inside the chart card)
-      const chartHeading = page.locator('h3:text-is("12-Day Outlook")');
+    test('should display Day Outlook chart section', async ({ page }) => {
+      // The horizon strip heading (h2 with dynamic day count)
+      const chartHeading = page.getByRole('heading', { name: /\d+-Day Outlook/, level: 2 });
       await expect(chartHeading).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
