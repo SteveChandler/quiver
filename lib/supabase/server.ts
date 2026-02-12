@@ -4,11 +4,3 @@ import { createServerClient, createServiceRoleClient } from "../supabase";
 export const createSupabaseServerClient = createServerClient;
 
 export const createSupabaseServiceRoleClient = createServiceRoleClient;
-
-// Export the new API server client utilities
-export {
-  createAPIServerClient,
-  createAPIServerClientWithResponse,
-  getAuthenticatedAPIClient,
-  validateSupabaseConfig,
-} from "./api-server-client";

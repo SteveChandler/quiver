@@ -368,7 +368,7 @@ describe("Engagement Tracking", () => {
       const calls = gaTrack.mock.calls;
 
       // Verify all data objects contain only primitives
-      calls.forEach((call) => {
+      calls.forEach((call: [string, Record<string, unknown>]) => {
         const data = call[1];
         Object.values(data).forEach((value) => {
           const type = typeof value;

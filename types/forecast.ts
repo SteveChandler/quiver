@@ -210,7 +210,7 @@ export interface WeatherDataSource extends ForecastDataSource {
 // Data source response types
 export interface WaveData {
   readonly forecast: WavePoint[];
-  readonly data_source: "NOAA_NWS" | "CDIP" | "FALLBACK";
+  readonly data_source: "NOAA_NWS" | "CDIP" | "OPEN_METEO" | "FALLBACK";
   readonly location: {
     readonly latitude: number;
     readonly longitude: number;
@@ -231,7 +231,7 @@ export interface WavePoint {
   readonly windWaveHeight: number;
   readonly windWavePeriod: number;
   readonly windWaveDirection: number;
-  readonly data_source: "NOAA_NWS" | "CDIP" | "FALLBACK";
+  readonly data_source: "NOAA_NWS" | "CDIP" | "OPEN_METEO" | "FALLBACK";
 }
 
 export interface TideData {

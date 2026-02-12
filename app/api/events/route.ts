@@ -9,7 +9,7 @@
  * Response: { ok: boolean, status?: 'tracking_disabled' | 'rate_limited' }
  */
 
-import { createAPIServerClient } from '@/lib/supabase/server';
+import { createAPIServerClient } from '@/lib/supabase/api-server-client';
 import {
   createSuccessResponse,
   createAuthError,

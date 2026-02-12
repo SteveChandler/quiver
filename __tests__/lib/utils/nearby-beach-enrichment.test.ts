@@ -52,7 +52,7 @@ describe("enrichBeachesWithConditions", () => {
     createSupabaseServiceRoleClient.mockReturnValue(mockSupabase);
 
     // Mock withApprovedPhotos to return the query result
-    withApprovedPhotos.mockImplementation((query) => query);
+    withApprovedPhotos.mockImplementation((query: unknown) => query);
   });
 
   function createMockBeach(overrides: Partial<Beach> = {}): Beach {
@@ -327,8 +327,8 @@ describe("enrichBeachesWithConditions", () => {
           slug: "test-beach",
           city: "San Diego",
           state: "CA",
-          center_lat: 32.8,
-          center_lng: -117.2,
+          lat: 32.8,
+          lon: -117.2,
         }),
       ];
 

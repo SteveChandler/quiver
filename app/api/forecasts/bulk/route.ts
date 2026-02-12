@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   handleApiError,
 } from "@/lib/api-utils";
-import { createAPIServerClient } from "@/lib/supabase/server";
+import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';

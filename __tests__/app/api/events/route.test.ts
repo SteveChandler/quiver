@@ -9,10 +9,10 @@
 
 import { POST } from '@/app/api/events/route';
 import { __clearTrackingCache } from '@/lib/services/tracking-cache';
-import { createAPIServerClient } from '@/lib/supabase/server';
+import { createAPIServerClient } from '@/lib/supabase/api-server-client';
 
 // Mock Supabase client
-jest.mock('@/lib/supabase/server', () => ({
+jest.mock('@/lib/supabase/api-server-client', () => ({
   createAPIServerClient: jest.fn(),
 }));
 
