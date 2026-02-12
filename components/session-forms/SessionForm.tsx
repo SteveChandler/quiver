@@ -29,10 +29,10 @@ import {
   createPlannedSession,
   createLoggedSession,
   getPlannedSessionForConversion,
-  updatePlannedSessionToCompleted,
 } from "@/actions/session-actions";
-import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
+import { handleSessionConversion } from "./session-conversion-handler";
+import { uploadSessionPhotos } from "./session-photo-handler";
 
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { buildSessionPayload } from "@/lib/utils/session-data-builder";
@@ -310,70 +310,12 @@ export function SessionForm({
 
       // Handle converting planned session to completed
       if (convertingFromPlanned && !isPlanning) {
-        // Conversion uses updatePlannedSessionToCompleted which expects water_temp as string,
-        // so we build this payload directly from formState rather than through the builder.
-        const conversionPayload = buildSessionPayload(
+        await handleSessionConversion(
+          convertingFromPlanned,
           formState,
           user.id,
-          false
+          selectedPhotos
         );
-        const completedData = {
-          ...(conversionPayload.duration_minutes !== undefined && {
-            duration_minutes: conversionPayload.duration_minutes,
-          }),
-          ...(conversionPayload.wave_quality !== undefined && {
-            wave_quality: conversionPayload.wave_quality,
-          }),
-          ...(formState.waterTemp && { water_temp: formState.waterTemp }),
-          ...(conversionPayload.crowd_level !== undefined && {
-            crowd_level: conversionPayload.crowd_level,
-          }),
-          ...(conversionPayload.parking_ease !== undefined && {
-            parking_ease: conversionPayload.parking_ease,
-          }),
-          ...(conversionPayload.rating !== undefined && {
-            rating: conversionPayload.rating,
-          }),
-          ...(formState.notes && { notes: formState.notes }),
-        };
-
-        const updatedSession = await updatePlannedSessionToCompleted(
-          convertingFromPlanned,
-          completedData
-        );
-
-        // Handle photo uploads for converted session
-        if (selectedPhotos.length > 0) {
-          try {
-            const formData = new FormData();
-            formData.append("fileCount", selectedPhotos.length.toString());
-
-            selectedPhotos.forEach((file, index) => {
-              formData.append(`file_${index}`, file);
-            });
-
-            const uploadResult = await uploadSessionPhotosAction(
-              convertingFromPlanned,
-              formData
-            );
-
-            if (uploadResult.success && uploadResult.data) {
-              toast.success(
-                `Session completed with ${uploadResult.data.uploaded} photo(s)!`
-              );
-            } else {
-              toast.success("Session completed successfully!");
-              toast.warning("Some photos failed to upload");
-            }
-          } catch (photoError) {
-            console.error("Photo upload error:", photoError);
-            toast.success("Session completed successfully!");
-            toast.warning("Photos could not be uploaded");
-          }
-        } else {
-          toast.success("Session completed successfully!");
-        }
-
         setSessionCreated(true);
         return;
       }
@@ -448,37 +390,8 @@ export function SessionForm({
         const session = sessionResult.data;
         setCreatedSession(session);
 
-        // If photos were selected, upload them
-        if (selectedPhotos.length > 0) {
-          try {
-            const formData = new FormData();
-            formData.append("fileCount", selectedPhotos.length.toString());
-
-            selectedPhotos.forEach((file, index) => {
-              formData.append(`file_${index}`, file);
-            });
-
-            const uploadResult = await uploadSessionPhotosAction(
-              session.id,
-              formData
-            );
-
-            if (uploadResult.success && uploadResult.data) {
-              toast.success(
-                `Session logged with ${uploadResult.data.uploaded} photo(s)!`
-              );
-            } else {
-              toast.success("Session logged successfully!");
-              toast.warning("Some photos failed to upload");
-            }
-          } catch (photoError) {
-            console.error("Photo upload error:", photoError);
-            toast.success("Session logged successfully!");
-            toast.warning("Photos could not be uploaded");
-          }
-        } else {
-          toast.success("Session logged successfully!");
-        }
+        // Upload photos and show appropriate success toast
+        await uploadSessionPhotos(session.id, selectedPhotos, "logged");
 
         setSessionCreated(true);
 
