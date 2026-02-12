@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Camera Embed Preflight Breaking HDOnTap Cams** - Embed preflight HEAD request was checking `X-Frame-Options` on raw camera URLs, but HDOnTap returns `DENY` on raw stream URLs. Now skips preflight for known embeddable sources (HDOnTap, YouTube, Vimeo, HLS, direct video) since `buildCamEmbed` transforms these to proper embed URLs. Also added 3-second timeout to prevent slow servers from blocking API responses.
 - **Undefined iframeRef Crash** - Added missing `useRef` declaration in `CamsSection`, preventing runtime crash on beach pages with camera embeds.
 - **Cron Auth Fails Open** - `validateCronAuth()` now returns `false` when `CRON_SECRET` is not configured (previously returned `true`, allowing any request through). Vercel-triggered crons unaffected.
 - **Hardcoded GA Fallback** - Removed hardcoded `G-JZNX7C7XKL` fallback from both `AnalyticsLoader` and `GoogleAnalytics` components. GA scripts only render when `NEXT_PUBLIC_GA_ID` env var is set.

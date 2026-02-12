@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { buildCamEmbed } from "@/lib/media/cam-embed";
 
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)
 export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -37,16 +38,36 @@ export async function GET(_request: NextRequest, props: { params: Promise<{ id: 
     // Server-side preflight for embed allow
     let embedAllowed: boolean | null = null;
     if (cameraUrl) {
-      try {
-        const head = await fetch(cameraUrl, { method: "HEAD" });
-        const xfo = head.headers.get("x-frame-options");
-        const csp = head.headers.get("content-security-policy");
-        const deniesXfo = xfo && /deny|sameorigin/i.test(xfo);
-        const deniesCsp = csp && /frame-ancestors\s+('none'|none|self)/i.test(csp);
-        embedAllowed = !(deniesXfo || deniesCsp);
-      } catch {
-        // Network or CORS may block reading headers; be optimistic and let client attempt
-        embedAllowed = null;
+      const intent = buildCamEmbed(cameraUrl);
+      // Known embeddable sources — buildCamEmbed transforms these to proper embed URLs
+      if (intent.kind !== "none" && intent.kind !== "iframe") {
+        // HLS, video — always embeddable via native players
+        embedAllowed = true;
+      } else if (
+        cameraUrl.includes("hdontap.com/") ||
+        cameraUrl.includes("youtube.com/") ||
+        cameraUrl.includes("youtu.be/") ||
+        cameraUrl.includes("vimeo.com/")
+      ) {
+        // Known iframe sources with dedicated embed transforms
+        embedAllowed = true;
+      } else if (intent.kind === "iframe") {
+        // Unknown iframe source — do preflight check
+        try {
+          const head = await fetch(cameraUrl, {
+            method: "HEAD",
+            signal: AbortSignal.timeout(3000),
+          });
+          const xfo = head.headers.get("x-frame-options");
+          const csp = head.headers.get("content-security-policy");
+          const deniesXfo = xfo && /deny|sameorigin/i.test(xfo);
+          const deniesCsp =
+            csp && /frame-ancestors\s+('none'|none|self)/i.test(csp);
+          embedAllowed = !(deniesXfo || deniesCsp);
+        } catch {
+          // Network or CORS may block reading headers; be optimistic and let client attempt
+          embedAllowed = null;
+        }
       }
     }
 
