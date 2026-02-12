@@ -13,6 +13,7 @@ import {
   IOOS_OBSERVATION_CONFIG,
   CanonicalVar,
 } from "@/lib/constants/ioos-config";
+import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
 import { ParsedObservation } from "@/lib/services/ioos-service";
 
@@ -504,7 +505,7 @@ function calculateDistance(
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371; // Earth's radius in km
+  const R = EARTH_RADIUS_KM;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =

@@ -3,7 +3,10 @@
  */
 
 /** Earth's radius in kilometers */
-const EARTH_RADIUS_KM = 6371;
+export const EARTH_RADIUS_KM = 6371;
+
+/** Earth's radius in miles */
+export const EARTH_RADIUS_MI = 3958.8;
 
 /**
  * Calculate distance between two coordinates using the Haversine formula.

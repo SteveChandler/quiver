@@ -1,6 +1,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CoordinateParser } from "@/lib/utils/coordinate-parser";
 import { createContextLogger } from "@/lib/logger";
+import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 
 const log = createContextLogger('NOAASync');
 
@@ -287,7 +288,7 @@ export class NOAABuoySync {
     lat2: number,
     lng2: number
   ): number {
-    const R = 6371; // Earth's radius in kilometers
+    const R = EARTH_RADIUS_KM;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLng = ((lng2 - lng1) * Math.PI) / 180;
     const a =

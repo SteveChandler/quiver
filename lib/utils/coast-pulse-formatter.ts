@@ -8,6 +8,7 @@ import {
   detectCoastalRegion,
   type CoastalRegion,
 } from "@/lib/constants/coastal-regions";
+import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 
 /**
  * Get size assessment label from wave height
@@ -467,7 +468,7 @@ export function findNearestBeachName(
   // Simple haversine calculation
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
+    const R = EARTH_RADIUS_KM;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =

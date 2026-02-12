@@ -1,3 +1,6 @@
+/** Timeout for auth initialization before giving up (ms) */
+export const AUTH_INIT_TIMEOUT_MS = 8000;
+
 // Bulk API request configuration
 export const API_BATCH_CONFIG = {
   // Max beach IDs per bulk forecast request.

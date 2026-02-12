@@ -4,6 +4,7 @@
  */
 
 import type { Coordinates } from '@/lib/types/coordinates';
+import { EARTH_RADIUS_KM, EARTH_RADIUS_MI } from '@/lib/utils/geo-utils';
 
 /**
  * Calculate distance between two geographic points using Haversine formula
@@ -53,7 +54,7 @@ function calculateDistanceRaw(
     return NaN;
   }
 
-  const R = unit === "miles" ? 3958.8 : 6371; // Earth's radius
+  const R = unit === "miles" ? EARTH_RADIUS_MI : EARTH_RADIUS_KM;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
 

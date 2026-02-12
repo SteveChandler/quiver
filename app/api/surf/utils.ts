@@ -9,6 +9,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getBeaches } from "@/actions/beach-actions";
 import { getBeachForecasts, getLatestBeachForecast } from "@/actions/forecast-actions";
+import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 
 export interface Coordinates {
   lat: number;
@@ -75,7 +76,7 @@ async function getCachedBeaches() {
  * Calculate distance between two coordinates in kilometers
  */
 function getDistanceInKm(coords1: Coordinates, coords2: Coordinates): number {
-  const R = 6371; // Earth's radius in km
+  const R = EARTH_RADIUS_KM;
   const dLat = (coords2.lat - coords1.lat) * (Math.PI / 180);
   const dLng = (coords2.lng - coords1.lng) * (Math.PI / 180);
   const a =

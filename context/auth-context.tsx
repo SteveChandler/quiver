@@ -21,6 +21,7 @@ import {
   safeSetItem,
   safeRemoveItem,
 } from "@/lib/utils/safe-storage";
+import { AUTH_INIT_TIMEOUT_MS } from "@/lib/constants/ui";
 
 /**
  * Zod schema for validating signup metadata from OAuth flows.
@@ -179,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsLoading(false);
           initializingRef.current = false;
         }
-      }, 8000);
+      }, AUTH_INIT_TIMEOUT_MS);
 
       try {
         const {
