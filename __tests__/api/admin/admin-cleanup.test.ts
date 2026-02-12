@@ -10,6 +10,16 @@ import {
   mockNodeEnv,
 } from "@/test-utils/api-test-helpers";
 
+// Mock admin authentication (withBearerAuth calls this as fallback)
+jest.mock("@/lib/auth/admin", () => ({
+  authenticateAdmin: jest.fn(),
+}));
+
+// Mock Supabase service role client (withBearerAuth creates this)
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({})),
+}));
+
 // Mock the InactiveBuoyCleanup service
 const mockCleanupInactiveBuoys = jest.fn();
 
@@ -18,6 +28,8 @@ jest.mock("@/lib/services/inactive-buoy-cleanup", () => ({
     cleanupInactiveBuoys: mockCleanupInactiveBuoys,
   })),
 }));
+
+const mockAuthenticateAdmin = require("@/lib/auth/admin").authenticateAdmin;
 
 describe("/api/admin/cleanup-inactive-buoys", () => {
   let cleanup: () => void;
@@ -36,6 +48,13 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
     restoreNodeEnv = mockNodeEnv("production");
 
     jest.clearAllMocks();
+
+    // Default: authenticateAdmin fails (tests that need admin auth override this)
+    mockAuthenticateAdmin.mockResolvedValue({
+      success: false,
+      error: "Authentication required",
+      status: 401,
+    });
   });
 
   afterEach(() => {
@@ -90,17 +109,9 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       expect(mockCleanupInactiveBuoys).toHaveBeenCalled();
     });
 
-    it("allows requests without auth in development mode", async () => {
+    it("requires bearer token or admin auth in all environments", async () => {
       restoreNodeEnv();
       restoreNodeEnv = mockNodeEnv("development");
-
-      mockCleanupInactiveBuoys.mockResolvedValue({
-        success: true,
-        tested: 10,
-        deactivated: 3,
-        removed: 0,
-        inactive_buoys: [],
-      });
 
       const request = createMockRequest(
         "POST",
@@ -113,9 +124,10 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(mockCleanupInactiveBuoys).toHaveBeenCalled();
+      // withBearerAuth requires auth regardless of environment
+      expect(response.status).toBe(401);
+      expect(data.error).toContain("Authentication required");
+      expect(mockCleanupInactiveBuoys).not.toHaveBeenCalled();
     });
 
     it("cleans up inactive buoys successfully (deactivate mode)", async () => {
@@ -348,8 +360,7 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe("Internal server error");
-      expect(data.details).toBe("Service unavailable");
+      expect(data.error).toBe("Buoy cleanup error");
     });
 
     it("handles malformed JSON body gracefully", async () => {
@@ -377,9 +388,9 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       const response = await POST(request);
       const data = await response.json();
 
-      // Should handle gracefully and use defaults
+      // withBearerAuth wrapper catches and returns custom error message
       expect(response.status).toBe(500);
-      expect(data.error).toBe("Internal server error");
+      expect(data.error).toBe("Buoy cleanup error");
     });
 
     it("logs cleanup mode correctly", async () => {
@@ -529,13 +540,18 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
   });
 
   describe("GET - Endpoint Information", () => {
-    it("returns endpoint documentation", async () => {
+    it("returns endpoint documentation with bearer auth", async () => {
       const request = createMockRequest(
         "GET",
-        "http://localhost:3000/api/admin/cleanup-inactive-buoys"
+        "http://localhost:3000/api/admin/cleanup-inactive-buoys",
+        {
+          headers: {
+            Authorization: "Bearer test-service-role-key",
+          },
+        }
       );
 
-      const response = await GET();
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -547,7 +563,17 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
     });
 
     it("documents dryRun parameter", async () => {
-      const response = await GET();
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/admin/cleanup-inactive-buoys",
+        {
+          headers: {
+            Authorization: "Bearer test-service-role-key",
+          },
+        }
+      );
+
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -555,7 +581,17 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
     });
 
     it("documents remove parameter", async () => {
-      const response = await GET();
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/admin/cleanup-inactive-buoys",
+        {
+          headers: {
+            Authorization: "Bearer test-service-role-key",
+          },
+        }
+      );
+
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -602,17 +638,9 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       expect(mockCleanupInactiveBuoys).not.toHaveBeenCalled();
     });
 
-    it("allows development mode access without token for testing", async () => {
+    it("requires auth even in development mode (withBearerAuth is env-agnostic)", async () => {
       restoreNodeEnv();
       restoreNodeEnv = mockNodeEnv("development");
-
-      mockCleanupInactiveBuoys.mockResolvedValue({
-        success: true,
-        tested: 10,
-        deactivated: 2,
-        removed: 0,
-        inactive_buoys: [],
-      });
 
       const request = createMockRequest(
         "POST",
@@ -625,8 +653,8 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
+      expect(response.status).toBe(401);
+      expect(data.error).toContain("Authentication required");
     });
 
     it("does not expose sensitive buoy data", async () => {
@@ -691,7 +719,8 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe("Internal server error");
+      // Accessing .success on undefined throws, caught by wrapper
+      expect(data.error).toBe("Buoy cleanup error");
     });
 
     it("handles service returning null results", async () => {
@@ -712,7 +741,8 @@ describe("/api/admin/cleanup-inactive-buoys", () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe("Internal server error");
+      // Accessing .success on null throws, caught by wrapper
+      expect(data.error).toBe("Buoy cleanup error");
     });
 
     it("handles large number of inactive buoys", async () => {

@@ -27,6 +27,11 @@ jest.mock("@/lib/auth/admin", () => ({
   authenticateAdmin: jest.fn(),
 }));
 
+// Mock Supabase service role client (withBearerAuth creates this)
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({})),
+}));
+
 // Get access to the mocked function after mocking
 const mockAuthenticateAdmin = require("@/lib/auth/admin").authenticateAdmin;
 

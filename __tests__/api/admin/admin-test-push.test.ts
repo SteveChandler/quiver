@@ -19,6 +19,11 @@ jest.mock("@/lib/services/push-notifications", () => ({
   sendPushNotification: jest.fn(),
 }));
 
+// Mock Supabase service role client (withAdminAuth creates this)
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({})),
+}));
+
 // Get access to the mocked functions after mocking
 const mockAuthenticateAdmin = require("@/lib/auth/admin").authenticateAdmin;
 const mockSendPushNotification = require("@/lib/services/push-notifications").sendPushNotification;
@@ -527,8 +532,9 @@ describe("/api/admin/test-push", () => {
         "http://localhost:3000/api/admin/test-push"
       );
 
-      // The GET endpoint doesn't have try-catch, so exceptions will be thrown
-      await expect(GET()).rejects.toThrow("Auth service unavailable");
+      // withAdminAuth wrapper catches exceptions and returns error response
+      const response = await GET(request);
+      expect(response.status).toBe(500);
     });
 
     it("documents parameter constraints", async () => {
