@@ -56,17 +56,22 @@ async function bulkForecastHandler(request: NextRequest) {
 
     const supabase = await createAPIServerClient();
 
-    // Get current date for SQL filtering
+    // Get today and tomorrow for SQL filtering
     const now = new Date();
     const today = now.toISOString().split("T")[0];
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
 
-    // Fetch only today or future forecasts, ordered for efficient grouping
-    // SQL filtering reduces data transfer by 50-80%
+    // Fetch only today + tomorrow forecasts to stay under Supabase's 1,000-row default limit.
+    // getCurrentForecast() only needs today (next slot at/after now) or tomorrow (fallback).
+    // Previously .gte("forecast_date", today) fetched 12 days out (~4,700 rows for 50 beaches),
+    // causing silent truncation — beaches with later-sorting UUIDs got no forecast data.
     const { data: forecasts, error } = await supabase
       .from("enhanced_forecasts")
       .select("beach_id, forecast_date, forecast_time, wave_height")
       .in("beach_id", limitedBeachIds)
-      .gte("forecast_date", today) // Only today or future dates
+      .in("forecast_date", [today, tomorrow])
       .order("beach_id", { ascending: true })
       .order("forecast_date", { ascending: true })
       .order("forecast_time", { ascending: true });
