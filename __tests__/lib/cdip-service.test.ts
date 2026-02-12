@@ -341,13 +341,31 @@ describe("CDIPService - API integration tests (mocked)", () => {
             peakWavePeriod: 8.5,
             peakWaveDirection: 225,
           },
+          {
+            timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
+            significantWaveHeight: 1.1,
+            peakWavePeriod: 8.3,
+            peakWaveDirection: 220,
+          },
+          {
+            timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(), // 1.5 hours ago
+            significantWaveHeight: 1.0,
+            peakWavePeriod: 8.1,
+            peakWaveDirection: 215,
+          },
+          {
+            timestamp: new Date(Date.now() - 120 * 60 * 1000).toISOString(), // 2 hours ago
+            significantWaveHeight: 0.9,
+            peakWavePeriod: 7.9,
+            peakWaveDirection: 210,
+          },
         ],
         dataSource: "CDIP",
         lastUpdated: new Date().toISOString(),
       };
 
       const score = service.getDataQualityScore(recentData);
-      expect(score).toBeGreaterThanOrEqual(80); // Recent data should score high
+      expect(score).toBeGreaterThanOrEqual(80); // Recent data with multiple points should score high
     });
 
     it("should penalize stale data", () => {
