@@ -17,7 +17,7 @@ import {
   type RegionalForecastSummary,
 } from "@/lib/utils/regional-forecast-utils";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
-import { getBeaches } from "@/actions/beach/beach-query-actions";
+import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -43,7 +43,7 @@ export async function getRegionalSummaries(
   if (beaches) {
     allBeaches = beaches;
   } else {
-    const beachesResult = await getBeaches();
+    const beachesResult = await getBeachesFromDb();
     if (!beachesResult.success || !beachesResult.data) {
       console.error("Failed to fetch beaches for forecast hub");
       return summaries;
@@ -223,7 +223,7 @@ export async function getTopBeachesRightNow(
   userCoords?: { lat: number; lon: number } | null
 ): Promise<TopBeachEntry[]> {
   // Fetch beaches once and pass to getRegionalSummaries to avoid double fetch
-  const beachesResult = await getBeaches();
+  const beachesResult = await getBeachesFromDb();
   if (!beachesResult.success || !beachesResult.data) {
     console.error("Failed to fetch beaches for top beaches");
     return [];

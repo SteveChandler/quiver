@@ -1,8 +1,5 @@
 import { cache } from "react";
-import {
-  getBeachById,
-  getBeachesBySlug,
-} from "@/actions/beach/beach-query-actions";
+import { getBeachByIdFromDb, getBeachesBySlugFromDb } from "@/lib/services/beach-query-service";
 import type { Beach } from "@/types/database";
 import { nullsLast } from "@/lib/utils/nullable-display-utils";
 
@@ -34,7 +31,7 @@ export function selectBestCandidate(candidates: Beach[]): Beach | null {
  */
 export const getBeachBySlugOrId = cache(async (slug: string): Promise<Beach | null> => {
   // Try slug lookup first
-  const bySlugResult = await getBeachesBySlug(slug);
+  const bySlugResult = await getBeachesBySlugFromDb(slug);
   const candidates = bySlugResult.success ? bySlugResult.data ?? [] : [];
 
   if (candidates.length > 0) {
@@ -42,7 +39,7 @@ export const getBeachBySlugOrId = cache(async (slug: string): Promise<Beach | nu
   }
 
   // Fallback: treat slug as an ID for back-compat
-  const byIdResult = await getBeachById(slug);
+  const byIdResult = await getBeachByIdFromDb(slug);
   if (byIdResult.success && byIdResult.data) {
     return byIdResult.data;
   }

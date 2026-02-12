@@ -5,7 +5,7 @@
  * using smart templates that inject real data from the database.
  */
 
-import type { CityMetadata } from "@/actions/city/city-metadata-actions";
+import type { CityMetadata } from "@/types/location";
 import type { SurfIntentSlug } from "@/lib/data/surf-spots";
 import { getClimateZone } from "@/lib/seo/regional-surf-data";
 import { truncateTitleForSEO } from "@/lib/seo/meta";

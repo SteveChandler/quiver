@@ -189,3 +189,24 @@ export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
   recentIntel: 0.2,
   intelQuality: 0.1,
 };
+
+/**
+ * Metadata for a city's surf beaches.
+ * Used by intent pages, SEO templates, and city-level data fetching.
+ */
+export interface CityMetadata {
+  cityName: string;
+  state: string;
+  stateName: string;
+  totalBeaches: number;
+  beginnerCount: number;
+  intermediateCount: number;
+  advancedCount: number;
+  beaches: Array<{
+    name: string;
+    slug: string;
+    skillLevel: string | null;
+  }>;
+  centerLat: number;
+  centerLon: number;
+}

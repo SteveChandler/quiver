@@ -4,17 +4,12 @@ import { unstable_cache } from "next/cache";
 import { withDatabaseOperation } from "@/lib/server-action-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import {
+  getBeachesFromDb,
+  getBeachByIdFromDb,
+  getBeachesBySlugFromDb,
+} from "@/lib/services/beach-query-service";
 import type { Beach } from "@/types/database";
-
-// Selective field query for beach list - only fetch commonly needed fields
-// Note: Only includes fields that exist in the beaches table schema
-// Updated after 20251025 migrations: location→city, latitude→lat, longitude→lon, region→state
-// WARNING: Some environments may still use legacy columns (location/region) and may not have updated_at.
-// We avoid selecting `updated_at` and fall back to legacy fields on schema-mismatch errors.
-const BEACH_LIST_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, is_private";
-const BEACH_LIST_FIELDS_LEGACY =
-  "id, name, location, region, lat, lon, country, created_at, is_private";
 
 // Full beach detail fields for single beach queries
 // Includes all fields from beaches table for comprehensive beach view
@@ -35,81 +30,26 @@ function escapeLikePattern(pattern: string): string {
   return pattern.replace(/[%_]/g, "\\$&");
 }
 
+/**
+ * Fetch all beaches. Thin wrapper around the service layer.
+ */
 export async function getBeaches() {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    try {
-      // Use selective fields instead of * to reduce data transfer
-      let result: any = await supabase
-        .from("beaches")
-        .select(BEACH_LIST_FIELDS)
-        .order("name");
-
-      // If schema mismatch (unknown column), retry with legacy field set.
-      if (result.error && (result.error as any)?.code === "42703") {
-        result = (await supabase
-          .from("beaches")
-          .select(BEACH_LIST_FIELDS_LEGACY)
-          .order("name")) as any;
-
-        // Normalize legacy location/region into city/state for downstream match strategies
-        if (Array.isArray((result as any).data)) {
-          (result as any).data = (result as any).data.map((b: any) => ({
-            ...b,
-            city: b.city ?? b.location ?? null,
-            state: b.state ?? b.region ?? null,
-            slug: b.slug ?? null,
-            updated_at: b.updated_at ?? null,
-          }));
-        }
-      }
-
-      return result;
-    } catch (err) {
-      // Normalize non-Error throws to a standard shape
-      return { data: null, error: { message: err instanceof Error ? err.message : "Unknown error" } } as any;
-    }
-  });
-}
-
-export async function getBeachById(id: string) {
-  return withDatabaseOperation<Beach>(async (supabase) => {
-    // Fetch full details for single beach view
-    return supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .eq("id", id)
-      .single();
-  });
+  return getBeachesFromDb();
 }
 
 /**
- * Fetch 0..N beaches by slug without throwing on 0 results or duplicates.
- *
- * - Use this for public routing where duplicate slugs can exist and should be
- *   disambiguated by URL context (state/city/country).
- * - Excludes private beaches.
+ * Fetch a single beach by ID. Thin wrapper around the service layer.
+ */
+export async function getBeachById(id: string) {
+  return getBeachByIdFromDb(id);
+}
+
+/**
+ * Fetch 0..N beaches by slug. Thin wrapper around the service layer.
+ * Excludes private beaches.
  */
 export async function getBeachesBySlug(slug: string) {
-  return withDatabaseOperation<Beach[]>(async (supabase) => {
-    const normalized = slug.trim().toLowerCase();
-
-    if (!normalized) {
-      return { data: [], error: null };
-    }
-
-    const { data, error } = await supabase
-      .from("beaches")
-      .select(BEACH_DETAIL_FIELDS)
-      .eq("slug", normalized)
-      .or("is_private.is.null,is_private.eq.false")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      throw error;
-    }
-
-    return { data: (data ?? []) as Beach[], error: null };
-  });
+  return getBeachesBySlugFromDb(slug);
 }
 
 /**

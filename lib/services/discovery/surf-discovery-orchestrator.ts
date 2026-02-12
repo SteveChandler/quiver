@@ -18,7 +18,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { createContextLogger } from '@/lib/logger';
-import { getFavoriteBeaches } from '@/actions/beach/beach-favorite-actions';
+import { getFavoriteBeachesFromDb } from '@/lib/services/beach-query-service';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -541,7 +541,7 @@ export async function discoverSurfSpots(
     // 4. Fetch and merge favorites
     let favoriteBeachIds = new Set<string>();
     try {
-      const favoriteBeachesResponse = await getFavoriteBeaches(userId);
+      const favoriteBeachesResponse = await getFavoriteBeachesFromDb(userId);
       if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
         favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
         log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);

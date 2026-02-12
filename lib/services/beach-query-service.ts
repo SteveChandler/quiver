@@ -1,0 +1,185 @@
+/**
+ * Beach Query Service
+ *
+ * Core database query functions for beaches, extracted from server actions
+ * to break circular dependencies (lib -> actions).
+ *
+ * This module is NOT a server action ("use server" is not applied).
+ * It lives in lib/services/ so other lib/ modules can import it
+ * without creating circular dependencies through the actions/ layer.
+ *
+ * @module lib/services/beach-query-service
+ */
+
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import type { ServerActionResponse } from "@/lib/server-action-utils";
+import { withDatabaseOperation } from "@/lib/server-action-utils";
+import type { Beach } from "@/types/database";
+
+// ---------------------------------------------------------------------------
+// Field constants (mirrored from actions/beach/beach-query-actions.ts)
+// ---------------------------------------------------------------------------
+
+// Selective field query for beach list - only fetch commonly needed fields
+// Updated after 20251025 migrations: location->city, latitude->lat, longitude->lon, region->state
+// WARNING: Some environments may still use legacy columns (location/region) and may not have updated_at.
+const BEACH_LIST_FIELDS =
+  "id, name, slug, city, lat, lon, state, country, created_at, is_private";
+const BEACH_LIST_FIELDS_LEGACY =
+  "id, name, location, region, lat, lon, country, created_at, is_private";
+
+// Full beach detail fields for single beach queries
+const BEACH_DETAIL_FIELDS = "*";
+
+// ---------------------------------------------------------------------------
+// getBeachesFromDb
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch all beaches from the database.
+ *
+ * This is the pure query extracted from `getBeaches()` in beach-query-actions.
+ * It creates its own Supabase client, runs the query, and returns a
+ * `ServerActionResponse<Beach[]>` for drop-in compatibility with existing callers.
+ */
+export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>> {
+  return withDatabaseOperation<Beach[]>(async (supabase) => {
+    try {
+      // Use selective fields instead of * to reduce data transfer
+      let result: any = await supabase
+        .from("beaches")
+        .select(BEACH_LIST_FIELDS)
+        .order("name");
+
+      // If schema mismatch (unknown column), retry with legacy field set.
+      if (result.error && (result.error as any)?.code === "42703") {
+        result = (await supabase
+          .from("beaches")
+          .select(BEACH_LIST_FIELDS_LEGACY)
+          .order("name")) as any;
+
+        // Normalize legacy location/region into city/state for downstream match strategies
+        if (Array.isArray((result as any).data)) {
+          (result as any).data = (result as any).data.map((b: any) => ({
+            ...b,
+            city: b.city ?? b.location ?? null,
+            state: b.state ?? b.region ?? null,
+            slug: b.slug ?? null,
+            updated_at: b.updated_at ?? null,
+          }));
+        }
+      }
+
+      return result;
+    } catch (err) {
+      // Normalize non-Error throws to a standard shape
+      return { data: null, error: { message: err instanceof Error ? err.message : "Unknown error" } } as any;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// getBeachByIdFromDb
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a single beach by its ID.
+ *
+ * Extracted from `getBeachById()` in beach-query-actions.
+ */
+export async function getBeachByIdFromDb(id: string): Promise<ServerActionResponse<Beach>> {
+  return withDatabaseOperation<Beach>(async (supabase) => {
+    return supabase
+      .from("beaches")
+      .select(BEACH_DETAIL_FIELDS)
+      .eq("id", id)
+      .single();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// getBeachesBySlugFromDb
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch 0..N beaches by slug without throwing on 0 results or duplicates.
+ *
+ * Extracted from `getBeachesBySlug()` in beach-query-actions.
+ * Excludes private beaches.
+ */
+export async function getBeachesBySlugFromDb(slug: string): Promise<ServerActionResponse<Beach[]>> {
+  return withDatabaseOperation<Beach[]>(async (supabase) => {
+    const normalized = slug.trim().toLowerCase();
+
+    if (!normalized) {
+      return { data: [], error: null };
+    }
+
+    const { data, error } = await supabase
+      .from("beaches")
+      .select(BEACH_DETAIL_FIELDS)
+      .eq("slug", normalized)
+      .or("is_private.is.null,is_private.eq.false")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    return { data: (data ?? []) as Beach[], error: null };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// getFavoriteBeachesFromDb
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a user's favorite beaches from the database.
+ *
+ * This is an internal service function that bypasses auth checking.
+ * It uses a service-role client so it can be called from other lib/
+ * modules (e.g. the discovery orchestrator) without going through
+ * the authenticated action wrapper.
+ *
+ * @param userId - The user ID whose favorites to fetch
+ */
+export async function getFavoriteBeachesFromDb(
+  userId: string
+): Promise<ServerActionResponse<Beach[]>> {
+  try {
+    const supabase = createSupabaseServiceRoleClient();
+
+    const { data, error } = await supabase
+      .from("favorite_beaches")
+      .select(
+        `
+        id,
+        rank,
+        beach_id,
+        beaches (*)
+      `
+      )
+      .eq("user_id", userId)
+      .order("rank", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching favorite beaches from DB:", error);
+      return { success: false, error: error.message || "Failed to fetch favorite beaches" };
+    }
+
+    // Extract the beaches from the nested structure (preserve order)
+    const beaches = (data || [])
+      .map((item: any) => item.beaches)
+      .filter((beach: any) => beach !== null) as Beach[];
+
+    return { success: true, data: beaches };
+  } catch (err) {
+    console.error("Error in getFavoriteBeachesFromDb:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}

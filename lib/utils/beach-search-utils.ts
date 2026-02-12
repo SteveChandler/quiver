@@ -1,4 +1,4 @@
-import { getBeaches } from "@/actions/beach-actions";
+import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import {
   isLikelyOutOfAreaSearch,
   COVERAGE_MESSAGES,
@@ -36,7 +36,7 @@ export async function searchBeachesMultiple(
     console.log(`🔍 searchBeachesMultiple called with: "${searchText}"`);
 
     // Fetch all beaches
-    const allBeachesResult = await getBeaches();
+    const allBeachesResult = await getBeachesFromDb();
     if (!allBeachesResult.success || !allBeachesResult.data) {
       console.log(`❌ Failed to get beaches:`, allBeachesResult.error);
       return [];

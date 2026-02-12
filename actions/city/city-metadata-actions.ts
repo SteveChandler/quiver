@@ -4,22 +4,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withServerAction, ServerActionResponse } from "@/lib/server-action-utils";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 
-export interface CityMetadata {
-  cityName: string;
-  state: string;
-  stateName: string;
-  totalBeaches: number;
-  beginnerCount: number;
-  intermediateCount: number;
-  advancedCount: number;
-  beaches: Array<{
-    name: string;
-    slug: string;
-    skillLevel: string | null;
-  }>;
-  centerLat: number;
-  centerLon: number;
-}
+// CityMetadata is defined in @/types/location; re-export for backward compatibility
+import type { CityMetadata } from "@/types/location";
+export type { CityMetadata } from "@/types/location";
 
 /**
  * Result from find_cities_by_pattern RPC function.
