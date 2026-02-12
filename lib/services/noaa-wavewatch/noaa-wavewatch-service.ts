@@ -13,7 +13,8 @@ import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGri
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
 import { generateFallbackData } from "./fallback-generator";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
-import type { WaveWatchForecast } from "./types";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import type { WaveWatchForecast, WaveWatchData } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch");
 
@@ -61,7 +62,14 @@ export class NOAAWaveWatchService {
       }
 
       // If NOAA data fails, fall back to simulated data with clear indication
-      log.debug("NOAA data unavailable, falling back to simulated data");
+      log.warn(`Using FALLBACK synthetic data for ${latitude}, ${longitude} — both NOAA and Open-Meteo returned no usable forecasts`);
+      trackFallback({
+        domain: "noaa-wavewatch",
+        field: "wave_forecast",
+        fallbackValue: "synthetic",
+        reason: "both_sources_empty",
+        context: { latitude, longitude, days },
+      });
       const fallbackData = generateFallbackData(latitude, longitude, days);
 
       return {
@@ -71,7 +79,14 @@ export class NOAAWaveWatchService {
         data_source: "FALLBACK",
       };
     } catch (error) {
-      log.error("Error fetching wave forecast:", error);
+      log.error(`Using FALLBACK synthetic data for ${latitude}, ${longitude} due to error:`, error);
+      trackFallback({
+        domain: "noaa-wavewatch",
+        field: "wave_forecast",
+        fallbackValue: "synthetic",
+        reason: "fetch_error",
+        context: { latitude, longitude, days, error: String(error) },
+      });
 
       // Generate fallback data on error
       const fallbackData = generateFallbackData(latitude, longitude, days);
@@ -86,7 +101,9 @@ export class NOAAWaveWatchService {
   }
 
   /**
-   * Fetch real wave forecast data from NOAA or Open-Meteo
+   * Fetch real wave forecast data from NOAA and Open-Meteo in parallel,
+   * then merge by time horizon: NOAA for days 1-3, Open-Meteo for days 4-7,
+   * NOAA for days 8+ (Open-Meteo maxes at 7 days).
    *
    * @private
    * @param latitude - Latitude in decimal degrees
@@ -101,33 +118,28 @@ export class NOAAWaveWatchService {
   ): Promise<WaveWatchForecast | null> {
     try {
       log.debug(
-        `Attempting to fetch real NOAA data for ${latitude}, ${longitude}`
+        `Fetching NOAA + Open-Meteo in parallel for ${latitude}, ${longitude}`
       );
 
-      // First try NOAA NWS API
-      const noaaData = await this.fetchNOAANWSData(latitude, longitude, days);
-      if (noaaData && noaaData.forecast.length > 0) {
-        log.debug(
-          `Successfully fetched NOAA NWS data with ${noaaData.forecast.length} forecasts`
-        );
-        return noaaData;
+      // Fetch both sources in parallel
+      const [noaaResult, openMeteoResult] = await Promise.allSettled([
+        this.fetchNOAANWSData(latitude, longitude, days),
+        this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, 7)),
+      ]);
+
+      const noaaData =
+        noaaResult.status === "fulfilled" ? noaaResult.value : null;
+      const openMeteoData =
+        openMeteoResult.status === "fulfilled" ? openMeteoResult.value : null;
+
+      // If we have both, merge by time horizon
+      if (noaaData?.forecast.length && openMeteoData?.forecast.length) {
+        return this.mergeForecasts(noaaData, openMeteoData, latitude, longitude);
       }
 
-      // If NOAA NWS fails or has no wave data, try Open-Meteo as a better fallback
-      log.debug(
-        `NOAA NWS unavailable, trying Open-Meteo API for ${latitude}, ${longitude}`
-      );
-      const openMeteoData = await this.fetchOpenMeteoDataWrapper(
-        latitude,
-        longitude,
-        days
-      );
-      if (openMeteoData && openMeteoData.forecast.length > 0) {
-        log.debug(
-          `Successfully fetched Open-Meteo data with ${openMeteoData.forecast.length} forecasts`
-        );
-        return openMeteoData;
-      }
+      // If only one source, use it
+      if (noaaData?.forecast.length) return noaaData;
+      if (openMeteoData?.forecast.length) return openMeteoData;
 
       log.debug(
         `Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
@@ -137,6 +149,63 @@ export class NOAAWaveWatchService {
       log.error("Error fetching real wave data:", error);
       return null;
     }
+  }
+
+  /**
+   * Merge NOAA (near-term) and Open-Meteo (extended) forecasts.
+   * NOAA is authoritative for days 1-3, Open-Meteo for days 4-7.
+   * Days 8+ fall back to NOAA (Open-Meteo maxes at 7).
+   */
+  private mergeForecasts(
+    noaaData: WaveWatchForecast,
+    openMeteoData: WaveWatchForecast,
+    latitude: number,
+    longitude: number
+  ): WaveWatchForecast {
+    const NOAA_CUTOFF_HOURS = 72; // 3 days
+    const now = Date.now();
+
+    // Build a map of Open-Meteo forecasts by 3-hour time slot
+    const openMeteoMap = new Map<number, WaveWatchData>();
+    for (const fc of openMeteoData.forecast) {
+      const ts = new Date(fc.timestamp).getTime();
+      const slot = Math.round(ts / (3 * 3600000)) * (3 * 3600000);
+      openMeteoMap.set(slot, fc);
+    }
+
+    const merged: WaveWatchData[] = [];
+    for (const fc of noaaData.forecast) {
+      const ts = new Date(fc.timestamp).getTime();
+      const hoursAhead = (ts - now) / 3600000;
+      const slot = Math.round(ts / (3 * 3600000)) * (3 * 3600000);
+
+      if (hoursAhead <= NOAA_CUTOFF_HOURS) {
+        // Days 1-3: use NOAA
+        merged.push(fc);
+      } else {
+        // Days 4+: prefer Open-Meteo, fall back to NOAA
+        const omFc = openMeteoMap.get(slot);
+        if (omFc) {
+          merged.push({ ...omFc, data_source: "OPEN_METEO" });
+        } else {
+          merged.push(fc);
+        }
+      }
+    }
+
+    const openMeteoCount = merged.filter(
+      (f) => f.data_source === "OPEN_METEO"
+    ).length;
+    log.info(
+      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA ≤3d, ${openMeteoCount} Open-Meteo 4-7d)`
+    );
+
+    return {
+      lat: latitude,
+      lng: longitude,
+      forecast: merged,
+      data_source: "NOAA_NWS",
+    };
   }
 
   /**
@@ -245,7 +314,7 @@ export class NOAAWaveWatchService {
         lat: latitude,
         lng: longitude,
         forecast: waveData,
-        data_source: "NOAA_NWS", // Keep as NOAA_NWS for consistency
+        data_source: "OPEN_METEO",
       };
     } catch (error) {
       log.error("Error fetching Open-Meteo data:", error);

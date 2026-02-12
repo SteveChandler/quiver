@@ -176,7 +176,7 @@ export function processOpenMeteoData(
       wind_wave_height: windWaveHeight,
       wind_wave_period: windWavePeriod,
       wind_wave_direction: windWaveDirection,
-      data_source: "NOAA_NWS", // Use NOAA_NWS for compatibility
+      data_source: "OPEN_METEO" as const,
     };
 
     forecasts.push(forecast);

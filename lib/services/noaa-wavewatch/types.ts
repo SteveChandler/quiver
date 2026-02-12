@@ -99,7 +99,7 @@ export interface WaveWatchData {
   /** Wind wave direction in degrees */
   wind_wave_direction: number;
   /** Data source indicator */
-  data_source: "NOAA_NWS" | "FALLBACK";
+  data_source: "NOAA_NWS" | "OPEN_METEO" | "FALLBACK";
 }
 
 /**
@@ -113,7 +113,7 @@ export interface WaveWatchForecast {
   /** Array of wave forecast data points */
   forecast: WaveWatchData[];
   /** Data source indicator */
-  data_source: "NOAA_NWS" | "FALLBACK";
+  data_source: "NOAA_NWS" | "OPEN_METEO" | "FALLBACK";
 }
 
 /**
