@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, PlayCircle, RefreshCw } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -30,6 +30,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
     refetch,
   } = useDataFetcher(fetchSources, { immediate: true });
 
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
 
   useEffect(() => {
