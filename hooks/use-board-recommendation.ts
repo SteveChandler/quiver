@@ -146,15 +146,24 @@ export function useBoardRecommendation({
     [waveHeight, windSpeed, beachId]
   );
 
+  // Check if user is likely authenticated (has Supabase auth cookie).
+  // This prevents firing an API call that will 401 for unauthenticated users,
+  // avoiding console noise from the browser logging the failed network request.
+  const hasAuthCookie = useMemo(() => {
+    if (typeof document === "undefined") return false;
+    return document.cookie.includes("sb-") && document.cookie.includes("-auth-token");
+  }, []);
+
   // Check if we have valid inputs
   const hasValidInputs = useMemo(
     () =>
       enabled &&
+      hasAuthCookie &&
       waveHeight !== null &&
       waveHeight > 0 &&
       windSpeed !== null &&
       windSpeed >= 0,
-    [enabled, waveHeight, windSpeed]
+    [enabled, hasAuthCookie, waveHeight, windSpeed]
   );
 
   const fetchRecommendation = useCallback(

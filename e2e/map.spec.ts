@@ -26,9 +26,11 @@ test.describe('Map Page - Core Functionality', () => {
   });
 
   test('should display map canvas or interactive element', async ({ page }) => {
-    // Wait for map to fully load - canvas element appears once Mapbox initializes
+    // Wait for map to fully load - canvas element appears once Mapbox initializes.
+    // Uses long timeout because WebGL context creation + Mapbox style/tile loading
+    // can be slow, especially in CI environments with limited GPU resources.
     const mapCanvas = page.locator('canvas').first();
-    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
   });
 
   test('should display beach markers or beach data', async ({ page }) => {

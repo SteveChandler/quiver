@@ -504,6 +504,36 @@ export function InteractiveMap({
           }
         }
 
+        // Fill missing wave heights from nearest beach with data
+        if (localWaveHeightMap.size > 0 && beachesForWaveData.length > 0) {
+          const beachesWithData = beachesForWaveData.filter(
+            (b) => localWaveHeightMap.has(b.id)
+          );
+          const beachesWithoutData = beachesForWaveData.filter(
+            (b) => !localWaveHeightMap.has(b.id)
+          );
+
+          for (const beach of beachesWithoutData) {
+            let nearestDistance = Infinity;
+            let nearestHeight: number | undefined;
+
+            for (const dataBeach of beachesWithData) {
+              const dist = Math.hypot(
+                (beach.lat ?? 0) - (dataBeach.lat ?? 0),
+                (beach.lon ?? 0) - (dataBeach.lon ?? 0)
+              );
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestHeight = localWaveHeightMap.get(dataBeach.id);
+              }
+            }
+
+            if (nearestHeight !== undefined) {
+              localWaveHeightMap.set(beach.id, nearestHeight);
+            }
+          }
+        }
+
         // Store wave heights for clustering
         setWaveHeightMap(localWaveHeightMap);
 
