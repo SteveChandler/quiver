@@ -33,5 +33,4 @@ GRANT USAGE ON SCHEMA storage TO service_role;
 GRANT ALL ON storage.objects TO service_role;
 GRANT ALL ON storage.buckets TO service_role;
 
--- Add comment for documentation
-COMMENT ON SCHEMA storage IS 'Storage schema for file uploads including ML model artifacts';
+-- Note: COMMENT ON SCHEMA storage requires ownership, skipped for local compatibility

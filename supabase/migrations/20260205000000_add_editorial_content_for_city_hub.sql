@@ -277,7 +277,7 @@ SELECT
   )
 FROM beaches
 WHERE LOWER(name) LIKE '%la jolla shores%'
-  OR (LOWER(name) LIKE '%shores%' AND LOWER(location) LIKE '%la jolla%')
+  OR (LOWER(name) LIKE '%shores%' AND LOWER(city) LIKE '%la jolla%')
 LIMIT 1
 ON CONFLICT (beach_id, content_type) DO UPDATE
 SET content = EXCLUDED.content, updated_at = now();
@@ -475,7 +475,7 @@ SELECT
   )
 FROM beaches
 WHERE LOWER(name) LIKE '%ocean beach%'
-  AND LOWER(location) LIKE '%san diego%'
+  AND LOWER(city) LIKE '%san diego%'
 LIMIT 1
 ON CONFLICT (beach_id, content_type) DO UPDATE
 SET content = EXCLUDED.content, updated_at = now();

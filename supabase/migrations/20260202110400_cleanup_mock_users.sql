@@ -57,7 +57,12 @@ DELETE FROM referrals WHERE referrer_id IN (SELECT id FROM mock_user_ids) OR ref
 
 -- 5. User activity and device tables
 DELETE FROM user_activities WHERE user_id IN (SELECT id FROM mock_user_ids);
-DELETE FROM push_devices WHERE user_id IN (SELECT id FROM mock_user_ids);
+-- push_devices was dropped in 20260124130000_consolidate_push_device_tables.sql
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'push_devices') THEN
+    DELETE FROM push_devices WHERE user_id IN (SELECT id FROM mock_user_ids);
+  END IF;
+END $$;
 DELETE FROM storage_usage WHERE user_id IN (SELECT id FROM mock_user_ids);
 
 -- 6. History/audit tables (set changed_by to NULL instead of deleting history)

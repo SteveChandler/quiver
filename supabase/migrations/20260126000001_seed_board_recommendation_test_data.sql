@@ -149,6 +149,11 @@ BEGIN
     -- 4. Create sessions with board recommendations
     -- ================================================
 
+    -- Temporarily disable the beach affinity trigger to avoid FK issues
+    -- (Test user exists in public.profiles but not auth.users, and
+    -- user_beach_affinity FK references auth.users)
+    ALTER TABLE sessions DISABLE TRIGGER update_beach_affinity_trigger;
+
     -- Sessions with Shortboard (medium-large waves, 3-6ft)
     -- Should be recommended for waves 3-8ft
     FOR i IN 1..12 LOOP
@@ -343,6 +348,9 @@ BEGIN
             NOW() - (INTERVAL '1 day' * (i * 15))
         );
     END LOOP;
+
+    -- Re-enable the beach affinity trigger
+    ALTER TABLE sessions ENABLE TRIGGER update_beach_affinity_trigger;
 
     -- Update board session counts
     UPDATE public.boards SET session_count = (
