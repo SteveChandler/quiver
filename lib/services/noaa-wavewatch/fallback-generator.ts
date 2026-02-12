@@ -8,6 +8,7 @@
  */
 
 import { createContextLogger } from "@/lib/logger";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import { FORECAST_CONFIG } from "./constants";
 import { getBaseWaveHeight, getSeasonalFactor, getPrevailingWaveDirection } from "./wave-analysis";
 import type { WaveWatchData } from "./types";
@@ -30,6 +31,7 @@ export function generateFallbackData(
   longitude: number,
   days: number
 ): WaveWatchData[] {
+  trackFallback({ domain: 'noaa-wavewatch', field: 'wave_forecast', fallbackValue: 'synthetic', context: { generator: 'fallback-wave' } });
   const forecasts: WaveWatchData[] = [];
   const now = new Date();
 

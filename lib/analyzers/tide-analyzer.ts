@@ -19,6 +19,8 @@ import type {
   BeachPreferences,
 } from "@/types/morning-intel";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import { resolveTideHeight } from "@/lib/monitoring/fallback-helpers";
 
 /**
  * Type for tide direction
@@ -78,7 +80,7 @@ export function recommendTideWindow(
     // Fallback to first forecast with tide data
     const forecastWithTide = forecasts.find((f) => f.tide_height !== null);
     return {
-      height: forecastWithTide?.tide_height || 0,
+      height: resolveTideHeight(forecastWithTide?.tide_height),
       direction: normalizeTideDirection(forecastWithTide?.tide_status),
       nextEvent: null, // Next tide event would need to be calculated from tides array
     };
@@ -89,8 +91,10 @@ export function recommendTideWindow(
 
   if (beachPrefs && beachPrefs.tideMinFt !== null && beachPrefs.tideMaxFt !== null) {
     // Score each forecast based on how close it is to optimal tide range
+    let missingTideCount = 0;
     const scoredForecasts = morningForecasts.map((f) => {
       const tideHeight = f.tide_height || 0;
+      if (!f.tide_height) missingTideCount++;
       const midTide = (beachPrefs.tideMinFt! + beachPrefs.tideMaxFt!) / 2;
       const distance = Math.abs(tideHeight - midTide);
       const isInRange =
@@ -100,6 +104,7 @@ export function recommendTideWindow(
         score: isInRange ? 100 - distance : -distance,
       };
     });
+    if (missingTideCount > 0) trackFallback({ domain: 'tide-analyzer', field: 'tide_height', fallbackValue: 0, context: { missingForecasts: missingTideCount } });
 
     // Get forecast with best score
     scoredForecasts.sort((a, b) => b.score - a.score);
@@ -107,7 +112,7 @@ export function recommendTideWindow(
   }
 
   return {
-    height: bestForecast.tide_height || 0,
+    height: resolveTideHeight(bestForecast.tide_height),
     direction: normalizeTideDirection(bestForecast.tide_status),
     nextEvent: null, // Next tide event would need to be calculated from tides array
     recommendedTime: bestForecast.forecast_time,

@@ -15,6 +15,8 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { DetailedScore } from '@/types/personalization';
 import type { ScorerInput, CompositeScore } from './types';
+import { trackFallback } from '@/lib/monitoring/fallback-tracker';
+import { resolveConfidence } from '@/lib/monitoring/fallback-helpers';
 import type { SpotProfile } from '../spot-profile/types';
 import type { ConditionsSnapshot, ConditionsWindow } from '../conditions/types';
 import type { UserPreferences } from '../user-preferences/types';
@@ -119,7 +121,7 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
       status: tideStatus,
       direction: tideDirection,
     },
-    confidence: forecast.confidence_score ?? 50,
+    confidence: resolveConfidence(forecast.confidence_score, 'discovery'),
     dataSource: forecast.data_source || 'unknown',
   };
 }
@@ -132,6 +134,11 @@ export function compositeToDetailedScore(
   affinityBonus: number = 0,
   distancePenalty: number = 0
 ): DetailedScore {
+  // Track missing subscores
+  for (const key of ['baseConditions', 'windQuality', 'tideFit'] as const) {
+    if (!composite.subscores.has(key)) trackFallback({ domain: 'discovery', field: `subscore_${key}`, fallbackValue: 50 });
+  }
+
   // Map subscores to legacy format
   const subscores = {
     waveHeightFit: Math.round((composite.subscores.get('baseConditions') ?? 50) * 0.25),

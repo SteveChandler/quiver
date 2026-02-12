@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import useSWR from "swr";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 
 interface BeachSources {
   camera_url?: string | null;
@@ -111,6 +112,10 @@ export function useBeachDetailData({
     }
     return data as EnhancedForecastEntity[];
   }, [forecastData, forecastError]);
+
+  useEffect(() => {
+    if (forecastError) trackFallback({ domain: 'beach-detail', field: 'forecast_data', fallbackValue: '[]' });
+  }, [forecastError]);
 
   const sources = useMemo(() => {
     if (sourcesError) {

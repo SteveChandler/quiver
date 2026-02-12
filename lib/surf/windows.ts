@@ -1,6 +1,7 @@
 import { boardCall, computeHourScore, HourInputs, BeachMeta, HourlyMarine, HourlyTide } from "./scoring";
 import { METERS_TO_FEET } from '@/lib/utils/unit-conversions';
 import { displayNumber } from "@/lib/utils/nullable-display-utils";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 
 interface HourSample extends HourInputs {
   ts: string; // ISO timestamp (hourly)
@@ -135,10 +136,13 @@ export function topWindowsInRange(
     const hours = inRange.filter((h) => h.ts >= start && h.ts < end);
     if (!hours.length) continue;
 
+    let missingTideCount = 0;
     const scores = hours.map((h) => {
       const tide = tideMap.get(h.ts.getTime()) ?? 0;
+      if (!tideMap.has(h.ts.getTime())) missingTideCount++;
       return computeHourScore(beach, h, tide);
     });
+    if (missingTideCount > 0) trackFallback({ domain: 'surf-windows', field: 'tide_height', fallbackValue: 0, context: { beachId: beach.id, missingHours: missingTideCount } });
     const meanScore = Math.round(
       scores.reduce((a, b) => a + b, 0) / scores.length
     );

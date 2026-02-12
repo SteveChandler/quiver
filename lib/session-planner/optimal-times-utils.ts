@@ -6,6 +6,7 @@
  */
 
 import { confidenceToDecimal, decimalToConfidence } from "@/lib/services/forecast/confidence-scorer";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 /**
@@ -128,6 +129,7 @@ export function filterByTimeWindow(
  */
 export function scoreForecast(forecast: SessionPlannerForecast, currentTimeHour?: number | null): OptimalTimeSlot {
   const waveHeight = parseFloat(forecast.wave_height ?? "") || 0;
+  if (forecast.wave_height == null) trackFallback({ domain: 'session-planner', field: 'wave_height', fallbackValue: 0 });
   const windSpeed =
     parseFloat(String(forecast.wind_speed)?.replace(/[^\d.]/g, "")) || 0;
   const windDirectionLabel: string = forecast.wind_direction || "Variable";

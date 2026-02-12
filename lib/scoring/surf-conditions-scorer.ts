@@ -13,6 +13,7 @@ import type {
   MatchQuality,
   RecommendationLabel,
 } from './types';
+import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 
 // Default thresholds
 const DEFAULT_MAX_WIND_ONSHORE_MPH = 10;
@@ -67,6 +68,9 @@ function checkSkipConditions(
   const maxWindAny = beach.max_wind_any_mph ?? DEFAULT_MAX_WIND_ANY_MPH;
   const maxWindOnshore = beach.max_wind_onshore_mph ?? DEFAULT_MAX_WIND_ONSHORE_MPH;
   const offshoreDir = beach.wind_offshore_deg ?? 90;
+  if (beach.wind_offshore_deg == null) {
+    trackFallback({ domain: 'scoring', field: 'wind_offshore_deg', fallbackValue: 90, context: { beachId: beach.id } });
+  }
   const tolerance = beach.wind_offshore_tol_deg ?? DEFAULT_WIND_OFFSHORE_TOL_DEG;
 
   // Check if wind exceeds absolute maximum

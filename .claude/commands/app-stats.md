@@ -6,7 +6,7 @@ p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT L
 ```
 This filters out test accounts, local dev accounts, and seed/demo data (`@example.invalid`).
 
-Run these 10 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using `execute_sql`:
+Run these 12 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using `execute_sql`:
 
 ### Query 1: Users
 ```sql
@@ -260,6 +260,60 @@ Present results as a markdown dashboard:
 > `20260125120002_implicit_preference_learning.sql` lines 244-255.
 ```
 
+### Query 11: Fallback Health — Summary (24h / 7d)
+```sql
+SELECT
+  severity,
+  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') AS events_24h,
+  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS events_7d,
+  COUNT(DISTINCT domain || '.' || field) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') AS unique_fallbacks_24h
+FROM fallback_events
+GROUP BY severity
+ORDER BY CASE severity
+  WHEN 'dangerous' THEN 1
+  WHEN 'high' THEN 2
+  WHEN 'medium' THEN 3
+  WHEN 'low' THEN 4
+END;
+```
+
+### Query 12: Fallback Health — Top Offenders (7d)
+```sql
+SELECT
+  domain,
+  field,
+  severity,
+  fallback_value,
+  COUNT(*) AS occurrences_7d,
+  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') AS occurrences_24h,
+  MAX(created_at) AS last_seen
+FROM fallback_events
+WHERE created_at >= NOW() - INTERVAL '7 days'
+GROUP BY domain, field, severity, fallback_value
+ORDER BY
+  CASE severity WHEN 'dangerous' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END,
+  occurrences_7d DESC
+LIMIT 15;
+```
+
+Add to the dashboard output:
+
+```
+### Fallback Health (internal data quality)
+| Severity | 24h | 7d | Unique Fallbacks (24h) |
+|----------|-----|-----|----------------------|
+| {severity} | {events_24h} | {events_7d} | {unique_fallbacks_24h} |
+| ... | ... | ... | ... |
+
+### Top Fallback Offenders (7d)
+| Domain | Field | Severity | Default | 24h | 7d | Last Seen |
+|--------|-------|----------|---------|-----|-----|-----------|
+| {domain} | {field} | {severity} | {fallback_value} | {24h} | {7d} | {last_seen} |
+| ... | ... | ... | ... | ... | ... | ... |
+```
+
+If the `fallback_events` table doesn't exist yet (query returns error), skip this section silently.
+
 ## Anomaly Flags
 
 After the dashboard, flag any of these conditions:
@@ -270,5 +324,7 @@ After the dashboard, flag any of these conditions:
 - **DAU declining** (last 3 days of DAU trending downward) — "DAU trending down over last 3 days"
 - **Data source stale** (any source in Query 9 older than 48h) — "{source} has no activity in 48h+"
 - **Event tracking gap** (user_events unique_users_7d < 50% of cross-table DAU peak) — "Event tracking capturing <50% of real users — RLS bug likely still active"
+- **Dangerous fallback spike** (Query 11: dangerous events_24h > 50) — "⚠ {n} dangerous fallbacks in 24h — scoring pipeline may be using fabricated data"
+- **Synthetic data active** (Query 12: domain='noaa-coops' or 'noaa-wavewatch' with occurrences_24h > 0) — "NOAA fallback generators fired {n} times in 24h — possible API outage"
 
 Display flags as a bulleted warnings list. If no anomalies, print "No anomalies detected."

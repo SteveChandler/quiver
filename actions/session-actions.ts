@@ -5,6 +5,7 @@ import {
   withAuthenticatedAction,
   withServerAction,
 } from "@/lib/server-action-utils";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type {
   Session,
   SessionWithDetails,
@@ -196,6 +197,7 @@ export async function getUserSessions(userId: string, limit?: number) {
       return await addFeaturedPhotoToSessions(supabase, sessions);
     } catch (e) {
       // Enhanced fallback: manually resolve beach relationships when joins fail
+      trackFallback({ domain: 'sessions', field: 'join_enrichment', fallbackValue: 'manual-resolution', context: { userId } });
       let basic = supabase
         .from("sessions")
         .select("*")

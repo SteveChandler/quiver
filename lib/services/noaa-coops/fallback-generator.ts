@@ -6,6 +6,7 @@
  */
 
 import type { TideData } from "./types";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 
 /**
  * Generate fallback tide data for development/testing
@@ -17,6 +18,7 @@ import type { TideData } from "./types";
  * @returns Array of tide data points
  */
 export function generateFallbackTideData(days: number = 15): TideData[] {
+  trackFallback({ domain: 'noaa-coops', field: 'tide_data', fallbackValue: 'synthetic', context: { generator: 'fallback-tide' } });
   const tides: TideData[] = [];
 
   // Start from beginning of today

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type { Beach } from "@/types/database";
 
 /**
@@ -89,6 +90,13 @@ export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) 
       setIsOpen(false);
     }
   }, [debouncedQuery, minQueryLength, refetch]);
+
+  // Track autocomplete errors that are silently swallowed
+  useEffect(() => {
+    if (error) {
+      trackFallback({ domain: 'search', field: 'autocomplete', fallbackValue: '[]' });
+    }
+  }, [error]);
 
   // Keyboard navigation handlers
   const handleKeyDown = useCallback(

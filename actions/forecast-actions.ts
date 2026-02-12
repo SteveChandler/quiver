@@ -4,6 +4,8 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { updateBeachForecast } from "@/lib/utils/forecast-server-utils";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import { resolveConfidence } from "@/lib/monitoring/fallback-helpers";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -32,7 +34,7 @@ function extractForecastMetadata(
   return {
     primarySource: dataSource,
     allSources: forecast.raw_forecast?.data_sources || [dataSource],
-    confidenceScore: forecast.confidence_score ?? 50,
+    confidenceScore: resolveConfidence(forecast.confidence_score, 'forecast', { beachId: forecast.beach_id }),
     lastUpdated: forecast.updated_at,
     cdipStation: forecast.raw_forecast?.cdip_data?.stationId,
     cdipStationName: forecast.raw_forecast?.cdip_data?.stationName,
@@ -223,7 +225,7 @@ export async function getBeachForecastPreview(beachId: string) {
             metadata: {
               primarySource: currentForecast.data_source || "FALLBACK",
               allSources: [currentForecast.data_source || "FALLBACK"],
-              confidenceScore: currentForecast.confidence_score ?? 50,
+              confidenceScore: resolveConfidence(currentForecast.confidence_score, 'forecast'),
               lastUpdated: new Date().toISOString(), // Will be from DB if available
               isRealTimeData: currentForecast.data_source === "CDIP",
               isStaleData: false, // Can't determine without updated_at

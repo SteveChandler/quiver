@@ -3,6 +3,7 @@
 import { unstable_cache } from "next/cache";
 import { withDatabaseOperation } from "@/lib/server-action-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type { Beach } from "@/types/database";
 
 // Selective field query for beach list - only fetch commonly needed fields
@@ -253,6 +254,7 @@ export async function getBeachesByIntentAndCity(
       return { data: beaches, error: null };
     } catch {
       // Fallback to uncached on cache infrastructure error
+      trackFallback({ domain: 'beach-query', field: 'cache_and_db', fallbackValue: '[]', context: { intent, citySlug } });
       const beaches = await _getBeachesByIntentAndCityInternal(intent, citySlug, stateSlug);
       return { data: beaches, error: null };
     }

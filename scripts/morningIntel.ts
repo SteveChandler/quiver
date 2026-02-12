@@ -23,6 +23,7 @@ import {
   windAt,
   confidenceHeuristic,
 } from "@/lib/utils/morning-intel-utils";
+import { withFallbackTracking } from "@/lib/monitoring/fallback-helpers";
 import {
   scoreConditions,
   calculateOptimalWindow,
@@ -345,7 +346,7 @@ function convertToForecastForScoring(
   const forecastTime = new Date(`${f.forecast_date}T${f.forecast_time}Z`);
   return {
     forecastTime,
-    waveHeight: f.wave_height ?? f.swell_height ?? 0,
+    waveHeight: withFallbackTracking(f.wave_height ?? f.swell_height, 0, { domain: 'morning-intel', field: 'wave_height' }),
     wavePeriod: f.wave_period ?? f.swell_period ?? 0,
     windSpeed: f.wind_speed ?? 0,
     windDirection: f.wind_direction ?? null,

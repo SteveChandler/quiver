@@ -33,7 +33,7 @@ export async function getTopBeachesNow(
     return await getTopBeachesRightNow(limit, userCoords);
   } catch (error) {
     console.error("Failed to fetch top beaches for Best Right Now:", error);
-    trackFallback({ domain: 'homepage', field: 'top_beaches', fallbackValue: '[]', severity: 'high' });
+    trackFallback({ domain: 'homepage', field: 'top_beaches', fallbackValue: '[]' });
     return [];
   }
 }
