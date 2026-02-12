@@ -9,6 +9,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import type { User, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import type { RateLimitKey } from "@/lib/api/rate-limit-config";
+import type { AdminUser } from "@/lib/auth/admin";
 
 // =============================================================================
 // CORE HANDLER TYPES
@@ -163,4 +164,53 @@ export interface ProtectionOptions {
 
   /** Error handling configuration */
   errorHandling?: WithErrorHandlerOptions;
+}
+
+// =============================================================================
+// ADMIN AUTH TYPES
+// =============================================================================
+
+/**
+ * Context provided to admin-authenticated handlers.
+ * Uses AdminUser from lib/auth/admin and a service-role Supabase client.
+ */
+export interface AdminAuthenticatedContext {
+  params: ResolvedParams;
+  user: AdminUser;
+  supabase: SupabaseClient<Database>;
+}
+
+/**
+ * Handler that receives admin-authenticated context
+ */
+export type AdminAuthenticatedHandler = (
+  request: NextRequest,
+  context: AdminAuthenticatedContext
+) => Promise<NextResponse>;
+
+/**
+ * Context for bearer auth handlers (user may be null when using service role key).
+ * Includes authMethod to distinguish between bearer token and admin session.
+ */
+export interface BearerAuthContext {
+  params: ResolvedParams;
+  user: AdminUser | null;
+  supabase: SupabaseClient<Database>;
+  authMethod: "bearer" | "admin";
+}
+
+/**
+ * Handler that receives bearer auth context
+ */
+export type BearerAuthHandler = (
+  request: NextRequest,
+  context: BearerAuthContext
+) => Promise<NextResponse>;
+
+/**
+ * Options for withAdminAuth and withBearerAuth wrappers
+ */
+export interface WithAdminAuthOptions {
+  /** Custom error message for caught exceptions */
+  errorMessage?: string;
 }

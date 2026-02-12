@@ -55,6 +55,11 @@ export type {
   WithRateLimitOptions,
   WithBotBlockingOptions,
   ProtectionOptions,
+  AdminAuthenticatedContext,
+  AdminAuthenticatedHandler,
+  BearerAuthContext,
+  BearerAuthHandler,
+  WithAdminAuthOptions,
 } from "./types";
 
 // =============================================================================
@@ -63,6 +68,7 @@ export type {
 
 export { withErrorHandler } from "./error-handler";
 export { withAuth, createApiHandler } from "./auth-wrapper";
+export { withAdminAuth, withBearerAuth } from "./admin-auth-wrapper";
 
 // =============================================================================
 // VALIDATION HELPERS

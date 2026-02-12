@@ -13,22 +13,15 @@ import Link from "next/link";
 import { ChevronLeft, MapPin, Star } from "lucide-react";
 import {
   getLocationPageData,
-  getAllBeachLocations,
 } from "@/actions/beach/beach-location-list-actions";
 import {
-  generateLocationSlug,
   parseLocationFromSlug,
 } from "@/lib/utils/location-slug";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
-import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import {
   getBeachHrefSafe,
-  getBeachUrlSafe,
-  isValidStateSlug,
   isValidCountrySlug,
-  parseHiIslandCitySlug,
-  getHiIslandDisplayName,
 } from "@/lib/utils/beach-url-utils";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 
@@ -48,20 +41,18 @@ import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { generateCityRichContent } from "@/lib/seo/city-content-generator";
 import { RichContentRenderer } from "@/lib/seo/rich-content";
 import { LocationMapClient } from "./location-map-client";
+import {
+  SITE_ORIGIN,
+  resolveDisplayCityName,
+  resolveIslandDisplayName,
+  resolveMetroConfig,
+  buildItemListItems,
+} from "./city-page-utils";
+import type { LocationPageProps } from "./city-page-utils";
 
-const SITE_ORIGIN = (
-  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-).replace(/\/$/, "");
-
-interface LocationPageParams {
-  country: string;
-  state: string;
-  city: string;
-}
-
-interface LocationPageProps {
-  params: Promise<LocationPageParams>;
-}
+// Re-export Next.js named exports from extracted modules
+export { generateMetadata } from "./city-page-metadata";
+export { generateStaticParams } from "./city-page-static-gen";
 
 export default async function LocationPage(props: LocationPageProps) {
   const params = await props.params;
@@ -90,20 +81,13 @@ export default async function LocationPage(props: LocationPageProps) {
 
   const { location, stats, beaches } = response.data;
 
-  // Hawaii island-suffixed city slugs (Waimea-only to start)
-  const hiParsed =
-    params.state?.toLowerCase() === "hi" ? parseHiIslandCitySlug(params.city) : null;
-  const islandDisplayName = hiParsed?.islandSlug
-    ? getHiIslandDisplayName(hiParsed.islandSlug)
-    : null;
-  const displayCityName = islandDisplayName
-    ? `${location.city} (${islandDisplayName})`
-    : location.city;
+  const displayCityName = resolveDisplayCityName(
+    location.city,
+    params.state,
+    params.city
+  );
 
-  // Check if this is a metro area page
-  const metroConfig = isMetroArea(params.city)
-    ? getMetroConfig(params.city)
-    : null;
+  const metroConfig = resolveMetroConfig(params.city);
 
   // Fetch editorial content for this city (if available)
   const editorial = await getCityEditorialContent(
@@ -123,16 +107,7 @@ export default async function LocationPage(props: LocationPageProps) {
     }),
   });
 
-  // Build ItemList items for structured data (carousel SERP feature)
-  const itemListItems = beaches.flatMap((beach, index) => {
-    const href = getBeachHrefSafe(beach);
-    if (!href) return [];
-    return [{
-      name: beach.name,
-      url: `${SITE_ORIGIN}${href}`,
-      position: index + 1,
-    }];
-  });
+  const itemListItems = buildItemListItems(beaches);
 
   // If editorial content exists, render the enhanced editorial layout
   if (editorial) {
@@ -179,9 +154,10 @@ export default async function LocationPage(props: LocationPageProps) {
               Best Surf Beaches in {displayCityName}
             </h1>
             {(() => {
+              const islandName = resolveIslandDisplayName(params.state, params.city);
               const regionLabel =
                 editorial.region_label?.trim() ||
-                (islandDisplayName ? `${islandDisplayName}, Hawaii` : "");
+                (islandName ? `${islandName}, Hawaii` : "");
               return regionLabel ? (
                 <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
               ) : null;
@@ -468,146 +444,6 @@ export default async function LocationPage(props: LocationPageProps) {
       </div>
     </>
   );
-}
-
-/**
- * Generate static params for all beach locations
- * This enables Next.js to pre-generate all location pages at build time
- *
- * Note: Returns empty array on errors to allow build to continue.
- * Pages will be generated on-demand (ISR) instead.
- */
-export async function generateStaticParams() {
-  try {
-    const response = await getAllBeachLocations();
-
-    if (!response.success || !response.data || response.data.length === 0) {
-      console.warn(
-        "[generateStaticParams] No location data available, skipping static generation"
-      );
-      return [];
-    }
-
-    return response.data.map((loc) => ({
-      country: generateLocationSlug(loc.country),
-      state: generateLocationSlug(loc.state),
-      city: generateLocationSlug(loc.city),
-    }));
-  } catch (error) {
-    // Log error but don't fail build - pages will be generated on-demand via ISR
-    console.error("[generateStaticParams] Error fetching locations:", error);
-    console.warn(
-      "[generateStaticParams] Skipping static generation, pages will use ISR"
-    );
-    return [];
-  }
-}
-
-/**
- * Configure page metadata
- */
-export async function generateMetadata(props: LocationPageProps) {
-  const params = await props.params;
-  // Validate country parameter - return not found metadata for invalid countries
-  if (!isValidCountrySlug(params.country)) {
-    return {
-      title: "Location Not Found",
-    };
-  }
-
-  try {
-    const metroConfig = isMetroArea(params.city)
-      ? getMetroConfig(params.city)
-      : null;
-
-    const response = await getLocationPageData(
-      params.city,
-      params.state,
-      params.country
-    );
-
-    if (!response.success || !response.data) {
-      return {
-        title: "Location Not Found",
-      };
-    }
-
-    const { location, stats } = response.data;
-
-    // Hawaii island-suffixed city slugs (Waimea-only to start)
-    const hiParsed =
-      params.state?.toLowerCase() === "hi"
-        ? parseHiIslandCitySlug(params.city)
-        : null;
-    const islandDisplayName = hiParsed?.islandSlug
-      ? getHiIslandDisplayName(hiParsed.islandSlug)
-      : null;
-    const displayCityName = islandDisplayName
-      ? `${location.city} (${islandDisplayName})`
-      : location.city;
-
-    // Use metro-specific metadata if applicable
-    const title = metroConfig?.pageTitle
-      ? metroConfig.pageTitle
-      : `Best Surf Beaches in ${displayCityName}, ${location.state}`;
-
-    const topBeachNames = response.data.beaches
-      .slice(0, 3)
-      .map((b: { name: string }) => b.name)
-      .join(', ');
-
-    const ratingSnippet = stats.totalReviews >= 5
-      ? ` Rated ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`
-      : "";
-
-    const description = metroConfig?.description
-      ? `${metroConfig.description}${ratingSnippet || ` ${stats.totalBeaches} surf spots with forecasts, tides & crowd intel.`}`
-      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more.${ratingSnippet} Forecasts, tide charts, crowd levels & session windows.`;
-
-    const isUsa = params.country.toLowerCase() === "usa";
-    const canonicalPath =
-      isUsa && isValidStateSlug(params.state)
-        ? `/beaches/usa/${params.state}/${params.city}`
-        : `/beaches/${params.country}/${params.state}/${params.city}`;
-    const url = `${SITE_ORIGIN}${canonicalPath}`;
-
-    return {
-      title,
-      description,
-      openGraph: {
-        title,
-        description,
-        url,
-        siteName: "Quiver Surf App",
-        images: [
-          {
-            url: "/images/og-location-default.jpg",
-            width: 1200,
-            height: 630,
-            alt: `Surf beaches in ${displayCityName}, ${location.state}`,
-          },
-        ],
-        locale: "en_US",
-        type: "website",
-      },
-      twitter: {
-        card: "summary_large_image",
-        title,
-        description,
-        images: ["/images/og-location-default.jpg"],
-      },
-      alternates: {
-        canonical: url,
-      },
-    };
-  } catch (error) {
-    // Handle errors gracefully during build
-    console.error("[generateMetadata] Error:", error);
-    return {
-      title: "Surf Beaches",
-      description: "Discover surf beaches and conditions on Quiver",
-    };
-  }
 }
 
 export const dynamic = "force-dynamic";
