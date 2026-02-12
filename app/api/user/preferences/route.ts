@@ -1,10 +1,8 @@
-import { createAPIServerClient } from "@/lib/supabase/server";
 import {
+  withAuth,
   createSuccessResponse,
-  createAuthError,
   createErrorResponse,
-  handleApiError,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
 
@@ -20,41 +18,24 @@ export const dynamic = "force-dynamic";
  *   - sample_size: Number of sessions used to learn preferences
  *   - (or null if no preferences exist yet)
  */
-export async function GET() {
-  const supabase = await createAPIServerClient();
+export const GET = withAuth(async (_request, { user, supabase }) => {
+  // Query user_surf_preferences table
+  const { data: preferences, error: prefsError } = await supabase
+    .from("user_surf_preferences")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
 
-  // Authenticate user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return createAuthError("Unauthorized");
-  }
-
-  try {
-    // Query user_surf_preferences table
-    const { data: preferences, error: prefsError } = await supabase
-      .from("user_surf_preferences")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    // PGRST116 = no rows returned, which is fine (user has no preferences yet)
-    if (prefsError) {
-      if (prefsError.code === "PGRST116") {
-        return createSuccessResponse(null);
-      }
-
-      console.error("Error fetching preferences:", prefsError);
-      return createErrorResponse("Failed to fetch preferences", undefined, 500);
+  // PGRST116 = no rows returned, which is fine (user has no preferences yet)
+  if (prefsError) {
+    if (prefsError.code === "PGRST116") {
+      return createSuccessResponse(null);
     }
 
-    // Return preferences
-    return createSuccessResponse(preferences);
-  } catch (error) {
-    console.error("Unexpected error in /api/user/preferences:", error);
-    return handleApiError(error, "Internal server error");
+    console.error("Error fetching preferences:", prefsError);
+    return createErrorResponse("Failed to fetch preferences", undefined, 500);
   }
-}
+
+  // Return preferences
+  return createSuccessResponse(preferences);
+}, { errorMessage: "Internal server error" });

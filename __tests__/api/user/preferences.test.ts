@@ -6,6 +6,7 @@ import { GET } from "@/app/api/user/preferences/route";
 import {
   createMockSupabaseClient,
   createMockUser,
+  createMockRequest,
   setupApiTestEnvironment,
   mockAuthenticatedUser,
   mockUnauthenticatedUser,
@@ -13,10 +14,11 @@ import {
   mockDatabaseError,
 } from "@/test-utils/api-test-helpers";
 
-// Mock the Supabase server client
+// Mock the Supabase server client (withAuth uses createSupabaseServerClient)
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
@@ -36,12 +38,13 @@ describe("GET /api/user/preferences", () => {
   it("returns 401 when user is not authenticated", async () => {
     mockUnauthenticatedUser(mockSupabaseClient);
 
-    const response = await GET();
+    const request = createMockRequest("GET", "http://localhost:3000/api/user/preferences");
+    const response = await GET(request);
     const json = await response.json();
 
     expect(response.status).toBe(401);
     expect(json.success).toBe(false);
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("Authentication required");
     expect(json.timestamp).toBeDefined();
   });
 
@@ -57,7 +60,8 @@ describe("GET /api/user/preferences", () => {
     mockAuthenticatedUser(mockSupabaseClient, mockUser);
     mockDatabaseSuccess(mockSupabaseClient, mockPrefs);
 
-    const response = await GET();
+    const request = createMockRequest("GET", "http://localhost:3000/api/user/preferences");
+    const response = await GET(request);
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -72,7 +76,8 @@ describe("GET /api/user/preferences", () => {
     mockAuthenticatedUser(mockSupabaseClient, mockUser);
     mockDatabaseError(mockSupabaseClient, "No rows", "PGRST116");
 
-    const response = await GET();
+    const request = createMockRequest("GET", "http://localhost:3000/api/user/preferences");
+    const response = await GET(request);
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -87,7 +92,8 @@ describe("GET /api/user/preferences", () => {
     mockAuthenticatedUser(mockSupabaseClient, mockUser);
     mockDatabaseError(mockSupabaseClient, "Database connection failed", "DB_ERROR");
 
-    const response = await GET();
+    const request = createMockRequest("GET", "http://localhost:3000/api/user/preferences");
+    const response = await GET(request);
     const json = await response.json();
 
     expect(response.status).toBe(500);

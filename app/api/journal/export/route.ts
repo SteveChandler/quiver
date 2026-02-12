@@ -1,6 +1,4 @@
-import { NextRequest } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { withAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 import { getUserSessions } from "@/actions/session-actions";
 import { getSessionAnalytics } from "@/actions/analytics-actions";
 import type { ExportOptions, ExportResult } from "@/types/database";
@@ -10,135 +8,115 @@ import { format } from "date-fns";
  * Generate and export PDF documents for surf journal data
  * POST /api/journal/export
  */
-export async function POST(request: NextRequest) {
-  try {
-    const exportOptions: ExportOptions = await request.json();
+export const POST = withAuth(async (request, { user, supabase }) => {
+  const exportOptions: ExportOptions = await request.json();
 
-    const supabase = await createSupabaseServerClient();
+  // Validate export options
+  if (!exportOptions.type || !exportOptions.format) {
+    return createSuccessResponse(
+      { error: "Export type and format are required" },
+      400
+    );
+  }
 
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+  // Get user sessions based on export type
+  let sessions = [];
+  let analytics = null;
 
-    if (userError || !user) {
-      return createSuccessResponse(
-        { error: "Authentication required" },
-        401
-      );
-    }
+  const sessionsResult = await getUserSessions(user.id);
+  if (!sessionsResult.success) {
+    throw new Error("Failed to fetch user sessions");
+  }
 
-    // Validate export options
-    if (!exportOptions.type || !exportOptions.format) {
-      return createSuccessResponse(
-        { error: "Export type and format are required" },
-        400
-      );
-    }
+  const allSessions = sessionsResult.data || [];
 
-    // Get user sessions based on export type
-    let sessions = [];
-    let analytics = null;
-
-    const sessionsResult = await getUserSessions(user.id);
-    if (!sessionsResult.success) {
-      throw new Error("Failed to fetch user sessions");
-    }
-
-    const allSessions = sessionsResult.data || [];
-
-    // Filter sessions based on export type
-    switch (exportOptions.type) {
-      case "monthly":
-        if (!exportOptions.month) {
-          return createSuccessResponse(
-            { error: "Month is required for monthly export" },
-            400
-          );
-        }
-        sessions = allSessions.filter(
-          (session) =>
-            format(new Date(session.arrival_time), "yyyy-MM") ===
-            exportOptions.month
-        );
-        break;
-
-      case "yearly":
-        if (!exportOptions.year) {
-          return createSuccessResponse(
-            { error: "Year is required for yearly export" },
-            400
-          );
-        }
-        sessions = allSessions.filter(
-          (session) =>
-            new Date(session.arrival_time).getFullYear().toString() ===
-            exportOptions.year
-        );
-        break;
-
-      case "single":
-        if (
-          !exportOptions.sessionIds ||
-          exportOptions.sessionIds.length === 0
-        ) {
-          return createSuccessResponse(
-            { error: "Session IDs are required for single session export" },
-            400
-          );
-        }
-        sessions = allSessions.filter((session) =>
-          exportOptions.sessionIds!.includes(session.id)
-        );
-        break;
-
-      default:
+  // Filter sessions based on export type
+  switch (exportOptions.type) {
+    case "monthly":
+      if (!exportOptions.month) {
         return createSuccessResponse(
-          { error: "Invalid export type" },
+          { error: "Month is required for monthly export" },
           400
         );
-    }
-
-    // Get analytics if requested
-    if (exportOptions.includeAnalytics) {
-      const analyticsResult = await getSessionAnalytics(supabase, user.id);
-      if (analyticsResult.success) {
-        analytics = analyticsResult.data;
       }
-    }
+      sessions = allSessions.filter(
+        (session) =>
+          format(new Date(session.arrival_time), "yyyy-MM") ===
+          exportOptions.month
+      );
+      break;
 
-    // Generate PDF content
-    const pdfContent = await generatePDFContent({
-      sessions,
-      analytics,
-      exportOptions,
-      userEmail: user.email || "user@example.com",
-    });
+    case "yearly":
+      if (!exportOptions.year) {
+        return createSuccessResponse(
+          { error: "Year is required for yearly export" },
+          400
+        );
+      }
+      sessions = allSessions.filter(
+        (session) =>
+          new Date(session.arrival_time).getFullYear().toString() ===
+          exportOptions.year
+      );
+      break;
 
-    // For now, we'll simulate PDF generation
-    // In a real implementation, you would use a library like:
-    // - puppeteer + html-pdf
-    // - @react-pdf/renderer
-    // - jsPDF
-    // - pdfkit
+    case "single":
+      if (
+        !exportOptions.sessionIds ||
+        exportOptions.sessionIds.length === 0
+      ) {
+        return createSuccessResponse(
+          { error: "Session IDs are required for single session export" },
+          400
+        );
+      }
+      sessions = allSessions.filter((session) =>
+        exportOptions.sessionIds!.includes(session.id)
+      );
+      break;
 
-    const filename = generateFilename(exportOptions);
-    const downloadUrl = await createTempDownloadUrl(pdfContent, filename);
-
-    const result: ExportResult = {
-      filename,
-      downloadUrl,
-      generatedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-    };
-
-    return createSuccessResponse(result);
-  } catch (error) {
-    console.error("Error generating export:", error);
-    return handleApiError(error);
+    default:
+      return createSuccessResponse(
+        { error: "Invalid export type" },
+        400
+      );
   }
-}
+
+  // Get analytics if requested
+  if (exportOptions.includeAnalytics) {
+    const analyticsResult = await getSessionAnalytics(supabase, user.id);
+    if (analyticsResult.success) {
+      analytics = analyticsResult.data;
+    }
+  }
+
+  // Generate PDF content
+  const pdfContent = await generatePDFContent({
+    sessions,
+    analytics,
+    exportOptions,
+    userEmail: user.email || "user@example.com",
+  });
+
+  // For now, we'll simulate PDF generation
+  // In a real implementation, you would use a library like:
+  // - puppeteer + html-pdf
+  // - @react-pdf/renderer
+  // - jsPDF
+  // - pdfkit
+
+  const filename = generateFilename(exportOptions);
+  const downloadUrl = await createTempDownloadUrl(pdfContent, filename);
+
+  const result: ExportResult = {
+    filename,
+    downloadUrl,
+    generatedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+  };
+
+  return createSuccessResponse(result);
+}, { errorMessage: "Error generating export" });
 
 /**
  * Generate PDF content from session data
@@ -179,53 +157,53 @@ async function generatePDFContent({
       <meta charset="utf-8">
       <title>Surf Journal Export</title>
       <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          margin: 40px; 
-          line-height: 1.6; 
+        body {
+          font-family: Arial, sans-serif;
+          margin: 40px;
+          line-height: 1.6;
         }
-        .header { 
-          text-align: center; 
-          border-bottom: 2px solid #0ea5e9; 
-          padding-bottom: 20px; 
-          margin-bottom: 30px; 
+        .header {
+          text-align: center;
+          border-bottom: 2px solid #0ea5e9;
+          padding-bottom: 20px;
+          margin-bottom: 30px;
         }
-        .summary { 
-          background: #f8fafc; 
-          padding: 20px; 
-          border-radius: 8px; 
-          margin-bottom: 30px; 
+        .summary {
+          background: #f8fafc;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 30px;
         }
-        .session { 
-          border: 1px solid #e2e8f0; 
-          margin-bottom: 20px; 
-          padding: 15px; 
-          border-radius: 8px; 
+        .session {
+          border: 1px solid #e2e8f0;
+          margin-bottom: 20px;
+          padding: 15px;
+          border-radius: 8px;
         }
-        .session-header { 
-          font-weight: bold; 
-          color: #0ea5e9; 
-          margin-bottom: 10px; 
+        .session-header {
+          font-weight: bold;
+          color: #0ea5e9;
+          margin-bottom: 10px;
         }
-        .stats { 
-          display: grid; 
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-          gap: 20px; 
-          margin-bottom: 30px; 
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 20px;
+          margin-bottom: 30px;
         }
-        .stat-card { 
-          text-align: center; 
-          padding: 15px; 
-          background: #f1f5f9; 
-          border-radius: 8px; 
+        .stat-card {
+          text-align: center;
+          padding: 15px;
+          background: #f1f5f9;
+          border-radius: 8px;
         }
-        .stat-value { 
-          font-size: 24px; 
-          font-weight: bold; 
-          color: #0ea5e9; 
+        .stat-value {
+          font-size: 24px;
+          font-weight: bold;
+          color: #0ea5e9;
         }
-        .rating { 
-          color: #fbbf24; 
+        .rating {
+          color: #fbbf24;
         }
       </style>
     </head>
