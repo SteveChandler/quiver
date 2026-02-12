@@ -22,10 +22,12 @@ import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
+import { ReviewSchema } from "@/components/seo/review-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import { getBeachReviews } from "@/actions/beach-review-actions";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -98,16 +100,18 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Fetch surf report and nearby beaches in parallel
-    const [surfReportResult, nearbyResult] = await Promise.all([
+    // Fetch surf report, nearby beaches, and reviews in parallel
+    const [surfReportResult, nearbyResult, reviewsResult] = await Promise.all([
       getSpotSurfReport(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
         : Promise.resolve(null),
+      getBeachReviews(beach.id),
     ]);
 
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
+    const reviews = reviewsResult.success ? reviewsResult.data ?? [] : [];
 
     let nearbyBeachesRaw: Beach[] = [];
     if (nearbyResult?.success && nearbyResult.data) {
@@ -158,8 +162,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
-          rating={(beach as any).average_rating || undefined}
-          reviewCount={(beach as any).review_count || undefined}
+          rating={beach.average_rating || undefined}
+          reviewCount={beach.review_count || undefined}
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}
@@ -194,6 +198,20 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
         {/* FAQ structured data for rich snippets */}
         <FAQSchema items={generateBeachFAQ(beach)} />
+
+        {/* Review structured data */}
+        <ReviewSchema
+          beachName={beach.name}
+          beachUrl={`${baseUrl}${buildBeachUrl(beach)}`}
+          reviews={reviews.map((r) => ({
+            author: r.profiles?.full_name ?? "Anonymous",
+            datePublished: r.created_at ?? new Date().toISOString(),
+            reviewRating: r.overall_rating,
+            reviewBody: r.content ?? undefined,
+          }))}
+          aggregateRating={beach.average_rating ?? undefined}
+          reviewCount={beach.review_count ?? undefined}
+        />
 
         {/* WebPage structured data with dateModified for freshness signal */}
         <script

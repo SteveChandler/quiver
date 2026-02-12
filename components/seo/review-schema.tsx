@@ -29,7 +29,7 @@ export function ReviewSchema({
 
   const structuredData: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    "@type": ["Place", "TouristAttraction"],
     name: beachName,
     url: beachUrl,
   };
@@ -44,7 +44,12 @@ export function ReviewSchema({
     };
   }
 
-  structuredData.review = reviews.slice(0, 5).map((r) => ({
+  // Filter reviews to only include valid ratings (1-5 range) and limit to top 5
+  const validReviews = reviews
+    .filter((r) => r.reviewRating >= 1 && r.reviewRating <= 5)
+    .slice(0, 5);
+
+  structuredData.review = validReviews.map((r) => ({
     "@type": "Review",
     author: {
       "@type": "Person",
@@ -64,7 +69,7 @@ export function ReviewSchema({
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData),
+        __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
       }}
     />
   );

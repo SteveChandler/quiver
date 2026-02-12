@@ -7,6 +7,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { SessionWithDetails } from "@/types/database";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { PartialContentGate } from "@/components/ui/partial-content-gate";
+import { GradientEmptyState } from "@/components/ui/gradient-empty-state";
 
 interface RecentSessionsSectionProps {
   beachId: string;
@@ -48,18 +49,21 @@ export function RecentSessionsSection({
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 p-6 text-center">
-            <Waves className="h-8 w-8 text-ocean-blue mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-900 mb-1">No sessions logged yet</p>
-            <p className="text-xs text-gray-600">
-              Surfed here? Log your session to share conditions with the community.
-            </p>
-          </div>
+          <GradientEmptyState
+            icon={Waves}
+            title="No sessions logged yet"
+            description="Surfed here? Log your session to share conditions with the community."
+          />
         )}
 
         {publicMode && previewSessions.length > 0 ? (
           /* Horizontal scroll carousel in public mode */
-          <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-2 px-2">
+          <div
+            className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-2 px-2"
+            tabIndex={0}
+            role="region"
+            aria-label="Recent surf sessions"
+          >
             {previewSessions.map((s) => (
               <div
                 key={s.id}

@@ -380,12 +380,22 @@ function getCamRoutes(): MetadataRoute.Sitemap {
 async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
   const bestTimeDate = "2026-02-12";
 
+  // Hub page
+  const routes: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/best-time-to-surf`,
+      lastModified: bestTimeDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.85,
+    },
+  ];
+
   try {
     const result = await getCitiesWithBestMonthsData();
-    if (!result.success || !result.data) return [];
+    if (!result.success || !result.data) return routes;
 
     const collisionMap = COLLISION_CITY_MAP;
-    return result.data
+    const cityRoutes = result.data
       .map((c) => {
         const citySlug = buildCitySlug(c.city, c.state, collisionMap);
         if (!citySlug) return null;
@@ -397,8 +407,10 @@ async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    return [...routes, ...cityRoutes];
   } catch (error) {
     console.error("Sitemap: Failed to generate best-time-to-surf routes", error);
-    return [];
+    return routes;
   }
 }

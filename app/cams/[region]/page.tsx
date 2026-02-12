@@ -38,7 +38,7 @@ export async function generateMetadata({
   const camCount = regionBeaches.length;
 
   return buildPageMetadata({
-    title: `Live Surf Cams in ${region.name} - ${camCount} Free Cameras | Quiver`,
+    title: `Live Surf Cams in ${region.name} - ${camCount} Free Cameras`,
     description: `Watch ${camCount} free live surf cams in ${region.name}. ${region.description} No paywall, no sign-up.`,
     path: `/cams/${regionSlug}`,
     keywords: [

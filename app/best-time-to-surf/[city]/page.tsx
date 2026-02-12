@@ -3,21 +3,26 @@
  *
  * Shows month-by-month surf quality for a city using aggregated
  * best_months data from beaches, enriched with regional water temp
- * and wetsuit recommendations.
+ * and wetsuit recommendations, plus hardcoded state-level monthly data.
  *
  * URL pattern: /best-time-to-surf/[city]
  * Example: /best-time-to-surf/san-diego
  */
 
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-import { getBestTimeToSurfData } from "@/actions/city/best-time-actions";
+import {
+  getBestTimeToSurfData,
+  getCitiesWithBestMonthsData,
+} from "@/actions/city/best-time-actions";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
@@ -26,15 +31,55 @@ import { AnimatedScoreGauge } from "@/components/forecast/animated-score-gauge";
 import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
 import { MonthlyGrid } from "@/components/best-time-to-surf/monthly-grid";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { SITE_URL } from "@/lib/constants/seo";
 
 export const revalidate = 86400; // 24 hours — monthly data changes infrequently
 
-const SITE_ORIGIN = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
-).replace(/\/$/, "");
+// Constants
+const currentYear = new Date().getFullYear();
+
+const MONTH_ABBREVS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const YEAR_ROUND_THRESHOLD = 10;
+const SOLID_SEASON_THRESHOLD = 6;
+
+/**
+ * Helper function to generate year-round surfing answer based on how many months
+ * score above 50 (average).
+ */
+function generateYearRoundAnswer(cityName: string, monthsAbove50: number, peakMonthName: string): string {
+  if (monthsAbove50 >= YEAR_ROUND_THRESHOLD) {
+    return `Yes, ${cityName} offers good surf conditions nearly year-round, with ${monthsAbove50} months scoring above average. The peak season around ${peakMonthName} is particularly consistent.`;
+  }
+  if (monthsAbove50 >= SOLID_SEASON_THRESHOLD) {
+    return `${cityName} has a solid surf season spanning roughly ${monthsAbove50} months. Conditions are best around ${peakMonthName}, but there are surfable waves most of the year.`;
+  }
+  return `${cityName} has a more concentrated surf season, with the best conditions around ${peakMonthName}. Plan your trip during the peak months for the most consistent waves.`;
+}
 
 interface PageParams {
   params: Promise<{ city: string }>;
+}
+
+export async function generateStaticParams() {
+  try {
+    const result = await getCitiesWithBestMonthsData();
+    if (!result.success || !result.data) return [];
+
+    return result.data
+      .map((c) => {
+        const citySlug = buildCitySlug(c.city, c.state, COLLISION_CITY_MAP);
+        if (!citySlug) return null;
+        return { city: citySlug };
+      })
+      .filter((p): p is { city: string } => p !== null);
+  } catch (error) {
+    console.error("Failed to generate static params for best-time-to-surf:", error);
+    return [];
+  }
 }
 
 export async function generateMetadata(props: PageParams): Promise<Metadata> {
@@ -48,8 +93,8 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
   const { cityName, stateName } = cityResult.data;
 
   return buildPageMetadata({
-    title: `Best Time to Surf ${cityName}, ${stateName} — Month-by-Month Guide`,
-    description: `Find the best months to surf in ${cityName}, ${stateName}. Month-by-month wave quality scores, water temperatures, wetsuit guide, and crowd levels.`,
+    title: `Best Time to Surf in ${cityName}, ${stateName} (${currentYear})`,
+    description: `Find the best months to surf in ${cityName}, ${stateName}. Month-by-month wave heights, water temperatures, wetsuit guide, and crowd levels. Updated for ${currentYear}.`,
     path: `/best-time-to-surf/${citySlug}`,
     keywords: [
       `best time to surf ${cityName}`,
@@ -79,12 +124,20 @@ export default async function BestTimeToSurfPage(props: PageParams) {
 
   const data = dataResult.data;
 
+  // Get hardcoded state-level monthly data for enriched grid
+  const stateProfile = getStateSurfProfile(stateSlug);
+
+  // Parse water temperature range once (Issue 3: bounds checking)
+  const [minTemp, maxTemp] = (data.waterTempRange ?? "").split("-");
+  const lowTemp = minTemp ?? "";
+  const highTemp = maxTemp ?? minTemp ?? "";
+
   // Build ItemList items for structured data
   const itemListItems = data.topBeaches
     .filter((b) => b.slug)
     .map((b, i) => ({
       name: b.name,
-      url: `${SITE_ORIGIN}${buildBeachUrl(b)}`,
+      url: `${SITE_URL}${buildBeachUrl(b)}`,
       position: i + 1,
     }));
 
@@ -96,37 +149,43 @@ export default async function BestTimeToSurfPage(props: PageParams) {
     },
     {
       question: `What water temperature should I expect when surfing in ${cityName}?`,
-      answer: data.waterTempRange
-        ? `Water temperatures in ${cityName} range from ${data.waterTempRange}°F throughout the year. ${data.summerWetsuit ? `In summer, a ${data.summerWetsuit} is recommended.` : ""} ${data.winterWetsuit ? `In winter, bring a ${data.winterWetsuit}.` : ""}`
-        : `Water temperatures in ${cityName} vary by season. Check our beach pages for current conditions and wetsuit recommendations.`,
+      answer: stateProfile
+        ? `Water temperatures in ${cityName} range from ${Math.min(...stateProfile.monthly.map((m) => m.waterTemp))}°F to ${Math.max(...stateProfile.monthly.map((m) => m.waterTemp))}°F throughout the year. ${stateProfile.monthly[6].wetsuit !== "boardshorts" ? `In summer, a ${stateProfile.monthly[6].wetsuit} is recommended.` : "Summer sessions are comfortable in boardshorts."} ${stateProfile.monthly[0].wetsuit !== "boardshorts" ? `In winter, bring a ${stateProfile.monthly[0].wetsuit}.` : ""}`
+        : data.waterTempRange
+          ? `Water temperatures in ${cityName} range from ${data.waterTempRange}°F throughout the year. ${data.summerWetsuit ? `In summer, a ${data.summerWetsuit} is recommended.` : ""} ${data.winterWetsuit ? `In winter, bring a ${data.winterWetsuit}.` : ""}`
+          : `Water temperatures in ${cityName} vary by season. Check our beach pages for current conditions and wetsuit recommendations.`,
     },
     {
       question: `Is ${cityName} good for surfing year-round?`,
-      answer: (() => {
-        const monthsAbove50 = data.monthly.filter((m) => m.score >= 50).length;
-        if (monthsAbove50 >= 10) {
-          return `Yes, ${cityName} offers good surf conditions nearly year-round, with ${monthsAbove50} months scoring above average. The peak season around ${data.peakMonthName} is particularly consistent.`;
-        }
-        if (monthsAbove50 >= 6) {
-          return `${cityName} has a solid surf season spanning roughly ${monthsAbove50} months. Conditions are best around ${data.peakMonthName}, but there are surfable waves most of the year.`;
-        }
-        return `${cityName} has a more concentrated surf season, with the best conditions around ${data.peakMonthName}. Plan your trip during the peak months for the most consistent waves.`;
-      })(),
+      answer: generateYearRoundAnswer(
+        cityName,
+        data.monthly.filter((m) => m.score >= 50).length,
+        data.peakMonthName
+      ),
     },
   ];
 
+  // Dawn patrol context from state profile
+  const dawnWinterTemp = stateProfile
+    ? `${stateProfile.monthly[0].waterTemp}°F`
+    : lowTemp
+      ? `~${lowTemp}°F`
+      : null;
+  const afternoonSummerTemp = stateProfile
+    ? `${stateProfile.monthly[7].waterTemp}°F`
+    : highTemp
+      ? `~${highTemp}°F`
+      : null;
+
   return (
-    <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
+    <div className="bg-gradient-to-b from-sky-50 via-blue-50/30 to-white min-h-screen">
       <BreadcrumbStructuredData
         items={[
-          { name: "Quiver", url: `${SITE_ORIGIN}/` },
+          { name: "Quiver", url: `${SITE_URL}/` },
+          { name: "Best Time to Surf", url: `${SITE_URL}/best-time-to-surf` },
           {
-            name: `${cityName} Surf`,
-            url: `${SITE_ORIGIN}/beaches/usa/${stateSlug}/${citySlug}`,
-          },
-          {
-            name: "Best Time to Surf",
-            url: `${SITE_ORIGIN}/best-time-to-surf/${citySlug}`,
+            name: cityName,
+            url: `${SITE_URL}/best-time-to-surf/${citySlug}`,
           },
         ]}
       />
@@ -143,21 +202,27 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
+            href="/best-time-to-surf"
+            className="text-ocean-blue hover:underline"
+          >
+            Best Time to Surf
+          </Link>
+          <span className="text-gray-400 mx-1">&rsaquo;</span>
+          <Link
             href={`/beaches/usa/${stateSlug}/${citySlug}`}
             className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
           >
-            <ChevronLeft className="h-4 w-4" />
-            Back to {cityName}
+            {cityName}
           </Link>
-          <span className="text-gray-400 mx-2">&rsaquo;</span>
-          <span className="text-gray-800 font-medium">Best Time to Surf</span>
+          <span className="text-gray-400 mx-1">&rsaquo;</span>
+          <span className="text-gray-800 font-medium">Surf Calendar</span>
         </nav>
 
         {/* Hero Section */}
         <ScrollReveal>
           <header className="mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              Best Time to Surf {cityName}
+              Best Time to Surf {cityName} ({currentYear})
             </h1>
             <p className="text-lg text-gray-600 mb-6">
               {cityName}, {stateName} &mdash; Month-by-month surf guide
@@ -181,9 +246,11 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                 <p className="text-white/90 max-w-md">
                   {data.topBeaches.length} of {data.totalBeaches} beaches hit
                   their best conditions during {data.peakMonthName}.
-                  {data.waterTempRange
-                    ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
-                    : ""}
+                  {stateProfile
+                    ? ` Expect ${stateProfile.monthly[data.peakMonth - 1].waveHeightRange} waves and ${stateProfile.monthly[data.peakMonth - 1].waterTemp}°F water.`
+                    : data.waterTempRange
+                      ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
+                      : ""}
                 </p>
               </div>
             </div>
@@ -216,6 +283,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             waterTempRange={data.waterTempRange}
             summerWetsuit={data.summerWetsuit}
             winterWetsuit={data.winterWetsuit}
+            stateMonthly={stateProfile?.monthly}
+            peakMonths={stateProfile?.peakMonths}
           />
         </section>
 
@@ -226,7 +295,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               Dawn Patrol vs Afternoon Sessions
             </h2>
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-all duration-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Dawn Patrol
                 </h3>
@@ -234,14 +303,14 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                   <li>Typically glassier conditions before onshore winds build</li>
                   <li>Smaller crowds, especially on weekdays</li>
                   <li>
-                    {data.waterTempRange
-                      ? `Water temps at their coolest — plan your wetsuit for the low end (~${data.waterTempRange.split("-")[0]}°F in winter)`
+                    {dawnWinterTemp
+                      ? `Water temps at their coolest — plan your wetsuit for the low end (${dawnWinterTemp} in winter)`
                       : "Water is coolest in the early morning — bring a thicker wetsuit"}
                   </li>
                   <li>Best for beach breaks and exposed reef setups in {cityName}</li>
                 </ul>
               </div>
-              <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 hover:-translate-y-1 hover:shadow-xl transition-all duration-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   Afternoon Sessions
                 </h3>
@@ -249,8 +318,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
                   <li>Onshore winds can create chop, but swell is often more consistent</li>
                   <li>Higher crowds on popular beaches, especially weekends</li>
                   <li>
-                    {data.waterTempRange
-                      ? `Water warms through the day — upper end (~${data.waterTempRange.split("-")[1]}°F in summer)`
+                    {afternoonSummerTemp
+                      ? `Water warms through the day — upper end (${afternoonSummerTemp} in summer)`
                       : "Water temperature is warmer by afternoon"}
                   </li>
                   <li>Sunset sessions can be magic when winds die down</li>
@@ -267,59 +336,58 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">
                 Top Surf Spots in {cityName}
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {data.topBeaches.map((beach) => {
-                  const href = beach.slug
-                    ? buildBeachUrl(beach)
-                    : null;
+              <ScrollReveal stagger staggerDelay={75}>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {data.topBeaches.map((beach) => {
+                    const href = beach.slug
+                      ? buildBeachUrl(beach)
+                      : null;
 
-                  return (
-                    <div
-                      key={beach.slug || beach.name}
-                      className="rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          {href ? (
-                            <Link
-                              href={href}
-                              className="text-base font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
-                            >
-                              {beach.name}
-                            </Link>
-                          ) : (
-                            <span className="text-base font-semibold text-gray-900">
-                              {beach.name}
-                            </span>
-                          )}
-                          <div className="flex flex-wrap gap-1.5 mt-1.5">
-                            {beach.skillLevel && (
-                              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
-                                {beach.skillLevel}
+                    return (
+                      <div
+                        key={beach.slug || beach.name}
+                        className="rounded-xl border border-gray-200 bg-white p-4 hover:-translate-y-1 hover:shadow-xl transition-all duration-200"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            {href ? (
+                              <Link
+                                href={href}
+                                className="text-base font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
+                              >
+                                {beach.name}
+                              </Link>
+                            ) : (
+                              <span className="text-base font-semibold text-gray-900">
+                                {beach.name}
                               </span>
                             )}
-                            {beach.crowdLevel && (
-                              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
-                                {beach.crowdLevel.replace(/_/g, " ")}
-                              </span>
-                            )}
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              {beach.skillLevel && (
+                                <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
+                                  {beach.skillLevel}
+                                </span>
+                              )}
+                              {beach.crowdLevel && (
+                                <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
+                                  {beach.crowdLevel.replace(/_/g, " ")}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        {beach.bestMonths.length > 0 && (
+                          <p className="mt-2 text-xs text-gray-500">
+                            Peak: {beach.bestMonths
+                              .map((m) => MONTH_ABBREVS[m - 1])
+                              .join(", ")}
+                          </p>
+                        )}
                       </div>
-                      {beach.bestMonths.length > 0 && (
-                        <p className="mt-2 text-xs text-gray-500">
-                          Peak: {beach.bestMonths
-                            .map((m) => [
-                              "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-                            ][m - 1])
-                            .join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              </ScrollReveal>
             </section>
           </ScrollReveal>
         )}

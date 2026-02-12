@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "@/components/landing-page/section-wrapper";
+import { SITE_URL } from "@/lib/constants/seo";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,10 +36,6 @@ interface EmbedPromoPageProps {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
-).replace(/\/$/, "");
 
 const VALUE_PROPS = [
   {

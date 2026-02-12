@@ -8,6 +8,7 @@ import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import { StarRating } from "@/components/ui/star-rating";
 import { Loader2, MessageSquare, Trash2, Edit3, Calendar } from "lucide-react";
 import { ZeroState } from "@/components/ui/zero-state";
+import { GradientEmptyState } from "@/components/ui/gradient-empty-state";
 import {
   getBeachReviews,
   deleteBeachReview,
@@ -17,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { BeachReviewWithUser } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,15 +118,11 @@ export function BeachReviewsList({
   if (reviews.length === 0) {
     if (publicMode) {
       return (
-        <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 p-6 text-center">
-          <MessageSquare className="h-8 w-8 text-ocean-blue mx-auto mb-2" />
-          <p className="text-base font-medium text-gray-900 mb-1">
-            Surfed here? Share your experience
-          </p>
-          <p className="text-sm text-gray-600">
-            Be the first to review this spot and help fellow surfers find the best waves.
-          </p>
-        </div>
+        <GradientEmptyState
+          icon={MessageSquare}
+          title="Surfed here? Share your experience"
+          description="Be the first to review this spot and help fellow surfers find the best waves."
+        />
       );
     }
     return (
@@ -229,7 +227,7 @@ export function BeachReviewsList({
                 <h4 className="font-medium text-lg">{review.title}</h4>
 
                 {/* Review Content */}
-                <p className={`text-muted-foreground leading-relaxed ${publicMode ? "line-clamp-3" : ""}`}>
+                <p className={cn("text-muted-foreground leading-relaxed", publicMode && "line-clamp-3")}>
                   {review.content}
                 </p>
 
