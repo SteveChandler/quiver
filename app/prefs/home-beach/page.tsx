@@ -3,20 +3,20 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { saveHomeBeach, searchBeaches, getPopularBeaches, getNearbyBeaches, type Beach } from './actions';
+import { saveHomeBeach, searchBeaches, getPopularBeaches, getNearbyBeaches, type BeachBasicInfo } from './actions';
 
 function HomeBeachPickerContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Beach[]>([]);
-  const [nearbyBeaches, setNearbyBeaches] = useState<Beach[]>([]);
+  const [results, setResults] = useState<BeachBasicInfo[]>([]);
+  const [nearbyBeaches, setNearbyBeaches] = useState<BeachBasicInfo[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBeach, setSelectedBeach] = useState<Beach | null>(null);
+  const [selectedBeach, setSelectedBeach] = useState<BeachBasicInfo | null>(null);
 
   // Load nearby/popular beaches on mount
   useEffect(() => {
@@ -64,7 +64,7 @@ function HomeBeachPickerContent() {
     return () => clearTimeout(timer);
   }, [query, search]);
 
-  const handleSelect = async (beach: Beach) => {
+  const handleSelect = async (beach: BeachBasicInfo) => {
     if (!token) {
       setError('Missing token. Please use the link from your email.');
       return;
@@ -87,7 +87,7 @@ function HomeBeachPickerContent() {
   };
 
   // Format location string
-  const formatLocation = (beach: Beach): string => {
+  const formatLocation = (beach: BeachBasicInfo): string => {
     const parts = [beach.city, beach.state].filter(Boolean);
     return parts.join(', ') || beach.country || '';
   };

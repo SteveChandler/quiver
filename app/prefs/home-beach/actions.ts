@@ -3,18 +3,13 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 import { revalidatePath } from 'next/cache';
+import type { BeachBasicInfo } from '@/types/database';
+
+export type { BeachBasicInfo };
 
 export interface SaveHomeBeachResult {
   success: boolean;
   error?: string;
-}
-
-export interface Beach {
-  id: string;
-  name: string;
-  city: string | null;
-  state: string | null;
-  country: string | null;
 }
 
 export async function saveHomeBeach(
@@ -49,7 +44,7 @@ export async function saveHomeBeach(
   return { success: true };
 }
 
-export async function searchBeaches(query: string, limit: number = 10): Promise<Beach[]> {
+export async function searchBeaches(query: string, limit: number = 10): Promise<BeachBasicInfo[]> {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -66,7 +61,7 @@ export async function searchBeaches(query: string, limit: number = 10): Promise<
   return data || [];
 }
 
-export async function getNearbyBeaches(lat: number, lon: number, limit: number = 5): Promise<Beach[]> {
+export async function getNearbyBeaches(lat: number, lon: number, limit: number = 5): Promise<BeachBasicInfo[]> {
   const supabase = await createSupabaseServerClient();
 
   // Use PostGIS RPC to find nearby beaches
@@ -84,10 +79,10 @@ export async function getNearbyBeaches(lat: number, lon: number, limit: number =
       .select('id, name, city, state, country')
       .in('name', ['La Jolla Shores', 'Scripps', 'Blacks Beach', 'Pacific Beach', 'Ocean Beach'])
       .limit(limit);
-    return (fallback || []) as Beach[];
+    return (fallback || []) as BeachBasicInfo[];
   }
 
-  // Map the RPC result to our Beach interface
+  // Map the RPC result to BeachBasicInfo
   return (data || []).map((b: { id: string; name: string; location?: string }) => ({
     id: b.id,
     name: b.name,
@@ -99,7 +94,7 @@ export async function getNearbyBeaches(lat: number, lon: number, limit: number =
   }));
 }
 
-export async function getPopularBeaches(limit: number = 5): Promise<Beach[]> {
+export async function getPopularBeaches(limit: number = 5): Promise<BeachBasicInfo[]> {
   const supabase = await createSupabaseServerClient();
 
   // Get popular San Diego beaches as defaults
@@ -114,5 +109,5 @@ export async function getPopularBeaches(limit: number = 5): Promise<Beach[]> {
     return [];
   }
 
-  return (data || []) as Beach[];
+  return (data || []) as BeachBasicInfo[];
 }

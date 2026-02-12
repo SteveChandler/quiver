@@ -15,6 +15,15 @@ export type Beach = Database['public']['Tables']['beaches']['Row']
 export type BeachInsert = Database['public']['Tables']['beaches']['Insert']
 export type BeachUpdate = Database['public']['Tables']['beaches']['Update']
 
+/** Lightweight beach summary for lists, search results, and cards */
+export type BeachSummary = Pick<Beach, 'id' | 'name' | 'slug' | 'city' | 'state' | 'country' | 'lat' | 'lon'>
+
+/** Beach data needed for map pins */
+export type BeachMapItem = Pick<Beach, 'id' | 'name' | 'slug' | 'lat' | 'lon' | 'skill_level'>
+
+/** Minimal beach info for pickers and dropdowns (no coordinates) */
+export type BeachBasicInfo = Pick<Beach, 'id' | 'name' | 'city' | 'state' | 'country'>
+
 export type BeachReview = Database['public']['Tables']['beach_reviews']['Row']
 export type BeachReviewInsert = Database['public']['Tables']['beach_reviews']['Insert']
 export type BeachReviewUpdate = Database['public']['Tables']['beach_reviews']['Update']
