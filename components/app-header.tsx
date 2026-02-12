@@ -96,7 +96,7 @@ export function AppHeader() {
   }, [user]);
 
   const { data: unreadCountData, refetch: refetchUnreadCount } =
-    useDataFetcher<number>(fetchNotificationsCount);
+    useDataFetcher<number>(fetchNotificationsCount, { skip: !user });
   const unreadCount = unreadCountData ?? 0;
 
   // Use shared subscription hook to avoid duplicate subscriptions

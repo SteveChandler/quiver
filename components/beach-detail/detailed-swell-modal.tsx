@@ -49,7 +49,7 @@ export function DetailedSwellModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="bg-gradient-to-r from-ocean-blue to-blue-700 text-white rounded-t-lg -m-6 mb-6 p-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl md:text-2xl font-roboto font-bold">
+            <DialogTitle className="text-xl md:text-2xl font-roboto font-bold" suppressHydrationWarning>
               Detailed Forecast - {formatDate(selectedDate)}
             </DialogTitle>
             <Button

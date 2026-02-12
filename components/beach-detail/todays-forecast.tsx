@@ -19,7 +19,7 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
           <h3 className="text-lg font-semibold text-gray-800 mb-1">
             Today’s Forecast
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600" suppressHydrationWarning>
             {new Date(forecast.forecast_date).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",

@@ -631,7 +631,7 @@ export function ForecastTab({
                         }}
                         className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
                       >
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-xs font-medium text-muted-foreground" suppressHydrationWarning>
                           <span>{label}</span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-1">
