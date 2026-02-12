@@ -41,6 +41,7 @@ import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { DataErrorBoundary } from "@/components/error-boundaries";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 
 const CamsSection = dynamic(
@@ -347,6 +348,7 @@ export function ForecastTab({
   }, [forecasts, beach.name, dynamicTide.minutesUntil]);
 
   return (
+    <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
       {/* 12-Day Horizon Strip */}
       {forecasts.length > 0 && (
@@ -747,5 +749,6 @@ export function ForecastTab({
         selectedDate={selectedDay}
       />
     </div>
+    </DataErrorBoundary>
   );
 }

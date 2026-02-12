@@ -11,6 +11,7 @@ import {
 } from "@/lib/utils/session-wizard-params";
 import { useAuth } from "@/context/auth-context";
 import { ReviewPromptDialog } from "@/components/dialogs/review-prompt-dialog";
+import { FormErrorBoundary } from "@/components/error-boundaries";
 import { useReviewPrompt } from "@/hooks/use-review-prompt";
 import { REVIEW_TIMEOUTS } from "@/lib/constants/review-tracking";
 import { useSessionSubmission } from "./useSessionSubmission";
@@ -71,14 +72,16 @@ function NewSessionPageContent({
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
-      <SessionWizard
-        mode={mode}
-        onComplete={submission.handleSessionComplete}
-        onCancel={handleCancel}
-        className="min-h-screen"
-        initialFormState={initialFormState}
-        targetStep={targetStep}
-      />
+      <FormErrorBoundary formId="session-form">
+        <SessionWizard
+          mode={mode}
+          onComplete={submission.handleSessionComplete}
+          onCancel={handleCancel}
+          className="min-h-screen"
+          initialFormState={initialFormState}
+          targetStep={targetStep}
+        />
+      </FormErrorBoundary>
 
       {/* Post-log forecast feedback modal */}
       <ForecastFeedbackFlow

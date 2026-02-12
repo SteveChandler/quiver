@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
+import { DataErrorBoundary } from "@/components/error-boundaries";
 import {
   COVERAGE_MESSAGES,
   isLikelyOutOfAreaSearch,
@@ -148,15 +149,17 @@ export function MapContent({
         style={{ height: "400px" }}
         data-testid="map-container"
       >
-        <InteractiveMap
-          key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lon.toFixed(4)}`}
-          initialCenter={[mapCenter.lat, mapCenter.lon]}
-          initialZoom={12}
-          onLocationClick={onBeachSelect}
-          regionViewport={regionViewport}
-          beaches={filteredBeaches}
-          className="absolute inset-0 z-0 w-full h-full"
-        />
+        <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
+          <InteractiveMap
+            key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lon.toFixed(4)}`}
+            initialCenter={[mapCenter.lat, mapCenter.lon]}
+            initialZoom={12}
+            onLocationClick={onBeachSelect}
+            regionViewport={regionViewport}
+            beaches={filteredBeaches}
+            className="absolute inset-0 z-0 w-full h-full"
+          />
+        </DataErrorBoundary>
 
         {/* Map overlay with beach count */}
         <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-xs z-10">
