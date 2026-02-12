@@ -22,7 +22,7 @@ confetti({particleCount: 140, spread: 70, origin:{y:.6}});
 setTimeout(() => {
 router.push('/profile');
 }, 2000);
-}).catch(()=>{});
+}).catch(() => { router.push('/profile'); });
 },[router]);
 return <div id="celebration-pulse" aria-hidden className="fixed inset-0 pointer-events-none"/>;
 }

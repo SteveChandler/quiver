@@ -167,7 +167,7 @@ export function useSessionSubmission({
           reason,
         });
       }
-    } catch {}
+    } catch (e) { console.error('[SessionSubmission] error:', e); }
     // Instead of celebration, show review prompt
     showReviewPromptIfEligible();
   };
@@ -243,7 +243,7 @@ export function useSessionSubmission({
           session_id: feedbackSession.id,
           overall_accuracy: feedback.overallAccuracy,
         });
-      } catch {}
+      } catch (e) { console.error('[SessionSubmission] error:', e); }
 
       feedbackResolvedRef.current = true;
       setFeedbackResolved(true);
@@ -513,7 +513,7 @@ export function useSessionSubmission({
             crowd: isFinite(crowd as number) ? crowd : undefined,
             water_temp: isFinite(water as number) ? water : undefined,
           });
-        } catch {}
+        } catch (e) { console.error('[SessionSubmission] error:', e); }
 
         // Handle photo uploads if any
         if (sessionData.photos && sessionData.photos.length > 0) {

@@ -31,7 +31,7 @@ export function EmbedTideWidget({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ widgetType: 'tides', beachSlug: slug }),
       keepalive: true,
-    }).catch(() => {});
+    }).catch((e) => { if (process.env.NODE_ENV === 'development') console.warn('[Embed] impression tracking failed:', e); });
   }, [slug]);
   const isDark = theme === "dark";
 

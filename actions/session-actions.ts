@@ -350,7 +350,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
                 cleaned.beach_id = fallbackId as any;
               }
             }
-          } catch {}
+          } catch (e) { console.error('[SessionAction] fallback failed:', e); }
           if (!cleaned.beach_id) {
             throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
           }
@@ -388,7 +388,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
           writeClient = createSupabaseServiceRoleClient();
         }
       }
-    } catch {}
+    } catch (e) { console.error('[SessionAction] fallback failed:', e); }
 
     const { data: session, error } = await writeClient
       .from("sessions")
@@ -478,7 +478,7 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
                 cleaned.beach_id = fallbackId as any;
               }
             }
-          } catch {}
+          } catch (e) { console.error('[SessionAction] fallback failed:', e); }
           if (!cleaned.beach_id) {
             throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
           }
@@ -516,7 +516,7 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
           writeClient = createSupabaseServiceRoleClient();
         }
       }
-    } catch {}
+    } catch (e) { console.error('[SessionAction] fallback failed:', e); }
 
     const { data: session, error } = await writeClient
       .from("sessions")

@@ -52,7 +52,7 @@ export default function InboxPageClient() {
         try {
           const j = await res.json();
           apiErr = j?.error || apiErr;
-        } catch {}
+        } catch { /* JSON parse of error body may fail */ }
         throw new Error(apiErr);
       }
       const json = await res.json();
