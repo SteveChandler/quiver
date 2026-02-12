@@ -8,11 +8,11 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { createCachedMapFetch } from "@/hooks/use-cached-api";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
-import { CACHE_TTL, API_BATCH_CONFIG } from "@/lib/constants/ui";
-import { fetchInBatches } from "@/lib/utils/batch-fetch";
+import { CACHE_TTL } from "@/lib/constants/ui";
 import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createWaveHeightBadge, type MarkerBuilderDeps } from "@/components/map/map-marker-builder";
+import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
 import { createClusterMarkerElement } from "@/components/map/cluster-marker";
 
 // Mapbox CSS is imported globally in app/globals.css
@@ -248,138 +248,20 @@ export function InteractiveMap({
 
       lastPopulateKeyRef.current = populateKey;
       try {
-        let locations: Beach[] = [];
-
-        // Use provided beaches prop first (filtered beaches from parent)
+        // Clean up existing markers when provided beaches change
         if (beaches && beaches.length > 0) {
-          // Clean up existing markers to ensure fresh state when filters change
           cleanupMarkers();
-          locations = beaches.slice(0, 20); // Limit to 20 for performance
-        } else {
-          // Fallback to API fetch when no beaches prop provided
-          // Prefer nearby endpoint first (faster and already filtered), fallback to public list
-          try {
-            const response = await fetchNearbyBeaches.current(
-              latitude,
-              longitude
-            );
-            locations = (response as any)?.data || [];
-          } catch (err) {
-            console.warn("Nearby beaches API failed", err);
-          }
-
-          // Fallback to public beaches list and filter by distance client-side
-          if (locations.length === 0) {
-            try {
-              const res = await fetch("/api/beaches", {
-                headers: { Accept: "application/json" },
-              });
-              if (res.ok) {
-                const json = await res.json();
-                const all: Beach[] = json?.beaches || json?.data?.beaches || [];
-                const { calculateDistanceInMiles } = await import(
-                  "@/lib/utils/distance-utils"
-                );
-                locations = all
-                  .map((b) => ({
-                    ...b,
-                    _d: calculateDistanceInMiles(
-                      { lat: latitude, lon: longitude },
-                      { lat: b.lat ?? NaN, lon: b.lon ?? NaN }
-                    ),
-                  }))
-                  .filter((b: any) => isFinite(b._d) && b._d <= 30)
-                  .sort((a: any, b: any) => a._d - b._d)
-                  .slice(0, 20);
-              }
-            } catch (fallbackErr) {
-              console.error("Public beaches list fetch failed", fallbackErr);
-            }
-          }
-
-          // Limit to 20 beaches max
-          locations = locations.slice(0, 20);
         }
 
-        // Fetch wave heights for ALL beaches that clustering will use (not just displayed locations)
-        const localWaveHeightMap = new Map<string, number | undefined>();
-        const beachesForWaveData = beaches?.length ? beaches : locations;
-
-        if (beachesForWaveData.length > 0) {
-          try {
-            const allBeachIds = beachesForWaveData
-              .map((beach) => beach.id)
-              .filter(Boolean) as string[];
-
-            const results = await fetchInBatches({
-              items: allBeachIds,
-              batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
-              fetchBatch: async (batchIds) => {
-                const response = await fetch(
-                  `/api/forecasts/bulk?beachIds=${batchIds.join(",")}`
-                );
-                if (!response.ok) {
-                  if (response.status !== 400) {
-                    throw new Error(`Bulk forecast API returned ${response.status}`);
-                  }
-                  return null;
-                }
-                return response.json();
-              },
-              onBatchError: (error, batchIndex) => {
-                console.warn(`Wave height batch ${batchIndex} failed:`, error);
-              },
-            });
-
-            results.forEach((data) => {
-              const forecasts = data?.data?.forecasts || {};
-              Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
-                // wave_height may be a string from DB — parse to number
-                const parsed = typeof waveHeight === "number" ? waveHeight : parseFloat(waveHeight as string);
-                if (!isNaN(parsed)) {
-                  localWaveHeightMap.set(beachId, parsed);
-                }
-              });
-            });
-          } catch (error) {
-            console.warn("Failed to fetch bulk forecasts:", error);
-          }
-        }
-
-        // Fill missing wave heights from nearest beach with data
-        if (localWaveHeightMap.size > 0 && beachesForWaveData.length > 0) {
-          const beachesWithData = beachesForWaveData.filter(
-            (b) => localWaveHeightMap.has(b.id)
-          );
-          const beachesWithoutData = beachesForWaveData.filter(
-            (b) => !localWaveHeightMap.has(b.id)
-          );
-
-          for (const beach of beachesWithoutData) {
-            let nearestDistance = Infinity;
-            let nearestHeight: number | undefined;
-
-            for (const dataBeach of beachesWithData) {
-              const dist = Math.hypot(
-                (beach.lat ?? 0) - (dataBeach.lat ?? 0),
-                (beach.lon ?? 0) - (dataBeach.lon ?? 0)
-              );
-              if (dist < nearestDistance) {
-                nearestDistance = dist;
-                nearestHeight = localWaveHeightMap.get(dataBeach.id);
-              }
-            }
-
-            if (nearestHeight !== undefined) {
-              localWaveHeightMap.set(beach.id, nearestHeight);
-            }
-          }
-        }
+        const result = await loadBeachesAndWaveHeights(
+          latitude,
+          longitude,
+          beaches,
+          { fetchNearbyBeaches: fetchNearbyBeaches.current }
+        );
 
         // Store wave heights for clustering
-        setWaveHeightMap(localWaveHeightMap);
-
-        // Marker rendering is now handled by the clusters useEffect
+        setWaveHeightMap(result.waveHeightMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
         console.error("Error populating locations", e);

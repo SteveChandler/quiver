@@ -1,0 +1,185 @@
+import type { Beach } from "@/types/database";
+import { API_BATCH_CONFIG } from "@/lib/constants/ui";
+import { fetchInBatches } from "@/lib/utils/batch-fetch";
+
+/**
+ * Dependencies for fetchNearbyBeaches — injected so the module
+ * can be tested without real API calls.
+ */
+export interface BeachLoaderDeps {
+  /** Cached fetch function for the nearby beaches API */
+  fetchNearbyBeaches: (lat: number, lon: number) => Promise<any>;
+}
+
+/**
+ * Result of loadBeachesAndWaveHeights — pure data, no side effects.
+ */
+export interface BeachLoaderResult {
+  /** Resolved list of beaches to display on map (max 20) */
+  locations: Beach[];
+  /** Map from beach ID to wave height (includes interpolated values) */
+  waveHeightMap: Map<string, number | undefined>;
+}
+
+/**
+ * Resolve which beaches to display and fetch their wave heights.
+ *
+ * This is a pure async function — the caller is responsible for setting
+ * React state with the returned result.
+ *
+ * Beach resolution priority:
+ * 1. If `providedBeaches` is non-empty, use those (sliced to 20)
+ * 2. Otherwise fetch from nearby API, falling back to public list
+ *
+ * Wave height fetching:
+ * - Batch-fetches from `/api/forecasts/bulk`
+ * - Interpolates missing heights from the nearest beach with data
+ *
+ * @param latitude - Map center latitude
+ * @param longitude - Map center longitude
+ * @param providedBeaches - Beaches from parent prop (may be undefined)
+ * @param deps - Injectable dependencies
+ */
+export async function loadBeachesAndWaveHeights(
+  latitude: number,
+  longitude: number,
+  providedBeaches: Beach[] | undefined,
+  deps: BeachLoaderDeps
+): Promise<BeachLoaderResult> {
+  let locations: Beach[] = [];
+
+  // Use provided beaches prop first (filtered beaches from parent)
+  if (providedBeaches && providedBeaches.length > 0) {
+    locations = providedBeaches.slice(0, 20);
+  } else {
+    // Fallback to API fetch when no beaches prop provided
+    try {
+      const response = await deps.fetchNearbyBeaches(latitude, longitude);
+      locations = (response as any)?.data || [];
+    } catch (err) {
+      console.warn("Nearby beaches API failed", err);
+    }
+
+    // Fallback to public beaches list and filter by distance client-side
+    if (locations.length === 0) {
+      try {
+        const res = await fetch("/api/beaches", {
+          headers: { Accept: "application/json" },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const all: Beach[] = json?.beaches || json?.data?.beaches || [];
+          const { calculateDistanceInMiles } = await import(
+            "@/lib/utils/distance-utils"
+          );
+          locations = all
+            .map((b) => ({
+              ...b,
+              _d: calculateDistanceInMiles(
+                { lat: latitude, lon: longitude },
+                { lat: b.lat ?? NaN, lon: b.lon ?? NaN }
+              ),
+            }))
+            .filter((b: any) => isFinite(b._d) && b._d <= 30)
+            .sort((a: any, b: any) => a._d - b._d)
+            .slice(0, 20);
+        }
+      } catch (fallbackErr) {
+        console.error("Public beaches list fetch failed", fallbackErr);
+      }
+    }
+
+    // Limit to 20 beaches max
+    locations = locations.slice(0, 20);
+  }
+
+  // Fetch wave heights for ALL beaches that clustering will use
+  const waveHeightMap = new Map<string, number | undefined>();
+  const beachesForWaveData = providedBeaches?.length
+    ? providedBeaches
+    : locations;
+
+  if (beachesForWaveData.length > 0) {
+    try {
+      const allBeachIds = beachesForWaveData
+        .map((beach) => beach.id)
+        .filter(Boolean) as string[];
+
+      const results = await fetchInBatches({
+        items: allBeachIds,
+        batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
+        fetchBatch: async (batchIds) => {
+          const response = await fetch(
+            `/api/forecasts/bulk?beachIds=${batchIds.join(",")}`
+          );
+          if (!response.ok) {
+            if (response.status !== 400) {
+              throw new Error(
+                `Bulk forecast API returned ${response.status}`
+              );
+            }
+            return null;
+          }
+          return response.json();
+        },
+        onBatchError: (error, batchIndex) => {
+          console.warn(`Wave height batch ${batchIndex} failed:`, error);
+        },
+      });
+
+      results.forEach((data) => {
+        const forecasts = data?.data?.forecasts || {};
+        Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
+          const parsed =
+            typeof waveHeight === "number"
+              ? waveHeight
+              : parseFloat(waveHeight as string);
+          if (!isNaN(parsed)) {
+            waveHeightMap.set(beachId, parsed);
+          }
+        });
+      });
+    } catch (error) {
+      console.warn("Failed to fetch bulk forecasts:", error);
+    }
+  }
+
+  // Fill missing wave heights from nearest beach with data
+  interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
+
+  return { locations, waveHeightMap };
+}
+
+/**
+ * Fill missing wave heights by copying from the geographically nearest
+ * beach that has data. Mutates `waveHeightMap` in place.
+ */
+function interpolateMissingWaveHeights(
+  beaches: Beach[],
+  waveHeightMap: Map<string, number | undefined>
+): void {
+  if (waveHeightMap.size === 0 || beaches.length === 0) return;
+
+  const beachesWithData = beaches.filter((b) => waveHeightMap.has(b.id));
+  const beachesWithoutData = beaches.filter((b) => !waveHeightMap.has(b.id));
+
+  for (const beach of beachesWithoutData) {
+    let nearestDistance = Infinity;
+    let nearestHeight: number | undefined;
+
+    for (const dataBeach of beachesWithData) {
+      const dist = Math.hypot(
+        (beach.lat ?? 0) - (dataBeach.lat ?? 0),
+        (beach.lon ?? 0) - (dataBeach.lon ?? 0)
+      );
+      if (dist < nearestDistance) {
+        nearestDistance = dist;
+        nearestHeight = waveHeightMap.get(dataBeach.id);
+      }
+    }
+
+    if (nearestHeight !== undefined) {
+      waveHeightMap.set(beach.id, nearestHeight);
+    }
+  }
+}
