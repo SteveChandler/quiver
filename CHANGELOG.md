@@ -52,7 +52,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Circular Dependencies Broken** - Created `lib/services/beach-query-service.ts` to eliminate 5 `lib/ → actions/` circular imports. Moved `CityMetadata` type to `types/location.ts`.
 - **Intel Actions Split** - Split 1,118-line `intel-actions.ts` into `actions/intel/` directory with create, query, confirm modules + shared types.
 - **Coast Pulse Service Extraction** - Extracted 1,053-line API route into `lib/services/coast-pulse/` service + types, leaving a 75-line thin handler.
-- **API Route Auth Standardization** - Migrated 5 routes (`user/preferences`, `user/beach-affinity`, `users/[id]/stats`, `me/profile-page`, `journal/export`) from manual auth to `withAuth` wrapper.
+- **API Route Auth Standardization** - Migrated 12 routes total to `withAuth`/`withAdminAuth`/`withBearerAuth` wrappers. New `withAdminAuth` (admin session) and `withBearerAuth` (dual bearer token + admin fallback) wrappers in `lib/middleware/api-wrappers/`.
+- **City Page Split** - Split 613-line `page.tsx` into 6 focused modules: utils, metadata, static generation, editorial layout, and standard layout. Core page reduced to 121 LOC (80% reduction).
+- **Interactive Map Split** - Split 854-line `interactive-map.tsx` into 5 modules with typed dependency injection interfaces: marker builder, favorites loader, beach loader, cluster renderer. Core reduced to 550 LOC.
+- **SessionForm Split** - Split 779-line `SessionForm.tsx` into 6 modules. New shared `buildSessionPayload()` ensures both session creation paths (legacy form + wizard) keep 6 condition fields in sync. 15 unit tests for the shared builder.
+
+### Added
+
+- **Data Fetching Guide** - New `docs/DATA_FETCHING_GUIDE.md` with decision matrix covering all 6 data fetching patterns (useDataFetcher, SWR, TanStack Query, Server Actions, fetch+API, unstable_cache).
+- **Test Coverage: HLS, Intel, Coast Pulse** - 117 new tests: HLS proxy (30 tests: SSRF, path traversal, rate limiting), Intel actions (52 tests: CRUD, dedup, confirmations), Coast Pulse service (23 tests: aggregation, pagination, staleness).
+
+### Fixed
+
+- **Bearer Token Validation** - `withBearerAuth` wrapper now uses strict exact-match comparison instead of `.includes()` substring match. Previously, an empty `SUPABASE_SERVICE_ROLE_KEY` env var would grant admin access to any Bearer request.
 
 - **E2E Test: Conditions Tab Hero Text** - Fixed 2 pre-existing forecast-tabs E2E test failures. Tests expected "Best Day This Week" but the hero shows "Selected Day" when a day is auto-selected in the horizon strip. Updated selectors to match both labels. Also increased `beforeEach` timeout to reduce flaky failures from slow forecast data loading.
 - **Map Selected Beach Card UI** - Replaced MapPin icons with Star icons for ratings, show actual review count instead of hardcoded "128", show "No reviews" for unrated beaches instead of fake 4-star rating, removed hardcoded "San Diego" location fallback.
