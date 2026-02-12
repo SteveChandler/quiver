@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hawaii & Puerto Rico Beach 404s** - Fixed 31 HI/PR beach slugs that used compound format (`{name}-{city}-{state}`) instead of short slugs expected by routing. All beaches now resolve correctly (e.g. `/hi/honolulu/waikiki-canoes`, `/pr/rincon/domes`).
+- **Console 400 Errors on Every Page** - Added `skip: !user` guard to notification count fetcher in AppHeader, preventing unauthenticated API calls that produced 400 errors in the console.
+- **React Hydration Mismatch on Beach Pages** - Added `suppressHydrationWarning` to date-formatted elements in forecast-tab, detailed-swell-modal, and todays-forecast components to suppress React error #418 from server/client timezone differences.
+
 ### Changed
 
+- **Merge Landing Page Conditions into Surf Spot Cards** - Removed separate "Best Conditions Today" and "Best Right Now" sections from landing page. Enriched existing surf spot photo cards with live forecast score badges and wave heights, sorted by best conditions first. Section title changed to "Top surf spots near {location}".
 - **Remove Auth Gate from Map Page** - Removed `<AuthGate block />` from `/map` so unauthenticated users can browse the full map without a login modal or blocking overlay, turning the map into a top-of-funnel acquisition channel. Deleted now-unused `auth-gate.tsx` and `auth-blocking-overlay.tsx` components, removed `isAuthGate` prop from `UnifiedAuthModal`.
 - **Extract ForecastSectionContainer Component** (uncommitted) - Created shared `ForecastSectionContainer` to DRY up repeated `<section className="py-10 px-4"><div className="max-w-3xl mx-auto">` wrapper pattern. Updated `BestRightNow` and `ConditionsSnapshot` components to use the new container, preserving existing `data-testid` values and styling.
 

@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
-import { ConditionsSnapshot } from "@/components/landing-page/conditions-snapshot";
-import { BestRightNow } from "@/components/forecast/best-right-now";
 import { UpgradeSessionSection } from "./upgrade-session-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
@@ -44,8 +42,6 @@ export function LandingInteractiveSections() {
 
   return (
     <div className="space-y-0">
-      <ConditionsSnapshot />
-      <BestRightNow />
       <SurfHighlightsSection />
       <UpgradeSessionSection />
       <ActivitiesSection />

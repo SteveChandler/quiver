@@ -53,6 +53,8 @@ export interface EnrichedBeach {
   skill_level: string | null;
   photo_url: string | null | undefined;
   has_real_photo: boolean;
+  score?: number | null;        // Current forecast score (0-100)
+  wave_height?: number | null;  // Current wave height in feet
 }
 
 const HTTP_URL_REGEX = /^https?:\/\//i;

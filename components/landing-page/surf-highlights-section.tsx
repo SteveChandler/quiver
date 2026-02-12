@@ -20,6 +20,8 @@ interface Beach {
   average_rating?: number | null;
   review_count?: number | null;
   skill_level?: string | null;
+  score?: number | null;
+  wave_height?: number | null;
 }
 
 export function SurfHighlightsSection() {
@@ -54,10 +56,7 @@ export function SurfHighlightsSection() {
       const usedImages = new Set<string>();
       const DEFAULT_FALLBACK = "/sunsetBeach.jpg";
 
-      // Transform beaches into surf spot cards.
-      // NOTE: We intentionally do NOT show mocked conditions (swell/wind/tide/crowd/etc.)
-      // on the landing page to avoid implying forecast accuracy we don't have in this view.
-      // Prioritize beaches with actual photos, then unique fallback images
+      // Transform beaches into surf spot cards with live forecast data
       const spotCards = beaches
         .map((beach, index) => {
           // Determine the image URL
@@ -99,6 +98,8 @@ export function SurfHighlightsSection() {
             averageRating: beach.average_rating ?? null,
             reviewCount: beach.review_count ?? null,
             skillLevel: beach.skill_level ?? null,
+            score: beach.score ?? null,
+            waveHeight: beach.wave_height ?? null,
             delay: index,
           };
         })
@@ -155,8 +156,8 @@ export function SurfHighlightsSection() {
         {/* AllTrails-style editorial header - left-aligned with location emphasis */}
         <h2 className="text-2xl md:text-3xl font-roboto font-semibold text-dark-grey mb-8 text-left">
           {displayName && hasResolvedLocation
-            ? `Popular surf spots near ${displayName}`
-            : "Popular surf spots"}
+            ? `Top surf spots near ${displayName}`
+            : "Top surf spots"}
         </h2>
 
         {loading ? (
