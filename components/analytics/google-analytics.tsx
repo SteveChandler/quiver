@@ -3,13 +3,14 @@
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export default function GoogleAnalytics() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (!GA_ID) return;
     if (typeof window === "undefined") return;
     if (typeof (window as any).gtag === "undefined") return;
 

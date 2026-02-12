@@ -7,7 +7,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { hasUTMParams, getAttributionForAnalytics } from '@/lib/attribution'
 
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL"
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID
 
 /**
  * Analytics Loader Component
@@ -94,34 +94,38 @@ export function AnalyticsLoader() {
       <SpeedInsights />
 
       {/* Google Analytics (GA4) - Load on ALL pages for attribution */}
-      <Script
-        id="ga-script"
-        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-        strategy={urlHasUtm ? "afterInteractive" : "lazyOnload"}
-        onLoad={() => setGaLoaded(true)}
-      />
-      <Script
-        id="ga-init"
-        strategy={urlHasUtm ? "afterInteractive" : "lazyOnload"}
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_ID}', { 
-              anonymize_ip: true, 
-              send_page_view: false,
-              // Allow manual page view with attribution
-              page_path: window.location.pathname + window.location.search
-            });
-            ${
-              process.env.NODE_ENV !== "production"
-                ? "try{gtag('set','debug_mode',true);}catch(_){}"
-                : ""
-            }
-          `,
-        }}
-      />
+      {GA_ID && (
+        <>
+          <Script
+            id="ga-script"
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+            strategy={urlHasUtm ? "afterInteractive" : "lazyOnload"}
+            onLoad={() => setGaLoaded(true)}
+          />
+          <Script
+            id="ga-init"
+            strategy={urlHasUtm ? "afterInteractive" : "lazyOnload"}
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_ID}', {
+                  anonymize_ip: true,
+                  send_page_view: false,
+                  // Allow manual page view with attribution
+                  page_path: window.location.pathname + window.location.search
+                });
+                ${
+                  process.env.NODE_ENV !== "production"
+                    ? "try{gtag('set','debug_mode',true);}catch(_){}"
+                    : ""
+                }
+              `,
+            }}
+          />
+        </>
+      )}
       {/* Ahrefs Analytics - Only on non-landing pages (SEO tool) */}
       {shouldLoadAhrefs && (
         <Script
