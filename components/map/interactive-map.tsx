@@ -7,17 +7,12 @@ import type { Beach } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { createCachedMapFetch } from "@/hooks/use-cached-api";
-import {
-  formatWaveHeight,
-  getWaveHeightValue,
-} from "@/lib/utils/wave-height-formatter";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL, API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
-import { track } from "@/lib/analytics";
-import { slugify } from "@/lib/utils/text-utils";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
+import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
+import { createWaveHeightBadge, type MarkerBuilderDeps } from "@/components/map/map-marker-builder";
 import { createClusterMarkerElement } from "@/components/map/cluster-marker";
 
 // Mapbox CSS is imported globally in app/globals.css
@@ -154,192 +149,39 @@ export function InteractiveMap({
     []
   );
 
-  // Load user's favorite beaches
-  const loadFavoriteBeaches = useCallback(async () => {
-    try {
-      if (!user?.id) {
-        setFavoriteBeachIds(new Set());
-        return;
-      }
-
-      // Client-side fetch (avoid calling server actions from client components)
-      const res = await fetch("/api/beaches/favorites", {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        // Silently handle error - favorite beaches are non-critical for map functionality
-        setFavoriteBeachIds(new Set());
-        return;
-      }
-
-      const json = await res.json().catch(() => null);
-      const beaches = (json?.data?.beaches ?? json?.beaches ?? []) as Beach[];
-      const beachIds = new Set(
-        beaches.map((beach) => beach.id).filter(Boolean)
-      );
-      setFavoriteBeachIds(beachIds);
-    } catch (e) {
-      // Silently handle error - favorite beaches are non-critical for map functionality
-      console.debug(
-        "Error loading favorite beaches:",
-        e instanceof Error ? e.message : String(e)
-      );
-      setFavoriteBeachIds(new Set());
-    }
+  // Load user's favorite beaches (delegated to pure module)
+  const loadFavorites = useCallback(async () => {
+    const ids = await loadFavoriteBeaches(user?.id);
+    setFavoriteBeachIds(ids);
   }, [user?.id]);
 
   // Load favorites when user changes
   useEffect(() => {
     if (user?.id) {
-      loadFavoriteBeaches();
+      loadFavorites();
     } else {
       setFavoriteBeachIds(new Set());
     }
-  }, [user?.id, loadFavoriteBeaches]);
+  }, [user?.id, loadFavorites]);
 
   // Ensure access token
   useEffect(() => {
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
   }, []);
 
-  // Wave height formatting moved to utility function
-
-  // Create enhanced wave height badge element with motion capabilities
-  const createWaveHeightBadge = useCallback(
+  // Create wave height badge using extracted module with deps from refs
+  const buildWaveHeightBadge = useCallback(
     (location: Beach, waveHeight?: number | string): HTMLElement => {
-      try {
-        const isFavorite = favoriteBeachIdsRef.current.has(location.id);
-        const waveText = formatWaveHeight(waveHeight);
-        const isSelected = selectedBeachIdRef.current === location.id;
-        const isHovered = hoveredBeachIdRef.current === location.id;
-
-        // Create wrapper element that Mapbox will position
-        const wrapper = document.createElement("div");
-        wrapper.setAttribute("data-testid", "beach-marker");
-        wrapper.setAttribute("data-beach-id", location.id);
-        wrapper.style.cssText = `
-        pointer-events: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-
-        // Create selection ring for selected state
-        if (isSelected) {
-          const selectionRing = document.createElement("div");
-          selectionRing.setAttribute("data-testid", "selection-ring");
-          selectionRing.style.cssText = `
-          position: absolute;
-          top: -8px;
-          left: -8px;
-          right: -8px;
-          bottom: -8px;
-          border: 3px solid #0077B6;
-          border-radius: 50%;
-          pointer-events: none;
-          animation: pulse 2s infinite;
-        `;
-          wrapper.appendChild(selectionRing);
-        }
-
-        // Create the actual badge element as a child
-        const badge = document.createElement("div");
-        badge.style.cssText = `
-        padding: 6px 14px;
-        border-radius: 9999px;
-        color: white;
-        font-size: 16px;
-        font-weight: 600;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        cursor: pointer;
-        min-width: 70px;
-        text-align: center;
-        border: 2px solid white;
-        user-select: none;
-        transform-origin: center;
-        transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-        transform: scale(${isSelected ? "1.4" : isHovered ? "1.2" : "1"});
-        background: ${
-          isFavorite
-            ? "linear-gradient(to right, #3b82f6, #2563eb)"
-            : isSelected
-            ? "linear-gradient(to right, #0077B6, #005f8a)"
-            : "linear-gradient(to right, #fbbf24, #f59e0b)"
-        };
-        box-shadow: ${
-          isSelected
-            ? "0 0 20px rgba(0,119,182,0.5), 0 8px 25px rgba(0, 0, 0, 0.3)"
-            : isHovered
-            ? "0 8px 20px rgba(0, 0, 0, 0.4)"
-            : "0 4px 12px rgba(0, 0, 0, 0.3)"
-        };
-      `;
-        badge.innerHTML = waveText;
-
-        // Enhanced hover effects with motion
-        badge.addEventListener("mouseenter", () => {
-          setHoveredBeachId(location.id);
-        });
-
-        badge.addEventListener("mouseleave", () => {
-          setHoveredBeachId(null);
-        });
-
-        // Enhanced click handler with selection animation
-        badge.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-
-          // Set selection state for animation
-          setSelectedBeachId(location.id);
-
-          // Track marker click
-          try {
-            track("map_marker_click", {
-              beach_slug: slugify(location.name),
-              region:
-                (location as any).region ||
-                (location as any).location ||
-                undefined,
-            });
-          } catch {}
-
-          // Trigger location click callback if provided
-          if (onLocationClick) {
-            onLocationClick(location);
-          }
-
-          // Animate selection and navigate after slight delay using hierarchical URL
-          setTimeout(() => {
-            const beachUrl = getBeachUrlSafe(location);
-            if (beachUrl) router.push(beachUrl);
-          }, 400);
-        });
-
-        // Prevent any dragging or selection on the badge
-        badge.addEventListener("mousedown", (e) => {
-          e.preventDefault();
-        });
-        badge.addEventListener("dragstart", (e) => {
-          e.preventDefault();
-        });
-
-        // Append badge to wrapper
-        wrapper.appendChild(badge);
-
-        return wrapper;
-      } catch (e) {
-        console.error("Error creating wave height badge:", e);
-        // Fallback to simple wrapper with basic badge
-        const fallbackWrapper = document.createElement("div");
-        fallbackWrapper.style.cssText = "pointer-events: auto;";
-        const fallbackBadge = document.createElement("div");
-        fallbackBadge.style.cssText =
-          "width: 20px; height: 20px; background: orange; border-radius: 50%; border: 2px solid white;";
-        fallbackWrapper.appendChild(fallbackBadge);
-        return fallbackWrapper;
-      }
+      const deps: MarkerBuilderDeps = {
+        favoriteBeachIds: favoriteBeachIdsRef.current,
+        selectedBeachId: selectedBeachIdRef.current,
+        hoveredBeachId: hoveredBeachIdRef.current,
+        onHoverChange: setHoveredBeachId,
+        onSelectChange: setSelectedBeachId,
+        onLocationClick,
+        router,
+      };
+      return createWaveHeightBadge(location, waveHeight, deps);
     },
     [onLocationClick, router]
   );
@@ -787,7 +629,7 @@ export function InteractiveMap({
         const markerId = `location-${location.id}`;
         const waveHeight = cluster.waveHeight;
 
-        const badgeElement = createWaveHeightBadge(location, waveHeight);
+        const badgeElement = buildWaveHeightBadge(location, waveHeight);
 
         const marker = new mapboxgl.Marker({
           element: badgeElement,
@@ -801,7 +643,7 @@ export function InteractiveMap({
         markersRef.current[markerId] = marker;
       }
     });
-  }, [clusters, isMapReady, createClusterMarker, createWaveHeightBadge, cleanupMarkers]);
+  }, [clusters, isMapReady, createClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
 
   // Add CSS for popup animations
   useEffect(() => {
