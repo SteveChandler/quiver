@@ -9,6 +9,10 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
   let href = "";
   try {
     const u = new URL(url);
+    // Only allow http(s) URLs — reject javascript:, data:, etc.
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      return { kind: "none" };
+    }
     href = u.href;
 
     // YouTube
@@ -19,7 +23,7 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       if (id) {
         return {
           kind: "iframe",
-          src: `https://www.youtube.com/embed/${id}?rel=0&autoplay=0&mute=1`,
+          src: `https://www.youtube.com/embed/${id}?rel=0&autoplay=1&mute=1`,
           title: "Live Cam",
           allow:
             "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
@@ -43,8 +47,19 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hls", src: href };
     }
 
+    // HDOnTap - convert stream URL to embed URL
+    if (href.includes("hdontap.com/stream/")) {
+      const embedUrl = href.endsWith("/embed/") ? href : href.replace(/\/?$/, "/embed/");
+      return {
+        kind: "iframe",
+        src: embedUrl,
+        title: "Live Cam – HDOnTap",
+        allow: "autoplay; fullscreen",
+      };
+    }
+
     // Default iframe attempt (may be blocked)
-    return { kind: "iframe", src: href, title: "Live Cam" };
+    return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {
     // If URL parsing fails, expose as link fallback
     return { kind: "iframe", src: String(url), title: "Live Cam" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, PlayCircle, RefreshCw } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -31,20 +31,10 @@ export function CamsSection({ beachId }: CamsSectionProps) {
   } = useDataFetcher(fetchSources, { immediate: true });
 
   const [iframeBlocked, setIframeBlocked] = useState(false);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
     setIframeBlocked(false);
-    setIframeLoaded(false);
-    if (!sources?.camera_url) return;
-    const timeout = setTimeout(() => {
-      if (!iframeLoaded) {
-        setIframeBlocked(true);
-      }
-    }, 3000);
-    return () => clearTimeout(timeout);
-  }, [sources?.camera_url, iframeLoaded]);
+  }, [sources?.camera_url]);
 
   const cameraUrl = sources?.camera_url as string | undefined;
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
@@ -94,7 +84,6 @@ export function CamsSection({ beachId }: CamsSectionProps) {
           allow={intent.allow}
           className="h-full w-full"
           loading="lazy"
-          onLoad={() => setIframeLoaded(true)}
           onError={() => setIframeBlocked(true)}
         />
       </div>
@@ -105,6 +94,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         <video
           src={intent.src}
           controls
+          autoPlay
           playsInline
           muted
           className="h-full w-full"

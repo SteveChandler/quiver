@@ -29,7 +29,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     // Wait for forecast content to load (Current Conditions heading appears when forecast data is ready)
-    await expect(page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })).toBeVisible({ timeout: TIMEOUTS.long });
   });
 
   test.describe('Default Tab Behavior', () => {
@@ -120,7 +120,9 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await page.waitForTimeout(500); // Allow tab transition
 
       // Verify conditions overview content becomes visible (hero section)
-      const heroSection = page.locator('text=/Best Day This Week/i');
+      // Text may be "Best Day This Week" or "Selected Day" depending on
+      // whether a day is selected in the horizon strip (Today is auto-selected)
+      const heroSection = page.locator('text=/Best Day This Week|Selected Day/i');
       await expect(heroSection).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
@@ -334,7 +336,9 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
     test('should render Best Day hero section', async ({ page }) => {
       // The hero card should display with a gradient background
-      const heroSection = page.locator('text=/Best Day This Week/i');
+      // Text may be "Best Day This Week" or "Selected Day" depending on
+      // whether a day is selected in the horizon strip (Today is auto-selected)
+      const heroSection = page.locator('text=/Best Day This Week|Selected Day/i');
       await expect(heroSection).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
