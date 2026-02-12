@@ -176,9 +176,10 @@ export function checkRequiredEnvVars(vars: string[]): string | null {
  */
 export function validateCronAuth(authHeader: string | null): boolean {
   const cronSecret = process.env.CRON_SECRET_TOKEN || process.env.CRON_SECRET;
-  // If no secret is configured, allow (useful for local/dev). Production cron routes
-  // typically gate on env checks anyway.
-  return !cronSecret || authHeader === `Bearer ${cronSecret}`;
+  // If no secret is configured, reject all bearer-token auth attempts.
+  // Vercel-triggered crons are validated separately via x-vercel-cron header.
+  if (!cronSecret) return false;
+  return authHeader === `Bearer ${cronSecret}`;
 }
 
 export function validateCronRequest(request: Request): boolean {

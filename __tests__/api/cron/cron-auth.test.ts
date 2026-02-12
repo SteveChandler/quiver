@@ -130,14 +130,14 @@ describe("Cron Authentication", () => {
       expect(isValid).toBe(false);
     });
 
-    it("allows any token when no CRON_SECRET is configured", () => {
+    it("rejects requests when no CRON_SECRET is configured", () => {
       // Clear the cron secret
       delete process.env.CRON_SECRET;
       delete process.env.CRON_SECRET_TOKEN;
 
       const isValid = validateCronAuth(null);
 
-      expect(isValid).toBe(true);
+      expect(isValid).toBe(false);
     });
   });
 
