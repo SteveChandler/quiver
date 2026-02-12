@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Embed Widget Promotion Pages** - New `/for-surf-schools` and `/for-businesses` pages promoting free embed widgets. Dark hero with mock browser preview, 3-column value props, interactive embed generator with beach selector and widget type toggle, copy-to-clipboard code block, and ocean gradient CTA. Added to sitemap.
 - **Surf Cam Directory Pages** - New `/cams` hub page and `/cams/[region]` regional pages showcasing 91 free live surf cams across 8 regions. Cards link to beach detail pages with LIVE badges. Includes VideoObject schema, breadcrumb structured data, region quick-nav, nearby regions cross-linking, and sitemap entries. Competitive moat against Surfline's paywall.
 
+### Fixed
+
+- **PR/HI Broken Redirects** - Added 33-entry static redirect map for old compound beach slugs (e.g., `marias-rincon-pr` → `/pr/rincon/marias`) that were 404ing after migration 20260211060000. Extended `/pr/rinc-n` diacritic redirect to handle subpaths.
+- **SEO Meta Tags for PR/HI** - Beach titles now include break type and expanded state names (PR → Puerto Rico, HI → Hawaii) when wave data is unavailable. City listing titles include top beach names. Fixed a/an grammar before vowel-starting skill levels. Added description excerpt support for richer SERP snippets.
+- **Least-Crowded Intent Wording** - Changed "Near" to "in" in least-crowded page titles and descriptions for accuracy.
+- **HLS Live Cam Playback** - Surfline HLS cams (Blacks, Tourmaline, etc.) now play correctly on Chrome/macOS. Root cause: `canPlayType("application/vnd.apple.mpegurl")` returns `"maybe"` on Chrome macOS, causing the player to take the unreliable native HLS path instead of hls.js. Fixed by preferring hls.js when `Hls.isSupported()`, falling back to native only on iOS Safari.
+- HLS video player no longer silently disappears on error; shows visible error fallback with camera-off icon
+- "Open cam" button hidden for HLS streams (previously linked to raw .m3u8 files that aren't browser-navigable)
+- Added `.catch()` on hls.js dynamic import to prevent silent failures when module fails to load
+- Added loading spinner during HLS player initialization
+
 ### Changed
 
 - **Camera Autoplay** - YouTube embeds now use `autoplay=1` (muted), HDOnTap embeds include `allow: "autoplay; fullscreen"`, direct video elements have `autoPlay`, and default iframes include `allow: "autoplay"`.
