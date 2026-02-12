@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { Profile, Beach } from "@/types/database";
+import {
+  safeGetItem,
+  safeSetItem,
+  safeRemoveItem,
+} from "@/lib/utils/safe-storage";
 
 interface CachedProfileData {
   profile: Profile | null;
@@ -30,7 +35,7 @@ export function useCachedProfile() {
     if (typeof window === "undefined" || !user?.id) return;
 
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
+      const cached = safeGetItem(CACHE_KEY);
       if (cached) {
         const parsedData: CachedProfileData = JSON.parse(cached);
         const isExpired = Date.now() - parsedData.timestamp > CACHE_DURATION;
@@ -43,12 +48,12 @@ export function useCachedProfile() {
           }
           setCachedData(parsedData);
         } else {
-          localStorage.removeItem(CACHE_KEY);
+          safeRemoveItem(CACHE_KEY);
         }
       }
     } catch (error) {
       console.warn("Failed to load cached profile data:", error);
-      localStorage.removeItem(CACHE_KEY);
+      safeRemoveItem(CACHE_KEY);
     }
   }, [user?.id]);
 
@@ -56,7 +61,7 @@ export function useCachedProfile() {
   const fetchProfileAndDefaultBeach = useCallback(async () => {
     if (!user?.id) {
       // Clear cache if no user
-      localStorage.removeItem(CACHE_KEY);
+      safeRemoveItem(CACHE_KEY);
       return { profile: null, homeBeach: null };
     }
 
@@ -92,11 +97,7 @@ export function useCachedProfile() {
         timestamp: Date.now(),
       };
 
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-      } catch (error) {
-        console.warn("Failed to cache profile data:", error);
-      }
+      safeSetItem(CACHE_KEY, JSON.stringify(cacheData));
 
       setCachedData(cacheData);
       return result;
@@ -124,7 +125,7 @@ export function useCachedProfile() {
 
   // Clear cache function for when profile is updated
   const clearCache = useCallback(() => {
-    localStorage.removeItem(CACHE_KEY);
+    safeRemoveItem(CACHE_KEY);
     setCachedData(null);
   }, []);
 

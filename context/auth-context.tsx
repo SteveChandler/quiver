@@ -16,6 +16,11 @@ import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
+import {
+  safeGetItem,
+  safeSetItem,
+  safeRemoveItem,
+} from "@/lib/utils/safe-storage";
 
 /**
  * Zod schema for validating signup metadata from OAuth flows.
@@ -205,17 +210,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (event === "SIGNED_IN" && session) {
               // Clear stored redirect path - components will re-render with new auth state
               // This prevents redirect loops caused by hard page reloads
-              const storedPath = localStorage.getItem("auth_redirect_path");
+              const storedPath = safeGetItem("auth_redirect_path");
               if (storedPath) {
                 console.log(
                   "[AuthContext] Clearing redirect path (already on page):",
                   storedPath
                 );
-                localStorage.removeItem("auth_redirect_path");
+                safeRemoveItem("auth_redirect_path");
               }
 
               // Mark user as returning for future session recovery
-              localStorage.setItem("quiver_returning_user", "true");
+              safeSetItem("quiver_returning_user", "true");
 
               // Handle pending signup metadata from OAuth flow
               // Only apply if this is a fresh signup (created within last 60 seconds)

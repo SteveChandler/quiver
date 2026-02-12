@@ -12,6 +12,11 @@ import {
 } from "react";
 import { useAuth } from "@/context/auth-context";
 import type { Profile, Beach } from "@/types/database";
+import {
+  safeGetItem,
+  safeSetItem,
+  safeRemoveItem,
+} from "@/lib/utils/safe-storage";
 
 /**
  * ProfileContext provides global profile and home beach state management
@@ -86,7 +91,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!cacheKey) return;
 
     try {
-      const cached = localStorage.getItem(cacheKey);
+      const cached = safeGetItem(cacheKey);
       if (cached) {
         const parsedData: CachedProfileData = JSON.parse(cached);
         const isExpired = Date.now() - parsedData.timestamp > CACHE_DURATION;
@@ -102,12 +107,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Don't return here - we want to continue to set up state
           // but we can set the loading state immediately
         } else {
-          localStorage.removeItem(cacheKey);
+          safeRemoveItem(cacheKey);
         }
       }
     } catch (error) {
       console.warn("Failed to load cached profile data:", error);
-      localStorage.removeItem(cacheKey);
+      safeRemoveItem(cacheKey);
     }
   }, [user?.id, getCacheKey]);
 
@@ -115,7 +120,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const fetchProfileAndHomeBeach = useCallback(async () => {
     if (!user?.id) {
       const cacheKey = getCacheKey();
-      if (cacheKey) localStorage.removeItem(cacheKey);
+      if (cacheKey) safeRemoveItem(cacheKey);
 
       setProfile(null);
       setHomeBeach(null);
@@ -183,13 +188,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           timestamp: Date.now(),
         };
 
-        try {
-          const cacheKey = getCacheKey();
-          if (cacheKey) {
-            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-          }
-        } catch (error) {
-          console.warn("Failed to cache profile data:", error);
+        const cacheKey = getCacheKey();
+        if (cacheKey) {
+          safeSetItem(cacheKey, JSON.stringify(cacheData));
         }
 
         // Only update state if component is still mounted
@@ -268,7 +269,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Clear cache function
   const clearCache = useCallback(() => {
     const cacheKey = getCacheKey();
-    if (cacheKey) localStorage.removeItem(cacheKey);
+    if (cacheKey) safeRemoveItem(cacheKey);
     setCachedData(null);
   }, [getCacheKey]);
 
@@ -291,14 +292,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         timestamp: Date.now(),
       };
 
-      try {
-        const cacheKey = getCacheKey();
-        if (cacheKey) {
-          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-          setCachedData(cacheData);
-        }
-      } catch (error) {
-        console.warn("Failed to update cached profile data:", error);
+      const cacheKey = getCacheKey();
+      if (cacheKey) {
+        safeSetItem(cacheKey, JSON.stringify(cacheData));
+        setCachedData(cacheData);
       }
     },
     [homeBeach, getCacheKey]
