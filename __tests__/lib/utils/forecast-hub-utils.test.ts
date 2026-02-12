@@ -19,13 +19,13 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // Mock dependencies
-jest.mock("@/actions/beach/beach-query-actions");
+jest.mock("@/lib/services/beach-query-service");
 jest.mock("@/lib/utils/forecast-service-utils");
 jest.mock("@/lib/utils/beach-url-utils");
 jest.mock("@/lib/utils/regional-forecast-utils");
 jest.mock("@/lib/utils/distance-utils");
 
-import { getBeaches } from "@/actions/beach/beach-query-actions";
+import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import {
@@ -207,8 +207,8 @@ describe("forecast-hub-utils", () => {
   });
 
   describe("getRegionalSummaries", () => {
-    it("returns empty object when getBeaches fails", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+    it("returns empty object when getBeachesFromDb fails", async () => {
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: false,
         error: "Database error",
       });
@@ -216,11 +216,11 @@ describe("forecast-hub-utils", () => {
       const result = await getRegionalSummaries();
 
       expect(result).toEqual({});
-      expect(getBeaches).toHaveBeenCalledTimes(1);
+      expect(getBeachesFromDb).toHaveBeenCalledTimes(1);
     });
 
-    it("returns empty object when getBeaches returns no data", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+    it("returns empty object when getBeachesFromDb returns no data", async () => {
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: null,
       });
@@ -228,12 +228,12 @@ describe("forecast-hub-utils", () => {
       const result = await getRegionalSummaries();
 
       expect(result).toEqual({});
-      expect(getBeaches).toHaveBeenCalledTimes(1);
+      expect(getBeachesFromDb).toHaveBeenCalledTimes(1);
     });
 
     it("returns summaries for all regions when data is available", async () => {
       // Mock beaches response
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -269,7 +269,7 @@ describe("forecast-hub-utils", () => {
       expect(result).toHaveProperty("test-region-2");
       expect(result["test-region-1"].region).toEqual(mockRegion1);
       expect(result["test-region-2"].region).toEqual(mockRegion2);
-      expect(getBeaches).toHaveBeenCalledTimes(1);
+      expect(getBeachesFromDb).toHaveBeenCalledTimes(1);
       expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(
         ["beach-1", "beach-3", "beach-2"], // All unique beach IDs
         168 // 7 days in hours
@@ -277,7 +277,7 @@ describe("forecast-hub-utils", () => {
     });
 
     it("fetches all beaches once and reuses for all regions", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -293,13 +293,13 @@ describe("forecast-hub-utils", () => {
       await getRegionalSummaries();
 
       // Should only fetch beaches once despite having 2 regions
-      expect(getBeaches).toHaveBeenCalledTimes(1);
+      expect(getBeachesFromDb).toHaveBeenCalledTimes(1);
       // Should call getBeachesForRegion for each region
       expect(getBeachesForRegion).toHaveBeenCalledTimes(2);
     });
 
     it("handles regions with no beaches gracefully", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -411,7 +411,7 @@ describe("forecast-hub-utils", () => {
 
   describe("getTopBeachesRightNow", () => {
     it("returns empty array when no beach conditions exist", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -438,7 +438,7 @@ describe("forecast-hub-utils", () => {
       });
       FORECAST_REGIONS["test-region-1"] = mockRegion1;
 
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -509,7 +509,7 @@ describe("forecast-hub-utils", () => {
       });
       FORECAST_REGIONS["test-region-1"] = mockRegion1;
 
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -556,7 +556,7 @@ describe("forecast-hub-utils", () => {
       });
       FORECAST_REGIONS["test-region-1"] = mockRegion1;
 
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -599,7 +599,7 @@ describe("forecast-hub-utils", () => {
     });
 
     it("generates proper URLs via getBeachHrefSafe", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -646,7 +646,7 @@ describe("forecast-hub-utils", () => {
       });
       FORECAST_REGIONS["test-region-1"] = mockRegion1;
 
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -683,7 +683,7 @@ describe("forecast-hub-utils", () => {
     });
 
     it("aggregates beaches from multiple regions", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -753,7 +753,7 @@ describe("forecast-hub-utils", () => {
       });
       FORECAST_REGIONS["test-region-1"] = mockRegion1;
 
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -792,7 +792,7 @@ describe("forecast-hub-utils", () => {
     });
 
     it("filters to closest region when userCoords provided", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });
@@ -863,7 +863,7 @@ describe("forecast-hub-utils", () => {
     });
 
     it("returns global results when userCoords not provided", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
         data: mockBeaches,
       });

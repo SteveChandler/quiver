@@ -34,6 +34,26 @@ jest.mock("@/lib/services/personalized-scoring-service", () => ({
   scoreBeachForUser: (...args: any[]) => mockScoreBeachForUser(...args),
 }));
 
+// Mock withAuth wrapper to pass through with authenticated user context
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withAuth: (handler: any, options: any) => async (request: any) => {
+      try {
+        const authContext = {
+          user: { id: "test-user-123" },
+          supabase: mockSupabaseClient,
+        };
+        return await handler(request, authContext);
+      } catch (error: any) {
+        const { handleApiError } = jest.requireActual("@/lib/api-utils");
+        return handleApiError(error, options?.errorMessage || "Request failed");
+      }
+    },
+  };
+});
+
 // Import after mocks
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { POST } = require("@/app/api/beach/personalized-score/route");
@@ -71,7 +91,19 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Authentication", () => {
     it("requires user authentication", async () => {
-      mockUnauthenticatedUser(mockSupabaseClient);
+      // Re-mock withAuth to reject authentication
+      jest.resetModules();
+      jest.doMock("@/lib/middleware/api-wrappers", () => {
+        const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+        return {
+          ...actual,
+          withAuth: (handler: any, options: any) => async (request: any) => {
+            return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+          },
+        };
+      });
+
+      const { POST: POST_UNAUTH } = require("@/app/api/beach/personalized-score/route");
 
       const request = createMockRequest("POST", "http://localhost:3000/api/beach/personalized-score", {
         body: {
@@ -81,16 +113,13 @@ describe("POST /api/beach/personalized-score", () => {
         },
       });
 
-      const response = await POST(request);
+      const response = await POST_UNAUTH(request);
       expect(response.status).toBe(401);
       const json = await response.json();
       expect(json.error).toContain("Unauthorized");
     });
 
     it("allows authenticated users", async () => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
-
       mockScoreBeachForUser.mockResolvedValue({
         score: 85,
         personalized: true,
@@ -118,8 +147,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Input Validation", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("requires beachId parameter", async () => {
@@ -192,8 +220,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Personalized Scoring", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("returns personalized beach scores", async () => {
@@ -315,8 +342,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("User Preferences Integration", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("respects user wave size preferences in scoring", async () => {
@@ -469,8 +495,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Score Capping", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("caps score at 100", async () => {
@@ -507,8 +532,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Error Handling", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("handles scoring service errors gracefully", async () => {
@@ -565,8 +589,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Different Forecast Conditions", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("handles small wave forecasts", async () => {
@@ -669,8 +692,7 @@ describe("POST /api/beach/personalized-score", () => {
 
   describe("Service Integration", () => {
     beforeEach(() => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
     });
 
     it("passes correct parameters to scoring service", async () => {
@@ -709,8 +731,7 @@ describe("POST /api/beach/personalized-score", () => {
     });
 
     it("handles multiple scoring requests for same user", async () => {
-      const user = createMockUser();
-      mockAuthenticatedUser(mockSupabaseClient, user);
+      // withAuth mock already provides authenticated context
 
       const beaches = [
         { id: "beach-1", score: 75 },

@@ -6,13 +6,13 @@ import {
 import { normalizeSearchText } from "@/lib/utils/text-normalization";
 import { beachesSearchFixture } from "../../fixtures/beach-search-fixtures";
 
-jest.mock("@/actions/beach-actions", () => ({
-  getBeaches: jest.fn(),
+jest.mock("@/lib/services/beach-query-service", () => ({
+  getBeachesFromDb: jest.fn(),
 }));
 
-import { getBeaches } from "@/actions/beach-actions";
+import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 
-const getBeachesMock = getBeaches as unknown as jest.Mock;
+const getBeachesMock = getBeachesFromDb as unknown as jest.Mock;
 
 describe("beach-search-utils", () => {
   const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
@@ -28,7 +28,7 @@ describe("beach-search-utils", () => {
   });
 
   describe("searchBeachesMultiple", () => {
-    it("returns empty array when getBeaches fails", async () => {
+    it("returns empty array when getBeachesFromDb fails", async () => {
       getBeachesMock.mockResolvedValue({
         success: false,
         data: null,
@@ -38,7 +38,7 @@ describe("beach-search-utils", () => {
       await expect(searchBeachesMultiple("blacks")).resolves.toEqual([]);
     });
 
-    it("returns empty array when getBeaches throws", async () => {
+    it("returns empty array when getBeachesFromDb throws", async () => {
       getBeachesMock.mockRejectedValue(new Error("boom"));
       await expect(searchBeachesMultiple("blacks")).resolves.toEqual([]);
     });

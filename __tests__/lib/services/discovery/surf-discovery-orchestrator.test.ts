@@ -126,8 +126,8 @@ jest.mock('@/lib/services/preference-learning-service', () => ({
   getUserSurfPreferences: jest.fn(async () => mockState.userPrefs),
 }));
 
-jest.mock('@/actions/beach/beach-favorite-actions', () => ({
-  getFavoriteBeaches: jest.fn(async (userId: string) => {
+jest.mock('@/lib/services/beach-query-service', () => ({
+  getFavoriteBeachesFromDb: jest.fn(async (userId: string) => {
     if (mockState.favoritesError) {
       return {
         success: false,

@@ -70,6 +70,13 @@ jest.mock("@/actions/beach/beach-location-actions", () => ({
   getAllCitiesWithBeachSkills: jest.fn(),
 }));
 
+jest.mock("@/actions/beach-review-actions", () => ({
+  getBeachReviews: jest.fn().mockResolvedValue({
+    success: true,
+    data: [],
+  }),
+}));
+
 function makeBeach(overrides: Partial<Beach>) {
   return {
     id: overrides.id ?? "beach-1",

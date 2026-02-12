@@ -83,6 +83,7 @@ describe("EmailLoggingService", () => {
         best_score: 8.5,
         best_beach_id: "beach-456",
         meta: { beach_name: "Test Beach" },
+        resend_message_id: null,
       });
     });
 

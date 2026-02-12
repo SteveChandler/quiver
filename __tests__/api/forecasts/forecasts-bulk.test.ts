@@ -19,16 +19,22 @@ const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   withRateLimit: (handler: any) => handler,
+  createSuccessResponse: jest.fn((data: any) => {
+    return new Response(JSON.stringify({ success: true, data }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+  handleApiError: jest.fn((error: any, message: string) => {
+    return new Response(JSON.stringify({ success: false, error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
-}));
-
-// Mock getCurrentForecast utility
-const mockGetCurrentForecast = jest.fn();
-jest.mock("@/lib/utils/current-forecast-utils", () => ({
-  getCurrentForecast: (...args: any[]) => mockGetCurrentForecast(...args),
 }));
 
 // Import after mocks
@@ -43,41 +49,10 @@ describe("GET /api/forecasts/bulk", () => {
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
 
-    // Reset mock to return fresh chain objects for each call
-    // The chain needs to be awaitable (return a promise when awaited)
-    (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        insert: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        delete: jest.fn().mockReturnThis(),
-        upsert: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        neq: jest.fn().mockReturnThis(),
-        gt: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        lt: jest.fn().mockReturnThis(),
-        lte: jest.fn().mockReturnThis(),
-        like: jest.fn().mockReturnThis(),
-        ilike: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        is: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-        maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
-        range: jest.fn().mockReturnThis(),
-        textSearch: jest.fn().mockReturnThis(),
-        data: null,
-        error: null,
-      };
-
-      // Make the chain thenable (awaitable)
-      chain.then = (resolve: any) => {
-        return Promise.resolve(resolve({ data: null, error: null }));
-      };
-
-      return chain;
+    // Mock rpc function (route now uses RPC instead of direct queries)
+    (mockSupabaseClient.rpc as jest.Mock) = jest.fn().mockResolvedValue({
+      data: [],
+      error: null,
     });
   });
 
@@ -91,40 +66,15 @@ describe("GET /api/forecasts/bulk", () => {
       const beach2Id = "beach-2";
       const beach3Id = "beach-3";
 
-      const mockForecasts = [
-        {
-          beach_id: beach1Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 4.5,
-        },
-        {
-          beach_id: beach2Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 3.2,
-        },
-        {
-          beach_id: beach3Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 5.8,
-        },
+      const mockRpcData = [
+        { beach_id: beach1Id, wave_height: 4.5 },
+        { beach_id: beach2Id, wave_height: 3.2 },
+        { beach_id: beach3Id, wave_height: 5.8 },
       ];
 
-      // Mock the database query - need to return an awaitable chain
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: mockForecasts, error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
-
-      // Mock getCurrentForecast to return the forecast
-      mockGetCurrentForecast.mockImplementation((forecasts: any[]) => {
-        return forecasts[0];
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: mockRpcData,
+        error: null,
       });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -184,26 +134,13 @@ describe("GET /api/forecasts/bulk", () => {
       const beach1Id = "beach-with-forecast";
       const beach2Id = "beach-without-forecast";
 
-      const mockForecasts = [
-        {
-          beach_id: beach1Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 4.5,
-        },
+      const mockRpcData = [
+        { beach_id: beach1Id, wave_height: 4.5 },
       ];
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: mockForecasts, error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
-
-      mockGetCurrentForecast.mockImplementation((forecasts: any[]) => {
-        return forecasts.length > 0 ? forecasts[0] : null;
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: mockRpcData,
+        error: null,
       });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -222,35 +159,15 @@ describe("GET /api/forecasts/bulk", () => {
     it("limits to 50 beaches maximum", async () => {
       // Create 60 beach IDs
       const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i + 1}`);
-      const mockForecasts = beachIds.slice(0, 50).map((id, i) => ({
-        beach_id: id,
-        forecast_date: "2024-01-15",
-        forecast_time: "12:00",
-        wave_height: `${i + 1}.0`,
-      }));
 
-      let queriedBeachIds: string[] = [];
-
-      (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const chain: any = {
-          select: jest.fn().mockReturnThis(),
-          in: jest.fn((column: string, ids: string[]) => {
-            queriedBeachIds = ids;
-            return chain;
-          }),
-          gte: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-        };
-        (chain.order as jest.Mock).mockResolvedValue({
-          data: mockForecasts,
-          error: null,
-        });
-        return chain;
-      });
-
-      mockGetCurrentForecast.mockImplementation((forecasts: any[]) => {
-        return forecasts[0];
+      let rpcBeachIds: string[] = [];
+      (mockSupabaseClient.rpc as jest.Mock).mockImplementation((fnName: string, params: any) => {
+        rpcBeachIds = params.p_beach_ids || [];
+        const mockData = rpcBeachIds.slice(0, 50).map((id, i) => ({
+          beach_id: id,
+          wave_height: i + 1,
+        }));
+        return Promise.resolve({ data: mockData, error: null });
       });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -261,8 +178,8 @@ describe("GET /api/forecasts/bulk", () => {
 
       await GET(request);
 
-      // Verify only 50 beaches were queried
-      expect(queriedBeachIds.length).toBe(50);
+      // Verify only 50 beaches were passed to RPC
+      expect(rpcBeachIds.length).toBe(50);
     });
   });
 
@@ -272,32 +189,14 @@ describe("GET /api/forecasts/bulk", () => {
       const beach2Id = "beach-2";
       const beach3Id = "beach-3";
 
-      const mockForecasts = [
-        {
-          beach_id: beach1Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 4.5,
-        },
-        {
-          beach_id: beach3Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 5.8,
-        },
+      const mockRpcData = [
+        { beach_id: beach1Id, wave_height: 4.5 },
+        { beach_id: beach3Id, wave_height: 5.8 },
       ];
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: mockForecasts, error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
-
-      mockGetCurrentForecast.mockImplementation((forecasts: any[]) => {
-        return forecasts[0];
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: mockRpcData,
+        error: null,
       });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -319,17 +218,10 @@ describe("GET /api/forecasts/bulk", () => {
     it("returns 500 error on database error", async () => {
       const beachIds = "beach-1,beach-2";
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
         data: null,
         error: { message: "Database connection failed", code: "CONNECTION_ERROR" },
-      }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
+      });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: { beachIds },
@@ -345,9 +237,7 @@ describe("GET /api/forecasts/bulk", () => {
     it("returns 500 error on unexpected error", async () => {
       const beachIds = "beach-1,beach-2";
 
-      (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
-        throw new Error("Unexpected error");
-      });
+      (mockSupabaseClient.rpc as jest.Mock).mockRejectedValue(new Error("Unexpected error"));
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: { beachIds },
@@ -360,37 +250,16 @@ describe("GET /api/forecasts/bulk", () => {
       expect(data.success).toBe(false);
     });
 
-    it("handles forecasts with undefined wave_height", async () => {
+    it("handles forecasts with null wave_height", async () => {
       const beach1Id = "beach-1";
 
-      const mockForecasts = [
-        {
-          beach_id: beach1Id,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: undefined,
-        },
+      const mockRpcData = [
+        { beach_id: beach1Id, wave_height: null },
       ];
 
-      (mockSupabaseClient.from as jest.Mock).mockImplementation(() => {
-        const chain: any = {
-          select: jest.fn().mockReturnThis(),
-          in: jest.fn().mockReturnThis(),
-          gte: jest.fn().mockReturnThis(),
-          order: jest.fn(function(this: any) { return this; }),
-        };
-        chain.order
-          .mockReturnValueOnce(chain)
-          .mockReturnValueOnce(chain)
-          .mockResolvedValueOnce({
-            data: mockForecasts,
-            error: null,
-          });
-        return chain;
-      });
-
-      mockGetCurrentForecast.mockImplementation((forecasts: any[]) => {
-        return forecasts[0];
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: mockRpcData,
+        error: null,
       });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -402,27 +271,19 @@ describe("GET /api/forecasts/bulk", () => {
       const response = await GET(request);
       const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      // Beach should not have a forecast entry if wave_height is undefined
+      // Beach should not have a forecast entry if wave_height is null
       expect(result.data.forecasts).not.toHaveProperty(beach1Id);
     });
   });
 
   describe("Data Filtering", () => {
-    it("only fetches today or future forecasts", async () => {
+    it("uses RPC function for bulk forecast retrieval", async () => {
       const beachId = "beach-1";
-      let gteValue: string | undefined;
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn((column: string, value: string) => {
-          gteValue = value;
-          return chain;
-        }),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: [], error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: [],
+        error: null,
+      });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: { beachIds: beachId },
@@ -430,26 +291,19 @@ describe("GET /api/forecasts/bulk", () => {
 
       await GET(request);
 
-      // Should filter by today's date
-      expect(gteValue).toBeDefined();
-      expect(gteValue).toMatch(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD format
+      // Should call RPC function with beach IDs
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
+        p_beach_ids: [beachId],
+      });
     });
 
-    it("returns forecasts ordered by beach_id, date, and time", async () => {
+    it("calls RPC with array of beach IDs", async () => {
       const beachIds = "beach-1,beach-2";
-      let orderCalls: Array<{ column: string; ascending: boolean }> = [];
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn((column: string, options: any) => {
-          orderCalls.push({ column, ascending: options.ascending });
-          return chain;
-        }),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: [], error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: [],
+        error: null,
+      });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: { beachIds },
@@ -457,11 +311,10 @@ describe("GET /api/forecasts/bulk", () => {
 
       await GET(request);
 
-      // Should order by beach_id, forecast_date, forecast_time
-      expect(orderCalls).toHaveLength(3);
-      expect(orderCalls[0]).toEqual({ column: "beach_id", ascending: true });
-      expect(orderCalls[1]).toEqual({ column: "forecast_date", ascending: true });
-      expect(orderCalls[2]).toEqual({ column: "forecast_time", ascending: true });
+      // Should call RPC with parsed beach IDs
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
+        p_beach_ids: ["beach-1", "beach-2"],
+      });
     });
   });
 
@@ -469,19 +322,11 @@ describe("GET /api/forecasts/bulk", () => {
     it("trims whitespace from beach IDs", async () => {
       const beach1Id = "beach-1";
       const beach2Id = "beach-2";
-      let queriedIds: string[] = [];
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn((column: string, ids: string[]) => {
-          queriedIds = ids;
-          return chain;
-        }),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: [], error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: [],
+        error: null,
+      });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: {
@@ -491,25 +336,19 @@ describe("GET /api/forecasts/bulk", () => {
 
       await GET(request);
 
-      // IDs should be trimmed
-      expect(queriedIds).toEqual([beach1Id, beach2Id]);
+      // IDs should be trimmed before passing to RPC
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
+        p_beach_ids: [beach1Id, beach2Id],
+      });
     });
 
     it("filters out empty strings from beach IDs", async () => {
       const beach1Id = "beach-1";
-      let queriedIds: string[] = [];
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn((column: string, ids: string[]) => {
-          queriedIds = ids;
-          return chain;
-        }),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: [], error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: [],
+        error: null,
+      });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: {
@@ -520,45 +359,24 @@ describe("GET /api/forecasts/bulk", () => {
       await GET(request);
 
       // Empty strings should be filtered out
-      expect(queriedIds).toEqual([beach1Id]);
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_bulk_current_forecasts", {
+        p_beach_ids: [beach1Id],
+      });
     });
   });
 
-  describe("getCurrentForecast Integration", () => {
-    it("uses getCurrentForecast to select appropriate forecast", async () => {
+  describe("RPC Function Integration", () => {
+    it("returns wave heights from RPC function", async () => {
       const beachId = "beach-1";
-      const mockForecasts = [
-        {
-          beach_id: beachId,
-          forecast_date: "2024-01-15",
-          forecast_time: "09:00",
-          wave_height: 3.0,
-        },
-        {
-          beach_id: beachId,
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00",
-          wave_height: 4.5,
-        },
-        {
-          beach_id: beachId,
-          forecast_date: "2024-01-15",
-          forecast_time: "15:00",
-          wave_height: 5.0,
-        },
+
+      const mockRpcData = [
+        { beach_id: beachId, wave_height: 4.5 },
       ];
 
-      const chain: any = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockReturnThis(),
-        gte: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-      };
-      chain.then = (resolve: any) => Promise.resolve(resolve({ data: mockForecasts, error: null }));
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
-
-      // Mock getCurrentForecast to return the 12:00 forecast
-      mockGetCurrentForecast.mockReturnValue(mockForecasts[1]);
+      (mockSupabaseClient.rpc as jest.Mock).mockResolvedValue({
+        data: mockRpcData,
+        error: null,
+      });
 
       const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
         searchParams: { beachIds: beachId },
@@ -567,8 +385,7 @@ describe("GET /api/forecasts/bulk", () => {
       const response = await GET(request);
       const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      // Should use the forecast selected by getCurrentForecast
-      expect(mockGetCurrentForecast).toHaveBeenCalled();
+      // Should return wave height from RPC result
       expect(result.data.forecasts[beachId]).toBe(4.5);
     });
   });

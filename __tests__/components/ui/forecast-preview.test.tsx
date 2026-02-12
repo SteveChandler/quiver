@@ -104,7 +104,7 @@ describe("ForecastPreview", () => {
 
         expect(screen.getByText("4-6 ft")).toBeInTheDocument();
         expect(screen.getByText("10 mph")).toBeInTheDocument();
-        expect(screen.getByText("Sunny")).toBeInTheDocument(); // First word only
+        expect(screen.getByText("Sunny and clear")).toBeInTheDocument();
 
         // Check for icons by testing their parent elements
         const waveElement = screen.getByText("4-6 ft").parentElement;
@@ -113,7 +113,7 @@ describe("ForecastPreview", () => {
         const windElement = screen.getByText("10 mph").parentElement;
         expect(windElement).toHaveClass("text-gray-600");
 
-        const weatherElement = screen.getByText("Sunny").parentElement;
+        const weatherElement = screen.getByText("Sunny and clear").parentElement;
         expect(weatherElement).toHaveClass("text-orange-600");
       });
 
@@ -175,7 +175,7 @@ describe("ForecastPreview", () => {
 
         expect(screen.getByText("4-6 ft")).toBeInTheDocument();
         expect(screen.getByText("10 mph")).toBeInTheDocument();
-        expect(screen.getByText("Sunny")).toBeInTheDocument();
+        expect(screen.getByText("Sunny and clear")).toBeInTheDocument();
 
         // Check for inline layout classes
         const container = screen.getByText("4-6 ft").closest("div");
@@ -199,7 +199,7 @@ describe("ForecastPreview", () => {
   });
 
   describe("weather condition handling", () => {
-    it("should display only first word of weather condition", () => {
+    it("should display full weather condition", () => {
       const longWeatherCondition = {
         ...mockForecastData,
         weather_condition: "Partly cloudy with scattered showers",
@@ -213,10 +213,7 @@ describe("ForecastPreview", () => {
         />
       );
 
-      expect(screen.getByText("Partly")).toBeInTheDocument();
-      expect(
-        screen.queryByText("cloudy with scattered showers")
-      ).not.toBeInTheDocument();
+      expect(screen.getByText("Partly cloudy with scattered showers")).toBeInTheDocument();
     });
 
     it("should handle single word weather condition", () => {
@@ -233,6 +230,7 @@ describe("ForecastPreview", () => {
         />
       );
 
+      // Component displays full weather condition (in this case, single word "Sunny")
       expect(screen.getByText("Sunny")).toBeInTheDocument();
     });
 
@@ -339,7 +337,7 @@ describe("ForecastPreview", () => {
       // Check that text is readable
       expect(screen.getByText("4-6 ft")).toBeVisible();
       expect(screen.getByText("10 mph")).toBeVisible();
-      expect(screen.getByText("Sunny")).toBeVisible();
+      expect(screen.getByText("Sunny and clear")).toBeVisible();
     });
 
     it("should have proper loading state for screen readers", () => {
