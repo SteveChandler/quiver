@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -8,7 +8,7 @@ import {
   updateAllBeachForecasts,
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
-import { authenticateAdmin } from "@/lib/auth/admin";
+import { withAdminAuth } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -116,67 +116,44 @@ async function mergeMLCorrections(
  */
 
 // API endpoint to update enhanced forecasts for all beaches (admin only)
-export async function POST(request: NextRequest) {
-  try {
-    // Admin authentication check - only admins can trigger forecast updates
-    const authResult = await authenticateAdmin();
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
-    }
-    console.log(`🔐 Enhanced forecast update initiated by admin: ${authResult.user.email}`);
+export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
+  console.log(`🔐 Enhanced forecast update initiated by admin: ${user.email}`);
+  console.log("Starting enhanced forecast update process");
 
-    console.log("Starting enhanced forecast update process");
+  // Check if we should update a specific beach or all beaches
+  const { beachId } = await request.json().catch(() => ({ beachId: null }));
 
-    // Check if we should update a specific beach or all beaches
-    const { beachId } = await request.json().catch(() => ({ beachId: null }));
+  if (beachId) {
+    // Update a specific beach
+    console.log(`Updating enhanced forecasts for beach: ${beachId}`);
 
-    if (beachId) {
-      // Update a specific beach
-      console.log(`Updating enhanced forecasts for beach: ${beachId}`);
+    const data = await updateBeachForecast(beachId);
 
-      const data = await updateBeachForecast(beachId);
-
-      return createSuccessResponse({
-        message: "Beach forecast update completed",
-        beach: data.beach,
-        forecastsCount: data.forecastsGenerated,
-      });
-    } else {
-      // Update all beaches
-      const result = await updateAllBeachForecasts();
-
-      const successful = result.results?.filter((r) => r.success).length || 0;
-      const failed = (result.results?.length || 0) - successful;
-
-      return createSuccessResponse({
-        total: result.results?.length || 0,
-        successful,
-        failed,
-        results: result.results || [],
-        message: "Enhanced forecasts update complete",
-      });
-    }
-  } catch (error) {
-    console.error("❌ Error updating enhanced forecasts:", error);
-    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace");
-    console.error("❌ Error details:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      name: error instanceof Error ? error.name : "Unknown",
-      cause: error instanceof Error ? error.cause : undefined,
+    return createSuccessResponse({
+      message: "Beach forecast update completed",
+      beach: data.beach,
+      forecastsCount: data.forecastsGenerated,
     });
-    return createErrorResponse(
-      "Failed to update enhanced forecasts",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+  } else {
+    // Update all beaches
+    const result = await updateAllBeachForecasts();
+
+    const successful = result.results?.filter((r) => r.success).length || 0;
+    const failed = (result.results?.length || 0) - successful;
+
+    return createSuccessResponse({
+      total: result.results?.length || 0,
+      successful,
+      failed,
+      results: result.results || [],
+      message: "Enhanced forecasts update complete",
+    });
   }
-}
+}, { errorMessage: "Failed to update enhanced forecasts" });
 
 /**
  * API endpoint to get enhanced forecasts for a beach
- * 
+ *
  * NEVER SERVE STALE: Uses getFreshForecastFromCache() as single source of truth.
  * Returns empty forecasts + metadata when data is stale/missing.
  */
@@ -223,15 +200,15 @@ export async function GET(request: NextRequest) {
         stale: metadata.stale,
         missing: metadata.missing,
         reason: metadata.reason,
-        dataSource: metadata.stalenessDetails ? 
-          (metadata.stale ? "UNKNOWN" : forecasts[0]?.data_source || "FALLBACK") : 
+        dataSource: metadata.stalenessDetails ?
+          (metadata.stale ? "UNKNOWN" : forecasts[0]?.data_source || "FALLBACK") :
           undefined,
-        lastUpdated: metadata.stalenessDetails ? 
-          new Date(Date.now() - metadata.stalenessDetails.hoursSinceUpdate * 60 * 60 * 1000).toISOString() : 
+        lastUpdated: metadata.stalenessDetails ?
+          new Date(Date.now() - metadata.stalenessDetails.hoursSinceUpdate * 60 * 60 * 1000).toISOString() :
           undefined,
         stalenessThreshold: metadata.stalenessDetails?.threshold,
-        dataAge: metadata.stalenessDetails ? 
-          `${Math.floor(metadata.stalenessDetails.hoursSinceUpdate)}h old` : 
+        dataAge: metadata.stalenessDetails ?
+          `${Math.floor(metadata.stalenessDetails.hoursSinceUpdate)}h old` :
           undefined,
       },
     };

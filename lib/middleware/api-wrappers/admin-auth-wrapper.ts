@@ -16,6 +16,8 @@ import type {
   RouteContext,
   AdminAuthenticatedContext,
   AdminAuthenticatedHandler,
+  BearerAuthContext,
+  BearerAuthHandler,
   WithAdminAuthOptions,
 } from "./types";
 
@@ -157,5 +159,3 @@ export function withBearerAuth(
   };
 }
 
-// Re-export types used in route files
-import type { BearerAuthHandler, BearerAuthContext } from "./types";

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-
-import { authenticateAdmin } from "@/lib/auth/admin";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { withAdminAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 import { sendPushNotification } from "@/lib/services/push-notifications";
 
 export const runtime = "nodejs";
@@ -23,68 +21,51 @@ const payloadSchema = z
  * Admin-only endpoint to send a test push notification to the currently
  * authenticated admin user.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const authResult = await authenticateAdmin();
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
-    }
-
-    const parsed = payloadSchema.safeParse(await request.json().catch(() => undefined));
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid request body",
-          details: parsed.error.flatten(),
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const nowIso = new Date().toISOString();
-    const title = parsed.data?.title ?? "Quiver Test Push";
-    const body =
-      parsed.data?.body ??
-      `Test push sent at ${nowIso}. If you see this, FCM is working.`;
-
-    const result = await sendPushNotification({
-      userIds: [authResult.user.id],
-      title,
-      body,
-      data: {
-        type: "test_push",
-        url: "/profile",
-        sent_at: nowIso,
+export const POST = withAdminAuth(async (request: NextRequest, { user }) => {
+  const parsed = payloadSchema.safeParse(await request.json().catch(() => undefined));
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Invalid request body",
+        details: parsed.error.flatten(),
+        timestamp: new Date().toISOString(),
       },
-    });
-
-    return createSuccessResponse({
-      toUserId: authResult.user.id,
-      title,
-      body,
-      result,
-    });
-  } catch (error) {
-    return handleApiError(error);
+      { status: 400 }
+    );
   }
-}
+
+  const nowIso = new Date().toISOString();
+  const title = parsed.data?.title ?? "Quiver Test Push";
+  const body =
+    parsed.data?.body ??
+    `Test push sent at ${nowIso}. If you see this, FCM is working.`;
+
+  const result = await sendPushNotification({
+    userIds: [user.id],
+    title,
+    body,
+    data: {
+      type: "test_push",
+      url: "/profile",
+      sent_at: nowIso,
+    },
+  });
+
+  return createSuccessResponse({
+    toUserId: user.id,
+    title,
+    body,
+    result,
+  });
+});
 
 /**
  * GET /api/admin/test-push
  *
  * Admin-only info endpoint.
  */
-export async function GET() {
-  const authResult = await authenticateAdmin();
-  if (!authResult.success) {
-    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
-  }
-
+export const GET = withAdminAuth(async () => {
   return NextResponse.json({
     endpoint: "/api/admin/test-push",
     method: "POST",
@@ -95,16 +76,4 @@ export async function GET() {
     },
     timestamp: new Date().toISOString(),
   });
-}
-
-
-
-
-
-
-
-
-
-
-
-
+});

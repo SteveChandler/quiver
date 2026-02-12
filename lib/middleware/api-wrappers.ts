@@ -36,10 +36,19 @@ export {
   type OwnershipResult,
   type RateLimitKey,
 
+  // Admin auth types
+  type AdminAuthenticatedContext,
+  type AdminAuthenticatedHandler,
+  type BearerAuthContext,
+  type BearerAuthHandler,
+  type WithAdminAuthOptions,
+
   // Core wrappers
   withErrorHandler,
   withAuth,
   createApiHandler,
+  withAdminAuth,
+  withBearerAuth,
 
   // Validation helpers
   validateUuidParam,

@@ -1,7 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { authenticateAdmin } from "@/lib/auth/admin";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { NextRequest } from "next/server";
+import { withAdminAuth, createSuccessResponse } from "@/lib/middleware/api-wrappers";
 import { aggregateByKey, sumByField } from "@/lib/utils/aggregation-utils";
 
 export const runtime = "nodejs";
@@ -20,102 +18,88 @@ const MAX_DIGEST_RUNS_QUERY = 50;
  * Returns email and push notification delivery statistics.
  * Query params: ?days=7 (default 7, max 30)
  */
-export async function GET(request: NextRequest) {
-  try {
-    const authResult = await authenticateAdmin();
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.status }
-      );
-    }
+export const GET = withAdminAuth(async (request: NextRequest, { supabase }) => {
+  // Parse and validate days parameter
+  const daysParam = request.nextUrl.searchParams.get("days");
+  const parsedDays = daysParam ? parseInt(daysParam, 10) : DEFAULT_STATS_DAYS;
+  const days = Number.isNaN(parsedDays)
+    ? DEFAULT_STATS_DAYS
+    : Math.min(Math.max(parsedDays, 1), MAX_STATS_DAYS);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    // Parse and validate days parameter
-    const daysParam = request.nextUrl.searchParams.get("days");
-    const parsedDays = daysParam ? parseInt(daysParam, 10) : DEFAULT_STATS_DAYS;
-    const days = Number.isNaN(parsedDays)
-      ? DEFAULT_STATS_DAYS
-      : Math.min(Math.max(parsedDays, 1), MAX_STATS_DAYS);
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  // Parallel queries for efficiency
+  const [
+    digestRunsResult,
+    emailLogsResult,
+    pushLogsResult,
+    deviceCountResult
+  ] = await Promise.all([
+    // Recent digest runs
+    supabase
+      .from("digest_run_stats")
+      .select("*")
+      .gte("run_started_at", since)
+      .order("run_started_at", { ascending: false })
+      .limit(MAX_DIGEST_RUNS_QUERY),
 
-    const supabase = await createSupabaseServiceRoleClient();
+    // Email counts by type
+    supabase
+      .from("email_send_log")
+      .select("email_type, local_date")
+      .gte("sent_at", since),
 
-    // Parallel queries for efficiency
-    const [
-      digestRunsResult,
-      emailLogsResult,
-      pushLogsResult,
-      deviceCountResult
-    ] = await Promise.all([
-      // Recent digest runs
-      supabase
-        .from("digest_run_stats")
-        .select("*")
-        .gte("run_started_at", since)
-        .order("run_started_at", { ascending: false })
-        .limit(MAX_DIGEST_RUNS_QUERY),
+    // Push notification counts by status
+    supabase
+      .from("push_notification_log")
+      .select("notification_type, status, sent_at")
+      .gte("sent_at", since),
 
-      // Email counts by type
-      supabase
-        .from("email_send_log")
-        .select("email_type, local_date")
-        .gte("sent_at", since),
+    // Total registered devices
+    supabase
+      .from("user_devices")
+      .select("platform", { count: "exact" })
+  ]);
 
-      // Push notification counts by status
-      supabase
-        .from("push_notification_log")
-        .select("notification_type, status, sent_at")
-        .gte("sent_at", since),
+  // Aggregate stats using utility functions
+  const emailsByType = aggregateByKey(emailLogsResult.data, (log) => log.email_type);
+  const emailsByDate = aggregateByKey(emailLogsResult.data, (log) => log.local_date);
+  const pushByStatus = aggregateByKey(pushLogsResult.data, (log) => log.status);
+  const pushByType = aggregateByKey(pushLogsResult.data, (log) => log.notification_type);
+  const devicesByPlatform = aggregateByKey(deviceCountResult.data, (device) => device.platform);
 
-      // Total registered devices
-      supabase
-        .from("user_devices")
-        .select("platform", { count: "exact" })
-    ]);
+  const stats = {
+    period: { days, since },
 
-    // Aggregate stats using utility functions
-    const emailsByType = aggregateByKey(emailLogsResult.data, (log) => log.email_type);
-    const emailsByDate = aggregateByKey(emailLogsResult.data, (log) => log.local_date);
-    const pushByStatus = aggregateByKey(pushLogsResult.data, (log) => log.status);
-    const pushByType = aggregateByKey(pushLogsResult.data, (log) => log.notification_type);
-    const devicesByPlatform = aggregateByKey(deviceCountResult.data, (device) => device.platform);
+    digestRuns: {
+      total: digestRunsResult.data?.length || 0,
+      recent: digestRunsResult.data?.slice(0, MAX_RECENT_RUNS) || [],
+      totals: {
+        emailsSent: sumByField(digestRunsResult.data, (r) => r.emails_sent),
+        emailsSentQuick: sumByField(digestRunsResult.data, (r) => r.emails_sent_quick),
+        pushSent: sumByField(digestRunsResult.data, (r) => r.push_sent),
+        pushFailed: sumByField(digestRunsResult.data, (r) => r.push_failed),
+      }
+    },
 
-    const stats = {
-      period: { days, since },
+    emails: {
+      total: emailLogsResult.data?.length || 0,
+      byType: emailsByType,
+      byDate: emailsByDate,
+    },
 
-      digestRuns: {
-        total: digestRunsResult.data?.length || 0,
-        recent: digestRunsResult.data?.slice(0, MAX_RECENT_RUNS) || [],
-        totals: {
-          emailsSent: sumByField(digestRunsResult.data, (r) => r.emails_sent),
-          emailsSentQuick: sumByField(digestRunsResult.data, (r) => r.emails_sent_quick),
-          pushSent: sumByField(digestRunsResult.data, (r) => r.push_sent),
-          pushFailed: sumByField(digestRunsResult.data, (r) => r.push_failed),
-        }
-      },
+    pushNotifications: {
+      total: pushLogsResult.data?.length || 0,
+      byStatus: pushByStatus,
+      byType: pushByType,
+    },
 
-      emails: {
-        total: emailLogsResult.data?.length || 0,
-        byType: emailsByType,
-        byDate: emailsByDate,
-      },
+    devices: {
+      total: deviceCountResult.count || 0,
+      byPlatform: devicesByPlatform,
+    },
 
-      pushNotifications: {
-        total: pushLogsResult.data?.length || 0,
-        byStatus: pushByStatus,
-        byType: pushByType,
-      },
+    generatedAt: new Date().toISOString(),
+  };
 
-      devices: {
-        total: deviceCountResult.count || 0,
-        byPlatform: devicesByPlatform,
-      },
-
-      generatedAt: new Date().toISOString(),
-    };
-
-    return createSuccessResponse(stats);
-  } catch (error) {
-    return handleApiError(error, "Failed to fetch delivery statistics");
-  }
-}
+  return createSuccessResponse(stats);
+}, { errorMessage: "Failed to fetch delivery statistics" });
