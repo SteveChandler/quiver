@@ -133,7 +133,7 @@ interface SessionTimingModule {
   {
     "icon": "sun",
     "title": "Today",
-    "summary": "Track marine layer burn-off and watch the tide flip around mid-morning. Use the crowd meter in Quiver to find gaps between surf school lessons."
+    "summary": "Check the forecast and watch the tide flip around mid-morning. Browse recent crowd intel from other surfers to find gaps between surf school lessons."
   },
   {
     "icon": "clock",

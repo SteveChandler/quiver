@@ -384,7 +384,7 @@ interface PlanningChecklistProps {
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 
 const checklist = [
-  "Check marine layer burn-off time (usually 9-10 AM)",
+  "Check forecast and wind conditions before heading out",
   "Set alerts for morning low tide windows",
   "Monitor wind reversal after 10 AM",
   "Have backup parking plan for weekends",
