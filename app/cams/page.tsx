@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const stateCount = new Set(beaches.map((b) => b.state)).size;
 
   return buildPageMetadata({
-    title: `Live Surf Cams - ${camCount}+ Free Cameras | Quiver`,
+    title: `Live Surf Cams - ${camCount}+ Free Cameras`,
     description: `Watch ${camCount}+ free live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more. No paywall, no sign-up. Updated 24/7.`,
     path: "/cams",
     keywords: [

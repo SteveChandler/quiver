@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Waves } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { SessionWithDetails } from "@/types/database";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
@@ -40,7 +40,7 @@ export function RecentSessionsSection({
       <CardHeader>
         <CardTitle>Recent Sessions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent>
         {loading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading sessions...
@@ -48,12 +48,34 @@ export function RecentSessionsSection({
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="text-sm text-muted-foreground">No recent sessions found.</div>
+          <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 p-6 text-center">
+            <Waves className="h-8 w-8 text-ocean-blue mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-900 mb-1">No sessions logged yet</p>
+            <p className="text-xs text-gray-600">
+              Surfed here? Log your session to share conditions with the community.
+            </p>
+          </div>
         )}
 
-        {previewSessions.map((s) => (
-          <SessionCardWrapper key={s.id} session={s} isOwner={false} showUserInfo={true} />
-        ))}
+        {publicMode && previewSessions.length > 0 ? (
+          /* Horizontal scroll carousel in public mode */
+          <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-2 px-2">
+            {previewSessions.map((s) => (
+              <div
+                key={s.id}
+                className="flex-shrink-0 w-[280px] snap-start transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.02]"
+              >
+                <SessionCardWrapper session={s} isOwner={false} showUserInfo={true} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {previewSessions.map((s) => (
+              <SessionCardWrapper key={s.id} session={s} isOwner={false} showUserInfo={true} />
+            ))}
+          </div>
+        )}
 
         {hasMore && (
           <PartialContentGate

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Link from "next/link";
 import {
   RefreshCw,
   Code2,
@@ -66,7 +65,7 @@ const VARIANT_COPY = {
   "surf-schools": {
     heroTitle: "Free Surf Conditions Widget for Your Website",
     heroSubtitle:
-      "Give your students real-time wave, wind, and tide data — embedded right on your surf school site. No code needed.",
+      "Help students check conditions before lessons. Add real-time wave, wind, and tide data right on your surf school site — no code needed.",
     socialProofTitle: "Trusted by Surf Schools Across California",
     socialProofBody:
       "Surf instructors use Quiver widgets to show parents and students current conditions before class. Reduce no-shows and build trust with transparent, live forecast data.",
@@ -75,9 +74,9 @@ const VARIANT_COPY = {
       "Select your beach above, copy the embed code, and paste it into your website. It takes less than 60 seconds.",
   },
   businesses: {
-    heroTitle: "Free Surf Conditions Widget for Your Website",
+    heroTitle: "Free Beach Conditions Widget",
     heroSubtitle:
-      "Add live wave, wind, and tide data to your business website. Perfect for hotels, restaurants, and coastal businesses.",
+      "Keep customers informed with live wave, wind, and tide data on your website. Perfect for hotels, restaurants, and rental shops near the beach.",
     socialProofTitle: "Built for Coastal Businesses",
     socialProofBody:
       "Hotels, beachfront restaurants, and vacation rental sites embed Quiver widgets to help guests plan around the surf. No maintenance required — data stays current automatically.",
@@ -207,15 +206,15 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left: copy */}
             <div className="text-center lg:text-left">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
+              <h1 className="text-4xl md:text-5xl font-roboto font-bold tracking-tight mb-6">
                 {copy.heroTitle}
               </h1>
-              <p className="text-lg text-slate-300 max-w-lg mx-auto lg:mx-0 mb-8">
+              <p className="text-lg font-open-sans text-slate-300 max-w-lg mx-auto lg:mx-0 mb-8">
                 {copy.heroSubtitle}
               </p>
               <Button
                 size="lg"
-                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white rounded-full px-8"
+                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white shadow-lg rounded-full px-8"
                 asChild
               >
                 <a href="#generator">Build Your Widget</a>
@@ -244,13 +243,13 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {VALUE_PROPS.map((prop) => (
             <div key={prop.title} className="flex flex-col items-center text-center">
-              <div className="flex items-center justify-center w-16 h-16 bg-ocean-blue/10 rounded-full mb-5">
+              <div className="flex items-center justify-center w-16 h-16 bg-sky-100 rounded-full mb-5">
                 <prop.icon className="h-7 w-7 text-ocean-blue" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
+              <h3 className="text-xl font-roboto font-bold text-gray-900 mb-2">
                 {prop.title}
               </h3>
-              <p className="text-gray-600 leading-relaxed max-w-xs">
+              <p className="font-open-sans text-gray-600 leading-relaxed max-w-xs">
                 {prop.description}
               </p>
             </div>
@@ -266,13 +265,14 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
         className="py-20 px-4 bg-slate-50 scroll-mt-20"
       >
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-3">
+          <h2 className="text-3xl font-roboto font-bold text-gray-900 text-center mb-3">
             Build Your Embed
           </h2>
-          <p className="text-gray-600 text-center mb-10 max-w-xl mx-auto">
+          <p className="font-open-sans text-gray-600 text-center mb-10 max-w-xl mx-auto">
             Pick a beach, choose a widget type, and copy the code.
           </p>
 
+          <div className="rounded-2xl border bg-white shadow-lg p-8">
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
             {/* Beach selector */}
@@ -341,6 +341,7 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
               {embedCode}
             </pre>
           </div>
+          </div>{/* end card */}
         </div>
       </section>
 
@@ -352,10 +353,10 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
         centerContent
         maxWidth="4xl"
       >
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">
+        <h2 className="text-3xl font-roboto font-bold text-gray-900 mb-4">
           {copy.socialProofTitle}
         </h2>
-        <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-lg font-open-sans text-gray-600 leading-relaxed max-w-2xl mx-auto">
           {copy.socialProofBody}
         </p>
       </SectionWrapper>
@@ -363,12 +364,12 @@ export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
       {/* ----------------------------------------------------------------- */}
       {/* Bottom CTA — ocean gradient                                       */}
       {/* ----------------------------------------------------------------- */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-ocean-blue to-cyan-500 py-20 px-4 text-white text-center">
+      <section className="relative overflow-hidden bg-gradient-to-r from-sky-500 to-blue-600 py-20 px-4 text-white text-center">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="text-3xl md:text-4xl font-roboto font-bold mb-4">
             {copy.ctaTitle}
           </h2>
-          <p className="text-lg text-white/80 mb-8">{copy.ctaBody}</p>
+          <p className="text-lg font-open-sans text-white/80 mb-8">{copy.ctaBody}</p>
           <Button
             size="lg"
             className="bg-white text-ocean-blue hover:bg-white/90 rounded-full px-8 font-semibold"

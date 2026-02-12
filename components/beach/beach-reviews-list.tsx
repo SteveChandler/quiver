@@ -114,6 +114,19 @@ export function BeachReviewsList({
   }
 
   if (reviews.length === 0) {
+    if (publicMode) {
+      return (
+        <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 p-6 text-center">
+          <MessageSquare className="h-8 w-8 text-ocean-blue mx-auto mb-2" />
+          <p className="text-base font-medium text-gray-900 mb-1">
+            Surfed here? Share your experience
+          </p>
+          <p className="text-sm text-gray-600">
+            Be the first to review this spot and help fellow surfers find the best waves.
+          </p>
+        </div>
+      );
+    }
     return (
       <ZeroState
         icon={MessageSquare}
@@ -216,7 +229,7 @@ export function BeachReviewsList({
                 <h4 className="font-medium text-lg">{review.title}</h4>
 
                 {/* Review Content */}
-                <p className="text-muted-foreground leading-relaxed">
+                <p className={`text-muted-foreground leading-relaxed ${publicMode ? "line-clamp-3" : ""}`}>
                   {review.content}
                 </p>
 

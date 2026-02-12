@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { HUB_REGION_SLUGS } from "@/lib/data/hub-regions";
 import { getAllForecastRegionSlugs } from "@/lib/data/forecast-regions";
 import { getAllCamRegionSlugs } from "@/lib/data/cam-regions";
+import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
@@ -43,6 +44,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     guideRoutes,
     forecastRoutes,
     camRoutes,
+    bestTimeRoutes,
   ] = await Promise.all([
     Promise.resolve(getStaticRoutes()),
     getBeachRoutes(),
@@ -51,6 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.resolve(getGuideRoutes()),
     Promise.resolve(getForecastRoutes()),
     Promise.resolve(getCamRoutes()),
+    getBestTimeToSurfRoutes(),
   ]);
 
   return [
@@ -61,6 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...guideRoutes,
     ...forecastRoutes,
     ...camRoutes,
+    ...bestTimeRoutes,
   ];
 }
 
@@ -367,4 +371,34 @@ function getCamRoutes(): MetadataRoute.Sitemap {
   }
 
   return routes;
+}
+
+/**
+ * Best-time-to-surf city pages.
+ * Only includes cities with >= 3 beaches that have best_months data.
+ */
+async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
+  const bestTimeDate = "2026-02-12";
+
+  try {
+    const result = await getCitiesWithBestMonthsData();
+    if (!result.success || !result.data) return [];
+
+    const collisionMap = COLLISION_CITY_MAP;
+    return result.data
+      .map((c) => {
+        const citySlug = buildCitySlug(c.city, c.state, collisionMap);
+        if (!citySlug) return null;
+        return {
+          url: `${baseUrl}/best-time-to-surf/${citySlug}`,
+          lastModified: bestTimeDate,
+          changeFrequency: "monthly" as const,
+          priority: 0.7,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+  } catch (error) {
+    console.error("Sitemap: Failed to generate best-time-to-surf routes", error);
+    return [];
+  }
 }
