@@ -49,7 +49,7 @@ test.describe("Forecast Hub Landing Page", () => {
     expect(datetime).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
 
-  test("should display regional forecast cards", async ({ page }) => {
+  test("should display regional forecast cards grouped by region", async ({ page }) => {
     // Wait for cards to load
     await waitForPageLoad(page);
 
@@ -57,6 +57,13 @@ test.describe("Forecast Hub Landing Page", () => {
     await expect(
       page.getByRole("heading", { name: /Choose Your Region/i })
     ).toBeVisible();
+
+    // Check that group headings are visible
+    for (const group of ["California", "Pacific", "East Coast", "International"]) {
+      await expect(
+        page.getByRole("heading", { name: group, level: 3 })
+      ).toBeVisible();
+    }
 
     // Check that at least one regional card is visible
     // Cards should link to /forecast/[region]
@@ -75,14 +82,14 @@ test.describe("Forecast Hub Landing Page", () => {
     page,
   }) => {
     // This section may not always be visible (depends on forecast data)
-    // Check if it exists
-    const bestSection = page.getByText(/Best Conditions Today/i);
-    const isVisible = await bestSection.isVisible();
+    // The heading varies: "Your Local Forecast" (with location) or "Best Conditions Today" (without)
+    const localForecast = page.getByText(/Your Local Forecast/i);
+    const bestConditions = page.getByText(/Best Conditions Today/i);
 
-    if (isVisible) {
-      // If visible, should show region name and link
-      await expect(bestSection).toBeVisible();
+    const localVisible = await localForecast.isVisible().catch(() => false);
+    const globalVisible = await bestConditions.isVisible().catch(() => false);
 
+    if (localVisible || globalVisible) {
       // Should have a link to a forecast region
       const regionLink = page.locator('a[href^="/forecast/"]').first();
       await expect(regionLink).toBeVisible();

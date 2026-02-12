@@ -8,6 +8,8 @@
 import {
   getRegionalSummaries,
   getBestRegionToday,
+  getBestRegionForUser,
+  getClosestRegion,
   getTopBeachesRightNow,
   type TopBeachEntry,
 } from "@/lib/utils/forecast-hub-utils";
@@ -21,6 +23,7 @@ jest.mock("@/actions/beach/beach-query-actions");
 jest.mock("@/lib/utils/forecast-service-utils");
 jest.mock("@/lib/utils/beach-url-utils");
 jest.mock("@/lib/utils/regional-forecast-utils");
+jest.mock("@/lib/utils/distance-utils");
 
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
@@ -36,6 +39,7 @@ jest.mock("@/lib/data/forecast-regions", () => ({
 }));
 
 import { FORECAST_REGIONS } from "@/lib/data/forecast-regions";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 
 // Mock data
 const mockRegion1: ForecastRegion = {
@@ -785,6 +789,256 @@ describe("forecast-hub-utils", () => {
       expect(result[0].regionName).toBe("Test Region 1");
       // href will be null since beach not in allBeaches
       expect(result[0].href).toBeNull();
+    });
+
+    it("filters to closest region when userCoords provided", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: mockBeaches,
+      });
+
+      (getBeachesForRegion as jest.Mock)
+        .mockReturnValueOnce([mockBeaches[0]]) // region 1
+        .mockReturnValueOnce([mockBeaches[1]]); // region 2
+
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+        new Map()
+      );
+
+      const beachConditions1 = [
+        {
+          beachId: "beach-1",
+          beachName: "Test Beach 1",
+          beachSlug: "test-beach-1",
+          currentScore: 70,
+          currentWaveHeight: 3.5,
+          trend: "steady" as const,
+          bestDay: "Wednesday",
+          bestDayScore: 75,
+        },
+      ];
+
+      const beachConditions2 = [
+        {
+          beachId: "beach-2",
+          beachName: "Test Beach 2",
+          beachSlug: "test-beach-2",
+          currentScore: 90,
+          currentWaveHeight: 5.0,
+          trend: "improving" as const,
+          bestDay: "Thursday",
+          bestDayScore: 95,
+        },
+      ];
+
+      (aggregateRegionalForecast as jest.Mock)
+        .mockReturnValueOnce(
+          createMockRegionalSummary(mockRegion1, 70, beachConditions1)
+        )
+        .mockReturnValueOnce(
+          createMockRegionalSummary(mockRegion2, 90, beachConditions2)
+        );
+
+      (getBeachHrefSafe as jest.Mock).mockReturnValue("/test-url");
+
+      // Mock distance: region 1 is closer (10 miles), region 2 is farther (100 miles)
+      (calculateDistanceInMiles as jest.Mock).mockImplementation(
+        (_from: any, to: any) => {
+          if (to.lat === mockRegion1.centerLat) return 10;
+          if (to.lat === mockRegion2.centerLat) return 100;
+          return 999;
+        }
+      );
+
+      // User coords near region 1
+      const result = await getTopBeachesRightNow(5, {
+        lat: 33.0,
+        lon: -117.0,
+      });
+
+      // Should only return beaches from closest region (region 1)
+      expect(result).toHaveLength(1);
+      expect(result[0].beachId).toBe("beach-1");
+      expect(result[0].regionName).toBe("Test Region 1");
+    });
+
+    it("returns global results when userCoords not provided", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: mockBeaches,
+      });
+
+      (getBeachesForRegion as jest.Mock)
+        .mockReturnValueOnce([mockBeaches[0]])
+        .mockReturnValueOnce([mockBeaches[1]]);
+
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+        new Map()
+      );
+
+      const beachConditions1 = [
+        {
+          beachId: "beach-1",
+          beachName: "Test Beach 1",
+          beachSlug: "test-beach-1",
+          currentScore: 70,
+          currentWaveHeight: 3.5,
+          trend: "steady" as const,
+          bestDay: "Wednesday",
+          bestDayScore: 75,
+        },
+      ];
+
+      const beachConditions2 = [
+        {
+          beachId: "beach-2",
+          beachName: "Test Beach 2",
+          beachSlug: "test-beach-2",
+          currentScore: 90,
+          currentWaveHeight: 5.0,
+          trend: "improving" as const,
+          bestDay: "Thursday",
+          bestDayScore: 95,
+        },
+      ];
+
+      (aggregateRegionalForecast as jest.Mock)
+        .mockReturnValueOnce(
+          createMockRegionalSummary(mockRegion1, 70, beachConditions1)
+        )
+        .mockReturnValueOnce(
+          createMockRegionalSummary(mockRegion2, 90, beachConditions2)
+        );
+
+      (getBeachHrefSafe as jest.Mock).mockReturnValue("/test-url");
+
+      // No userCoords — should return beaches from all regions
+      const result = await getTopBeachesRightNow(5);
+
+      expect(result).toHaveLength(2);
+      expect(result.map((b) => b.beachId).sort()).toEqual(["beach-1", "beach-2"]);
+    });
+  });
+
+  describe("getBestRegionForUser", () => {
+    beforeEach(() => {
+      // Reset distance mock for these tests
+      (calculateDistanceInMiles as jest.Mock).mockReset();
+    });
+
+    it("returns closest region (not highest-scoring) when coords provided", () => {
+      // Region 1: closer but lower score, Region 2: farther but higher score
+      (calculateDistanceInMiles as jest.Mock).mockImplementation(
+        (_from: any, to: any) => {
+          if (to.lat === mockRegion1.centerLat) return 20; // closer
+          if (to.lat === mockRegion2.centerLat) return 50; // farther
+          return 999;
+        }
+      );
+
+      const summaries = {
+        "test-region-1": createMockRegionalSummary(mockRegion1, 60), // lower score
+        "test-region-2": createMockRegionalSummary(mockRegion2, 90), // higher score
+      };
+
+      const result = getBestRegionForUser(summaries, {
+        lat: 33.0,
+        lon: -117.0,
+      });
+
+      expect(result).not.toBeNull();
+      // Should pick region 1 (closer) not region 2 (higher score)
+      expect(result!.region.slug).toBe("test-region-1");
+      expect(result!.isLocationPersonalized).toBe(true);
+    });
+
+    it("skips closest region if it has no summary data", () => {
+      (calculateDistanceInMiles as jest.Mock).mockImplementation(
+        (_from: any, to: any) => {
+          if (to.lat === mockRegion1.centerLat) return 20; // closer
+          if (to.lat === mockRegion2.centerLat) return 50; // farther
+          return 999;
+        }
+      );
+
+      // Only region 2 has summary data
+      const summaries = {
+        "test-region-2": createMockRegionalSummary(mockRegion2, 85),
+      };
+
+      const result = getBestRegionForUser(summaries, {
+        lat: 33.0,
+        lon: -117.0,
+      });
+
+      expect(result).not.toBeNull();
+      // Should fall to region 2 since region 1 has no summary
+      expect(result!.region.slug).toBe("test-region-2");
+      expect(result!.isLocationPersonalized).toBe(true);
+    });
+
+    it("falls back to global best when no coords provided", () => {
+      const summaries = {
+        "test-region-1": createMockRegionalSummary(mockRegion1, 60),
+        "test-region-2": createMockRegionalSummary(mockRegion2, 90),
+      };
+
+      const result = getBestRegionForUser(summaries, null);
+
+      expect(result).not.toBeNull();
+      // Should pick highest-scoring region globally
+      expect(result!.region.slug).toBe("test-region-2");
+      expect(result!.isLocationPersonalized).toBe(false);
+    });
+
+    it("falls back to global best when no regions within range", () => {
+      // All regions beyond 300 miles
+      (calculateDistanceInMiles as jest.Mock).mockReturnValue(500);
+
+      const summaries = {
+        "test-region-1": createMockRegionalSummary(mockRegion1, 60),
+        "test-region-2": createMockRegionalSummary(mockRegion2, 90),
+      };
+
+      const result = getBestRegionForUser(summaries, {
+        lat: 40.0,
+        lon: -74.0,
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.region.slug).toBe("test-region-2");
+      expect(result!.isLocationPersonalized).toBe(false);
+    });
+  });
+
+  describe("getClosestRegion", () => {
+    beforeEach(() => {
+      (calculateDistanceInMiles as jest.Mock).mockReset();
+    });
+
+    it("returns the closest region by distance", () => {
+      (calculateDistanceInMiles as jest.Mock).mockImplementation(
+        (_from: any, to: any) => {
+          if (to.lat === mockRegion1.centerLat) return 15;
+          if (to.lat === mockRegion2.centerLat) return 80;
+          return 999;
+        }
+      );
+
+      const result = getClosestRegion({ lat: 33.0, lon: -117.0 });
+
+      expect(result).not.toBeNull();
+      expect(result!.slug).toBe("test-region-1");
+    });
+
+    it("returns null when FORECAST_REGIONS is empty", () => {
+      Object.keys(FORECAST_REGIONS).forEach((key) => {
+        delete FORECAST_REGIONS[key];
+      });
+
+      const result = getClosestRegion({ lat: 33.0, lon: -117.0 });
+
+      expect(result).toBeNull();
     });
   });
 });

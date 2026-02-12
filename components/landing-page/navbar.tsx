@@ -9,20 +9,21 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FORECAST_REGIONS } from "@/lib/data/forecast-regions";
+import { REGION_GROUPS } from "@/lib/data/region-groups";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { useLandingLocation } from "@/hooks/use-landing-location";
 
-// Static menu items (non-region items)
 const STATIC_MENU_ITEMS = [
   { label: "7-Day Outlook", href: "/forecast", category: "Forecast" },
   { label: "United States", href: "/beaches/usa", category: "Countries" },
   { label: "Mexico", href: "/beaches/mexico", category: "Countries" },
-  { label: "Orange County", href: "/map", category: "Regions" },
-  { label: "Los Angeles County", href: "/map", category: "Regions" },
   {
     label: "Reef Breaks",
     href: "/map?type=reef",
@@ -44,6 +45,15 @@ const STATIC_MENU_ITEMS = [
     category: "Surf Spot Types",
   },
 ];
+
+const GROUPED_STATIC_ITEMS = STATIC_MENU_ITEMS.reduce(
+  (acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  },
+  {} as Record<string, typeof STATIC_MENU_ITEMS>
+);
 
 export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
   const [mounted, setMounted] = useState(false);
@@ -71,25 +81,14 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
     }
   }, [autoOpenLogin, mounted]);
 
-  // Build menu items with dynamic first region based on user's location
-  const exploreMenuItems = useMemo(() => {
-    const dynamicRegionItem = {
-      label: `${regionName} Area`,
-      href: "/map",
-      category: "Regions",
-    };
-    return [dynamicRegionItem, ...STATIC_MENU_ITEMS];
+  // Match user's detected region to a forecast region slug for "Near you" badge
+  const nearbySlug = useMemo(() => {
+    if (!regionName) return null;
+    const match = Object.values(FORECAST_REGIONS).find(
+      (r) => r.name.toLowerCase() === regionName.toLowerCase()
+    );
+    return match?.slug ?? null;
   }, [regionName]);
-
-  const groupedMenuItems = useMemo(() => {
-    return exploreMenuItems.reduce((acc, item) => {
-      if (!acc[item.category]) {
-        acc[item.category] = [];
-      }
-      acc[item.category].push(item);
-      return acc;
-    }, {} as Record<string, typeof exploreMenuItems>);
-  }, [exploreMenuItems]);
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-50 w-full">
@@ -118,12 +117,41 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                   Explore
                   <ChevronDown className="h-4 w-4" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64 p-4">
-                  {Object.entries(groupedMenuItems).map(([category, items]) => (
-                    <div key={category} className="mb-4 last:mb-0">
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <DropdownMenuContent className="w-80 max-h-[80vh] overflow-y-auto p-4">
+                  {/* Region groups */}
+                  {REGION_GROUPS.map((group) => (
+                    <div key={group.label} className="mb-3 last:mb-0">
+                      <DropdownMenuLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1">
+                        {group.label}
+                      </DropdownMenuLabel>
+                      {group.slugs.map((slug) => {
+                        const region = FORECAST_REGIONS[slug];
+                        if (!region) return null;
+                        return (
+                          <DropdownMenuItem key={slug} asChild>
+                            <Link
+                              href={`/forecast/${slug}`}
+                              className="flex items-center gap-2 px-2 py-1.5 text-sm text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded cursor-pointer"
+                            >
+                              {region.name}
+                              {nearbySlug === slug && (
+                                <span className="text-[10px] font-medium text-ocean-blue bg-blue-50 px-1.5 py-0.5 rounded-full">
+                                  Near you
+                                </span>
+                              )}
+                            </Link>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  <DropdownMenuSeparator />
+                  {/* Static items grouped by category */}
+                  {Object.entries(GROUPED_STATIC_ITEMS).map(([category, items]) => (
+                    <div key={category} className="mb-3 last:mb-0">
+                      <DropdownMenuLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1">
                         {category}
-                      </div>
+                      </DropdownMenuLabel>
                       {items.map((item) => (
                         <DropdownMenuItem key={item.label} asChild>
                           <Link
@@ -195,30 +223,64 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                   {/* Scrollable menu content */}
                   <div className="flex-1 overflow-y-auto px-6">
                     <div className="flex flex-col gap-6 mt-8">
-                      {/* Mobile Explore Section */}
+                      {/* Mobile Explore - Region groups */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
                           Explore
                         </h3>
-                        {Object.entries(groupedMenuItems).map(
-                          ([category, items]) => (
-                            <div key={category} className="mb-4">
-                              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                                {category}
-                              </div>
-                              {items.map((item) => (
+                        {REGION_GROUPS.map((group) => (
+                          <div key={group.label} className="mb-4">
+                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                              {group.label}
+                            </div>
+                            {group.slugs.map((slug) => {
+                              const region = FORECAST_REGIONS[slug];
+                              if (!region) return null;
+                              return (
                                 <Link
-                                  key={item.label}
-                                  href={item.href}
-                                  className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
+                                  key={slug}
+                                  href={`/forecast/${slug}`}
+                                  className="flex items-center gap-2 px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
                                   onClick={() => setMobileMenuOpen(false)}
                                 >
-                                  {item.label}
+                                  {region.name}
+                                  {nearbySlug === slug && (
+                                    <span className="text-[10px] font-medium text-ocean-blue bg-blue-50 px-1.5 py-0.5 rounded-full">
+                                      Near you
+                                    </span>
+                                  )}
                                 </Link>
-                              ))}
-                            </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                        {/* Static items */}
+                        {Object.entries(
+                          STATIC_MENU_ITEMS.reduce(
+                            (acc, item) => {
+                              if (!acc[item.category]) acc[item.category] = [];
+                              acc[item.category].push(item);
+                              return acc;
+                            },
+                            {} as Record<string, typeof STATIC_MENU_ITEMS>
                           )
-                        )}
+                        ).map(([category, items]) => (
+                          <div key={category} className="mb-4">
+                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                              {category}
+                            </div>
+                            {items.map((item) => (
+                              <Link
+                                key={item.label}
+                                href={item.href}
+                                className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
+                                onClick={() => setMobileMenuOpen(false)}
+                              >
+                                {item.label}
+                              </Link>
+                            ))}
+                          </div>
+                        ))}
                       </div>
 
                       {/* Mobile Other Links */}

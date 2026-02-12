@@ -7,6 +7,7 @@ import {
   getGuideSlugForRegion,
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
+import { REGION_GROUPS } from "@/lib/data/region-groups";
 import { formatFullDateWithYear } from "@/lib/utils/time-formatters";
 import {
   getRegionalSummaries,
@@ -184,7 +185,7 @@ export default async function ForecastHubPage() {
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">
                     {bestResult.isLocationPersonalized
-                      ? "Best Conditions Near You"
+                      ? "Your Local Forecast"
                       : "Best Conditions Today"}
                   </h2>
                   <div className="flex flex-wrap items-center gap-4 text-gray-700">
@@ -232,33 +233,44 @@ export default async function ForecastHubPage() {
 
         {/* Best Right Now - Top Beaches Leaderboard */}
         <ScrollReveal variant="fadeUp" delay={125}>
-          <BestRightNow />
+          <BestRightNow userLat={userCoords?.lat} userLon={userCoords?.lon} />
         </ScrollReveal>
 
-        {/* Regional Forecast Cards */}
+        {/* Regional Forecast Cards - Grouped */}
         <section className="mb-10">
           <ScrollReveal variant="fadeUp" delay={150}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900">
-                Choose Your Region
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {regions.length} regions available
-              </p>
-            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              Choose Your Region
+            </h2>
           </ScrollReveal>
 
-          <ScrollReveal variant="fadeUp" delay={200} stagger staggerDelay={75}>
-            <RegionalForecastCardGrid>
-              {regions.map((region) => (
-                <RegionalForecastCard
-                  key={region.slug}
-                  region={region}
-                  summary={summaries[region.slug]}
-                />
-              ))}
-            </RegionalForecastCardGrid>
-          </ScrollReveal>
+          {REGION_GROUPS.map((group, groupIndex) => {
+            const groupRegions = group.slugs
+              .map((slug) => FORECAST_REGIONS[slug])
+              .filter(Boolean);
+            if (groupRegions.length === 0) return null;
+
+            return (
+              <div key={group.label} className="mb-8 last:mb-0">
+                <ScrollReveal variant="fadeUp" delay={175 + groupIndex * 50}>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                    {group.label}
+                  </h3>
+                </ScrollReveal>
+                <ScrollReveal variant="fadeUp" delay={200 + groupIndex * 50} stagger staggerDelay={75}>
+                  <RegionalForecastCardGrid>
+                    {groupRegions.map((region) => (
+                      <RegionalForecastCard
+                        key={region.slug}
+                        region={region}
+                        summary={summaries[region.slug]}
+                      />
+                    ))}
+                  </RegionalForecastCardGrid>
+                </ScrollReveal>
+              </div>
+            );
+          })}
         </section>
 
         {/* Cross-Links to Hub Guides */}

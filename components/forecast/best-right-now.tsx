@@ -52,15 +52,28 @@ function RankBadge({ rank }: RankBadgeProps) {
   );
 }
 
-export function BestRightNow() {
-  const fetchTopBeaches = useCallback(() => getTopBeachesNow(5), []);
+interface BestRightNowProps {
+  userLat?: number;
+  userLon?: number;
+}
+
+export function BestRightNow({ userLat, userLon }: BestRightNowProps = {}) {
+  const fetchTopBeaches = useCallback(
+    () => getTopBeachesNow(5, userLat, userLon),
+    [userLat, userLon]
+  );
   const { data, loading } = useDataFetcher<TopBeachEntry[]>(fetchTopBeaches);
+
+  const heading =
+    userLat !== undefined && userLon !== undefined
+      ? "Best Near You"
+      : "Best Right Now";
 
   if (loading) {
     return (
       <ForecastSectionContainer testId="best-right-now">
         <h2 className="text-sm font-semibold text-sky-700 uppercase tracking-wide mb-4">
-          Best Right Now
+          {heading}
         </h2>
         <BestRightNowSkeleton />
       </ForecastSectionContainer>
@@ -74,7 +87,7 @@ export function BestRightNow() {
   return (
     <ForecastSectionContainer testId="best-right-now">
       <h2 className="text-sm font-semibold text-sky-700 uppercase tracking-wide mb-4">
-        Best Right Now
+        {heading}
       </h2>
 
       <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">

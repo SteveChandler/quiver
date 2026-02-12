@@ -124,11 +124,11 @@ export interface BestRegionResult {
 }
 
 /**
- * Get the best region for today, personalized to user location when available.
+ * Get the closest region to the user with valid forecast data.
  *
- * If userCoords are provided, filters to regions within maxDistanceMiles and
- * picks the highest-scoring one. Falls back to global best if no coords or
- * no nearby regions have data.
+ * If userCoords are provided, finds regions within maxDistanceMiles,
+ * sorts by distance ascending, and picks the closest one with valid data.
+ * Falls back to global best if no coords or no nearby regions have data.
  */
 export function getBestRegionForUser(
   summaries: Record<string, RegionalForecastSummary>,
@@ -136,7 +136,7 @@ export function getBestRegionForUser(
   maxDistanceMiles: number = 300
 ): BestRegionResult | null {
   if (userCoords) {
-    // Find regions within range
+    // Find regions within range, sorted by distance (closest first)
     const nearbyRegions: { region: ForecastRegion; distance: number }[] = [];
     for (const region of Object.values(FORECAST_REGIONS)) {
       const distance = calculateDistanceInMiles(userCoords, {
@@ -148,24 +148,15 @@ export function getBestRegionForUser(
       }
     }
 
-    // Pick the highest-scoring nearby region
-    let bestRegion: ForecastRegion | null = null;
-    let bestSummary: RegionalForecastSummary | null = null;
-    let bestScore = 0;
+    // Sort by distance ascending (closest first)
+    nearbyRegions.sort((a, b) => a.distance - b.distance);
 
+    // Pick the closest region that has valid summary data
     for (const { region } of nearbyRegions) {
       const summary = summaries[region.slug];
-      if (!summary) continue;
-      const todayScore = summary.days[0]?.score || 0;
-      if (todayScore > bestScore) {
-        bestScore = todayScore;
-        bestRegion = region;
-        bestSummary = summary;
+      if (summary && summary.days[0]) {
+        return { region, summary, isLocationPersonalized: true };
       }
-    }
-
-    if (bestRegion && bestSummary) {
-      return { region: bestRegion, summary: bestSummary, isLocationPersonalized: true };
     }
   }
 
@@ -173,6 +164,29 @@ export function getBestRegionForUser(
   const globalBest = getBestRegionToday(summaries);
   if (!globalBest) return null;
   return { ...globalBest, isLocationPersonalized: false };
+}
+
+/**
+ * Find the closest region to the given coordinates.
+ */
+export function getClosestRegion(
+  userCoords: { lat: number; lon: number }
+): ForecastRegion | null {
+  let closest: ForecastRegion | null = null;
+  let minDistance = Infinity;
+
+  for (const region of Object.values(FORECAST_REGIONS)) {
+    const distance = calculateDistanceInMiles(userCoords, {
+      lat: region.centerLat,
+      lon: region.centerLon,
+    });
+    if (!isNaN(distance) && distance < minDistance) {
+      minDistance = distance;
+      closest = region;
+    }
+  }
+
+  return closest;
 }
 
 /**
@@ -188,15 +202,17 @@ export interface TopBeachEntry {
 }
 
 /**
- * Get the top beaches by current score across all regions.
+ * Get the top beaches by current score.
  *
- * Flattens beachConditions from every region, enriches each with a URL
- * via `getBeachHrefSafe`, sorts by score descending, and returns the top N.
+ * When userCoords are provided, filters to beaches from the closest region only.
+ * Otherwise, returns top beaches across all regions.
  *
  * @param limit - Maximum number of beaches to return (default 5)
+ * @param userCoords - Optional user coordinates to filter to closest region
  */
 export async function getTopBeachesRightNow(
-  limit: number = 5
+  limit: number = 5,
+  userCoords?: { lat: number; lon: number } | null
 ): Promise<TopBeachEntry[]> {
   // Fetch beaches once and pass to getRegionalSummaries to avoid double fetch
   const beachesResult = await getBeaches();
@@ -222,17 +238,31 @@ export async function getTopBeachesRightNow(
     }
   }
 
-  // Flatten all beach conditions across all regions
-  const allBeachConditions = Object.values(summaries).flatMap(
+  // Determine which summaries to pull beach conditions from
+  let targetSummaries: RegionalForecastSummary[];
+
+  if (userCoords) {
+    const closestRegion = getClosestRegion(userCoords);
+    if (closestRegion && summaries[closestRegion.slug]) {
+      targetSummaries = [summaries[closestRegion.slug]];
+    } else {
+      targetSummaries = Object.values(summaries);
+    }
+  } else {
+    targetSummaries = Object.values(summaries);
+  }
+
+  // Flatten beach conditions from target summaries
+  const beachConditions = targetSummaries.flatMap(
     (summary) => summary.beachConditions
   );
 
-  if (allBeachConditions.length === 0) {
+  if (beachConditions.length === 0) {
     return [];
   }
 
   // Sort by current score descending and take top N
-  const sorted = allBeachConditions
+  const sorted = beachConditions
     .sort((a, b) => b.currentScore - a.currentScore)
     .slice(0, limit);
 

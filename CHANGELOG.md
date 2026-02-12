@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Grouped Region Cards on /forecast** - Regional forecast cards are now organized into California, Pacific, East Coast, and International sections instead of a flat grid.
+- **Local "Best Near You" Leaderboard** - "Best Right Now" section on /forecast now filters to the user's closest region when location is available, showing "Best Near You" heading.
+- **Closest Region Hero** - Hero card shows the user's closest region (by distance) instead of the highest-scoring nearby region.
+- **Shared Region Groups** - Extracted `REGION_GROUPS` constant to `lib/data/region-groups.ts` for use by both the landing page navbar and forecast hub.
+- **Fallback Observability** - New `trackFallback()` utility in `lib/monitoring/` that tracks when silent fallback values are substituted for missing data. Instruments ~15 critical locations (wave height, tide, confidence score, synthetic data generators) with structured Sentry alerts for dangerous/high severity and breadcrumbs for low/medium. Zero user-facing changes.
+- **HDOnTap Embed Support** - `buildCamEmbed()` now detects `hdontap.com/stream/` URLs and auto-converts them to the official `/embed/` iframe format with autoplay and fullscreen permissions.
+- **38 New Surf Cameras** - Populated camera URLs for 38 beaches (mostly CA, plus HI, OR, TX) using HDOnTap, YouTube Live (Explore.org), and SurfOutlook sources. Total camera coverage: 39 → 77 of 279 beaches (28%).
+
+### Changed
+
+- **Camera Autoplay** - YouTube embeds now use `autoplay=1` (muted), HDOnTap embeds include `allow: "autoplay; fullscreen"`, direct video elements have `autoPlay`, and default iframes include `allow: "autoplay"`.
+- **Camera Embed Reliability** - Removed aggressive 3-second iframe timeout from `CamsSection` that was prematurely showing "Preview unavailable" fallback. Iframes now render immediately and only fall back on actual `onError` events.
+
 ### Fixed
 
+- **E2E Test: Conditions Tab Hero Text** - Fixed 2 pre-existing forecast-tabs E2E test failures. Tests expected "Best Day This Week" but the hero shows "Selected Day" when a day is auto-selected in the horizon strip. Updated selectors to match both labels. Also increased `beforeEach` timeout to reduce flaky failures from slow forecast data loading.
 - **Map Selected Beach Card UI** - Replaced MapPin icons with Star icons for ratings, show actual review count instead of hardcoded "128", show "No reviews" for unrated beaches instead of fake 4-star rating, removed hardcoded "San Diego" location fallback.
 - **Forecast Weather Condition Truncation** - Weather conditions like "Partly Cloudy" were truncated to just "Partly" by `.split(" ")[0]`. Now shows the full weather condition string.
 - **Map Loading Skeleton** - Restored loading skeleton that was commented out during debugging.
