@@ -1,0 +1,170 @@
+import { NextRequest, NextResponse } from "next/server";
+import { withRateLimit } from "@/lib/middleware/api-wrappers";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * HLS Proxy API Route
+ *
+ * Proxies HLS streams from CORS-blocked CDNs (e.g., Surfline) so hls.js
+ * can play them in Chrome/Firefox. Safari plays HLS natively without CORS issues.
+ *
+ * Path-based design: /api/hls-proxy/<hostname>/<path>
+ * This lets relative URLs inside .m3u8 manifests resolve through the proxy
+ * automatically without rewriting manifest content.
+ *
+ * Security:
+ * - Strict hostname whitelist (prevents open proxy / SSRF)
+ * - Rate limited per client IP
+ * - Request timeout (15s)
+ * - Response size limit (10MB for video segments)
+ *
+ * Monitoring:
+ * - Structured console logs for every proxied request (Vercel Logs)
+ * - X-HLS-Proxy-* headers on responses for debugging
+ */
+
+/** Hostnames allowed through the proxy, with required upstream headers */
+const ALLOWED_HOSTS: Record<string, Record<string, string>> = {
+  "hls.cdn-surfline.com": {
+    Referer: "https://www.surfline.com/",
+  },
+};
+
+/** Max response size: 10MB (typical HLS segments are 2-6MB) */
+const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
+
+/** Request timeout in ms */
+const REQUEST_TIMEOUT = 15_000;
+
+async function hlsProxyHandler(
+  request: NextRequest,
+  context?: { params?: Promise<{ path?: string[] }> }
+): Promise<NextResponse> {
+  const start = Date.now();
+
+  const resolvedParams = context?.params ? await context.params : undefined;
+  const pathSegments = resolvedParams?.path;
+
+  if (!pathSegments || pathSegments.length < 2) {
+    return NextResponse.json(
+      { error: "Invalid proxy path" },
+      { status: 400 }
+    );
+  }
+
+  // Security: reject path traversal
+  if (pathSegments.some((s) => s === ".." || s === ".")) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+  }
+
+  const hostname = pathSegments[0];
+  const resourcePath = "/" + pathSegments.slice(1).join("/");
+  const targetUrl = `https://${hostname}${resourcePath}`;
+
+  // Security: strict hostname whitelist
+  const hostConfig = ALLOWED_HOSTS[hostname];
+  if (!hostConfig) {
+    console.warn("[hls-proxy] Blocked disallowed host:", hostname);
+    return NextResponse.json(
+      { error: "Host not allowed" },
+      { status: 403 }
+    );
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        ...hostConfig,
+        // Forward range requests for partial segment loads
+        ...(request.headers.get("range")
+          ? { Range: request.headers.get("range")! }
+          : {}),
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!upstream.ok) {
+      console.warn("[hls-proxy] Upstream error:", {
+        url: targetUrl,
+        status: upstream.status,
+      });
+      return new NextResponse(null, { status: upstream.status });
+    }
+
+    // Size check from Content-Length header
+    const contentLength = upstream.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+      return new NextResponse("Response too large", { status: 413 });
+    }
+
+    const body = await upstream.arrayBuffer();
+    const elapsed = Date.now() - start;
+
+    if (body.byteLength > MAX_RESPONSE_SIZE) {
+      return new NextResponse("Response too large", { status: 413 });
+    }
+
+    // Determine content type and caching
+    const isManifest =
+      resourcePath.endsWith(".m3u8") || resourcePath.endsWith(".M3U8");
+    const isSegment =
+      resourcePath.endsWith(".ts") || resourcePath.endsWith(".aac");
+
+    const contentType = isManifest
+      ? "application/vnd.apple.mpegurl"
+      : isSegment
+        ? "video/mp2t"
+        : upstream.headers.get("content-type") || "application/octet-stream";
+
+    // Manifests must not be cached long (live stream); segments are immutable
+    const cacheControl = isManifest
+      ? "public, max-age=2, stale-while-revalidate=5"
+      : isSegment
+        ? "public, max-age=3600, immutable"
+        : "public, max-age=60";
+
+    // Monitoring log
+    console.log("[hls-proxy]", {
+      host: hostname,
+      path: resourcePath,
+      type: isManifest ? "manifest" : isSegment ? "segment" : "other",
+      bytes: body.byteLength,
+      ms: elapsed,
+    });
+
+    return new NextResponse(body, {
+      status: upstream.status,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": cacheControl,
+        "Access-Control-Allow-Origin": "*",
+        "X-HLS-Proxy-Host": hostname,
+        "X-HLS-Proxy-Bytes": body.byteLength.toString(),
+        "X-HLS-Proxy-Ms": elapsed.toString(),
+      },
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === "AbortError") {
+      console.warn("[hls-proxy] Timeout:", targetUrl);
+      return new NextResponse("Gateway timeout", { status: 504 });
+    }
+
+    console.error("[hls-proxy] Error:", {
+      url: targetUrl,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return new NextResponse("Proxy error", { status: 502 });
+  }
+}
+
+export const GET = withRateLimit(hlsProxyHandler, "hls-proxy");

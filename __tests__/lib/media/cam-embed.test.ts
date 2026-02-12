@@ -55,6 +55,16 @@ describe("buildCamEmbed", () => {
     expect(result).toEqual({ kind: "hls", src: "https://example.com/stream.m3u8" });
   });
 
+  it("rewrites Surfline HLS URLs through the proxy", () => {
+    const result = buildCamEmbed(
+      "https://hls.cdn-surfline.com/oregon/wc-blacksov/playlist.m3u8"
+    );
+    expect(result).toEqual({
+      kind: "hls",
+      src: "/api/hls-proxy/hls.cdn-surfline.com/oregon/wc-blacksov/playlist.m3u8",
+    });
+  });
+
   // --- HDOnTap ---
   it("converts HDOnTap stream URL to embed URL", () => {
     const result = buildCamEmbed(
@@ -113,8 +123,8 @@ describe("buildCamEmbed", () => {
   });
 
   // --- Invalid URL catch branch ---
-  it("returns iframe fallback for invalid URL strings", () => {
+  it("returns none for invalid URL strings", () => {
     const result = buildCamEmbed("not-a-valid-url");
-    expect(result).toEqual({ kind: "iframe", src: "not-a-valid-url", title: "Live Cam" });
+    expect(result).toEqual({ kind: "none" });
   });
 });

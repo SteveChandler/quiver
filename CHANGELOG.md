@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **HLS Live Cam Player** - New `HLSVideoPlayer` component with `hls.js` for inline playback of HLS (.m3u8) streams. Enables 6 existing Surfchex East Coast cams that previously couldn't render. Native Safari HLS support, dynamic code-split hls.js for Chrome/Firefox.
+- **HLS Proxy for Surfline Streams** - Server-side proxy at `/api/hls-proxy/[...path]` bypasses Surfline's CORS restrictions. Strict hostname whitelist (SSRF prevention), rate-limited, with structured monitoring logs for bandwidth tracking. Replaced 3 dead SurfOutlook camera URLs with Surfline HLS streams (Blacks, Tourmaline, C-Street) and added 4 new Surfline cams (Windansea, Sunset Cliffs).
 - **Content Gravity: Enriched Nearby Beaches** - Beach detail pages now show enriched `SurfSpotCard` components (with score badges, wave heights, photos) instead of plain text links for nearby spots. Horizontal scroll on mobile, responsive grid on desktop. IntersectionObserver-based engagement tracking.
 - **Content Gravity: Best Conditions Right Now (Homepage)** - New landing page section above featured highlights showing the top 6 highest-scored beaches with live conditions, wave heights, and photos. Skeleton loading state, graceful null fallback.
 - **Content Gravity: Partial Community Content for Guests** - Beach detail Reviews, Intel, and Sessions tabs now show 2-3 real items of content to unauthenticated visitors before a gradient fade + sign-up CTA, replacing the full blur lockout that caused high bounce rates. New `PartialContentGate` component with IntersectionObserver-based analytics tracking. Lock icons removed from tab labels.

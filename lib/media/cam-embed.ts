@@ -42,8 +42,11 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "video", src: href };
     }
 
-    // HLS
+    // HLS — route CORS-blocked hosts through our proxy
     if (href.endsWith(".m3u8")) {
+      if (u.hostname === "hls.cdn-surfline.com") {
+        return { kind: "hls", src: `/api/hls-proxy/${u.hostname}${u.pathname}` };
+      }
       return { kind: "hls", src: href };
     }
 
@@ -61,8 +64,8 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
     // Default iframe attempt (may be blocked)
     return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {
-    // If URL parsing fails, expose as link fallback
-    return { kind: "iframe", src: String(url), title: "Live Cam" };
+    // If URL parsing fails, don't render — prevents unvalidated URI injection
+    return { kind: "none" };
   }
 }
 

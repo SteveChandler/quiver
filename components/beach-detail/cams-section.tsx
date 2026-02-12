@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, RefreshCw } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
+
+const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
+  ssr: false,
+});
 
 interface CamsSectionProps {
   beachId: string;
@@ -89,6 +94,8 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         />
       </div>
     );
+  } else if (intent?.kind === "hls") {
+    visual = <HLSVideoPlayer src={intent.src} title="Live Cam" />;
   } else if (intent?.kind === "video") {
     visual = (
       <div className="relative aspect-video w-full overflow-hidden bg-black">

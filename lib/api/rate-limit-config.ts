@@ -190,6 +190,22 @@ export const RATE_LIMITS = {
     requestsPerHour: 5000,
     burstLimit: 50,
   } as RateLimiterConfig,
+
+  /**
+   * HLS Proxy - HIGH
+   *
+   * Endpoint: /api/hls-proxy/[...path]
+   * Risk: SSRF, bandwidth abuse (video streaming)
+   * Cost: External HTTP requests, high bandwidth per request
+   *
+   * HLS streams request many segments per minute per viewer.
+   * A single viewer ~10-30 req/min. Allow moderate concurrency.
+   */
+  "hls-proxy": {
+    requestsPerMinute: 120,
+    requestsPerHour: 5000,
+    burstLimit: 60,
+  } as RateLimiterConfig,
 } as const;
 
 /**
@@ -220,6 +236,8 @@ const RATE_LIMIT_MESSAGES = {
     "Surf insights rate limit exceeded. Please wait before requesting more insights.",
   "webhook-resend":
     "Webhook rate limit exceeded. Events will be retried by Resend.",
+  "hls-proxy":
+    "HLS proxy rate limit exceeded. Please wait before requesting more streams.",
 } as const;
 
 /**
