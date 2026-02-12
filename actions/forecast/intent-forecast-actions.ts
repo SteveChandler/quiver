@@ -301,10 +301,12 @@ export async function getCityTideDataExpanded(
     }
 
     const now = new Date();
+    const chartStart = new Date(now);
+    chartStart.setDate(chartStart.getDate() - 2); // 48h covers max past need of 33.6h (168h × 0.2 nowBias)
     const sevenDaysLater = new Date(now);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-    return fetchExpandedTideData(supabase, repBeach.id, cityName, state, baseTideData, now, sevenDaysLater);
+    return fetchExpandedTideData(supabase, repBeach.id, cityName, state, baseTideData, chartStart, sevenDaysLater);
   } catch (error) {
     console.error("Error in getCityTideDataExpanded:", error);
     return null;
@@ -367,7 +369,9 @@ async function fetchExpandedTideData(
   const today = new Date();
   const dateFmt = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
   const todayStr = dateFmt.format(today);
-  const dayMap = new Map<string, TideDayExtrema>();
+  const isoDateFmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }); // YYYY-MM-DD, lexicographically sortable
+  const todayIso = isoDateFmt.format(today);
+  const dayMap = new Map<string, TideDayExtrema & { _isoDate: string }>();
 
   const timeFmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -383,6 +387,7 @@ async function fetchExpandedTideData(
     if (!dayMap.has(dateKey)) {
       dayMap.set(dateKey, {
         date: dateKey,
+        _isoDate: isoDateFmt.format(exDate),
         label: formatDayLabel(exDate, today, timeZone),
         isToday: dateKey === todayStr,
         events: [],
@@ -398,10 +403,12 @@ async function fetchExpandedTideData(
     });
   }
 
-  // Sort days and limit to 7
+  // Filter out past days, sort chronologically, and limit to 7
   const sevenDayExtrema = Array.from(dayMap.values())
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 7);
+    .filter((day) => day._isoDate >= todayIso)
+    .sort((a, b) => a._isoDate.localeCompare(b._isoDate))
+    .slice(0, 7)
+    .map(({ _isoDate: _, ...rest }) => rest);
 
   // Process beach preferences
   const beachTidePreferences: BeachTidePreference[] = (beachesResult.data || []).map(

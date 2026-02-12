@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Tide Chart Missing Past Data** - Tide chart on `/tide/[city]` pages now draws the full curve including past hours before the "Now" marker. Previously the line started at "Now" because the data query only fetched future data, leaving the chart's 20% backward-looking window empty. The 7-Day Tide Schedule table still correctly shows 7 days starting from today.
+- **Session Timing Editorial Copy** - Removed references to non-existent features ("marine layer burn-off", "crowd meter") from San Diego city landing page cards. Replaced with accurate copy referencing forecast data and crowd intel posts.
 - **PR/HI Broken Redirects** - Added 33-entry static redirect map for old compound beach slugs (e.g., `marias-rincon-pr` → `/pr/rincon/marias`) that were 404ing after migration 20260211060000. Extended `/pr/rinc-n` diacritic redirect to handle subpaths.
 - **SEO Meta Tags for PR/HI** - Beach titles now include break type and expanded state names (PR → Puerto Rico, HI → Hawaii) when wave data is unavailable. City listing titles include top beach names. Fixed a/an grammar before vowel-starting skill levels. Added description excerpt support for richer SERP snippets.
 - **Least-Crowded Intent Wording** - Changed "Near" to "in" in least-crowded page titles and descriptions for accuracy.
