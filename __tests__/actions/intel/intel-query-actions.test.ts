@@ -170,9 +170,10 @@ describe("getNearbyIntelPosts", () => {
 
     expect(result.success).toBe(true);
     expect(result.data?.posts).toHaveLength(2);
-    expect(result.data?.posts[0].user.full_name).toBe("John Surfer");
-    expect(result.data?.posts[0].user_has_confirmed).toBe(true);
-    expect(result.data?.posts[1].user_has_confirmed).toBe(false);
+    const posts = (result.data as any).posts;
+    expect(posts[0].user.full_name).toBe("John Surfer");
+    expect(posts[0].user_has_confirmed).toBe(true);
+    expect(posts[1].user_has_confirmed).toBe(false);
   });
 
   test("returns empty results when RPC fails (no fallback)", async () => {
@@ -295,7 +296,7 @@ describe("getNearbyIntelPosts", () => {
 
     expect(result.success).toBe(true);
     // Falls back to user_name from RPC
-    expect(result.data?.posts[0].user.full_name).toBe("FallbackUser");
+    expect((result.data as any).posts[0].user.full_name).toBe("FallbackUser");
   });
 
   test("skips confirmations check for unauthenticated user", async () => {
@@ -406,7 +407,7 @@ describe("getPublicIntelPosts", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.data?.posts[0].user.full_name).toBe("FallbackUser");
+    expect((result.data as any).posts[0].user.full_name).toBe("FallbackUser");
   });
 });
 

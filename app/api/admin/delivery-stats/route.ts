@@ -48,11 +48,11 @@ export const GET = withAdminAuth(async (request: NextRequest, { supabase }) => {
       .select("email_type, local_date")
       .gte("sent_at", since),
 
-    // Push notification counts by status
-    supabase
+    // Push notification counts by status (cast: table missing from generated types)
+    (supabase as any)
       .from("push_notification_log")
       .select("notification_type, status, sent_at")
-      .gte("sent_at", since),
+      .gte("sent_at", since) as Promise<{ data: Array<{ notification_type: string; status: string; sent_at: string }> | null; error: unknown }>,
 
     // Total registered devices
     supabase

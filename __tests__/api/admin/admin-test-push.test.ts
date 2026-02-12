@@ -491,7 +491,7 @@ describe("/api/admin/test-push", () => {
         "http://localhost:3000/api/admin/test-push"
       );
 
-      const response = await GET();
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -515,7 +515,7 @@ describe("/api/admin/test-push", () => {
         "http://localhost:3000/api/admin/test-push"
       );
 
-      const response = await GET();
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(401);
@@ -550,7 +550,7 @@ describe("/api/admin/test-push", () => {
         "http://localhost:3000/api/admin/test-push"
       );
 
-      const response = await GET();
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);

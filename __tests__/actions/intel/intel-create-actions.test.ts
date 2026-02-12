@@ -501,14 +501,14 @@ describe("createIntelPost", () => {
       );
 
       expect(result.success).toBe(true);
-      if (result.success && result.data) {
-        expect(result.data.id).toBe("intel-1");
-        expect(result.data.user.full_name).toBe("John Doe");
-        expect(result.data.user.avatar_url).toBe(
-          "https://example.com/avatar.jpg"
-        );
-        expect(result.data.user_has_confirmed).toBe(false);
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = result.data as any;
+      expect(data.id).toBe("intel-1");
+      expect(data.user.full_name).toBe("John Doe");
+      expect(data.user.avatar_url).toBe(
+        "https://example.com/avatar.jpg"
+      );
+      expect(data.user_has_confirmed).toBe(false);
     });
 
     test("tracks XP after creation", async () => {
@@ -598,9 +598,7 @@ describe("createIntelPost", () => {
       );
 
       expect(result.success).toBe(true);
-      if (result.success && result.data) {
-        expect(result.data.user.full_name).toBe("Anonymous");
-      }
+      expect((result.data as any).user.full_name).toBe("Anonymous");
     });
   });
 

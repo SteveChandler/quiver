@@ -39,12 +39,13 @@ const REQUEST_TIMEOUT = 15_000;
 
 async function hlsProxyHandler(
   request: NextRequest,
-  context?: { params?: Promise<{ path?: string[] }> }
+  context?: { params?: Record<string, string> | Promise<Record<string, string>> }
 ): Promise<NextResponse> {
   const start = Date.now();
 
-  const resolvedParams = context?.params ? await context.params : undefined;
-  const pathSegments = resolvedParams?.path;
+  const rawParams = context?.params;
+  const resolvedParams = rawParams && "then" in rawParams ? await rawParams : rawParams;
+  const pathSegments = (resolvedParams as { path?: string[] } | undefined)?.path;
 
   if (!pathSegments || pathSegments.length < 2) {
     return NextResponse.json(
