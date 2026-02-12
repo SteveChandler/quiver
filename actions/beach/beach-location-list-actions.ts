@@ -26,7 +26,7 @@ import {
   getMetroConfig,
   getAllMetroSlugs,
 } from "@/lib/constants/metro-areas";
-import { slugify, slugifyAscii } from "@/lib/utils/text-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 import {
   parseHiIslandCitySlug,
   getHiIslandDisplayName,
@@ -240,7 +240,7 @@ export async function getLocationPageData(
       // If this is an island-specific HI city page, filter beaches to the island.
       if (hiParsed?.islandSlug && beaches && beaches.length > 0) {
         const islandName = getHiIslandDisplayName(hiParsed.islandSlug);
-        const islandSlug = slugify(islandName);
+        const islandSlug = slugifyAscii(islandName);
 
         // Ensure `region` is available for filtering. Some RPCs may not return it reliably.
         // We enrich by fetching region from the beaches table for the current results.
@@ -268,7 +268,7 @@ export async function getLocationPageData(
 
         beaches = beaches.filter((b: any) => {
           const region = typeof b?.region === "string" ? b.region : "";
-          return slugify(region) === islandSlug;
+          return slugifyAscii(region) === islandSlug;
         });
       }
 

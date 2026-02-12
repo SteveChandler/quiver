@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
-import { slugify } from "@/lib/utils/text-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 import { stateToSlug } from "@/lib/utils/beach-url-utils";
 import type { Beach } from "@/types/database";
 
@@ -321,7 +321,7 @@ export async function lookupCityBySlug(
     if (!citiesResult.success || !citiesResult.data) return null;
 
     for (const cityRecord of citiesResult.data) {
-      const slug = slugify(cityRecord.city);
+      const slug = slugifyAscii(cityRecord.city);
       if (slug === citySlug) {
         return {
           slug,
@@ -357,7 +357,7 @@ export async function lookupCityByCityAndStateSlug(
     if (!citiesResult.success || !citiesResult.data) return null;
 
     for (const cityRecord of citiesResult.data) {
-      const slug = slugify(cityRecord.city);
+      const slug = slugifyAscii(cityRecord.city);
       const state = stateToSlug(cityRecord.state);
 
       if (slug === citySlug && state === stateSlug) {

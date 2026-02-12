@@ -30,6 +30,8 @@ export const TIME = {
   THIRTY_MINUTES_MS: 30 * 60 * 1000,
   /** Time window for grouping items by credibility */
   CREDIBILITY_GROUPING_MS: 30 * 60 * 1000,
+  /** Maximum age for intel posts in pagination (7 days) */
+  MAX_INTEL_AGE_MS: 7 * 24 * 60 * 60 * 1000,
 } as const;
 
 /** Cache and revalidation settings */

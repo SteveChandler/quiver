@@ -8,7 +8,7 @@
  */
 
 import type { Beach } from "@/types/database";
-import { slugify, slugifyAscii } from "@/lib/utils/text-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 // ============================================================================
 // Hawaii island-specific city helpers (Waimea-only to start)
@@ -55,7 +55,7 @@ function getHiIslandSlugFromRegion(
   region: string | null | undefined
 ): HiIslandSlug | null {
   if (!region) return null;
-  const s = slugify(region);
+  const s = slugifyAscii(region);
 
   if (s === "kauai") return "kauai";
   if (s === "big-island" || s === "hawaii" || s === "hawaii-island") {
@@ -156,7 +156,7 @@ export function stateToSlug(state: string | null | undefined): string {
   }
 
   // Otherwise slugify the state name and lowercase
-  return slugify(state).toLowerCase();
+  return slugifyAscii(state).toLowerCase();
 }
 
 function isUsaCountry(country: string | null | undefined): boolean {
@@ -172,12 +172,12 @@ function isUsaCountry(country: string | null | undefined): boolean {
 
 export function countryToSlug(country: string | null | undefined): string {
   if (!country) return "";
-  return slugify(country).toLowerCase();
+  return slugifyAscii(country).toLowerCase();
 }
 
 export function regionToSlug(region: string | null | undefined): string {
   if (!region) return "";
-  return slugify(region).toLowerCase();
+  return slugifyAscii(region).toLowerCase();
 }
 
 /**

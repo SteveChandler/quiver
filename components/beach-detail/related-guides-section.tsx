@@ -10,7 +10,7 @@ import {
   MapPin,
   ArrowRight,
 } from "lucide-react";
-import { slugify } from "@/lib/utils/text-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 import { stateToSlug, buildCityUrl } from "@/lib/utils/beach-url-utils";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
 import type { Beach } from "@/types/database";
@@ -80,7 +80,7 @@ export function RelatedGuidesSection({
   }
 
   // Build city slug - use existing slug or create from city name
-  const citySlug = slugify(beach.city);
+  const citySlug = slugifyAscii(beach.city);
   if (!citySlug) {
     return null;
   }

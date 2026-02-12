@@ -58,6 +58,13 @@ describe("Location Slug Utilities", () => {
       expect(generateLocationSlug("Highway 101")).toBe("highway-101");
       expect(generateLocationSlug("Beach 72")).toBe("beach-72");
     });
+
+    it("should handle diacritics/accented characters", () => {
+      expect(generateLocationSlug("Rincón")).toBe("rincon");
+      expect(generateLocationSlug("São Paulo")).toBe("sao-paulo");
+      expect(generateLocationSlug("Córdoba")).toBe("cordoba");
+      expect(generateLocationSlug("Zürich")).toBe("zurich");
+    });
   });
 
   describe("buildLocationUrl", () => {
@@ -119,6 +126,11 @@ describe("Location Slug Utilities", () => {
     it("should handle hyphenated cities", () => {
       const url = buildLocationUrl("Cardiff-by-the-Sea", "CA", "USA");
       expect(url).toBe("/beaches/usa/ca/cardiff-by-the-sea");
+    });
+
+    it("should handle international locations with diacritics", () => {
+      const url = buildLocationUrl("Rincón", "PR", "USA");
+      expect(url).toBe("/beaches/usa/pr/rincon");
     });
   });
 

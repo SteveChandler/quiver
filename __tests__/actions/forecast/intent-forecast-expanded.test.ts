@@ -107,7 +107,7 @@ function makeChainable(result: { data: unknown; error: unknown }) {
   // We handle this by making the mock both chainable and awaitable
   const orderOriginal = chain.order;
   chain.order = jest.fn().mockImplementation(() => {
-    const proxy = { ...chain, then: (resolve: (v: unknown) => void) => resolve(result) };
+    const proxy: Record<string, unknown> = { ...chain, then: (resolve: (v: unknown) => void) => resolve(result) };
     proxy.order = orderOriginal;
     return proxy;
   });
@@ -124,7 +124,6 @@ describe("getCityTideDataExpanded", () => {
 
   function mockDateNow(fakeNow: Date) {
     const OrigDate = realDate;
-    // @ts-expect-error - replacing Date constructor for testing
     global.Date = class extends OrigDate {
       constructor(...args: unknown[]) {
         if (args.length === 0) {

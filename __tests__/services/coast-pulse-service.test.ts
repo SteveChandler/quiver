@@ -29,6 +29,7 @@ const mockSupabaseChain = {
   eq: jest.fn().mockReturnThis(),
   gte: jest.fn().mockReturnThis(),
   lt: jest.fn().mockReturnThis(),
+  lte: jest.fn().mockReturnThis(),
   not: jest.fn().mockReturnThis(),
   or: jest.fn().mockReturnThis(),
   order: jest.fn().mockReturnThis(),
@@ -153,6 +154,7 @@ jest.mock("@/lib/utils/geo-utils", () => ({
 import { generateCoastPulse } from "@/lib/services/coast-pulse/coast-pulse-service";
 import { haversineDistance } from "@/lib/utils/geo-utils";
 import { isNDBCDuplicateOfCDIP, isLocalBuoyNDBCStation } from "@/lib/constants/buoy-mappings";
+import { TIME, DISTANCE } from "@/lib/constants/coast-pulse";
 
 // =============================================================================
 // HELPERS
@@ -461,6 +463,108 @@ describe("Coast Pulse Service", () => {
       });
 
       expect(result.nextCursor).toBe(timestamp.toISOString());
+    });
+  });
+
+  describe("7-Day Intel Age Floor", () => {
+    test("paginated query applies .gte(created_at) with ~7 day floor", async () => {
+      let queryNum = 0;
+      mockSupabaseChain.limit = jest.fn().mockImplementation(() => {
+        const obj = { ...mockSupabaseChain };
+        queryNum++;
+        if (queryNum === 1) {
+          obj.then = (resolve: any) =>
+            resolve({
+              data: [
+                {
+                  id: "b-1",
+                  name: "OB",
+                  lat: 32.75,
+                  lon: -117.25,
+                  wind_offshore_deg: null,
+                },
+              ],
+              error: null,
+            });
+        } else {
+          obj.then = (resolve: any) =>
+            resolve({ data: [], error: null });
+        }
+        return obj;
+      }) as any;
+
+      await generateCoastPulse({
+        lat: 32.72,
+        lon: -117.16,
+        limit: 5,
+        before: new Date().toISOString(),
+      });
+
+      // Verify .gte was called with "created_at" and a timestamp ~7 days ago
+      const gteCalls = (mockSupabaseChain.gte as jest.Mock).mock.calls;
+      const createdAtGteCalls = gteCalls.filter(
+        (args: any[]) => args[0] === "created_at"
+      );
+      expect(createdAtGteCalls.length).toBeGreaterThan(0);
+
+      const maxAgeArg = new Date(createdAtGteCalls[0][1]).getTime();
+      const sevenDaysAgo = Date.now() - TIME.MAX_INTEL_AGE_MS;
+      // Should be within 5 seconds of 7 days ago
+      expect(Math.abs(maxAgeArg - sevenDaysAgo)).toBeLessThan(5000);
+    });
+
+    test("first page 'has more' check applies 7-day floor and geographic bounding box", async () => {
+      // First page with no intel posts in last 24h — triggers the "has more" check
+      // The mock chain will track .gte/.lte calls
+      const result = await generateCoastPulse({
+        lat: 32.72,
+        lon: -117.16,
+        limit: 8,
+      });
+
+      // After the first-page flow, check that .gte was called with "created_at"
+      // for the 7-day floor in the "has more" existence check
+      const gteCalls = (mockSupabaseChain.gte as jest.Mock).mock.calls;
+      const createdAtGteCalls = gteCalls.filter(
+        (args: any[]) => args[0] === "created_at"
+      );
+      // At least one call should be the 7-day floor (from the "has more" check)
+      expect(createdAtGteCalls.length).toBeGreaterThan(0);
+
+      // Verify geographic bounding box filters were applied
+      const latGteCalls = gteCalls.filter(
+        (args: any[]) => args[0] === "latitude"
+      );
+      const lonGteCalls = gteCalls.filter(
+        (args: any[]) => args[0] === "longitude"
+      );
+      expect(latGteCalls.length).toBeGreaterThan(0);
+      expect(lonGteCalls.length).toBeGreaterThan(0);
+
+      // Verify the latitude bounds are approximately correct
+      const expectedLatDelta = DISTANCE.INTEL_MAX_KM / 111;
+      const latLower = latGteCalls[0][1];
+      expect(latLower).toBeCloseTo(32.72 - expectedLatDelta, 2);
+
+      const lteCalls = (mockSupabaseChain.lte as jest.Mock).mock.calls;
+      const latLteCalls = lteCalls.filter(
+        (args: any[]) => args[0] === "latitude"
+      );
+      expect(latLteCalls.length).toBeGreaterThan(0);
+      expect(latLteCalls[0][1]).toBeCloseTo(32.72 + expectedLatDelta, 2);
+    });
+
+    test("'has more' does not trigger when no nearby posts exist in 7-day window", async () => {
+      // Default mock returns count=0 from the "has more" query (no posts match)
+      // The mock chain's select with head:true resolves via the limit mock
+      const result = await generateCoastPulse({
+        lat: 32.72,
+        lon: -117.16,
+        limit: 8,
+      });
+
+      // With no intel posts at all, hasMore should be false
+      expect(result.hasMore).toBe(false);
     });
   });
 

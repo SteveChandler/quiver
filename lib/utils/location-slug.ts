@@ -5,7 +5,7 @@
  * for the AllTrails-style location browsing feature.
  */
 
-import { slugify } from "@/lib/utils/text-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 /**
  * Generate a URL-friendly slug from location text
@@ -15,7 +15,7 @@ import { slugify } from "@/lib/utils/text-utils";
  */
 export function generateLocationSlug(text: string | null | undefined): string {
   if (!text) return "";
-  return slugify(text);
+  return slugifyAscii(text);
 }
 
 /**

@@ -88,10 +88,9 @@ export async function middleware(request: NextRequest) {
   }
 
   /**
-   * Canonical slug redirects for cities with diacritics
-   *
-   * The slugify() function strips non-ASCII characters, producing malformed slugs
-   * like "rinc-n" from "Rincón". We redirect these to the correct canonical slug.
+   * Legacy redirect: malformed "rinc-n" slugs from old slugify() bug.
+   * Root cause fixed in generateLocationSlug() (now uses slugifyAscii).
+   * Keep this redirect until Google drops the cached /pr/rinc-n URLs (~Q2 2026).
    */
   if (pathname === "/pr/rinc-n" || pathname.startsWith("/pr/rinc-n/")) {
     const redirectUrl = request.nextUrl.clone();
