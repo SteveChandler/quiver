@@ -94,10 +94,9 @@ export function MapContent({
     return { lat: 32.7503, lon: -117.2534 }; // Ocean Beach default
   }, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
 
-  // Temporarily bypass loading state to debug rendering issues
-  // if (loading) {
-  //   return <MapSkeleton />;
-  // }
+  if (loading) {
+    return <MapSkeleton />;
+  }
 
   if (locationError && !usingDefaultLocation) {
     return (

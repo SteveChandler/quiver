@@ -62,7 +62,7 @@ function ForecastPreviewComponent({
         <div className="flex items-center text-orange-600">
           <Thermometer className="h-4 w-4 mr-1" />
           <span>
-            {forecastPreview.weather_condition?.split(" ")?.[0] || "N/A"}
+            {forecastPreview.weather_condition || "N/A"}
           </span>
         </div>
         {showConfidenceScore && forecastPreview.confidence_score && (
@@ -88,7 +88,7 @@ function ForecastPreviewComponent({
         <div className="flex items-center text-orange-600">
           <Thermometer className="h-4 w-4 mr-1" />
           <span>
-            {forecastPreview.weather_condition?.split(" ")?.[0] || "N/A"}
+            {forecastPreview.weather_condition || "N/A"}
           </span>
         </div>
       </div>

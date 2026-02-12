@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Database, Activity } from "lucide-react";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
+import { StarRating } from "@/components/ui/star-rating";
 import type { Beach } from "@/types/database";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
@@ -66,26 +67,17 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
                         selectedBeach.lat,
                         selectedBeach.lon
                       )
-                    : getBeachLocation(selectedBeach) || "San Diego"}
+                    : getBeachLocation(selectedBeach)}
                 </span>
               </div>
-              <div className="flex items-center mt-1">
-                {Array(5)
-                  .fill(0)
-                  .map((_, i) => (
-                    <MapPin
-                      key={i}
-                      className={`h-4 w-4 ${
-                        i < (selectedBeach.average_rating || 4)
-                          ? "text-yellow-500 fill-yellow-500"
-                          : "text-gray-300"
-                      }`}
-                    />
-                  ))}
-                <span className="text-sm ml-1 text-muted-foreground">
-                  (128)
-                </span>
-              </div>
+              {(selectedBeach.review_count ?? 0) > 0 && (
+                <div className="flex items-center mt-1">
+                  <StarRating rating={Math.round(selectedBeach.average_rating ?? 0)} size="sm" />
+                  <span className="text-sm ml-1 text-muted-foreground">
+                    ({selectedBeach.review_count})
+                  </span>
+                </div>
+              )}
 
               {/* Forecast Preview */}
               <div className="mt-2">
@@ -152,6 +144,7 @@ const areSelectedBeachCardPropsEqual = (
   if (prev.selectedBeach.name !== next.selectedBeach.name) return false;
   if (prev.selectedBeach.city !== next.selectedBeach.city) return false;
   if (prev.selectedBeach.average_rating !== next.selectedBeach.average_rating) return false;
+  if (prev.selectedBeach.review_count !== next.selectedBeach.review_count) return false;
 
   // User location changed (affects distance calculation)
   if (prev.userLocation && next.userLocation) {

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Map Selected Beach Card UI** - Replaced MapPin icons with Star icons for ratings, show actual review count instead of hardcoded "128", show "No reviews" for unrated beaches instead of fake 4-star rating, removed hardcoded "San Diego" location fallback.
+- **Forecast Weather Condition Truncation** - Weather conditions like "Partly Cloudy" were truncated to just "Partly" by `.split(" ")[0]`. Now shows the full weather condition string.
+- **Map Loading Skeleton** - Restored loading skeleton that was commented out during debugging.
+- **Map Wave Height Interpolation** - Beaches without forecast data no longer show "0-1ft". Missing wave heights are now filled from the nearest beach that has data, so the map shows realistic values everywhere.
 - **Hawaii & Puerto Rico Beach 404s** - Fixed 31 HI/PR beach slugs that used compound format (`{name}-{city}-{state}`) instead of short slugs expected by routing. All beaches now resolve correctly (e.g. `/hi/honolulu/waikiki-canoes`, `/pr/rincon/domes`).
 - **Console 400 Errors on Every Page** - Added `skip: !user` guard to notification count fetcher in AppHeader, preventing unauthenticated API calls that produced 400 errors in the console.
 - **React Hydration Mismatch on Beach Pages** - Added `suppressHydrationWarning` to date-formatted elements in forecast-tab, detailed-swell-modal, and todays-forecast components to suppress React error #418 from server/client timezone differences.
