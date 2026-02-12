@@ -31,6 +31,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Undefined iframeRef Crash** - Added missing `useRef` declaration in `CamsSection`, preventing runtime crash on beach pages with camera embeds.
+- **Cron Auth Fails Open** - `validateCronAuth()` now returns `false` when `CRON_SECRET` is not configured (previously returned `true`, allowing any request through). Vercel-triggered crons unaffected.
+- **Hardcoded GA Fallback** - Removed hardcoded `G-JZNX7C7XKL` fallback from both `AnalyticsLoader` and `GoogleAnalytics` components. GA scripts only render when `NEXT_PUBLIC_GA_ID` env var is set.
+- **Empty Catch Blocks** - Replaced 14+ empty `.catch(() => {})` and `catch {}` blocks with error logging. Fixed `CompletionCelebration` bug where confetti load failure left user stuck (now redirects to `/profile`).
+- **Coordinate Naming Violation** - Renamed `SurfSpot.coordinates.lng` to `.lon` and updated all consumers, plus migrated `Coordinates` interface in `app/api/surf/utils.ts` and `beach-coordinates.ts` dictionary.
+
+### Added
+
+- **Safe localStorage Wrapper** - New `lib/utils/safe-storage.ts` with `safeGetItem`, `safeSetItem`, `safeRemoveItem` to prevent crashes in Safari private mode. Migrated 16 calls across auth-context, profile-context, and use-cached-profile.
+- **BeachSummary/BeachMapItem/BeachBasicInfo Types** - Pick-based view types in `types/database.ts` for lightweight beach references. Migrated home-beach actions.
+- **Strategic Error Boundaries** - Added `error.tsx` for `[intent]/[city]/[beachSlug]` route, wrapped InteractiveMap with `DataErrorBoundary`, ForecastTab with `DataErrorBoundary`, and SessionWizard with `FormErrorBoundary`.
+
+### Refactored
+
+- **Magic Numbers Extracted** - `EARTH_RADIUS_KM`/`EARTH_RADIUS_MI` now exported from `geo-utils.ts` (eliminated 5 duplicated `6371` literals). Auth timeout `8000` → `AUTH_INIT_TIMEOUT_MS`.
+- **Circular Dependencies Broken** - Created `lib/services/beach-query-service.ts` to eliminate 5 `lib/ → actions/` circular imports. Moved `CityMetadata` type to `types/location.ts`.
+- **Intel Actions Split** - Split 1,118-line `intel-actions.ts` into `actions/intel/` directory with create, query, confirm modules + shared types.
+- **Coast Pulse Service Extraction** - Extracted 1,053-line API route into `lib/services/coast-pulse/` service + types, leaving a 75-line thin handler.
+- **API Route Auth Standardization** - Migrated 5 routes (`user/preferences`, `user/beach-affinity`, `users/[id]/stats`, `me/profile-page`, `journal/export`) from manual auth to `withAuth` wrapper.
+
 - **E2E Test: Conditions Tab Hero Text** - Fixed 2 pre-existing forecast-tabs E2E test failures. Tests expected "Best Day This Week" but the hero shows "Selected Day" when a day is auto-selected in the horizon strip. Updated selectors to match both labels. Also increased `beforeEach` timeout to reduce flaky failures from slow forecast data loading.
 - **Map Selected Beach Card UI** - Replaced MapPin icons with Star icons for ratings, show actual review count instead of hardcoded "128", show "No reviews" for unrated beaches instead of fake 4-star rating, removed hardcoded "San Diego" location fallback.
 - **Forecast Weather Condition Truncation** - Weather conditions like "Partly Cloudy" were truncated to just "Partly" by `.split(" ")[0]`. Now shows the full weather condition string.
