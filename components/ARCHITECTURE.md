@@ -281,6 +281,8 @@ function Providers({ children }) {
 - **`beach-header.tsx`** - Beach name and basic info display
 - **`beach-hero.tsx`** - Hero section with map integration
 - **`beach-quick-actions.tsx`** - Fast action buttons (plan, log, favorite)
+- **`cams-section.tsx`** - Live camera feed with multi-format support (iframe, HLS, video)
+- **`hls-video-player.tsx`** - HLS stream playback via hls.js (Chrome/Firefox) or native (Safari)
 - **`detailed-swell-modal.tsx`** - Advanced swell analysis modal
 - **`todays-forecast.tsx`** - Current day forecast display
 
@@ -290,6 +292,9 @@ function Providers({ children }) {
 - Consistent data flow patterns
 - Responsive design with mobile optimization
 - Integration with forecast and social systems
+- HLS live cam playback with CORS proxy for Surfline streams (see `app/api/ARCHITECTURE.md` for proxy details)
+- Camera URL classification via `buildCamEmbed()` in `lib/media/cam-embed.ts`
+- Code-split: `HLSVideoPlayer` loaded via `next/dynamic` (SSR disabled), hls.js loaded via dynamic `import()`
 
 ---
 

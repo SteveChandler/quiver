@@ -383,6 +383,63 @@ export const GET = withAuth(handler);
 
 ---
 
+### 📹 `/hls-proxy` - HLS Video Stream Proxy
+
+**Access Level**: Public (unauthenticated)
+**Authentication**: None (rate limited by IP)
+
+#### `/hls-proxy/[...path]/route.ts`
+
+- **Methods**: `GET`
+- **Function**: Server-side proxy for CORS-blocked HLS live cam streams
+- **Why it exists**: Surfline's HLS CDN (`hls.cdn-surfline.com`) blocks cross-origin requests. Chrome and Firefox use hls.js which makes XHR/fetch calls subject to CORS policy. Safari plays HLS natively without CORS issues, so the proxy is only needed for non-Safari browsers.
+- **Path Design**: URL encodes the upstream hostname and path: `/api/hls-proxy/<hostname>/<rest-of-path>`. This path-based design means relative segment URLs inside `.m3u8` manifests (e.g., `segment_001.ts`) resolve through the proxy automatically without rewriting manifest content.
+
+**Security**:
+
+- Strict hostname whitelist (`ALLOWED_HOSTS`) -- prevents use as an open proxy / SSRF vector. Currently allows only `hls.cdn-surfline.com`.
+- Path traversal validation (rejects `..` and `.` segments)
+- Request timeout: 15 seconds
+- Response size limit: 10 MB (typical HLS segments are 2-6 MB)
+- Rate limiting via `withRateLimit("hls-proxy")`: 120 req/min, 5000 req/hour, burst 60
+
+**Upstream Request Headers**:
+
+- Per-host header injection (e.g., `Referer: https://www.surfline.com/` for Surfline)
+- Browser-like `User-Agent`
+- Forwards `Range` header for partial segment loads
+
+**Caching**:
+
+| Resource Type | `Cache-Control` |
+|---------------|-----------------|
+| `.m3u8` manifests | `public, max-age=2, stale-while-revalidate=5` (live stream, must refresh frequently) |
+| `.ts` / `.aac` segments | `public, max-age=3600, immutable` (immutable once written) |
+| Other | `public, max-age=60` |
+
+**Monitoring**:
+
+- Structured `console.log("[hls-proxy]", { host, path, type, bytes, ms })` on every proxied request (visible in Vercel Logs)
+- `X-HLS-Proxy-Host`, `X-HLS-Proxy-Bytes`, `X-HLS-Proxy-Ms` response headers for debugging
+- Warnings logged for blocked hosts and upstream errors
+
+**Error Responses**:
+
+| Status | Condition |
+|--------|-----------|
+| 400 | Missing or invalid path, path traversal attempt |
+| 403 | Hostname not in whitelist |
+| 413 | Response exceeds 10 MB limit |
+| 429 | Rate limit exceeded |
+| 502 | Upstream fetch error |
+| 504 | Upstream request timed out (15s) |
+
+**Integration**: Called by `HLSVideoPlayer` component (`components/beach-detail/hls-video-player.tsx`). Proxy URL rewriting happens in `buildCamEmbed()` (`lib/media/cam-embed.ts`) which converts `https://hls.cdn-surfline.com/...` to `/api/hls-proxy/hls.cdn-surfline.com/...`.
+
+**Adding a new HLS host**: Add an entry to `ALLOWED_HOSTS` in the route file with any required upstream headers. No other changes needed -- the proxy is host-agnostic by design.
+
+---
+
 ### 🖼️ `/og` - Open Graph Image Generation
 
 **Access Level**: Public (unauthenticated)
@@ -824,7 +881,7 @@ import {
   - Warmed on mount by `HomeScreen` and `PlanSessionPage` when `useGeo` yields coordinates
 - **Caching**:
   - Thin in-memory cache via `apiCache` keyed by `geohash(lat,lon,4)|localDate|radius|horizon|tz`
-  - TTL ~12 minutes (10–15 min window) to avoid hammering DB while staying fresh
+  - TTL ~12 minutes (10-15 min window) to avoid hammering DB while staying fresh
 - **SQL Precompute**:
   - Materialized view `public.mv_beach_hourly_scores` pre-joins `marine_forecasts` and `tide_forecasts` at exact timestamps for rapid reads
   - Columns: `beach_id, ts_utc, hs_m, tp_s, swell_dir_deg, wind_spd_kts, wind_dir_deg, tide_ft, score_0_100`
@@ -853,7 +910,7 @@ import {
      - Compute sunrise/sunset for the next 5 days using `SunCalc` and upsert into `sun_times` with `source='computed'`
 - **Upsert Keys**: `onConflict` by `(beach_id, ts, source)` for marine/tide; `(beach_id, date, source)` for sun
 - **Returns**: `{ totals: { marine, tides, sun, beaches } }`
-- **Notes**: No Open‑Meteo dependency; prioritizes observed data and fills short-term gaps to improve Best Times coverage
+- **Notes**: No Open-Meteo dependency; prioritizes observed data and fills short-term gaps to improve Best Times coverage
 
 ---
 

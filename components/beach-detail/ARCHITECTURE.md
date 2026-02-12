@@ -2,7 +2,7 @@
 
 ## 🎯 **PURPOSE**
 
-The beach detail components create a comprehensive beach profile page with forecasts, community activity, and quick actions for session planning.
+The beach detail components create a comprehensive beach profile page with forecasts, community activity, live cams, and quick actions for session planning.
 
 ## 📁 **COMPONENT STRUCTURE**
 
@@ -11,6 +11,8 @@ components/beach-detail/
 ├── beach-header.tsx          # Sticky navigation header with back button
 ├── beach-hero.tsx            # Hero section with map image and beach info
 ├── beach-quick-actions.tsx   # Plan/Log session buttons + favorite
+├── cams-section.tsx          # Live camera feed (iframe, HLS, or video)
+├── hls-video-player.tsx      # HLS video playback via hls.js / native
 ├── todays-forecast.tsx       # Today's forecast with calibration
 ├── detailed-swell-modal.tsx  # Detailed swell/forecast modal dialog
 ├── recent-sessions-section.tsx # Community sessions display
@@ -34,6 +36,8 @@ BeachDetailPage
 ├── BeachHeader (navigation)
 ├── BeachHero (visual header)
 ├── BeachQuickActions (CTAs)
+├── CamsSection (live camera feed)
+│   └── HLSVideoPlayer (dynamic import, SSR disabled)
 ├── TodaysForecast (forecast data)
 ├── RecentSessionsSection (social content)
 └── DetailedSwellModal (detailed view)
@@ -70,6 +74,37 @@ BeachDetailPage
   - Authentication-aware routing
   - Equal-width button layout
 
+### **CamsSection**
+
+- **Purpose**: Renders the live camera feed for a beach, supporting multiple embed strategies
+- **Props**: `beachId: string`
+- **Data Source**: Fetches `camera_url` from `/api/beaches/{beachId}/sources`
+- **Rendering Logic**:
+  1. Passes `camera_url` through `buildCamEmbed()` (`lib/media/cam-embed.ts`) to determine embed kind
+  2. Renders based on `kind`:
+     - `"iframe"` -- standard iframe embed (YouTube, Vimeo, HDOnTap, generic)
+     - `"hls"` -- dynamically imports `HLSVideoPlayer` (code-split, SSR disabled)
+     - `"video"` -- native `<video>` element for .mp4/.webm/.ogg
+     - `"none"` -- section hidden entirely
+  3. Falls back to hiding the section if embed is blocked or URL is invalid
+- **Features**:
+  - Refresh button to re-fetch sources
+  - "Open cam" link to the original URL
+  - "Suggest a cam" mailto link when no camera URL exists
+  - Loading state with spinner while sources are fetched
+
+### **HLSVideoPlayer**
+
+- **Purpose**: Client component for HLS (`.m3u8`) live stream playback
+- **Props**: `src: string, title?: string`
+- **File**: `hls-video-player.tsx`
+- **Browser Strategy**:
+  - **Safari**: Uses native HLS support via `<video src>` (no library needed, no CORS issues)
+  - **Chrome / Firefox**: Dynamically imports `hls.js` (code-split) to parse and play HLS streams
+- **Error Handling**: Up to 3 automatic retries on fatal network errors; renders nothing on permanent failure
+- **Cleanup**: Destroys hls.js instance and detaches video element on unmount or `src` change
+- **CORS**: Surfline HLS streams are CORS-blocked in Chrome/Firefox, so the `src` prop receives a proxy URL (`/api/hls-proxy/...`) rather than the direct CDN URL. Safari can play either. The proxy rewrite happens in `buildCamEmbed()`, not in this component.
+
 ### **TodaysForecast**
 
 - **Purpose**: Forecast display with community calibration
@@ -94,6 +129,23 @@ BeachDetailPage
 
 ## 🔄 **DATA INTEGRATION**
 
+### **Camera / HLS Integration**
+
+```
+camera_url (from beaches.sources)
+  → buildCamEmbed(url)                    # lib/media/cam-embed.ts
+     ├─ YouTube / Vimeo / HDOnTap → iframe
+     ├─ .mp4 / .webm / .ogg      → video
+     ├─ .m3u8 (Surfline)          → hls (proxied via /api/hls-proxy/...)
+     ├─ .m3u8 (Surfchex, others)  → hls (direct URL, no CORS issue)
+     └─ unknown                   → iframe attempt or "none"
+  → CamsSection renders the appropriate player
+```
+
+**Why a proxy?** Surfline's HLS CDN (`hls.cdn-surfline.com`) blocks cross-origin requests. Chrome and Firefox require hls.js which makes XHR/fetch calls subject to CORS. The server-side proxy at `/api/hls-proxy/[...path]` fetches upstream with the required `Referer` header and returns the response with `Access-Control-Allow-Origin: *`.
+
+**Path-based proxy design**: The proxy URL encodes the upstream hostname and path (`/api/hls-proxy/<hostname>/<path>`). This means relative segment URLs inside `.m3u8` manifests (e.g., `segment_001.ts`) resolve through the proxy automatically without rewriting manifest content.
+
 ### **Forecast Integration**
 
 ```typescript
@@ -114,7 +166,7 @@ const { beachAccuracy } = useForecastCalibration({
 
 - The `5 Day Outlook` section currently shows `CoachCard` in place of the previous Best Times chip list.
 - Best Times fetching and UI have been removed here temporarily due to instability, to focus on actionable recommendations for growth.
-- When reinstating Best Times, follow the documented MV/RPC/why‑breakdown pattern previously described.
+- When reinstating Best Times, follow the documented MV/RPC/why-breakdown pattern previously described.
 
 ```typescript
 type WindowWithWhy = {
@@ -187,6 +239,11 @@ const colorSchemes = {
 
 ## 🚀 **PERFORMANCE OPTIMIZATIONS**
 
+### **Code Splitting**
+
+- `HLSVideoPlayer` is loaded via `next/dynamic` with `ssr: false`, so hls.js (~60KB gzipped) is only downloaded on pages that actually display an HLS cam
+- hls.js itself is dynamically imported inside the component, further deferring the load until a non-Safari browser needs it
+
 ### **Image Optimization**
 
 - Next.js Image component with `fill` prop
@@ -207,6 +264,8 @@ const colorSchemes = {
 - `@/components/session-card-wrapper` - Session display
 - `@/components/forecast/adjusted-forecast-display` - Community forecasts
 - `@/hooks/use-forecast-calibration` - Forecast accuracy data
+- `@/lib/media/cam-embed` - Camera URL classification and proxy rewriting
+- `hls.js` - HLS stream parsing for Chrome/Firefox (dynamic import)
 
 ### **Navigation Dependencies**
 
@@ -236,6 +295,12 @@ const colorSchemes = {
 - Check forecast data rendering
 - Test modal open/close functionality
 
+### **Cam Embed Testing**
+
+- Unit tests for `buildCamEmbed()` covering all URL patterns (`__tests__/lib/media/cam-embed.test.ts`)
+- Surfline proxy URL rewrite verified in tests
+- Invalid/malformed URL returns `{ kind: "none" }`
+
 ### **Integration Testing**
 
 - Navigation flow testing
@@ -259,6 +324,6 @@ const colorSchemes = {
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive forecast and community features  
+**Last Updated**: February 2025
+**Status**: Production-ready with comprehensive forecast, community features, and live HLS cam playback
 **Next Review**: After social sharing implementation
