@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `.catch()` on hls.js dynamic import to prevent silent failures when module fails to load
 - Added loading spinner during HLS player initialization
 - **Dead Camera Cleanup** - Removed 10 dead/broken camera URLs: C Street (Surfline 404), Folly Beach (dead server), Higgins Beach/Ogunquit/Linda Mar/Ponce Inlet/Short Sands (dead YouTube streams), D Street/Gold Beach (403), La Push (404)
+- **Cam-Resolve Security Hardening** - HTTPS-only enforcement, hostname allowlist validation, 512KB response size limit with Content-Length pre-check, extracted URL validation, `DEFAULT_SECURITY_HEADERS` on all response paths, `onError` ref pattern to prevent re-render loops, `viewableUrl` memoized via `useMemo`
 
 ### Changed
 

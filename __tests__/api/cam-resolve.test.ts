@@ -102,6 +102,13 @@ describe("GET /api/cam-resolve", () => {
       );
       expect(res.status).toBe(400);
     });
+
+    it("returns 400 for file: URIs", async () => {
+      const res = await GET(makeRequest("file:///etc/passwd"));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("Only HTTPS URLs allowed");
+    });
   });
 
   // ===== SSRF Protection =====
@@ -184,6 +191,19 @@ describe("GET /api/cam-resolve", () => {
       expect(fetchedUrl).toContain("/embed/");
     });
 
+    it("appends /embed/ to URLs without trailing slash", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html></html>"),
+        headers: new Headers(),
+      });
+
+      await GET(makeRequest("https://hdontap.com/stream/186699"));
+
+      const fetchedUrl = mockFetch.mock.calls[0][0];
+      expect(fetchedUrl).toBe("https://hdontap.com/stream/186699/embed/");
+    });
+
     it("handles URLs with query parameters correctly", async () => {
       mockFetch.mockResolvedValue({
         ok: true,
@@ -198,6 +218,21 @@ describe("GET /api/cam-resolve", () => {
       const fetchedUrl = mockFetch.mock.calls[0][0];
       // Query params should be preserved, /embed/ added to path
       expect(fetchedUrl).toMatch(/\/embed\/.*ref=quiver/);
+    });
+
+    it("includes User-Agent header in fetch request", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html></html>"),
+        headers: new Headers(),
+      });
+
+      await GET(makeRequest("https://hdontap.com/stream/186699"));
+
+      const fetchOptions = mockFetch.mock.calls[0][1];
+      expect(fetchOptions.headers["User-Agent"]).toBe(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+      );
     });
   });
 
@@ -244,6 +279,21 @@ describe("GET /api/cam-resolve", () => {
       expect(json.error).toBe("No stream found");
     });
 
+    it("returns 404 when HTML is empty", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(""),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://hdontap.com/stream/123/test/")
+      );
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe("No stream found");
+    });
+
     it("handles unicode-escaped ampersands in HLS URLs", async () => {
       const html = makeHdontapHtmlWithUnicode(
         "https://live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc&e=123"
@@ -261,6 +311,65 @@ describe("GET /api/cam-resolve", () => {
       const json = await res.json();
       expect(json.hlsUrl).toContain("?t=abc&e=123");
     });
+
+    it("handles unicode-escaped equals signs in HLS URLs", async () => {
+      // HDOnTap escapes = as \u003d
+      const html = `<html><script>var src = "https://live.hdontap.com/hls/stream/playlist.m3u8?t\\u003dabc\\u0026e\\u003ddef";</script></html>`;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(html),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://hdontap.com/stream/123/test/")
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.hlsUrl).toBe(
+        "https://live.hdontap.com/hls/stream/playlist.m3u8?t=abc&e=def"
+      );
+    });
+
+    it("extracts HLS URL with http protocol (not just https)", async () => {
+      const html = `<html><script>var src = "http://live.hdontap.com/hls/stream/playlist.m3u8?t=abc";</script></html>`;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(html),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://hdontap.com/stream/123/test/")
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.hlsUrl).toBe(
+        "http://live.hdontap.com/hls/stream/playlist.m3u8?t=abc"
+      );
+    });
+
+    it("extracts first HLS URL when multiple are present", async () => {
+      const html = `<html><script>
+        var primary = "https://live.hdontap.com/hls/stream1/playlist.m3u8?t=abc";
+        var backup = "https://live.hdontap.com/hls/stream2/playlist.m3u8?t=def";
+      </script></html>`;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(html),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://hdontap.com/stream/123/test/")
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      // Should return the first match
+      expect(json.hlsUrl).toBe(
+        "https://live.hdontap.com/hls/stream1/playlist.m3u8?t=abc"
+      );
+    });
   });
 
   // ===== Error Handling =====
@@ -270,6 +379,21 @@ describe("GET /api/cam-resolve", () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://hdontap.com/stream/123/test/")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("Failed to fetch camera page");
+    });
+
+    it("returns 502 when upstream returns 404", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
         headers: new Headers(),
       });
 
@@ -338,14 +462,16 @@ describe("GET /api/cam-resolve", () => {
       expect(json.error).toBe("Response too large");
     });
 
-    it("returns 502 when extracted URL is malformed", async () => {
-      // Craft HTML that matches the regex but produces an invalid URL
-      // This is hard to trigger with the current regex, so we test the validation path
+    it("returns 404 when regex cannot match due to invalid characters in URL", async () => {
+      // The regex character class [^"'\\\s] stops at spaces, so "invalid url chars"
+      // breaks the match before reaching .m3u8 — resulting in 404 (no stream found).
+      // The URL validation (new URL()) is a defense-in-depth check that's hard to
+      // trigger in practice since the regex constrains output to valid-looking URLs.
       mockFetch.mockResolvedValue({
         ok: true,
         text: () =>
           Promise.resolve(
-            '<html>https://live.hdontap.com/hls/test.m3u8</html>'
+            '<html>https://live.hdontap.com/hls/[invalid url chars]/playlist.m3u8</html>'
           ),
         headers: new Headers(),
       });
@@ -353,8 +479,9 @@ describe("GET /api/cam-resolve", () => {
       const res = await GET(
         makeRequest("https://hdontap.com/stream/123/test/")
       );
-      // Should succeed since "https://live.hdontap.com/hls/test.m3u8" is a valid URL
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe("No stream found");
     });
   });
 
