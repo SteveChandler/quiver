@@ -8,24 +8,31 @@ The session forms components provide a comprehensive, multi-step session plannin
 
 ```
 components/session-forms/
-├── SessionForm.tsx               # Main container with business logic
-├── SessionFormWrapper.tsx       # Auth wrapper and error boundaries
-├── SessionFormHeader.tsx        # Mode-aware header component
-├── session-wizard.tsx           # Phase 2 Wizard Component (Primary Interface)
-├── index.ts                     # Component exports
-├── ProgressIndicator.tsx        # Step progress visualization
-├── FormNavigation.tsx           # Step navigation controls
-├── DateTimeSection.tsx          # Date/time selection (dual mode)
-├── DateTimeStep.tsx             # Dedicated step for planning mode
-├── LocationStep.tsx             # Beach selection step
-├── EquipmentStep.tsx            # Board selection with creation
-├── ConditionsSection.tsx        # Session conditions and ratings
-├── GoalsSection.tsx             # Session goals and expectations
-├── NotesSection.tsx             # Session notes and observations
-├── PhotoSelectionSection.tsx    # Photo upload integration
-├── OptimalTimesSection.tsx      # AI-powered time recommendations
-├── GearSuggestionsSection.tsx   # Smart board recommendations
-└── GroupInvitationsSection.tsx  # Social session invitations
+├── SessionForm.tsx                  # Main container — UI state, effects, JSX only (~460 LOC)
+├── session-submit-handler.ts        # Submission orchestration (validation, create, redirect)
+├── session-conversion-handler.ts    # Planned-to-completed conversion logic
+├── session-photo-handler.ts         # Photo upload workflow with toast messaging
+├── session-invitation-handler.ts    # Fire-and-forget invitation sending
+├── SessionFormWrapper.tsx           # Auth wrapper and error boundaries
+├── SessionFormHeader.tsx            # Mode-aware header component
+├── session-wizard.tsx               # Phase 2 Wizard Component (Primary Interface)
+├── index.ts                         # Component exports
+├── ProgressIndicator.tsx            # Step progress visualization
+├── FormNavigation.tsx               # Step navigation controls
+├── DateTimeSection.tsx              # Date/time selection (dual mode)
+├── DateTimeStep.tsx                 # Dedicated step for planning mode
+├── LocationStep.tsx                 # Beach selection step
+├── EquipmentStep.tsx                # Board selection with creation
+├── ConditionsSection.tsx            # Session conditions and ratings
+├── GoalsSection.tsx                 # Session goals and expectations
+├── NotesSection.tsx                 # Session notes and observations
+├── PhotoSelectionSection.tsx        # Photo upload integration
+├── OptimalTimesSection.tsx          # AI-powered time recommendations
+├── GearSuggestionsSection.tsx       # Smart board recommendations
+└── GroupInvitationsSection.tsx      # Social session invitations
+
+# Shared session data builder (used by BOTH SessionForm + useSessionSubmission):
+lib/utils/session-data-builder.ts    # buildSessionPayload() — single source of truth for 6 condition fields
 ```
 
 ## ARCHITECTURE PATTERNS
@@ -85,7 +92,7 @@ const updateField = <K extends keyof SessionFormState>(
 
 ### Overview
 
-Session logging has **two code paths** that must both include condition fields. This dual-path architecture exists because the Session Wizard component and the page-level handler both build session data objects.
+Session logging has **two code paths** that both use `buildSessionPayload()` from `lib/utils/session-data-builder.ts` as a **single source of truth** for mapping condition fields. This eliminates the historical risk of the two paths falling out of sync.
 
 ### Data Flow Diagram
 
@@ -108,38 +115,26 @@ UI Layer: ConditionsSection.tsx
     │  - formState.tideStatus (string)
     │  - formState.forecastAccuracy ("accurate" | "somewhat" | "inaccurate")
     │
-    ├─▶ Path 1: AnimatedSessionWizard.tsx (handleInternalSubmit)
+    ├─▶ Path 1: SessionForm.tsx → session-submit-handler.ts
     │   │
-    │   │  Internal submission handler builds sessionData
-    │   │  and passes to onComplete callback
-    │   │
-    │   └─▶ page.tsx handleSessionComplete()
+    │   └─▶ buildSessionPayload(formState, userId, isPlanning)
+    │       │  from lib/utils/session-data-builder.ts
+    │       └─▶ createLoggedSession() / createPlannedSession()
     │
-    └─▶ Path 2: page.tsx handleSessionComplete()
+    └─▶ Path 2: useSessionSubmission.ts (wizard page)
         │
-        │  CRITICAL: Must map ALL condition fields to loggedSessionData:
-        │
-        │  loggedSessionData = {
-        │    wave_height_ft: sessionData.waveHeight,
-        │    wind_speed_mph: sessionData.windSpeed,
-        │    wind_direction: sessionData.windDirection,
-        │    tide_height_ft: sessionData.tideHeight,
-        │    tide_status: sessionData.tideStatus,
-        │    forecast_accuracy: sessionData.forecastAccuracy,
-        │    ...other fields
-        │  }
-        │
-        └─▶ createLoggedSession() server action
-            │
-            └─▶ Supabase sessions table
-                │
-                Columns populated:
-                - wave_height_ft (float)
-                - wind_speed_mph (float)
-                - wind_direction (text)
-                - tide_height_ft (float)
-                - tide_status (text)
-                - forecast_accuracy (text: 'accurate'|'somewhat'|'inaccurate')
+        └─▶ buildSessionPayload(sessionData, userId, isPlanning)
+            │  from lib/utils/session-data-builder.ts
+            └─▶ createLoggedSession() / createPlannedSession()
+
+    Both paths → Supabase sessions table
+                 Columns populated:
+                 - wave_height_ft (float)
+                 - wind_speed_mph (float)
+                 - wind_direction (text)
+                 - tide_height_ft (float)
+                 - tide_status (text)
+                 - forecast_accuracy (text: 'accurate'|'somewhat'|'inaccurate')
 ```
 
 ### Condition Fields Reference
@@ -153,17 +148,18 @@ UI Layer: ConditionsSection.tsx
 | `tideStatus` | `tide_status` | text | rising, falling, high, low |
 | `forecastAccuracy` | `forecast_accuracy` | text | accurate, somewhat, inaccurate |
 
-### Dual Code Path Warning
+### Adding New Condition Fields
 
-**IMPORTANT**: When adding new condition fields to `ConditionsSection.tsx`:
+When adding new condition fields to `ConditionsSection.tsx`:
 
 1. Add the field to `SessionFormState` type in `hooks/use-session-form.ts`
 2. Update `ConditionsSection.tsx` to use `updateField()` for the new field
-3. Update BOTH submission handlers:
-   - `components/session/wizard/AnimatedSessionWizard.tsx` (handleInternalSubmit)
-   - `app/sessions/new/page.tsx` (handleSessionComplete)
-4. Add the database column mapping in both locations
+3. Add the field mapping in `lib/utils/session-data-builder.ts` (`buildSessionPayload`)
+4. Add the field to the `SessionPayloadInput` and `SessionPayload` interfaces
 5. Update `actions/session-actions.ts` if the server action needs changes
+6. Add a test case in `__tests__/lib/utils/session-data-builder.test.ts`
+
+Because both code paths use `buildSessionPayload()`, a single change ensures parity.
 
 Failure to update both paths will result in data loss where the field appears to work in the UI but is never persisted to the database.
 
@@ -694,6 +690,6 @@ return useWizardInterface ? (
 
 ---
 
-**Last Updated**: January 2025
-**Status**: Production-ready with Phase 2 wizard interface and comprehensive session management
+**Last Updated**: February 2026
+**Status**: Production-ready with Phase 2 wizard interface and comprehensive session management. SessionForm refactored: business logic extracted to handler files, shared session data builder ensures condition field parity.
 **Next Review**: After wizard A/B testing results and user feedback analysis
