@@ -15,7 +15,7 @@ import { slugify } from "@/lib/utils/text-utils";
 import { createForecastSnapshot } from "@/actions/forecast-calibration-actions";
 import { type ForecastFeedback } from "@/components/forecast/forecast-feedback-form";
 import { REVIEW_TIMEOUTS } from "@/lib/constants/review-tracking";
-import { combineDateAndTime, parseDuration } from "./utils";
+import { buildSessionPayload } from "@/lib/utils/session-data-builder";
 
 interface UseSessionSubmissionOptions {
   mode: SessionFormMode;
@@ -391,19 +391,12 @@ export function useSessionSubmission({
       let result;
 
       if (mode === "plan") {
-        // Create planned session
-        const plannedSessionData = {
-          beach_name: sessionData.selectedBeach,
-          beach_id: sessionData.selectedBeachId,
-          arrival_time: combineDateAndTime(
-            sessionData.selectedDate,
-            sessionData.selectedTime
-          ),
-          board_id: sessionData.boardId,
-          user_id: user.id,
-          notes: sessionData.notes || undefined,
-          status: "planned" as const,
-        };
+        // Create planned session using shared builder
+        const plannedSessionData = buildSessionPayload(
+          sessionData,
+          user.id,
+          true
+        );
 
         result = await createPlannedSession(plannedSessionData);
 
@@ -431,56 +424,12 @@ export function useSessionSubmission({
 
         toast.success("Session planned successfully!");
       } else {
-        // Create logged session
-        const loggedSessionData = {
-          beach_name: sessionData.selectedBeach,
-          beach_id: sessionData.selectedBeachId,
-          arrival_time: combineDateAndTime(
-            sessionData.selectedDate,
-            sessionData.selectedTime
-          ),
-          board_id: sessionData.boardId,
-          user_id: user.id,
-          notes: sessionData.notes || undefined,
-          status: "completed" as const,
-          // Additional logging fields
-          ...(sessionData.duration && {
-            duration_minutes: parseDuration(sessionData.duration),
-          }),
-          ...(sessionData.waveQuality && {
-            wave_quality: parseInt(sessionData.waveQuality),
-          }),
-          ...(sessionData.waterTemp && { water_temp: sessionData.waterTemp }),
-          ...(sessionData.crowdLevel && {
-            crowd_level: parseInt(sessionData.crowdLevel),
-          }),
-          ...(sessionData.parkingEase && {
-            parking_ease: parseInt(sessionData.parkingEase),
-          }),
-          ...(sessionData.overallRating && {
-            rating: parseInt(sessionData.overallRating),
-          }),
-          // Condition fields
-          ...(sessionData.waveHeight !== undefined && {
-            wave_height_ft: sessionData.waveHeight,
-          }),
-          ...(sessionData.windSpeed !== undefined && {
-            wind_speed_mph: sessionData.windSpeed,
-          }),
-          ...(sessionData.windDirection && {
-            wind_direction: sessionData.windDirection,
-          }),
-          ...(sessionData.tideHeight !== undefined && {
-            tide_height_ft: sessionData.tideHeight,
-          }),
-          ...(sessionData.tideStatus && {
-            tide_status: sessionData.tideStatus,
-          }),
-          // Forecast accuracy feedback
-          ...(sessionData.forecastAccuracy && {
-            forecast_accuracy: sessionData.forecastAccuracy,
-          }),
-        };
+        // Create logged session using shared builder (single source of truth for condition fields)
+        const loggedSessionData = buildSessionPayload(
+          sessionData,
+          user.id,
+          false
+        );
 
         result = await createLoggedSession(loggedSessionData);
 

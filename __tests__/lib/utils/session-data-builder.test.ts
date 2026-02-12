@@ -1,0 +1,191 @@
+import {
+  buildSessionPayload,
+  parseDurationToMinutes,
+  combineDateAndTime,
+  type SessionPayloadInput,
+} from "@/lib/utils/session-data-builder";
+
+describe("session-data-builder", () => {
+  const userId = "user-123";
+
+  const fullInput: SessionPayloadInput = {
+    selectedBeach: "Blacks Beach",
+    selectedBeachId: "beach-456",
+    selectedDate: "2026-02-12",
+    selectedTime: "08:30",
+    boardId: "board-789",
+    notes: "Great session",
+    duration: "2h30m",
+    waveQuality: "4",
+    waterTemp: "62",
+    crowdLevel: "2",
+    parkingEase: "3",
+    overallRating: "5",
+    // 6 condition fields
+    waveHeight: 4.5,
+    windSpeed: 8,
+    windDirection: "NW",
+    tideHeight: 3.2,
+    tideStatus: "rising",
+    forecastAccuracy: "accurate",
+  };
+
+  describe("buildSessionPayload - planned session", () => {
+    it("returns only base fields for a planned session", () => {
+      const payload = buildSessionPayload(fullInput, userId, true);
+
+      expect(payload.status).toBe("planned");
+      expect(payload.beach_name).toBe("Blacks Beach");
+      expect(payload.beach_id).toBe("beach-456");
+      expect(payload.board_id).toBe("board-789");
+      expect(payload.user_id).toBe(userId);
+      expect(payload.notes).toBe("Great session");
+      expect(payload.arrival_time).toBeDefined();
+
+      // Condition and rating fields should NOT be present
+      expect(payload.wave_height_ft).toBeUndefined();
+      expect(payload.wind_speed_mph).toBeUndefined();
+      expect(payload.wind_direction).toBeUndefined();
+      expect(payload.tide_height_ft).toBeUndefined();
+      expect(payload.tide_status).toBeUndefined();
+      expect(payload.forecast_accuracy).toBeUndefined();
+      expect(payload.duration_minutes).toBeUndefined();
+      expect(payload.wave_quality).toBeUndefined();
+    });
+  });
+
+  describe("buildSessionPayload - logged session", () => {
+    it("includes all 6 condition fields when set", () => {
+      const payload = buildSessionPayload(fullInput, userId, false);
+
+      expect(payload.status).toBe("completed");
+
+      // Verify ALL 6 condition fields are present
+      expect(payload.wave_height_ft).toBe(4.5);
+      expect(payload.wind_speed_mph).toBe(8);
+      expect(payload.wind_direction).toBe("NW");
+      expect(payload.tide_height_ft).toBe(3.2);
+      expect(payload.tide_status).toBe("rising");
+      expect(payload.forecast_accuracy).toBe("accurate");
+    });
+
+    it("includes rating and quality fields", () => {
+      const payload = buildSessionPayload(fullInput, userId, false);
+
+      expect(payload.duration_minutes).toBe(150);
+      expect(payload.wave_quality).toBe(4);
+      expect(payload.water_temp).toBe(62);
+      expect(payload.crowd_level).toBe(2);
+      expect(payload.parking_ease).toBe(3);
+      expect(payload.rating).toBe(5);
+    });
+
+    it("omits condition fields when not provided", () => {
+      const minimalInput: SessionPayloadInput = {
+        selectedBeach: "Pacific Beach",
+        selectedDate: "2026-02-12",
+      };
+
+      const payload = buildSessionPayload(minimalInput, userId, false);
+
+      expect(payload.wave_height_ft).toBeUndefined();
+      expect(payload.wind_speed_mph).toBeUndefined();
+      expect(payload.wind_direction).toBeUndefined();
+      expect(payload.tide_height_ft).toBeUndefined();
+      expect(payload.tide_status).toBeUndefined();
+      expect(payload.forecast_accuracy).toBeUndefined();
+    });
+
+    it("handles zero values for numeric condition fields", () => {
+      const zeroInput: SessionPayloadInput = {
+        selectedBeach: "Trestles",
+        waveHeight: 0,
+        windSpeed: 0,
+        tideHeight: 0,
+      };
+
+      const payload = buildSessionPayload(zeroInput, userId, false);
+
+      // Zero is a valid value and should be included
+      expect(payload.wave_height_ft).toBe(0);
+      expect(payload.wind_speed_mph).toBe(0);
+      expect(payload.tide_height_ft).toBe(0);
+    });
+
+    it("handles water temp edge cases", () => {
+      // Non-numeric water temp
+      const badTemp: SessionPayloadInput = {
+        selectedBeach: "Windansea",
+        waterTemp: "warm",
+      };
+      const payload1 = buildSessionPayload(badTemp, userId, false);
+      expect(payload1.water_temp).toBeUndefined();
+
+      // Empty string water temp
+      const emptyTemp: SessionPayloadInput = {
+        selectedBeach: "Windansea",
+        waterTemp: "",
+      };
+      const payload2 = buildSessionPayload(emptyTemp, userId, false);
+      expect(payload2.water_temp).toBeUndefined();
+
+      // Valid water temp
+      const goodTemp: SessionPayloadInput = {
+        selectedBeach: "Windansea",
+        waterTemp: "58.5",
+      };
+      const payload3 = buildSessionPayload(goodTemp, userId, false);
+      expect(payload3.water_temp).toBe(58.5);
+    });
+
+    it("uses arrivalTimeOverride when provided", () => {
+      const overrideTime = "2026-02-12 14:00:00+00";
+      const payload = buildSessionPayload(
+        fullInput,
+        userId,
+        false,
+        overrideTime
+      );
+
+      expect(payload.arrival_time).toBe(overrideTime);
+    });
+  });
+
+  describe("parseDurationToMinutes", () => {
+    it("parses hours and minutes", () => {
+      expect(parseDurationToMinutes("2h30m")).toBe(150);
+    });
+
+    it("parses minutes only", () => {
+      expect(parseDurationToMinutes("60m")).toBe(60);
+    });
+
+    it("parses hours only", () => {
+      expect(parseDurationToMinutes("1h")).toBe(60);
+    });
+
+    it("returns undefined for empty string", () => {
+      expect(parseDurationToMinutes("")).toBeUndefined();
+    });
+
+    it("returns undefined for undefined", () => {
+      expect(parseDurationToMinutes(undefined)).toBeUndefined();
+    });
+  });
+
+  describe("combineDateAndTime", () => {
+    it("combines date and time into PostgreSQL format", () => {
+      const result = combineDateAndTime("2026-02-12", "08:30");
+      expect(result).toMatch(/2026-02-12 \d{2}:30:00\+00/);
+    });
+
+    it("uses start of day when time is missing", () => {
+      const result = combineDateAndTime("2026-02-12");
+      expect(result).toMatch(/2026-02-12 \d{2}:00:00\+00/);
+    });
+
+    it("returns undefined when date is missing", () => {
+      expect(combineDateAndTime(undefined, "08:30")).toBeUndefined();
+    });
+  });
+});

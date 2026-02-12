@@ -35,6 +35,7 @@ import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
+import { buildSessionPayload } from "@/lib/utils/session-data-builder";
 
 interface SessionFormProps {
   initialMode?: SessionFormMode;
@@ -307,33 +308,31 @@ export function SessionForm({
         mode,
       });
 
-      let durationMinutes: number | undefined = undefined;
-      if (formState.duration) {
-        const hourMatch = formState.duration.match(/(\d+)h/);
-        const minuteMatch = formState.duration.match(/(\d+)m/);
-        const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
-        const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
-        durationMinutes = hours * 60 + minutes;
-      }
-
       // Handle converting planned session to completed
       if (convertingFromPlanned && !isPlanning) {
+        // Conversion uses updatePlannedSessionToCompleted which expects water_temp as string,
+        // so we build this payload directly from formState rather than through the builder.
+        const conversionPayload = buildSessionPayload(
+          formState,
+          user.id,
+          false
+        );
         const completedData = {
-          ...(durationMinutes !== undefined && {
-            duration_minutes: durationMinutes,
+          ...(conversionPayload.duration_minutes !== undefined && {
+            duration_minutes: conversionPayload.duration_minutes,
           }),
-          ...(formState.waveQuality && {
-            wave_quality: parseInt(formState.waveQuality),
+          ...(conversionPayload.wave_quality !== undefined && {
+            wave_quality: conversionPayload.wave_quality,
           }),
           ...(formState.waterTemp && { water_temp: formState.waterTemp }),
-          ...(formState.crowdLevel && {
-            crowd_level: parseInt(formState.crowdLevel),
+          ...(conversionPayload.crowd_level !== undefined && {
+            crowd_level: conversionPayload.crowd_level,
           }),
-          ...(formState.parkingEase && {
-            parking_ease: parseInt(formState.parkingEase),
+          ...(conversionPayload.parking_ease !== undefined && {
+            parking_ease: conversionPayload.parking_ease,
           }),
-          ...(formState.overallRating && {
-            rating: parseInt(formState.overallRating),
+          ...(conversionPayload.rating !== undefined && {
+            rating: conversionPayload.rating,
           }),
           ...(formState.notes && { notes: formState.notes }),
         };
@@ -379,39 +378,8 @@ export function SessionForm({
         return;
       }
 
-      // Combine date and time into arrival_time
-      let arrivalTime: string | undefined = undefined;
-
-      if (formState.selectedDate && formState.selectedTime) {
-        // Create a Date object from the selected date and time
-        const dateTimeString = `${formState.selectedDate}T${formState.selectedTime}:00`;
-        const dateTime = new Date(dateTimeString);
-
-        // Format as PostgreSQL timestamp with timezone: 2025-05-24 18:43:00+00
-        arrivalTime = dateTime
-          .toISOString()
-          .replace("T", " ")
-          .replace(/\.\d{3}Z$/, "+00");
-      } else if (formState.selectedDate) {
-        // If only date is provided, use start of day
-        const dateTime = new Date(`${formState.selectedDate}T00:00:00`);
-        arrivalTime = dateTime
-          .toISOString()
-          .replace("T", " ")
-          .replace(/\.\d{3}Z$/, "+00");
-      }
-
-      const sessionData = {
-        beach_name: formState.selectedBeach,
-        beach_id: formState.selectedBeachId,
-        arrival_time: arrivalTime,
-        board_id: formState.boardId,
-        user_id: user.id,
-        notes: formState.notes || undefined,
-        status: isPlanning
-          ? "planned"
-          : ("completed" as "planned" | "completed"),
-      };
+      // Build session payload using shared builder (single source of truth for field mapping)
+      const sessionData = buildSessionPayload(formState, user.id, isPlanning);
 
       if (isPlanning) {
         const result = await createPlannedSession(sessionData);
@@ -472,55 +440,8 @@ export function SessionForm({
           })();
         }
       } else {
-        // Create logged session data with additional fields
-        const parsedWaterTemp =
-          formState.waterTemp && formState.waterTemp.trim().length > 0
-            ? Number.parseFloat(formState.waterTemp)
-            : null;
-        const loggedSessionData = {
-          ...sessionData,
-          ...(durationMinutes !== undefined && {
-            duration_minutes: durationMinutes,
-          }),
-          ...(formState.waveQuality && {
-            wave_quality: parseInt(formState.waveQuality),
-          }),
-          ...(typeof parsedWaterTemp === "number" &&
-            Number.isFinite(parsedWaterTemp) && {
-              water_temp: parsedWaterTemp,
-            }),
-          ...(formState.crowdLevel && {
-            crowd_level: parseInt(formState.crowdLevel),
-          }),
-          ...(formState.parkingEase && {
-            parking_ease: parseInt(formState.parkingEase),
-          }),
-          ...(formState.overallRating && {
-            rating: parseInt(formState.overallRating),
-          }),
-          // Condition fields
-          ...(formState.waveHeight !== undefined && {
-            wave_height_ft: formState.waveHeight,
-          }),
-          ...(formState.windSpeed !== undefined && {
-            wind_speed_mph: formState.windSpeed,
-          }),
-          ...(formState.windDirection && {
-            wind_direction: formState.windDirection,
-          }),
-          ...(formState.tideHeight !== undefined && {
-            tide_height_ft: formState.tideHeight,
-          }),
-          ...(formState.tideStatus && {
-            tide_status: formState.tideStatus,
-          }),
-          // Forecast accuracy feedback
-          ...(formState.forecastAccuracy && {
-            forecast_accuracy: formState.forecastAccuracy,
-          }),
-        };
-
-        const sessionResult = await createLoggedSession(loggedSessionData);
+        // sessionData already includes all condition + rating fields via buildSessionPayload
+        const sessionResult = await createLoggedSession(sessionData);
         if (!sessionResult.success || !sessionResult.data) {
           throw new Error(sessionResult.error || "Failed to create session");
         }
