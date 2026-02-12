@@ -17,6 +17,7 @@ import {
   resolveMetroConfig,
 } from "./city-page-utils";
 import type { LocationPageProps } from "./city-page-utils";
+import { expandStateForMeta, truncateTitleForSEO } from "@/lib/seo/meta";
 
 export async function generateMetadata(props: LocationPageProps) {
   const params = await props.params;
@@ -50,10 +51,24 @@ export async function generateMetadata(props: LocationPageProps) {
       params.city
     );
 
-    // Use metro-specific metadata if applicable
-    const title = metroConfig?.pageTitle
-      ? metroConfig.pageTitle
-      : `Best Surf Beaches in ${displayCityName}, ${location.state}`;
+    const expandedState = expandStateForMeta(location.state || params.state);
+
+    // Build improved title with beach names for non-metro cities
+    let title: string;
+    if (metroConfig?.pageTitle) {
+      title = metroConfig.pageTitle;
+    } else {
+      const top2Names = response.data.beaches
+        .slice(0, 2)
+        .map((b: { name: string }) => b.name);
+      if (top2Names.length >= 2) {
+        title = truncateTitleForSEO(
+          `${displayCityName}, ${expandedState} Surf: ${stats.totalBeaches} Breaks Including ${top2Names[0]} & ${top2Names[1]}`
+        );
+      } else {
+        title = `Best Surf Beaches in ${displayCityName}, ${expandedState}`;
+      }
+    }
 
     const topBeachNames = response.data.beaches
       .slice(0, 3)
@@ -89,7 +104,7 @@ export async function generateMetadata(props: LocationPageProps) {
             url: "/images/og-location-default.jpg",
             width: 1200,
             height: 630,
-            alt: `Surf beaches in ${displayCityName}, ${location.state}`,
+            alt: `Surf beaches in ${displayCityName}, ${expandedState}`,
           },
         ],
         locale: "en_US",

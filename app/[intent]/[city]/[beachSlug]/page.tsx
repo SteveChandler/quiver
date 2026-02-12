@@ -319,6 +319,11 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         // Gracefully degrade to static metadata on forecast fetch failure
       }
 
+      // Extract first sentence of beach description for meta tags
+      const descriptionExcerpt = beach.description
+        ? beach.description.split(/\.(\s|$)/)[0] + "."
+        : null;
+
       // Build CTR-optimized title and description
       const { title, description } = buildDynamicBeachMetadata({
         beach: {
@@ -327,6 +332,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
           state: beach.state,
           break_type: beach.break_type,
           skill_level: beach.skill_level,
+          description_excerpt: descriptionExcerpt,
         },
         forecast: forecastData,
       });

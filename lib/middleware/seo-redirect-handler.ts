@@ -48,6 +48,54 @@ const PR_CITY_SLUG_REDIRECTS: Record<string, string> = {
   "rincn": "rincon",
 };
 
+/**
+ * Old compound slug redirects for PR and HI beaches.
+ * Migration 20260211060000 shortened these slugs, but Google still indexes the old format.
+ * Maps old compound slug → canonical URL path.
+ */
+const OLD_COMPOUND_SLUG_REDIRECTS: Record<string, string> = {
+  // Hawaii — Oahu
+  "waikiki-canoes-honolulu-hi": "/hi/honolulu/waikiki-canoes",
+  "waikiki-queens-honolulu-hi": "/hi/honolulu/waikiki-queens",
+  "ala-moana-bowls-honolulu-hi": "/hi/honolulu/ala-moana-bowls",
+  "diamond-head-cliffs-honolulu-hi": "/hi/honolulu/diamond-head-cliffs",
+  "sandy-beach-honolulu-hi": "/hi/honolulu/sandy-beach",
+  "sunset-beach-pupukea-hi": "/hi/pupukea/sunset-beach",
+  "waimea-bay-pupukea-hi": "/hi/pupukea/waimea-bay",
+  "haleiwa-haleiwa-hi": "/hi/haleiwa/haleiwa",
+  "pipeline-haleiwa-hi": "/hi/haleiwa/pipeline",
+  // Hawaii — Maui
+  "honolua-bay-kapalua-hi": "/hi/kapalua/honolua-bay",
+  "hookipa-paia-hi": "/hi/paia/hookipa",
+  "lahaina-harbor-breakwall-lahaina-hi": "/hi/lahaina/lahaina-harbor-breakwall",
+  // Hawaii — Kauai
+  "kalapaki-beach-lihue-hi": "/hi/lihue/kalapaki-beach",
+  "pakala-infinities-waimea-hi": "/hi/waimea-kauai/pakala-infinities",
+  "anahola-anahola-hi": "/hi/anahola/anahola",
+  // Hawaii — Big Island
+  "banyans-kailua-kona-hi": "/hi/kailua-kona/banyans",
+  "kahaluu-kahaluu-keauhou-hi": "/hi/kahaluu-keauhou/kahaluu",
+  "pine-trees-kohanaiki-kailua-kona-hi": "/hi/kailua-kona/pine-trees-kohanaiki",
+  // Puerto Rico — Rincón
+  "domes-rincon-pr": "/pr/rincon/domes",
+  "marias-rincon-pr": "/pr/rincon/marias",
+  "tres-palmas-rincon-pr": "/pr/rincon/tres-palmas",
+  "indicators-rincon-pr": "/pr/rincon/indicators",
+  "sandy-beach-rincon-rincon-pr": "/pr/rincon/sandy-beach-rincon",
+  "the-point-at-sandy-rincon-pr": "/pr/rincon/the-point-at-sandy",
+  // Puerto Rico — Isabela
+  "jobos-isabela-pr": "/pr/isabela/jobos",
+  "middles-isabela-isabela-pr": "/pr/isabela/middles-isabela",
+  "shacks-isabela-pr": "/pr/isabela/shacks",
+  // Puerto Rico — Aguadilla
+  "wilderness-aguadilla-pr": "/pr/aguadilla/wilderness",
+  "crash-boat-aguadilla-pr": "/pr/aguadilla/crash-boat",
+  "surfers-beach-aguadilla-pr": "/pr/aguadilla/surfers-beach",
+  // Puerto Rico — Luquillo
+  "la-pared-luquillo-pr": "/pr/luquillo/la-pared",
+  "la-selva-luquillo-pr": "/pr/luquillo/la-selva",
+};
+
 // Valid intent slugs for legacy URL redirect handling
 // Defined first as the single source of truth for intent paths
 const INTENT_SLUGS = new Set([
@@ -391,6 +439,12 @@ async function handleUsBeachRedirect(
   // Lookup beach in database
   const beach = await lookupBeachBySlug(slug);
   if (!beach) {
+    // Check static map of old compound slugs (pre-migration 20260211060000)
+    const canonicalFromOldSlug = OLD_COMPOUND_SLUG_REDIRECTS[slug];
+    if (canonicalFromOldSlug) {
+      seoLog.info("Old compound slug redirect", { from: pathname, to: canonicalFromOldSlug });
+      return { redirect: true, url: canonicalFromOldSlug };
+    }
     return { redirect: false };
   }
 

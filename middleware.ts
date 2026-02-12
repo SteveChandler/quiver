@@ -93,9 +93,9 @@ export async function middleware(request: NextRequest) {
    * The slugify() function strips non-ASCII characters, producing malformed slugs
    * like "rinc-n" from "Rincón". We redirect these to the correct canonical slug.
    */
-  if (pathname === "/pr/rinc-n") {
+  if (pathname === "/pr/rinc-n" || pathname.startsWith("/pr/rinc-n/")) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/pr/rincon";
+    redirectUrl.pathname = pathname.replace("/pr/rinc-n", "/pr/rincon");
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 

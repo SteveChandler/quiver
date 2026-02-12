@@ -128,12 +128,12 @@ function getIntentTemplates(
     },
     "least-crowded": {
       title: truncateTitleForSEO(
-        `${totalBeaches} Uncrowded Surf Spots Near ${cityName} | Crowd Data Updated Daily`
+        `${totalBeaches} Uncrowded Surf Spots in ${cityName} | Crowd Data Updated Daily`
       ),
       heading: `Least crowded surf spots in ${cityName}`,
       intro: leastCrowdedIntro,
       metaDescription: truncateMetaDescription(
-        `${totalBeaches} uncrowded surf spots near ${cityName}. Real crowd data and best times to paddle out. ${FREE_SUFFIX}`
+        `${totalBeaches} uncrowded surf spots in ${cityName}. Real crowd data and best times to paddle out. ${FREE_SUFFIX}`
       ),
     },
     tide: {

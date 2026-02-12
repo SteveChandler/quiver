@@ -870,4 +870,105 @@ describe("SeoRedirectHandler", () => {
       });
     });
   });
+
+  /**
+   * Old Compound Slug Redirect Tests
+   *
+   * Tests for redirecting old compound slugs (pre-migration 20260211060000)
+   * that Google has indexed but now 404.
+   * Example: /pr/rincon/marias-rincon-pr → /pr/rincon/marias
+   */
+  describe("Old Compound Slug Redirects", () => {
+    let fetchSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    });
+
+    afterEach(() => {
+      if (fetchSpy) {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it("redirects old PR compound slug to canonical URL", async () => {
+      // DB lookup returns null (slug no longer exists)
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/pr/rincon/marias-rincon-pr");
+      expect(result).toEqual({
+        redirect: true,
+        url: "/pr/rincon/marias",
+      });
+    });
+
+    it("redirects old HI compound slug to canonical URL", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/hi/honolulu/waikiki-canoes-honolulu-hi");
+      expect(result).toEqual({
+        redirect: true,
+        url: "/hi/honolulu/waikiki-canoes",
+      });
+    });
+
+    it("redirects old PR Isabela compound slug", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/pr/isabela/jobos-isabela-pr");
+      expect(result).toEqual({
+        redirect: true,
+        url: "/pr/isabela/jobos",
+      });
+    });
+
+    it("redirects old HI Maui compound slug", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/hi/kapalua/honolua-bay-kapalua-hi");
+      expect(result).toEqual({
+        redirect: true,
+        url: "/hi/kapalua/honolua-bay",
+      });
+    });
+
+    it("does not redirect when slug is found in DB (canonical already)", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([{
+          slug: "marias",
+          state: "PR",
+          city: "Rincón",
+          name: "María's",
+        }]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/pr/rincon/marias");
+      expect(result).toEqual({ redirect: false });
+    });
+
+    it("does not redirect unknown slugs not in the map", async () => {
+      fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response);
+
+      const result = await handleSeoRedirect("/pr/rincon/nonexistent-slug");
+      expect(result).toEqual({ redirect: false });
+    });
+  });
 });

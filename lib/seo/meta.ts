@@ -91,6 +91,19 @@ function shouldIndex(): boolean {
  */
 const MAX_TITLE_LENGTH = 60;
 
+/**
+ * Expand state abbreviations for meta tags where full names improve CTR.
+ * Only expand PR and HI — CA, OR, WA, FL are widely recognized.
+ */
+const META_STATE_EXPANSIONS: Record<string, string> = {
+  PR: "Puerto Rico",
+  HI: "Hawaii",
+};
+
+export function expandStateForMeta(state: string): string {
+  return META_STATE_EXPANSIONS[state.toUpperCase()] ?? state;
+}
+
 export function truncateTitleForSEO(title: string, maxLength: number = MAX_TITLE_LENGTH): string {
   if (title.length <= maxLength) {
     return title;
@@ -102,6 +115,22 @@ export function truncateTitleForSEO(title: string, maxLength: number = MAX_TITLE
     return truncated.slice(0, lastSpace) + "…";
   }
   return truncated + "…";
+}
+
+/**
+ * Capitalize break type for display in titles.
+ * e.g., "point" -> "Point Break", "reef" -> "Reef Break", "beach" -> "Beach Break"
+ */
+function capitalizeBreakType(breakType: string): string {
+  const first = breakType.charAt(0).toUpperCase() + breakType.slice(1).toLowerCase();
+  return `${first} Break`;
+}
+
+/**
+ * Returns "a" or "an" based on whether the next word starts with a vowel sound.
+ */
+function aOrAn(nextWord: string): string {
+  return /^[aeiou]/i.test(nextWord) ? "an" : "a";
 }
 
 /**
@@ -131,14 +160,16 @@ export function buildDynamicBeachMetadata({
     state?: string | null;
     break_type?: string | null;
     skill_level?: string | null;
+    description_excerpt?: string | null;
   };
   forecast: { wave_height?: string | null } | null;
 }): { title: string; description: string } {
   // Build location context for descriptions and fallback titles
+  const expandedState = beach.state ? expandStateForMeta(beach.state) : "";
   const locationContext =
-    beach.city && beach.state
-      ? `${beach.city}, ${beach.state}`
-      : beach.city || beach.state || "";
+    beach.city && expandedState
+      ? `${beach.city}, ${expandedState}`
+      : beach.city || expandedState || "";
 
   // Helper: try to insert state abbreviation into title when there's room
   function withState(base: string, suffix: string): string {
@@ -161,12 +192,24 @@ export function buildDynamicBeachMetadata({
       title = truncateTitleForSEO(shortTitle);
     }
   } else {
-    const fullTitle = `${beach.name} Surf Conditions & Forecast | ${locationContext || "Surf Conditions"}`;
-    if (fullTitle.length <= MAX_TITLE_LENGTH) {
-      title = fullTitle;
+    // Include break type for identity signal when available
+    if (beach.break_type && locationContext) {
+      const breakLabel = capitalizeBreakType(beach.break_type);
+      const fullTitle = `${beach.name} — ${breakLabel} in ${locationContext} | Surf Report`;
+      if (fullTitle.length <= MAX_TITLE_LENGTH) {
+        title = fullTitle;
+      } else {
+        const shortTitle = `${beach.name} Surf Report | ${locationContext}`;
+        title = truncateTitleForSEO(shortTitle);
+      }
     } else {
-      const shortTitle = `${beach.name} Surf Conditions | ${locationContext || "Forecast"}`;
-      title = truncateTitleForSEO(shortTitle);
+      const fullTitle = `${beach.name} Surf Report & Forecast | ${locationContext || "Surf Conditions"}`;
+      if (fullTitle.length <= MAX_TITLE_LENGTH) {
+        title = fullTitle;
+      } else {
+        const shortTitle = `${beach.name} Surf Report | ${locationContext || "Forecast"}`;
+        title = truncateTitleForSEO(shortTitle);
+      }
     }
   }
 
@@ -179,9 +222,17 @@ export function buildDynamicBeachMetadata({
       ? `${forecast.wave_height} waves at ${beach.name}. ${beach.break_type} for ${beach.skill_level} surfers. 7-day forecast, tides, crowds & session windows — updated hourly.`
       : `${forecast.wave_height} waves at ${beach.name} right now. 7-day forecast, live wind, tide chart & crowd intel — updated hourly.`;
   } else {
-    description = hasBreakInfo
-      ? `${beach.name} is a ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. 7-day forecast, tide chart, wind & best session windows.`
-      : `Live surf conditions at ${beach.name}${locationContext ? `, ${locationContext}` : ""}. 7-day forecast, tide chart, wind, crowd levels & session windows — updated hourly.`;
+    if (beach.description_excerpt && beach.break_type && locationContext) {
+      // Rich description with excerpt — cap excerpt at 100 chars to stay within Google's ~160 char limit
+      const excerpt = beach.description_excerpt.length > 100
+        ? beach.description_excerpt.slice(0, 97) + "..."
+        : beach.description_excerpt;
+      description = `${excerpt} ${capitalizeBreakType(beach.break_type)} in ${locationContext}. Live forecast, tide chart, crowd intel & session windows.`;
+    } else if (hasBreakInfo) {
+      description = `${beach.name} is ${aOrAn(beach.skill_level!)} ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. 7-day forecast, tide chart, wind & best session windows.`;
+    } else {
+      description = `Live surf conditions at ${beach.name}${locationContext ? `, ${locationContext}` : ""}. 7-day forecast, tide chart, wind, crowd levels & session windows — updated hourly.`;
+    }
   }
 
   return { title, description };
