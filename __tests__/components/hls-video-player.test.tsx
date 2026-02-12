@@ -132,39 +132,48 @@ describe("HLSVideoPlayer Component", () => {
     });
   });
 
-  describe("Safari Native Playback", () => {
-    it("should set src directly when canPlayType returns truthy", async () => {
+  describe("Safari/iOS Native Fallback", () => {
+    it("should prefer hls.js even when canPlayType returns truthy", async () => {
       const { default: HLSVideoPlayer } = await import(
         "@/components/beach-detail/hls-video-player"
       );
 
       setupSafariBehavior();
+      MockHls.isSupported.mockReturnValue(true);
 
-      const { container } = render(
-        <HLSVideoPlayer src="https://example.com/stream.m3u8" />
+      await act(async () => {
+        render(
+          <HLSVideoPlayer src="https://example.com/stream.m3u8" />
+        );
+      });
+
+      // hls.js should still be used when isSupported() is true
+      expect(MockHls).toHaveBeenCalled();
+      expect(mockHlsInstance.loadSource).toHaveBeenCalledWith(
+        "https://example.com/stream.m3u8"
       );
-
-      // In Safari path, we do NOT create an Hls instance
-      // The src is set directly on the video element
-      const video = container.querySelector("video") as HTMLVideoElement;
-      expect(video).toBeTruthy();
-      // Safari path sets video.src directly via the effect
     });
 
-    it("should not import hls.js when Safari native playback is available", async () => {
+    it("should fall back to native when Hls.isSupported() is false but canPlayType is truthy", async () => {
       const { default: HLSVideoPlayer } = await import(
         "@/components/beach-detail/hls-video-player"
       );
 
       setupSafariBehavior();
+      MockHls.isSupported.mockReturnValue(false);
       MockHls.mockClear();
 
-      render(
-        <HLSVideoPlayer src="https://example.com/stream.m3u8" />
-      );
+      const { container } = await act(async () => {
+        return render(
+          <HLSVideoPlayer src="https://example.com/stream.m3u8" />
+        );
+      });
 
-      // hls.js constructor should not be called
+      // hls.js constructor should NOT be called (isSupported is false)
       expect(MockHls).not.toHaveBeenCalled();
+      // But component should still render (native fallback, not error)
+      const video = container.querySelector("video") as HTMLVideoElement;
+      expect(video).toBeTruthy();
     });
   });
 
@@ -228,7 +237,7 @@ describe("HLSVideoPlayer Component", () => {
   });
 
   describe("Error Handling", () => {
-    it("should render null when error state is true", async () => {
+    it("should render error fallback UI when error state is true", async () => {
       const { default: HLSVideoPlayer } = await import(
         "@/components/beach-detail/hls-video-player"
       );
@@ -244,9 +253,26 @@ describe("HLSVideoPlayer Component", () => {
         container = result.container;
       });
 
-      // When hls.js is not supported and not Safari, error is set to true
-      // and component renders null
-      expect(container!.innerHTML).toBe("");
+      // When hls.js is not supported, error fallback UI should render
+      expect(container!.textContent).toContain("Live stream unavailable right now");
+    });
+
+    it("should call onError callback when error occurs", async () => {
+      const { default: HLSVideoPlayer } = await import(
+        "@/components/beach-detail/hls-video-player"
+      );
+
+      setupNonSafariBehavior();
+      MockHls.isSupported.mockReturnValue(false);
+
+      const onError = jest.fn();
+      await act(async () => {
+        render(
+          <HLSVideoPlayer src="https://example.com/stream.m3u8" onError={onError} />
+        );
+      });
+
+      expect(onError).toHaveBeenCalled();
     });
 
     it("should retry on fatal network errors up to 3 times", async () => {

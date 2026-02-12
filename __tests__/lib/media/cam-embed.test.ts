@@ -1,4 +1,4 @@
-import { buildCamEmbed } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
 
 describe("buildCamEmbed", () => {
   // --- Null / undefined ---
@@ -66,39 +66,23 @@ describe("buildCamEmbed", () => {
   });
 
   // --- HDOnTap ---
-  it("converts HDOnTap stream URL to embed URL", () => {
+  it("returns hdontap kind with pageUrl for HDOnTap stream URLs", () => {
     const result = buildCamEmbed(
       "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/"
     );
     expect(result).toEqual({
-      kind: "iframe",
-      src: "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/embed/",
-      title: "Live Cam – HDOnTap",
-      allow: "autoplay; fullscreen",
+      kind: "hdontap",
+      pageUrl: "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/",
     });
   });
 
-  it("leaves HDOnTap URL unchanged when it already ends with /embed/", () => {
-    const result = buildCamEmbed(
-      "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/embed/"
-    );
-    expect(result).toEqual({
-      kind: "iframe",
-      src: "https://hdontap.com/stream/994481/dana-point-harbor-laguna-cliffs-resort-live-webcam/embed/",
-      title: "Live Cam – HDOnTap",
-      allow: "autoplay; fullscreen",
-    });
-  });
-
-  it("appends /embed/ to HDOnTap URL without trailing slash", () => {
+  it("returns hdontap kind for HDOnTap URL without trailing slash", () => {
     const result = buildCamEmbed(
       "https://hdontap.com/stream/994481/dana-point-harbor"
     );
     expect(result).toEqual({
-      kind: "iframe",
-      src: "https://hdontap.com/stream/994481/dana-point-harbor/embed/",
-      title: "Live Cam – HDOnTap",
-      allow: "autoplay; fullscreen",
+      kind: "hdontap",
+      pageUrl: "https://hdontap.com/stream/994481/dana-point-harbor",
     });
   });
 
@@ -126,5 +110,38 @@ describe("buildCamEmbed", () => {
   it("returns none for invalid URL strings", () => {
     const result = buildCamEmbed("not-a-valid-url");
     expect(result).toEqual({ kind: "none" });
+  });
+});
+
+describe("getViewableUrl", () => {
+  it("returns null for null input", () => {
+    expect(getViewableUrl(null)).toBeNull();
+  });
+
+  it("returns null for undefined input", () => {
+    expect(getViewableUrl(undefined)).toBeNull();
+  });
+
+  it("returns null for .m3u8 URLs", () => {
+    expect(getViewableUrl("https://hls.cdn-surfline.com/stream.m3u8")).toBeNull();
+  });
+
+  it("returns null for invalid URL strings", () => {
+    expect(getViewableUrl("not-a-url")).toBeNull();
+  });
+
+  it("passes through YouTube URLs", () => {
+    const url = "https://www.youtube.com/watch?v=abc123";
+    expect(getViewableUrl(url)).toBe(url);
+  });
+
+  it("passes through HDOnTap URLs", () => {
+    const url = "https://hdontap.com/stream/994481/dana-point";
+    expect(getViewableUrl(url)).toBe(url);
+  });
+
+  it("passes through generic HTTPS URLs", () => {
+    const url = "https://example.com/cam";
+    expect(getViewableUrl(url)).toBe(url);
   });
 });

@@ -206,6 +206,22 @@ export const RATE_LIMITS = {
     requestsPerHour: 5000,
     burstLimit: 60,
   } as RateLimiterConfig,
+
+  /**
+   * Cam Resolve - MEDIUM
+   *
+   * Endpoint: /api/cam-resolve
+   * Risk: SSRF (mitigated by hostname whitelist), scraping
+   * Cost: External HTTP request per call
+   *
+   * Resolves HDOnTap page URLs to HLS stream URLs.
+   * One call per camera view; signed URLs cached ~2min.
+   */
+  "cam-resolve": {
+    requestsPerMinute: 30,
+    requestsPerHour: 500,
+    burstLimit: 10,
+  } as RateLimiterConfig,
 } as const;
 
 /**
@@ -238,6 +254,8 @@ const RATE_LIMIT_MESSAGES = {
     "Webhook rate limit exceeded. Events will be retried by Resend.",
   "hls-proxy":
     "HLS proxy rate limit exceeded. Please wait before requesting more streams.",
+  "cam-resolve":
+    "Camera stream resolution rate limit exceeded. Please wait before retrying.",
 } as const;
 
 /**

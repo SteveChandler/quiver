@@ -1,8 +1,24 @@
-type CamEmbedIntent =
+export type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }
-  | { kind: "hls"; src: string };
+  | { kind: "hls"; src: string }
+  | { kind: "hdontap"; pageUrl: string };
+
+/**
+ * Returns a browser-navigable URL for "Open cam" links.
+ * Returns null for .m3u8 URLs (not useful in a browser tab) and invalid URLs.
+ */
+export function getViewableUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.pathname.endsWith(".m3u8")) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
 
 export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
   if (!url) return { kind: "none" };
@@ -50,15 +66,9 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hls", src: href };
     }
 
-    // HDOnTap - convert stream URL to embed URL
+    // HDOnTap - resolve to HLS stream server-side (iframe embedding blocked)
     if (href.includes("hdontap.com/stream/")) {
-      const embedUrl = href.endsWith("/embed/") ? href : href.replace(/\/?$/, "/embed/");
-      return {
-        kind: "iframe",
-        src: embedUrl,
-        title: "Live Cam – HDOnTap",
-        allow: "autoplay; fullscreen",
-      };
+      return { kind: "hdontap", pageUrl: href };
     }
 
     // Default iframe attempt (may be blocked)

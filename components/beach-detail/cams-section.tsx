@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, RefreshCw } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { buildCamEmbed } from "@/lib/media/cam-embed";
+import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
 
 const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
   ssr: false,
@@ -37,9 +37,14 @@ export function CamsSection({ beachId }: CamsSectionProps) {
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
+  const [hlsError, setHlsError] = useState(false);
+  const [resolvedHlsUrl, setResolvedHlsUrl] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     setIframeBlocked(false);
+    setHlsError(false);
+    setResolvedHlsUrl(null);
   }, [sources?.camera_url]);
 
   const cameraUrl = sources?.camera_url as string | undefined;
@@ -49,6 +54,32 @@ export function CamsSection({ beachId }: CamsSectionProps) {
     intent.kind === "iframe" &&
     iframeBlocked === false &&
     (sources as any)?.embed_allowed !== false;
+
+  // Resolve HDOnTap page URLs → HLS stream URLs server-side
+  const hdontapPageUrl = intent?.kind === "hdontap" ? intent.pageUrl : null;
+  useEffect(() => {
+    if (!hdontapPageUrl) return;
+    let cancelled = false;
+    setResolving(true);
+    setResolvedHlsUrl(null);
+    setHlsError(false);
+    fetch(`/api/cam-resolve?url=${encodeURIComponent(hdontapPageUrl)}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((data: { hlsUrl?: string }) => {
+        if (!cancelled && data.hlsUrl) {
+          setResolvedHlsUrl(data.hlsUrl);
+        } else if (!cancelled) {
+          setHlsError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHlsError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
+    return () => { cancelled = true; };
+  }, [hdontapPageUrl]);
 
   let visual: React.ReactNode;
 
@@ -94,8 +125,29 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         />
       </div>
     );
+  } else if (intent?.kind === "hdontap") {
+    visual = hlsError ? (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-center">
+        <CameraOff className="h-10 w-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
+      </div>
+    ) : resolvedHlsUrl ? (
+      <HLSVideoPlayer src={resolvedHlsUrl} title="Live Cam" onError={() => setHlsError(true)} />
+    ) : (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-ocean-blue" />
+        <span className="text-sm">Connecting to live cam…</span>
+      </div>
+    );
   } else if (intent?.kind === "hls") {
-    visual = <HLSVideoPlayer src={intent.src} title="Live Cam" />;
+    visual = hlsError ? (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-center">
+        <CameraOff className="h-10 w-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
+      </div>
+    ) : (
+      <HLSVideoPlayer src={intent.src} title="Live Cam" onError={() => setHlsError(true)} />
+    );
   } else if (intent?.kind === "video") {
     visual = (
       <div className="relative aspect-video w-full overflow-hidden bg-black">
@@ -131,13 +183,13 @@ export function CamsSection({ beachId }: CamsSectionProps) {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          {cameraUrl ? (
+          {getViewableUrl(cameraUrl) ? (
             <Button
               asChild
               size="sm"
               className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
             >
-              <a href={cameraUrl} target="_blank" rel="noopener noreferrer">
+              <a href={getViewableUrl(cameraUrl)!} target="_blank" rel="noopener noreferrer">
                 Open cam
               </a>
             </Button>

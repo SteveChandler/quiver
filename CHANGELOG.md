@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Closest Region Hero** - Hero card shows the user's closest region (by distance) instead of the highest-scoring nearby region.
 - **Shared Region Groups** - Extracted `REGION_GROUPS` constant to `lib/data/region-groups.ts` for use by both the landing page navbar and forecast hub.
 - **Fallback Observability** - New `trackFallback()` utility in `lib/monitoring/` that tracks when silent fallback values are substituted for missing data. Instruments ~15 critical locations (wave height, tide, confidence score, synthetic data generators) with structured Sentry alerts for dangerous/high severity and breadcrumbs for low/medium. Server-side tracking now persists events to `fallback_events` table via lazy-initialized Supabase admin client (fire-and-forget). Zero user-facing changes.
-- **HDOnTap Embed Support** - `buildCamEmbed()` now detects `hdontap.com/stream/` URLs and auto-converts them to the official `/embed/` iframe format with autoplay and fullscreen permissions.
+- **HDOnTap HLS Stream Resolution** - HDOnTap cams now play inline via server-side HLS URL extraction (`/api/cam-resolve`). HDOnTap blocks all iframe embedding (X-Frame-Options: DENY), so the resolver fetches the embed page server-side, extracts the signed HLS stream URL, and feeds it to the HLS player. ~20 HDOnTap cams now stream live in-site.
 - **52 New Surf Cameras** - Populated camera URLs for 52 beaches across CA, HI, OR, TX, FL, NC, NJ, SC, and ME using HDOnTap, YouTube Live, SurfOutlook, and Surfchex HLS sources. Total camera coverage: 39 → 91 of 279 beaches (33%).
 - **Internal Link Density in SEO Content** - City and state listing pages now render beach/city names as internal links in auto-generated summaries and FAQs. New `RichContent` type system with `RichContentRenderer` component and `linkFirstMentions()` utility. Backward-compatible — original plain-text generators unchanged.
 - **Embed Widget Promotion Pages** - New `/for-surf-schools` and `/for-businesses` pages promoting free embed widgets. Dark hero with mock browser preview, 3-column value props, interactive embed generator with beach selector and widget type toggle, copy-to-clipboard code block, and ocean gradient CTA. Added to sitemap.
@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Open cam" button hidden for HLS streams (previously linked to raw .m3u8 files that aren't browser-navigable)
 - Added `.catch()` on hls.js dynamic import to prevent silent failures when module fails to load
 - Added loading spinner during HLS player initialization
+- **Dead Camera Cleanup** - Removed 10 dead/broken camera URLs: C Street (Surfline 404), Folly Beach (dead server), Higgins Beach/Ogunquit/Linda Mar/Ponce Inlet/Short Sands (dead YouTube streams), D Street/Gold Beach (403), La Push (404)
 
 ### Changed
 
