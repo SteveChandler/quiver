@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shared Region Groups** - Extracted `REGION_GROUPS` constant to `lib/data/region-groups.ts` for use by both the landing page navbar and forecast hub.
 - **Fallback Observability** - New `trackFallback()` utility in `lib/monitoring/` that tracks when silent fallback values are substituted for missing data. Instruments ~15 critical locations (wave height, tide, confidence score, synthetic data generators) with structured Sentry alerts for dangerous/high severity and breadcrumbs for low/medium. Server-side tracking now persists events to `fallback_events` table via lazy-initialized Supabase admin client (fire-and-forget). Zero user-facing changes.
 - **HDOnTap Embed Support** - `buildCamEmbed()` now detects `hdontap.com/stream/` URLs and auto-converts them to the official `/embed/` iframe format with autoplay and fullscreen permissions.
-- **38 New Surf Cameras** - Populated camera URLs for 38 beaches (mostly CA, plus HI, OR, TX) using HDOnTap, YouTube Live (Explore.org), and SurfOutlook sources. Total camera coverage: 39 → 77 of 279 beaches (28%).
+- **52 New Surf Cameras** - Populated camera URLs for 52 beaches across CA, HI, OR, TX, FL, NC, NJ, SC, and ME using HDOnTap, YouTube Live, SurfOutlook, and Surfchex HLS sources. Total camera coverage: 39 → 91 of 279 beaches (33%).
 
 ### Changed
 
