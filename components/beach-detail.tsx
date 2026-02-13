@@ -30,6 +30,7 @@ import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { REVIEW_TRACKING_SOURCES, type ReviewTrackingSource } from "@/lib/constants/review-tracking";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
+import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
@@ -76,6 +77,13 @@ const IntelTab = lazy(() =>
 const SessionsTab = lazy(() =>
   import("@/components/beach-detail/tabs/sessions-tab").then((m) => ({
     default: m.SessionsTab,
+  }))
+);
+
+// Dynamic import for cam player (no SSR — uses browser-only HLS)
+const CamsSection = lazy(() =>
+  import("@/components/beach-detail/cams-section").then((m) => ({
+    default: m.CamsSection,
   }))
 );
 
@@ -297,7 +305,7 @@ function BeachDetailContent({
     personalizationData?.isLoading,
   ]);
 
-  const hasCamera = Boolean((sources as any)?.camera_url);
+  const showCamHero = Boolean(sources?.camera_url) && buildCamEmbed(sources?.camera_url).kind !== "none";
 
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
@@ -410,8 +418,16 @@ function BeachDetailContent({
         {/* Surf Call Card (server-rendered slot) */}
         {surfReportSlot}
 
-        {/* Photo Gallery with Map */}
-        <BeachPhotoGallery beach={beach} className="mb-6" />
+        {/* Hero Media: Live Cam (when available) or Photo Gallery */}
+        {showCamHero ? (
+          <div className="mb-6">
+            <Suspense fallback={<div className="aspect-video w-full animate-pulse rounded-3xl bg-blue-100/50" />}>
+              <CamsSection sources={sources} />
+            </Suspense>
+          </div>
+        ) : (
+          <BeachPhotoGallery beach={beach} className="mb-6" />
+        )}
 
         {/* Key Stats Grid */}
         <BeachStatsGrid
@@ -476,7 +492,6 @@ function BeachDetailContent({
                   beachTimezone={beachTimezone}
                   forecasts={forecasts || []}
                   currentForecast={currentForecast}
-                  hasCamera={hasCamera}
                   surfCall={surfCallReport}
                   surfCallIsTomorrow={surfCallIsTomorrow}
                   defaultSubTab={defaultSubTab}

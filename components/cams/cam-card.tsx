@@ -25,7 +25,7 @@ export function CamCard({ beach }: CamCardProps) {
 
   return (
     <Link
-      href={`${beachUrl}?tab=cams`}
+      href={beachUrl}
       className="group block overflow-hidden rounded-2xl border border-blue-100/60 bg-white/95 shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
     >
       {/* Camera preview area */}

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Live Cam in Hero Area** - Beach pages with a camera now show the live cam player in the hero slot (replacing the photo gallery), making it immediately visible on page load. Photos remain in the Overview tab gallery. Cam card links from `/cams` now navigate to the beach page directly instead of the non-existent `?tab=cams`. Eliminated duplicate `/api/beaches/{id}/sources` fetch by passing sources as a prop to `CamsSection`.
+
 ### Added
 
 - **Beach Coordinate Snapping Script** - New `scripts/snap-beaches-to-coastline.ts` utility that verifies beach coordinates using Mapbox reverse geocoding and generates SQL migration files for beaches with significant deviations (>50m). Supports dry-run mode, verbose logging, and limit flag for testing. Rate-limited to respect Mapbox API limits.
