@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { safeGetItem, safeSetItem } from "@/lib/utils/safe-storage";
 import type { PersonalizationStatus } from "@/actions/personalization-actions";
 import type { PersonalizationStage } from "@/lib/utils/personalization-messaging";
 
@@ -23,7 +24,7 @@ const SESSIONS_FOR_PERSONALIZED = 5;
 
 function getDismissedAt(): number | null {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(DISMISS_KEY);
+  const raw = safeGetItem(DISMISS_KEY);
   if (!raw) return null;
   const ts = Number(raw);
   return Number.isFinite(ts) ? ts : null;
@@ -84,7 +85,7 @@ export function PersonalizationProgress({
   }, []);
 
   const handleDismiss = useCallback(() => {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    safeSetItem(DISMISS_KEY, String(Date.now()));
     setDismissed(true);
   }, []);
 

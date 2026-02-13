@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
     console.log(`${CONTEXT_TAG} Starting first-session-nudge run`);
 
-    const supabase = await createSupabaseServiceRoleClient();
+    const supabase = createSupabaseServiceRoleClient();
     const baseUrl = getBaseUrl();
 
     const summary: RunSummary = {
@@ -166,16 +166,24 @@ export async function GET(request: Request) {
       candidateIds.push(profile.id);
     }
 
-    // Fetch emails from auth only for final candidates (minimal auth API calls)
+    // Fetch emails from auth only for final candidates (batched to avoid serial API calls)
+    const BATCH_SIZE = 5;
     const candidates: NudgeCandidate[] = [];
-    for (const userId of candidateIds) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
-      if (authUser?.user?.email) {
-        candidates.push({
-          user_id: userId,
-          email: authUser.user.email,
-          display_name: profileMap.get(userId) ?? null,
-        });
+    for (let i = 0; i < candidateIds.length; i += BATCH_SIZE) {
+      const batch = candidateIds.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map((userId) => supabase.auth.admin.getUserById(userId))
+      );
+      for (let j = 0; j < results.length; j++) {
+        const authUser = results[j].data;
+        const userId = batch[j];
+        if (authUser?.user?.email) {
+          candidates.push({
+            user_id: userId,
+            email: authUser.user.email,
+            display_name: profileMap.get(userId) ?? null,
+          });
+        }
       }
     }
 

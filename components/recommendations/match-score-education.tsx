@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAuth } from "@/context/auth-context";
+import { safeGetItem, safeSetItem } from "@/lib/utils/safe-storage";
 
 const STORAGE_KEY = "match_score_education_dismissed";
 const AUTO_DISMISS_MS = 8000;
@@ -30,13 +31,8 @@ export function MatchScoreEducation({ children }: MatchScoreEducationProps) {
   useEffect(() => {
     if (!user) return;
 
-    try {
-      const dismissed = localStorage.getItem(STORAGE_KEY);
-      if (dismissed) return;
-    } catch {
-      // localStorage unavailable (SSR, private mode) — skip
-      return;
-    }
+    const dismissed = safeGetItem(STORAGE_KEY);
+    if (dismissed) return;
 
     // Show popover after a brief delay so the badge has rendered
     const showTimer = setTimeout(() => setOpen(true), 500);
@@ -57,11 +53,7 @@ export function MatchScoreEducation({ children }: MatchScoreEducationProps) {
 
   const dismiss = useCallback(() => {
     setOpen(false);
-    try {
-      localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // Ignore storage errors
-    }
+    safeSetItem(STORAGE_KEY, "1");
   }, []);
 
   // Don't render popover wrapper for unauthenticated users
