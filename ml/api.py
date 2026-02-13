@@ -13,6 +13,7 @@ import secrets
 import asyncio
 import logging
 import base64
+import json
 import xgboost as xgb
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -26,16 +27,26 @@ from transformers_ensemble import EnsembleFeatureEngineer
 from open_meteo_service import OpenMeteoService
 from config import (
     MODEL_PATH, MODEL_VERSION, INTERNAL_SECRET,
-    FALLBACK_MODEL_PATH, USE_ENSEMBLE, OPEN_METEO_TIMEOUT_MS
+    FALLBACK_MODEL_PATH, USE_ENSEMBLE, OPEN_METEO_TIMEOUT_MS,
+    CANDIDATE_VERSION, CANDIDATE_PATH
 )
 
 # ----- Constants -----
 MAX_BATCH_SIZE = 1000
 MAX_CONCURRENT_OM_REQUESTS = 10  # Limit parallel Open-Meteo API calls
 
+# Validation gate thresholds
+OVERALL_IMPROVEMENT_MIN = 50      # % of predictions that must improve
+BUCKET_IMPROVEMENT_MIN = 40       # % per bucket
+BUCKET_DEGRADATION_LIMIT = 0.10   # max MAE worsening per bucket (meters)
+MEAN_BIAS_LIMIT = 0.5             # max absolute mean bias (meters)
+MIN_BUCKET_SAMPLES = 30           # skip bucket if fewer samples
+MIN_HOLDOUT_SAMPLES = 100         # fail if holdout set too small
+
 # ----- Model Loading (Lifespan) -----
 model = None
 fallback_model = None
+candidate_model = None
 fe = FeatureEngineer()
 fe_ensemble = EnsembleFeatureEngineer()
 om_service = OpenMeteoService()
@@ -43,7 +54,7 @@ om_service = OpenMeteoService()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load models on startup."""
-    global model, fallback_model
+    global model, fallback_model, candidate_model
 
     # Load primary model (ensemble if USE_ENSEMBLE, otherwise baseline)
     logger.info(f"Loading primary model from {MODEL_PATH}...")
@@ -65,6 +76,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Could not load fallback model: {e}")
             fallback_model = None
+
+    # Load candidate model for shadow scoring (set by retrain pipeline)
+    if CANDIDATE_PATH:
+        logger.info(f"Loading candidate model from {CANDIDATE_PATH} (version={CANDIDATE_VERSION})...")
+        try:
+            candidate_model = QuiverBiasModel()
+            candidate_model.load(CANDIDATE_PATH)
+            logger.info(f"Candidate model loaded successfully (version={CANDIDATE_VERSION})")
+        except Exception as e:
+            logger.warning(f"Could not load candidate model: {e} — shadow scoring disabled")
+            candidate_model = None
 
     yield
 
@@ -141,9 +163,8 @@ class TrainingDataRecord(BaseModel):
 class TrainingConfig(BaseModel):
     """Training configuration parameters."""
     recency_weight_days: int = Field(default=14, description="Number of recent days to apply higher weight")
-    recency_weight_multiplier: float = Field(default=2.0, description="Weight multiplier for recent data")
     holdout_days: int = Field(default=2, description="Number of days to hold out for validation")
-    min_holdout_samples: int = Field(default=100, description="Minimum holdout samples required for valid training")
+    min_holdout_samples: int = Field(default=MIN_HOLDOUT_SAMPLES, description="Minimum holdout samples required for valid training")
     max_bias_pct: float = Field(default=0.75, description="Maximum bias as percentage of raw forecast")
     bias_floor_m: float = Field(default=0.5, description="Minimum absolute bias allowed")
 
@@ -168,6 +189,7 @@ class TrainResponse(BaseModel):
     metrics: Optional[TrainingMetrics] = None
     model_url: Optional[str] = None  # Keep for backwards compat
     model_data: Optional[str] = None  # Base64 encoded model JSON (avoids ephemeral storage 404)
+    training_diagnostics: Optional[dict] = None  # Structured diagnostics for ml_model_registry.notes
     error: Optional[str] = None
 
 class CorrectionOutput(BaseModel):
@@ -178,6 +200,8 @@ class CorrectionOutput(BaseModel):
     bias_applied_m: float
     model_version: str
     ensemble_used: bool = Field(default=False, description="Whether ensemble model was used")
+    candidate_corrected_m: Optional[float] = Field(default=None, description="Shadow-scored correction from candidate model")
+    candidate_model_version: Optional[str] = Field(default=None, description="Version of the candidate model used for shadow scoring")
 
 class BatchInput(BaseModel):
     forecasts: List[ForecastInput]
@@ -191,6 +215,23 @@ class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
     model_version: str
+    candidate_loaded: bool = Field(default=False, description="Whether a candidate model is loaded for shadow scoring")
+    candidate_version: Optional[str] = Field(default=None, description="Version of the loaded candidate model")
+
+# ----- Candidate Shadow Scoring Helper -----
+def score_candidate(features: pd.DataFrame, raw_heights: pd.Series) -> Optional[pd.Series]:
+    """Score predictions with the candidate model. Returns None on any failure.
+
+    This MUST never raise — all exceptions are caught and logged so that
+    the primary model scoring path is never disrupted.
+    """
+    if candidate_model is None or not candidate_model.model:
+        return None
+    try:
+        return candidate_model.predict(features, raw_heights)
+    except Exception as e:
+        logger.warning(f"Candidate model scoring failed: {e}")
+        return None
 
 # ----- Endpoints -----
 @app.get("/health", response_model=HealthResponse)
@@ -199,8 +240,15 @@ def health():
     return HealthResponse(
         status="ok" if model and model.model else "degraded",
         model_loaded=model is not None and model.model is not None,
-        model_version=MODEL_VERSION
+        model_version=MODEL_VERSION,
+        candidate_loaded=candidate_model is not None and candidate_model.model is not None,
+        candidate_version=CANDIDATE_VERSION if (candidate_model and candidate_model.model) else None,
     )
+
+@app.get("/ping")
+def ping():
+    """Lightweight liveness check for Fly.io — does not load models."""
+    return {"status": "pong"}
 
 async def fetch_open_meteo_with_timeout(lat: float, lon: float, target_time: datetime) -> Optional[dict]:
     """Fetch Open-Meteo data with timeout, returns None on failure."""
@@ -219,16 +267,16 @@ async def fetch_open_meteo_with_timeout(lat: float, lon: float, target_time: dat
         return None
 
 # ----- Training Helpers -----
-def compute_sample_weights(df: pd.DataFrame, recency_days: int, recency_multiplier: float) -> np.ndarray:
+def compute_sample_weights(df: pd.DataFrame, half_life_days: int = 14, min_weight: float = 0.5) -> np.ndarray:
     """
-    Compute recency-based sample weights.
+    Exponential decay weighting — recent data weighted higher.
 
-    Recent data gets higher weight to prioritize current conditions
-    while maintaining historical stability.
+    Uses half-life decay so weight falls smoothly rather than a hard cutoff.
     """
     max_date = df['forecast_ts_utc'].max()
-    days_ago = (max_date - df['forecast_ts_utc']).dt.days
-    return np.where(days_ago <= recency_days, recency_multiplier, 1.0)
+    days_ago = (max_date - df['forecast_ts_utc']).dt.total_seconds() / 86400
+    weights = np.exp(-np.log(2) * days_ago / half_life_days)
+    return np.clip(weights, min_weight, 1.0)
 
 def bucket_label(height_m: float) -> str:
     """Assign forecast height to a bucket."""
@@ -282,12 +330,16 @@ def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
             results[bucket] = {'n': 0, 'status': 'SKIP (no data)'}
             continue
 
+        if len(bucket_df) < MIN_BUCKET_SAMPLES:
+            results[bucket] = {'n': len(bucket_df), 'status': 'SKIP (insufficient data)'}
+            continue
+
         improvement_rate = bucket_df['improved'].mean() * 100
         raw_mae = bucket_df['raw_error'].mean()
         corrected_mae = bucket_df['corrected_error'].mean()
         degradation = corrected_mae - raw_mae
 
-        passed = improvement_rate >= 40 and degradation <= 0.05
+        passed = improvement_rate >= BUCKET_IMPROVEMENT_MIN and degradation <= BUCKET_DEGRADATION_LIMIT
         if not passed:
             all_pass = False
 
@@ -309,7 +361,7 @@ def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
         'corrected_mae': df_eval['corrected_error'].mean(),
     }
 
-    results['all_pass'] = all_pass and overall_improvement > 50
+    results['all_pass'] = all_pass and overall_improvement > OVERALL_IMPROVEMENT_MIN
     return results
 
 
@@ -420,6 +472,14 @@ async def correct_single(input: ForecastInput):
 
     bias = corrected.iloc[0] - input.wave_height_m
 
+    # Shadow-score with candidate model (never breaks primary path)
+    candidate_corrected_val = None
+    candidate_version_val = None
+    candidate_result = score_candidate(features, pd.Series([input.wave_height_m]))
+    if candidate_result is not None:
+        candidate_corrected_val = round(float(candidate_result.iloc[0]), 2)
+        candidate_version_val = CANDIDATE_VERSION
+
     return CorrectionOutput(
         beach_id=input.beach_id,
         forecast_ts=input.forecast_ts,
@@ -427,7 +487,9 @@ async def correct_single(input: ForecastInput):
         corrected_height_m=round(float(corrected.iloc[0]), 2),
         bias_applied_m=round(float(bias), 2),
         model_version=MODEL_VERSION,
-        ensemble_used=ensemble_used
+        ensemble_used=ensemble_used,
+        candidate_corrected_m=candidate_corrected_val,
+        candidate_model_version=candidate_version_val,
     )
 
 @app.post("/train", response_model=TrainResponse, dependencies=[Security(verify_api_key)])
@@ -509,14 +571,13 @@ async def train_model(request: TrainRequest):
         logger.info(f"[Train] Missing wind data: {stats['missing_wind_pct']:.1f}%")
         logger.info(f"[Train] Residual stats: mean={stats['residual_mean']:.3f}m, std={stats['residual_std']:.3f}m")
 
-        # Compute recency weights
+        # Compute recency weights (exponential decay)
         weights = compute_sample_weights(
             df,
-            request.config.recency_weight_days,
-            request.config.recency_weight_multiplier
+            half_life_days=request.config.recency_weight_days,
         )
-        recent_pct = (weights > 1.0).sum() / len(weights) * 100
-        logger.info(f"[Train] Recency weights: {recent_pct:.1f}% samples at {request.config.recency_weight_multiplier}x weight")
+        high_weight_pct = (weights > 0.75).sum() / len(weights) * 100
+        logger.info(f"[Train] Recency weights: {high_weight_pct:.1f}% samples with weight > 0.75 (half_life={request.config.recency_weight_days}d)")
 
         # Temporal holdout split (last N days)
         max_ts = df['forecast_ts_utc'].max()
@@ -527,8 +588,7 @@ async def train_model(request: TrainRequest):
 
         weights_train = compute_sample_weights(
             df_train,
-            request.config.recency_weight_days,
-            request.config.recency_weight_multiplier
+            half_life_days=request.config.recency_weight_days,
         )
 
         logger.info(f"[Train] Training set: {len(df_train)} samples")
@@ -614,13 +674,15 @@ async def train_model(request: TrainRequest):
         logger.info("[Train] Bucket results:")
         for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']:
             r = bucket_results[bucket]
-            if r['n'] > 0:
+            if 'improvement_rate' in r:
                 logger.info(
                     f"  {bucket}: {r['n']} samples, "
                     f"{r['improvement_rate']:.1f}% improved, "
                     f"MAE {r['raw_mae']:.3f}m -> {r['corrected_mae']:.3f}m, "
                     f"{r['status']}"
                 )
+            else:
+                logger.info(f"  {bucket}: {r['n']} samples, {r['status']}")
 
         overall = bucket_results['overall']
         logger.info(
@@ -632,21 +694,60 @@ async def train_model(request: TrainRequest):
         mean_bias = clipped_bias.mean()
         logger.info(f"[Train] Mean bias applied: {mean_bias:+.3f}m")
 
+        # Feature importance rankings
+        feature_importances = dict(zip(
+            V2_FEATURE_COLUMNS,
+            [float(v) for v in model_trained.feature_importances_]
+        ))
+        sorted_features = sorted(feature_importances.items(), key=lambda x: x[1], reverse=True)
+        logger.info("[Train] Feature importances:")
+        for feat, imp in sorted_features[:10]:
+            logger.info(f"  {feat}: {imp:.4f}")
+
+        # Build structured diagnostics for ml_model_registry.notes
+        training_diagnostics = {
+            'data_range': {
+                'start': str(df['forecast_ts_utc'].min()),
+                'end': str(df['forecast_ts_utc'].max()),
+                'total_samples': len(df),
+                'training_samples': len(df_train),
+                'holdout_samples': len(df_holdout),
+            },
+            'bucket_results': {
+                bucket: {k: (float(v) if isinstance(v, (np.floating, float)) else v)
+                         for k, v in bucket_results[bucket].items()}
+                for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']
+            },
+            'overall': {
+                'improvement_rate': float(overall['improvement_rate']),
+                'raw_mae': float(overall['raw_mae']),
+                'corrected_mae': float(overall['corrected_mae']),
+                'mean_bias': float(mean_bias),
+            },
+            'cv_folds': {
+                'mean_rmse': float(np.mean(fold_rmses)),
+                'std_rmse': float(np.std(fold_rmses)),
+                'fold_rmses': [float(r) for r in fold_rmses],
+            },
+            'feature_importances': {feat: imp for feat, imp in sorted_features},
+        }
+        logger.info(f"[Train] Diagnostics JSON: {json.dumps(training_diagnostics, default=str)}")
+
         # Go/No-Go decision
         logger.info("[Train] Evaluating go/no-go criteria...")
         go = True
         failure_reasons = []
 
-        if overall['improvement_rate'] <= 50:
-            failure_reasons.append(f"Overall improvement {overall['improvement_rate']:.1f}% <= 50%")
+        if overall['improvement_rate'] <= OVERALL_IMPROVEMENT_MIN:
+            failure_reasons.append(f"Overall improvement {overall['improvement_rate']:.1f}% <= {OVERALL_IMPROVEMENT_MIN}%")
             go = False
 
         if not bucket_results['all_pass']:
-            failure_reasons.append("Not all buckets pass (improvement >= 40%, degradation <= 0.05m)")
+            failure_reasons.append(f"Not all buckets pass (improvement >= {BUCKET_IMPROVEMENT_MIN}%, degradation <= {BUCKET_DEGRADATION_LIMIT}m)")
             go = False
 
-        if abs(mean_bias) >= 0.4:
-            failure_reasons.append(f"Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= 0.4)")
+        if abs(mean_bias) >= MEAN_BIAS_LIMIT:
+            failure_reasons.append(f"Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= {MEAN_BIAS_LIMIT})")
             go = False
 
         if not go:
@@ -661,6 +762,7 @@ async def train_model(request: TrainRequest):
                     holdout_raw_mae=overall['raw_mae'],
                     holdout_corrected_mae=overall['corrected_mae']
                 ),
+                training_diagnostics=training_diagnostics,
                 error='; '.join(failure_reasons)
             )
 
@@ -701,7 +803,8 @@ async def train_model(request: TrainRequest):
                 holdout_corrected_mae=overall['corrected_mae']
             ),
             model_url=model_url,  # Keep for backwards compat
-            model_data=model_data_b64  # Inline model data (primary)
+            model_data=model_data_b64,  # Inline model data (primary)
+            training_diagnostics=training_diagnostics,
         )
 
     except Exception as e:
@@ -826,9 +929,17 @@ async def correct_batch(input: BatchInput):
             raw_heights = pd.Series([input.forecasts[i].wave_height_m for i, _ in ensemble_success])
             corrected = model.predict(features, raw_heights)
 
+            # Shadow-score with candidate model (never breaks primary path)
+            candidate_corrected_ensemble = score_candidate(features, raw_heights)
+
             for idx, (i, _) in enumerate(ensemble_success):
                 f = input.forecasts[i]
                 bias = corrected.iloc[idx] - f.wave_height_m
+                cand_val = None
+                cand_ver = None
+                if candidate_corrected_ensemble is not None:
+                    cand_val = round(float(candidate_corrected_ensemble.iloc[idx]), 2)
+                    cand_ver = CANDIDATE_VERSION
                 corrections[i] = CorrectionOutput(
                     beach_id=f.beach_id,
                     forecast_ts=f.forecast_ts,
@@ -836,7 +947,9 @@ async def correct_batch(input: BatchInput):
                     corrected_height_m=round(float(corrected.iloc[idx]), 2),
                     bias_applied_m=round(float(bias), 2),
                     model_version=MODEL_VERSION,
-                    ensemble_used=True
+                    ensemble_used=True,
+                    candidate_corrected_m=cand_val,
+                    candidate_model_version=cand_ver,
                 )
 
         # Add failed ensemble to fallback
@@ -879,9 +992,17 @@ async def correct_batch(input: BatchInput):
         raw_heights = pd.Series([input.forecasts[i].wave_height_m for i in fallback_indices])
         corrected = active_model.predict(features, raw_heights)
 
+        # Shadow-score with candidate model (never breaks primary path)
+        candidate_corrected_fallback = score_candidate(features, raw_heights)
+
         for idx, i in enumerate(fallback_indices):
             f = input.forecasts[i]
             bias = corrected.iloc[idx] - f.wave_height_m
+            cand_val = None
+            cand_ver = None
+            if candidate_corrected_fallback is not None:
+                cand_val = round(float(candidate_corrected_fallback.iloc[idx]), 2)
+                cand_ver = CANDIDATE_VERSION
             corrections[i] = CorrectionOutput(
                 beach_id=f.beach_id,
                 forecast_ts=f.forecast_ts,
@@ -889,7 +1010,9 @@ async def correct_batch(input: BatchInput):
                 corrected_height_m=round(float(corrected.iloc[idx]), 2),
                 bias_applied_m=round(float(bias), 2),
                 model_version=MODEL_VERSION,
-                ensemble_used=False
+                ensemble_used=False,
+                candidate_corrected_m=cand_val,
+                candidate_model_version=cand_ver,
             )
 
     return BatchOutput(

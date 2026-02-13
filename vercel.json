@@ -107,6 +107,10 @@
     {
       "path": "/api/cron/session-prompt-email",
       "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/cron/ml/promote-candidate",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

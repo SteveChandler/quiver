@@ -14,6 +14,8 @@ export const maxDuration = 300; // 5 minutes
 // Shoaling change date floor - BASE_SHOALING was reduced from 1.6 to 1.0
 // on Feb 4 2026 (commit 0317b83). Data before this change has a different bias
 // profile and degrades model accuracy. Buffer included for deployment propagation.
+// TODO: The SHOALING_CHANGE_DATE floor becomes inert after May 6, 2026 (90 days from Feb 5).
+// After that date, remove this constant and the conditional at lines ~98-101.
 const SHOALING_CHANGE_DATE = new Date('2026-02-05T06:00:00Z');
 
 // Environment variables validated at runtime in POST handler
@@ -332,29 +334,50 @@ async function handleRetrain(request: Request) {
         training_data: mappedData,
         config: {
           recency_weight_days: 14,
-          recency_weight_multiplier: 2.0,
           holdout_days: 2,
           max_bias_pct: 0.75,
           bias_floor_m: 0.5,
         },
       };
 
-      const response = await fetch(`${ML_SERVICE_URL}/train`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Internal-Secret': ML_INTERNAL_SECRET,
-        },
-        body: JSON.stringify(trainingPayload),
-        signal: AbortSignal.timeout(270000), // 4.5 minute timeout for training
-      });
+      const trainUrl = `${ML_SERVICE_URL}/train`;
+      const MAX_RETRIES = 2;
+      const RETRY_DELAY_MS = 10000; // 10 seconds
 
-      if (!response.ok) {
+      let lastTrainError: string | undefined;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const response = await fetch(trainUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Secret': ML_INTERNAL_SECRET,
+          },
+          body: JSON.stringify(trainingPayload),
+          signal: AbortSignal.timeout(270000), // 4.5 minute timeout for training
+        });
+
+        if (response.ok) {
+          trainResponse = await response.json();
+          lastTrainError = undefined;
+          break;
+        }
+
         const errorText = await response.text();
-        throw new Error(`ML service training failed: ${response.status} - ${errorText}`);
+
+        if (response.status === 502 && attempt < MAX_RETRIES) {
+          console.log(`[ML Retrain] 502 error, retrying in ${RETRY_DELAY_MS}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+          continue;
+        }
+
+        lastTrainError = `ML service training failed: ${response.status} - ${errorText}`;
+        break;
       }
 
-      trainResponse = await response.json();
+      if (lastTrainError) {
+        throw new Error(lastTrainError);
+      }
     } catch (error) {
       console.error('[ML Retrain] Training failed:', error);
 
@@ -403,24 +426,27 @@ async function handleRetrain(request: Request) {
     console.log('[ML Retrain] Metrics:', trainResponse.metrics);
 
     // =======================================================================
-    // STEP 4: Deploy to Fly.io
+    // STEP 4: Upload Candidate Model & Begin Shadow Scoring
     // =======================================================================
-    console.log('[ML Retrain] Step 4: Deploying to Fly.io...');
+    // Instead of deploying directly, upload as candidate for 24h shadow scoring.
+    // The promote-candidate cron will promote after validating production metrics.
+    console.log('[ML Retrain] Step 4: Uploading candidate model for shadow scoring...');
 
     try {
-      const deploymentResult = await deployToFly(
+      const candidateResult = await deployToFly(
         modelVersion,
         trainResponse.model_url || '',
-        trainResponse.model_data  // Pass inline model data if available
+        trainResponse.model_data,  // Pass inline model data if available
+        'candidate'  // Shadow scoring mode: sets CANDIDATE_VERSION/CANDIDATE_PATH
       );
 
-      if (!deploymentResult.success) {
-        throw new Error(deploymentResult.error || 'Deployment failed');
+      if (!candidateResult.success) {
+        throw new Error(candidateResult.error || 'Candidate upload failed');
       }
 
-      console.log('[ML Retrain] Deployment successful');
+      console.log('[ML Retrain] Candidate model uploaded for shadow scoring');
     } catch (error) {
-      console.error('[ML Retrain] Deployment failed:', error);
+      console.error('[ML Retrain] Candidate upload failed:', error);
 
       await supabase
         .from('ml_model_registry')
@@ -430,50 +456,52 @@ async function handleRetrain(request: Request) {
           holdout_improvement_pct: trainResponse.metrics?.holdout_improvement_pct,
           holdout_raw_mae: trainResponse.metrics?.holdout_raw_mae,
           holdout_corrected_mae: trainResponse.metrics?.holdout_corrected_mae,
-          notes: `Training passed but deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          notes: `Training passed but candidate upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         })
         .eq('id', registryEntry.id);
 
       return createErrorResponse(
-        'Model deployment failed',
+        'Candidate model upload failed',
         error instanceof Error ? error.message : 'Unknown error',
         500
       );
     }
 
     // =======================================================================
-    // STEP 5: Update Registry with Success
+    // STEP 5: Update Registry as Validated (Shadow Scoring)
     // =======================================================================
-    console.log('[ML Retrain] Step 5: Updating registry with deployment...');
+    // Model enters 24h shadow scoring period. The promote-candidate cron
+    // will compare candidate vs champion corrections against ground truth
+    // and promote to 'deployed' if the candidate performs well.
+    console.log('[ML Retrain] Step 5: Updating registry with validated status...');
 
     const { error: updateError } = await supabase
       .from('ml_model_registry')
       .update({
         training_completed_at: new Date().toISOString(),
-        deployed_at: new Date().toISOString(),
-        status: 'deployed',
+        status: 'validated',
         holdout_improvement_pct: trainResponse.metrics?.holdout_improvement_pct,
         holdout_raw_mae: trainResponse.metrics?.holdout_raw_mae,
         holdout_corrected_mae: trainResponse.metrics?.holdout_corrected_mae,
-        notes: 'Successfully trained and deployed via auto-retrain pipeline',
+        notes: 'Training passed validation gates. Candidate model in 24h shadow scoring period.',
       })
       .eq('id', registryEntry.id);
 
     if (updateError) {
       console.error('[ML Retrain] Registry update failed:', updateError);
-      // Don't fail the whole operation since deployment succeeded
+      // Don't fail the whole operation since candidate upload succeeded
     }
 
-    console.log('[ML Retrain] Pipeline completed successfully');
+    console.log('[ML Retrain] Pipeline completed - model entering shadow scoring period');
 
     return createSuccessResponse({
-      message: 'Model retrain and deployment successful',
+      message: 'Model trained and entered shadow scoring period',
       model_version: modelVersion,
-      status: 'deployed',
+      status: 'validated',
       training_samples: trainingData.length,
       training_window_days: trainingWindowDays,
       metrics: trainResponse.metrics,
-      deployed_at: new Date().toISOString(),
+      shadow_scoring_started_at: new Date().toISOString(),
     });
   } catch (error) {
     console.error('[ML Retrain] Unexpected error:', error);
@@ -565,7 +593,8 @@ function computeTrainingStats(data: any[], beachIds: string[]): TrainingStats {
 async function deployToFly(
   modelVersion: string,
   modelUrl: string,
-  modelDataB64?: string  // Base64 encoded model data (preferred over URL)
+  modelDataB64?: string,  // Base64 encoded model data (preferred over URL)
+  mode: 'deploy' | 'candidate' = 'deploy'  // 'candidate' sets CANDIDATE_VERSION/CANDIDATE_PATH for shadow scoring
 ): Promise<{ success: boolean; error?: string }> {
   const FLY_API_TOKEN = process.env.FLY_API_TOKEN;
   const FLY_APP_NAME = process.env.FLY_APP_NAME || 'quiver-ml';
@@ -710,18 +739,28 @@ async function deployToFly(
       }
     `;
 
+    // In candidate mode, set CANDIDATE_VERSION/CANDIDATE_PATH instead of
+    // MODEL_VERSION/MODEL_PATH. The ML service will score with both models
+    // during the shadow scoring period.
+    const secrets = mode === 'candidate'
+      ? [
+          { key: 'CANDIDATE_VERSION', value: modelVersion },
+          { key: 'CANDIDATE_PATH', value: publicModelUrl },
+        ]
+      : [
+          { key: 'MODEL_VERSION', value: modelVersion },
+          { key: 'MODEL_PATH', value: publicModelUrl },
+        ];
+
     const secretsPayload = {
       query: setSecretsMutation,
       variables: {
         appId: FLY_APP_NAME,
-        secrets: [
-          { key: 'MODEL_VERSION', value: modelVersion },
-          { key: 'MODEL_PATH', value: publicModelUrl },
-        ],
+        secrets,
       },
     };
 
-    console.log(`[deployToFly] Setting secrets: MODEL_VERSION=${modelVersion}, MODEL_PATH=${publicModelUrl}`);
+    console.log(`[deployToFly] Setting secrets (${mode} mode): ${secrets.map(s => `${s.key}=${s.value}`).join(', ')}`);
 
     const secretsResponse = await fetch(FLY_GRAPHQL_URL, {
       method: 'POST',
@@ -770,6 +809,15 @@ async function deployToFly(
     // =======================================================================
     // STEP 4: Poll Health Endpoint for New Model Version
     // =======================================================================
+    // In candidate mode, skip health check polling since we only set
+    // CANDIDATE_VERSION/CANDIDATE_PATH - the primary model version won't change.
+    // The ML service will start shadow scoring on restart.
+    if (mode === 'candidate') {
+      const deploymentDuration = ((Date.now() - deploymentStartTime) / 1000).toFixed(1);
+      console.log(`[deployToFly] Candidate secrets set successfully in ${deploymentDuration}s (skipping health check)`);
+      return { success: true };
+    }
+
     console.log('[deployToFly] Step 4: Polling health endpoint...');
 
     const healthCheckStartTime = Date.now();
