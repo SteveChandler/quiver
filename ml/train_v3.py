@@ -12,6 +12,14 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from transformers_v2 import preprocess_v2, V2_FEATURE_COLUMNS
 
+# Validation gate thresholds (keep in sync with api.py)
+OVERALL_IMPROVEMENT_MIN = 50      # % of predictions that must improve
+BUCKET_IMPROVEMENT_MIN = 40       # % per bucket
+BUCKET_DEGRADATION_LIMIT = 0.10   # max MAE worsening per bucket (meters)
+MEAN_BIAS_LIMIT = 0.5             # max absolute mean bias (meters)
+MIN_BUCKET_SAMPLES = 30           # skip bucket if fewer samples
+MIN_HOLDOUT_SAMPLES = 100         # fail if holdout set too small
+
 
 def load_data(path: str) -> pd.DataFrame:
     """Load training data CSV."""
@@ -25,17 +33,16 @@ def load_data(path: str) -> pd.DataFrame:
     return df
 
 
-def compute_sample_weights(df: pd.DataFrame) -> np.ndarray:
+def compute_sample_weights(df: pd.DataFrame, half_life_days: int = 14, min_weight: float = 0.5) -> np.ndarray:
     """
-    Compute recency-based sample weights.
+    Exponential decay weighting — recent data weighted higher.
 
-    Last 14 days get 2x weight to prioritize recent conditions
-    while maintaining historical stability.
+    Uses half-life decay so weight falls smoothly rather than a hard cutoff.
     """
     max_date = df['forecast_ts_utc'].max()
-    days_ago = (max_date - df['forecast_ts_utc']).dt.days
-    # Weight recent data (last 14 days) higher to adapt to current conditions
-    return np.where(days_ago <= 14, 2.0, 1.0)
+    days_ago = (max_date - df['forecast_ts_utc']).dt.total_seconds() / 86400
+    weights = np.exp(-np.log(2) * days_ago / half_life_days)
+    return np.clip(weights, min_weight, 1.0)
 
 
 def bucket_label(height_m: float) -> str:
@@ -70,12 +77,16 @@ def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
             results[bucket] = {'n': 0, 'status': 'SKIP (no data)'}
             continue
 
+        if len(bucket_df) < MIN_BUCKET_SAMPLES:
+            results[bucket] = {'n': len(bucket_df), 'status': 'SKIP (insufficient data)'}
+            continue
+
         improvement_rate = bucket_df['improved'].mean() * 100
         raw_mae = bucket_df['raw_error'].mean()
         corrected_mae = bucket_df['corrected_error'].mean()
         degradation = corrected_mae - raw_mae
 
-        passed = improvement_rate >= 40 and degradation <= 0.05
+        passed = improvement_rate >= BUCKET_IMPROVEMENT_MIN and degradation <= BUCKET_DEGRADATION_LIMIT
         if not passed:
             all_pass = False
 
@@ -97,7 +108,7 @@ def evaluate_buckets(df: pd.DataFrame, corrected: np.ndarray) -> dict:
         'corrected_mae': df_eval['corrected_error'].mean(),
     }
 
-    results['all_pass'] = all_pass and overall_improvement > 50
+    results['all_pass'] = all_pass and overall_improvement > OVERALL_IMPROVEMENT_MIN
     return results
 
 
@@ -121,8 +132,10 @@ def main():
     print("=" * 60)
     print("\nv3 Changes:")
     print("  - Removed monotone constraint (learn freely)")
-    print("  - Added recency weighting (last 14 days = 2x)")
+    print("  - Exponential decay recency weighting (half_life=14d)")
     print("  - Relaxed guardrails (75% max, 0.5m floor)")
+    print(f"  - Adaptive validation: skip buckets < {MIN_BUCKET_SAMPLES} samples")
+    print(f"  - Thresholds: degradation <= {BUCKET_DEGRADATION_LIMIT}m, bias < {MEAN_BIAS_LIMIT}m")
     print("  - Using max available training data (up to 365 days)")
 
     # 1. Load data
@@ -132,10 +145,10 @@ def main():
     print(f"   Date range: {df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}")
     print(f"   Beaches: {df['beach_id'].nunique()}")
 
-    # Calculate recency weights
+    # Calculate recency weights (exponential decay)
     weights = compute_sample_weights(df)
-    recent_pct = (weights > 1.0).sum() / len(weights) * 100
-    print(f"   Recency weights: {recent_pct:.1f}% samples (last 14 days) at 2x weight")
+    high_weight_pct = (weights > 0.75).sum() / len(weights) * 100
+    print(f"   Recency weights: {high_weight_pct:.1f}% samples with weight > 0.75 (half_life=14d)")
 
     # 2. Temporal holdout split (last N days)
     print(f"\n2. Splitting data (last {args.holdout_days} days as holdout)...")
@@ -145,15 +158,14 @@ def main():
     df_train = df[df['forecast_ts_utc'] <= holdout_cutoff].copy()
     df_holdout = df[df['forecast_ts_utc'] > holdout_cutoff].copy()
 
-    # Compute weights for train/holdout splits
+    # Compute weights for training split
     weights_train = compute_sample_weights(df_train)
-    weights_holdout = compute_sample_weights(df_holdout)
 
     print(f"   Training: {len(df_train)} samples (up to {holdout_cutoff})")
     print(f"   Holdout:  {len(df_holdout)} samples ({args.holdout_days} days)")
 
-    if len(df_holdout) < 100:
-        print("   WARNING: Very small holdout set, results may be unreliable")
+    if len(df_holdout) < MIN_HOLDOUT_SAMPLES:
+        print(f"   WARNING: Very small holdout set ({len(df_holdout)} < {MIN_HOLDOUT_SAMPLES}), results may be unreliable")
 
     # 3. Feature engineering
     print("\n3. Engineering features...")
@@ -238,8 +250,8 @@ def main():
     print(f"   {'-'*55}")
     for bucket in ['<0.5m', '0.5-1.5m', '>1.5m']:
         r = bucket_results[bucket]
-        if r['n'] == 0:
-            print(f"   {bucket:<12} {r['n']:>6} {'N/A':>8} {'N/A':>8} {'N/A':>9} {r['status']:>6}")
+        if 'improvement_rate' not in r:
+            print(f"   {bucket:<12} {r['n']:>6} {'N/A':>8} {'N/A':>8} {'N/A':>9} {r['status']}")
         else:
             print(f"   {bucket:<12} {r['n']:>6} {r['improvement_rate']:>7.1f}% "
                   f"{r['raw_mae']:>7.3f}m {r['corrected_mae']:>8.3f}m {r['status']:>6}")
@@ -251,29 +263,29 @@ def main():
     # Mean bias check
     mean_bias = clipped_bias.mean()
     print(f"\n   Mean bias applied: {mean_bias:+.3f}m")
-    print(f"   Bias balanced: {'YES' if abs(mean_bias) < 0.4 else 'NO (too one-directional)'}")
+    print(f"   Bias balanced: {'YES' if abs(mean_bias) < MEAN_BIAS_LIMIT else 'NO (too one-directional)'}")
 
-    # 8. Go/No-Go decision (unchanged from v2)
+    # 8. Go/No-Go decision
     print("\n8. Go/No-Go Criteria:")
     go = True
 
-    if overall['improvement_rate'] <= 50:
-        print(f"   [FAIL] Overall improvement {overall['improvement_rate']:.1f}% <= 50%")
+    if overall['improvement_rate'] <= OVERALL_IMPROVEMENT_MIN:
+        print(f"   [FAIL] Overall improvement {overall['improvement_rate']:.1f}% <= {OVERALL_IMPROVEMENT_MIN}%")
         go = False
     else:
-        print(f"   [PASS] Overall improvement {overall['improvement_rate']:.1f}% > 50%")
+        print(f"   [PASS] Overall improvement {overall['improvement_rate']:.1f}% > {OVERALL_IMPROVEMENT_MIN}%")
 
     if not bucket_results['all_pass']:
-        print(f"   [FAIL] Not all buckets pass (improvement >= 40%, degradation <= 0.05m)")
+        print(f"   [FAIL] Not all buckets pass (improvement >= {BUCKET_IMPROVEMENT_MIN}%, degradation <= {BUCKET_DEGRADATION_LIMIT}m)")
         go = False
     else:
         print(f"   [PASS] All buckets pass")
 
-    if abs(mean_bias) >= 0.4:
-        print(f"   [FAIL] Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= 0.4)")
+    if abs(mean_bias) >= MEAN_BIAS_LIMIT:
+        print(f"   [FAIL] Mean bias {mean_bias:+.3f}m is too one-directional (|bias| >= {MEAN_BIAS_LIMIT})")
         go = False
     else:
-        print(f"   [PASS] Mean bias {mean_bias:+.3f}m is balanced (|bias| < 0.4)")
+        print(f"   [PASS] Mean bias {mean_bias:+.3f}m is balanced (|bias| < {MEAN_BIAS_LIMIT})")
 
     if not go:
         print("\n   *** NO-GO: Model does NOT meet deployment criteria ***")

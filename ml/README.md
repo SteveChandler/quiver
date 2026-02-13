@@ -487,8 +487,7 @@ Train a new bias correction model. Requires `X-Internal-Secret` header. Called b
     }
   ],
   "config": {
-    "recency_weight_days": 14,
-    "recency_weight_multiplier": 2.0,
+    "recency_weight_half_life_days": 14,
     "holdout_days": 2,
     "max_bias_pct": 0.75,
     "bias_floor_m": 0.5

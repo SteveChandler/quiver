@@ -31,6 +31,12 @@ LARGE_SWELL_TAPER_END = float(os.getenv("LARGE_SWELL_TAPER_END", "4.0"))      # 
 FALLBACK_MODEL_PATH = os.getenv("FALLBACK_MODEL_PATH", "models/bias_model_v1.json")
 USE_ENSEMBLE = os.getenv("USE_ENSEMBLE", "true").lower() == "true"
 
+# Candidate model for shadow scoring (set by retrain pipeline, read by promote-candidate)
+# When set, the ML service dual-scores every prediction and writes candidate_corrected_m
+# to ml_predictions_log so promote-candidate can evaluate the candidate offline.
+CANDIDATE_VERSION = os.environ.get("CANDIDATE_VERSION", "")
+CANDIDATE_PATH = os.environ.get("CANDIDATE_PATH", "")
+
 # Open-Meteo configuration
 OPEN_METEO_TIMEOUT_MS = int(os.getenv("OPEN_METEO_TIMEOUT_MS", "2000"))
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET")
