@@ -7,9 +7,7 @@ import type { Beach } from "@/types/database";
  */
 function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Beach {
   return {
-    // Required fields with defaults
-    id: overrides.id,
-    name: overrides.name,
+    // id and name always come from overrides (required in type signature)
     lat: 0,
     lon: 0,
     cdip_eligible: false,
