@@ -18,6 +18,7 @@ import xgboost as xgb
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from model import QuiverBiasModel
