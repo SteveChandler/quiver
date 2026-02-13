@@ -8,19 +8,22 @@ The map components provide an interactive beach discovery system with dual map/l
 
 ```
 components/map/
-├── map-content.tsx           # Main map container with dynamic loading
-├── interactive-map.tsx       # Mapbox interactive map core (~550 LOC, orchestration + lifecycle)
-├── map-marker-builder.ts    # createWaveHeightBadge — beach marker DOM creation + styling
-├── map-favorites-loader.ts  # loadFavoriteBeaches — async fetch of user's favorite beach IDs
-├── map-beach-loader.ts      # loadBeachesAndWaveHeights — beach resolution + wave height fetching
-├── map-cluster-renderer.ts  # createClusterMapMarker — cluster marker creation + click-to-expand
-├── cluster-marker.tsx       # createClusterMarkerElement — cluster marker DOM element factory
-├── map-display.tsx           # Static map with wave height overlays
-├── beach-list.tsx           # Searchable beach list with reviews
-├── map-header.tsx           # Navigation header (legacy)
-├── map-search-header.tsx    # Search header with view toggles
-├── nearby-beach-scroll.tsx  # Horizontal beach scroller
-└── selected-beach-card.tsx  # Selected beach detail card
+├── map-content.tsx            # Main map container with dynamic loading
+├── interactive-map.tsx        # Mapbox interactive map core (~550 LOC, orchestration + lifecycle)
+├── map-marker-builder.ts     # createWaveHeightBadge — beach marker DOM creation + styling
+├── map-favorites-loader.ts   # loadFavoriteBeaches — async fetch of user's favorite beach IDs
+├── map-beach-loader.ts       # loadBeachesAndWaveHeights — beach resolution + wave height fetching
+├── map-cluster-renderer.ts   # createClusterMapMarker — cluster marker creation + click-to-expand
+├── cluster-marker.tsx        # createClusterMarkerElement — cluster marker DOM element factory
+├── map-sidebar.tsx           # Desktop sidebar with viewport-filtered beach list
+├── map-bottom-sheet.tsx      # Mobile bottom sheet (Vaul Drawer) with beach list
+├── sidebar-beach-card.tsx    # Compact beach card for sidebar/bottom sheet
+├── map-display.tsx            # Static map with wave height overlays
+├── beach-list.tsx            # Searchable beach list with reviews
+├── map-header.tsx            # Navigation header (legacy)
+├── map-search-header.tsx     # Search header with view toggles
+├── nearby-beach-scroll.tsx   # Horizontal beach scroller (no longer used in MapView)
+└── selected-beach-card.tsx   # Selected beach detail card
 ```
 
 ### **InteractiveMap Module Decomposition**
@@ -269,12 +272,16 @@ const LocationSelector = () => {
 ### **Dual View System**
 
 ```typescript
-MapContainer
-├── MapContent (Interactive/Static Map)
-├── BeachList (List View)
+MapView
 ├── MapSearchHeader (Search + View Toggle)
-└── NearbyBeachScroll (Preview Cards)
+├── MapSidebar (Desktop: viewport beach list)
+├── MapContent (Interactive/Static Map)
+├── SelectedBeachCard (Mobile: quick view)
+├── MapBottomSheet (Mobile: viewport beach list)
+└── BeachList (List View - alternative mode)
 ```
+
+**Note**: `NearbyBeachScroll` component has been replaced by `MapSidebar` (desktop) and `MapBottomSheet` (mobile) for better integration with the map viewport.
 
 ### **Dynamic Map Loading**
 
@@ -492,6 +499,158 @@ const handleMoveEnd = useCallback(
   - Comprehensive beach information
   - Distance and rating display
   - Action buttons for navigation
+
+### **MapSidebar** (Desktop Viewport List)
+
+- **Purpose**: Desktop sidebar showing beaches visible in current map viewport
+- **Props**: Map bounds, beaches, wave heights, selected beach, callbacks
+- **Features**:
+  - Viewport-aware beach filtering using `filterBeachesByViewport`
+  - Real-time updates as map pans/zooms
+  - Compact `SidebarBeachCard` components
+  - Scroll overflow handling
+  - Wave height display integration
+  - Shared state via `useBeachListState` hook
+
+**Implementation:**
+
+```typescript
+const MapSidebar = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect }) => {
+  // Filter beaches to viewport
+  const visibleBeaches = useMemo(
+    () => filterBeachesByViewport(beaches, bounds),
+    [beaches, bounds]
+  );
+
+  // Shared state with MapBottomSheet
+  const { expandedBeachId, setExpandedBeachId } = useBeachListState();
+
+  return (
+    <div className="hidden lg:block w-80 border-r overflow-y-auto">
+      {visibleBeaches.map((beach) => (
+        <SidebarBeachCard
+          key={beach.id}
+          beach={beach}
+          waveHeight={waveHeights.get(beach.id)}
+          isSelected={selectedBeach?.id === beach.id}
+          isExpanded={expandedBeachId === beach.id}
+          onSelect={() => onBeachSelect(beach)}
+          onToggle={() => setExpandedBeachId(beach.id)}
+        />
+      ))}
+    </div>
+  );
+};
+```
+
+### **MapBottomSheet** (Mobile Viewport List)
+
+- **Purpose**: Mobile bottom sheet (Vaul Drawer) showing beaches in viewport
+- **Props**: Same as MapSidebar
+- **Features**:
+  - Responsive drawer interface (mobile/tablet)
+  - Same beach filtering logic as sidebar
+  - Shared state for expanded cards
+  - Touch-optimized interactions
+  - Handles same as desktop sidebar
+
+**Implementation:**
+
+```typescript
+const MapBottomSheet = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect }) => {
+  const visibleBeaches = useMemo(
+    () => filterBeachesByViewport(beaches, bounds),
+    [beaches, bounds]
+  );
+
+  const { expandedBeachId, setExpandedBeachId } = useBeachListState();
+
+  return (
+    <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <DrawerContent className="max-h-[60vh]">
+        <div className="overflow-y-auto">
+          {visibleBeaches.map((beach) => (
+            <SidebarBeachCard
+              key={beach.id}
+              beach={beach}
+              waveHeight={waveHeights.get(beach.id)}
+              isSelected={selectedBeach?.id === beach.id}
+              isExpanded={expandedBeachId === beach.id}
+              onSelect={() => onBeachSelect(beach)}
+              onToggle={() => setExpandedBeachId(beach.id)}
+            />
+          ))}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+};
+```
+
+### **SidebarBeachCard** (Compact Beach Card)
+
+- **Purpose**: Compact beach card for sidebar/bottom sheet lists
+- **Props**: Beach data, wave height, selection state, callbacks
+- **Features**:
+  - Compact layout (fits more in viewport)
+  - Wave height badge display
+  - Expandable details section
+  - Selection indicator
+  - Click to select beach on map
+
+### **Viewport Filter Utility** (`lib/utils/viewport-filter.ts`)
+
+- **Purpose**: Pure function for filtering beaches by geographic bounds
+- **Usage**: Designed for `useMemo` hooks to prevent unnecessary re-renders
+- **Features**:
+  - Filters beaches to viewport bounds
+  - Handles null/missing coordinates
+  - Returns original array if bounds is null
+  - No side effects, deterministic output
+
+**API:**
+
+```typescript
+export interface ViewportBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export function filterBeachesByViewport(
+  beaches: Beach[],
+  bounds: ViewportBounds | null
+): Beach[];
+
+// Example usage:
+const visibleBeaches = useMemo(() => {
+  return filterBeachesByViewport(allBeaches, mapBounds);
+}, [allBeaches, mapBounds]);
+```
+
+### **useBeachListState Hook** (`hooks/use-beach-list-state.ts`)
+
+- **Purpose**: Shared state management for beach list components
+- **Features**:
+  - Manages expanded beach card state
+  - Shared between MapSidebar and MapBottomSheet
+  - Prevents state conflicts between desktop/mobile views
+
+**API:**
+
+```typescript
+export function useBeachListState() {
+  const [expandedBeachId, setExpandedBeachId] = useState<string | null>(null);
+
+  return {
+    expandedBeachId,
+    setExpandedBeachId: (beachId: string | null) => {
+      setExpandedBeachId((prev) => (prev === beachId ? null : beachId));
+    },
+  };
+}
+```
 
 ## **MAPBOX INTEGRATION**
 

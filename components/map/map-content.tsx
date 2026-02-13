@@ -32,6 +32,8 @@ interface MapContentProps {
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onBeachSelect: (beach: Beach) => void;
+  onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
+  onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
 }
 
 const MAX_DISTANCE_MILES = 30;
@@ -57,6 +59,8 @@ export function MapContent({
   onGetUserLocation,
   onUseDefaultLocation,
   onBeachSelect,
+  onBoundsChange,
+  onWaveHeightsChange,
 }: MapContentProps) {
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
@@ -146,7 +150,6 @@ export function MapContent({
       {/* Interactive Map */}
       <div
         className="flex-1 relative overflow-hidden min-h-[400px] bg-gray-200 map-container"
-        style={{ height: "400px" }}
         data-testid="map-container"
       >
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
@@ -157,6 +160,8 @@ export function MapContent({
             onLocationClick={onBeachSelect}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
+            onBoundsChange={onBoundsChange}
+            onWaveHeightsChange={onWaveHeightsChange}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>

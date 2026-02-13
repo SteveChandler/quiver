@@ -144,7 +144,7 @@ interface SessionTimingModule {
 {
   "icon": "sun",
   "title": "Today",
-  "summary": "Track marine layer burn-off and watch the tide flip around mid-morning."
+  "summary": "Check the forecast and watch the tide flip around mid-morning."
 }
 ```
 

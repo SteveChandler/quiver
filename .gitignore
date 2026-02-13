@@ -119,6 +119,9 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 android/app/google-services.json
 ios/App/App/GoogleService-Info.plist
 
+# Google Search Console credentials (DO NOT COMMIT)
+gsc-credentials.json
+
 # Local development tunnel config (contains temporary tunnel URLs)
 capacitor.config.dev.ts
 

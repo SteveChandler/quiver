@@ -23,6 +23,8 @@ interface InteractiveMapProps {
   onLocationClick?: (beach: Beach) => void;
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
+  onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
+  onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   className?: string;
   regionViewport?: {
     region: string;
@@ -42,6 +44,8 @@ export function InteractiveMap({
   onLocationClick,
   onMapClick,
   onLocationMove,
+  onBoundsChange,
+  onWaveHeightsChange,
   className = "h-full w-full",
   regionViewport,
   beaches,
@@ -77,6 +81,8 @@ export function InteractiveMap({
   const hoveredBeachIdRef = useRef<string | null>(null);
   const lastRegionViewportKeyRef = useRef<string | null>(null);
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
 
   const { user } = useAuth();
   const router = useRouter();
@@ -96,6 +102,14 @@ export function InteractiveMap({
   useEffect(() => {
     hoveredBeachIdRef.current = hoveredBeachId;
   }, [hoveredBeachId]);
+
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange;
+  }, [onBoundsChange]);
+
+  useEffect(() => {
+    onWaveHeightsChangeRef.current = onWaveHeightsChange;
+  }, [onWaveHeightsChange]);
 
   // Use clustering hook
   const { clusters, getExpansionZoom } = useBeachClustering({
@@ -234,6 +248,7 @@ export function InteractiveMap({
 
         // Store wave heights for clustering
         setWaveHeightMap(result.waveHeightMap);
+        onWaveHeightsChangeRef.current?.(result.waveHeightMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
         console.error("Error populating locations", e);
@@ -253,12 +268,14 @@ export function InteractiveMap({
 
         // Update bounds and zoom for clustering
         if (bounds) {
-          setMapBounds({
+          const boundsObj = {
             west: bounds.getWest(),
             south: bounds.getSouth(),
             east: bounds.getEast(),
             north: bounds.getNorth(),
-          });
+          };
+          setMapBounds(boundsObj);
+          onBoundsChangeRef.current?.(boundsObj);
         }
         setCurrentZoom(zoom);
 
@@ -292,12 +309,14 @@ export function InteractiveMap({
       // Initialize bounds for clustering
       const bounds = map.getBounds();
       if (bounds) {
-        setMapBounds({
+        const boundsObj = {
           west: bounds.getWest(),
           south: bounds.getSouth(),
           east: bounds.getEast(),
           north: bounds.getNorth(),
-        });
+        };
+        setMapBounds(boundsObj);
+        onBoundsChangeRef.current?.(boundsObj);
       }
       setCurrentZoom(map.getZoom());
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
@@ -10,12 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { MapContent } from "@/components/map/map-content";
 import { BeachList } from "@/components/map/beach-list";
 import { SelectedBeachCard } from "@/components/map/selected-beach-card";
-import { NearbyBeachScroll } from "@/components/map/nearby-beach-scroll";
+import { MapSidebar } from "@/components/map/map-sidebar";
+import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
+import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Beach } from "@/types/database";
 
 export function MapView() {
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
@@ -32,6 +36,9 @@ export function MapView() {
   const [regionViewport, setRegionViewport] = useState<RegionViewport | null>(
     null
   );
+
+  const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
+  const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
 
   // Custom hooks for state management
   const {
@@ -51,7 +58,6 @@ export function MapView() {
     searchQuery,
     selectedBeach,
     beaches,
-    nearbyBeachesForScroll,
     regions,
     activeRegion,
     filters,
@@ -120,6 +126,7 @@ export function MapView() {
     (beach: Beach) => {
       setSelectedBeach(beach);
       // Load beaches near the selected beach (not user location)
+      // NOTE: This was used for NearbyBeachScroll component (removed). Kept for potential future use.
       loadNearbyBeachesForSelected(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -153,7 +160,26 @@ export function MapView() {
     [userLocation]
   );
 
+  const handleBoundsChange = useCallback(
+    (bounds: { west: number; south: number; east: number; north: number }) => {
+      setViewportBounds(bounds);
+    },
+    []
+  );
+
+  const handleWaveHeightsChange = useCallback(
+    (map: Map<string, number | undefined>) => {
+      setWaveHeightMap(map);
+    },
+    []
+  );
+
   const loading = locationLoading || beachLoading;
+
+  const viewportBeaches = useMemo(
+    () => filterBeachesByViewport(filteredBeaches, viewportBounds),
+    [filteredBeaches, viewportBounds]
+  );
 
   // Update region viewport when the active region changes
   useEffect(() => {
@@ -284,37 +310,59 @@ export function MapView() {
 
       {/* Content */}
       {viewMode === "map" ? (
-        <div className="flex-1 flex flex-col min-h-0">
-          <MapContent
-            loading={loading}
-            locationError={locationError}
-            usingDefaultLocation={usingDefaultLocation}
-            hasTimedOut={hasTimedOut}
-            userLocation={userLocation}
-            selectedBeach={selectedBeach}
-            filteredBeaches={filteredBeaches}
-            searchQuery={searchQuery}
-            regionViewport={regionViewport}
-            onGetUserLocation={() => getUserLocation(true)}
-            onUseDefaultLocation={useDefaultLocation}
-            onBeachSelect={handleBeachSelect}
-          />
+        <div className="flex-1 flex flex-col md:flex-row min-h-0">
+          {/* Desktop sidebar (JS-conditional: portal-based Drawer can't be hidden via CSS) */}
+          {!isMobile && (
+            <div className="flex w-[380px] shrink-0 border-r">
+              <MapSidebar
+                beaches={viewportBeaches}
+                waveHeightMap={waveHeightMap}
+                selectedBeach={selectedBeach}
+                userLocation={userLocation}
+                onBeachSelect={handleBeachSelect}
+              />
+            </div>
+          )}
 
-          {/* Selected Beach Quick View */}
-          <SelectedBeachCard
-            selectedBeach={selectedBeach}
-            getDistanceFromUser={getDistanceFromUser}
-            userLocation={userLocation}
-          />
+          {/* Map fills remaining space */}
+          <div className="flex-1 relative min-h-0 flex flex-col">
+            <MapContent
+              loading={loading}
+              locationError={locationError}
+              usingDefaultLocation={usingDefaultLocation}
+              hasTimedOut={hasTimedOut}
+              userLocation={userLocation}
+              selectedBeach={selectedBeach}
+              filteredBeaches={filteredBeaches}
+              searchQuery={searchQuery}
+              regionViewport={regionViewport}
+              onGetUserLocation={() => getUserLocation(true)}
+              onUseDefaultLocation={useDefaultLocation}
+              onBeachSelect={handleBeachSelect}
+              onBoundsChange={handleBoundsChange}
+              onWaveHeightsChange={handleWaveHeightsChange}
+            />
 
-          {/* Nearby Beach Cards */}
-          <NearbyBeachScroll
-            nearbyBeachesForScroll={nearbyBeachesForScroll}
-            selectedBeach={selectedBeach}
-            onBeachSelect={handleBeachSelect}
-            onViewModeChange={setViewMode}
-            userLocation={userLocation}
-          />
+            {/* Mobile: Selected Beach Quick View */}
+            {isMobile && (
+              <SelectedBeachCard
+                selectedBeach={selectedBeach}
+                getDistanceFromUser={getDistanceFromUser}
+                userLocation={userLocation}
+              />
+            )}
+          </div>
+
+          {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
+          {isMobile && (
+            <MapBottomSheet
+              beaches={viewportBeaches}
+              waveHeightMap={waveHeightMap}
+              selectedBeach={selectedBeach}
+              userLocation={userLocation}
+              onBeachSelect={handleBeachSelect}
+            />
+          )}
         </div>
       ) : (
         <BeachList
