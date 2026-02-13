@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Android Capacitor Auth Redirect** - Native app users with expired session cookies are now redirected to `/auth/sign-in` instead of landing on the marketing home page. New `NativeAuthGuard` component handles cold start, app resume, and mid-session expiry scenarios. Web users unaffected.
+- **Auth Utils LocalStorage Safety** - Refactored all `localStorage` calls in `lib/auth/auth-utils.ts` to use safe storage wrappers (`safeGetItem`, `safeSetItem`, `safeRemoveItem`) from `lib/utils/safe-storage.ts`. Prevents crashes in restricted environments (Safari private mode, SSR, disabled cookies) for globally mounted components like `NativeAuthGuard`.
+
 ### Changed
 
 - **Live Cam in Hero Area** - Beach pages with a camera now show the live cam player in the hero slot (replacing the photo gallery), making it immediately visible on page load. Photos remain in the Overview tab gallery. Cam card links from `/cams` now navigate to the beach page directly instead of the non-existent `?tab=cams`. Eliminated duplicate `/api/beaches/{id}/sources` fetch by passing sources as a prop to `CamsSection`.
