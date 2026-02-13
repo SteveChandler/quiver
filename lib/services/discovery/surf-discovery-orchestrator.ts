@@ -334,6 +334,245 @@ export async function scoreBeachForDiscovery(args: {
 // ============================================================================
 
 /**
+ * Inner orchestration function that performs the actual discovery work.
+ * Extracted for timeout wrapping with Promise.race.
+ */
+async function discoverSurfSpotsInner(
+  userId: string,
+  userLocation: { lat: number; lon: number },
+  options: SurfDiscoveryOptions,
+  startTime: number
+): Promise<SurfDiscoveryResponse> {
+  const {
+    radiusMiles = 25,
+    horizonHours,
+    maxResults = DEFAULT_MAX_RESULTS,
+    maxConcurrent = DEFAULT_MAX_CONCURRENT,
+    timeout = DEFAULT_TIMEOUT_MS,
+    overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
+    timeSlot,
+  } = options;
+
+  log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
+
+  // 1. Build candidate pool (GPS-based, sorted by distance)
+  const { candidates, preferredWaveSize, userSkillLevel } = await buildCandidatePool(userId, {
+    userLocation,
+    radiusMiles,
+  });
+
+  if (candidates.length === 0) {
+    log.warn(`No candidate beaches found for user ${userId}`);
+    return emptyResponse(maxResults);
+  }
+
+  log.debug(`Found ${candidates.length} candidate beaches`);
+
+  // Limit candidates to prevent excessive API calls
+  const maxCandidates = Math.min(candidates.length, 20);
+  const finalCandidates = candidates.slice(0, maxCandidates);
+
+  // 2. Fetch forecasts for all candidates
+  const { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
+    maxConcurrent,
+    timeout,
+    overallTimeout,
+  });
+
+  const successRate = beachForecasts.length / finalCandidates.length;
+  const successPercent = Math.round(successRate * 100);
+
+  log.debug(
+    `Retrieved forecasts: ${beachForecasts.length}/${finalCandidates.length} beaches (${successPercent}%)`
+  );
+
+  // Log failures and staleness context
+  if (failedForecasts.length > 0 || staleCount > 0) {
+    log.warn(
+      `Forecast issues: ${failedForecasts.length} failed, ${staleCount} stale (stale data excluded)`
+    );
+  }
+
+  if (beachForecasts.length === 0) {
+    log.error(`No forecasts retrieved for user ${userId}`);
+    return emptyResponse(maxResults);
+  }
+
+  // Collect all dates from forecasts and fetch sun times
+  const allDates = new Set<string>();
+  const allBeachIds = new Set<string>();
+
+  for (const { beach, forecasts } of beachForecasts) {
+    allBeachIds.add(beach.id);
+    for (const f of forecasts) {
+      allDates.add(f.forecast_date);
+    }
+  }
+
+  // CRITICAL: Always include today and next 2 days in UTC format
+  // This fixes a bug where forecast_date values might not include today's date
+  // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
+  // The sun_times table stores dates in UTC, so we need to ensure we query for:
+  // - Yesterday (in case of timezone edge cases)
+  // - Today
+  // - Tomorrow
+  // - Day after tomorrow
+  const now = new Date();
+  for (let dayOffset = -1; dayOffset <= 2; dayOffset++) {
+    const d = new Date(now);
+    d.setUTCDate(now.getUTCDate() + dayOffset);
+    allDates.add(d.toISOString().split('T')[0]);
+  }
+
+  // Fetch sunsets (now returns Map<beachId, Date[]>)
+  const uniqueDates = Array.from(allDates);
+  const sunTimesCache = await getBatchSunTimes(
+    Array.from(allBeachIds),
+    uniqueDates
+  );
+
+  // 3. Score each beach with detailed breakdown
+  const scored: SurfDiscoveryRecommendation[] = [];
+
+  // Pre-load user preferences
+  const userPrefs = await getUserSurfPreferences(userId);
+
+  const beachesWithNoWindow: string[] = [];
+  for (const { beach, forecasts } of beachForecasts) {
+    const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+    if (!bestWindow) {
+      beachesWithNoWindow.push(beach.name);
+      log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
+      continue;
+    }
+
+    // IMPORTANT: Score the same forecast entry we selected for bestWindow.
+    // The window is derived from a specific forecast timestamp, so we match it here
+    // to avoid scoring a different time slot (e.g. forecasts[0]).
+    const bestWindowForecast =
+      forecasts.find((f) => {
+        const t = new Date(`${f.forecast_date}T${f.forecast_time}Z`).getTime();
+        return t === bestWindow.start.getTime();
+      }) || forecasts[0];
+
+    // Calculate distance
+    const distanceMiles = calculateDistance(userLocation, {
+      lat: beach.lat || 0,
+      lon: beach.lon || 0,
+    });
+
+    // Detailed scoring
+    const detailedScore = await scoreBeachForDiscovery({
+      beach,
+      forecast: bestWindowForecast,
+      userPrefs,
+      preferredWaveSize,
+      userSkillLevel,
+      distanceMiles,
+    });
+
+    scored.push({
+      beach,
+      window: bestWindow,
+      forecast: bestWindowForecast,
+      score: detailedScore.total,
+      matchQuality: detailedScore.matchQuality,
+      recommendationLabel: getRecommendationLabel(detailedScore.total),
+      subscores: detailedScore.subscores,
+      summary: generateDiscoverySummary(beach, bestWindow, detailedScore),
+      message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),
+      reasons: detailedScore.reasons,
+      warnings: detailedScore.warnings,
+      conditionBadges: detailedScore.conditionBadges,
+      waveHeightBadge: detailedScore.waveHeightBadge,
+      distanceMiles,
+      drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
+      generated_at: new Date().toISOString(),
+    });
+  }
+
+  // Log beaches that had no window selected
+  if (beachesWithNoWindow.length > 0) {
+    log.warn(`[discoverSurfSpots] ${beachesWithNoWindow.length} beaches had no viable window: ${beachesWithNoWindow.join(', ')}`);
+  }
+
+  // Log all beach scores before ranking (for debugging)
+  const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
+  log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
+  allScoresSorted.forEach((rec, idx) => {
+    const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty } = rec.subscores;
+    log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
+  });
+
+  // 4. Fetch and merge favorites
+  let favoriteBeachIds = new Set<string>();
+  try {
+    const favoriteBeachesResponse = await getFavoriteBeachesFromDb(userId);
+    if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
+      favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
+      log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
+    } else {
+      log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
+  }
+
+  // Mark favorites with badge flag, but do NOT prioritize in ranking
+  // All beaches are ranked purely by score - favorites just get a heart badge
+  const allRecs: SurfDiscoveryRecommendation[] = [];
+
+  for (const rec of scored) {
+    // Null safety: skip malformed recommendations
+    if (!rec?.beach?.id || typeof rec.score !== 'number') {
+      log.warn('Skipping malformed recommendation in favorites loop', { rec });
+      continue;
+    }
+
+    allRecs.push({
+      ...rec,
+      isFavorite: favoriteBeachIds.has(rec.beach.id),
+    });
+  }
+
+  // Sort ALL recommendations by score descending (pure score ranking)
+  allRecs.sort((a, b) => b.score - a.score);
+
+  // Take top results
+  const merged = allRecs.slice(0, maxResults);
+
+  const favoriteCount = merged.filter(r => r.isFavorite).length;
+  log.debug(
+    `Merged recommendations: ${favoriteCount} favorites in top ${merged.length} (pure score ranking)`
+  );
+
+  // 5. Enrich with photos
+  const enrichedRanked = await enrichWithPhotos(merged);
+
+  const duration = Date.now() - startTime;
+  log.debug(
+    `Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
+  );
+
+  return {
+    recommendations: enrichedRanked,
+    searchCriteria: {
+      userLocation,
+      radiusMiles,
+      maxResults,
+    },
+    metadata: {
+      totalBeachesConsidered: finalCandidates.length,
+      successfulForecasts: beachForecasts.length,
+      partialSuccess: beachForecasts.length < finalCandidates.length,
+      failedBeaches: failedForecasts.length,
+      staleBeaches: staleCount,
+      generated_at: new Date().toISOString(),
+    },
+  };
+}
+
+/**
  * Discover surf spots for a user
  *
  * Orchestrates the full discovery flow:
@@ -369,13 +608,8 @@ export async function discoverSurfSpots(
 
   const {
     userLocation,
-    radiusMiles = 25,
-    horizonHours,
     maxResults = DEFAULT_MAX_RESULTS,
-    maxConcurrent = DEFAULT_MAX_CONCURRENT,
-    timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
-    timeSlot,
   } = options;
 
   try {
@@ -385,228 +619,27 @@ export async function discoverSurfSpots(
       return emptyResponse(maxResults);
     }
 
-    log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
-
-    // 1. Build candidate pool (GPS-based, sorted by distance)
-    const { candidates, preferredWaveSize, userSkillLevel } = await buildCandidatePool(userId, {
-      userLocation,
-      radiusMiles,
-    });
-
-    if (candidates.length === 0) {
-      log.warn(`No candidate beaches found for user ${userId}`);
-      return emptyResponse(maxResults);
-    }
-
-    log.debug(`Found ${candidates.length} candidate beaches`);
-
-    // Limit candidates to prevent excessive API calls
-    const maxCandidates = Math.min(candidates.length, 20);
-    const finalCandidates = candidates.slice(0, maxCandidates);
-
-    // 2. Fetch forecasts for all candidates
-    const { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
-      maxConcurrent,
-      timeout,
-      overallTimeout,
-    });
-
-    const successRate = beachForecasts.length / finalCandidates.length;
-    const successPercent = Math.round(successRate * 100);
-
-    log.debug(
-      `Retrieved forecasts: ${beachForecasts.length}/${finalCandidates.length} beaches (${successPercent}%)`
-    );
-
-    // Log failures and staleness context
-    if (failedForecasts.length > 0 || staleCount > 0) {
-      log.warn(
-        `Forecast issues: ${failedForecasts.length} failed, ${staleCount} stale (stale data excluded)`
+    // Enforce overall timeout with Promise.race
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error(`Discovery timeout after ${overallTimeout}ms`)),
+        overallTimeout
       );
-    }
-
-    if (beachForecasts.length === 0) {
-      log.error(`No forecasts retrieved for user ${userId}`);
-      return emptyResponse(maxResults);
-    }
-
-    // Collect all dates from forecasts and fetch sun times
-    const allDates = new Set<string>();
-    const allBeachIds = new Set<string>();
-
-    for (const { beach, forecasts } of beachForecasts) {
-      allBeachIds.add(beach.id);
-      for (const f of forecasts) {
-        allDates.add(f.forecast_date);
-      }
-    }
-
-    // CRITICAL: Always include today and next 2 days in UTC format
-    // This fixes a bug where forecast_date values might not include today's date
-    // when viewing in a timezone ahead of UTC (e.g., Hawaii beaches viewed in the afternoon).
-    // The sun_times table stores dates in UTC, so we need to ensure we query for:
-    // - Yesterday (in case of timezone edge cases)
-    // - Today
-    // - Tomorrow
-    // - Day after tomorrow
-    const now = new Date();
-    for (let dayOffset = -1; dayOffset <= 2; dayOffset++) {
-      const d = new Date(now);
-      d.setUTCDate(now.getUTCDate() + dayOffset);
-      allDates.add(d.toISOString().split('T')[0]);
-    }
-
-    // Fetch sunsets (now returns Map<beachId, Date[]>)
-    const uniqueDates = Array.from(allDates);
-    const sunTimesCache = await getBatchSunTimes(
-      Array.from(allBeachIds),
-      uniqueDates
-    );
-
-    // 3. Score each beach with detailed breakdown
-    const scored: SurfDiscoveryRecommendation[] = [];
-
-    // Pre-load user preferences
-    const userPrefs = await getUserSurfPreferences(userId);
-
-    const beachesWithNoWindow: string[] = [];
-    for (const { beach, forecasts } of beachForecasts) {
-      const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
-      if (!bestWindow) {
-        beachesWithNoWindow.push(beach.name);
-        log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
-        continue;
-      }
-
-      // IMPORTANT: Score the same forecast entry we selected for bestWindow.
-      // The window is derived from a specific forecast timestamp, so we match it here
-      // to avoid scoring a different time slot (e.g. forecasts[0]).
-      const bestWindowForecast =
-        forecasts.find((f) => {
-          const t = new Date(`${f.forecast_date}T${f.forecast_time}Z`).getTime();
-          return t === bestWindow.start.getTime();
-        }) || forecasts[0];
-
-      // Calculate distance (stubbed for Phase 2)
-      const distanceMiles = userLocation
-        ? calculateDistance(userLocation, {
-            lat: beach.lat || 0,
-            lon: beach.lon || 0,
-          })
-        : undefined;
-
-      // Detailed scoring
-      const detailedScore = await scoreBeachForDiscovery({
-        beach,
-        forecast: bestWindowForecast,
-        userPrefs,
-        preferredWaveSize,
-        userSkillLevel,
-        distanceMiles,
-      });
-
-      scored.push({
-        beach,
-        window: bestWindow,
-        forecast: bestWindowForecast,
-        score: detailedScore.total,
-        matchQuality: detailedScore.matchQuality,
-        recommendationLabel: getRecommendationLabel(detailedScore.total),
-        subscores: detailedScore.subscores,
-        summary: generateDiscoverySummary(beach, bestWindow, detailedScore),
-        message: buildDiscoveryMessage(detailedScore.total, detailedScore.reasons, detailedScore.warnings),
-        reasons: detailedScore.reasons,
-        warnings: detailedScore.warnings,
-        conditionBadges: detailedScore.conditionBadges,
-        waveHeightBadge: detailedScore.waveHeightBadge,
-        distanceMiles,
-        drivingTimeMinutes: distanceMiles ? Math.round(distanceMiles * 1.5) : undefined,
-        generated_at: new Date().toISOString(),
-      });
-    }
-
-    // Log beaches that had no window selected
-    if (beachesWithNoWindow.length > 0) {
-      log.warn(`[discoverSurfSpots] ${beachesWithNoWindow.length} beaches had no viable window: ${beachesWithNoWindow.join(', ')}`);
-    }
-
-    // Log all beach scores before ranking (for debugging)
-    const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
-    log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
-    allScoresSorted.forEach((rec, idx) => {
-      const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty } = rec.subscores;
-      log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty})`);
     });
 
-    // 4. Fetch and merge favorites
-    let favoriteBeachIds = new Set<string>();
     try {
-      const favoriteBeachesResponse = await getFavoriteBeachesFromDb(userId);
-      if (favoriteBeachesResponse.success && favoriteBeachesResponse.data) {
-        favoriteBeachIds = new Set(favoriteBeachesResponse.data.map((b: Beach) => b.id));
-        log.debug(`Found ${favoriteBeachIds.size} favorite beaches for user ${userId}`);
-      } else {
-        log.warn(`Failed to fetch favorites: ${favoriteBeachesResponse.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      log.error('Error fetching favorite beaches, continuing with regular recommendations:', error);
+      const result = await Promise.race([
+        discoverSurfSpotsInner(userId, userLocation, options, startTime),
+        timeoutPromise,
+      ]);
+      return result;
+    } finally {
+      clearTimeout(timeoutId!);
     }
-
-    // Mark favorites with badge flag, but do NOT prioritize in ranking
-    // All beaches are ranked purely by score - favorites just get a heart badge
-    const allRecs: SurfDiscoveryRecommendation[] = [];
-
-    for (const rec of scored) {
-      // Null safety: skip malformed recommendations
-      if (!rec?.beach?.id || typeof rec.score !== 'number') {
-        log.warn('Skipping malformed recommendation in favorites loop', { rec });
-        continue;
-      }
-
-      allRecs.push({
-        ...rec,
-        isFavorite: favoriteBeachIds.has(rec.beach.id),
-      });
-    }
-
-    // Sort ALL recommendations by score descending (pure score ranking)
-    allRecs.sort((a, b) => b.score - a.score);
-
-    // Take top results
-    const merged = allRecs.slice(0, maxResults);
-
-    const favoriteCount = merged.filter(r => r.isFavorite).length;
-    log.debug(
-      `Merged recommendations: ${favoriteCount} favorites in top ${merged.length} (pure score ranking)`
-    );
-
-    // 5. Enrich with photos
-    const enrichedRanked = await enrichWithPhotos(merged);
-
-    const duration = Date.now() - startTime;
-    log.debug(
-      `Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
-    );
-
-    return {
-      recommendations: enrichedRanked,
-      searchCriteria: {
-        userLocation,
-        radiusMiles,
-        maxResults,
-      },
-      metadata: {
-        totalBeachesConsidered: finalCandidates.length,
-        successfulForecasts: beachForecasts.length,
-        partialSuccess: beachForecasts.length < finalCandidates.length,
-        failedBeaches: failedForecasts.length,
-        staleBeaches: staleCount,
-        generated_at: new Date().toISOString(),
-      },
-    };
   } catch (error) {
     const duration = Date.now() - startTime;
-    log.error(`Error after ${duration}ms for user ${userId}:`, error);
-    return emptyResponse(maxResults);
+    log.error(`Discovery failed after ${duration}ms for user ${userId}:`, error);
+    throw error;
   }
 }
