@@ -408,6 +408,11 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       // Don't fail the session creation if XP tracking fails
     }
 
+    // Fire-and-forget milestone check (first_session_logged, wave_range_learned, etc.)
+    import("@/lib/services/personalization-milestone-service")
+      .then(({ checkAndRecordMilestones }) => checkAndRecordMilestones(user.id))
+      .catch(() => {});
+
     // Create forecast snapshot for condition tracking
     try {
       const { createForecastSnapshotForSession } = await import("@/lib/utils/forecast-snapshot-utils");

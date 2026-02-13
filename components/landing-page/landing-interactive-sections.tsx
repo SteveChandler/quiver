@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BestConditionsSection } from "@/components/landing-page/best-conditions-section";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { UpgradeSessionSection } from "./upgrade-session-section";
+import { PersonalizationShowcase } from "@/components/landing-page/personalization-showcase";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -46,6 +47,7 @@ export function LandingInteractiveSections() {
       <BestConditionsSection />
       <SurfHighlightsSection />
       <UpgradeSessionSection />
+      <PersonalizationShowcase />
       <ActivitiesSection />
       {hasMounted ? <ForecastSection /> : <ForecastSectionFallback />}
       <CTASection />

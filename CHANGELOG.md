@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Quick Log Mode** - Streamlined 2-step session logging flow via `/sessions/new?mode=log&quick=true`. Step 1 combines beach, date/time, and duration selection. Step 2 is a simplified star rating with optional notes. Pre-fills today's date and morning/afternoon time. Skips post-submission feedback and review modals for faster completion.
+- **Personalization Progress Card** - Gradient card on the home screen (between Top Spots and 7-Day Outlook) that shows the user's personalization journey stage: Getting Started (0 sessions), Learning (1-4 sessions), or Fully Personalized (5+ with learned prefs). Includes progress bar, contextual copy, intel prompt for low-activity users, and CTA. Auto-hides when activeLayers >= 3 and learnedConfidence > 0.8. Dismissible with 7-day localStorage cooldown.
+- **First Session CTA on Home Screen** - Zero-session users now see a dedicated activation card in place of PrimaryActions, encouraging them to log their first session with a one-tap quick-log flow.
+- **Personalization Milestone Toasts** - Home screen now delivers styled Sonner toasts for unshown personalization milestones (max 2 per visit with staggered delay).
+- **Personalization Context Line (Hero)** - Hero recommendation now shows a subtle explanation line (e.g., "Tuned to your session history") when the recommendation is personalized, using `getPersonalizationExplanation` from the shared messaging utility.
+- **Match Score Education Tooltip** - One-time popover on `PersonalizedBadge` explains what the match score means and that it improves with logged sessions. Auto-dismisses after 8 seconds, stored in localStorage.
+- **Community Intel Social Proof** - Intel tab header shows real-time social proof (e.g., "3 surfers confirmed conditions today" or "Updated 2h ago by [name]") based on posts from the last 24 hours.
+
 ### Fixed
 
+- **Growth Metrics Seed Account Filter** - All growth dashboard queries now exclude `@example.invalid` seeded demo accounts (created 2026-02-05) that were inflating WAU from 25 to 1, WASL from 22 to 0, and D7 retention from 92.3% to 0%. Baselines in `docs/GROWTH_METRICS_FRAMEWORK.md` updated with real user data.
 - **ML Pipeline Stability** - Adaptive validation gates with named constants (min 30 samples per bucket, 0.10m degradation limit, 0.5m bias limit). Exponential decay sample weighting replaces binary step function. Shadow scoring pipeline: candidate models run in parallel for 24h before promotion. Auto-rollback with 7-day cooldown prevents oscillation. 502 retry logic for Fly.io cold starts. Training diagnostics logged as structured JSON. New `/ping` health endpoint with `min_machines_running=1` to prevent timeouts.
 - **Android Capacitor Auth Redirect** - Native app users with expired session cookies are now redirected to `/auth/sign-in` instead of landing on the marketing home page. New `NativeAuthGuard` component handles cold start, app resume, and mid-session expiry scenarios. Web users unaffected.
 - **Auth Utils LocalStorage Safety** - Refactored all `localStorage` calls in `lib/auth/auth-utils.ts` to use safe storage wrappers (`safeGetItem`, `safeSetItem`, `safeRemoveItem`) from `lib/utils/safe-storage.ts`. Prevents crashes in restricted environments (Safari private mode, SSR, disabled cookies) for globally mounted components like `NativeAuthGuard`.

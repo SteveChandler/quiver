@@ -317,6 +317,11 @@ export async function createIntelPost(
         console.warn("XP tracking failed for intel post:", xpErr);
       }
 
+      // Fire-and-forget milestone check (first_intel_posted, local_authority)
+      import("@/lib/services/personalization-milestone-service")
+        .then(({ checkAndRecordMilestones }) => checkAndRecordMilestones(user.id))
+        .catch(() => {});
+
       return {
         success: true,
         data: enrichedPost,

@@ -27,6 +27,8 @@ import { ConditionsSection } from "@/components/session-forms/ConditionsSection"
 import { PhotoSelectionSection } from "@/components/session-forms/PhotoSelectionSection";
 import { NotesSection } from "@/components/session-forms/NotesSection";
 import { SessionDetailsSection } from "@/components/session-forms/SessionDetailsSection";
+import { QuickLocationTimeStep } from "@/components/session-forms/QuickLocationTimeStep";
+import { QuickRatingStep } from "@/components/session-forms/QuickRatingStep";
 import {
   createPlannedSession,
   createLoggedSession,
@@ -52,6 +54,11 @@ interface AnimatedSessionWizardProps {
    * Example: targetStep={3} will jump to the Goals step if beach and date/time are prefilled.
    */
   targetStep?: number;
+  /**
+   * Enable streamlined 2-step quick log flow.
+   * When true, shows only location+time and a simple rating step.
+   */
+  quick?: boolean;
 }
 
 export function AnimatedSessionWizard({
@@ -61,6 +68,7 @@ export function AnimatedSessionWizard({
   onCancel,
   initialFormState,
   targetStep,
+  quick,
 }: AnimatedSessionWizardProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -80,9 +88,10 @@ export function AnimatedSessionWizard({
   } = useSessionForm({
     initialMode,
     initialFormState,
+    quick,
   });
 
-  const steps = getWizardSteps(mode);
+  const steps = getWizardSteps(mode, quick);
 
   const sendInvitations = useCallback(
     async (
@@ -362,6 +371,21 @@ export function AnimatedSessionWizard({
             updateField={updateField}
             selectedPhotos={selectedPhotos}
             onPhotosChange={handlePhotosChange}
+          />
+        );
+      case "QuickLocationTimeStep":
+        return (
+          <QuickLocationTimeStep
+            formState={formState}
+            beaches={beaches}
+            updateField={updateField}
+          />
+        );
+      case "QuickRatingStep":
+        return (
+          <QuickRatingStep
+            formState={formState}
+            updateField={updateField}
           />
         );
       default:

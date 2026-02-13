@@ -124,6 +124,11 @@ export async function confirmIntelPost(
       creditAuthorWithXP(intelPost.user_id, 'intel_post', intelPostId).catch(err =>
         console.error("Failed to credit intel author XP:", err)
       );
+
+      // Fire-and-forget milestone check for the post author (intel_confirmed_5x)
+      import("@/lib/services/personalization-milestone-service")
+        .then(({ checkAndRecordMilestones }) => checkAndRecordMilestones(intelPost.user_id))
+        .catch(() => {});
     }
 
     // Revalidate the home page to refresh the intel feed

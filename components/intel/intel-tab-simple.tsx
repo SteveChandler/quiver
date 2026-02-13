@@ -228,6 +228,19 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             action: isCurrentlyConfirmed ? "unconfirm" : "confirm",
             post_id: postId,
           });
+          // Track in user_events for growth metrics
+          fetch("/api/events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventType: "social_intel_confirm",
+              metadata: {
+                post_id: postId,
+                action: isCurrentlyConfirmed ? "unconfirm" : "confirm",
+              },
+            }),
+            keepalive: true,
+          }).catch(() => {});
 
           // Update the post in the list
           setPosts((prev) =>
@@ -286,6 +299,33 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
     [user, router]
   );
 
+  // Social proof: count unique posters from the last 24h
+  const socialProofLine = useMemo(() => {
+    if (posts.length === 0) return null;
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const recentPosts = posts.filter(
+      (p) => new Date(p.created_at).getTime() > oneDayAgo
+    );
+    if (recentPosts.length === 0) return null;
+
+    // Count unique users who posted in last 24h
+    const uniqueUsers = new Set(recentPosts.map((p) => p.user_id));
+    const count = uniqueUsers.size;
+
+    if (count === 1) {
+      const poster = recentPosts[0];
+      const name = poster.user?.full_name || poster.user_name || "A surfer";
+      const hours = Math.round(
+        (Date.now() - new Date(poster.created_at).getTime()) / (1000 * 60 * 60)
+      );
+      return hours < 1
+        ? `Updated just now by ${name}`
+        : `Updated ${hours}h ago by ${name}`;
+    }
+
+    return `${count} surfers confirmed conditions today`;
+  }, [posts]);
+
   // Filter posts by tag and ensure coordinates are numbers
   const filteredPosts = (
     selectedTag === "all"
@@ -326,6 +366,11 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
               <p className="text-sm text-muted-foreground mt-1">
                 Real-time updates from the surf community
               </p>
+              {socialProofLine && (
+                <p className="text-xs text-muted-foreground mt-0.5" data-testid="intel-social-proof">
+                  {socialProofLine}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               {/* View Mode Toggle */}

@@ -173,6 +173,11 @@ export async function computeUserPreferences(
 
     console.log(`✅ Computed preferences for user ${userId} (${goodSessions.length} sessions)`);
 
+    // Fire-and-forget milestone check after preferences are computed
+    import('@/lib/services/personalization-milestone-service')
+      .then(({ checkAndRecordMilestones }) => checkAndRecordMilestones(userId))
+      .catch(() => {});
+
     return preferences;
   } catch (error) {
     console.error(`Error computing preferences for user ${userId}:`, error);

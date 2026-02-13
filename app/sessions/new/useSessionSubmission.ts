@@ -22,6 +22,8 @@ interface UseSessionSubmissionOptions {
   user: { id: string } | null;
   reviewPrompt: ReturnType<typeof import("@/hooks/use-review-prompt").useReviewPrompt>;
   convertSessionId?: string | null;
+  /** When true, skip post-submission modals (feedback, review) and go straight to celebration. */
+  quick?: boolean;
 }
 
 /**
@@ -83,6 +85,7 @@ export function useSessionSubmission({
   user,
   reviewPrompt,
   convertSessionId,
+  quick,
 }: UseSessionSubmissionOptions) {
   const router = useRouter();
 
@@ -475,6 +478,12 @@ export function useSessionSubmission({
         });
 
         toast.success("Session logged successfully!");
+      }
+
+      // Quick mode: skip all post-submission modals and go straight to celebration
+      if (quick) {
+        startCelebrationAndRedirect(mode);
+        return;
       }
 
       // Log sessions: capture actual conditions before celebrating/redirecting.
