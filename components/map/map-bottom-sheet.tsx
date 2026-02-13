@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { SidebarBeachCard } from "@/components/map/sidebar-beach-card";
-import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
-import type { Coordinates } from "@/lib/types/coordinates";
+import { useBeachListState } from "@/hooks/use-beach-list-state";
 import type { Beach } from "@/types/database";
 
-const SNAP_POINTS = [0.1, 0.4, 0.9] as const;
+const SNAP_POINTS: number[] = [0.1, 0.4, 0.9];
 const PEEK_SNAP = SNAP_POINTS[0];
 
 export interface MapBottomSheetProps {
@@ -32,43 +31,13 @@ export function MapBottomSheet({
   onBeachSelect,
 }: MapBottomSheetProps) {
   const [activeSnapPoint, setActiveSnapPoint] = useState<
-    (typeof SNAP_POINTS)[number]
+    number | string | null
   >(PEEK_SNAP);
-  const cardRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
-
-  // Auto-scroll to selected beach card when in expanded states
-  useEffect(() => {
-    if (!selectedBeach) return;
-    const el = cardRefsMap.current.get(selectedBeach.id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [selectedBeach?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const setCardRef = useCallback(
-    (beachId: string, el: HTMLDivElement | null) => {
-      if (el) {
-        cardRefsMap.current.set(beachId, el);
-      } else {
-        cardRefsMap.current.delete(beachId);
-      }
-    },
-    []
+  const { setCardRef, distanceMap } = useBeachListState(
+    beaches,
+    selectedBeach,
+    userLocation
   );
-
-  // Pre-compute distances (same pattern as MapSidebar)
-  const distanceMap = useMemo(() => {
-    if (!userLocation) return null;
-    const from: Coordinates = { lat: userLocation.lat, lon: userLocation.lon };
-    const map = new Map<string, string>();
-    for (const beach of beaches) {
-      if (Number.isFinite(beach.lat) && Number.isFinite(beach.lon)) {
-        const to: Coordinates = { lat: beach.lat, lon: beach.lon };
-        map.set(beach.id, calculateDistanceFormatted(from, to, "miles"));
-      }
-    }
-    return map;
-  }, [userLocation, beaches]);
 
   // When a beach card is tapped, select it and snap back to peek
   const handleBeachSelect = useCallback(
@@ -86,9 +55,9 @@ export function MapBottomSheet({
     <DrawerPrimitive.Root
       open={true}
       modal={false}
-      snapPoints={SNAP_POINTS as unknown as number[]}
+      snapPoints={SNAP_POINTS}
       activeSnapPoint={activeSnapPoint}
-      setActiveSnapPoint={setActiveSnapPoint as (snap: string | number | null) => void}
+      setActiveSnapPoint={setActiveSnapPoint}
       dismissible={false}
       shouldScaleBackground={false}
     >
