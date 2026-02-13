@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Video, ChevronLeft } from "lucide-react";
+import { Video } from "lucide-react";
 
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import {
@@ -15,6 +15,14 @@ import { CamSchema } from "@/components/seo/cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +49,7 @@ export async function generateMetadata({
     title: `Live Surf Cams in ${region.name} - ${camCount} Free Cameras`,
     description: `Watch ${camCount} free live surf cams in ${region.name}. ${region.description} No paywall, no sign-up.`,
     path: `/cams/${regionSlug}`,
+    image: `/api/og/cams?region=${encodeURIComponent(regionSlug)}&name=${encodeURIComponent(region.name)}`,
     keywords: [
       `${region.name} surf cam`,
       `${region.name} beach cam`,
@@ -86,17 +95,37 @@ export default async function CamsRegionPage({ params }: PageProps) {
       />
       <CamSchema beaches={regionBeaches} />
 
+      {/* Visible breadcrumbs */}
+      <div className="px-4 pt-6 md:pt-8">
+        <div className="mx-auto max-w-6xl">
+          <Breadcrumb>
+            <BreadcrumbList className="text-sm">
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild className="text-gray-500 hover:text-gray-700">
+                  <Link href="/">Home</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-gray-400" />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild className="text-gray-500 hover:text-gray-700">
+                  <Link href="/cams">Live Surf Cams</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-gray-400" />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-gray-700">
+                  {region.name}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </div>
+
       {/* Hero */}
-      <div className="px-4 pb-8 pt-16 md:pt-24">
+      <div className="px-4 pb-8 pt-8 md:pt-16">
         <ScrollReveal variant="fadeUp">
           <div className="mx-auto max-w-4xl text-center">
-            <Link
-              href="/cams"
-              className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ocean-blue hover:underline"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              All Surf Cams
-            </Link>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-ocean-blue/10 px-4 py-1.5 text-sm font-medium text-ocean-blue">
               <Video className="h-4 w-4" />
               <span>{regionBeaches.length} Live Cameras</span>

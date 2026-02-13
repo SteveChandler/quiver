@@ -1,6 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin } from "lucide-react";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 
 interface CamCardProps {
@@ -8,6 +13,10 @@ interface CamCardProps {
 }
 
 export function CamCard({ beach }: CamCardProps) {
+  const thumbnailUrl = getCamThumbnailUrl(beach.camera_url);
+  const [imgError, setImgError] = useState(false);
+  const showThumbnail = thumbnailUrl && !imgError;
+
   const beachUrl = buildBeachUrl({
     slug: beach.slug,
     city: beach.city,
@@ -20,30 +29,49 @@ export function CamCard({ beach }: CamCardProps) {
       className="group block overflow-hidden rounded-2xl border border-blue-100/60 bg-white/95 shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
     >
       {/* Camera preview area */}
-      <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-blue-900 via-blue-700 to-cyan-600">
-        {/* Wave pattern overlay */}
-        <svg
-          className="absolute bottom-0 left-0 w-full h-12 opacity-20"
-          viewBox="0 0 1440 120"
-          preserveAspectRatio="none"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M0,60L60,65C120,70,240,80,360,75C480,70,600,50,720,45C840,40,960,50,1080,60C1200,70,1320,80,1380,85L1440,90L1440,120L0,120Z"
-            fill="white"
-            fillOpacity="0.15"
-          />
-        </svg>
+      <div className="relative h-40 overflow-hidden">
+        {showThumbnail ? (
+          <>
+            <Image
+              src={thumbnailUrl}
+              alt={`${beach.name} live camera`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              unoptimized
+              onError={() => setImgError(true)}
+            />
+            {/* Dark gradient overlay at bottom for beach name readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          </>
+        ) : (
+          /* Gradient placeholder fallback */
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-900 via-blue-700 to-cyan-600">
+            {/* Wave pattern overlay */}
+            <svg
+              className="absolute bottom-0 left-0 w-full h-12 opacity-20"
+              viewBox="0 0 1440 120"
+              preserveAspectRatio="none"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M0,60L60,65C120,70,240,80,360,75C480,70,600,50,720,45C840,40,960,50,1080,60C1200,70,1320,80,1380,85L1440,90L1440,120L0,120Z"
+                fill="white"
+                fillOpacity="0.15"
+              />
+            </svg>
+          </div>
+        )}
 
         {/* LIVE badge */}
-        <span className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+        <span className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-white" />
           LIVE
         </span>
 
         {/* Beach name overlay */}
-        <span className="relative z-10 px-4 text-center font-roboto text-lg font-bold text-white drop-shadow-md">
+        <span className="absolute bottom-3 left-0 right-0 z-10 px-4 text-center font-roboto text-lg font-bold text-white drop-shadow-md">
           {beach.name}
         </span>
       </div>

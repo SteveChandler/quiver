@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Internal Link Density in SEO Content** - City and state listing pages now render beach/city names as internal links in auto-generated summaries and FAQs. New `RichContent` type system with `RichContentRenderer` component and `linkFirstMentions()` utility. Backward-compatible — original plain-text generators unchanged.
 - **Embed Widget Promotion Pages** - New `/for-surf-schools` and `/for-businesses` pages promoting free embed widgets. Dark hero with mock browser preview, 3-column value props, interactive embed generator with beach selector and widget type toggle, copy-to-clipboard code block, and ocean gradient CTA. Added to sitemap.
 - **Surf Cam Directory Pages** - New `/cams` hub page and `/cams/[region]` regional pages showcasing 91 free live surf cams across 8 regions. Cards link to beach detail pages with LIVE badges. Includes VideoObject schema, breadcrumb structured data, region quick-nav, nearby regions cross-linking, and sitemap entries. Competitive moat against Surfline's paywall.
+- **Surf Cam OG Images & Share Button** - New `/api/og/cams` Edge route generates 1200x630 OG images for cam pages (default and region-specific variants with query params). Added `CamsShareButton` client component to `/cams` page with native Web Share API support and clipboard fallback. Both hub and regional pages now include proper OG image metadata.
 
 ### Fixed
 
