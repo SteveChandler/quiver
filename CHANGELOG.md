@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Beach Coordinate Snapping Script** - New `scripts/snap-beaches-to-coastline.ts` utility that verifies beach coordinates using Mapbox reverse geocoding and generates SQL migration files for beaches with significant deviations (>50m). Supports dry-run mode, verbose logging, and limit flag for testing. Rate-limited to respect Mapbox API limits.
 - **ChunkLoadError Auto-Reload** - Global handler that detects stale JS chunk errors after Vercel deployments and auto-reloads the page (max 2 retries per session) to fetch fresh assets. New `chunk_load` error category in error boundaries.
 - **HLS Live Cam Player** - New `HLSVideoPlayer` component with `hls.js` for inline playback of HLS (.m3u8) streams. Enables 6 existing Surfchex East Coast cams that previously couldn't render. Native Safari HLS support, dynamic code-split hls.js for Chrome/Firefox.
 - **HLS Proxy for Surfline Streams** - Server-side proxy at `/api/hls-proxy/[...path]` bypasses Surfline's CORS restrictions. Strict hostname whitelist (SSRF prevention), rate-limited, with structured monitoring logs for bandwidth tracking. Replaced 3 dead SurfOutlook camera URLs with Surfline HLS streams (Blacks, Tourmaline, C-Street) and added 4 new Surfline cams (Windansea, Sunset Cliffs).
