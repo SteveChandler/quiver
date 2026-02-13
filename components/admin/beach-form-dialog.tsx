@@ -7,9 +7,10 @@
  * Uses react-hook-form with Zod validation and shadcn/ui components.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import mapboxgl from "mapbox-gl";
 import { Loader2 } from "lucide-react";
 
 import {
@@ -35,6 +36,121 @@ import {
 } from "@/lib/validation/admin/beach-schema";
 import type { Beach } from "@/types/database";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+
+// ---------------------------------------------------------------------------
+// PinEditor - draggable map marker for precise coordinate placement
+// ---------------------------------------------------------------------------
+
+function PinEditor({
+  latitude,
+  longitude,
+  onPositionChange,
+}: {
+  latitude: number | null;
+  longitude: number | null;
+  onPositionChange: (lat: number, lon: number) => void;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+
+  const hasCoords =
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    !Number.isNaN(latitude) &&
+    !Number.isNaN(longitude);
+
+  // Stable callback ref so the marker dragend handler never goes stale
+  const onPositionChangeRef = useRef(onPositionChange);
+  useEffect(() => {
+    onPositionChangeRef.current = onPositionChange;
+  }, [onPositionChange]);
+
+  // Create / destroy the map
+  useEffect(() => {
+    if (!hasCoords || !mapContainerRef.current) return;
+
+    mapboxgl.accessToken =
+      process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/satellite-streets-v12",
+      center: [longitude!, latitude!],
+      zoom: 15,
+      attributionControl: false,
+    });
+
+    const marker = new mapboxgl.Marker({
+      draggable: true,
+      color: "#3b82f6", // blue-500
+    })
+      .setLngLat([longitude!, latitude!])
+      .addTo(map);
+
+    marker.on("dragend", () => {
+      const lngLat = marker.getLngLat();
+      onPositionChangeRef.current(
+        parseFloat(lngLat.lat.toFixed(6)),
+        parseFloat(lngLat.lng.toFixed(6))
+      );
+    });
+
+    mapRef.current = map;
+    markerRef.current = marker;
+
+    return () => {
+      marker.remove();
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+    // We intentionally only run on mount / when coordinates become available.
+    // The marker position is synced via the separate effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCoords]);
+
+  // Keep marker + map center in sync when the form inputs change externally
+  const syncMarker = useCallback(() => {
+    if (
+      !mapRef.current ||
+      !markerRef.current ||
+      typeof latitude !== "number" ||
+      typeof longitude !== "number"
+    )
+      return;
+
+    const current = markerRef.current.getLngLat();
+    if (
+      Math.abs(current.lat - latitude) > 0.000001 ||
+      Math.abs(current.lng - longitude) > 0.000001
+    ) {
+      markerRef.current.setLngLat([longitude, latitude]);
+      mapRef.current.flyTo({ center: [longitude, latitude], duration: 400 });
+    }
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    syncMarker();
+  }, [syncMarker]);
+
+  if (!hasCoords) {
+    return (
+      <div className="flex h-[250px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+        Set coordinates above to enable pin editor
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={mapContainerRef}
+      className="h-[250px] w-full rounded-md border"
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 interface BeachFormDialogProps {
   open: boolean;
@@ -184,6 +300,15 @@ export function BeachFormDialog({
                   placeholder="e.g., -118.7798"
                 />
               </div>
+
+              <PinEditor
+                latitude={form.watch("latitude") ?? null}
+                longitude={form.watch("longitude") ?? null}
+                onPositionChange={(lat, lon) => {
+                  form.setValue("latitude", lat, { shouldDirty: true });
+                  form.setValue("longitude", lon, { shouldDirty: true });
+                }}
+              />
             </div>
 
             {/* Beach Characteristics */}
