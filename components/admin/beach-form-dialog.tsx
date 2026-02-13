@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import mapboxgl from "mapbox-gl";
 import { Loader2 } from "lucide-react";
@@ -42,14 +42,15 @@ import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 // ---------------------------------------------------------------------------
 
 function PinEditor({
-  latitude,
-  longitude,
+  control,
   onPositionChange,
 }: {
-  latitude: number | null;
-  longitude: number | null;
+  control: Control<BeachFormData>;
   onPositionChange: (lat: number, lon: number) => void;
 }) {
+  const latitude = useWatch({ control, name: "latitude" }) ?? null;
+  const longitude = useWatch({ control, name: "longitude" }) ?? null;
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -302,8 +303,7 @@ export function BeachFormDialog({
               </div>
 
               <PinEditor
-                latitude={form.watch("latitude") ?? null}
-                longitude={form.watch("longitude") ?? null}
+                control={form.control as Control<BeachFormData>}
                 onPositionChange={(lat, lon) => {
                   form.setValue("latitude", lat, { shouldDirty: true });
                   form.setValue("longitude", lon, { shouldDirty: true });
