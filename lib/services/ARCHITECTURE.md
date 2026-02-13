@@ -17,6 +17,7 @@ lib/services/
 ├── noaa-coops-service.ts                     # NOAA CO-OPS tide data service
 ├── noaa-sync.ts                              # NOAA buoy station synchronization
 ├── noaa-wavewatch-service.ts                 # NOAA WaveWatch III wave data
+├── personalization-milestone-service.ts      # User milestone detection and recording
 ├── personalized-scoring-service.ts           # User preference scoring
 ├── preference-learning-service.ts            # User preference learning (explicit)
 └── surf-discovery-service.ts                 # Beach discovery and recommendations
@@ -43,7 +44,8 @@ ExternalServices
 │   ├── Surf Discovery Service (Beach recommendations)
 │   ├── Personalized Scoring (Preference-based scoring)
 │   ├── Preference Learning (Session history analysis)
-│   └── Implicit Preferences (Behavioral signal learning)
+│   ├── Implicit Preferences (Behavioral signal learning)
+│   └── Personalization Milestones (Achievement tracking)
 ├── Maintenance Services
 │   ├── Buoy Station Synchronization
 │   ├── Inactive Buoy Cleanup
@@ -707,6 +709,35 @@ This ensures graceful handoff from implicit (new users) to explicit (power users
 - Events captured via `POST /api/events` with privacy gatekeeper
 - `useTrackEvent` React hook provides debounced client-side capture
 - Integrated into `scoreBeachForUser` and `scoreBeachesForUser` functions
+
+### **PersonalizationMilestoneService** (Achievement Tracking)
+
+- **Purpose**: Detects and records personalization milestones to gamify onboarding and encourage engagement
+- **Service Location**: `lib/services/personalization-milestone-service.ts`
+- **Main Export**: `checkAndRecordMilestones(userId: string): Promise<NewMilestone[]>`
+- **Call Pattern**: Fire-and-forget by session actions, intel actions, preference learning cron
+- **Features**:
+  - Fetches user state from multiple tables in parallel (4 concurrent queries)
+  - Compares against 9 milestone definitions from `lib/constants/personalization-milestones.ts`
+  - Inserts via service role client with UNIQUE constraint protection (ON CONFLICT DO NOTHING)
+  - Graceful degradation for missing tables (intel_confirmations fallback)
+
+**9 Milestones:**
+- `first_session_logged` - 1+ rated session
+- `first_intel_posted` - 1+ intel post
+- `wave_range_learned` - wave_min_ft is non-null
+- `wind_pref_learned` - max_wind_mph is non-null
+- `time_slot_detected` - any implicit time slot weight > 0.4
+- `home_turf_established` - 3+ top engaged beach IDs
+- `intel_confirmed_5x` - 5+ total confirmations on user's intel
+- `local_authority` - 10+ intel posts at same beach
+- `fully_personalized` - all 3 layers (learned + implicit + activity) + confidence > 0.7
+
+**Related:**
+- `personalization_milestones` table (UNIQUE constraint on user_id + milestone_key)
+- `use-personalization-milestones` hook (client-side fetching and optimistic updates)
+- Milestone constants and metadata in `lib/constants/personalization-milestones.ts`
+- UI components: `PersonalizationProgress` (home screen), `FirstSessionCTA` (nudge)
 
 ### **SimilarityInsightsService** (ML-Powered Session Matching)
 
