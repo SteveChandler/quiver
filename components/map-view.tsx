@@ -56,7 +56,6 @@ export function MapView() {
     searchQuery,
     selectedBeach,
     beaches,
-    nearbyBeachesForScroll,
     regions,
     activeRegion,
     filters,
@@ -125,6 +124,7 @@ export function MapView() {
     (beach: Beach) => {
       setSelectedBeach(beach);
       // Load beaches near the selected beach (not user location)
+      // NOTE: This was used for NearbyBeachScroll component (removed). Kept for potential future use.
       loadNearbyBeachesForSelected(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
