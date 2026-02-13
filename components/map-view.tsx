@@ -14,10 +14,12 @@ import { MapSidebar } from "@/components/map/map-sidebar";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Beach } from "@/types/database";
 
 export function MapView() {
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
@@ -309,16 +311,18 @@ export function MapView() {
       {/* Content */}
       {viewMode === "map" ? (
         <div className="flex-1 flex flex-col md:flex-row min-h-0">
-          {/* Desktop sidebar - hidden on mobile */}
-          <div className="hidden md:flex w-[380px] shrink-0 border-r">
-            <MapSidebar
-              beaches={viewportBeaches}
-              waveHeightMap={waveHeightMap}
-              selectedBeach={selectedBeach}
-              userLocation={userLocation}
-              onBeachSelect={handleBeachSelect}
-            />
-          </div>
+          {/* Desktop sidebar (JS-conditional: portal-based Drawer can't be hidden via CSS) */}
+          {!isMobile && (
+            <div className="flex w-[380px] shrink-0 border-r">
+              <MapSidebar
+                beaches={viewportBeaches}
+                waveHeightMap={waveHeightMap}
+                selectedBeach={selectedBeach}
+                userLocation={userLocation}
+                onBeachSelect={handleBeachSelect}
+              />
+            </div>
+          )}
 
           {/* Map fills remaining space */}
           <div className="flex-1 relative min-h-0 flex flex-col">
@@ -340,17 +344,17 @@ export function MapView() {
             />
 
             {/* Mobile: Selected Beach Quick View */}
-            <div className="md:hidden">
+            {isMobile && (
               <SelectedBeachCard
                 selectedBeach={selectedBeach}
                 getDistanceFromUser={getDistanceFromUser}
                 userLocation={userLocation}
               />
-            </div>
+            )}
           </div>
 
-          {/* Mobile bottom sheet - hidden on desktop */}
-          <div className="md:hidden">
+          {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
+          {isMobile && (
             <MapBottomSheet
               beaches={viewportBeaches}
               waveHeightMap={waveHeightMap}
@@ -358,7 +362,7 @@ export function MapView() {
               userLocation={userLocation}
               onBeachSelect={handleBeachSelect}
             />
-          </div>
+          )}
         </div>
       ) : (
         <BeachList
