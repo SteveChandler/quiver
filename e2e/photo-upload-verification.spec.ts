@@ -25,76 +25,18 @@ test.describe("Photo Upload E2E Verification", () => {
   });
 
   // TODO: Test drift - photo upload section UI changed
-  test.skip("should have photo upload section visible", async ({ page }) => {
-    // Check for photo upload section heading
-    await expect(page.getByText("Session Photos")).toBeVisible();
-
-    // Check for upload button (when user owns the session)
-    const addPhotosButton = page.getByRole("button", {
-      name: /Add (More )?Photos/i,
-    });
-    await expect(addPhotosButton).toBeVisible({ timeout: 10000 });
+  test("should have photo upload section visible", async ({ page }) => {
+    throw new Error('Not implemented: Photo upload section UI changed - selectors need updating to match current implementation');
   });
 
   // TODO: Test drift - file input selectors changed
-  test.skip("should accept file upload programmatically", async ({ page }) => {
-    // Create a test image file
-    const testImagePath = path.join(__dirname, "test-image.jpg");
-
-    // Create a simple 1x1 pixel JPEG if it doesn't exist
-    if (!fs.existsSync(testImagePath)) {
-      // Minimal valid JPEG file (1x1 pixel)
-      const minimalJPEG = Buffer.from([
-        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
-        0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43,
-        0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
-        0x09, 0x08, 0x0a, 0x0c, 0x14, 0x0d, 0x0c, 0x0b, 0x0b, 0x0c, 0x19, 0x12,
-        0x13, 0x0f, 0x14, 0x1d, 0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c, 0x20,
-        0x24, 0x2e, 0x27, 0x20, 0x22, 0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29,
-        0x2c, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32,
-        0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x01,
-        0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xff, 0xc4, 0x00, 0x14, 0x00, 0x01,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x03, 0xff, 0xc4, 0x00, 0x14, 0x10, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00,
-        0x37, 0xff, 0xd9,
-      ]);
-      fs.writeFileSync(testImagePath, minimalJPEG);
-    }
-
-    // Find the hidden file input in the session photos section
-    const fileInput = page
-      .locator('div:has(> h3:has-text("Session Photos"))')
-      .locator('input[type="file"]');
-    await expect(fileInput).toBeAttached();
-
-    // Upload the file
-    await fileInput.setInputFiles(testImagePath);
-
-    // Wait for file to be processed
-    await page.waitForTimeout(1000);
-
-    // Look for file selection confirmation
-    const selectedText = page.getByText(/\d+ photo\(s\) selected/i);
-    await expect(selectedText).toBeVisible({ timeout: 5000 });
-
-    // Check for Upload button
-    const uploadButton = page.getByRole("button", { name: /Upload/i });
-    await expect(uploadButton).toBeVisible();
-    await expect(uploadButton).toBeEnabled();
+  test("should accept file upload programmatically", async ({ page }) => {
+    throw new Error('Not implemented: File input selectors changed - need to update locators to match current photo upload UI');
   });
 
   // TODO: Test drift - upload button name/selector changed
-  test.skip("should show upload button for session owner", async ({ page }) => {
-    // Session owners should see upload UI
-    await expect(page.getByText("Session Photos")).toBeVisible();
-
-    // Check for upload button
-    const addPhotosButton = page.getByRole("button", {
-      name: /Add (More )?Photos/i,
-    });
-    await expect(addPhotosButton).toBeVisible();
+  test("should show upload button for session owner", async ({ page }) => {
+    throw new Error('Not implemented: Upload button name/selector changed - need to update to match current photo upload UI component');
   });
 
   test.describe("Infrastructure Verification", () => {

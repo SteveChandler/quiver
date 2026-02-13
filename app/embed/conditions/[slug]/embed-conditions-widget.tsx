@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEmbedImpression } from "@/hooks/use-embed-impression";
 
 export interface ConditionData {
   waveHeight?: string | null;
@@ -50,18 +50,7 @@ export function EmbedConditionsWidget({
   conditions,
   theme,
 }: EmbedConditionsWidgetProps) {
-  const hasTracked = useRef(false);
-
-  useEffect(() => {
-    if (hasTracked.current) return;
-    hasTracked.current = true;
-    fetch('/api/embed-impressions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ widgetType: 'conditions', beachSlug: slug }),
-      keepalive: true,
-    }).catch((e) => { if (process.env.NODE_ENV === 'development') console.warn('[Embed] impression tracking failed:', e); });
-  }, [slug]);
+  useEmbedImpression("conditions", slug);
 
   const isDark = theme === "dark";
   const hasData = Object.values(conditions).some(Boolean);

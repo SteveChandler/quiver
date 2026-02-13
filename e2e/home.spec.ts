@@ -1290,7 +1290,7 @@ test.describe('Home Page - Welcome Section', () => {
     }
 
     if (!clicked) {
-      test.skip();
+      throw new Error('Not implemented: session log CTA not found on home page');
     }
   });
 });

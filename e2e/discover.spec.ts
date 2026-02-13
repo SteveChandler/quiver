@@ -78,8 +78,7 @@ test.describe('Discover Page - Authenticated', () => {
     const hasSuggestedHeading = await suggestedHeading.isVisible().catch(() => false);
 
     if (!hasSuggestedHeading) {
-      test.skip(true, 'Suggested users section not found - may not be implemented');
-      return;
+      throw new Error('Not implemented: Suggested users section not found - may not be implemented');
     }
 
     await expect(suggestedHeading).toBeVisible();
@@ -141,8 +140,7 @@ test.describe('Discover Page - Authenticated', () => {
       const buttonCount = await followButtons.count();
       expect(buttonCount).toBeGreaterThan(0);
     } else {
-      // No results is also valid
-      test.skip(true, 'No search results found - skipping results test');
+      throw new Error('Not implemented: Search results display - search does not return or display results');
     }
   });
 
@@ -159,7 +157,7 @@ test.describe('Discover Page - Authenticated', () => {
     const hasButtons = (await viewProfileButtons.count()) > 0;
 
     if (!hasButtons) {
-      test.skip(true, 'No search results with profile buttons');
+      throw new Error('Not implemented: View profile buttons - search results do not show profile buttons');
     }
   });
 
@@ -175,7 +173,10 @@ test.describe('Discover Page - Authenticated', () => {
     const viewProfileButton = page.getByRole('button', { name: /view profile/i }).first();
     const hasButton = await viewProfileButton.isVisible().catch(() => false);
 
-    
+    if (!hasButton) {
+      throw new Error('Not implemented: View profile modal - search results missing view profile buttons');
+    }
+
 
     // Click view profile
     await viewProfileButton.click();
@@ -214,7 +215,7 @@ test.describe('Discover Page - Guest', () => {
       // If search is visible, the page might just show the UI without explicit sign-in prompt
       // which is also valid for a guest view
       if (hasSearch) {
-        test.skip(true, 'Page shows UI without explicit sign-in prompt - guest can browse');
+        throw new Error('Not implemented: Guest sign-in prompt - page shows UI without requiring authentication for guests');
       }
     }
   });
@@ -276,7 +277,7 @@ test.describe('Discover Page - Follow Functionality', () => {
     const count = await followButtons.count();
 
     if (count === 0) {
-      test.skip(true, 'No follow buttons found - no search results');
+      throw new Error('Not implemented: Follow buttons in search results - no follow buttons found');
     }
   });
 
@@ -296,8 +297,7 @@ test.describe('Discover Page - Follow Functionality', () => {
     const hasButton = await followButton.isVisible().catch(() => false);
 
     if (!hasButton) {
-      test.skip(true, 'No follow buttons found');
-      return;
+      throw new Error('Not implemented: Follow user functionality - no follow buttons found in search results');
     }
 
     // Click follow

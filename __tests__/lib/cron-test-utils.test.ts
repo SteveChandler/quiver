@@ -140,14 +140,6 @@ describe("Cron Test Utilities", () => {
       expect(request.headers.get("authorization")).toBe("Bearer my-secret");
     });
 
-    it("creates request with Vercel user-agent auth", () => {
-      const request = createMockCronRequest("/api/cron/test", {
-        authMethod: "vercel-ua",
-      });
-
-      expect(request.headers.get("user-agent")).toBe("vercel-cron/1.0");
-    });
-
     it("creates request with no auth", () => {
       const request = createMockCronRequest("/api/cron/test", {
         authMethod: "none",
@@ -219,15 +211,6 @@ describe("Cron Test Utilities", () => {
     it("validates request with vercel-header auth", () => {
       const request = createMockCronRequest("/api/cron/test", {
         authMethod: "vercel-header",
-      });
-
-      const isValid = validateCronRequest(request);
-      expect(isValid).toBe(true);
-    });
-
-    it("validates request with vercel-ua auth", () => {
-      const request = createMockCronRequest("/api/cron/test", {
-        authMethod: "vercel-ua",
       });
 
       const isValid = validateCronRequest(request);

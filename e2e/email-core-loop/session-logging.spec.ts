@@ -81,13 +81,13 @@ test.describe('Session Logging', () => {
   // 2. Dev server running from this worktree (not main)
   test.beforeEach(async ({ page }) => {
     if (!isEmailTokenTestingAvailable()) {
-      test.skip(true, 'EMAIL_TOKEN_SECRET not configured - skipping tests that need valid tokens');
+      throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured - skipping tests that need valid tokens');
     }
 
     // Check if the route is available (dev server must be running from this worktree)
     const routeAvailable = await isSessionLogRouteAvailable(page);
     if (!routeAvailable) {
-      test.skip(true, 'Session log route not available - dev server must run from email-core-loop worktree');
+      throw new Error('Not implemented: Session log route not available - dev server must run from email-core-loop worktree');
     }
   });
 

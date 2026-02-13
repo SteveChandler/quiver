@@ -6,7 +6,7 @@ The `beach-to-surfspot-transformer` utility transforms `BeachWithMetrics` object
 
 This transformer is CRITICAL for coordinate mapping because:
 - The database stores beaches with `lat` and `lon` coordinates
-- The `SurfSpot` interface (used by map components) expects `coordinates.lng`
+- The `SurfSpot` interface (used by map components) expects `coordinates.lon`
 - Without proper transformation, map markers will appear in incorrect locations
 
 ## The Coordinate Problem
@@ -16,7 +16,7 @@ This transformer is CRITICAL for coordinate mapping because:
 The Quiver codebase has evolved coordinate naming conventions:
 - **Database**: Uses `lat` and `lon` (following PostGIS standards for new tables)
 - **Legacy Database**: Uses `center_lat` and `center_lng` (older PostGIS naming)
-- **Map Components**: Expect `SurfSpot` objects with `coordinates.lat` and `coordinates.lng`
+- **Map Components**: Expect `SurfSpot` objects with `coordinates.lat` and `coordinates.lon`
 
 ### Critical Mapping
 
@@ -88,7 +88,7 @@ const surfSpot = transformBeachToSurfSpot(beach);
 | `slug` | `slug` | Direct copy |
 | `name` | `name` | Direct copy |
 | `lat` | `coordinates.lat` | Direct copy |
-| `lon` | `coordinates.lng` | **CRITICAL: lon → lng** |
+| `lon` | `coordinates.lon` | **CRITICAL: lon → lng** |
 | `city` | `citySlug` | Derived via `deriveCitySlug()` |
 | `region` | `region` | Direct copy (fallback to `{city}, {state}`) |
 | `description` | `overview` | Direct copy (fallback: "No description available.") |
@@ -409,7 +409,7 @@ async function getValidBeachesForMap(citySlug: string) {
 
 **WRONG - Don't do this:**
 ```typescript
-// ❌ WRONG: Map component expects coordinates.lng, but beach has lon
+// ❌ WRONG: Map component expects coordinates.lon, but beach has lon
 <CityMapView spots={beaches} />
 
 // This will cause map markers to appear in wrong locations or fail to render
@@ -465,7 +465,7 @@ const surfSpot = transformBeachToSurfSpot(beach);
 ```typescript
 // ❌ WRONG: Modifying the transformed object can break type safety
 const surfSpot = transformBeachToSurfSpot(beach);
-surfSpot.coordinates.lng = beach.lon; // Already done correctly by transformer!
+surfSpot.coordinates.lon = beach.lon; // Already done correctly by transformer!
 ```
 
 **CORRECT:**

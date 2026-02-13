@@ -26,7 +26,7 @@ const isDevEnvironment =
 test.describe("Personalization Activation - Favorites", () => {
   test.beforeEach(async ({ page }) => {
     if (isDevEnvironment) {
-      test.skip(true, "Personalization tests require local environment with seeded data");
+      throw new Error('Not implemented: Personalization tests - requires local environment with seeded personalization data');
     }
     await ensureAuthenticated(page);
   });
@@ -51,8 +51,7 @@ test.describe("Personalization Activation - Favorites", () => {
     const cardCount = await spotCards.count();
 
     if (cardCount === 0) {
-      test.skip(true, "No spot cards displayed on home screen");
-      return;
+      throw new Error('Not implemented: Spot cards display - no compact spot cards displayed on home screen');
     }
 
     // Look for favorite heart badges
@@ -94,8 +93,7 @@ test.describe("Personalization Activation - Favorites", () => {
     const heartVisible = await favoriteHeart.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!heartVisible) {
-      test.skip(true, "No favorite beaches in carousel to test");
-      return;
+      throw new Error('Not implemented: Favorite beaches in carousel - no favorite heart badges visible to test interaction');
     }
 
     // Get the parent card
@@ -125,8 +123,7 @@ test.describe("Personalization Activation - Favorites", () => {
     const cardCount = await spotCards.count();
 
     if (cardCount === 0) {
-      test.skip(true, "No spot cards displayed");
-      return;
+      throw new Error('Not implemented: Non-favorite spot cards - no spot cards displayed to verify absence of heart badges');
     }
 
     const favoriteHearts = page.locator('[data-testid="favorite-heart"]');
@@ -141,7 +138,7 @@ test.describe("Personalization Activation - Favorites", () => {
 test.describe("Personalization Activation - Surf Style Profile Card", () => {
   test.beforeEach(async ({ page }) => {
     if (isDevEnvironment) {
-      test.skip(true, "Personalization tests require local environment with seeded data");
+      throw new Error('Not implemented: Personalization tests - requires local environment with seeded personalization data');
     }
     await ensureAuthenticated(page);
   });
@@ -188,8 +185,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
     const cardVisible = await surfStyleCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, "Surf style card not visible");
-      return;
+      throw new Error('Not implemented: Surf style card - surf style card not visible on profile page');
     }
 
     // Look for wave range pattern (e.g., "3-6ft waves")
@@ -225,8 +221,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
     const cardVisible = await surfStyleCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, "Surf style card not visible");
-      return;
+      throw new Error('Not implemented: Surf style card - surf style card not visible on profile page');
     }
 
     // Check for progress message
@@ -419,7 +414,7 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
 test.describe("Personalization Activation - Analytics Events", () => {
   test.beforeEach(async ({ page }) => {
     if (isDevEnvironment) {
-      test.skip(true, "Personalization tests require local environment");
+      throw new Error('Not implemented: Personalization analytics/responsive - requires local environment with seeded data');
     }
     await ensureAuthenticated(page);
   });
@@ -475,7 +470,7 @@ test.describe("Personalization Activation - Analytics Events", () => {
 test.describe("Personalization Activation - Responsive Design", () => {
   test.beforeEach(async ({ page }) => {
     if (isDevEnvironment) {
-      test.skip(true, "Personalization tests require local environment");
+      throw new Error('Not implemented: Personalization analytics/responsive - requires local environment with seeded data');
     }
     await ensureAuthenticated(page);
   });

@@ -72,7 +72,7 @@ test.describe('Session Wizard - Plan Mode', () => {
         await beachOption.click();
       }
     } else {
-      test.skip(true, 'Beach input not found - may have different UI');
+      throw new Error('Not implemented: Beach input not found - may have different UI');
     }
   });
 
@@ -90,7 +90,7 @@ test.describe('Session Wizard - Plan Mode', () => {
     const hasTime = await timeInput.isVisible().catch(() => false);
 
     if (!hasDate && !hasTime) {
-      test.skip(true, 'Date/time inputs not found - may be in different step');
+      throw new Error('Not implemented: Date/time inputs not found - may be in different step');
     }
   });
 
@@ -115,7 +115,7 @@ test.describe('Session Wizard - Plan Mode', () => {
 
     // At least one way to exit the wizard should exist
     if (!hasCancel && !hasBack && !hasClose && !hasBackLink) {
-      test.skip(true, 'Cancel/back button not found - wizard may auto-handle navigation');
+      throw new Error('Not implemented: Cancel/back button not found - wizard may auto-handle navigation');
     } else {
       expect(hasCancel || hasBack || hasClose || hasBackLink).toBe(true);
     }
@@ -179,7 +179,7 @@ test.describe('Session Wizard - Log Mode', () => {
 
     // Ratings might be on a later step
     if (count === 0) {
-      test.skip(true, 'Rating fields not visible on first step - may be multi-step wizard');
+      throw new Error('Not implemented: Rating fields not visible on first step - may be multi-step wizard');
     }
   });
 
@@ -250,8 +250,7 @@ test.describe('Session Wizard - Complete Flow', () => {
     const hasBeachInput = await beachInput.isVisible().catch(() => false);
 
     if (!hasBeachInput) {
-      test.skip(true, 'Cannot complete flow - beach selection not found');
-      return;
+      throw new Error('Not implemented: Cannot complete flow - beach selection not found');
     }
 
     // Fill beach
@@ -264,8 +263,7 @@ test.describe('Session Wizard - Complete Flow', () => {
     if (hasOption) {
       await beachOption.click();
     } else {
-      test.skip(true, 'Beach selection not working as expected');
-      return;
+      throw new Error('Not implemented: Beach selection not working as expected');
     }
 
     // Step 2: Click next/continue if needed
@@ -300,8 +298,7 @@ test.describe('Session Wizard - Complete Flow', () => {
     const hasSubmit = await submitButton.isVisible().catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not found - wizard may have more steps');
-      return;
+      throw new Error('Not implemented: Submit button not found - wizard may have more steps');
     }
 
     // Submit the session
@@ -340,8 +337,7 @@ test.describe('Session Wizard - Complete Flow', () => {
     const hasCancel = await cancelButton.isVisible().catch(() => false);
 
     if (!hasCancel) {
-      test.skip(true, 'Cancel button not found');
-      return;
+      throw new Error('Not implemented: Cancel button not found');
     }
 
     await cancelButton.click();
@@ -364,8 +360,7 @@ test.describe('Session Wizard - Validation', () => {
     const hasSubmit = await submitButton.isVisible().catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not visible - may be multi-step wizard');
-      return;
+      throw new Error('Not implemented: Submit button not visible - may be multi-step wizard');
     }
 
     // Button should be disabled or clicking should show validation error
@@ -407,8 +402,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (!isVisible) {
-      test.skip(true, 'Beach input not found - different UI');
-      return;
+      throw new Error('Not implemented: Beach input not found - different UI');
     }
 
     // Select a beach
@@ -436,8 +430,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     const hasSubmit = await submitButton.isVisible().catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not found');
-      return;
+      throw new Error('Not implemented: Submit button not found');
     }
 
     await submitButton.click();
@@ -468,8 +461,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
 
     if (!isVisible) {
-      test.skip(true, 'Beach input not found');
-      return;
+      throw new Error('Not implemented: Beach input not found');
     }
 
     await beachInput.fill('Test');
@@ -480,8 +472,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     const hasSubmit = await submitButton.isVisible().catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not found');
-      return;
+      throw new Error('Not implemented: Submit button not found');
     }
 
     // Even with minimal data (possibly no forecast match), session should save

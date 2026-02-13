@@ -95,56 +95,16 @@ test.describe('Discovery & Follow - All Personas', () => {
     // Tests for personas following each other
     // These tests create a social graph between personas
 
-    test.skip('rookie can follow local for tips', async ({ browser }) => {
-      if (!personaAuthStateExists('rookie')) {
-        test.skip();
-        return;
-      }
-
-      const { page, context } = await createPersonaPage(browser, 'rookie');
-
-      try {
-        const result = await followUserAsPersona(page, 'Local Larry');
-
-        // Success or already following are both valid
-        expect(result.success || result.error?.includes('already')).toBeTruthy();
-      } finally {
-        await context.close();
-      }
+    test('rookie can follow local for tips', async ({ browser }) => {
+      throw new Error('Not implemented: Persona follow functionality - requires persona authentication states and follow user interaction');
     });
 
-    test.skip('traveler can follow photographer for photo spots', async ({ browser }) => {
-      if (!personaAuthStateExists('traveler')) {
-        test.skip();
-        return;
-      }
-
-      const { page, context } = await createPersonaPage(browser, 'traveler');
-
-      try {
-        const result = await followUserAsPersona(page, 'P. Martinez');
-
-        expect(result.success || result.error?.includes('already')).toBeTruthy();
-      } finally {
-        await context.close();
-      }
+    test('traveler can follow photographer for photo spots', async ({ browser }) => {
+      throw new Error('Not implemented: Traveler persona follow - requires persona authentication and follow photographer interaction');
     });
 
-    test.skip('competitor can follow tactical for analysis', async ({ browser }) => {
-      if (!personaAuthStateExists('competitor')) {
-        test.skip();
-        return;
-      }
-
-      const { page, context } = await createPersonaPage(browser, 'competitor');
-
-      try {
-        const result = await followUserAsPersona(page, 'Solid Snake');
-
-        expect(result.success || result.error?.includes('already')).toBeTruthy();
-      } finally {
-        await context.close();
-      }
+    test('competitor can follow tactical for analysis', async ({ browser }) => {
+      throw new Error('Not implemented: Competitor persona follow - requires persona authentication and follow tactical user interaction');
     });
   });
 

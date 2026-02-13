@@ -139,8 +139,7 @@ test.describe('Home Header Animations', () => {
       const actionsVisible = await primaryActions.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!actionsVisible) {
-        test.skip(true, 'Primary actions not visible - may be loading or no recommendations');
-        return;
+        throw new Error('Not implemented: Primary action buttons - buttons not visible, requires recommendations data and profile setup');
       }
 
       // Check for "I'm at the beach" button
@@ -162,8 +161,7 @@ test.describe('Home Header Animations', () => {
       const actionsVisible = await primaryActions.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!actionsVisible) {
-        test.skip(true, 'Primary actions not visible');
-        return;
+        throw new Error('Not implemented: Primary action buttons icons - buttons not visible for icon validation');
       }
 
       const atBeachButton = page.getByTestId('at-beach-button');
@@ -183,8 +181,7 @@ test.describe('Home Header Animations', () => {
       const actionsVisible = await primaryActions.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!actionsVisible) {
-        test.skip(true, 'Primary actions not visible on mobile');
-        return;
+        throw new Error('Not implemented: Primary action buttons on mobile - buttons not visible on mobile viewport');
       }
 
       const atBeachButton = page.getByTestId('at-beach-button');
@@ -206,8 +203,7 @@ test.describe('Home Header Animations', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No hero recommendation available');
-        return;
+        throw new Error('Not implemented: Hero recommendation - hero recommendation not visible, requires recommendation data');
       }
 
       // Check for hero score element
@@ -224,8 +220,7 @@ test.describe('Home Header Animations', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No hero recommendation available');
-        return;
+        throw new Error('Not implemented: Hero recommendation - hero recommendation not visible, requires recommendation data');
       }
 
       // Check for badges container

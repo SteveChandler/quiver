@@ -197,7 +197,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
   // TODO: Fix - test drift due to form state/caching issues
   // The form doesn't always reflect DB changes without hard refresh
-  test.skip('form pre-populates with existing preference values', async ({ page }) => {
+  test('form pre-populates with existing preference values', async ({ page }) => {
+    throw new Error('Not implemented: Form pre-population - form does not reflect database changes without hard refresh, requires state synchronization');
+  });
     // Setup: Set known preferences
     await setUserPreferences(TEST_USER.email, TEST_PREFERENCES);
 
@@ -228,7 +230,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
   });
 
   // TODO: Fix - test drift due to form state/caching issues
-  test.skip('form saves all preference data correctly', async ({ page }) => {
+  test('form saves all preference data correctly', async ({ page }) => {
+    throw new Error('Not implemented: Preference form save - form save and database persistence not working correctly, requires form state/caching fixes');
+  });
     // Clear preferences first
     await clearUserPreferences(TEST_USER.email);
     await openEditProfileModal(page);
@@ -263,7 +267,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
   });
 
   // TODO: Fix - test drift due to form state/caching issues
-  test.skip('values update in display card after save', async ({ page }) => {
+  test('values update in display card after save', async ({ page }) => {
+    throw new Error('Not implemented: Profile display card update - saved preference values do not reflect in display card, requires state synchronization');
+  });
     await clearUserPreferences(TEST_USER.email);
 
     // Open modal and set preferences
@@ -347,7 +353,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
   });
 
   // TODO: Fix - test drift due to form state/caching issues
-  test.skip('can change preferences multiple times before saving', async ({ page }) => {
+  test('can change preferences multiple times before saving', async ({ page }) => {
+    throw new Error('Not implemented: Multiple preference changes - form state management for multiple changes before save not working correctly');
+  });
     await openEditProfileModal(page);
 
     const experienceSelect = page.locator('select#experience_level');
@@ -371,7 +379,9 @@ test.describe('Edit Profile - Preferences Fields', () => {
   });
 
   // TODO: Fix - test drift due to form state/caching issues
-  test.skip('cancel button discards changes', async ({ page }) => {
+  test('cancel button discards changes', async ({ page }) => {
+    throw new Error('Not implemented: Cancel button discard - cancel functionality does not properly discard unsaved changes, requires form state reset');
+  });
     await setUserPreferences(TEST_USER.email, TEST_PREFERENCES);
     await openEditProfileModal(page);
 

@@ -424,6 +424,8 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
+      // RLS policy violations are currently returned as 500, but should ideally be 403
+      // The action error is handled by withAuth error handler which returns 500
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
     });
@@ -449,6 +451,7 @@ describe("Session Likes API", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
+      // Database connection errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to toggle like");

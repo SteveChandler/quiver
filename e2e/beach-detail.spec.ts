@@ -244,7 +244,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
     const hasTide = await tideInfo.isVisible().catch(() => false);
 
     if (!hasTide) {
-      test.skip(true, 'Tide information not visible on this page');
+      throw new Error('Not implemented: Tide information not visible on this page');
     }
   });
 });

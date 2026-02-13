@@ -39,7 +39,7 @@ test.describe('Sessions Page', () => {
       const hasEmpty = await emptyState.isVisible().catch(() => false);
 
       if (!hasEmpty) {
-        test.skip(true, 'No sessions and no empty state - may be different UI');
+        throw new Error('Not implemented: Session empty state - no sessions found and no empty state UI displayed');
       }
     } else {
       // Has sessions - should be visible
@@ -47,8 +47,7 @@ test.describe('Sessions Page', () => {
     }
   });
 
-  // TODO: Test drift - session creation button selector changed
-  test.skip('should have add/create session button', async ({ page }) => {
+  test('should have add/create session button', async ({ page }) => {
     // Should have a way to create new session
     const createButton = page.getByRole('button', { name: /log session|add session|new session|create/i });
     const createLink = page.getByRole('link', { name: /log session|add session|new session|create/i });
@@ -59,8 +58,7 @@ test.describe('Sessions Page', () => {
     expect(hasButton || hasLink).toBe(true);
   });
 
-  // TODO: Test drift - session detail URL check expects /sessions/{id} but page stays on /sessions
-  test.skip('should allow clicking on session to view details', async ({ page }) => {
+  test('should allow clicking on session to view details', async ({ page }) => {
     // Check if there are sessions
     const sessionLinks = page.locator('a[href^="/sessions/"]');
     const count = await sessionLinks.count();
@@ -73,7 +71,7 @@ test.describe('Sessions Page', () => {
       // Should navigate to session detail
       expect(page.url()).toContain('/sessions/');
     } else {
-      test.skip(true, 'No sessions available to click');
+      throw new Error('Not implemented: Session detail navigation - no sessions available to test navigation');
     }
   });
 
@@ -83,7 +81,7 @@ test.describe('Sessions Page', () => {
     const hasFilter = await filterButton.isVisible().catch(() => false);
 
     if (!hasFilter) {
-      test.skip(true, 'Filter functionality not visible');
+      throw new Error('Not implemented: Session filters - filter or sort functionality not visible on sessions page');
     }
   });
 });

@@ -48,9 +48,11 @@ test.describe("Enhanced Tide Chart", () => {
 
   // Note: Diagnostics panel tests are skipped until diagnostics data is passed from forecast-tab.tsx
   test.describe("Diagnostics Panel", () => {
-    test.skip("shows diagnostics panel when debug mode is enabled", async ({
+    test("shows diagnostics panel when debug mode is enabled", async ({
       page,
     }) => {
+      throw new Error('Not implemented: Tide diagnostics panel - requires diagnostics data to be passed from forecast-tab.tsx to tide chart component');
+    });
       // Navigate with tide_debug query param
       await page.goto(`${BEACH_URL}?tide_debug=true`);
       await page.waitForLoadState("networkidle");
@@ -66,70 +68,24 @@ test.describe("Enhanced Tide Chart", () => {
       await expect(diagnosticsPanel).toBeVisible({ timeout: 10000 });
     });
 
-    test.skip("expands diagnostics panel on click", async ({ page }) => {
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Click on the diagnostics panel header to expand
-      const panelHeader = page.getByText("NOAA CO-OPS Tide Data");
-      await panelHeader.click();
-
-      // Should show station details
-      await expect(page.getByText(/Station/i)).toBeVisible();
-      await expect(page.getByText(/Datum/i)).toBeVisible();
+    test("expands diagnostics panel on click", async ({ page }) => {
+      throw new Error('Not implemented: Tide diagnostics panel expansion - requires diagnostics data and expandable panel UI');
     });
 
-    test.skip("shows raw data sample when expanded", async ({ page }) => {
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Expand the diagnostics panel
-      const panelHeader = page.getByText("NOAA CO-OPS Tide Data");
-      await panelHeader.click();
-
-      // Should show raw data sample section
-      await expect(page.getByText(/Raw Data Sample/i)).toBeVisible({
-        timeout: 5000,
-      });
+    test("shows raw data sample when expanded", async ({ page }) => {
+      throw new Error('Not implemented: Tide diagnostics raw data sample - requires diagnostics data and raw data display section');
     });
 
-    test.skip("shows NOAA source links", async ({ page }) => {
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Expand the diagnostics panel
-      const panelHeader = page.getByText("NOAA CO-OPS Tide Data");
-      await panelHeader.click();
-
-      // Should show NOAA API and Station Page links
-      await expect(page.getByRole("link", { name: /NOAA API/i })).toBeVisible();
-      await expect(
-        page.getByRole("link", { name: /Station Page/i })
-      ).toBeVisible();
+    test("shows NOAA source links", async ({ page }) => {
+      throw new Error('Not implemented: Tide diagnostics NOAA links - requires diagnostics panel with NOAA API and Station Page links');
     });
   });
 
   // Note: Verification badge tests skipped until diagnostics data is passed from forecast-tab.tsx
   test.describe("Verification Badge", () => {
-    test.skip("shows verification badge in diagnostics mode", async ({ page }) => {
+    test("shows verification badge in diagnostics mode", async ({ page }) => {
+      throw new Error('Not implemented: Tide verification badge - requires diagnostics mode with verification status (Verified/Partial/Unverified)');
+    });
       await page.goto(`${BEACH_URL}?tide_debug=true`);
       await page.waitForLoadState("networkidle");
 
@@ -181,7 +137,9 @@ test.describe("Enhanced Tide Chart", () => {
 
   // Note: Data quality tests skipped until diagnostics data is passed from forecast-tab.tsx
   test.describe("Data Quality", () => {
-    test.skip("validates tide data accuracy", async ({ page }) => {
+    test("validates tide data accuracy", async ({ page }) => {
+      throw new Error('Not implemented: Tide data validation - requires diagnostics data with validation checks and error reporting');
+    });
       await page.goto(`${BEACH_URL}?tide_debug=true`);
       await page.waitForLoadState("networkidle");
 
@@ -206,19 +164,8 @@ test.describe("Enhanced Tide Chart", () => {
       expect(hasValidationInfo).toBeTruthy();
     });
 
-    test.skip("shows confidence score", async ({ page }) => {
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Look for percentage indicator (confidence score)
-      const confidenceIndicator = page.locator("text=/%/");
-      await expect(confidenceIndicator.first()).toBeVisible({ timeout: 5000 });
+    test("shows confidence score", async ({ page }) => {
+      throw new Error('Not implemented: Tide confidence score - requires diagnostics data with confidence percentage indicator');
     });
   });
 });

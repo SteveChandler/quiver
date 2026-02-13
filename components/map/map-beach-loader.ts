@@ -55,7 +55,7 @@ export async function loadBeachesAndWaveHeights(
     // Fallback to API fetch when no beaches prop provided
     try {
       const response = await deps.fetchNearbyBeaches(latitude, longitude);
-      locations = (response as any)?.data || [];
+      locations = (response?.data as Beach[]) || [];
     } catch (err) {
       console.warn("Nearby beaches API failed", err);
     }

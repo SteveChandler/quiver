@@ -153,13 +153,10 @@ export async function handleSessionSubmit(deps: SubmitHandlerDeps) {
       }
     }
 
-    // Handle completion - redirect to profile
+    // Handle completion - redirect to profile (only for planned sessions)
+    // Logged sessions redirect via useEffect in SessionForm.tsx after feedback is completed
     if (isPlanning) {
       routerPush("/profile");
-    } else {
-      setTimeout(() => {
-        routerPush("/profile");
-      }, 1500);
     }
   } catch (error) {
     console.error("Error saving session:", error);

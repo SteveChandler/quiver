@@ -102,8 +102,7 @@ test.describe('Map Coordinate Validation', () => {
         console.log('[Map Markers] Error state detected:', errorText);
       }
 
-      test.skip(true, 'No markers found - may be expected if no beaches in area');
-      return;
+      throw new Error('Not implemented: No markers found - may be expected if no beaches in area');
     }
 
     // Verify each marker has valid transform coordinates (not NaN)
@@ -182,8 +181,7 @@ test.describe('Map Coordinate Validation', () => {
     );
   });
 
-  // TODO: Test drift - marker click interaction and popup behavior changed
-  test.skip('clicking a marker shows correct beach info', async ({ page }) => {
+  test('clicking a marker shows correct beach info', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
@@ -193,8 +191,7 @@ test.describe('Map Coordinate Validation', () => {
     const markers = await page.locator('.mapboxgl-marker').all();
 
     if (markers.length === 0) {
-      test.skip(true, 'No markers found on map');
-      return;
+      throw new Error('Not implemented: Map markers - requires beaches to be loaded and displayed on map');
     }
 
     // Click the first marker
@@ -267,8 +264,7 @@ test.describe('Map Coordinate Validation', () => {
 
     if ('error' in boundsCheck) {
       console.log('[Map Bounds] Could not access map instance:', boundsCheck.error);
-      test.skip(true, 'Could not access map instance');
-      return;
+      throw new Error('Not implemented: Map bounds validation - Mapbox map instance not accessible, check map initialization');
     }
 
     const { bounds, center } = boundsCheck as any;
@@ -322,8 +318,7 @@ test.describe('Map Coordinate Validation', () => {
     });
 
     if (zoomLevel === null) {
-      test.skip(true, 'Could not access map zoom level');
-      return;
+      throw new Error('Not implemented: Map zoom validation - Mapbox map instance getZoom method not accessible');
     }
 
     // Zoom should be a valid number
@@ -458,8 +453,7 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
 
     if ('error' in beachDataCheck) {
       console.log('[Data Quality] Could not fetch beach data:', beachDataCheck.error);
-      test.skip(true, 'Could not access beach data');
-      return;
+      throw new Error('Not implemented: Beach data API validation - /api/beaches endpoint not accessible or returning invalid data');
     }
 
     const { totalBeaches, invalidCount, invalidBeaches } = beachDataCheck as any;
@@ -514,8 +508,7 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
     });
 
     if ('error' in beachDataCheck) {
-      test.skip(true, 'Could not access beach data');
-      return;
+      throw new Error('Not implemented: Beach longitude validation - /api/beaches endpoint not accessible or returning invalid data');
     }
 
     const { totalBeaches, invalidCount, invalidBeaches } = beachDataCheck as any;
@@ -615,8 +608,7 @@ test.describe('Map Coordinate Validation - Mobile', () => {
     console.log(`[Mobile Map] Found ${markerCount} markers on mobile`);
 
     if (markerCount === 0) {
-      test.skip(true, 'No markers found');
-      return;
+      throw new Error('Not implemented: Mobile map markers - markers not rendering on mobile viewport');
     }
 
     // Check first few markers for valid coordinates

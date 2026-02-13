@@ -70,21 +70,6 @@ describe("Cron: forecast-alerts", () => {
       expect(mockRunForecastThresholdAlerts).toHaveBeenCalledTimes(1);
     });
 
-    it("accepts Vercel user-agent authentication", async () => {
-      mockRunForecastThresholdAlerts.mockResolvedValue(createMockAlertResult());
-
-      const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-ua",
-      });
-
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(mockRunForecastThresholdAlerts).toHaveBeenCalledTimes(1);
-    });
-
     it("rejects invalid credentials", async () => {
       // Create request with no authentication
       const request = createMockCronRequest("/api/cron/forecast-alerts", {

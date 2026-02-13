@@ -199,7 +199,7 @@ describe("Authentication Flows Integration", () => {
         const response = await refreshSessionPOST();
         const data = await response.json();
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBe(401);
         expect(data.success).toBe(false);
         expect(data.error).toBe("Invalid refresh token");
       });
@@ -240,7 +240,7 @@ describe("Authentication Flows Integration", () => {
         const response = await refreshSessionPOST();
         const data = await response.json();
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBe(401);
         expect(data.success).toBe(false);
         expect(data.error).toBe("Refresh token expired");
       });

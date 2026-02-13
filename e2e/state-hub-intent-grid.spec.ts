@@ -65,10 +65,9 @@ test.describe("State Hub Intent Guides Grid", () => {
     test("should display intent guides for Hawaii", async ({ page }) => {
       const response = await page.goto("/beaches/usa/hi");
 
-      // Skip if page doesn't have data
+      // Fail if page doesn't have data
       if (response?.status() === 404) {
-        test.skip();
-        return;
+        throw new Error('Not implemented: Hawaii state hub page returned 404 - page needs data');
       }
 
       // Wait for page header to ensure page loaded
@@ -76,8 +75,7 @@ test.describe("State Hub Intent Guides Grid", () => {
       const headerVisible = await header.isVisible().catch(() => false);
 
       if (!headerVisible) {
-        test.skip();
-        return;
+        throw new Error('Not implemented: Hawaii state page header not visible - page content missing');
       }
 
       await expect(

@@ -193,39 +193,8 @@ test.describe('Session Logging - All Personas', () => {
     for (const personaType of ALL_PERSONA_TYPES) {
       const persona = PERSONAS[personaType];
 
-      test.skip(`${persona.displayName} can log session via UI`, async ({ browser }) => {
-        if (!personaAuthStateExists(personaType)) {
-          test.skip();
-          return;
-        }
-
-        const { page, context } = await createPersonaPage(browser, personaType);
-
-        try {
-          const beach = TEST_BEACHES.beacons;
-
-          const result = await logSessionAsPersona(page, personaType, {
-            beach: {
-              name: beach.name,
-              slug: beach.slug,
-              city: beach.city,
-              state: 'California',
-            },
-          });
-
-          if (result.success) {
-            // Verify rating matches persona range
-            const [minRating, maxRating] = persona.expectedRatingRange;
-            expect(result.content.rating).toBeGreaterThanOrEqual(minRating);
-            expect(result.content.rating).toBeLessThanOrEqual(maxRating);
-
-            // Verify notes match persona style
-            const verification = verifyPersonaContent(personaType, result.content.notes);
-            expect(verification.isValid).toBe(true);
-          }
-        } finally {
-          await context.close();
-        }
+      test(`${persona.displayName} can log session via UI`, async ({ browser }) => {
+        throw new Error('Not implemented: Session logging UI changed - need to update selectors and flow to match current implementation');
       });
     }
   });

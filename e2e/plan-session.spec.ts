@@ -98,8 +98,7 @@ test.describe('Plan Session from Surf Discovery', () => {
       const cardCount = await beachCards.count();
 
       if (cardCount === 0) {
-        test.skip(true, 'No surf discovery recommendations available - may need user profile setup');
-        return;
+        throw new Error('Not implemented: No surf discovery recommendations available - may need user profile setup');
       }
     }
 
@@ -108,8 +107,7 @@ test.describe('Plan Session from Surf Discovery', () => {
     const hasPlanButton = await planButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!hasPlanButton) {
-      test.skip(true, 'Plan Session button not found - feature may not be deployed');
-      return;
+      throw new Error('Not implemented: Plan Session button not found - feature may not be deployed');
     }
 
     await planButton.click();
@@ -190,8 +188,7 @@ test.describe('Plan Session from Surf Discovery', () => {
     const hasPlanButton = await planButton.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!hasPlanButton) {
-      test.skip(true, 'Plan Session button not available');
-      return;
+      throw new Error('Not implemented: Plan Session button not available');
     }
 
     await planButton.click();
@@ -217,8 +214,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
     const hasForecast = await forecastSection.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!hasForecast) {
-      test.skip(true, 'Personalized forecast not available - may need user setup');
-      return;
+      throw new Error('Not implemented: Personalized forecast not available - may need user setup');
     }
 
     // Step 3: Find and click "Plan Session" CTA on forecast card
@@ -226,8 +222,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
     const hasPlanButton = await planButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!hasPlanButton) {
-      test.skip(true, 'Plan Session CTA not found on forecast card');
-      return;
+      throw new Error('Not implemented: Plan Session CTA not found on forecast card');
     }
 
     await planButton.click();
@@ -265,8 +260,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
     const hasCard = await forecastCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!hasCard) {
-      test.skip(true, 'Forecast cards not available');
-      return;
+      throw new Error('Not implemented: Forecast cards not available');
     }
 
     // Look for time information on the card
@@ -447,101 +441,14 @@ test.describe('Wizard Navigation with Prefill', () => {
   const TEST_BEACH_ID = '65809772-20bc-4009-b9b2-89c8ef3c4127';
 
   // TODO: Test drift - wizard step navigation behavior changed
-  test.skip('should allow user to go back and edit prefilled data', async ({ page }) => {
-    const startTime = new Date();
-    startTime.setHours(7, 0, 0, 0);
-    const endTime = new Date(startTime);
-    endTime.setHours(11, 0, 0, 0);
-
-    const url = `/sessions/new?mode=plan&beach=${TEST_BEACH_ID}&beachName=Pacific Beach&startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&step=3`;
-
-    await page.goto(url);
-    await waitForWizard(page);
-
-    // Should be on step 3 (Goals)
-    let currentStep = await getCurrentStep(page);
-
-    if (currentStep === null || currentStep < 3) {
-      test.skip(true, 'Could not verify step jump - may need different selector');
-      return;
-    }
-
-    expect(currentStep).toBe(3);
-
-    // Go back to step 1
-    const prevButton = page.getByRole('button', { name: /previous|back/i }).first();
-    const hasPrev = await prevButton.isVisible().catch(() => false);
-
-    if (!hasPrev) {
-      test.skip(true, 'Previous button not found');
-      return;
-    }
-
-    // Click back twice to get to step 1
-    await prevButton.click();
-    await page.waitForTimeout(300);
-
-    await prevButton.click();
-    await page.waitForTimeout(300);
-
-    // Should now be on step 1
-    currentStep = await getCurrentStep(page);
-
-    if (currentStep !== null) {
-      expect(currentStep).toBe(1);
-    }
-
-    // Should still show prefilled beach
-    const beachName = await getDisplayedBeachName(page);
-    expect(beachName).toBeTruthy();
-
-    console.log(' Can navigate back and edit prefilled data');
-  });
+  test('should allow user to go back and edit prefilled data', async ({ page }) => {
+  throw new Error('Not implemented: should allow user to go back and edit prefilled data');
+});
 
   // TODO: Test drift - wizard re-jump detection logic changed
-  test.skip('should not re-jump when navigating manually', async ({ page }) => {
-    const startTime = new Date();
-    startTime.setHours(6, 30, 0, 0);
-    const endTime = new Date(startTime);
-    endTime.setHours(10, 0, 0, 0);
-
-    const url = `/sessions/new?mode=plan&beach=${TEST_BEACH_ID}&beachName=Pacific Beach&startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&step=3`;
-
-    await page.goto(url);
-    await waitForWizard(page);
-
-    // Wait for initial jump to step 3
-    await page.waitForTimeout(1000);
-
-    // Go back to step 1
-    const prevButton = page.getByRole('button', { name: /previous|back/i }).first();
-    const hasPrev = await prevButton.isVisible().catch(() => false);
-
-    if (!hasPrev) {
-      test.skip(true, 'Previous button not available');
-      return;
-    }
-
-    // Navigate back
-    await prevButton.click();
-    await page.waitForTimeout(500);
-
-    const currentStep = await getCurrentStep(page);
-
-    if (currentStep !== null) {
-      // Should be on step 2 after clicking back once
-      expect(currentStep).toBeLessThan(3);
-
-      // Wait a bit to ensure no auto-jump happens
-      await page.waitForTimeout(1000);
-
-      // Should still be on same step (no re-jump)
-      const stepAfterWait = await getCurrentStep(page);
-      expect(stepAfterWait).toBe(currentStep);
-    }
-
-    console.log(' No re-jump after manual navigation');
-  });
+  test('should not re-jump when navigating manually', async ({ page }) => {
+  throw new Error('Not implemented: should not re-jump when navigating manually');
+});
 
   test('should validate required fields before allowing jump', async ({ page }) => {
     // Navigate with ONLY step parameter (no beach/time data)

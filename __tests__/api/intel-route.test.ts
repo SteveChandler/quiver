@@ -506,6 +506,7 @@ describe("GET /api/intel", () => {
       const response = await GET(request);
       const json = await response.json();
 
+      // Database connection errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(json.success).toBe(false);
       expect(json.error).toBe("Failed to fetch intel posts");
@@ -1073,6 +1074,7 @@ describe("POST /api/intel", () => {
       const response = await POST(request);
       const json = await response.json();
 
+      // Database errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(json.success).toBe(false);
       expect(json.error).toBe("Failed to create intel post");

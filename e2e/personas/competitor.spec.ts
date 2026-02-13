@@ -138,68 +138,18 @@ test.describe(`${persona.displayName} Persona Tests`, () => {
   });
 
   test.describe('Intel Posting @requires-auth', () => {
-    test.skip('can post training conditions', async ({ page }) => {
-      const beach = TEST_BEACHES.blacks;
-
-      const result = await createIntelPostAsPersona(page, PERSONA_TYPE, {
-        beach: {
-          name: beach.name,
-          slug: beach.slug,
-          city: beach.city,
-          state: 'California',
-        },
-        tag: 'conditions',
-      });
-
-      if (result.success) {
-        const verification = verifyPersonaContent(PERSONA_TYPE, result.content.description);
-        expect(verification.isValid).toBe(true);
-      } else {
-        console.log(`Intel posting skipped: ${result.error}`);
-      }
+    test('can post training conditions', async ({ page }) => {
+      throw new Error('Not implemented: Intel posting UI changed - need to update selectors and flow to match current implementation');
     });
 
-    test.skip('can post competition crowd intel', async ({ page }) => {
-      const beach = TEST_BEACHES.blacks;
-
-      const result = await createIntelPostAsPersona(page, PERSONA_TYPE, {
-        beach: {
-          name: beach.name,
-          slug: beach.slug,
-          city: beach.city,
-          state: 'California',
-        },
-        tag: 'crowd',
-      });
-
-      if (result.success) {
-        expect(result.content.tag).toBe('crowd');
-      } else {
-        console.log(`Crowd intel skipped: ${result.error}`);
-      }
+    test('can post competition crowd intel', async ({ page }) => {
+      throw new Error('Not implemented: Intel posting UI changed - need to update selectors and flow to match current implementation');
     });
   });
 
   test.describe('Session Logging @requires-auth', () => {
-    test.skip('can log training sessions', async ({ page }) => {
-      const beach = TEST_BEACHES.blacks;
-
-      const result = await logSessionAsPersona(page, PERSONA_TYPE, {
-        beach: {
-          name: beach.name,
-          slug: beach.slug,
-          city: beach.city,
-          state: 'California',
-        },
-      });
-
-      if (result.success) {
-        expect(result.content.notes).toBeTruthy();
-        const verification = verifyPersonaContent(PERSONA_TYPE, result.content.notes);
-        expect(verification.isValid).toBe(true);
-      } else {
-        console.log(`Session logging skipped: ${result.error}`);
-      }
+    test('can log training sessions', async ({ page }) => {
+      throw new Error('Not implemented: Session logging UI changed - need to update selectors and flow to match current implementation');
     });
   });
 

@@ -35,7 +35,7 @@ test.describe('Personalization Match Scores', () => {
   test.beforeEach(async ({ page }) => {
     // Skip in dev - requires local DB setup with personalization data
     if (isDevEnvironment) {
-      test.skip(true, 'Personalization score tests require local environment with seeded data');
+      throw new Error('Not implemented: Personalization score tests require local environment with seeded data');
     }
 
     await ensureAuthenticated(page);
@@ -58,8 +58,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeCount = await badges.count();
 
       if (badgeCount === 0) {
-        test.skip(true, 'No personalized badges displayed - user may not have sufficient personalization data');
-        return;
+        throw new Error('Not implemented: No personalized badges displayed - user may not have sufficient personalization data');
       }
 
       // Verify at least one badge appears
@@ -85,8 +84,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No personalized badges to test positioning');
-        return;
+        throw new Error('Not implemented: No personalized badges to test positioning');
       }
 
       // Verify badge has proper classes for positioning
@@ -116,8 +114,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No personalized badge to test hover interaction');
-        return;
+        throw new Error('Not implemented: No personalized badge to test hover interaction');
       }
 
       // Hover over the badge
@@ -128,8 +125,7 @@ test.describe('Personalization Match Scores', () => {
       const tooltipVisible = await tooltip.isVisible({ timeout: 2000 }).catch(() => false);
 
       if (!tooltipVisible) {
-        test.skip(true, 'Tooltip not available - badge may not have breakdown data');
-        return;
+        throw new Error('Not implemented: Tooltip not available - badge may not have breakdown data');
       }
 
       // Verify tooltip content
@@ -161,8 +157,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       await badge.hover();
@@ -171,8 +166,7 @@ test.describe('Personalization Match Scores', () => {
       const tooltipVisible = await tooltip.isVisible({ timeout: 2000 }).catch(() => false);
 
       if (!tooltipVisible) {
-        test.skip(true, 'No tooltip available');
-        return;
+        throw new Error('Not implemented: No tooltip available');
       }
 
       const tooltipText = await tooltip.textContent();
@@ -210,8 +204,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge available for mobile test');
-        return;
+        throw new Error('Not implemented: No badge available for mobile test');
       }
 
       // Tap the badge to expand
@@ -222,8 +215,7 @@ test.describe('Personalization Match Scores', () => {
       const collapsibleVisible = await collapsible.isVisible({ timeout: 2000 }).catch(() => false);
 
       if (!collapsibleVisible) {
-        test.skip(true, 'Collapsible breakdown not available');
-        return;
+        throw new Error('Not implemented: Collapsible breakdown not available');
       }
 
       await expect(collapsible).toBeVisible();
@@ -251,8 +243,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       // Look for chevron icon within badge
@@ -261,8 +252,7 @@ test.describe('Personalization Match Scores', () => {
 
       if (!hasChevron) {
         // Chevron may not be present if no breakdown data
-        test.skip(true, 'No chevron icon - badge may not have breakdown data');
-        return;
+        throw new Error('Not implemented: No chevron icon - badge may not have breakdown data');
       }
 
       // Verify chevron is visible
@@ -286,8 +276,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeCount = await affinityBadge.count();
 
       if (badgeCount === 0) {
-        test.skip(true, 'No affinity badges displayed - user may not have beach affinity data');
-        return;
+        throw new Error('Not implemented: No affinity badges displayed - user may not have beach affinity data');
       }
 
       const firstAffinityBadge = affinityBadge.first();
@@ -312,8 +301,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await affinityBadge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No affinity badge on this beach');
-        return;
+        throw new Error('Not implemented: No affinity badge on this beach');
       }
 
       // Extract session count
@@ -346,8 +334,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No personalized badge on beach detail page');
-        return;
+        throw new Error('Not implemented: No personalized badge on beach detail page');
       }
 
       await expect(badge).toBeVisible();
@@ -367,8 +354,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test size');
-        return;
+        throw new Error('Not implemented: No badge to test size');
       }
 
       // Verify badge has larger size classes
@@ -395,8 +381,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       // On desktop, hover to show tooltip
@@ -406,8 +391,7 @@ test.describe('Personalization Match Scores', () => {
       const tooltipVisible = await tooltip.isVisible({ timeout: 2000 }).catch(() => false);
 
       if (!tooltipVisible) {
-        test.skip(true, 'Tooltip not available');
-        return;
+        throw new Error('Not implemented: Tooltip not available');
       }
 
       await expect(tooltip).toBeVisible();
@@ -420,25 +404,8 @@ test.describe('Personalization Match Scores', () => {
    */
   test.describe('Unauthenticated User', () => {
     // TODO: Test drift - personalized badge test-id selector changed
-    test.skip('should not display personalized badges for unauthenticated users', async ({ page, context }) => {
-      // Clear auth state to simulate guest user
-      await context.clearCookies();
-      await page.goto('/');
-      await waitForPageLoad(page);
-
-      // Wait for page to fully load
-      await page.waitForTimeout(3000);
-
-      // Verify no personalized badges appear
-      const badges = page.locator('[data-testid="personalized-badge"]');
-      const badgeCount = await badges.count();
-
-      expect(badgeCount).toBe(0);
-
-      // Page should still work without personalization (no errors)
-      // Verify the page loaded successfully
-      const content = page.locator('main, [role="main"]');
-      await expect(content).toBeVisible();
+    test('should not display personalized badges for unauthenticated users', async ({ page, context }) => {
+      throw new Error('Not implemented: unauthenticated users should not see personalized badges on beach cards');
     });
   });
 
@@ -457,8 +424,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeCount = await badges.count();
 
       if (badgeCount === 0) {
-        test.skip(true, 'No badges to test color coding');
-        return;
+        throw new Error('Not implemented: No badges to test color coding');
       }
 
       // Check first badge
@@ -467,8 +433,7 @@ test.describe('Personalization Match Scores', () => {
       const scoreMatch = badgeText?.match(/(\d+)%/);
 
       if (!scoreMatch) {
-        test.skip(true, 'Could not extract score from badge');
-        return;
+        throw new Error('Not implemented: Could not extract score from badge');
       }
 
       const score = parseInt(scoreMatch[1], 10);
@@ -541,8 +506,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test display mode');
-        return;
+        throw new Error('Not implemented: No badge to test display mode');
       }
 
       // Verify score mode shows percentage
@@ -563,8 +527,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       // Verify sparkles icon is present
@@ -588,8 +551,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test accessibility');
-        return;
+        throw new Error('Not implemented: No badge to test accessibility');
       }
 
       // Verify role="status" for live region
@@ -612,8 +574,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       // Look for screen reader only content
@@ -636,8 +597,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test keyboard navigation');
-        return;
+        throw new Error('Not implemented: No badge to test keyboard navigation');
       }
 
       // Try to focus the badge (if it's in a focusable container)
@@ -661,8 +621,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test color contrast');
-        return;
+        throw new Error('Not implemented: No badge to test color contrast');
       }
 
       // Get computed styles
@@ -692,8 +651,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test focus state');
-        return;
+        throw new Error('Not implemented: No badge to test focus state');
       }
 
       // On mobile, badge may be tappable for collapsible
@@ -776,8 +734,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test responsive design');
-        return;
+        throw new Error('Not implemented: No badge to test responsive design');
       }
 
       await expect(badge).toBeVisible();
@@ -802,8 +759,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       await expect(badge).toBeVisible();
@@ -820,8 +776,7 @@ test.describe('Personalization Match Scores', () => {
       const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!badgeVisible) {
-        test.skip(true, 'No badge to test');
-        return;
+        throw new Error('Not implemented: No badge to test');
       }
 
       await expect(badge).toBeVisible();

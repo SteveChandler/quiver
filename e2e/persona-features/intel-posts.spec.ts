@@ -118,37 +118,8 @@ test.describe('Intel Posts - All Personas', () => {
     for (const personaType of ALL_PERSONA_TYPES) {
       const persona = PERSONAS[personaType];
 
-      test.skip(`${persona.displayName} can post intel via UI`, async ({ browser }) => {
-        // Check if persona auth exists
-        if (!personaAuthStateExists(personaType)) {
-          test.skip();
-          return;
-        }
-
-        const { page, context } = await createPersonaPage(browser, personaType);
-
-        try {
-          const beach = TEST_BEACHES.beacons;
-
-          const result = await createIntelPostAsPersona(page, personaType, {
-            beach: {
-              name: beach.name,
-              slug: beach.slug,
-              city: beach.city,
-              state: 'California',
-            },
-            tag: 'conditions',
-          });
-
-          if (result.success) {
-            expect(result.content.title).toBeTruthy();
-
-            const verification = verifyPersonaContent(personaType, result.content.description);
-            expect(verification.isValid).toBe(true);
-          }
-        } finally {
-          await context.close();
-        }
+      test(`${persona.displayName} can post intel via UI`, async ({ browser }) => {
+        throw new Error('Not implemented: Intel posting UI changed - need to update selectors and flow to match current implementation');
       });
     }
   });

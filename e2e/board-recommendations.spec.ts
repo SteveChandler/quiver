@@ -179,8 +179,7 @@ test.describe("Board Recommendations - Home Screen", () => {
         .catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, "Hero recommendation not available");
-        return;
+        throw new Error('Not implemented: Hero recommendation not available');
       }
 
       // Check for board recommendation badge within hero

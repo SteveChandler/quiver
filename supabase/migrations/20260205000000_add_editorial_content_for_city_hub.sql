@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Migration: Add editorial content for city hub feature
 -- This migration extends city_editorial_content with an intent column and creates
 -- beach_editorial_content for per-beach AI-generated editorial notes.
@@ -494,3 +496,5 @@ NULL intent values are treated as distinct, allowing one general editorial per c
 -- Grant permissions (match existing pattern)
 GRANT SELECT ON beach_editorial_content TO anon, authenticated;
 GRANT ALL ON beach_editorial_content TO service_role;
+
+COMMIT;

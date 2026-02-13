@@ -70,25 +70,8 @@ test.describe('Landing Page - Server Rendering', () => {
 
   // TODO: Test drift - main[role="main"] selector no longer matches page structure
   // Needs update to match current HTML landmark structure
-  test.skip('should have proper HTML structure from server', async ({ page }) => {
-    await page.goto('/')
-
-    // Check basic HTML structure
-    const html = await page.locator('html').getAttribute('lang')
-    expect(html).toBe('en')
-
-    // Should have proper title
-    const title = await page.title()
-    expect(title).toBeTruthy()
-    expect(title.length).toBeGreaterThan(0)
-
-    // Should have meta description
-    const description = await page.locator('meta[name="description"]').getAttribute('content')
-    expect(description).toBeTruthy()
-
-    // Should have main landmark
-    const mainLandmark = page.locator('main[role="main"]')
-    await expect(mainLandmark).toBeVisible()
+  test('should have proper HTML structure from server', async ({ page }) => {
+    throw new Error('Not implemented: main[role="main"] selector no longer matches page structure - need to update to match current HTML landmark structure');
   })
 })
 
@@ -169,30 +152,8 @@ test.describe('Landing Page - Lazy Search Component', () => {
 })
 
 test.describe('Landing Page - Analytics Loading', () => {
-  test.skip('SKIPPED: Analytics ARE loaded on landing page (optimization not yet implemented)', async ({ page }) => {
-    // NOTE: The AnalyticsLoader component currently loads analytics on ALL pages including landing page
-    // The conditional loading (pathname !== '/') is present in the code but analytics still load
-    // This test is skipped to document the current state
-    // TODO: Investigate why analytics load despite AnalyticsLoader checking pathname
-
-    const requests: string[] = []
-
-    page.on('request', (request) => {
-      requests.push(request.url())
-    })
-
-    await page.goto('/')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000)
-
-    // Currently analytics DO load on landing page
-    const ahrefsRequests = requests.filter((url) =>
-      url.includes('analytics.ahrefs.com')
-    )
-
-    // This assertion FAILS in current implementation - analytics load
-    // expect(ahrefsRequests).toHaveLength(0)
-    console.log(`Analytics requests found: ${ahrefsRequests.length}`)
+  test('SKIPPED: Analytics ARE loaded on landing page (optimization not yet implemented)', async ({ page }) => {
+    throw new Error('Not implemented: Analytics load on landing page despite AnalyticsLoader checking pathname - need to investigate and fix conditional loading logic');
   })
 
   test('should have AnalyticsLoader component present', async ({ page }) => {
@@ -235,32 +196,8 @@ test.describe('Landing Page - Resource Hints', () => {
     console.log(`Resource hints found: ${hrefs.filter(h => h).join(', ')}`)
   })
 
-  test.skip('SKIPPED: Map hints optimization not yet implemented', async ({ page }) => {
-    // NOTE: The landing page currently includes map-related resource hints
-    // The task description mentions removing these, but they're still present
-    // This optimization would save 3-5 connection slots
-
-    await page.goto('/')
-
-    const preconnects = await page.locator('link[rel="preconnect"]').all()
-    const dnsPrefetch = await page.locator('link[rel="dns-prefetch"]').all()
-
-    const allHints = [...preconnects, ...dnsPrefetch]
-    const hrefs = await Promise.all(
-      allHints.map((link) => link.getAttribute('href'))
-    )
-
-    const mapHints = hrefs.filter(
-      (href) =>
-        href?.includes('api.mapbox.com') ||
-        href?.includes('maps.googleapis.com') ||
-        href?.includes('maps.geoapify.com') ||
-        href?.includes('tiles.mapbox.com')
-    )
-
-    console.log(`Map hints found: ${mapHints.join(', ')}`)
-    // Currently this FAILS - map hints are present
-    // expect(mapHints).toHaveLength(0)
+  test('SKIPPED: Map hints optimization not yet implemented', async ({ page }) => {
+    throw new Error('Not implemented: Map hints optimization not yet implemented - landing page includes map-related resource hints that should be removed to save 3-5 connection slots');
   })
 })
 

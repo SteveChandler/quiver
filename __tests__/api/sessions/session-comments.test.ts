@@ -156,6 +156,8 @@ describe("Session Comments API - Access Control", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
+      // RLS policy violations are currently returned as 500, but should ideally be 403
+      // The route uses withAuth which throws database errors, caught by error handler as 500
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
     });

@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Create ml-artifacts storage bucket for ML model artifacts
 -- This bucket stores trained model files that are deployed to the ML service
 
@@ -34,3 +36,5 @@ GRANT ALL ON storage.objects TO service_role;
 GRANT ALL ON storage.buckets TO service_role;
 
 -- Note: COMMENT ON SCHEMA storage requires ownership, skipped for local compatibility
+
+COMMIT;

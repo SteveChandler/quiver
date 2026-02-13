@@ -513,56 +513,14 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     });
 
     // TODO: Test drift - session comments API behavior changed
-    test.skip("should accept correct Content-Type", async ({ request }) => {
-      const sessionId = "01330afc-00d3-461b-88f3-b173774766f4";
-
-      const response = await request.post(
-        `${BASE_URL}/api/sessions/${sessionId}/comments`,
-        {
-          data: {
-            content: "Test comment",
-          },
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      // Should succeed or fail for non-content-type reasons
-      if (response.status() === 400) {
-        const body = await response.json();
-        // Should not be a content-type error
-        expect(body.error).not.toMatch(/content-type/i);
-      } else {
-        expect([200, 201, 401, 404]).toContain(response.status());
-      }
-
-      console.log(`✓ Correct Content-Type accepted`);
-    });
+    test("should accept correct Content-Type", async ({ request }) => {
+  throw new Error('Not implemented: should accept correct Content-Type');
+});
 
     // TODO: Test drift - session comments API may not parse JSON body in expected way
-    test.skip("should reject malformed JSON", async ({ request }) => {
-      const sessionId = "01330afc-00d3-461b-88f3-b173774766f4";
-
-      const response = await request.post(
-        `${BASE_URL}/api/sessions/${sessionId}/comments`,
-        {
-          data: "{invalid json",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      expect(response.status()).toBe(400);
-
-      const body = await response.json();
-      expect(body.error).toBeDefined();
-      expect(body.error).toMatch(/json|parse/i);
-
-      console.log(`✓ Malformed JSON rejected: ${body.error}`);
-    });
-  });
+    test("should reject malformed JSON", async ({ request }) => {
+  throw new Error('Not implemented: should reject malformed JSON');
+});
 
   test.describe("Edge Cases and Error Messages", () => {
     test("should provide clear error messages for validation failures", async ({ request }) => {
@@ -592,24 +550,9 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     });
 
     // TODO: Test drift - intel API endpoint behavior changed
-    test.skip("should handle missing required fields", async ({ request }) => {
-      const response = await request.post(`${BASE_URL}/api/intel`, {
-        data: {
-          // Missing required fields
-        },
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      expect(response.status()).toBe(400);
-
-      const body = await response.json();
-      expect(body.error).toBeDefined();
-      expect(body.error).toMatch(/required/i);
-
-      console.log(`✓ Missing fields rejected: ${body.error}`);
-    });
+    test("should handle missing required fields", async ({ request }) => {
+  throw new Error('Not implemented: should handle missing required fields');
+});
 
     test("should handle null values appropriately", async ({ request }) => {
       const sessionId = "01330afc-00d3-461b-88f3-b173774766f4";

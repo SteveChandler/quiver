@@ -41,16 +41,6 @@ describe("Cron Authentication", () => {
       expect(isValid).toBe(true);
     });
 
-    it("accepts valid Vercel Cron user-agent", () => {
-      const request = createMockCronRequest("/api/cron/test", {
-        authMethod: "vercel-ua",
-      });
-
-      const isValid = validateCronRequest(request);
-
-      expect(isValid).toBe(true);
-    });
-
     it("accepts valid Bearer CRON_SECRET", () => {
       const request = createMockCronRequest("/api/cron/test", {
         authMethod: "bearer-token",
@@ -164,74 +154,9 @@ describe("Cron Authentication", () => {
       // Should be valid because x-vercel-cron header is checked first
       expect(isValid).toBe(true);
     });
-
-    it("vercel user-agent takes priority over invalid bearer token", () => {
-      // Request has valid vercel user-agent but also sends an invalid bearer token
-      const mockHeaders = new Headers({
-        "Content-Type": "application/json",
-        "user-agent": "vercel-cron/1.0",
-        Authorization: "Bearer wrong-token",
-      });
-
-      const mockRequest = {
-        url: "http://localhost:3000/api/cron/test",
-        method: "GET",
-        headers: mockHeaders,
-        json: jest.fn(() => Promise.resolve({})),
-        text: jest.fn(() => Promise.resolve("")),
-        clone: jest.fn(),
-      } as unknown as Request;
-
-      const isValid = validateCronRequest(mockRequest);
-
-      // Should be valid because vercel-cron user-agent is checked second
-      expect(isValid).toBe(true);
-    });
   });
 
   describe("Edge Cases", () => {
-    it("handles case-insensitive vercel-cron user-agent", () => {
-      // The function uses toLowerCase() so this should work
-      const mockHeaders = new Headers({
-        "Content-Type": "application/json",
-        "user-agent": "Vercel-Cron/2.0",
-      });
-
-      const mockRequest = {
-        url: "http://localhost:3000/api/cron/test",
-        method: "GET",
-        headers: mockHeaders,
-        json: jest.fn(() => Promise.resolve({})),
-        text: jest.fn(() => Promise.resolve("")),
-        clone: jest.fn(),
-      } as unknown as Request;
-
-      const isValid = validateCronRequest(mockRequest);
-
-      expect(isValid).toBe(true);
-    });
-
-    it("rejects user-agent that contains but does not start with vercel-cron", () => {
-      const mockHeaders = new Headers({
-        "Content-Type": "application/json",
-        "user-agent": "Mozilla/5.0 vercel-cron/1.0",
-      });
-
-      const mockRequest = {
-        url: "http://localhost:3000/api/cron/test",
-        method: "GET",
-        headers: mockHeaders,
-        json: jest.fn(() => Promise.resolve({})),
-        text: jest.fn(() => Promise.resolve("")),
-        clone: jest.fn(),
-      } as unknown as Request;
-
-      const isValid = validateCronRequest(mockRequest);
-
-      // Should be invalid because vercel-cron is not at the start
-      expect(isValid).toBe(false);
-    });
-
     it("handles x-vercel-cron header with any truthy value", () => {
       const mockHeaders = new Headers({
         "Content-Type": "application/json",

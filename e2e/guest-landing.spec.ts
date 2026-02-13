@@ -76,14 +76,8 @@ test.describe('Guest Landing Page', () => {
     await expect(googleButton).toBeVisible();
   });
 
-  // TODO: Test drift - signup button selector changed, may now be "Get Started" or similar
-  test.skip('should open auth modal when clicking signup', async ({ page }) => {
-    const signupButton = page.getByRole('button', { name: /sign up/i });
-    await signupButton.click();
-
-    // Should see auth modal
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
+  test('should open auth modal when clicking signup', async ({ page }) => {
+    throw new Error('Not implemented: signup button should open auth modal (button text may be "Sign Up" or "Get Started")');
   });
 
   test.describe('Loading States', () => {
@@ -844,7 +838,7 @@ test.describe('Guest Landing - Search', () => {
       await searchInput.fill('Ocean Beach');
       await expect(searchInput).toHaveValue('Ocean Beach');
     } else {
-      test.skip(true, 'Search not available on landing page');
+      throw new Error('Not implemented: Search not available on landing page');
     }
   });
 });
@@ -890,8 +884,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
   test('should NOT display soft-deleted beach photos on landing page', async ({ page }) => {
     if (!testBeachId) {
-      test.skip(true, 'No test beach available');
-      return;
+      throw new Error('Not implemented: No test beach available');
     }
 
     // Step 1: Create a test beach photo (approved, active)
@@ -905,8 +898,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
     expect(createResult.photoId).toBeTruthy();
 
     if (!createResult.photoId) {
-      test.skip(true, 'Failed to create test photo');
-      return;
+      throw new Error('Not implemented: Failed to create test photo');
     }
 
     testPhotoIds.push(createResult.photoId);
@@ -941,8 +933,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
   test('should display active (non-deleted) beach photos on landing page', async ({ page }) => {
     if (!testBeachId) {
-      test.skip(true, 'No test beach available');
-      return;
+      throw new Error('Not implemented: No test beach available');
     }
 
     // Step 1: Create an active test beach photo
@@ -956,8 +947,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
     expect(createResult.photoId).toBeTruthy();
 
     if (!createResult.photoId) {
-      test.skip(true, 'Failed to create test photo');
-      return;
+      throw new Error('Not implemented: Failed to create test photo');
     }
 
     testPhotoIds.push(createResult.photoId);
@@ -996,8 +986,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
   test('should handle soft-delete and restore workflow correctly', async ({ page }) => {
     if (!testBeachId) {
-      test.skip(true, 'No test beach available');
-      return;
+      throw new Error('Not implemented: No test beach available');
     }
 
     // Step 1: Create a test photo
@@ -1009,8 +998,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
     expect(createResult.success).toBe(true);
     if (!createResult.photoId) {
-      test.skip(true, 'Failed to create test photo');
-      return;
+      throw new Error('Not implemented: Failed to create test photo');
     }
     testPhotoIds.push(createResult.photoId);
 
@@ -1060,8 +1048,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
   test('should exclude deleted photos from /api/beaches/featured API endpoint', async ({ request }) => {
     if (!testBeachId) {
-      test.skip(true, 'No test beach available');
-      return;
+      throw new Error('Not implemented: No test beach available');
     }
 
     // Step 1: Create two test photos for the same beach
@@ -1079,8 +1066,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
     expect(deletedPhotoResult.success).toBe(true);
 
     if (!activePhotoResult.photoId || !deletedPhotoResult.photoId) {
-      test.skip(true, 'Failed to create test photos');
-      return;
+      throw new Error('Not implemented: Failed to create test photos');
     }
 
     testPhotoIds.push(activePhotoResult.photoId, deletedPhotoResult.photoId);
@@ -1130,8 +1116,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
   test('should handle unapproved AND deleted photos correctly', async ({ page }) => {
     if (!testBeachId) {
-      test.skip(true, 'No test beach available');
-      return;
+      throw new Error('Not implemented: No test beach available');
     }
 
     // Create a photo that is both unapproved AND deleted
@@ -1142,8 +1127,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
     expect(createResult.success).toBe(true);
     if (!createResult.photoId) {
-      test.skip(true, 'Failed to create test photo');
-      return;
+      throw new Error('Not implemented: Failed to create test photo');
     }
     testPhotoIds.push(createResult.photoId);
 
@@ -1170,8 +1154,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
   test('should prioritize non-deleted photos over deleted ones for same beach', async ({ page }) => {
     if (!testBeachId) {
-      test.skip(true, 'No test beach available');
-      return;
+      throw new Error('Not implemented: No test beach available');
     }
 
     // Create an older photo (will have earlier fetched_at)
@@ -1182,8 +1165,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
     expect(olderPhotoResult.success).toBe(true);
     if (!olderPhotoResult.photoId) {
-      test.skip(true, 'Failed to create older photo');
-      return;
+      throw new Error('Not implemented: Failed to create older photo');
     }
     testPhotoIds.push(olderPhotoResult.photoId);
 
@@ -1198,8 +1180,7 @@ test.describe('Guest Landing - Deleted Photos', () => {
 
     expect(newerPhotoResult.success).toBe(true);
     if (!newerPhotoResult.photoId) {
-      test.skip(true, 'Failed to create newer photo');
-      return;
+      throw new Error('Not implemented: Failed to create newer photo');
     }
     testPhotoIds.push(newerPhotoResult.photoId);
 

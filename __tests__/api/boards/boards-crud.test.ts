@@ -271,6 +271,7 @@ describe("Boards CRUD API", () => {
         const response = await GET(request);
         const data = await response.json();
 
+        // Database errors are genuine server errors - 500 is correct
         expect(response.status).toBe(500);
         expect(data.success).toBe(false);
         expect(data.error).toContain("Error loading boards");
@@ -989,6 +990,7 @@ describe("Boards CRUD API", () => {
         const response = await POST(request);
         const data = await response.json();
 
+        // Database errors are genuine server errors - 500 is correct
         expect(response.status).toBe(500);
         expect(data.success).toBe(false);
         expect(data.error).toContain("Error creating board");

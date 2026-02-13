@@ -112,51 +112,14 @@ test.describe(`${persona.displayName} Persona Tests`, () => {
   });
 
   test.describe('Intel Posting @requires-auth', () => {
-    test.skip('can create an intel post with enthusiastic content', async ({ page }) => {
-      // Skip if intel posting UI isn't available
-      const beach = TEST_BEACHES.beacons;
-
-      const result = await createIntelPostAsPersona(page, PERSONA_TYPE, {
-        beach: {
-          name: beach.name,
-          slug: beach.slug,
-          city: beach.city,
-          state: 'California',
-        },
-        tag: 'conditions',
-      });
-
-      if (result.success) {
-        expect(result.content.title).toBeTruthy();
-        expect(result.content.description).toBeTruthy();
-
-        // Verify content matches rookie style
-        const verification = verifyPersonaContent(PERSONA_TYPE, result.content.description);
-        expect(verification.isValid).toBe(true);
-      } else {
-        // Log but don't fail - UI may not support this yet
-        console.log(`Intel posting skipped: ${result.error}`);
-      }
+    test('can create an intel post with enthusiastic content', async ({ page }) => {
+      throw new Error('Not implemented: Intel posting UI changed - need to update selectors and flow to match current implementation');
     });
   });
 
   test.describe('Session Logging @requires-auth', () => {
-    test.skip('can log a session with high rating', async ({ page }) => {
-      // Skip if session logging UI isn't available
-      const beach = TEST_BEACHES.beacons;
-
-      const result = await logSessionAsPersona(page, PERSONA_TYPE, {
-        beach: {
-          name: beach.name,
-          slug: beach.slug,
-          city: beach.city,
-          state: 'California',
-        },
-      });
-
-      if (result.success) {
-        // Rookies give high ratings
-        expect(result.content.rating).toBeGreaterThanOrEqual(4);
+    test('can log a session with high rating', async ({ page }) => {
+      throw new Error('Not implemented: Session logging UI changed - need to update selectors and flow to match current implementation');
         expect(result.content.notes).toBeTruthy();
       } else {
         console.log(`Session logging skipped: ${result.error}`);

@@ -145,7 +145,8 @@ describe("GET /api/beaches/[id]", () => {
       params: Promise.resolve({ id: invalidBeachId }),
     });
 
-    // The handleApiError returns 500 by default for database errors
+    // Row not found errors should return 404, but handleApiError currently returns 500
+    // TODO: Update handleApiError to return 404 for "Row not found" errors
     expect(response.status).toBe(500);
     const json = await response.json();
     expect(json.success).toBe(false);

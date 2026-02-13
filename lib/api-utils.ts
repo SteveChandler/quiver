@@ -189,12 +189,6 @@ export function validateCronRequest(request: Request): boolean {
     return true;
   }
 
-  // Some environments may omit the header; accept official Vercel Cron UA
-  const userAgent = request.headers.get("user-agent") || "";
-  if (userAgent.toLowerCase().startsWith("vercel-cron/")) {
-    return true;
-  }
-
   const authHeader = request.headers.get("authorization");
   return validateCronAuth(authHeader);
 }

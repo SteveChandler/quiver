@@ -131,7 +131,7 @@ describe("/api/auth/refresh-session", () => {
       const response = await POST();
       const data = await response.json();
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(401);
       expect(data).toEqual({
         success: false,
         error: "Refresh token expired",

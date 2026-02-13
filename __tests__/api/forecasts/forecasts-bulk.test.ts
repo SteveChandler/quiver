@@ -33,7 +33,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
   }),
 }));
 
-jest.mock("@/lib/supabase/server", () => ({
+jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
 
@@ -229,6 +229,7 @@ describe("GET /api/forecasts/bulk", () => {
 
       const response = await GET(request);
 
+      // Database connection errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       const data = await response.json();
       expect(data.success).toBe(false);
@@ -245,6 +246,7 @@ describe("GET /api/forecasts/bulk", () => {
 
       const response = await GET(request);
 
+      // Unexpected errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       const data = await response.json();
       expect(data.success).toBe(false);

@@ -191,8 +191,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     const waveHeightVisible = await waveHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
 
     if (!waveHeightVisible) {
-      test.skip(true, 'Wave height input not found - UI may have changed');
-      return;
+      throw new Error('Not implemented: Wave height input not found - UI may have changed');
     }
 
     // Clear and set custom value
@@ -230,8 +229,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     const hasSubmit = await submitButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not found - may need to fill more fields');
-      return;
+      throw new Error('Not implemented: Submit button not found - may need to fill more fields');
     }
 
     await submitButton.click();
@@ -258,115 +256,11 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
   });
 
   test('should NOT auto-prefill when editing existing session', async ({ page }) => {
-    // This test verifies that auto-prefill only happens for NEW sessions
-    // When editing an existing session, existing values should be preserved
-
-    // First, we need to log a session to have something to edit
-    // For this test, we'll verify the behavior by checking that the mode
-    // parameter prevents auto-prefill
-
-    // Navigate to edit mode (would normally have session ID in real scenario)
-    await page.goto('/sessions/new?mode=edit');
-    await waitForPageLoad(page);
-
-    // In edit mode, the wizard should NOT trigger auto-prefill
-    // This is verified by checking that condition fields remain empty
-    // unless they were previously saved
-
-    // Look for any indication that this is edit mode
-    const pageContent = await page.content();
-    const isEditMode = pageContent.includes('edit') || pageContent.includes('Edit');
-
-    if (!isEditMode) {
-      test.skip(true, 'Edit mode not accessible without existing session');
-      return;
-    }
-
-    // In edit mode, fields should either:
-    // 1. Be populated with saved values (not forecast values)
-    // 2. Remain empty if not previously filled
-    // Auto-prefill should NOT trigger even after changing date/time
-
-    // This is a structural test - full verification would require:
-    // 1. Creating a session with specific values
-    // 2. Navigating to edit that session
-    // 3. Changing date/time and verifying no auto-prefill occurs
-    // 4. This is better suited for integration testing
-
-    expect(isEditMode).toBe(true);
+    throw new Error('Not implemented: Edit mode auto-prefill prevention - requires session creation flow, edit endpoint, and state management to verify forecast data does not override existing manual values when editing sessions');
   });
 
   test('should display placeholder examples when forecast data is missing', async ({ page }) => {
-    // Test behavior when logging an old session with no available forecast
-
-    // Step 1: Select beach
-    const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
-    await beachInput.fill('Black');
-
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot
-      .locator('ul')
-      .locator('button')
-      .filter({ hasText: /black/i })
-      .first();
-
-    await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachOption.click();
-
-    // Step 2: Set date far in the past (no forecast data available)
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
-    const dateInput = page.getByTestId('session-date-input');
-    await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
-
-    // Set date to 3 months ago
-    const pastDate = new Date();
-    pastDate.setMonth(pastDate.getMonth() - 3);
-    const pastDateString = pastDate.toISOString().split('T')[0];
-    await dateInput.fill(pastDateString);
-
-    const timeInput = page.getByTestId('session-time-input');
-    await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
-    await timeInput.fill('14:00');
-
-    // Navigate to Conditions step
-    await nextButton.click();
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    await page.waitForTimeout(1000);
-
-    // Step 3: Verify placeholder examples are shown
-    const waveHeightInput = page.locator('#wave-height-input').or(
-      page.locator('input[name="waveHeight"]')
-    ).first();
-
-    const waveHeightVisible = await waveHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
-
-    if (!waveHeightVisible) {
-      test.skip(true, 'Wave height input not found');
-      return;
-    }
-
-    // Should have placeholder text (e.g., "3.5" as an example number)
-    const placeholder = await waveHeightInput.getAttribute('placeholder');
-    expect(placeholder).toBeTruthy();
-    // Placeholder should be a reasonable example number for wave height
-    expect(placeholder).toMatch(/^\d+(\.\d+)?$/);
-
-    // Value should be empty (not auto-prefilled)
-    const waveHeightValue = await waveHeightInput.inputValue();
-    expect(waveHeightValue).toBe('');
-
-    // Check for "No forecast data available" message or similar
-    const noDataMessage = page.getByText(/no forecast data|forecast unavailable|data not available/i);
-    const hasMessage = await noDataMessage.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
-
-    // Message might appear, but not required - placeholders are the key indicator
-    if (hasMessage) {
-      expect(hasMessage).toBe(true);
-    }
+    throw new Error('Not implemented: Placeholder examples for missing forecast - requires UI to show example values (e.g., "3.5 ft") when historical forecast data is unavailable for past sessions');
   });
 
   test('should persist all condition fields to database after submission', async ({ page }) => {
@@ -470,8 +364,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     const hasSubmit = await submitButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not found');
-      return;
+      throw new Error('Not implemented: Session wizard submit button - requires complete form flow with all required fields and submission handler');
     }
 
     await submitButton.click();
@@ -487,10 +380,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     const stillOnForm = page.url().includes('/sessions/new');
 
     if (!hasSuccess && !hasCelebration && stillOnForm) {
-      // May need more fields filled - this is acceptable for smoke test
-      console.log('Form submission may require additional fields - this is expected');
-      test.skip(true, 'Form submission incomplete - may need all required fields');
-      return;
+      throw new Error('Not implemented: Session wizard complete submission flow - form submission requires all required fields and success indication');
     }
 
     // Either we saw success or we navigated away (both indicate progress)
@@ -617,8 +507,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     const hasSubmit = await submitButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
 
     if (!hasSubmit) {
-      test.skip(true, 'Submit button not found');
-      return;
+      throw new Error('Not implemented: Session wizard submit - forecast snapshot feature requires complete session submission and detail view display');
     }
 
     await submitButton.click();
@@ -661,152 +550,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
 test.describe('Session Wizard Autofill - Edge Cases', () => {
   test('should handle beach change after conditions are prefilled', async ({ page }) => {
-    // Test behavior when user changes beach after conditions were auto-filled
-
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
-
-    // Step 1: Select first beach
-    const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
-    await beachInput.fill('Black');
-
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot
-      .locator('ul')
-      .locator('button')
-      .filter({ hasText: /black/i })
-      .first();
-
-    await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachOption.click();
-
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
-    // Set date/time
-    const dateInput = page.getByTestId('session-date-input');
-    await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
-
-    const today = new Date().toISOString().split('T')[0];
-    await dateInput.fill(today);
-
-    const timeInput = page.getByTestId('session-time-input');
-    await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
-    await timeInput.fill('10:00');
-
-    // Navigate to conditions
-    await nextButton.click();
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    await page.waitForTimeout(1000);
-
-    // Step 2: Go back and change beach
-    const backButton = page.getByRole('button', { name: /back|previous/i }).first();
-    const hasBack = await backButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
-
-    if (!hasBack) {
-      test.skip(true, 'Back navigation not available');
-      return;
-    }
-
-    // Navigate back to location step
-    await backButton.click();
-    await page.waitForTimeout(500);
-    await backButton.click();
-    await page.waitForTimeout(500);
-    await backButton.click();
-    await page.waitForTimeout(500);
-
-    // Change to different beach
-    const beachInputAgain = page.getByTestId('beach-search-input');
-    await beachInputAgain.clear();
-    await beachInputAgain.fill('Bird');
-
-    const birdRockOption = beachSelectorRoot
-      .locator('ul')
-      .locator('button')
-      .filter({ hasText: /bird/i })
-      .first();
-
-    const hasBirdRock = await birdRockOption.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-
-    if (hasBirdRock) {
-      await birdRockOption.click();
-
-      // Navigate forward again
-      await nextButton.click();
-      await nextButton.click();
-      await nextButton.click();
-
-      // Conditions should be refreshed for new beach
-      // This is implicit - if forecast differs, values should update
-      expect(hasBack).toBe(true);
-    }
+    throw new Error('Not implemented: Beach change after autofill - requires wizard back navigation, state management to clear previous forecast values, and re-fetch forecast for new beach selection');
   });
 
   test('should handle partial forecast data gracefully', async ({ page }) => {
-    // When some forecast fields are available but others are null
-
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
-
-    const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
-    await beachInput.fill('Black');
-
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot
-      .locator('ul')
-      .locator('button')
-      .filter({ hasText: /black/i })
-      .first();
-
-    await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachOption.click();
-
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
-    const dateInput = page.getByTestId('session-date-input');
-    await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
-
-    const today = new Date().toISOString().split('T')[0];
-    await dateInput.fill(today);
-
-    const timeInput = page.getByTestId('session-time-input');
-    await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
-    await timeInput.fill('15:00');
-
-    await nextButton.click();
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    await page.waitForTimeout(1000);
-
-    // Check that fields without data show placeholders
-    const allInputs = page.locator('input[type="text"], input[type="number"]');
-    const inputCount = await allInputs.count();
-
-    // At least some inputs should be present
-    expect(inputCount).toBeGreaterThan(0);
-
-    // Verify that empty fields have helpful placeholders
-    for (let i = 0; i < inputCount; i++) {
-      const input = allInputs.nth(i);
-      const isVisible = await input.isVisible().catch(() => false);
-
-      if (isVisible) {
-        const value = await input.inputValue();
-
-        if (!value) {
-          // Empty field should have placeholder
-          const placeholder = await input.getAttribute('placeholder');
-          // Placeholders should guide the user
-          if (placeholder) {
-            expect(placeholder.length).toBeGreaterThan(0);
-          }
-        }
-      }
-    }
+    throw new Error('Not implemented: Partial forecast data handling - requires graceful degradation when forecast API returns incomplete data (e.g., null wind or tide values) with helpful placeholders');
   });
 });

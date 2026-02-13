@@ -135,7 +135,8 @@ describe("/api/auth/check-session", () => {
       );
 
       const response = await GET();
-      
+
+      // Database connection errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       const data = await response.json();
       expect(data.error).toBe("Failed to check session");
@@ -177,6 +178,7 @@ describe("/api/auth/check-session", () => {
       const response = await GET();
       const data = await response.json();
 
+      // Database connection errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(data.error).toBe("Failed to check session");
       expect(data).not.toHaveProperty("stack");

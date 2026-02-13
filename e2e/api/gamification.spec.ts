@@ -409,19 +409,9 @@ test.describe('Gamification API', () => {
         });
 
         // TODO: Test drift - POST endpoint may not exist or returns different status
-        test.skip('POST should require authentication', async ({ playwright }, testInfo) => {
-          const unauthContext = await createIsolatedApiContext(playwright, BASE_URL, testInfo, {
-            storageState: { cookies: [], origins: [] },
-          });
-
-          const response = await unauthContext.post(USER_BADGES_ENDPOINT, {
-            data: { badge_id: 'test-badge' },
-          });
-
-          expect(response.status()).toBe(401);
-
-          await unauthContext.dispose();
-        });
+        test('POST should require authentication', async ({ playwright }, testInfo) => {
+  throw new Error('Not implemented: POST should require authentication');
+});
       });
     });
   });

@@ -18,7 +18,7 @@ interface BulkForecastResponse {
 // Mock the Supabase server client
 const mockSupabaseClient = createMockSupabaseClient();
 
-jest.mock("@/lib/supabase/server", () => ({
+jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
 }));
 

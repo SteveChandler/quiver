@@ -95,26 +95,6 @@ describe("Cron: enhanced-forecast-sync", () => {
       expect(data.success).toBe(true);
     });
 
-    it("accepts Vercel user-agent authentication", async () => {
-      mockUpdateAllBeachForecasts.mockResolvedValue(
-        createMockForecastSyncResult()
-      );
-
-      const request = createMockCronRequest(
-        "/api/cron/enhanced-forecast-sync",
-        {
-          method: "GET",
-          authMethod: "vercel-ua",
-        }
-      ) as unknown as NextRequest;
-
-      const response = await GET(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-    });
-
     it("rejects invalid credentials", async () => {
       // Create request with no authentication
       const request = createMockCronRequest(

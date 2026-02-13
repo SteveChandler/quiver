@@ -356,26 +356,8 @@ test.describe('Social Interactions API', () => {
   test.describe('Rate Limiting', () => {
     // TODO: Test drift - follow toggle returns 500 for fake user IDs
     // Needs proper test user setup or mock
-    test.skip('social endpoints should handle rapid requests gracefully', async ({ request }) => {
-      // Make several rapid requests to test rate limiting doesn't cause crashes
-      const promises = [];
-      for (let i = 0; i < 5; i++) {
-        promises.push(request.post(USER_FOLLOW_TOGGLE(FAKE_USER_ID)));
-      }
-
-      const responses = await Promise.all(promises);
-
-      // All requests should complete without server errors
-      for (const response of responses) {
-        expect(response.status()).toBeLessThan(500);
-      }
-
-      // Some may be rate limited (429), which is acceptable
-      const rateLimited = responses.filter((r) => r.status() === 429);
-      const successful = responses.filter((r) => r.status() === 200);
-
-      // At least one should succeed or all should be rate limited
-      expect(successful.length + rateLimited.length).toBeGreaterThan(0);
-    });
+    test('social endpoints should handle rapid requests gracefully', async ({ request }) => {
+  throw new Error('Not implemented: social endpoints should handle rapid requests gracefully');
+});
   });
 });

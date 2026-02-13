@@ -282,7 +282,7 @@ test.describe('Authentication @dev', () => {
       await assertNoErrors(page, errorCapture, { context: 'Login modal' });
     } else {
       // Already logged in or no login button visible
-      test.skip(true, 'Login button not visible - may already be authenticated');
+      throw new Error('Not implemented: Login modal - login button not visible, may already be authenticated or button missing');
     }
   });
 
@@ -301,7 +301,7 @@ test.describe('Authentication @dev', () => {
 
       await assertNoErrors(page, errorCapture, { context: 'Email auth option' });
     } else {
-      test.skip(true, 'Login button not visible');
+      throw new Error('Not implemented: Email auth option - login button not visible to access email authentication');
     }
   });
 
@@ -506,7 +506,7 @@ test.describe('User Interactions @dev', () => {
 
       await assertNoErrors(page, errorCapture, { context: 'Session wizard' });
     } else {
-      test.skip(true, 'Log session button not found');
+      throw new Error('Not implemented: Session wizard - log session button not found on sessions page');
     }
   });
 
@@ -530,7 +530,7 @@ test.describe('User Interactions @dev', () => {
       expect(inputValue).toContain('Black');
     } else {
       // Search may be behind a button - skip if not immediately available
-      test.skip(true, 'Search input not immediately visible');
+      throw new Error('Not implemented: Beach search - search input not immediately visible on page');
     }
   });
 
@@ -617,7 +617,7 @@ test.describe('User Interactions @dev', () => {
 
       await assertNoErrors(page, errorCapture, { context: 'Beach card navigation' });
     } else {
-      test.skip(true, 'No beach cards found');
+      throw new Error('Not implemented: Beach card navigation - no beach cards found on page to test navigation');
     }
   });
 });

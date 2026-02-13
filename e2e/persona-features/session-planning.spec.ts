@@ -46,16 +46,8 @@ test.describe('Session Planning - All Personas', () => {
           storageState: getPersonaAuthStatePath(personaType),
         });
 
-        test.skip('can access session planner @requires-auth', async ({ page }) => {
-          const result = await checkSessionPlannerAsPersona(page, personaType);
-
-          if (result.success) {
-            // Planner should return some recommendations
-            expect(result.hasRecommendations).toBeDefined();
-          } else {
-            // Log but don't fail - planner may not be available
-            console.log(`Session planner check: ${result.error}`);
-          }
+        test('can access session planner @requires-auth', async ({ page }) => {
+          throw new Error('Not implemented: Session planner UI changed - need to update selectors and flow to match current implementation');
         });
       });
     }
@@ -124,24 +116,8 @@ test.describe('Session Planning - All Personas', () => {
     for (const personaType of ALL_PERSONA_TYPES) {
       const persona = PERSONAS[personaType];
 
-      test.skip(`${persona.displayName} sees skill-appropriate recommendations`, async ({ browser }) => {
-        if (!personaAuthStateExists(personaType)) {
-          test.skip();
-          return;
-        }
-
-        const { page, context } = await createPersonaPage(browser, personaType);
-
-        try {
-          const result = await checkSessionPlannerAsPersona(page, personaType);
-
-          if (result.success && result.hasRecommendations) {
-            // Recommendations should be present
-            expect(result.hasRecommendations).toBe(true);
-          }
-        } finally {
-          await context.close();
-        }
+      test(`${persona.displayName} sees skill-appropriate recommendations`, async ({ browser }) => {
+        throw new Error('Not implemented: Session planner UI changed - need to update selectors and flow to match current implementation');
       });
     }
   });

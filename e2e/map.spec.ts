@@ -62,8 +62,7 @@ test.describe('Map Page - Core Functionality', () => {
     }
   });
 
-  // TODO: Test drift - beach link selectors changed in map view
-  test.skip('should navigate to beach detail when clicking a beach', async ({ page }) => {
+  test('should navigate to beach detail when clicking a beach', async ({ page }) => {
     // Wait for beaches to load by checking for beach links
     const beachLinks = page.locator('a[href^="/beach/"], a[href*="/ca/"]');
     const firstBeach = beachLinks.first();
@@ -71,8 +70,7 @@ test.describe('Map Page - Core Functionality', () => {
     const isVisible = await firstBeach.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!isVisible) {
-      test.skip(true, 'No beach markers found in current viewport');
-      return;
+      throw new Error('Not implemented: Beach links on map - beach markers or links not found in current viewport');
     }
 
     await firstBeach.click();
@@ -221,9 +219,7 @@ test.describe('Map Page - Filter Functionality', () => {
     const clearVisible = await clearButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!clearVisible) {
-      // Clear filters button may not appear if no filters are active or all beaches match
-      test.skip(true, 'Clear filters button not visible - may not be needed');
-      return;
+      throw new Error('Not implemented: Clear filters button - button not visible when filters are active');
     }
 
     await clearButton.click();
@@ -253,8 +249,7 @@ test.describe('Map Page - Region Tabs', () => {
     const tabsExist = await allTab.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!tabsExist) {
-      test.skip(true, 'No regions available in current dataset');
-      return;
+      throw new Error('Not implemented: Region tabs - region navigation tabs not displaying on map');
     }
 
     await expect(allTab).toBeVisible();
@@ -265,8 +260,7 @@ test.describe('Map Page - Region Tabs', () => {
     const tabsExist = await allTab.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!tabsExist) {
-      test.skip(true, 'No regions available in current dataset');
-      return;
+      throw new Error('Not implemented: Region tabs - region navigation tabs not displaying on map');
     }
 
     // Get all tabs
@@ -274,8 +268,7 @@ test.describe('Map Page - Region Tabs', () => {
     const tabCount = await tabs.count();
 
     if (tabCount <= 1) {
-      test.skip(true, 'Only "All" tab exists, need multiple regions to test switching');
-      return;
+      throw new Error('Not implemented: Multiple region tabs - only "All" tab exists, need multiple regions for switching');
     }
 
     // Click second tab (first region after "All")
@@ -426,9 +419,7 @@ test.describe('Map Page - Geolocation', () => {
     const nearMeVisible = await nearMeButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!nearMeVisible) {
-      // Near Me button might not be visible if location is already set or not needed
-      test.skip(true, 'Near Me button not visible');
-      return;
+      throw new Error('Not implemented: Near Me button - geolocation button not visible or accessible');
     }
 
     // Grant permission before clicking
@@ -527,8 +518,7 @@ test.describe('Map Page - Marker Interactions', () => {
     const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!hasMarkers && !hasItems) {
-      test.skip(true, 'No beach markers or items found');
-      return;
+      throw new Error('Not implemented: Beach markers interaction - no beach markers or items found to interact with');
     }
 
     // Click should either navigate to beach detail page OR show selected beach card

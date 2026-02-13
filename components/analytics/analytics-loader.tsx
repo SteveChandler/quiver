@@ -118,7 +118,7 @@ export function AnalyticsLoader() {
                 });
                 ${
                   process.env.NODE_ENV !== "production"
-                    ? "try{gtag('set','debug_mode',true);}catch(_){}"
+                    ? "try{gtag('set','debug_mode',true);}catch(e){console.warn('GA debug mode error:',e);}"
                     : ""
                 }
               `,

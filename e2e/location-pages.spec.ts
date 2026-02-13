@@ -104,11 +104,9 @@ test.describe("Location Pages - URL and Routing", () => {
     }
   });
 
-  test.skip("should return 404 for invalid location URLs", async ({ page }) => {
-    // Note: Requires 404 page implementation
-    const response = await page.goto("/beaches/usa/ca/nonexistent-city");
-    expect(response?.status()).toBe(404);
-  });
+  test("should return 404 for invalid location URLs", async ({ page }) => {
+  throw new Error('Not implemented: should return 404 for invalid location URLs');
+});
 });
 
 // TODO: Test drift - selectors and page structure have changed
@@ -189,16 +187,9 @@ test.describe.skip("Location Pages - Page Header and Metadata", () => {
   });
 });
 
-test.describe.skip("Location Pages - Beach Rankings and Cards", () => {
+test.describe("Location Pages - Beach Rankings and Cards", () => {
   test("should display beaches in ranked order", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page, LOCATION_PAGE_TIMEOUTS.beachesLoad);
-
-    const beachCount = await getBeachCardCount(page);
-    expect(beachCount).toBeGreaterThan(0);
-
-    // Verify sequential ranking
-    await verifySequentialRanking(page);
+    throw new Error('Not implemented: Beach ranking display changed - need to update selectors and ranking verification logic to match current implementation');
   });
 
   test("should display rank numbers prominently", async ({ page }) => {
@@ -243,52 +234,25 @@ test.describe.skip("Location Pages - Beach Rankings and Cards", () => {
   test("should display ranking badges for top beaches", async ({
     page,
   }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const badges = await getRankingBadges(page);
-    // Top beaches should have badges like "Top Rated" or "Highly Rated"
-    expect(badges.length).toBeGreaterThan(0);
+    throw new Error('Not implemented: Beach ranking badges changed - need to update selectors and badge verification logic to match current implementation');
   });
 
   test("should navigate to beach detail when clicking card", async ({
     page,
   }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const firstCard = page.locator('[data-testid="beach-card"]').first();
-    await firstCard.click();
-
-    // Should navigate to beach detail page (singular /beach/)
-    await page.waitForURL(/\/beach\/.+/, {
-      timeout: LOCATION_PAGE_TIMEOUTS.navigation,
-    });
-
-    // Verify we're on a beach detail page (not location page)
-    const url = page.url();
-    expect(url).toMatch(/\/beach\/[a-z-]+$/); // Should match /beach/{slug} pattern
+    throw new Error('Not implemented: Beach card navigation changed - need to update selectors and navigation flow to match current implementation');
   });
 
   test("should show empty state when no beaches in location", async ({
     page,
   }) => {
-    // Navigate to a location with no beaches (if any exist)
-    await page.goto("/beaches/usa/ca/empty-city");
-
-    const isEmpty = await isEmptyState(page);
-    // Either should show empty state or redirect
-    // This test may need adjustment based on implementation
+    throw new Error('Not implemented: Empty state display changed - need to update selectors and empty state detection logic to match current implementation');
   });
 });
 
-test.describe.skip("Location Pages - Interactive Map", () => {
+test.describe("Location Pages - Interactive Map", () => {
   test("should display map with location beaches", async ({ page }) => {
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const map = page.locator('[data-testid="location-map"]');
-    await expect(map).toBeVisible({
+    throw new Error('Not implemented: Location map display changed - need to update selectors and map detection logic to match current implementation');
       timeout: LOCATION_PAGE_TIMEOUTS.mapLoad,
     });
   });
@@ -314,51 +278,21 @@ test.describe.skip("Location Pages - Interactive Map", () => {
   });
 });
 
-test.describe.skip("Location Pages - Responsive Design", () => {
+test.describe("Location Pages - Responsive Design", () => {
   test("should display correctly on mobile", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const h1 = page.locator("h1");
-    await expect(h1).toBeVisible();
-
-    // Beach cards should still be visible
-    const beachCount = await getBeachCardCount(page);
-    expect(beachCount).toBeGreaterThan(0);
+    throw new Error('Not implemented: Mobile responsive design changed - need to update selectors and layout verification logic to match current implementation');
   });
 
   test("should display correctly on tablet", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.tablet);
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const h1 = page.locator("h1");
-    await expect(h1).toBeVisible();
+    throw new Error('Not implemented: Tablet responsive design changed - need to update selectors and layout verification logic to match current implementation');
   });
 
   test("should display correctly on desktop", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    const h1 = page.locator("h1");
-    await expect(h1).toBeVisible();
+    throw new Error('Not implemented: Desktop responsive design changed - need to update selectors and layout verification logic to match current implementation');
   });
 
   test("should stack beach cards properly on mobile", async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    await navigateToLocation(page, "La Jolla", "CA", "USA");
-    await waitForLocationPageLoad(page);
-
-    // Cards should be stacked vertically, taking full width
-    const firstCard = page.locator('[data-testid="beach-card"]').first();
-    const box = await firstCard.boundingBox();
-
-    if (box) {
-      // Card should be nearly full width on mobile
-      expect(box.width).toBeGreaterThan(VIEWPORTS.mobile.width * 0.8);
-    }
+    throw new Error('Not implemented: Mobile card stacking changed - need to update selectors and layout verification logic to match current implementation');
   });
 });
 
@@ -569,28 +503,15 @@ test.describe.skip("Location Pages - Performance", () => {
 });
 
 test.describe("Location Pages - International Locations", () => {
-  test.skip("should handle Mexico locations correctly", async ({ page }) => {
-    // Note: Requires beaches in Mexico with proper location data
-    await navigateToLocation(page, "Ensenada", "Baja California", "Mexico");
-    await waitForLocationPageLoad(page);
+  test("should handle Mexico locations correctly", async ({ page }) => {
+  throw new Error('Not implemented: should handle Mexico locations correctly');
+});
 
-    const h1 = page.locator("h1");
-    await expect(h1).toBeVisible();
-
-    const url = page.url();
-    expect(url).toContain("/beaches/mexico/");
-  });
-
-  test.skip("should display correct breadcrumb for international location", async ({
+  test("should display correct breadcrumb for international location", async ({
     page,
   }) => {
-    // Note: Requires international beach data
-    await navigateToLocation(page, "Ensenada", "Baja California", "Mexico");
-    await waitForLocationPageLoad(page);
-
-    // Should include Mexico in breadcrumb
-    await verifyBreadcrumbSegments(page, ["Map", "Mexico", "Baja California"]);
-  });
+  throw new Error('Not implemented: should display correct breadcrumb for international location');
+});
 });
 
 test.describe("HI island-specific city pages (Waimea)", () => {

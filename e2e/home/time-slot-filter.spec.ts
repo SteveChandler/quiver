@@ -160,8 +160,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Dawn patrol');
-        return;
+        throw new Error('Not implemented: No recommendations available for Dawn patrol');
       }
 
       // Find the time window badge (e.g., "7-11am" or "Tomorrow 6-11am")
@@ -209,8 +208,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Dawn patrol');
-        return;
+        throw new Error('Not implemented: No recommendations available for Dawn patrol');
       }
 
       // Check that window format shows capped time (e.g., "7-11am" not "7-1pm")
@@ -236,8 +234,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Lunch session');
-        return;
+        throw new Error('Not implemented: No recommendations available for Lunch session');
       }
 
       await expect(heroRecommendation).toBeVisible();
@@ -252,8 +249,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Lunch session');
-        return;
+        throw new Error('Not implemented: No recommendations available for Lunch session');
       }
 
       const timeWindowBadge = heroRecommendation.locator('.inline-flex').filter({ hasText: /am|pm/i }).first();
@@ -301,8 +297,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Afternoon');
-        return;
+        throw new Error('Not implemented: No recommendations available for Afternoon');
       }
 
       await expect(heroRecommendation).toBeVisible();
@@ -317,8 +312,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Afternoon');
-        return;
+        throw new Error('Not implemented: No recommendations available for Afternoon');
       }
 
       const timeWindowBadge = heroRecommendation.locator('.inline-flex').filter({ hasText: /am|pm/i }).first();
@@ -360,8 +354,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!heroVisible) {
-        test.skip(true, 'No recommendations available for Afternoon');
-        return;
+        throw new Error('Not implemented: No recommendations available for Afternoon');
       }
 
       const timeWindowBadge = heroRecommendation.locator('.inline-flex').filter({ hasText: /am|pm/i }).first();
@@ -568,8 +561,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const carouselVisible = await carousel.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!carouselVisible) {
-        test.skip(true, 'No top spots available - carousel empty state rendered');
-        return;
+        throw new Error('Not implemented: No top spots available - carousel empty state rendered');
       }
 
       // Get initial spot count (uses compact-spot-card, not beach-card)
@@ -614,8 +606,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const sectionVisible = await spotsSection.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
       if (!sectionVisible) {
-        test.skip(true, 'No top spots section found');
-        return;
+        throw new Error('Not implemented: No top spots section found');
       }
 
       // Wait for carousel - testid only exists when spots are available
@@ -623,8 +614,7 @@ test.describe('Time Slot Filter - Home Screen', () => {
       const carouselVisible = await carousel.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
       if (!carouselVisible) {
-        test.skip(true, 'No top spots available for Dawn patrol');
-        return;
+        throw new Error('Not implemented: No top spots available for Dawn patrol');
       }
 
       // Get first beach card

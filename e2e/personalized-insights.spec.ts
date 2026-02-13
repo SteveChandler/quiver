@@ -68,8 +68,7 @@ test.describe('Personalized Insights', () => {
 
     // Skip test if no recommendation is available
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Check for insights section within the card
@@ -111,8 +110,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Check for "For You" KPI tile which shows insights label
@@ -175,8 +173,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Look for board tip section (amber background)
@@ -215,8 +212,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Look for "View similar sessions" button
@@ -274,7 +270,7 @@ test.describe('Personalized Insights', () => {
       }
     } else {
       // Button not visible - user may not have similar sessions
-      test.skip(true, 'No similar sessions available to view');
+      throw new Error('Not implemented: No similar sessions available to view');
     }
   });
 
@@ -289,8 +285,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Find the "For You" KPI tile (purple background)
@@ -298,8 +293,7 @@ test.describe('Personalized Insights', () => {
     const tileVisible = await forYouTile.isVisible().catch(() => false);
 
     if (!tileVisible) {
-      test.skip(true, 'For You tile not visible');
-      return;
+      throw new Error('Not implemented: For You tile not visible');
     }
 
     // Check if tile is clickable (has cursor-pointer class)
@@ -428,8 +422,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Verify card is visible and not cut off
@@ -482,8 +475,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     const forYouTile = card.locator('.bg-purple-50').first();
@@ -524,8 +516,7 @@ test.describe('Personalized Insights', () => {
     const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
 
     if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
+      throw new Error('Not implemented: No personalized forecast available');
     }
 
     // Look for "For You" badge
@@ -540,49 +531,7 @@ test.describe('Personalized Insights', () => {
     }
   });
 
-  /**
-   * Test: Insights Update on Forecast Change
-   *
-   * When the forecast recommendation changes (e.g., due to time of day),
-   * insights should update accordingly.
-   */
-  // TODO: Test drift - personalized forecast card structure changed
-  test.skip('should update insights when forecast recommendation changes', async ({ page }) => {
-    const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-
-    if (!cardVisible) {
-      test.skip(true, 'No personalized forecast available');
-      return;
-    }
-
-    // Get initial beach name
-    const beachNameElement = card.locator('h3').first();
-    const initialBeachName = await beachNameElement.textContent();
-
-    // Get initial insights label
-    const forYouTile = card.locator('.bg-purple-50').first();
-    const initialLabel = await forYouTile.textContent();
-
-    // Refresh the page to potentially get updated forecast
-    await page.reload();
-    await waitForPageLoad(page);
-
-    // Wait for card to reload
-    const cardAfterReload = page.getByTestId('personalized-forecast-card');
-    const cardVisibleAfterReload = await cardAfterReload.isVisible({
-      timeout: TIMEOUTS.long
-    }).catch(() => false);
-
-    if (cardVisibleAfterReload) {
-      // Card should still render
-      await expect(cardAfterReload).toBeVisible();
-
-      // Insights should be present (may or may not have changed)
-      const forYouTileAfter = cardAfterReload.locator('.bg-purple-50').first();
-      const tileVisibleAfter = await forYouTileAfter.isVisible().catch(() => false);
-
-      expect(tileVisibleAfter).toBe(true);
-    }
+  test('should update insights when forecast recommendation changes', async ({ page }) => {
+    throw new Error('Not implemented: personalized insights should update when forecast recommendation changes (e.g., time of day)');
   });
 });

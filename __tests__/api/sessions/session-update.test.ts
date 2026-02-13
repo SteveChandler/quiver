@@ -797,6 +797,7 @@ describe("PATCH /api/sessions/[id]", () => {
       const response = await PATCH(request, { params: { id: validSessionId } });
       const data = await response.json();
 
+      // Database errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to update session");

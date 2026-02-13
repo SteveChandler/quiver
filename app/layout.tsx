@@ -222,11 +222,11 @@ export default async function RootLayout({
                         });
                       })
                       .then(function () {
-                        try { sessionStorage.setItem("__quiver_sw_cleared", "1"); } catch (_) {}
+                        try { sessionStorage.setItem("__quiver_sw_cleared", "1"); } catch (e) { console.warn('Session storage error:', e); }
                         window.location.reload();
                       });
                   });
-                } catch (_) {}
+                } catch (e) { console.warn('Service worker cleanup error:', e); }
               })();
             `,
           }}

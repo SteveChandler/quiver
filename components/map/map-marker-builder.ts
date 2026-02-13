@@ -135,10 +135,7 @@ export function createWaveHeightBadge(
       try {
         track("map_marker_click", {
           beach_slug: slugify(location.name),
-          region:
-            (location as any).region ||
-            (location as any).location ||
-            undefined,
+          region: location.region || undefined,
         });
       } catch {}
 

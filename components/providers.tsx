@@ -181,7 +181,7 @@ function AuthenticatedAppContent({ children }: { children: React.ReactNode }) {
             (function(){
               try {
                 window.confetti = window.confetti || function(){};
-              } catch(_) {}
+              } catch(e) { console.warn('Confetti script error:', e); }
             })();
           `,
         }}

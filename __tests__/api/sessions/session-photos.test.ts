@@ -437,6 +437,7 @@ describe("GET /api/sessions/[id]/photos", () => {
       const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
+      // Database errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to load session photos");
@@ -479,6 +480,7 @@ describe("GET /api/sessions/[id]/photos", () => {
       const response = await GET(request, { params: Promise.resolve({ id: validSessionId }) });
       const data = await response.json();
 
+      // Storage service errors are genuine server errors - 500 is correct
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toContain("Failed to load session photos");

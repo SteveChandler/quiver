@@ -241,7 +241,8 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
   test.describe("Beach Discovery Flow", () => {
     // TODO: Test drift - discovery card selectors and page structure changed
     // @ts-expect-error - Playwright overload resolution issue with long test names
-    test.skip("should efficiently load and display beaches with all optimizations @smoke", async ({ page, request }: PageRequestFixture) => {
+    test("should efficiently load and display beaches with all optimizations @smoke", async ({ page, request }: PageRequestFixture) => {
+      throw new Error('Not implemented: Discovery card selectors and page structure need updating to match current UI implementation');
       console.log("=== Starting Beach Discovery Flow ===");
 
       // Step 1: Load home page (tests React performance + N+1 fix)
@@ -559,35 +560,8 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
   test.describe("Combined Stress Testing", () => {
     // TODO: Test drift - rapid navigation causes connection reset errors
     // @ts-expect-error - Playwright overload resolution issue with long test names
-    test.skip("should handle rapid navigation with all fixes active", async ({ page }: PageFixture) => {
-      console.log("=== Testing Combined System Under Load ===");
-
-      const routes = ["/", "/map", "/discover", "/sessions", "/profile"];
-      const navigationTimes: number[] = [];
-
-      for (let i = 0; i < 2; i++) {
-        for (const route of routes) {
-          const startTime = performance.now();
-
-          await page.goto(route);
-          await waitForPageLoad(page);
-
-          const navTime = performance.now() - startTime;
-          navigationTimes.push(navTime);
-
-          // Each navigation should complete in reasonable time (very relaxed for dev server variability)
-          // Dev server with hot reload can be slow; production is faster
-          expect(navTime).toBeLessThan(45000);
-        }
-      }
-
-      const avgTime = navigationTimes.reduce((a, b) => a + b, 0) / navigationTimes.length;
-      const maxTime = Math.max(...navigationTimes);
-
-      console.log(`✓ Rapid navigation completed:`);
-      console.log(`  - Average time: ${avgTime.toFixed(2)}ms`);
-      console.log(`  - Max time: ${maxTime.toFixed(2)}ms`);
-      console.log(`  - Total navigations: ${navigationTimes.length}`);
+    test("should handle rapid navigation with all fixes active", async ({ page }: PageFixture) => {
+      throw new Error('Not implemented: Rapid navigation causes connection reset errors - needs investigation and fix before test can be enabled');
     }, TIMEOUTS.veryLong);
 
     test("should maintain performance under concurrent operations", async ({ page, request }: PageRequestFixture) => {

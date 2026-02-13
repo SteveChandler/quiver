@@ -101,10 +101,9 @@ test.describe('Profiles - All Personas', () => {
 
           const result = await verifyProfileExperienceLevel(page, personaType);
 
-          // If API not available or auth failed, skip gracefully
+          // If API not available or auth failed, fail with informative error
           if (result.error?.includes('401') || result.error?.includes('Profile fetch failed')) {
-            test.skip();
-            return;
+            throw new Error('Not implemented: profile API returned auth error - authentication setup needed');
           }
 
           expect(result.success,
@@ -172,31 +171,8 @@ test.describe('Profiles - All Personas', () => {
     for (const personaType of ALL_PERSONA_TYPES) {
       const persona = PERSONAS[personaType];
 
-      test.skip(`${persona.displayName} can update profile`, async ({ browser }) => {
-        if (!personaAuthStateExists(personaType)) {
-          test.skip();
-          return;
-        }
-
-        const { page, context } = await createPersonaPage(browser, personaType);
-
-        try {
-          // Generate persona-appropriate bio
-          const bio = `${persona.phrases[0]} ${persona.style} surfer.`;
-
-          const result = await updateProfileAsPersona(page, personaType, {
-            bio,
-          });
-
-          if (result.success) {
-            expect(result.success).toBe(true);
-          } else {
-            // Profile update may not be available - log but don't fail
-            console.log(`Profile update: ${result.error}`);
-          }
-        } finally {
-          await context.close();
-        }
+      test(`${persona.displayName} can update profile`, async ({ browser }) => {
+        throw new Error('Not implemented: Profile update UI changed - need to update selectors and flow to match current implementation');
       });
     }
   });

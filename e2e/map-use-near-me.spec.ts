@@ -26,8 +26,7 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     const isVisible = await nearMeButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!isVisible) {
-      test.skip(true, 'Near Me button not visible on this page state');
-      return;
+      throw new Error('Not implemented: Near Me button not visible on this page state');
     }
 
     await nearMeButton.click();
@@ -60,8 +59,7 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     const isVisible = await nearMeButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!isVisible) {
-      test.skip(true, 'Near Me button not visible on this page state');
-      return;
+      throw new Error('Not implemented: Near Me button not visible on this page state');
     }
 
     // First click - should use La Jolla coords
@@ -95,8 +93,7 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     const isVisible = await nearMeButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
     if (!isVisible) {
-      test.skip(true, 'Near Me button not visible on this page state');
-      return;
+      throw new Error('Not implemented: Near Me button not visible on this page state');
     }
 
     await nearMeButton.click();

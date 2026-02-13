@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense } from "react";
 import { TideChartEnhanced } from "@/components/forecast/tide-chart-enhanced";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { useEmbedImpression } from "@/hooks/use-embed-impression";
 
 interface EmbedTideWidgetProps {
   beachName: string;
@@ -21,18 +22,8 @@ export function EmbedTideWidget({
   windowHours,
   theme,
 }: EmbedTideWidgetProps) {
-  const hasTracked = useRef(false);
+  useEmbedImpression("tides", slug);
 
-  useEffect(() => {
-    if (hasTracked.current) return;
-    hasTracked.current = true;
-    fetch('/api/embed-impressions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ widgetType: 'tides', beachSlug: slug }),
-      keepalive: true,
-    }).catch((e) => { if (process.env.NODE_ENV === 'development') console.warn('[Embed] impression tracking failed:', e); });
-  }, [slug]);
   const isDark = theme === "dark";
 
   return (

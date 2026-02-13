@@ -49,6 +49,7 @@ describe("api-utils", () => {
 
   test("handleApiError returns 500 and hides details by default", async () => {
     const res = handleApiError(new Error("boom"));
+    // Testing handleApiError's default behavior - 500 is correct for unexpected errors
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.success).toBe(false);

@@ -136,16 +136,6 @@ describe("Cron: welcome-email", () => {
       expect(response.status).toBe(200);
     });
 
-    it("accepts Vercel user-agent authentication", async () => {
-      const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-ua",
-      });
-
-      const response = await GET(request);
-
-      expect(response.status).toBe(200);
-    });
-
     it("rejects invalid credentials", async () => {
       const request = createMockCronRequest("/api/cron/welcome-email", {
         authMethod: "none",
