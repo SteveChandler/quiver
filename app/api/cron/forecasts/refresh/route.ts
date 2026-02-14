@@ -1,5 +1,6 @@
 import { createErrorResponse, createSuccessResponse, handleApiError, validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { startCronCheckIn, completeCronCheckIn } from "@/lib/monitoring/sentry-cron";
 import { CDIPService } from "@/lib/services/cdip-service";
 import { NwsWindService } from "@/lib/services/nws-wind-service";
 import {
@@ -69,8 +70,29 @@ function getSupabaseProjectRef(): string | null {
 }
 
 export async function GET(request: Request) {
+  // Parse source early for Sentry cron monitoring (must be outside try/catch)
+  type RefreshSource = "all" | "marine" | "tide" | "sun";
+  const urlForSource = new URL(request.url);
+  const sourceParamEarly = (urlForSource.searchParams.get("source") ?? "all").toLowerCase();
+  const sourceForMonitor: RefreshSource =
+    sourceParamEarly === "marine" || sourceParamEarly === "tide" || sourceParamEarly === "sun" || sourceParamEarly === "all"
+      ? (sourceParamEarly as RefreshSource)
+      : "all";
+  const REFRESH_SCHEDULES: Record<RefreshSource, string> = {
+    marine: "0 * * * *",
+    tide: "0 4 * * 0",
+    sun: "30 2 * * *",
+    all: "0 * * * *",
+  };
+  const monitorSlug = `forecast-refresh-${sourceForMonitor}`;
+  const checkInId = startCronCheckIn({
+    slug: monitorSlug,
+    schedule: REFRESH_SCHEDULES[sourceForMonitor],
+  });
+
   try {
     if (!validateCronRequest(request)) {
+      completeCronCheckIn(checkInId, monitorSlug, "error");
       return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
     }
 
@@ -97,11 +119,7 @@ export async function GET(request: Request) {
     const sourceParam = (url.searchParams.get("source") ?? "all").toLowerCase();
     const maxBeachesParam = url.searchParams.get("maxBeaches");
 
-    type RefreshSource = "all" | "marine" | "tide" | "sun";
-    const source: RefreshSource =
-      sourceParam === "marine" || sourceParam === "tide" || sourceParam === "sun" || sourceParam === "all"
-        ? (sourceParam as RefreshSource)
-        : "all";
+    const source = sourceForMonitor;
 
     const parsedMaxBeaches =
       maxBeachesParam != null && maxBeachesParam.trim() !== ""
@@ -704,8 +722,10 @@ export async function GET(request: Request) {
       console.warn("tide station-grouped ingest error", e);
     }
 
+    completeCronCheckIn(checkInId, monitorSlug, "ok");
     return createSuccessResponse({ totals });
   } catch (error) {
+    completeCronCheckIn(checkInId, monitorSlug, "error");
     return handleApiError(error);
   }
 }

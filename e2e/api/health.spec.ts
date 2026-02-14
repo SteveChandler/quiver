@@ -238,4 +238,123 @@ test.describe('Health Check API Contract', () => {
       });
     });
   });
+
+  test.describe('GET /api/health?deep=true', () => {
+    test.describe('Response Structure', () => {
+      test('should return standard API envelope', async ({ request }) => {
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const json = await response.json();
+
+        expect(json).toHaveProperty('success');
+        expect(json).toHaveProperty('data');
+        expect(json).toHaveProperty('timestamp');
+        // success is true for 200 (healthy/degraded), false for 503 (critical)
+        expect(typeof json.success).toBe('boolean');
+      });
+
+      test('should include status field with valid value', async ({ request }) => {
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const json = await response.json();
+
+        expect(json.data).toHaveProperty('status');
+        expect(['healthy', 'degraded', 'critical']).toContain(json.data.status);
+      });
+
+      test('should include checks object with database status', async ({ request }) => {
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const json = await response.json();
+
+        expect(json.data).toHaveProperty('checks');
+        expect(json.data.checks).toHaveProperty('database');
+        expect(typeof json.data.checks.database).toBe('boolean');
+      });
+
+      test('should include enhanced forecast details', async ({ request }) => {
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const json = await response.json();
+
+        expect(json.data.checks).toHaveProperty('enhancedForecasts');
+        expect(json.data.checks.enhancedForecasts).toHaveProperty('coverage');
+        expect(json.data.checks.enhancedForecasts).toHaveProperty('freshCount');
+        expect(json.data.checks.enhancedForecasts).toHaveProperty('staleCount');
+        expect(json.data.checks.enhancedForecasts).toHaveProperty('averageAgeHours');
+
+        expect(typeof json.data.checks.enhancedForecasts.coverage).toBe('number');
+        expect(typeof json.data.checks.enhancedForecasts.freshCount).toBe('number');
+        expect(typeof json.data.checks.enhancedForecasts.staleCount).toBe('number');
+        expect(typeof json.data.checks.enhancedForecasts.averageAgeHours).toBe('number');
+      });
+
+      test('should include all five source pipelines', async ({ request }) => {
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const json = await response.json();
+
+        expect(json.data.checks).toHaveProperty('sources');
+
+        const sources = json.data.checks.sources;
+        expect(sources).toHaveProperty('enhanced');
+        expect(sources).toHaveProperty('marine');
+        expect(sources).toHaveProperty('tide');
+        expect(sources).toHaveProperty('sun');
+        expect(sources).toHaveProperty('ioos');
+
+        // Verify each source has required fields
+        for (const sourceKey of ['enhanced', 'marine', 'tide', 'sun', 'ioos']) {
+          const source = sources[sourceKey];
+          expect(source).toHaveProperty('source');
+          expect(source).toHaveProperty('available');
+          expect(source).toHaveProperty('coveragePercentage');
+
+          expect(typeof source.available).toBe('boolean');
+          expect(typeof source.coveragePercentage).toBe('number');
+        }
+      });
+
+      test('should include issues array', async ({ request }) => {
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const json = await response.json();
+
+        expect(json.data).toHaveProperty('issues');
+        expect(Array.isArray(json.data.issues)).toBe(true);
+      });
+    });
+
+    test.describe('Backward Compatibility', () => {
+      test('should not change shallow health check response', async ({ request }) => {
+        const response = await request.get(HEALTH_ENDPOINT);
+        const json = await response.json();
+
+        expect(json.data.status).toBe('healthy');
+        expect(json.data.checks).toBeUndefined();
+        expect(json.data.service).toBe('quiver-surf-app');
+      });
+    });
+
+    test.describe('Performance', () => {
+      test('should respond within 5 seconds', async ({ request }) => {
+        const startTime = Date.now();
+        const response = await request.get(`${HEALTH_ENDPOINT}?deep=true`);
+        const duration = Date.now() - startTime;
+
+        console.log(`[Deep Health Check] Response time: ${duration}ms`);
+
+        expect(response.status()).toBe(200);
+        expect(duration).toBeLessThan(5000);
+      });
+    });
+
+    test.describe('Error Handling', () => {
+      test('should handle POST with 405', async ({ request }) => {
+        const response = await request.post(`${HEALTH_ENDPOINT}?deep=true`);
+
+        expect(response.status()).toBe(405);
+      });
+
+      test('should handle DELETE with 405', async ({ request }) => {
+        const response = await request.delete(`${HEALTH_ENDPOINT}?deep=true`);
+
+        expect(response.status()).toBe(405);
+      });
+    });
+  });
 });
