@@ -145,6 +145,44 @@ describe("ForecastBuilder", () => {
     expect(tempF).toBeLessThanOrEqual(81);
   });
 
+  it("includes forecast_at as ISO 8601 UTC string", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+    });
+
+    const forecast = forecasts[0];
+    expect(forecast.forecast_at).toBeDefined();
+    expect(forecast.forecast_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:00:00Z$/);
+  });
+
+  it("forecast_at is consistent with forecast_date and forecast_time", async () => {
+    const forecasts = await builder.buildForecasts({
+      beach: mockBeach,
+      waveData: mockWaveData,
+      tideData: mockTideData,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+    });
+
+    const f = forecasts[0];
+    // forecast_date and forecast_time use local timezone, while forecast_at uses UTC.
+    // Verify they all represent the same moment rounded to 3-hour intervals.
+    const forecastAtDate = new Date(f.forecast_at!);
+    const localDate = `${forecastAtDate.getFullYear()}-${String(forecastAtDate.getMonth() + 1).padStart(2, "0")}-${String(forecastAtDate.getDate()).padStart(2, "0")}`;
+    const localHour = Math.floor(forecastAtDate.getHours() / 3) * 3;
+    const localTime = `${String(localHour).padStart(2, "0")}:00:00`;
+    expect(f.forecast_date).toBe(localDate);
+    expect(f.forecast_time).toBe(localTime);
+  });
+
   it("prioritizes CDIP data when available", async () => {
     const mockCdipData = {
       stationId: "100",
