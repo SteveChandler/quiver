@@ -252,6 +252,12 @@ export const SessionWizardPrefillSchema = z.object({
   // Session mode (required, defaults to 'plan')
   mode: z.enum(['plan', 'log']).default('plan'),
 
+  // Quick log mode flag (optional, defaults to false)
+  quick: z.enum(['true', 'false'])
+    .default('false')
+    .transform((val) => val === 'true')
+    .describe('Enable streamlined 2-step quick log flow'),
+
   // Beach UUID (optional - wizard can work without prefill)
   beach: z.string()
     .uuid('Invalid beach ID format')

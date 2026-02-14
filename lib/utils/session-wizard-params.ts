@@ -93,6 +93,7 @@ export function parseSessionWizardParams(
       // Note: Next.js searchParams.get() returns null when missing; Zod optional/default
       // expects undefined, so we normalize null → undefined here.
       mode: getParam('mode'),
+      quick: getParam('quick'),
       beach: getParam('beach'),
       beachName: getParam('beachName'),
       startTime: getParam('startTime'),
@@ -112,6 +113,7 @@ export function parseSessionWizardParams(
       // Return defaults without logging as error
       const defaults: Partial<ValidatedSessionWizardParams> = {
         mode: validated.mode,
+        quick: validated.quick,
         targetStep: validated.step,
         beachId: '',
         beachName: '',
@@ -129,6 +131,7 @@ export function parseSessionWizardParams(
     // Note: hasMinimalPrefillData check above guarantees these fields exist
     const data: ValidatedSessionWizardParams = {
       mode: validated.mode,
+      quick: validated.quick,
       beachId: validated.beach!,
       beachName: validated.beachName || '',
       startTime: new Date(validated.startTime!),
@@ -157,6 +160,7 @@ export function parseSessionWizardParams(
     // Provide safe defaults for graceful degradation
     const defaults: Partial<ValidatedSessionWizardParams> = {
       mode: 'plan',
+      quick: false,
       targetStep: 1,
       beachId: '',
       beachName: '',
@@ -221,6 +225,11 @@ export function buildSessionWizardUrl(
     step: params.targetStep.toString(),
   });
 
+  // Only add quick param when true to keep URLs clean
+  if (params.quick) {
+    urlParams.set('quick', 'true');
+  }
+
   return `/sessions/new?${urlParams.toString()}`;
 }
 
@@ -244,11 +253,12 @@ export function buildSessionWizardUrl(
 export function hasWizardParams(
   searchParams: URLSearchParams | ReadonlyURLSearchParams
 ): boolean {
-  // Check for at least one required parameter (beach or mode)
+  // Check for at least one required parameter (beach or mode or quick)
   return (
     searchParams.has('beach') ||
     searchParams.has('mode') ||
-    searchParams.has('startTime')
+    searchParams.has('startTime') ||
+    searchParams.has('quick')
   );
 }
 

@@ -23,6 +23,7 @@ interface NewSessionPageContentProps {
   targetStep?: number;
   mode: SessionFormMode;
   convertSessionId?: string | null;
+  quick?: boolean;
 }
 
 function NewSessionPageContent({
@@ -30,6 +31,7 @@ function NewSessionPageContent({
   targetStep,
   mode,
   convertSessionId,
+  quick,
 }: NewSessionPageContentProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -47,6 +49,7 @@ function NewSessionPageContent({
     user,
     reviewPrompt,
     convertSessionId,
+    quick,
   });
 
   useEffect(() => {
@@ -80,6 +83,7 @@ function NewSessionPageContent({
           className="min-h-screen"
           initialFormState={initialFormState}
           targetStep={targetStep}
+          quick={quick}
         />
       </FormErrorBoundary>
 
@@ -123,8 +127,9 @@ function NewSessionPageWrapper() {
   // Parse and validate URL parameters for wizard prefill
   const parseResult = parseSessionWizardParams(searchParams);
 
-  // Extract mode and convertSessionId from URL (backwards compatible)
+  // Extract mode, quick flag, and convertSessionId from URL (backwards compatible)
   const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
+  const quick = searchParams.get("quick") === "true";
   const convertSessionId = searchParams.get("convert");
 
   // Prepare initial form state and target step if validation succeeded
@@ -175,6 +180,7 @@ function NewSessionPageWrapper() {
       targetStep={targetStep}
       mode={mode}
       convertSessionId={convertSessionId}
+      quick={quick}
     />
   );
 }

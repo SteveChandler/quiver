@@ -47,6 +47,7 @@ hooks/
 ├── use-mobile.tsx                   # Mobile device detection
 ├── use-toast.ts                     # Toast notification system
 ├── use-form-submission.ts           # Form handling and submission
+├── use-personalization-milestones.ts # Personalization milestone toasts
 ```
 
 ## **ARCHITECTURE PATTERNS**
@@ -861,6 +862,47 @@ export function useFormSubmission(options: UseFormSubmissionOptions = {}) {
 }
 ```
 
+#### **usePersonalizationMilestones** (Personalization Milestone Toasts)
+
+- **Purpose**: Fetches unshown personalization milestones and displays them as Sonner toast notifications
+- **Location**: `hooks/use-personalization-milestones.ts`
+- **Signature**: `usePersonalizationMilestones(isAuthenticated: boolean): void`
+- **Features**:
+  - Max 2 toasts per visit, staggered (2s initial delay, 1.5s between)
+  - Marks milestones as shown via PATCH after display
+  - Prevents double-fire in React strict mode via hasRun ref
+  - Silent failure (non-critical feature)
+  - Returns void (side-effect only hook)
+
+**Usage Example:**
+
+```typescript
+function HomeScreen() {
+  const { user } = useAuth();
+
+  // Display milestone toasts for authenticated users
+  usePersonalizationMilestones(!!user);
+
+  return <div>Home content...</div>;
+}
+```
+
+**Integration:**
+
+- Related service: `lib/services/personalization-milestone-service.ts`
+- Constants: `lib/constants/personalization-milestones.ts`
+- Messaging utils: `lib/utils/personalization-messaging.ts`
+- API endpoint: `/api/me/milestones` (GET for fetching, PATCH for marking shown)
+- Toast library: Sonner (via `use-toast.ts`)
+
+**Implementation Notes:**
+
+- Uses `useRef` to prevent double-execution in React strict mode
+- Fetches unshown milestones on mount when authenticated
+- Displays up to 2 milestones with progressive delays
+- Marks milestones as shown after toast display
+- Gracefully handles API errors without user disruption
+
 ## **PERFORMANCE OPTIMIZATIONS**
 
 ### **Memoization Patterns**
@@ -1020,6 +1062,6 @@ test("useSessionLike should toggle like state", async () => {
 
 ---
 
-**Last Updated**: February 3, 2026
+**Last Updated**: February 13, 2026
 **Status**: Production-ready with comprehensive custom hook library
 **Next Review**: After offline synchronization hooks implementation

@@ -44,12 +44,6 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 
-const CamsSection = dynamic(
-  () =>
-    import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
-  { ssr: false }
-);
-
 const DetailedSwellModal = dynamic(
   () =>
     import("@/components/beach-detail/detailed-swell-modal").then(
@@ -70,7 +64,6 @@ interface ForecastTabProps {
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
   currentForecast: EnhancedForecastEntity | null;
-  hasCamera: boolean;
   beachTimezone?: string | null;
   surfCall?: SurfCallResult | null;
   surfCallIsTomorrow?: boolean;
@@ -82,7 +75,6 @@ export function ForecastTab({
   beach,
   forecasts,
   currentForecast,
-  hasCamera,
   beachTimezone,
   surfCall,
   surfCallIsTomorrow,
@@ -548,21 +540,6 @@ export function ForecastTab({
                   </div>
                 </div>
               </div>
-            </section>
-          )}
-
-          {/* Live Cam */}
-          {hasCamera && (
-            <section id="live-cam" className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                  Live Cam
-                </h2>
-                <span className="text-sm text-muted-foreground">
-                  Watch the lineup in real time
-                </span>
-              </div>
-              <CamsSection beachId={beach.id} />
             </section>
           )}
 

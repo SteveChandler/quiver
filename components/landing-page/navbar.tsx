@@ -22,6 +22,7 @@ import { useLandingLocation } from "@/hooks/use-landing-location";
 
 const STATIC_MENU_ITEMS = [
   { label: "7-Day Outlook", href: "/forecast", category: "Forecast" },
+  { label: "Live Cams", href: "/cams", category: "Forecast" },
   { label: "United States", href: "/beaches/usa", category: "Countries" },
   { label: "Mexico", href: "/beaches/mexico", category: "Countries" },
   {

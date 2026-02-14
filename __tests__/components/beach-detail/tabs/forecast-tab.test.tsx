@@ -214,7 +214,6 @@ describe("ForecastTab", () => {
     beach: mockBeach,
     forecasts: [mockForecast],
     currentForecast: mockForecast,
-    hasCamera: false,
     beachTimezone: "America/Los_Angeles",
     surfCall: null,
     surfCallIsTomorrow: false,
@@ -496,21 +495,6 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} currentForecast={null} />);
 
       expect(screen.queryByText("Current Conditions")).not.toBeInTheDocument();
-    });
-  });
-
-  describe("Camera Section", () => {
-    it("renders Live Cam section when hasCamera is true", () => {
-      render(<ForecastTab {...defaultProps} hasCamera={true} />);
-
-      expect(screen.getByText("Live Cam")).toBeInTheDocument();
-      expect(screen.getByText("Watch the lineup in real time")).toBeInTheDocument();
-    });
-
-    it("does not render Live Cam section when hasCamera is false", () => {
-      render(<ForecastTab {...defaultProps} hasCamera={false} />);
-
-      expect(screen.queryByText("Live Cam")).not.toBeInTheDocument();
     });
   });
 

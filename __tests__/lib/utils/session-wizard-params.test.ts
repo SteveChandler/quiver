@@ -199,6 +199,7 @@ describe('parseSessionWizardParams', () => {
 describe('buildSessionWizardUrl', () => {
   const validParams: ValidatedSessionWizardParams = {
     mode: 'plan',
+    quick: false,
     beachId: '123e4567-e89b-12d3-a456-426614174000',
     beachName: 'Pacific Beach',
     startTime: new Date('2025-11-22T06:00:00.000Z'),
@@ -296,6 +297,7 @@ describe('hasWizardParams', () => {
 describe('extractFormState', () => {
   const validParams: ValidatedSessionWizardParams = {
     mode: 'plan',
+    quick: false,
     beachId: '123e4567-e89b-12d3-a456-426614174000',
     beachName: 'Pacific Beach',
     startTime: new Date('2025-11-22T06:30:00.000Z'),
@@ -331,6 +333,7 @@ describe('URL length validation', () => {
   it('should create URLs under 300 characters', () => {
     const params: ValidatedSessionWizardParams = {
       mode: 'plan',
+      quick: false,
       beachId: '123e4567-e89b-12d3-a456-426614174000',
       beachName: 'Very Long Beach Name With Many Words',
       startTime: new Date('2025-11-22T06:00:00.000Z'),

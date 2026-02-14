@@ -111,6 +111,10 @@
     {
       "path": "/api/cron/ml/promote-candidate",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/first-session-nudge",
+      "schedule": "30 */6 * * *"
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,31 +40,6 @@ export default function PrivacyPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link
-              href="/"
-              className="text-2xl font-roboto font-bold text-dark-grey"
-            >
-              Quiver
-            </Link>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/auth/sign-in"
-                className="text-dark-grey hover:text-ocean-blue transition-colors"
-              >
-                Sign In
-              </Link>
-              <Button asChild className="bg-ocean-blue hover:bg-ocean-blue/90">
-                <Link href="/auth/sign-up">Get Started</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -380,75 +355,6 @@ export default function PrivacyPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-dark-grey text-white py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-            <div className="col-span-2">
-              <h3 className="text-2xl font-roboto font-bold mb-4">Quiver</h3>
-              <p className="font-open-sans text-gray-300 mb-4 max-w-md">
-                The ultimate social platform for surfers. Connect with your
-                community, plan sessions, and share the stoke.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-roboto font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 font-open-sans text-gray-300">
-                <li>
-                  <Link
-                    href="/features"
-                    className="hover:text-white transition-colors"
-                  >
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/map"
-                    className="hover:text-white transition-colors"
-                  >
-                    Explore Spots
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-roboto font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 font-open-sans text-gray-300">
-                <li>
-                  <Link
-                    href="/about"
-                    className="hover:text-white transition-colors"
-                  >
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="mailto:support@quiversurf.app"
-                    className="hover:text-white transition-colors"
-                  >
-                    Contact
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/privacy"
-                    className="hover:text-white transition-colors"
-                  >
-                    Privacy
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-600 pt-8 text-center">
-            <p className="font-open-sans text-gray-300 text-sm">
-              © {new Date().getFullYear()} Quiver. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

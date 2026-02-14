@@ -15,6 +15,7 @@ const FOOTER_LINKS = {
   ],
   guides: [
     { name: "7-Day Outlook", href: "/forecast" },
+    { name: "Live Surf Cams", href: "/cams" },
     { name: "Beginner Spots", href: "/beginner/ca" },
     { name: "Tide Charts", href: "/tide/san-diego" },
     { name: "Dawn Patrol", href: "/dawn-patrol/ca" },

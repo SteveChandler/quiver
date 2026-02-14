@@ -12,6 +12,7 @@ import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
 import type { TimeSlot } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
 
 /**
  * Query Parameter Schema

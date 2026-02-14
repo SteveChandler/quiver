@@ -25,7 +25,8 @@ export type EmailType =
   | "reengagement"
   | "weekly_recap"
   | "conditions_alert"
-  | "session_prompt";
+  | "session_prompt"
+  | "first_session_nudge";
 
 /**
  * Email log entry with all optional fields for flexibility

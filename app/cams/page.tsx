@@ -8,8 +8,17 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CamSchema } from "@/components/seo/cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
+import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: `Live Surf Cams - ${camCount}+ Free Cameras`,
     description: `Watch ${camCount}+ free live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more. No paywall, no sign-up. Updated 24/7.`,
     path: "/cams",
+    image: "/api/og/cams",
     keywords: [
       "live surf cam",
       "free surf cam",
@@ -64,8 +74,29 @@ export default async function CamsHubPage() {
       />
       <CamSchema beaches={beaches} />
 
+      {/* Visible breadcrumbs */}
+      <div className="px-4 pt-6 md:pt-8">
+        <div className="mx-auto max-w-6xl">
+          <Breadcrumb>
+            <BreadcrumbList className="text-sm">
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild className="text-gray-500 hover:text-gray-700">
+                  <Link href="/">Home</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="text-gray-400" />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-gray-700">
+                  Live Surf Cams
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </div>
+
       {/* Hero */}
-      <div className="px-4 pb-8 pt-16 md:pt-24">
+      <div className="px-4 pb-8 pt-8 md:pt-16">
         <ScrollReveal variant="fadeUp">
           <div className="mx-auto max-w-4xl text-center">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-ocean-blue/10 px-4 py-1.5 text-sm font-medium text-ocean-blue">
@@ -79,6 +110,9 @@ export default async function CamsHubPage() {
               Watch {camCount} live surf cams across {stateCount} states.
               {" "}No subscription required.
             </p>
+            <div className="mt-6 flex justify-center">
+              <CamsShareButton />
+            </div>
           </div>
         </ScrollReveal>
       </div>

@@ -334,6 +334,21 @@ export const GET = withAuth(handler);
 - **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
   - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
 
+#### `/cron/first-session-nudge/route.ts`
+
+- **Methods**: `GET`
+- **Schedule**: Every 6 hours (`30 */6 * * *` per `vercel.json`)
+- **Authentication**: Vercel Cron header (`x-vercel-cron`) OR `Authorization: Bearer <CRON_SECRET>`
+- **Function**: Sends "Your first forecast is waiting" email to users who signed up 18-30h ago with zero sessions
+- **Features**:
+  - Deduplication via `email_send_log` table
+  - 24h global email cooldown (no emails sent if user received any email in last 24h)
+  - Batched auth queries (5 concurrent) for efficient email lookups
+  - Rate-limited sending via `createResendRateLimiter()`
+- **Email Type**: `first_session_nudge`
+- **Template**: `FirstSessionNudgeEmail` with quick-log CTA
+- **Service Layer**: `lib/services/email-logging-service.ts`, `lib/utils/email-rate-limiter.ts`
+
 #### `/cron/forecast-alerts/route.ts`
 
 - **Methods**: `GET`
@@ -584,6 +599,27 @@ export const GET = withAuth(handler);
   - Analytics integration
   - Temporary download URL generation
 - **Security**: User data isolation and authentication
+
+---
+
+### 🎯 `/me` - Current User Data
+
+**Authentication**: All endpoints require user session (via `withAuth` wrapper)
+**Rate Limiting**: Applied via `withRateLimit` wrapper
+
+#### `/me/milestones/route.ts`
+
+- **Methods**: `GET`, `PATCH`
+- **Authentication**: `withAuth` wrapper
+- **Rate Limiting**: `withRateLimit` (10 req/min per user)
+- **Function**: Manages personalization milestone notifications for toast display
+- **Features**:
+  - GET: Fetches unshown milestones for the current user
+  - PATCH: Marks milestones as shown (sets `shown_at` timestamp)
+  - Validates milestone keys against `PERSONALIZATION_MILESTONES` constant
+  - Detection runs inline via fire-and-forget calls (no redundant home screen checks)
+- **Used By**: `use-personalization-milestones` hook
+- **Service Layer**: `lib/services/personalization-milestone-service.ts`
 
 ---
 

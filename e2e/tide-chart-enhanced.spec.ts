@@ -53,20 +53,6 @@ test.describe("Enhanced Tide Chart", () => {
     }) => {
       throw new Error('Not implemented: Tide diagnostics panel - requires diagnostics data to be passed from forecast-tab.tsx to tide chart component');
     });
-      // Navigate with tide_debug query param
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Diagnostics panel should be visible
-      const diagnosticsPanel = page.getByTestId("tide-diagnostics-panel");
-      await expect(diagnosticsPanel).toBeVisible({ timeout: 10000 });
-    });
 
     test("expands diagnostics panel on click", async ({ page }) => {
       throw new Error('Not implemented: Tide diagnostics panel expansion - requires diagnostics data and expandable panel UI');
@@ -85,27 +71,6 @@ test.describe("Enhanced Tide Chart", () => {
   test.describe("Verification Badge", () => {
     test("shows verification badge in diagnostics mode", async ({ page }) => {
       throw new Error('Not implemented: Tide verification badge - requires diagnostics mode with verification status (Verified/Partial/Unverified)');
-    });
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Should show verification status (Verified, Partial, or Unverified)
-      const badgeTexts = ["Verified", "Partial", "Unverified"];
-      const badgeFound = await Promise.any(
-        badgeTexts.map(async (text) => {
-          const badge = page.getByText(text, { exact: true });
-          if (await badge.isVisible()) return true;
-          return false;
-        })
-      ).catch(() => false);
-
-      expect(badgeFound).toBeTruthy();
     });
   });
 
@@ -139,29 +104,6 @@ test.describe("Enhanced Tide Chart", () => {
   test.describe("Data Quality", () => {
     test("validates tide data accuracy", async ({ page }) => {
       throw new Error('Not implemented: Tide data validation - requires diagnostics data with validation checks and error reporting');
-    });
-      await page.goto(`${BEACH_URL}?tide_debug=true`);
-      await page.waitForLoadState("networkidle");
-
-      // Click on Tides tab if present
-      const tidesTab = page.getByRole("tab", { name: /tides/i });
-      if (await tidesTab.isVisible()) {
-        await tidesTab.click();
-      }
-
-      // Expand diagnostics
-      const panelHeader = page.getByText("NOAA CO-OPS Tide Data");
-      await panelHeader.click();
-
-      // Should show validation status
-      const validationPassed = page.getByText(/All validation checks passed/i);
-      const validationErrors = page.getByText(/Validation Errors/i);
-
-      // Either validation passed OR errors are shown - both are valid states
-      const hasValidationInfo =
-        (await validationPassed.isVisible()) ||
-        (await validationErrors.isVisible());
-      expect(hasValidationInfo).toBeTruthy();
     });
 
     test("shows confidence score", async ({ page }) => {

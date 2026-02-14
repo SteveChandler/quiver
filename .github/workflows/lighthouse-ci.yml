@@ -5,6 +5,8 @@ on:
         branches: [main, develop]
     pull_request:
         branches: [main]
+    schedule:
+        - cron: '0 */6 * * *'  # Every 6 hours
     workflow_dispatch:
         inputs:
             url:
@@ -37,6 +39,7 @@ jobs:
               run: yarn install --frozen-lockfile
 
             - name: Resolve deployment URL
+              if: github.event_name != 'schedule'
               id: deployment
               env:
                   GH_TOKEN: ${{ github.token }}
@@ -92,11 +95,20 @@ jobs:
                   echo "Timed out waiting for Vercel deployment"
                   exit 1
 
+            - name: Set deployment URL
+              id: deploy_url
+              run: |
+                  if [ "${{ github.event_name }}" = "schedule" ]; then
+                    echo "url=https://www.quiversurf.app" >> $GITHUB_OUTPUT
+                  else
+                    echo "url=${{ steps.deployment.outputs.url }}" >> $GITHUB_OUTPUT
+                  fi
+
             - name: Verify deployment is reachable
               env:
                   VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
               run: |
-                  DEPLOY_URL="${{ steps.deployment.outputs.url }}"
+                  DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
                   echo "Checking deployment at: $DEPLOY_URL"
 
                   BYPASS_HEADER=""
@@ -113,6 +125,40 @@ jobs:
                     echo "Deployment not reachable at $DEPLOY_URL"
                     exit 1
                   fi
+
+            - name: Service health check
+              id: health
+              run: |
+                  DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
+                  echo "Running deep health check against: $DEPLOY_URL"
+
+                  BYPASS_HEADER=""
+                  if [ -n "$VERCEL_BYPASS_TOKEN" ]; then
+                    BYPASS_HEADER="-H x-vercel-protection-bypass:${VERCEL_BYPASS_TOKEN}"
+                  fi
+
+                  HTTP_CODE=$(curl -sf -o /tmp/health.json -w '%{http_code}' --max-time 30 $BYPASS_HEADER "${DEPLOY_URL}/api/health?deep=true" 2>/dev/null || echo "000")
+
+                  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "503" ]; then
+                    STATUS=$(python3 -c "import json; d=json.load(open('/tmp/health.json')); print(d.get('data',{}).get('status','unknown'))" 2>/dev/null || echo "unknown")
+                    COVERAGE=$(python3 -c "import json; d=json.load(open('/tmp/health.json')); ef=d.get('data',{}).get('checks',{}).get('enhancedForecasts',{}); print(f\"{ef.get('coverage',0)*100:.1f}%\" if ef else 'N/A')" 2>/dev/null || echo "N/A")
+                    echo "status=$STATUS" >> $GITHUB_OUTPUT
+                    echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+
+                    if [ "$STATUS" = "critical" ]; then
+                      echo "::warning::Service health is CRITICAL - forecast pipeline may be down"
+                    elif [ "$STATUS" = "degraded" ]; then
+                      echo "::warning::Service health is DEGRADED - some data sources have issues"
+                    else
+                      echo "Service health: $STATUS (coverage: $COVERAGE)"
+                    fi
+                  else
+                    echo "::warning::Deep health check returned HTTP $HTTP_CODE"
+                    echo "status=unreachable" >> $GITHUB_OUTPUT
+                    echo "coverage=N/A" >> $GITHUB_OUTPUT
+                  fi
+              env:
+                  VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
 
             - name: Install Playwright browsers
               run: |
@@ -132,7 +178,7 @@ jobs:
               env:
                   CI: true
                   SKIP_AUTH_SETUP: "true"
-                  BASE_URL: ${{ steps.deployment.outputs.url }}
+                  BASE_URL: ${{ steps.deploy_url.outputs.url }}
                   VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
 
             - name: Upload Playwright results
@@ -153,7 +199,7 @@ jobs:
             - name: Run Lighthouse CI
               id: lighthouse
               run: |
-                  DEPLOY_URL="${{ steps.deployment.outputs.url }}"
+                  DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
                   echo "Running Lighthouse CI against: $DEPLOY_URL"
 
                   EXTRA_HEADERS="{}"
@@ -198,7 +244,7 @@ jobs:
             - name: Create performance summary
               if: always()
               run: |
-                  DEPLOY_URL="${{ steps.deployment.outputs.url }}"
+                  DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
 
                   echo "## Lighthouse CI Performance Report" >> $GITHUB_STEP_SUMMARY
                   echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
@@ -210,6 +256,7 @@ jobs:
                   echo "### Status" >> $GITHUB_STEP_SUMMARY
                   echo "- **Playwright Smoke Tests:** ${{ steps.playwright.outputs.success == 'true' && 'Passed' || 'Failed' }}" >> $GITHUB_STEP_SUMMARY
                   echo "- **Lighthouse CI:** ${{ steps.lighthouse.outputs.success == 'true' && 'Passed' || 'Failed/Warnings' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Service Health:** ${{ steps.health.outputs.status }} (Coverage: ${{ steps.health.outputs.coverage }})" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 
                   echo "### Playwright Smoke Tests" >> $GITHUB_STEP_SUMMARY

@@ -120,10 +120,6 @@ test.describe(`${persona.displayName} Persona Tests`, () => {
   test.describe('Session Logging @requires-auth', () => {
     test('can log a session with high rating', async ({ page }) => {
       throw new Error('Not implemented: Session logging UI changed - need to update selectors and flow to match current implementation');
-        expect(result.content.notes).toBeTruthy();
-      } else {
-        console.log(`Session logging skipped: ${result.error}`);
-      }
     });
   });
 

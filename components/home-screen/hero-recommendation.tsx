@@ -24,6 +24,7 @@ import type {
   PersonalizedInsights,
   TimeSlot,
 } from "@/types/personalization";
+import { getPersonalizationExplanation } from "@/lib/utils/personalization-messaging";
 
 // Re-export for backwards compatibility with consumers
 export {
@@ -207,7 +208,7 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     return <HeroRecommendationEmpty />;
   }
 
-  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges, waveHeightBadge } = recommendation;
+  const { beach, score, window, matchQuality, recommendationLabel, message, conditionBadges, waveHeightBadge, subscores } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
   const timeWindow = formatTimeWindowCompact(
     window.start,
@@ -268,6 +269,18 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
       {message && (
         <p className="text-sm sm:text-base text-white/80 leading-relaxed" data-testid="hero-message">
           {message}
+        </p>
+      )}
+
+      {/* Personalization context line - subtle explanation when recommendation is personalized */}
+      {insights && insights.state !== "onboarding" && (
+        <p className="text-xs text-white/50" data-testid="hero-personalization-context">
+          {getPersonalizationExplanation({
+            base: 0,
+            onboardingPrefs: insights.state === "degraded" ? 1 : 0,
+            learnedPrefs: insights.state === "ready" ? insights.matchPercent : 0,
+            affinity: subscores?.affinityBonus ?? 0,
+          })}
         </p>
       )}
 

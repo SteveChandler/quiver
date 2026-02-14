@@ -452,6 +452,60 @@ actual_conditions:
     - `getDataSourceDistribution()` - Understand which forecast sources are most common
     - `getMonthlyCoverage()` - Track data collection coverage over time
 
+#### **Personalization Milestones (20260213120000)**
+
+**Purpose**: Track user personalization progress and celebrate learning milestones with UI feedback.
+
+**Table Schema**:
+
+```sql
+personalization_milestones (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  milestone_key text NOT NULL,
+  achieved_at timestamptz NOT NULL DEFAULT now(),
+  shown_at timestamptz,                     -- Set when user sees toast
+  metadata jsonb DEFAULT '{}',
+  UNIQUE(user_id, milestone_key)
+);
+```
+
+**Indexes**:
+
+```sql
+idx_milestones_user_unshown ON (user_id) WHERE shown_at IS NULL
+```
+
+**RLS Policies**:
+
+- Users can SELECT own milestones
+- Users can UPDATE own milestones (mark as shown)
+- Users can INSERT own milestones
+- Service role bypasses for automated detection inserts
+
+**Milestone Keys** (9 total):
+
+- `first_session_logged` - Initial session logged
+- `first_intel_posted` - First intel contribution
+- `wave_range_learned` - Preferred wave height detected
+- `wind_pref_learned` - Wind preference learned
+- `time_slot_detected` - Preferred session time identified
+- `home_turf_established` - Home beach preference solidified
+- `intel_confirmed_5x` - 5 intel confirmations earned
+- `local_authority` - Community trust milestone
+- `fully_personalized` - All preferences learned
+
+**Email Integration**:
+
+Extended `email_send_log.email_type` constraint to include `first_session_nudge` for milestone-triggered re-engagement emails.
+
+**User Impact**:
+
+- Celebratory toast notifications for milestone achievements
+- Personalization progress tracking on home screen
+- Re-engagement email after first session milestone
+- Transparent feedback on preference learning progress
+
 ### **3. Data Source Integration**
 
 #### **CDIP Data Source (20250805030000)**

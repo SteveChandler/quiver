@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Star, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { MatchScoreEducation } from "@/components/recommendations/match-score-education";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -106,16 +107,18 @@ export function BeachHeroCompact({
       )}
       {personalizationScore && personalizationScore.personalized && (
         <div className="mb-3">
-          <PersonalizedBadge
-            personalized={personalizationScore.personalized}
-            score={personalizationScore.score}
-            breakdown={personalizationScore.breakdown}
-            affinityData={affinityData || undefined}
-            displayMode="score"
-            size="lg"
-            showDelta={baseScore !== undefined}
-            baseScore={baseScore}
-          />
+          <MatchScoreEducation>
+            <PersonalizedBadge
+              personalized={personalizationScore.personalized}
+              score={personalizationScore.score}
+              breakdown={personalizationScore.breakdown}
+              affinityData={affinityData || undefined}
+              displayMode="score"
+              size="lg"
+              showDelta={baseScore !== undefined}
+              baseScore={baseScore}
+            />
+          </MatchScoreEducation>
         </div>
       )}
 

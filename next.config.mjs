@@ -279,6 +279,12 @@ const nextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/**",
       },
+      // YouTube thumbnails for camera cards
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+        pathname: "/vi/**",
+      },
     ],
     // Security for SVGs
     dangerouslyAllowSVG: true,

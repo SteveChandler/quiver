@@ -443,3 +443,232 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     }
   });
 });
+
+describe('discoverSurfSpots - Stale Data Fallback', () => {
+  const testUserId = 'test-user-123';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Reset mock state
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2, mockBeach3, mockBeach4] as Beach[],
+      preferredWaveSize: null,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+    mockState.userPrefs = null;
+    mockState.affinityMap = new Map();
+    mockState.sunTimesCache = new Map();
+  });
+
+  test('triggers stale fallback when all beaches are stale, returns recommendations with usingStaleData=true', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    // First call: all beaches stale with no data
+    const firstCallResponse = {
+      successful: [],
+      failed: [
+        { beach: mockBeach1, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach2, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach3, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach4, stale: true, reason: 'Data is 3 hours old' },
+      ],
+      staleCount: 4,
+    };
+
+    // Second call (retry with allowStale): all beaches return with forecasts
+    const secondCallResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach2, forecasts: [{ ...mockForecast, beach_id: 'beach-2' }] },
+        { beach: mockBeach3, forecasts: [{ ...mockForecast, beach_id: 'beach-3' }] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 4,
+    };
+
+    mockBatchFetch
+      .mockResolvedValueOnce(firstCallResponse)
+      .mockResolvedValueOnce(secondCallResponse);
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+
+    // Verify recommendations are returned
+    expect(result.recommendations.length).toBeGreaterThan(0);
+
+    // Verify usingStaleData flag is set
+    expect(result.metadata.usingStaleData).toBe(true);
+    expect(result.metadata.staleBeaches).toBe(4);
+
+    // Verify batchFetchForecasts was called twice
+    expect(mockBatchFetch).toHaveBeenCalledTimes(2);
+
+    // First call: options object does NOT include allowStale property
+    const firstCallArgs = mockBatchFetch.mock.calls[0];
+    expect(firstCallArgs[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'beach-1' }),
+        expect.objectContaining({ id: 'beach-2' }),
+        expect.objectContaining({ id: 'beach-3' }),
+        expect.objectContaining({ id: 'beach-4' }),
+      ])
+    );
+    expect(firstCallArgs[1]).toEqual(expect.objectContaining({
+      maxConcurrent: expect.any(Number),
+      timeout: expect.any(Number),
+      overallTimeout: expect.any(Number),
+    }));
+    expect(firstCallArgs[1]).not.toHaveProperty('allowStale');
+
+    // Second call: options object includes allowStale: true
+    const secondCallArgs = mockBatchFetch.mock.calls[1];
+    expect(secondCallArgs[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'beach-1' }),
+        expect.objectContaining({ id: 'beach-2' }),
+        expect.objectContaining({ id: 'beach-3' }),
+        expect.objectContaining({ id: 'beach-4' }),
+      ])
+    );
+    expect(secondCallArgs[1]).toEqual(expect.objectContaining({
+      allowStale: true,
+    }));
+  });
+
+  test('reports correct failedBeaches metadata after stale fallback succeeds', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    // First call: all 4 beaches stale
+    mockBatchFetch.mockResolvedValueOnce({
+      successful: [],
+      failed: [
+        { beach: mockBeach1, stale: true, reason: 'Stale' },
+        { beach: mockBeach2, stale: true, reason: 'Stale' },
+        { beach: mockBeach3, stale: true, reason: 'Stale' },
+        { beach: mockBeach4, stale: true, reason: 'Stale' },
+      ],
+      staleCount: 4,
+    });
+
+    // Second call (allowStale): 3 recover, 1 still fails
+    mockBatchFetch.mockResolvedValueOnce({
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach2, forecasts: [{ ...mockForecast, beach_id: 'beach-2' }] },
+        { beach: mockBeach3, forecasts: [{ ...mockForecast, beach_id: 'beach-3' }] },
+      ],
+      failed: [
+        { beach: mockBeach4, stale: true, reason: 'No rows' },
+      ],
+      staleCount: 4,
+    });
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+
+    // failedBeaches should reflect the SECOND call's failed count (1), not the first (4)
+    expect(result.metadata.failedBeaches).toBe(1);
+    expect(result.metadata.successfulForecasts).toBe(3);
+    expect(result.metadata.usingStaleData).toBe(true);
+  });
+
+  test('returns empty response when stale fallback also returns no data', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    // First call: all beaches stale with no data
+    const firstCallResponse = {
+      successful: [],
+      failed: [
+        { beach: mockBeach1, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach2, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach3, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach4, stale: true, reason: 'Data is 3 hours old' },
+      ],
+      staleCount: 4,
+    };
+
+    // Second call (retry with allowStale): still no data
+    const secondCallResponse = {
+      successful: [],
+      failed: [
+        { beach: mockBeach1, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach2, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach3, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach4, stale: true, reason: 'Data is 3 hours old' },
+      ],
+      staleCount: 4,
+    };
+
+    mockBatchFetch
+      .mockResolvedValueOnce(firstCallResponse)
+      .mockResolvedValueOnce(secondCallResponse);
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+
+    // Verify no recommendations returned
+    expect(result.recommendations.length).toBe(0);
+
+    // usingStaleData should be undefined or false since no stale data was usable
+    expect(result.metadata.usingStaleData).toBeUndefined();
+  });
+
+  test('does not trigger fallback when some fresh forecasts are available', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    // Normal response: some successful, some stale failed
+    const normalResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach2, forecasts: [{ ...mockForecast, beach_id: 'beach-2' }] },
+      ],
+      failed: [
+        { beach: mockBeach3, stale: true, reason: 'Data is 3 hours old' },
+        { beach: mockBeach4, stale: true, reason: 'Data is 3 hours old' },
+      ],
+      staleCount: 2,
+    };
+
+    mockBatchFetch.mockResolvedValueOnce(normalResponse);
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+
+    // Verify recommendations returned from fresh data
+    expect(result.recommendations.length).toBeGreaterThan(0);
+
+    // Verify usingStaleData is false (not triggered)
+    expect(result.metadata.usingStaleData).toBe(false);
+
+    // Verify batchFetchForecasts was called only once
+    expect(mockBatchFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not trigger fallback when all beaches failed but none are stale', async () => {
+    const { batchFetchForecasts: mockBatchFetch } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    // All beaches missing (not stale)
+    const allMissingResponse = {
+      successful: [],
+      failed: [
+        { beach: mockBeach1, stale: false, reason: 'No data found' },
+        { beach: mockBeach2, stale: false, reason: 'No data found' },
+        { beach: mockBeach3, stale: false, reason: 'No data found' },
+        { beach: mockBeach4, stale: false, reason: 'No data found' },
+      ],
+      staleCount: 0,
+    };
+
+    mockBatchFetch.mockResolvedValueOnce(allMissingResponse);
+
+    const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation, maxResults: 5 });
+
+    // Verify no recommendations
+    expect(result.recommendations.length).toBe(0);
+
+    // Verify batchFetchForecasts was called only once (no fallback)
+    expect(mockBatchFetch).toHaveBeenCalledTimes(1);
+
+    // Verify no usingStaleData flag
+    expect(result.metadata.usingStaleData).toBeUndefined();
+  });
+});
