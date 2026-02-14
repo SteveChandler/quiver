@@ -26,6 +26,7 @@ const mockToast = toast as jest.Mocked<typeof toast>;
 const mockForecast = {
   id: "forecast-1",
   beach_id: "beach-123",
+  forecast_at: `${new Date().toISOString().split("T")[0]}T12:00Z`,
   forecast_date: new Date().toISOString().split("T")[0],
   forecast_time: "12:00",
   wave_height: "4.5",

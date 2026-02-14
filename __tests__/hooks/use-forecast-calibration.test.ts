@@ -70,6 +70,7 @@ const mockSession = {
 const mockForecast = {
   id: "forecast-1",
   beach_id: "beach-1",
+  forecast_at: "2024-01-15T10:00:00Z",
   valid_time: "2024-01-15T10:00:00Z",
   forecast_time: "2024-01-15T10:00:00Z", // Hook uses forecast_time
   forecast_date: "2024-01-15",

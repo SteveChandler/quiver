@@ -227,6 +227,7 @@ describe("Forecast Actions", () => {
         {
           id: "enhanced-1",
           beach_id: "beach-123",
+          forecast_at: `${today}T12:00:00Z`,
           forecast_date: today,
           forecast_time: "12:00:00",
           wave_height: "3-4 ft",
@@ -285,6 +286,7 @@ describe("Forecast Actions", () => {
         {
           id: "enhanced-1",
           beach_id: "beach-123",
+          forecast_at: `${today}T12:00:00Z`,
           forecast_date: today,
           forecast_time: "12:00:00",
           wave_height: "3-4 ft",
@@ -713,6 +715,7 @@ describe("Forecast Actions", () => {
         {
           id: "enhanced-1",
           beach_id: "beach-123",
+          forecast_at: `${today}T12:00:00Z`,
           forecast_date: today,
           forecast_time: "12:00:00",
           wave_height: "3-4 ft",

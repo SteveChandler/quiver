@@ -171,7 +171,11 @@ export interface MorningIntelConfig {
 
 export interface ForecastSlice {
   forecasts: Array<{
+    /** ISO 8601 UTC timestamptz — canonical forecast time */
+    forecast_at?: string;
+    /** @deprecated Use forecast_at */
     forecast_date: string;
+    /** @deprecated Use forecast_at */
     forecast_time: string;
     wave_height?: number | null;
     wave_period?: number | null;
