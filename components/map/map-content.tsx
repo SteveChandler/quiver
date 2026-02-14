@@ -99,6 +99,12 @@ export function MapContent({
     return { lat: 32.7503, lon: -117.2534 }; // Ocean Beach default
   }, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
 
+  // Stable array reference — only changes when lat/lon values actually change
+  const initialCenterArray = useMemo(
+    () => [mapCenter.lat, mapCenter.lon] as [number, number],
+    [mapCenter.lat, mapCenter.lon]
+  );
+
   if (loading) {
     return <MapSkeleton />;
   }
@@ -155,7 +161,7 @@ export function MapContent({
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
           <InteractiveMap
             key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lon.toFixed(4)}`}
-            initialCenter={[mapCenter.lat, mapCenter.lon]}
+            initialCenter={initialCenterArray}
             initialZoom={12}
             onLocationClick={onBeachSelect}
             regionViewport={regionViewport}

@@ -311,7 +311,7 @@ async function handleRetrain(request: Request) {
     // =======================================================================
     console.log(`[ML Retrain] Step 3: Sending ${trainingData.length} samples to ML service...`);
 
-    let trainResponse: TrainResponse;
+    let trainResponse!: TrainResponse;
 
     try {
       // Prepare training request payload

@@ -61,7 +61,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: false,
       isLoading: false,
       user: null,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
 
     jest.mocked(isNativeApp).mockReturnValue(true);
@@ -126,7 +130,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: true,
       isLoading: false,
       user: { id: "user123", email: "test@example.com" } as any,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
 
     render(<NativeAuthGuard />);
@@ -141,7 +149,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: false,
       isLoading: true,
       user: null,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
 
     render(<NativeAuthGuard />);
@@ -223,7 +235,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: true,
       isLoading: false,
       user: { id: "user123" } as any,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
 
     render(<NativeAuthGuard />);
@@ -236,7 +252,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: true,
       isLoading: false,
       user: { id: "user123" } as any,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
     jest.mocked(safeGetItem).mockReturnValue("1");
 
@@ -276,7 +296,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: true,
       isLoading: false,
       user: { id: "user123" } as any,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
     rerender(<NativeAuthGuard />);
     expect(clearRedirectAttempts).toHaveBeenCalled();
@@ -289,7 +313,11 @@ describe("NativeAuthGuard", () => {
       isAuthenticated: false,
       isLoading: false,
       user: null,
+      session: null,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
     rerender(<NativeAuthGuard />);
     expect(mockRouterReplace).toHaveBeenCalledWith("/auth/sign-in");
