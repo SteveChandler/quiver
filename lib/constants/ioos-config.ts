@@ -14,7 +14,7 @@ export const IOOS_API_CONFIG: IOOSServiceConfig = {
   // Primary IOOS ERDDAP server
   baseUrl: "https://erddap.sensors.ioos.us/erddap",
   userAgent: "quiver-surf-app/1.0 (contact: team@quiversurf.app)",
-  timeoutMs: 30000,
+  timeoutMs: 10_000, // ERDDAP responds in 2-3s or not at all; 30s just wasted time on dead stations
   maxConcurrentRequests: 5,
   batchDelayMs: 500,
   cacheTtlMs: 10 * 60 * 1000, // 10 minutes
@@ -176,7 +176,7 @@ export const IOOS_SYNC_CONFIG = {
   observationSyncCron: "0 */2 * * *",
 
   // Maximum runtime for observation sync (ms)
-  observationSyncMaxRuntimeMs: 5 * 60 * 1000, // 5 minutes
+  observationSyncMaxRuntimeMs: 4 * 60 * 1000, // 4 min — 20s safety margin before Vercel's 300s kill
 
   // Maximum runtime for station discovery (ms)
   stationDiscoveryMaxRuntimeMs: 10 * 60 * 1000, // 10 minutes
