@@ -31,6 +31,7 @@ interface SessionForSnapshot {
 interface EnhancedForecast {
   id: string;
   beach_id: string;
+  forecast_at?: string;
   forecast_date: string;
   forecast_time: string;
   wave_height?: string | null;

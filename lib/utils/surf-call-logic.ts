@@ -461,7 +461,7 @@ export function computeSurfCall(
   const windowStartMs = new Date(window.start).getTime();
   const windowEndMs = new Date(window.end).getTime();
   const windowForecasts = forecasts.filter((f) => {
-    const fTime = new Date(f.forecast_date + 'T' + f.forecast_time).getTime();
+    const fTime = new Date(f.forecast_at).getTime();
     return fTime >= windowStartMs && fTime <= windowEndMs;
   });
   // Fallback: if no forecasts strictly within window, use closest ones

@@ -428,7 +428,8 @@ async function discoverSurfSpotsInner(
   for (const { beach, forecasts } of beachForecasts) {
     allBeachIds.add(beach.id);
     for (const f of forecasts) {
-      allDates.add(f.forecast_date);
+      // Extract date from forecast_at (UTC date portion) for sun times lookup
+      allDates.add(f.forecast_at ? f.forecast_at.split('T')[0] : f.forecast_date);
     }
   }
 
@@ -474,7 +475,7 @@ async function discoverSurfSpotsInner(
     // to avoid scoring a different time slot (e.g. forecasts[0]).
     const bestWindowForecast =
       forecasts.find((f) => {
-        const t = new Date(`${f.forecast_date}T${f.forecast_time}Z`).getTime();
+        const t = new Date(f.forecast_at).getTime();
         return t === bestWindow.start.getTime();
       }) || forecasts[0];
 

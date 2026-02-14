@@ -25,7 +25,6 @@ import type {
   TimeSlot,
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
-import { fromZonedTime } from 'date-fns-tz';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { createContextLogger } from '@/lib/logger';
 
@@ -71,9 +70,9 @@ function prepareForecasts(
 ): ScoredForecast[] {
   return forecasts
     .map((forecast) => {
-      // forecast_date + forecast_time are in the beach's local timezone, NOT UTC.
-      // Use fromZonedTime to correctly convert beach-local → UTC Date.
-      const forecastTime = fromZonedTime(`${forecast.forecast_date}T${forecast.forecast_time}`, beachTz);
+      // forecast_at is already a UTC ISO 8601 timestamp — parse directly.
+      // No timezone conversion needed (fixes prior double-conversion via fromZonedTime).
+      const forecastTime = new Date(forecast.forecast_at);
       const score = scoreWindowWithEngine(forecast, beach);
 
       // Check if forecast is for today (in beach timezone)
