@@ -5,6 +5,21 @@
  */
 
 /**
+ * Get a normalized forecast_at ISO 8601 UTC timestamp rounded to 3-hour intervals.
+ *
+ * Uses UTC methods to avoid server-timezone dependency.
+ * This replaces the old pattern of getNormalizedDateString + getNormalizedTimeString.
+ *
+ * Valid output hours: 00, 03, 06, 09, 12, 15, 18, 21 (all UTC)
+ */
+export function getNormalizedForecastAt(date: Date): string {
+  const roundedHour = Math.floor(date.getUTCHours() / 3) * 3;
+  const d = new Date(date);
+  d.setUTCHours(roundedHour, 0, 0, 0);
+  return d.toISOString().replace(".000Z", "Z");
+}
+
+/**
  * Get normalized date string (YYYY-MM-DD) in local timezone
  */
 export function getNormalizedDateString(date: Date): string {

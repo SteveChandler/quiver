@@ -1,7 +1,36 @@
 import {
+  getNormalizedForecastAt,
   getNormalizedDateString,
   getNormalizedTimeString,
 } from "@/lib/services/forecast/datetime-utils";
+
+describe("getNormalizedForecastAt", () => {
+  it("returns ISO 8601 UTC string rounded to 3-hour intervals", () => {
+    // Feb 14, 2026 at 14:30 UTC → rounds down to 12:00
+    const date = new Date("2026-02-14T14:30:00Z");
+    expect(getNormalizedForecastAt(date)).toBe("2026-02-14T12:00:00Z");
+  });
+
+  it("rounds 05:00 UTC down to 03:00", () => {
+    const date = new Date("2026-02-14T05:00:00Z");
+    expect(getNormalizedForecastAt(date)).toBe("2026-02-14T03:00:00Z");
+  });
+
+  it("keeps exact 3-hour boundaries unchanged", () => {
+    const date = new Date("2026-02-14T06:00:00Z");
+    expect(getNormalizedForecastAt(date)).toBe("2026-02-14T06:00:00Z");
+  });
+
+  it("handles midnight correctly", () => {
+    const date = new Date("2026-02-14T00:00:00Z");
+    expect(getNormalizedForecastAt(date)).toBe("2026-02-14T00:00:00Z");
+  });
+
+  it("handles 23:59 UTC → rounds to 21:00", () => {
+    const date = new Date("2026-02-14T23:59:00Z");
+    expect(getNormalizedForecastAt(date)).toBe("2026-02-14T21:00:00Z");
+  });
+});
 
 describe("getNormalizedDateString", () => {
   it("formats date as YYYY-MM-DD", () => {
