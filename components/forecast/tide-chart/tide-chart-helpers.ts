@@ -22,11 +22,21 @@ export const parseHeight = (value?: string | null) => {
 };
 
 export const parseForecastDateTime = (
-  dateStr: string,
-  timeStr: string
+  forecastDateOrAt: string,
+  forecastTime?: string
 ): Date | undefined => {
+  if (!forecastDateOrAt) return undefined;
+
+  // New path: single forecast_at argument (ISO 8601)
+  if (!forecastTime) {
+    const parsed = new Date(forecastDateOrAt);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  // Legacy path: forecast_date + forecast_time
+  const dateStr = forecastDateOrAt;
+  const timeStr = forecastTime;
   const trimmedTime = (timeStr ?? "").trim();
-  if (!dateStr) return undefined;
   const datePart = dateStr.includes("T")
     ? dateStr.split("T")[0]?.trim() ?? dateStr.trim()
     : dateStr.trim();
