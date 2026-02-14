@@ -71,7 +71,7 @@ export class ForecastStorageService {
    * Store enhanced forecasts in database with deduplication and chunking
    * 
    * Features:
-   * - Automatic deduplication by (beach_id, forecast_date, forecast_time)
+   * - Automatic deduplication by (beach_id, forecast_at), with fallback to (beach_id, forecast_date, forecast_time)
    * - Batch processing to avoid payload limits
    * - Schema compatibility handling (strips unknown columns)
    * - Retry logic for transient errors
@@ -96,7 +96,7 @@ export class ForecastStorageService {
     const supabase = await createSupabaseServiceRoleClient();
 
     try {
-      // Deduplicate forecasts by unique key (beach_id, forecast_date, forecast_time)
+      // Deduplicate forecasts by unique key (beach_id, forecast_at) with legacy fallback
       const uniqueForecasts = this.deduplicateForecasts(forecasts);
 
       if (this.config.verboseLogging) {
@@ -153,7 +153,9 @@ export class ForecastStorageService {
     const uniqueForecasts = new Map<string, EnhancedForecastEntity>();
     
     forecasts.forEach((forecast) => {
-      const key = `${forecast.beach_id}|${forecast.forecast_date}|${forecast.forecast_time}`;
+      const key = forecast.forecast_at
+        ? `${forecast.beach_id}|${forecast.forecast_at}`
+        : `${forecast.beach_id}|${forecast.forecast_date}|${forecast.forecast_time}`;
       if (!uniqueForecasts.has(key)) {
         uniqueForecasts.set(key, forecast);
       } else {
@@ -184,7 +186,7 @@ export class ForecastStorageService {
       const { data, error } = await supabase
         .from("enhanced_forecasts")
         .upsert(currentChunk, {
-          onConflict: "beach_id,forecast_date,forecast_time",
+          onConflict: "beach_id,forecast_at",
         });
 
       if (!error) {

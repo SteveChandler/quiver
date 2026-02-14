@@ -140,5 +140,57 @@ describe("ForecastStorageService", () => {
       const upsertCallArgs = upsertMock.mock.calls[0][0];
       expect(upsertCallArgs).toHaveLength(1);
     });
+
+    it("deduplicates using forecast_at when available", async () => {
+      const forecastWithAt = {
+        ...mockForecast,
+        forecast_at: "2026-02-14T17:00:00Z",
+      } as unknown as EnhancedForecastEntity;
+
+      const duplicateForecasts: EnhancedForecastEntity[] = [
+        forecastWithAt,
+        { ...forecastWithAt, id: "forecast-2" }, // Same beach_id + forecast_at
+      ];
+
+      await service.storeEnhancedForecasts(mockBeach, duplicateForecasts);
+
+      // Should only upsert 1 unique forecast (deduped by beach_id|forecast_at)
+      const upsertCallArgs = upsertMock.mock.calls[0][0];
+      expect(upsertCallArgs).toHaveLength(1);
+    });
+
+    it("treats different forecast_at values as distinct forecasts", async () => {
+      const forecast1 = {
+        ...mockForecast,
+        forecast_at: "2026-02-14T17:00:00Z",
+      } as unknown as EnhancedForecastEntity;
+
+      const forecast2 = {
+        ...mockForecast,
+        id: "forecast-2",
+        forecast_at: "2026-02-14T18:00:00Z",
+      } as unknown as EnhancedForecastEntity;
+
+      await service.storeEnhancedForecasts(mockBeach, [forecast1, forecast2]);
+
+      // Should upsert 2 distinct forecasts (different forecast_at values)
+      const upsertCallArgs = upsertMock.mock.calls[0][0];
+      expect(upsertCallArgs).toHaveLength(2);
+    });
+
+    it("uses onConflict with beach_id,forecast_at", async () => {
+      const forecastWithAt = {
+        ...mockForecast,
+        forecast_at: "2026-02-14T17:00:00Z",
+      } as unknown as EnhancedForecastEntity;
+
+      await service.storeEnhancedForecasts(mockBeach, [forecastWithAt]);
+
+      // Verify upsert was called with the new conflict clause
+      expect(upsertMock).toHaveBeenCalledWith(
+        expect.any(Array),
+        { onConflict: "beach_id,forecast_at" }
+      );
+    });
   });
 });
