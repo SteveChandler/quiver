@@ -235,15 +235,19 @@ export interface BatchForecastCacheResult {
  * For 20 beaches, this reduces from 40 queries (~1000ms) to 2 queries (~150ms).
  *
  * CACHE-ONLY: Never calls external APIs or generates fresh forecasts.
- * Never returns stale forecast rows. Beaches with stale/missing data are excluded.
+ * By default, stale forecast rows are excluded (beaches with stale data get empty forecasts).
+ * When `allowStale` is true, stale beaches are included in the batch fetch — their forecast
+ * rows are returned with `metadata.stale: true` so callers can degrade gracefully.
  *
  * @param beachIds - Array of beach IDs to fetch forecasts for
  * @param windowHours - Forecast window in hours (default 48)
+ * @param allowStale - When true, return forecast rows for stale beaches (default false)
  * @returns Map of beach ID to forecast result with metadata
  */
 export async function getBatchFreshForecastsFromCache(
   beachIds: string[],
-  windowHours: number = 48
+  windowHours: number = 48,
+  allowStale: boolean = false
 ): Promise<Map<string, BatchForecastCacheResult>> {
   const startTime = Date.now();
   const results = new Map<string, BatchForecastCacheResult>();
@@ -315,18 +319,23 @@ export async function getBatchFreshForecastsFromCache(
       stalenessMap.set(beachId, stalenessDetails);
 
       if (stalenessDetails.isStale) {
-        // Stale data - don't serve
-        results.set(beachId, {
-          beachId,
-          forecasts: [],
-          metadata: {
-            cached: true,
-            stale: true,
-            missing: false,
-            reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - refusing to serve stale cache`,
-            stalenessDetails,
-          },
-        });
+        if (allowStale) {
+          // Stale but caller wants data anyway — include in batch fetch
+          freshBeachIds.push(beachId);
+        } else {
+          // Stale data - don't serve
+          results.set(beachId, {
+            beachId,
+            forecasts: [],
+            metadata: {
+              cached: true,
+              stale: true,
+              missing: false,
+              reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - refusing to serve stale cache`,
+              stalenessDetails,
+            },
+          });
+        }
       } else {
         // Fresh - include in batch query
         freshBeachIds.push(beachId);
@@ -412,10 +421,11 @@ export async function getBatchFreshForecastsFromCache(
       forecastsByBeach.get(beachId)!.push(forecast as EnhancedForecastEntity);
     }
 
-    // Build results for fresh beaches
+    // Build results for fresh (and allowStale) beaches
     for (const beachId of freshBeachIds) {
       const beachForecasts = forecastsByBeach.get(beachId) || [];
       const stalenessDetails = stalenessMap.get(beachId);
+      const isStaleEntry = stalenessDetails?.isStale ?? false;
 
       if (beachForecasts.length === 0) {
         results.set(beachId, {
@@ -434,9 +444,11 @@ export async function getBatchFreshForecastsFromCache(
           forecasts: beachForecasts,
           metadata: {
             cached: true,
-            stale: false,
+            stale: isStaleEntry,
             missing: false,
-            reason: null,
+            reason: isStaleEntry
+              ? `Data is ${stalenessDetails!.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails!.threshold}h) - serving stale cache (allowStale)`
+              : null,
             stalenessDetails,
           },
         });

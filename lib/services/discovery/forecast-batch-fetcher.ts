@@ -30,6 +30,8 @@ export interface ForecastBatchOptions {
   overallTimeout?: number;
   /** Forecast window in hours (default 48) */
   forecastWindowHours?: number;
+  /** When true, return stale forecast rows instead of excluding them (default false) */
+  allowStale?: boolean;
 }
 
 /**
@@ -92,7 +94,8 @@ export async function batchFetchForecasts(
   // Fetch all forecasts in 2 queries instead of 2N queries
   const batchResults = await getBatchFreshForecastsFromCache(
     beaches.map((b) => b.id),
-    forecastWindowHours
+    forecastWindowHours,
+    options?.allowStale ?? false
   );
 
   const successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
@@ -122,6 +125,14 @@ export async function batchFetchForecasts(
 
     if (result.metadata.stale) {
       staleCount++;
+      // When allowStale, stale beaches with data are treated as successful
+      if (options?.allowStale && result.forecasts.length > 0) {
+        successful.push({
+          beach,
+          forecasts: result.forecasts,
+        });
+        continue;
+      }
       failed.push({
         beach,
         reason: result.metadata.reason || 'Stale data',

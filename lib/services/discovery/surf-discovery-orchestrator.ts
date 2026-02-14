@@ -373,11 +373,13 @@ async function discoverSurfSpotsInner(
   const finalCandidates = candidates.slice(0, maxCandidates);
 
   // 2. Fetch forecasts for all candidates
-  const { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
+  let { successful: beachForecasts, failed: failedForecasts, staleCount } = await batchFetchForecasts(finalCandidates, {
     maxConcurrent,
     timeout,
     overallTimeout,
   });
+
+  let usingStaleData = false;
 
   const successRate = beachForecasts.length / finalCandidates.length;
   const successPercent = Math.round(successRate * 100);
@@ -393,9 +395,30 @@ async function discoverSurfSpotsInner(
     );
   }
 
+  // Stale-data fallback: when ALL beaches fail freshness check, retry with allowStale
   if (beachForecasts.length === 0) {
-    log.error(`No forecasts retrieved for user ${userId}`);
-    return emptyResponse(maxResults);
+    const staleBeachCount = failedForecasts.filter(f => f.stale).length;
+    if (staleBeachCount > 0) {
+      log.error(
+        `[STALE_FALLBACK] No fresh forecasts available — falling back to stale data for ${staleBeachCount}/${finalCandidates.length} beaches. ` +
+        `Forecast pipeline may be down. Check cron jobs: enhanced-forecast-sync-cdip, enhanced-forecast-sync.`
+      );
+      const staleFallback = await batchFetchForecasts(finalCandidates, {
+        maxConcurrent,
+        timeout,
+        overallTimeout,
+        allowStale: true,
+      });
+      beachForecasts = staleFallback.successful;
+      failedForecasts = staleFallback.failed;
+      staleCount = staleFallback.staleCount;
+      usingStaleData = true;
+    }
+
+    if (beachForecasts.length === 0) {
+      log.error(`No forecasts retrieved for user ${userId} (even with stale fallback)`);
+      return emptyResponse(maxResults);
+    }
   }
 
   // Collect all dates from forecasts and fetch sun times
@@ -567,6 +590,7 @@ async function discoverSurfSpotsInner(
       partialSuccess: beachForecasts.length < finalCandidates.length,
       failedBeaches: failedForecasts.length,
       staleBeaches: staleCount,
+      usingStaleData,
       generated_at: new Date().toISOString(),
     },
   };

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Discovery Stale-Data Fallback** - When all forecast data is stale (e.g., cron pipeline hasn't run), discovery now falls back to serving stale forecasts instead of returning an empty "No surf recommendations" screen. Logs a `[STALE_FALLBACK]` error for internal alerting. `usingStaleData` flag added to response metadata for monitoring.
 - **Discover Endpoint Timeout & Silent Failure** - Added `maxDuration = 30` export to prevent Vercel from killing the function at default timeout. Enforced `DEFAULT_OVERALL_TIMEOUT_MS` via `Promise.race` (was declared but never used). Changed catch block to re-throw errors so `withAuth` returns a proper 500 instead of a misleading 200 with empty recommendations.
 - **Milestones Rate Limiter Crash (Production Down)** - Fixed invalid `authAware: true` (boolean) in milestones route rate limit config that caused `getCachedRateLimiter(undefined, undefined)` to throw, triggering fail-closed 503 responses on every request. Replaced with `{ key: "authenticated-default" }`. Added runtime guard in `withRateLimit` to catch boolean `authAware` misconfiguration at startup.
 - **Growth Metrics Seed Account Filter** - All growth dashboard queries now exclude `@example.invalid` seeded demo accounts (created 2026-02-05) that were inflating WAU from 25 to 1, WASL from 22 to 0, and D7 retention from 92.3% to 0%. Baselines in `docs/GROWTH_METRICS_FRAMEWORK.md` updated with real user data.

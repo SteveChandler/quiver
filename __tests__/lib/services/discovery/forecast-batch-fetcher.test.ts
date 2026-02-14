@@ -256,7 +256,8 @@ describe('batchFetchForecasts', () => {
 
       expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(
         ['beach-1'],
-        DEFAULT_FORECAST_WINDOW_HOURS
+        DEFAULT_FORECAST_WINDOW_HOURS,
+        false
       );
     });
 
@@ -269,7 +270,7 @@ describe('batchFetchForecasts', () => {
 
       await batchFetchForecasts([mockBeach1 as Beach], { forecastWindowHours: 24 });
 
-      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(['beach-1'], 24);
+      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(['beach-1'], 24, false);
     });
   });
 
@@ -280,7 +281,7 @@ describe('batchFetchForecasts', () => {
       expect(result.successful).toHaveLength(0);
       expect(result.failed).toHaveLength(0);
       expect(result.staleCount).toBe(0);
-      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith([], DEFAULT_FORECAST_WINDOW_HOURS);
+      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith([], DEFAULT_FORECAST_WINDOW_HOURS, false);
     });
   });
 
@@ -317,6 +318,137 @@ describe('batchFetchForecasts', () => {
       const result = await batchFetchForecasts([mockBeach1 as Beach]);
 
       expect(result.failed[0].reason).toBe('Stale data');
+    });
+  });
+
+  describe('allowStale option', () => {
+    it('should categorize all stale beaches as failed when allowStale is false', async () => {
+      // All beaches return stale: true, forecasts: []
+      mockBatchResults.set('beach-1', {
+        beachId: 'beach-1',
+        forecasts: [],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+      mockBatchResults.set('beach-2', {
+        beachId: 'beach-2',
+        forecasts: [],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+      mockBatchResults.set('beach-3', {
+        beachId: 'beach-3',
+        forecasts: [],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+
+      const result = await batchFetchForecasts([
+        mockBeach1 as Beach,
+        mockBeach2 as Beach,
+        mockBeach3 as Beach,
+      ]);
+
+      expect(result.successful).toHaveLength(0);
+      expect(result.failed).toHaveLength(3);
+      expect(result.staleCount).toBe(3);
+
+      // Verify all failed entries are marked as stale
+      expect(result.failed.every(f => f.stale === true)).toBe(true);
+    });
+
+    it('should categorize stale beaches with data as successful when allowStale is true', async () => {
+      // All beaches return stale: true, but WITH forecasts
+      mockBatchResults.set('beach-1', {
+        beachId: 'beach-1',
+        forecasts: [mockForecast as EnhancedForecastEntity],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+      mockBatchResults.set('beach-2', {
+        beachId: 'beach-2',
+        forecasts: [{ ...mockForecast, id: 'forecast-2', beach_id: 'beach-2' } as EnhancedForecastEntity],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+      mockBatchResults.set('beach-3', {
+        beachId: 'beach-3',
+        forecasts: [{ ...mockForecast, id: 'forecast-3', beach_id: 'beach-3' } as EnhancedForecastEntity],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+
+      const result = await batchFetchForecasts(
+        [mockBeach1 as Beach, mockBeach2 as Beach, mockBeach3 as Beach],
+        { allowStale: true }
+      );
+
+      expect(result.successful).toHaveLength(3);
+      expect(result.failed).toHaveLength(0);
+      expect(result.staleCount).toBe(3);
+
+      // Verify getBatchFreshForecastsFromCache was called with allowStale=true
+      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledWith(
+        ['beach-1', 'beach-2', 'beach-3'],
+        DEFAULT_FORECAST_WINDOW_HOURS,
+        true
+      );
+
+      // Verify successful entries have forecasts
+      expect(result.successful.every(s => s.forecasts.length > 0)).toBe(true);
+    });
+
+    it('should still fail stale beaches with no forecast rows even when allowStale is true', async () => {
+      // Stale beach but no forecast data
+      mockBatchResults.set('beach-1', {
+        beachId: 'beach-1',
+        forecasts: [],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+
+      const result = await batchFetchForecasts([mockBeach1 as Beach], { allowStale: true });
+
+      expect(result.successful).toHaveLength(0);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0].stale).toBe(true);
+      expect(result.staleCount).toBe(1);
+    });
+
+    it('should handle mixed results with allowStale: some stale with data, some without, some missing', async () => {
+      // Beach 1: stale with data
+      mockBatchResults.set('beach-1', {
+        beachId: 'beach-1',
+        forecasts: [mockForecast as EnhancedForecastEntity],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+
+      // Beach 2: stale without data
+      mockBatchResults.set('beach-2', {
+        beachId: 'beach-2',
+        forecasts: [],
+        metadata: { cached: true, stale: true, missing: false, reason: 'Data is 3 hours old' },
+      });
+
+      // Beach 3: missing (not stale)
+      mockBatchResults.set('beach-3', {
+        beachId: 'beach-3',
+        forecasts: [],
+        metadata: { cached: false, stale: false, missing: true, reason: 'No data found' },
+      });
+
+      const result = await batchFetchForecasts(
+        [mockBeach1 as Beach, mockBeach2 as Beach, mockBeach3 as Beach],
+        { allowStale: true }
+      );
+
+      expect(result.successful).toHaveLength(1);
+      expect(result.successful[0].beach.id).toBe('beach-1');
+
+      expect(result.failed).toHaveLength(2);
+      expect(result.staleCount).toBe(2); // Beach 1 and 2 are stale
+
+      // Verify the stale counts are correct
+      const staleFailures = result.failed.filter(f => f.stale);
+      expect(staleFailures).toHaveLength(1); // Only beach-2 (stale without data)
+      expect(staleFailures[0].beach.id).toBe('beach-2');
+
+      const missingFailures = result.failed.filter(f => !f.stale);
+      expect(missingFailures).toHaveLength(1); // Beach-3 (missing)
+      expect(missingFailures[0].beach.id).toBe('beach-3');
     });
   });
 });
