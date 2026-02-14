@@ -143,6 +143,16 @@ export function EditorialLayout({
           beaches={beaches}
         />
 
+        {/* Best Time to Surf cross-link for SEO indexation */}
+        <div className="mt-6">
+          <Link
+            href={`/best-time-to-surf/${params.city}`}
+            className="inline-flex items-center gap-2 text-ocean-blue hover:underline font-medium"
+          >
+            Best Time to Surf {displayCityName} — Monthly Breakdown →
+          </Link>
+        </div>
+
         {/* Planning Checklist */}
         <PlanningChecklist items={editorial.planning_checklist} />
       </div>

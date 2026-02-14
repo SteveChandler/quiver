@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Added internal linking for `/best-time-to-surf` pages (site footer + city hub cross-links) to improve indexation
+- Consolidated Puerto Rico `/pr/rinc-n` redirect chain from 2-hop to single-hop 301
 - Realigned SEO metadata to lead with data richness (surf reports, forecasts, ML-powered conditions) instead of community messaging
 - Replaced "session windows" with "best surf windows" across beach and city page metadata
 - Updated intent page titles to match high-volume search queries (e.g., "Best Beginner Surf Spots", "Least Crowded", "Best Time to Surf")

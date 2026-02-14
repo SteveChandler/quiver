@@ -94,6 +94,28 @@ export async function middleware(request: NextRequest) {
    */
   if (pathname === "/pr/rinc-n" || pathname.startsWith("/pr/rinc-n/")) {
     const redirectUrl = request.nextUrl.clone();
+
+    // Single-hop redirect for known compound slug → canonical beach URL
+    // (avoids 2-hop chain: rinc-n → rincon → canonical)
+    const segments = pathname.split("/").filter(Boolean); // ["pr", "rinc-n", "marias-rincon-pr"]
+    if (segments.length === 3) {
+      const PR_RINCN_CANONICAL: Record<string, string> = {
+        // Rincón
+        "marias-rincon-pr": "/pr/rincon/marias",
+        "domes-rincon-pr": "/pr/rincon/domes",
+        "tres-palmas-rincon-pr": "/pr/rincon/tres-palmas",
+        "indicators-rincon-pr": "/pr/rincon/indicators",
+        "sandy-beach-rincon-rincon-pr": "/pr/rincon/sandy-beach-rincon",
+        "the-point-at-sandy-rincon-pr": "/pr/rincon/the-point-at-sandy",
+      };
+      const canonical = PR_RINCN_CANONICAL[segments[2]];
+      if (canonical) {
+        redirectUrl.pathname = canonical;
+        return NextResponse.redirect(redirectUrl, { status: 301 });
+      }
+    }
+
+    // Fallback: just fix the city slug (for paths not in the map)
     redirectUrl.pathname = pathname.replace("/pr/rinc-n", "/pr/rincon");
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }

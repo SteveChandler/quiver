@@ -19,6 +19,7 @@ const FOOTER_LINKS = {
     { name: "Less Crowded", href: "/least-crowded/ca" },
     { name: "Longboard Spots", href: "/longboard/ca" },
     { name: "Water Temp", href: "/water-temp/san-diego" },
+    { name: "Best Time to Surf", href: "/best-time-to-surf" },
   ],
   legal: [
     { name: "Privacy Policy", href: "/privacy" },
