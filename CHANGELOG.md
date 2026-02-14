@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Sentry Cron Monitoring for Forecast Pipeline** - All 6 forecast crons (4 enhanced shards, marine refresh, CDIP sync) now report check-ins to Sentry. If Vercel cron scheduling stops (e.g. during rapid deployments), Sentry will alert within the expected schedule window. New utility at `lib/monitoring/sentry-cron.ts`.
+- **Sentry Cron Monitoring for Forecast Pipeline** - Primary forecast cron (enhanced shard 0) reports check-ins to Sentry. If Vercel cron scheduling stops (e.g. during rapid deployments), Sentry will alert within the expected schedule window. Utility at `lib/monitoring/sentry-cron.ts`. (Reduced from 7 monitors to 1 to fit free-tier limit; shards 1-3, CDIP sync, and forecast refresh monitors removed.)
 - **Deep Health Check Endpoint** - `/api/health?deep=true` calls `checkForecastHealth()` to return full pipeline status: database connectivity, enhanced forecast coverage/freshness, per-source health for all 5 pipelines (enhanced, marine, tide, sun, IOOS), and issues list. Returns 200 for healthy/degraded, 503 for critical. Default shallow check unchanged.
 - **Service Health CI Workflow** - Hourly GitHub Actions workflow (`.github/workflows/service-health.yml`) runs shallow + deep health checks against production using only `curl`/`python3` (~30s). Reports coverage, issues, and pipeline status in step summary. Fails on critical status.
 - **Service Health Playwright Tests** - New `e2e/guest-service-health.spec.ts` with smoke tests validating forecast pipeline health, featured beaches data, and beach page wave data rendering. Extended `e2e/api/health.spec.ts` with deep check contract tests.
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sentry Cron Monitor Timeout for Forecast Shards** - Fixed missing `completeCronCheckIn` calls in early-return paths of `enhanced-forecast-sync/_shared.ts`. Added `Sentry.flush(2000)` after check-in completions. (Cron monitoring now limited to shard 0 only; CDIP and forecast-refresh monitors removed.)
 - **Discovery Stale-Data Fallback** - When all forecast data is stale (e.g., cron pipeline hasn't run), discovery now falls back to serving stale forecasts instead of returning an empty "No surf recommendations" screen. Logs a `[STALE_FALLBACK]` error for internal alerting. `usingStaleData` flag added to response metadata for monitoring.
 - **Discover Endpoint Timeout & Silent Failure** - Added `maxDuration = 30` export to prevent Vercel from killing the function at default timeout. Enforced `DEFAULT_OVERALL_TIMEOUT_MS` via `Promise.race` (was declared but never used). Changed catch block to re-throw errors so `withAuth` returns a proper 500 instead of a misleading 200 with empty recommendations.
 - **Milestones Rate Limiter Crash (Production Down)** - Fixed invalid `authAware: true` (boolean) in milestones route rate limit config that caused `getCachedRateLimiter(undefined, undefined)` to throw, triggering fail-closed 503 responses on every request. Replaced with `{ key: "authenticated-default" }`. Added runtime guard in `withRateLimit` to catch boolean `authAware` misconfiguration at startup.
