@@ -15,6 +15,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 describe('toForecastForScoring', () => {
   it('converts EnhancedForecastEntity to ForecastForScoring', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3.5',
@@ -38,6 +39,7 @@ describe('toForecastForScoring', () => {
 
   it('parses cardinal wind direction when degrees missing', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3.5',
@@ -56,6 +58,7 @@ describe('toForecastForScoring', () => {
 
   it('returns null for missing wind direction', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3.5',
@@ -82,6 +85,7 @@ describe('toForecastForScoring', () => {
 
     for (const [cardinal, expectedDeg] of Object.entries(cardinalExpected)) {
       const forecast: Partial<EnhancedForecastEntity> = {
+        forecast_at: '2026-01-14T08:00:00Z',
         forecast_date: '2026-01-14',
         forecast_time: '08:00:00',
         wave_height: '3',
@@ -96,6 +100,7 @@ describe('toForecastForScoring', () => {
 
   it('normalizes wind direction degrees to 0-360 range', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3',
@@ -109,6 +114,7 @@ describe('toForecastForScoring', () => {
 
   it('handles negative wind direction degrees', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3',
@@ -122,6 +128,7 @@ describe('toForecastForScoring', () => {
 
   it('handles null/missing values with defaults', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: null,
@@ -140,6 +147,7 @@ describe('toForecastForScoring', () => {
 
   it('parses wave_period with or without "s" suffix', () => {
     const withSuffix: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3',
@@ -147,6 +155,7 @@ describe('toForecastForScoring', () => {
     };
 
     const withoutSuffix: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3',
@@ -159,6 +168,7 @@ describe('toForecastForScoring', () => {
 
   it('creates valid Date from forecast_date and forecast_time', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T15:30:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '15:30:00',
       wave_height: '3',
@@ -172,6 +182,7 @@ describe('toForecastForScoring', () => {
 
   it('returns null for unrecognized cardinal direction', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-01-14T08:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '08:00:00',
       wave_height: '3',

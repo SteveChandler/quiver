@@ -150,6 +150,7 @@ describe("Map Forecast Basic Tests", () => {
                   {
                     id: "forecast-1",
                     beach_id: "d030911e-71ba-4678-8bbb-cd06a30f8c42",
+                    forecast_at: "2025-08-16T12:00:00Z",
                     forecast_date: "2025-08-16",
                     forecast_time: "12:00:00",
                     wave_height: "2.6 ft",

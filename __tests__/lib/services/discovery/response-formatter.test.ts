@@ -79,6 +79,7 @@ const mockWindow: PersonalizedForecastWindow = {
 const mockForecast: EnhancedForecastEntity = {
   id: 'forecast-1',
   beach_id: 'beach-1',
+  forecast_at: '2024-01-15T17:00Z',
   forecast_date: '2024-01-15',
   forecast_time: '17:00',
   wave_height: '4',

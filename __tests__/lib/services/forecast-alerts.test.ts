@@ -13,6 +13,7 @@ describe("Forecast Alert Service", () => {
       const nowMs = Date.UTC(2025, 0, 1, 12, 0, 0); // 2025-01-01T12:00:00Z
       const forecasts = [
         {
+          forecast_at: "2025-01-01T11:00:00Z",
           forecast_date: "2025-01-01",
           forecast_time: "11:00:00",
           wave_height: "3",
@@ -22,6 +23,7 @@ describe("Forecast Alert Service", () => {
           confidence_score: 0.9,
         },
         {
+          forecast_at: "2025-01-01T13:00:00Z",
           forecast_date: "2025-01-01",
           forecast_time: "13:00:00",
           wave_height: "3.5",
@@ -58,6 +60,7 @@ describe("Forecast Alert Service", () => {
       const nowMs = Date.UTC(2025, 0, 1, 12, 0, 0);
       const forecasts = [
         {
+          forecast_at: "2025-01-01T13:00:00Z",
           forecast_date: "2025-01-01",
           forecast_time: "13:00:00",
           wave_height: "1",
@@ -93,6 +96,7 @@ describe("Forecast Alert Service", () => {
       const nowMs = Date.UTC(2025, 0, 1, 12, 0, 0);
       const forecasts = [
         {
+          forecast_at: "2025-01-01T13:00:00Z",
           forecast_date: "2025-01-01",
           forecast_time: "13:00:00",
           wave_height: "3",
@@ -102,6 +106,7 @@ describe("Forecast Alert Service", () => {
           confidence_score: 0.9,
         },
         {
+          forecast_at: "2025-01-01T14:00:00Z",
           forecast_date: "2025-01-01",
           forecast_time: "14:00:00",
           wave_height: "3",

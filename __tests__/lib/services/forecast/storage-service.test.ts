@@ -47,6 +47,7 @@ describe("ForecastStorageService", () => {
   const mockForecast = {
     id: "forecast-1",
     beach_id: "beach-123",
+    forecast_at: `${new Date().toISOString().split("T")[0]}T09:00Z`,
     forecast_date: new Date().toISOString().split("T")[0],
     forecast_time: "09:00",
     data_source: "CDIP",

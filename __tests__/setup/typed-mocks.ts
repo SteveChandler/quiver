@@ -333,6 +333,7 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
   return {
     id: `forecast-${Date.now()}`,
     beach_id: "beach-123",
+    forecast_at: `${new Date().toISOString().split("T")[0]}T08:00:00Z`,
     forecast_date: new Date().toISOString().split("T")[0],
     forecast_time: "08:00:00",
     wave_height: "3-4ft",

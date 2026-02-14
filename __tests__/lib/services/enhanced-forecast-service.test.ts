@@ -103,6 +103,7 @@ describe("EnhancedForecastService", () => {
     // Mock the entire generateComprehensiveForecast to avoid complex nested service mocking
     const mockForecasts = [{
       beach_id: "b1",
+      forecast_at: "2024-01-01T12:00:00Z",
       forecast_date: "2024-01-01",
       forecast_time: "12:00:00",
       wave_height: 1.0,
@@ -136,6 +137,7 @@ describe("EnhancedForecastService", () => {
     // Create test forecasts with a column that will be "missing" in schema
     const forecasts = [{
       beach_id: "b1",
+      forecast_at: "2024-01-01T12:00:00Z",
       forecast_date: "2024-01-01",
       forecast_time: "12:00:00",
       wave_height: 1.0,

@@ -107,6 +107,7 @@ describe("isForecastInFuture with forecast_at", () => {
     ).toBe(true);
     expect(
       isForecastInFuture({
+        forecast_at: "2025-06-14T12:00Z",
         forecast_date: "2025-06-14",
         forecast_time: "12:00",
       })

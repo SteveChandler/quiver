@@ -25,6 +25,7 @@ describe("useSessionForecast", () => {
       success: true,
       data: [
         {
+          forecast_at: "2024-01-17T06:00Z",
           forecast_date: "2024-01-17",
           forecast_time: "06:00",
           wave_height: 4,
@@ -33,6 +34,7 @@ describe("useSessionForecast", () => {
           water_temp: 60,
         },
         {
+          forecast_at: "2024-01-17T08:00Z",
           forecast_date: "2024-01-17",
           forecast_time: "08:00",
           wave_height: 5,
@@ -92,6 +94,7 @@ describe("useSessionForecast", () => {
       success: true,
       data: [
         {
+          forecast_at: "2024-01-17T19:00Z",
           forecast_date: "2024-01-17",
           forecast_time: "19:00", // 7 PM is valid evening time (< 21:00)
           wave_height: "3.5 ft",
@@ -127,6 +130,7 @@ describe("useSessionForecast", () => {
       success: true,
       data: [
         {
+          forecast_at: "2024-01-17T05:00Z",
           forecast_date: "2024-01-17",
           forecast_time: "05:00", // 5 AM is dawn patrol time (>= 5:00)
           wave_height: 4,
@@ -151,6 +155,7 @@ describe("useSessionForecast", () => {
       success: true,
       data: [
         {
+          forecast_at: "2024-01-17T04:00Z",
           forecast_date: "2024-01-17",
           forecast_time: "04:00", // 4 AM is too early (< 5:00)
           wave_height: 4,
@@ -175,6 +180,7 @@ describe("useSessionForecast", () => {
       success: true,
       data: [
         {
+          forecast_at: "2024-01-17T06:00Z",
           forecast_date: "2024-01-17",
           forecast_time: "06:00", // 6 AM is daytime (>= 6:00 and < 18:00)
           wave_height: 4,
@@ -200,6 +206,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T10:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "10:00",
             wave_height: 3,
@@ -235,6 +242,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T14:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "14:00",
             wave_height: 5,
@@ -261,6 +269,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T11:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "11:00",
             wave_height: 4,
@@ -288,6 +297,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T16:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "16:00",
             wave_height: 3,
@@ -318,6 +328,7 @@ describe("useSessionForecast", () => {
           success: true,
           data: [
             {
+              forecast_at: "2024-01-17T12:00Z",
               forecast_date: "2024-01-17",
               forecast_time: "12:00",
               wave_height: 4,
@@ -345,6 +356,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T13:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "13:00",
             wave_height: 3,
@@ -372,6 +384,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T15:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "15:00",
             wave_height: 4,
@@ -401,6 +414,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T19:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "19:00", // 7 PM - valid for evening sessions
             wave_height: 4,
@@ -425,6 +439,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T20:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "20:00", // 8 PM - valid for summer sunset sessions
             wave_height: 3,
@@ -449,6 +464,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T21:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "21:00", // 9 PM - too late
             wave_height: 3,
@@ -473,6 +489,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T00:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "00:00", // Midnight
             wave_height: 4,
@@ -497,6 +514,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T03:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "03:00", // 3 AM
             wave_height: 5,
@@ -521,6 +539,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T12:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "12:00", // Noon
             wave_height: 4,
@@ -545,6 +564,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T17:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "17:00", // 5 PM
             wave_height: 4,
@@ -569,6 +589,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T18:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "18:00", // 6 PM - valid for evening sessions
             wave_height: 3,
@@ -593,6 +614,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T21:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "21:00", // 9 PM - first night hour
             wave_height: 3,
@@ -619,6 +641,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T20:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "20:00", // 8 PM - valid evening session (summer sunset)
             wave_height: "3-5 ft",
@@ -654,6 +677,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T07:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "07:00", // 7 AM - should be day
             wave_height: "4 ft",
@@ -691,6 +715,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T08:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "08:00",
             wave_height: 3,
@@ -717,6 +742,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T10:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "10:00",
             wave_height: 1,
@@ -742,6 +768,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T07:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "07:00",
             wave_height: 8,
@@ -767,6 +794,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T09:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "09:00",
             wave_height: 0,
@@ -792,6 +820,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T11:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "11:00",
             // wave_height not present
@@ -817,6 +846,7 @@ describe("useSessionForecast", () => {
         success: true,
         data: [
           {
+            forecast_at: "2024-01-17T06:00Z",
             forecast_date: "2024-01-17",
             forecast_time: "06:00",
             wave_height: "2.5 ft",

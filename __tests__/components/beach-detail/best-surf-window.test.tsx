@@ -64,6 +64,7 @@ describe("BestSurfWindow", () => {
     {
       id: "1",
       beach_id: "test-beach-123",
+      forecast_at: "2024-01-15T06:00:00Z",
       forecast_date: "2024-01-15",
       forecast_time: "06:00:00",
       wind_speed: 5,
@@ -77,6 +78,7 @@ describe("BestSurfWindow", () => {
     {
       id: "2",
       beach_id: "test-beach-123",
+      forecast_at: "2024-01-15T09:00:00Z",
       forecast_date: "2024-01-15",
       forecast_time: "09:00:00",
       wind_speed: 8,

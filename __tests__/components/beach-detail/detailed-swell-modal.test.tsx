@@ -59,6 +59,7 @@ describe("DetailedSwellModal", () => {
   const mockForecast = {
     id: "test-id",
     beach_id: "test-beach",
+    forecast_at: "2024-08-07T12:00:00Z",
     forecast_date: "2024-08-07",
     forecast_time: "12:00:00",
     wave_height: "3.7 ft",

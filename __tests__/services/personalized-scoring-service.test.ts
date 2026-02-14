@@ -62,6 +62,7 @@ const createMockForecast = (
 ): EnhancedForecastEntity => ({
   id: 'forecast-123',
   beach_id: 'beach-456',
+  forecast_at: '2025-11-03T08:00:00Z',
   forecast_date: '2025-11-03',
   forecast_time: '08:00:00',
   wave_height: waveHeight,

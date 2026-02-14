@@ -44,6 +44,7 @@ function createForecast(overrides: Partial<EnhancedForecastEntity>): EnhancedFor
   return {
     id: 'forecast-1',
     beach_id: 'beach-1',
+    forecast_at: '2024-01-15T09:00Z',
     forecast_date: '2024-01-15',
     forecast_time: '09:00',
     wave_height: '4',
@@ -277,10 +278,12 @@ describe('selectBestWindow', () => {
   it('should return null when all forecasts are in the past', () => {
     const pastForecasts = [
       createForecast({
+        forecast_at: '2024-01-14T12:00Z',
         forecast_date: '2024-01-14', // Yesterday
         forecast_time: '12:00',
       }),
       createForecast({
+        forecast_at: '2024-01-14T15:00Z',
         forecast_date: '2024-01-14',
         forecast_time: '15:00',
       }),
@@ -298,6 +301,7 @@ describe('selectBestWindow', () => {
   it('should skip night hours (9pm-6am)', () => {
     const nightForecasts = [
       createForecast({
+        forecast_at: '2024-01-15T05:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '05:00', // 5am UTC = before 6am PST? Actually 9pm PST prev day
         wave_height: '5',
@@ -305,6 +309,7 @@ describe('selectBestWindow', () => {
         confidence_score: 90,
       }),
       createForecast({
+        forecast_at: '2024-01-16T05:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '05:00', // Early morning UTC = late night PST
         wave_height: '5',
@@ -326,6 +331,7 @@ describe('selectBestWindow', () => {
   it('should respect time slot filter', () => {
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T14:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '14:00', // 6am PST - dawn-patrol
         wave_height: '4',
@@ -333,6 +339,7 @@ describe('selectBestWindow', () => {
         confidence_score: 80,
       }),
       createForecast({
+        forecast_at: '2024-01-15T20:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '20:00', // 12pm PST - afternoon
         wave_height: '5',
@@ -360,6 +367,7 @@ describe('selectBestWindow', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-morning',
+        forecast_at: '2024-01-15T18:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '18:00', // 10am PST
         wave_height: '4',
@@ -396,6 +404,7 @@ describe('selectBestWindow', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-poor',
+        forecast_at: '2024-01-15T09:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '09:00', // 9am PT (local) → 17:00 UTC
         wave_height: '1', // Too small
@@ -405,6 +414,7 @@ describe('selectBestWindow', () => {
       }),
       createForecast({
         id: 'forecast-good',
+        forecast_at: '2024-01-15T10:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '10:00', // 10am PT (local) → 18:00 UTC
         wave_height: '4',
@@ -417,6 +427,7 @@ describe('selectBestWindow', () => {
       }),
       createForecast({
         id: 'forecast-mediocre',
+        forecast_at: '2024-01-15T11:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '11:00', // 11am PT (local) → 19:00 UTC
         wave_height: '3',
@@ -441,6 +452,7 @@ describe('selectBestWindow', () => {
   it('should include timezone in result', () => {
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00',
         wave_height: '4',
@@ -462,6 +474,7 @@ describe('selectBestWindow', () => {
   it('should work with options object syntax', () => {
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00',
         wave_height: '4',
@@ -484,6 +497,7 @@ describe('selectBestWindow', () => {
   it('should apply horizon constraint', () => {
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 9am PST - soon
         wave_height: '3',
@@ -491,6 +505,7 @@ describe('selectBestWindow', () => {
         confidence_score: 70,
       }),
       createForecast({
+        forecast_at: '2024-01-17T17:00Z',
         forecast_date: '2024-01-17', // 2 days ahead
         forecast_time: '17:00',
         wave_height: '6',
@@ -535,6 +550,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T15:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
         wave_height: '4',
@@ -556,6 +572,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T07:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '07:30', // 7:30am PT (local), window ends at 8:00am PT (16:00 UTC)
         wave_height: '4',
@@ -576,6 +593,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 4:00pm UTC, window ends at 4:30pm
         wave_height: '4',
@@ -597,6 +615,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T15:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '15:30', // 3:30pm UTC, window ends at 4:00pm
         wave_height: '4',
@@ -619,6 +638,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T07:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '07:30', // 7:30am PT (local), window ends at 8:00am PT (16:00 UTC)
         wave_height: '4',
@@ -641,6 +661,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 4:00pm PT (local), window ends at 4:30pm PT
         wave_height: '4',
@@ -661,6 +682,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 4:00pm UTC, window ends at 4:30pm
         wave_height: '4',
@@ -684,6 +706,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
     const forecasts = [
       createForecast({
         id: 'past-excluded',
+        forecast_at: '2024-01-15T15:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '15:30', // Ends at 4:00pm - excluded
         wave_height: '4',
@@ -692,6 +715,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
       }),
       createForecast({
         id: 'just-ended',
+        forecast_at: '2024-01-15T16:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:30', // Ends at 5:00pm - included (just ended)
         wave_height: '5', // Better conditions
@@ -700,6 +724,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
       }),
       createForecast({
         id: 'in-progress',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // Ends at 5:30pm - included
         wave_height: '4',
@@ -708,6 +733,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
       }),
       createForecast({
         id: 'future',
+        forecast_at: '2024-01-15T18:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '18:00', // Ends at 6:30pm - included
         wave_height: '4',
@@ -748,6 +774,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-with-tide',
+        forecast_at: '2024-01-15T07:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '07:00', // 7am PT (local) → 15:00 UTC - before 2.0ft crossing
         wave_height: '4',
@@ -791,6 +818,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
   it('should fall back to hourly boundaries when tide data is missing', () => {
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00',
         wave_height: '4',
@@ -819,6 +847,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
 
     const forecasts = [
       createForecast({
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00',
         wave_height: '4',
@@ -853,6 +882,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-late',
+        forecast_at: '2024-01-15T14:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '14:30', // 2:30pm PT (local) → 22:30 UTC - rising tide starting
         wave_height: '4',
@@ -909,6 +939,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-evening',
+        forecast_at: '2024-01-16T00:30Z',
         forecast_date: '2024-01-16',
         forecast_time: '00:30', // 4:30pm PST
         wave_height: '4',
@@ -969,6 +1000,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-morning',
+        forecast_at: '2024-01-15T07:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '07:00', // 7am PT (local) → 15:00 UTC - rising tide
         wave_height: '4',
@@ -1018,6 +1050,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-early',
+        forecast_at: '2024-01-15T14:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '14:30', // 6:30am PST
         wave_height: '4',
@@ -1072,6 +1105,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-lunch-session',
+        forecast_at: '2024-01-15T19:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '19:00', // 11am PST
         wave_height: '4',
@@ -1129,6 +1163,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-evening',
+        forecast_at: '2024-01-15T20:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '20:00', // 12pm PST (noon)
         wave_height: '4',
@@ -1178,6 +1213,7 @@ describe('selectBestWindow with tide-driven boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-morning',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 9am PST
         wave_height: '4',
@@ -1340,6 +1376,7 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-lunch',
+        forecast_at: '2024-01-15T11:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '11:00', // 11am PT (local) → 19:00 UTC
         wave_height: '4',
@@ -1387,6 +1424,7 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-morning-extended',
+        forecast_at: '2024-01-15T11:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '11:00', // 11am PT (local) → 19:00 UTC - within lunch-session window
         wave_height: '4',
@@ -1446,6 +1484,7 @@ describe('selectBestWindow time slot with tide boundaries', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-afternoon',
+        forecast_at: '2024-01-15T14:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '14:00', // 2pm PT (local) → 22:00 UTC
         wave_height: '4',
@@ -1556,6 +1595,7 @@ describe('sub-hour window refinement integration', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-0600',
+        forecast_at: '2024-01-15T14:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '14:00', // 06:00 PST
         wave_height: '4',
@@ -1571,6 +1611,7 @@ describe('sub-hour window refinement integration', () => {
       } as any),
       createForecast({
         id: 'forecast-0700',
+        forecast_at: '2024-01-15T15:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '15:00', // 07:00 PST
         wave_height: '4',
@@ -1582,6 +1623,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-0800',
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 08:00 PST
         wave_height: '4',
@@ -1592,6 +1634,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-0900',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 09:00 PST
         wave_height: '4',
@@ -1602,6 +1645,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1000',
+        forecast_at: '2024-01-15T18:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '18:00', // 10:00 PST
         wave_height: '4',
@@ -1657,6 +1701,7 @@ describe('sub-hour window refinement integration', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-1400',
+        forecast_at: '2024-01-15T14:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '14:00', // 2pm PT (local) → 22:00 UTC
         wave_height: '4',
@@ -1667,6 +1712,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1500',
+        forecast_at: '2024-01-15T15:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '15:00', // 3pm PT (local) → 23:00 UTC
         wave_height: '4',
@@ -1677,6 +1723,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1600',
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 4pm PT (local) → 00:00 UTC Jan 16
         wave_height: '4',
@@ -1687,6 +1734,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1700',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 5pm PT (local) → 01:00 UTC Jan 16
         wave_height: '4',
@@ -1733,6 +1781,7 @@ describe('sub-hour window refinement integration', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-0800',
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 8am PST
         wave_height: '4',
@@ -1743,6 +1792,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-0900',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 9am PST
         wave_height: '4',
@@ -1753,6 +1803,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1000',
+        forecast_at: '2024-01-15T18:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '18:00', // 10am PST
         wave_height: '4',
@@ -1763,6 +1814,7 @@ describe('sub-hour window refinement integration', () => {
       }),
       createForecast({
         id: 'forecast-1100',
+        forecast_at: '2024-01-15T19:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '19:00', // 11am PST
         wave_height: '4',
@@ -1820,6 +1872,7 @@ describe('sub-hour window refinement with peak centering', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-0700',
+        forecast_at: '2024-01-16T15:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '15:00', // 7am PST tomorrow
         wave_height: '4',
@@ -1831,6 +1884,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-0800',
+        forecast_at: '2024-01-16T16:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '16:00', // 8am PST tomorrow
         wave_height: '4',
@@ -1842,6 +1896,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-0900',
+        forecast_at: '2024-01-16T17:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '17:00', // 9am PST tomorrow - slightly higher score (peak)
         wave_height: '4',
@@ -1853,6 +1908,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1000',
+        forecast_at: '2024-01-16T18:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '18:00', // 10am PST tomorrow
         wave_height: '4',
@@ -1864,6 +1920,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1100',
+        forecast_at: '2024-01-16T19:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '19:00', // 11am PST tomorrow
         wave_height: '4',
@@ -1922,6 +1979,7 @@ describe('sub-hour window refinement with peak centering', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-0800',
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 8am PST - moderate
         wave_height: '3',
@@ -1932,6 +1990,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-0900',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 9am PST - moderate
         wave_height: '3',
@@ -1942,6 +2001,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1000',
+        forecast_at: '2024-01-15T18:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '18:00', // 10am PST - PEAK (best conditions)
         wave_height: '5',
@@ -1952,6 +2012,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1100',
+        forecast_at: '2024-01-15T19:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '19:00', // 11am PST - moderate
         wave_height: '3',
@@ -1962,6 +2023,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1200',
+        forecast_at: '2024-01-15T20:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '20:00', // 12pm PST - moderate
         wave_height: '3',
@@ -2011,6 +2073,7 @@ describe('sub-hour window refinement with peak centering', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-0800',
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 8am PST - good
         wave_height: '4',
@@ -2021,6 +2084,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-0900',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 9am PST - PEAK
         wave_height: '5',
@@ -2031,6 +2095,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1000',
+        forecast_at: '2024-01-15T18:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '18:00', // 10am PST - good
         wave_height: '4',
@@ -2041,6 +2106,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-1100',
+        forecast_at: '2024-01-15T19:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '19:00', // 11am PST - good
         wave_height: '4',
@@ -2091,6 +2157,7 @@ describe('sub-hour window refinement with peak centering', () => {
     const forecasts = [
       createForecast({
         id: 'forecast-0800',
+        forecast_at: '2024-01-15T16:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:00', // 8am PST
         wave_height: '4',
@@ -2101,6 +2168,7 @@ describe('sub-hour window refinement with peak centering', () => {
       }),
       createForecast({
         id: 'forecast-0900',
+        forecast_at: '2024-01-15T17:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '17:00', // 9am PST
         wave_height: '4',

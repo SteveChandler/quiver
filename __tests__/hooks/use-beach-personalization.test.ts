@@ -16,6 +16,7 @@ describe("useBeachPersonalization", () => {
   const mockForecast = {
     id: "forecast-123",
     beach_id: "beach-456",
+    forecast_at: "2026-01-18T12:00:00Z",
     forecast_date: "2026-01-18",
     forecast_time: "12:00:00",
     wave_height: "4.5",

@@ -65,6 +65,7 @@ describe("IntelFormatter", () => {
       const formatter = new IntelFormatter();
       const forecasts: ForecastSlice["forecasts"] = [
         {
+          forecast_at: "2025-10-26T06:00Z",
           forecast_date: "2025-10-26",
           forecast_time: "06:00",
           wave_height: 3.5,
@@ -82,6 +83,7 @@ describe("IntelFormatter", () => {
           secondary_swell_direction: null,
         },
         {
+          forecast_at: "2025-10-26T07:00Z",
           forecast_date: "2025-10-26",
           forecast_time: "07:00",
           wave_height: 4.2,
@@ -99,6 +101,7 @@ describe("IntelFormatter", () => {
           secondary_swell_direction: null,
         },
         {
+          forecast_at: "2025-10-26T08:00Z",
           forecast_date: "2025-10-26",
           forecast_time: "08:00",
           wave_height: 3.8,
@@ -128,6 +131,7 @@ describe("IntelFormatter", () => {
       const formatter = new IntelFormatter();
       const forecasts: ForecastSlice["forecasts"] = [
         {
+          forecast_at: "2025-10-26T06:00Z",
           forecast_date: "2025-10-26",
           forecast_time: "06:00",
           wave_height: null,
@@ -157,6 +161,7 @@ describe("IntelFormatter", () => {
       const formatter = new IntelFormatter();
       const forecasts: ForecastSlice["forecasts"] = [
         {
+          forecast_at: "2025-10-26T06:00Z",
           forecast_date: "2025-10-26",
           forecast_time: "06:00",
           wave_height: null,
@@ -185,6 +190,7 @@ describe("IntelFormatter", () => {
     test("backward compatibility function works", () => {
       const forecasts: ForecastSlice["forecasts"] = [
         {
+          forecast_at: "2025-10-26T06:00Z",
           forecast_date: "2025-10-26",
           forecast_time: "06:00",
           wave_height: 3.0,

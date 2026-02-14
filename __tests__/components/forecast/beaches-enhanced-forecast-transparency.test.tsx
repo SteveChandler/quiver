@@ -9,6 +9,7 @@ const mockEnhancedForecastData = {
     {
       id: "1",
       beach_id: "beach-1",
+      forecast_at: "2025-01-15T12:00:00Z",
       forecast_date: "2025-01-15",
       forecast_time: "12:00:00",
       wave_height: "4-6 ft",
@@ -23,6 +24,7 @@ const mockEnhancedForecastData = {
     {
       id: "2",
       beach_id: "beach-1",
+      forecast_at: "2025-01-16T12:00:00Z",
       forecast_date: "2025-01-16",
       forecast_time: "12:00:00",
       wave_height: "3-5 ft",

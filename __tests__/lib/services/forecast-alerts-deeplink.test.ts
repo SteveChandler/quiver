@@ -106,6 +106,7 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
       };
 
       const mockForecast = {
+        forecast_at: "2025-01-15T14:00:00Z",
         forecast_date: "2025-01-15",
         forecast_time: "14:00:00",
         wave_height: "3.5",

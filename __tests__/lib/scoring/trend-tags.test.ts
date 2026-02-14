@@ -14,6 +14,7 @@ function makeForecast(overrides: {
   return {
     id: 'test-id',
     beach_id: 'test-beach',
+    forecast_at: '2026-01-24T08:00:00Z',
     forecast_date: '2026-01-24',
     forecast_time: '08:00:00',
     wave_height: '4',

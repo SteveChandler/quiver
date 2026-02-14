@@ -31,6 +31,7 @@ function makeForecast(
   return {
     id: "test-id",
     beach_id: "beach-1",
+    forecast_at: "2026-02-10T09:00Z",
     forecast_date: "2026-02-10",
     forecast_time: "09:00",
     wave_height: "4",
@@ -50,6 +51,7 @@ describe("enrichDaySummaries", () => {
     it("classifies offshore wind correctly", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "E", // Offshore for California west coast
@@ -63,6 +65,7 @@ describe("enrichDaySummaries", () => {
     it("classifies light wind correctly", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "Light and Variable",
@@ -76,6 +79,7 @@ describe("enrichDaySummaries", () => {
     it("classifies onshore wind correctly", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "W", // Onshore for California west coast
@@ -89,6 +93,7 @@ describe("enrichDaySummaries", () => {
     it("handles empty wind direction as onshore", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "",
@@ -104,6 +109,7 @@ describe("enrichDaySummaries", () => {
     it("derives dawn-patrol time slot (before 7am)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "05:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T05:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "05:00",
       });
@@ -116,6 +122,7 @@ describe("enrichDaySummaries", () => {
     it("derives morning time slot (7am-10am)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "08:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T08:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "08:00",
       });
@@ -128,6 +135,7 @@ describe("enrichDaySummaries", () => {
     it("derives midday time slot (10am-1pm)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "12:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T12:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "12:00",
       });
@@ -140,6 +148,7 @@ describe("enrichDaySummaries", () => {
     it("derives afternoon time slot (1pm-4pm)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "14:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T14:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "14:00",
       });
@@ -152,6 +161,7 @@ describe("enrichDaySummaries", () => {
     it("derives evening time slot (4pm onwards)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "17:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T17:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "17:00",
       });
@@ -164,6 +174,7 @@ describe("enrichDaySummaries", () => {
     it("handles edge case: 7am exactly is morning", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "07:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T07:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "07:00",
       });
@@ -176,6 +187,7 @@ describe("enrichDaySummaries", () => {
     it("handles edge case: 10am exactly is midday", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "10:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T10:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "10:00",
       });
@@ -193,6 +205,7 @@ describe("enrichDaySummaries", () => {
         bestTime: null,
       });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
       });
@@ -212,6 +225,7 @@ describe("enrichDaySummaries", () => {
         bestTime: "09:00",
       });
       const forecast = makeForecast({
+        forecast_at: "2026-02-11T09:00Z",
         forecast_date: "2026-02-11", // Different date
         forecast_time: "09:00",
       });
@@ -241,6 +255,7 @@ describe("enrichDaySummaries", () => {
     it("extracts wind speed from closest forecast", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_speed: "12 mph",
@@ -254,6 +269,7 @@ describe("enrichDaySummaries", () => {
     it("returns null when wind_speed is missing", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_speed: null,
@@ -271,18 +287,21 @@ describe("enrichDaySummaries", () => {
       const forecasts = [
         makeForecast({
           id: "1",
+          forecast_at: "2026-02-10T06:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "06:00",
           wind_direction: "W",
         }),
         makeForecast({
           id: "2",
+          forecast_at: "2026-02-10T09:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "09:00",
           wind_direction: "E",
         }),
         makeForecast({
           id: "3",
+          forecast_at: "2026-02-10T12:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "12:00",
           wind_direction: "W",
@@ -299,18 +318,21 @@ describe("enrichDaySummaries", () => {
       const forecasts = [
         makeForecast({
           id: "1",
+          forecast_at: "2026-02-10T06:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "06:00",
           wind_direction: "W",
         }),
         makeForecast({
           id: "2",
+          forecast_at: "2026-02-10T09:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "09:00",
           wind_direction: "E",
         }),
         makeForecast({
           id: "3",
+          forecast_at: "2026-02-10T12:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "12:00",
           wind_direction: "W",
@@ -328,6 +350,7 @@ describe("enrichDaySummaries", () => {
       const forecasts = [
         makeForecast({
           id: "1",
+          forecast_at: "2026-02-10T07:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "07:00",
           wind_direction: "W",
@@ -335,6 +358,7 @@ describe("enrichDaySummaries", () => {
         }),
         makeForecast({
           id: "2",
+          forecast_at: "2026-02-10T11:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "11:00",
           wind_direction: "E",
@@ -372,12 +396,14 @@ describe("enrichDaySummaries", () => {
       ];
       const forecasts = [
         makeForecast({
+          forecast_at: "2026-02-10T09:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "09:00",
           wind_direction: "E",
           wind_speed: "8 mph",
         }),
         makeForecast({
+          forecast_at: "2026-02-11T14:00Z",
           forecast_date: "2026-02-11",
           forecast_time: "14:00",
           wind_direction: "Light and Variable",
@@ -404,12 +430,14 @@ describe("enrichDaySummaries", () => {
       ];
       const forecasts = [
         makeForecast({
+          forecast_at: "2026-02-10T09:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "09:00",
           wind_direction: "E",
         }),
         // No forecast for 2026-02-11
         makeForecast({
+          forecast_at: "2026-02-12T12:00Z",
           forecast_date: "2026-02-12",
           forecast_time: "12:00",
           wind_direction: "W",
@@ -431,6 +459,7 @@ describe("enrichDaySummaries", () => {
     it("classifies as 'light' when wind speed is ≤5 mph regardless of direction", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T06:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "06:00",
         wind_direction: "W", // Onshore for CA west coast
@@ -445,6 +474,7 @@ describe("enrichDaySummaries", () => {
     it("classifies as 'light' at exactly 5 mph", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T06:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "06:00",
         wind_direction: "W",
@@ -459,6 +489,7 @@ describe("enrichDaySummaries", () => {
     it("uses normal classification when wind speed is >5 mph", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "W", // Onshore for CA west coast
@@ -473,6 +504,7 @@ describe("enrichDaySummaries", () => {
     it("classifies as 'light' at 0 mph", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T06:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "06:00",
         wind_direction: "SW",
@@ -487,6 +519,7 @@ describe("enrichDaySummaries", () => {
     it("classifies as 'light' when wind_speed is null or missing", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T06:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "06:00",
         wind_direction: "W",
@@ -502,6 +535,7 @@ describe("enrichDaySummaries", () => {
     it("preserves offshore classification when wind speed is >5 mph", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "E", // Offshore for CA west coast
@@ -516,6 +550,7 @@ describe("enrichDaySummaries", () => {
     it("overrides onshore with light for beach-aware classification too", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T06:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "06:00",
         wind_direction: "E", // Would be onshore for Hawaii (windOffshoreDeg=270)
@@ -532,6 +567,7 @@ describe("enrichDaySummaries", () => {
     it("classifies E wind as onshore for Hawaii beach (windOffshoreDeg=270)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "E",
@@ -545,6 +581,7 @@ describe("enrichDaySummaries", () => {
     it("classifies W wind as offshore for Hawaii beach (windOffshoreDeg=270)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "W",
@@ -558,6 +595,7 @@ describe("enrichDaySummaries", () => {
     it("without windOffshoreDeg, E wind is still offshore (backward compat)", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
         wind_direction: "E",
@@ -590,6 +628,7 @@ describe("enrichDaySummaries", () => {
         period: 12,
       });
       const forecast = makeForecast({
+        forecast_at: "2026-02-10T09:00Z",
         forecast_date: "2026-02-10",
         forecast_time: "09:00",
       });
@@ -628,6 +667,7 @@ describe("enrichDaySummaries", () => {
       const forecasts = [
         makeForecast({
           id: "1",
+          forecast_at: "2026-02-10T09:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "09:00",
           wind_direction: "E",
@@ -635,6 +675,7 @@ describe("enrichDaySummaries", () => {
         }),
         makeForecast({
           id: "2",
+          forecast_at: "2026-02-10T09:00Z",
           forecast_date: "2026-02-10",
           forecast_time: "09:00",
           wind_direction: "W",

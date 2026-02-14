@@ -6,6 +6,7 @@ export const createMockEnhancedForecast = (
   overrides: Partial<EnhancedForecast> = {}
 ): EnhancedForecast => ({
   id: "forecast-1",
+  forecast_at: "2024-01-15T06:00:00Z",
   forecast_date: "2024-01-15",
   forecast_time: "06:00:00",
   wave_height: "3-4 ft",
@@ -46,6 +47,7 @@ export const createMockEnhancedForecastEntity = (
 ): EnhancedForecastEntity => ({
   id: "1",
   beach_id: "beach-1",
+  forecast_at: "2024-01-15T06:00Z",
   forecast_date: "2024-01-15",
   forecast_time: "06:00",
   wave_height: "3-4 ft",
@@ -82,12 +84,14 @@ export const createMultipleMockForecasts = (count = 2): EnhancedForecast[] =>
   [
     createMockEnhancedForecast({
       id: "forecast-1",
+      forecast_at: "2024-01-15T06:00:00Z",
       forecast_time: "06:00:00",
       wave_height: "3-4 ft",
       confidence_score: 85,
     }),
     createMockEnhancedForecast({
       id: "forecast-2",
+      forecast_at: "2024-01-15T12:00:00Z",
       forecast_time: "12:00:00",
       wave_height: "4-5 ft",
       tide_status: "High Slack",
@@ -97,6 +101,7 @@ export const createMultipleMockForecasts = (count = 2): EnhancedForecast[] =>
     ...Array.from({ length: Math.max(0, count - 2) }, (_, i) =>
       createMockEnhancedForecast({
         id: `forecast-${i + 3}`,
+        forecast_at: "2024-01-16T06:00:00Z",
         forecast_date: "2024-01-16",
         forecast_time: "06:00:00",
         wave_height: "2-3 ft",
@@ -112,6 +117,7 @@ export const createMultipleMockForecastEntities = (
   [
     createMockEnhancedForecastEntity({
       id: "1",
+      forecast_at: "2024-01-15T06:00Z",
       forecast_time: "06:00",
       wave_height: "3-4 ft",
       wind_speed: "10 mph",
@@ -123,6 +129,7 @@ export const createMultipleMockForecastEntities = (
     }),
     createMockEnhancedForecastEntity({
       id: "2",
+      forecast_at: "2024-01-15T12:00Z",
       forecast_time: "12:00",
       wave_height: "4-5 ft",
       wind_speed: "12 mph",
@@ -137,6 +144,7 @@ export const createMultipleMockForecastEntities = (
     ...Array.from({ length: Math.max(0, count - 2) }, (_, i) =>
       createMockEnhancedForecastEntity({
         id: `${i + 3}`,
+        forecast_at: "2024-01-16T06:00Z",
         forecast_date: "2024-01-16",
         forecast_time: "06:00",
         wave_height: "2-3 ft",

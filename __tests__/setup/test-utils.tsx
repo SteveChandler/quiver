@@ -135,6 +135,7 @@ export const mockForecasts = [
   {
     id: "forecast-1",
     beach_id: "test-beach-id",
+    forecast_at: "2024-01-01T06:00Z",
     forecast_date: "2024-01-01",
     forecast_time: "06:00",
     wave_height: "3-4 ft",
@@ -149,6 +150,7 @@ export const mockForecasts = [
   {
     id: "forecast-2",
     beach_id: "test-beach-id",
+    forecast_at: "2024-01-01T12:00Z",
     forecast_date: "2024-01-01",
     forecast_time: "12:00",
     wave_height: "4-5 ft",
