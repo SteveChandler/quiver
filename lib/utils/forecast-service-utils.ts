@@ -1,6 +1,7 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
+import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 // Removed unused type import to satisfy TS6133
 
@@ -115,7 +116,7 @@ export async function getFreshForecastFromCache(
   try {
     /**
      * IMPORTANT:
-     * `fetchBeachForecasts()` returns rows ordered by forecast_date/forecast_time ASC,
+     * `fetchBeachForecasts()` returns rows ordered by forecast_at ASC,
      * which is not a reliable proxy for the *latest write* time. Using `forecasts[0]`
      * here can incorrectly flag fresh beaches as stale (it’s often the oldest row).
      *
@@ -352,7 +353,7 @@ export async function getBatchFreshForecastsFromCache(
     // Query 2: Fetch all forecast rows for fresh beaches in one query
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const daysToFetch = Math.ceil(windowHours / 24);
-    const futureDate = new Date(Date.now() + daysToFetch * 24 * 60 * 60 * 1000)
+    const futureDateEnd = new Date(Date.now() + (daysToFetch + 1) * 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0];
 
@@ -367,11 +368,10 @@ export async function getBatchFreshForecastsFromCache(
           .from("enhanced_forecasts")
           .select("*")
           .in("beach_id", chunk)
-          .gte("forecast_date", yesterday)
-          .lte("forecast_date", futureDate)
+          .gte("forecast_at", `${yesterday}T00:00:00Z`)
+          .lt("forecast_at", `${futureDateEnd}T00:00:00Z`)
           .order("beach_id")
-          .order("forecast_date", { ascending: true })
-          .order("forecast_time", { ascending: true })
+          .order("forecast_at", { ascending: true })
       )
     );
 
@@ -542,28 +542,25 @@ export async function fetchBeachForecasts(beachId: string, days = 12) {
 
   // Include yesterday's data for tide chart lookback window (6 hours ago)
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  
+  const futureDateEnd = new Date(Date.now() + (days + 1) * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
   const { data: forecasts, error } = await supabase
     .from("enhanced_forecasts")
     .select("*")
     .eq("beach_id", beachId)
-    .gte("forecast_date", yesterday)
-    .lte(
-      "forecast_date",
-      new Date(Date.now() + days * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0]
-    )
-    .order("forecast_date", { ascending: true })
-    .order("forecast_time", { ascending: true });
+    .gte("forecast_at", `${yesterday}T00:00:00Z`)
+    .lt("forecast_at", `${futureDateEnd}T00:00:00Z`)
+    .order("forecast_at", { ascending: true });
 
   if (error) {
     throw new Error("Failed to fetch enhanced forecasts");
   }
 
-  // Group forecasts by date
+  // Group forecasts by date (extract date from forecast_at)
   const forecastsByDate = forecasts.reduce((acc: any, forecast: any) => {
-    const date = forecast.forecast_date;
+    const date = extractForecastDate(forecast.forecast_at);
     if (!acc[date]) {
       acc[date] = [];
     }

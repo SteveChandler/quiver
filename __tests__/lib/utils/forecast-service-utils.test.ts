@@ -38,13 +38,11 @@ describe("getFreshForecastFromCache", () => {
               select: jest.fn(() => ({
                 eq: jest.fn(() => ({
                   gte: jest.fn(() => ({
-                    lte: jest.fn(() => ({
-                      order: jest.fn(() => ({
-                        order: jest.fn(async () => {
-                          enhancedForecastsQueried = true;
-                          return forecastsResult;
-                        }),
-                      })),
+                    lt: jest.fn(() => ({
+                      order: jest.fn(async () => {
+                        enhancedForecastsQueried = true;
+                        return forecastsResult;
+                      }),
                     })),
                   })),
                 })),
@@ -76,9 +74,9 @@ describe("getFreshForecastFromCache", () => {
 
     const forecasts = [
       // Oldest row in the window (this used to incorrectly drive staleness)
-      { beach_id: BEACH_ID, forecast_date: "2026-01-04", forecast_time: "00:00:00", updated_at: fortySevenHoursAgoIso, data_source: "CDIP" },
+      { beach_id: BEACH_ID, forecast_date: "2026-01-04", forecast_time: "00:00:00", forecast_at: "2026-01-04T00:00:00Z", updated_at: fortySevenHoursAgoIso, data_source: "CDIP" },
       // Newer row in the window
-      { beach_id: BEACH_ID, forecast_date: "2026-01-05", forecast_time: "00:00:00", updated_at: nowIso, data_source: "CDIP" },
+      { beach_id: BEACH_ID, forecast_date: "2026-01-05", forecast_time: "00:00:00", forecast_at: "2026-01-05T00:00:00Z", updated_at: nowIso, data_source: "CDIP" },
     ];
     forecastsResult = { data: forecasts, error: null };
 
@@ -164,14 +162,12 @@ describe("getBatchFreshForecastsFromCache", () => {
               select: jest.fn(() => ({
                 in: jest.fn(() => ({
                   gte: jest.fn(() => ({
-                    lte: jest.fn(() => ({
+                    lt: jest.fn(() => ({
                       order: jest.fn(() => ({
-                        order: jest.fn(() => ({
-                          order: jest.fn(async () => {
-                            enhancedForecastsQueried = true;
-                            return forecastsBatchResult;
-                          }),
-                        })),
+                        order: jest.fn(async () => {
+                          enhancedForecastsQueried = true;
+                          return forecastsBatchResult;
+                        }),
                       })),
                     })),
                   })),
