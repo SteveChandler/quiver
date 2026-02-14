@@ -1958,6 +1958,7 @@ export type Database = {
           coops_station_id: string | null
           created_at: string
           data_source: string | null
+          forecast_at: string
           forecast_date: string
           forecast_time: string
           id: string
@@ -1993,6 +1994,7 @@ export type Database = {
           coops_station_id?: string | null
           created_at?: string
           data_source?: string | null
+          forecast_at: string
           forecast_date: string
           forecast_time: string
           id?: string
@@ -2028,6 +2030,7 @@ export type Database = {
           coops_station_id?: string | null
           created_at?: string
           data_source?: string | null
+          forecast_at?: string
           forecast_date?: string
           forecast_time?: string
           id?: string
@@ -5644,6 +5647,7 @@ export type Database = {
           confidence_score: number | null
           created_at: string | null
           data_source: string | null
+          forecast_at: string | null
           forecast_date: string | null
           forecast_time: string | null
           id: string | null
@@ -5677,6 +5681,7 @@ export type Database = {
           confidence_score?: number | null
           created_at?: string | null
           data_source?: string | null
+          forecast_at?: string | null
           forecast_date?: string | null
           forecast_time?: string | null
           id?: string | null
@@ -5710,6 +5715,7 @@ export type Database = {
           confidence_score?: number | null
           created_at?: string | null
           data_source?: string | null
+          forecast_at?: string | null
           forecast_date?: string | null
           forecast_time?: string | null
           id?: string | null
