@@ -25,6 +25,9 @@ export interface SessionWizardPrefillParams {
   /** Session mode: 'plan' or 'log' */
   mode: 'plan' | 'log';
 
+  /** Enable streamlined 2-step quick log flow */
+  quick?: 'true' | 'false';
+
   /** Beach UUID from database */
   beach: string;
 
@@ -48,6 +51,9 @@ export interface SessionWizardPrefillParams {
 export interface ValidatedSessionWizardParams {
   /** Validated session mode */
   mode: 'plan' | 'log';
+
+  /** Whether quick log mode is enabled */
+  quick: boolean;
 
   /** Validated beach UUID */
   beachId: string;

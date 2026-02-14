@@ -250,6 +250,8 @@ export interface SurfDiscoveryResponse {
     failedBeaches: number;
     /** Number of beaches with stale forecast data (NEW) */
     staleBeaches: number;
+    /** Whether stale forecast data was used as fallback (no fresh data available) */
+    usingStaleData?: boolean;
     /** ISO timestamp when generated */
     generated_at: string;
   };

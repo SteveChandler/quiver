@@ -1,67 +1,49 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Loader2, CameraOff, RefreshCw } from "lucide-react";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
+import type { BeachSources } from "@/hooks/use-beach-detail-data";
 
 const HLSVideoPlayer = dynamic(() => import("./hls-video-player"), {
   ssr: false,
 });
 
 interface CamsSectionProps {
-  beachId: string;
+  sources?: BeachSources | null;
 }
 
-export function CamsSection({ beachId }: CamsSectionProps) {
-  const fetchSources = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/beaches/${beachId}/sources`);
-      if (!res.ok) {
-        return null;
-      }
-      const json = await res.json().catch(() => ({} as any));
-      return (json as any)?.data?.sources || (json as any)?.sources || null;
-    } catch {
-      return null;
-    }
-  }, [beachId]);
-
-  const {
-    data: sources,
-    loading,
-    refetch,
-  } = useDataFetcher(fetchSources, { immediate: true });
-
+export function CamsSection({ sources }: CamsSectionProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
   const [resolvedHlsUrl, setResolvedHlsUrl] = useState<string | null>(null);
-  const [resolving, setResolving] = useState(false);
+  // Counter to re-mount the player on Refresh
+  const [playerKey, setPlayerKey] = useState(0);
+
+  const cameraUrl = sources?.camera_url ?? undefined;
 
   useEffect(() => {
     setIframeBlocked(false);
     setHlsError(false);
     setResolvedHlsUrl(null);
-  }, [sources?.camera_url]);
+  }, [cameraUrl]);
 
-  const cameraUrl = sources?.camera_url as string | undefined;
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
   const viewableUrl = useMemo(() => getViewableUrl(cameraUrl), [cameraUrl]);
   const allowIframe =
     intent &&
     intent.kind === "iframe" &&
     iframeBlocked === false &&
-    (sources as any)?.embed_allowed !== false;
+    sources?.embed_allowed !== false;
 
-  // Resolve HDOnTap page URLs → HLS stream URLs server-side
+  // Resolve HDOnTap page URLs -> HLS stream URLs server-side
   const hdontapPageUrl = intent?.kind === "hdontap" ? intent.pageUrl : null;
   useEffect(() => {
     if (!hdontapPageUrl) return;
     let cancelled = false;
-    setResolving(true);
     setResolvedHlsUrl(null);
     setHlsError(false);
     fetch(`/api/cam-resolve?url=${encodeURIComponent(hdontapPageUrl)}`)
@@ -75,23 +57,20 @@ export function CamsSection({ beachId }: CamsSectionProps) {
       })
       .catch(() => {
         if (!cancelled) setHlsError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setResolving(false);
       });
     return () => { cancelled = true; };
-  }, [hdontapPageUrl]);
+  }, [hdontapPageUrl, playerKey]);
+
+  const handleRefresh = () => {
+    setHlsError(false);
+    setResolvedHlsUrl(null);
+    setIframeBlocked(false);
+    setPlayerKey((k) => k + 1);
+  };
 
   let visual: React.ReactNode;
 
-  if (loading) {
-    visual = (
-      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-muted-foreground">
-        <Loader2 className="h-6 w-6 animate-spin text-ocean-blue" />
-        <span className="text-sm">Fetching live feed…</span>
-      </div>
-    );
-  } else if (!cameraUrl) {
+  if (!cameraUrl) {
     visual = (
       <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/80 via-white to-blue-50 text-center">
         <CameraOff className="h-10 w-10 text-ocean-blue" />
@@ -114,7 +93,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
     );
   } else if (allowIframe && intent) {
     visual = (
-      <div className="relative aspect-video w-full overflow-hidden bg-black">
+      <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <iframe
           ref={iframeRef}
           src={intent.src}
@@ -133,7 +112,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
       </div>
     ) : resolvedHlsUrl ? (
-      <HLSVideoPlayer src={resolvedHlsUrl} title="Live Cam" onError={() => setHlsError(true)} />
+      <HLSVideoPlayer key={playerKey} src={resolvedHlsUrl} title="Live Cam" onError={() => setHlsError(true)} />
     ) : (
       <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-ocean-blue" />
@@ -147,11 +126,11 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         <p className="text-sm text-muted-foreground">Live stream unavailable right now</p>
       </div>
     ) : (
-      <HLSVideoPlayer src={intent.src} title="Live Cam" onError={() => setHlsError(true)} />
+      <HLSVideoPlayer key={playerKey} src={intent.src} title="Live Cam" onError={() => setHlsError(true)} />
     );
   } else if (intent?.kind === "video") {
     visual = (
-      <div className="relative aspect-video w-full overflow-hidden bg-black">
+      <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
         <video
           src={intent.src}
           controls
@@ -178,7 +157,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => refetch()}
+            onClick={handleRefresh}
             className="text-ocean-blue hover:bg-ocean-blue/10"
           >
             <RefreshCw className="mr-2 h-4 w-4" />

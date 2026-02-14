@@ -20,6 +20,10 @@ interface SessionWizardProps {
    * Example: targetStep={3} will jump to the Goals step if beach and date/time are prefilled.
    */
   targetStep?: number;
+  /**
+   * Enable streamlined 2-step quick log flow.
+   */
+  quick?: boolean;
 }
 
 export function SessionWizard({
@@ -29,6 +33,7 @@ export function SessionWizard({
   className,
   initialFormState,
   targetStep,
+  quick,
 }: SessionWizardProps) {
   return (
     <AnimatedSessionWizard
@@ -38,6 +43,7 @@ export function SessionWizard({
       className={className}
       initialFormState={initialFormState}
       targetStep={targetStep}
+      quick={quick}
     />
   );
 }

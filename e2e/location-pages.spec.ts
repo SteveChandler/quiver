@@ -253,8 +253,6 @@ test.describe("Location Pages - Beach Rankings and Cards", () => {
 test.describe("Location Pages - Interactive Map", () => {
   test("should display map with location beaches", async ({ page }) => {
     throw new Error('Not implemented: Location map display changed - need to update selectors and map detection logic to match current implementation');
-      timeout: LOCATION_PAGE_TIMEOUTS.mapLoad,
-    });
   });
 
   test("should display markers for all beaches", async ({ page }) => {
@@ -275,6 +273,12 @@ test.describe("Location Pages - Interactive Map", () => {
     await expect(map).toBeVisible();
     // Map centering is handled by the LocationMap component
     // which calculates center from all beach coordinates
+  });
+});
+
+test.describe("Location Pages - Responsive Design", () => {
+  test("should display correctly on mobile", async ({ page }) => {
+    throw new Error('Not implemented: Mobile responsive design changed - need to update selectors and layout verification logic to match current implementation');
   });
 });
 

@@ -3,7 +3,6 @@ import {
   BarChart3,
   MapPin,
   Users,
-  Clock,
   Settings,
   TrendingUp,
   Book,
@@ -51,23 +50,23 @@ export const FEATURE_CARDS = [
     icon: Star,
     title: "Personalization",
     description:
-      "Match scores from 0-100 rank every beach based on your skill level, preferred conditions, and schedule.",
+      "The more you surf, the smarter Quiver gets. Match scores learn your wave range, ideal conditions, and go-to breaks — from your sessions and the community's live intel.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
       {
         icon: Star,
-        text: "Personalized match scores",
-        color: "text-sunset-orange",
-      },
-      {
-        icon: Clock,
-        text: "Time-slot filtering",
+        text: "Learns from your sessions",
         color: "text-sunset-orange",
       },
       {
         icon: Users,
-        text: "Skill-based recommendations",
+        text: "Community-powered live intel",
+        color: "text-sunset-orange",
+      },
+      {
+        icon: Brain,
+        text: "3-layer preference engine",
         color: "text-sunset-orange",
       },
     ],
@@ -248,7 +247,7 @@ export const SURF_ACTIVITIES = [
 export const CONTENT = {
   hero: {
     title: "Find your next wave",
-    subtitle: "Forecasts, personalized match scores, and real-time conditions for every break.",
+    subtitle: "Surf forecasts that learn your style. Personalized match scores, real-time conditions, and recommendations that get smarter with every session.",
     cta: "Join Free Today",
     secondaryCta: "Explore Features",
     benefits: [

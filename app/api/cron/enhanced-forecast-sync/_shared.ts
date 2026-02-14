@@ -13,6 +13,12 @@ import {
 } from "@/lib/api-utils";
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import {
+  startCronCheckIn,
+  completeCronCheckIn,
+  getEnhancedShardMonitorSlug,
+  getEnhancedShardSchedule,
+} from "@/lib/monitoring/sentry-cron";
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
 export const MAX_DURATION_SECONDS = 300;
@@ -90,6 +96,11 @@ export async function runEnhancedForecastSync(
     ...(isSharded ? { shard, shardCount } : {}),
   });
 
+  // Sentry cron monitoring — alerts if this cron stops firing on schedule
+  const monitorSlug = getEnhancedShardMonitorSlug(shard);
+  const monitorSchedule = getEnhancedShardSchedule(shard);
+  const checkInId = startCronCheckIn({ slug: monitorSlug, schedule: monitorSchedule });
+
   try {
     // Only allow running in production to avoid accidental dev/preview execution
     const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
@@ -158,6 +169,8 @@ export async function runEnhancedForecastSync(
       ...(isSharded ? { shard, shardCount } : {}),
     });
 
+    completeCronCheckIn(checkInId, monitorSlug, failed > 0 ? "error" : "ok");
+
     return createSuccessResponse(
       {
         executionId,
@@ -169,6 +182,8 @@ export async function runEnhancedForecastSync(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const duration = Date.now() - startTime;
+
+    completeCronCheckIn(checkInId, monitorSlug, "error");
 
     forecastLogger.cronFailed(
       executionId,

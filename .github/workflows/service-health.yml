@@ -1,0 +1,122 @@
+name: Service Health Check
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Every hour
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Override base URL'
+        required: false
+        type: string
+        default: 'https://www.quiversurf.app'
+
+env:
+  BASE_URL: ${{ inputs.url || 'https://www.quiversurf.app' }}
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Shallow health check
+        id: shallow
+        run: |
+          START=$(date +%s%N)
+          HTTP_CODE=$(curl -s -o /tmp/shallow.json -w '%{http_code}' --max-time 10 "${BASE_URL}/api/health")
+          END=$(date +%s%N)
+          DURATION_MS=$(( (END - START) / 1000000 ))
+
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          echo "duration_ms=$DURATION_MS" >> $GITHUB_OUTPUT
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Shallow health check failed with HTTP $HTTP_CODE"
+            echo "status=fail" >> $GITHUB_OUTPUT
+          else
+            echo "status=pass" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deep health check
+        id: deep
+        run: |
+          START=$(date +%s%N)
+          HTTP_CODE=$(curl -s -o /tmp/deep.json -w '%{http_code}' --max-time 30 "${BASE_URL}/api/health?deep=true")
+          END=$(date +%s%N)
+          DURATION_MS=$(( (END - START) / 1000000 ))
+
+          echo "http_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+          echo "duration_ms=$DURATION_MS" >> $GITHUB_OUTPUT
+
+          if [ "$HTTP_CODE" = "503" ]; then
+            echo "::error::Deep health check returned 503 (critical)"
+            echo "status=critical" >> $GITHUB_OUTPUT
+          elif [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Deep health check failed with HTTP $HTTP_CODE"
+            echo "status=fail" >> $GITHUB_OUTPUT
+          else
+            # Parse the response with python3
+            STATUS=$(python3 -c "import json; d=json.load(open('/tmp/deep.json')); print(d.get('data',{}).get('status','unknown'))")
+            COVERAGE=$(python3 -c "import json; d=json.load(open('/tmp/deep.json')); ef=d.get('data',{}).get('checks',{}).get('enhancedForecasts',{}); print(f\"{ef.get('coverage',0)*100:.1f}%\" if ef else 'N/A')")
+            ISSUES=$(python3 -c "import json; d=json.load(open('/tmp/deep.json')); issues=d.get('data',{}).get('issues',[]); print(len(issues))")
+            DB=$(python3 -c "import json; d=json.load(open('/tmp/deep.json')); print(d.get('data',{}).get('checks',{}).get('database', False))")
+
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+            echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+            echo "database=$DB" >> $GITHUB_OUTPUT
+
+            if [ "$STATUS" = "critical" ]; then
+              echo "::error::Service status is critical"
+            elif [ "$STATUS" = "degraded" ]; then
+              echo "::warning::Service status is degraded"
+            fi
+          fi
+
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Service Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${BASE_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status | Response Time |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|---------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Shallow | ${{ steps.shallow.outputs.status }} | ${{ steps.shallow.outputs.duration_ms }}ms |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deep | ${{ steps.deep.outputs.status }} | ${{ steps.deep.outputs.duration_ms }}ms |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -n "${{ steps.deep.outputs.coverage }}" ]; then
+            echo "### Pipeline Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status:** ${{ steps.deep.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Database:** ${{ steps.deep.outputs.database }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Forecast Coverage:** ${{ steps.deep.outputs.coverage }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Issues:** ${{ steps.deep.outputs.issues }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f /tmp/deep.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Raw deep check response</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            python3 -m json.tool /tmp/deep.json >> $GITHUB_STEP_SUMMARY 2>/dev/null || cat /tmp/deep.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail on critical
+        if: always()
+        run: |
+          DEEP_STATUS="${{ steps.deep.outputs.status }}"
+          SHALLOW_STATUS="${{ steps.shallow.outputs.status }}"
+
+          if [ "$SHALLOW_STATUS" = "fail" ]; then
+            echo "Shallow health check failed - service unreachable"
+            exit 1
+          fi
+
+          if [ "$DEEP_STATUS" = "critical" ] || [ "$DEEP_STATUS" = "fail" ]; then
+            echo "Deep health check status: $DEEP_STATUS"
+            exit 1
+          fi

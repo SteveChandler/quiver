@@ -5,6 +5,8 @@ import {
   Target,
   Camera,
   FileText,
+  Zap,
+  Star,
 } from "lucide-react";
 import { SessionFormMode } from "@/hooks/use-session-form";
 
@@ -184,11 +186,38 @@ const WIZARD_STEPS_V2: Record<SessionFormMode, WizardStep[]> = {
 };
 
 /**
- * Returns the appropriate wizard steps based on mode and feature flag.
+ * Quick log mode: streamlined 2-step flow for first-time session logging.
+ * Step 1 combines location + time, Step 2 is a simplified rating.
+ */
+const QUICK_LOG_STEPS: WizardStep[] = [
+  {
+    id: "quick-location-time",
+    title: "Where & When",
+    description: "Where and when did you surf?",
+    icon: <Zap className="w-5 h-5" />,
+    component: "QuickLocationTimeStep",
+    isRequired: true,
+  },
+  {
+    id: "quick-rating",
+    title: "How Was It?",
+    description: "Rate your session",
+    icon: <Star className="w-5 h-5" />,
+    component: "QuickRatingStep",
+    isRequired: false,
+  },
+];
+
+/**
+ * Returns the appropriate wizard steps based on mode, feature flag, and quick mode.
  * @param mode - The session form mode (plan or log)
+ * @param quick - Whether to use the streamlined 2-step quick log flow
  * @returns Array of wizard steps for the specified mode
  */
-export function getWizardSteps(mode: SessionFormMode): WizardStep[] {
+export function getWizardSteps(mode: SessionFormMode, quick?: boolean): WizardStep[] {
+  if (quick && mode === "log") {
+    return QUICK_LOG_STEPS;
+  }
   const WIZARD_STEPS = USE_CONSOLIDATED_WIZARD
     ? WIZARD_STEPS_V2
     : WIZARD_STEPS_V1;

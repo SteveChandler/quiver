@@ -16,6 +16,10 @@ import {
 } from "@/lib/api-utils";
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateCdipBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import {
+  startCronCheckIn,
+  completeCronCheckIn,
+} from "@/lib/monitoring/sentry-cron";
 
 export const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
@@ -69,6 +73,10 @@ export async function runEnhancedForecastSyncCdip(
     mode: "cdip_only",
   });
 
+  // Sentry cron monitoring — alerts if this cron stops firing on schedule
+  const monitorSlug = "forecast-cdip-sync";
+  const checkInId = startCronCheckIn({ slug: monitorSlug, schedule: "0 * * * *" });
+
   try {
     const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
     if (env !== "production") {
@@ -76,6 +84,7 @@ export async function runEnhancedForecastSyncCdip(
         executionId,
         new Error(`Cron disabled for environment: ${env}`)
       );
+      completeCronCheckIn(checkInId, monitorSlug, "error");
       return createErrorResponse(
         "Forbidden",
         `Cron disabled for environment: ${env}`,
@@ -88,6 +97,7 @@ export async function runEnhancedForecastSyncCdip(
         executionId,
         new Error("Invalid cron authentication")
       );
+      completeCronCheckIn(checkInId, monitorSlug, "error");
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
@@ -136,6 +146,8 @@ export async function runEnhancedForecastSyncCdip(
       mode: "cdip_only",
     });
 
+    completeCronCheckIn(checkInId, monitorSlug, failed > 0 ? "error" : "ok");
+
     return createSuccessResponse(
       {
         executionId,
@@ -147,6 +159,8 @@ export async function runEnhancedForecastSyncCdip(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const duration = Date.now() - startTime;
+
+    completeCronCheckIn(checkInId, monitorSlug, "error");
 
     forecastLogger.cronFailed(
       executionId,

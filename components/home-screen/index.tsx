@@ -16,7 +16,9 @@ import { useTrackEvent } from "@/hooks/use-track-event";
 import { track } from "@/lib/analytics";
 import { toast } from "sonner";
 import { getProfileStrength } from "@/actions/dashboard-actions";
+import { getPersonalizationStatus } from "@/actions/personalization-actions";
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
+import { usePersonalizationMilestones } from "@/hooks/use-personalization-milestones";
 import type { TimeSlot } from "@/types/personalization";
 
 // New components for single vertical feed
@@ -51,7 +53,19 @@ const ProfileStrength = dynamic(
     ),
   }
 );
+const FirstSessionCta = dynamic(
+  () => import("./first-session-cta").then((m) => m.FirstSessionCta),
+  { ssr: false }
+);
+const PersonalizationProgress = dynamic(
+  () =>
+    import("./personalization-progress").then(
+      (m) => m.PersonalizationProgress
+    ),
+  { ssr: false }
+);
 
+import { buildQuickLogUrl } from "./first-session-cta";
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
 export function HomeScreen() {
@@ -123,6 +137,20 @@ export function HomeScreen() {
     { skip: !profile, initialData: null }
   );
   const profileStrength = strengthResponse?.data || null;
+
+  // Fetch personalization status for progress card
+  const fetchPersonalizationStatus = useCallback(async () => {
+    if (!profile) return null;
+    return await getPersonalizationStatus();
+  }, [profile]);
+  const { data: personalizationResponse } = useDataFetcher(fetchPersonalizationStatus, {
+    skip: !profile,
+    initialData: null,
+  });
+  const personalizationStatus = personalizationResponse?.data ?? null;
+
+  // Deliver personalization milestone toasts
+  usePersonalizationMilestones(!!profile);
 
   // Validate coordinates helper
   const isValidCoordinate = (lat: number, lon: number): boolean =>
@@ -233,6 +261,12 @@ export function HomeScreen() {
 
     router.push(`/sessions/new?${params.toString()}`);
   }, [topRecommendation, router, trackEvent]);
+
+  // Handler for quick-log CTA (zero-session users)
+  const handleQuickLog = useCallback(() => {
+    const url = buildQuickLogUrl(homeBeach ?? undefined);
+    router.push(url);
+  }, [homeBeach, router]);
 
   // Handler for "Plan Weekend" button - navigate to beach forecast tab
   const handlePlanWeekend = useCallback(() => {
@@ -365,13 +399,15 @@ export function HomeScreen() {
             </motion.section>
           )}
 
-          {/* 4. Primary Actions */}
+          {/* 4. Primary Actions (or FirstSessionCta for zero-session users) */}
           {profile && (
             <motion.section
               className="centered-container"
               variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
             >
-              {topRecommendation ? (
+              {personalizationStatus?.sessionCount === 0 ? (
+                <FirstSessionCta onLogSession={handleQuickLog} />
+              ) : topRecommendation ? (
                 <PrimaryActions
                   topRecommendation={topRecommendation}
                   onAtBeach={handleAtBeach}
@@ -421,6 +457,13 @@ export function HomeScreen() {
                 showLocationCta={geoSource !== "browser"}
                 locationLoading={geoLoading}
               />
+            </section>
+          )}
+
+          {/* 5b. Personalization Progress Card */}
+          {profile && (
+            <section className="centered-container px-4 sm:px-0">
+              <PersonalizationProgress status={personalizationStatus} />
             </section>
           )}
 

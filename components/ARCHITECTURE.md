@@ -387,6 +387,18 @@ For detailed component specifications, data flow, and integration patterns, see 
 - **`compact-spot-card.tsx`** - Card component for carousel spots
 - **`use-home-data.ts`** - Centralized data management hook
 
+#### Personalization Components
+
+- **`first-session-cta.tsx`** - Activation card for zero-session users
+  - Shows "I Just Surfed" CTA button
+  - Routes to `/sessions/new?mode=log&quick=true`
+  - Replaces personalization progress card for new users
+- **`personalization-progress.tsx`** - Gradient progress card showing personalization journey
+  - Three stages: Getting Started (0 sessions) → Learning (1-4) → Personalized (5+)
+  - Auto-hides when `activeLayers >= 3` and `confidence > 0.8`
+  - Dismissible with 7-day cooldown via `safe-storage`
+  - Props: `status: PersonalizationStatus | null`
+
 #### Layout Architecture
 
 Single vertical feed with dark gradient header section:
@@ -487,6 +499,13 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 - **`social-feed-section.tsx`** - Community activity preview
 - **`cta-section.tsx`** - Conversion call-to-action
 - **`footer-section.tsx`** - Site footer with links
+
+#### Marketing Components
+
+- **`personalization-showcase.tsx`** - Personalization marketing section
+  - Shows generic vs personalized forecast comparison
+  - Targets anonymous visitors
+  - Demonstrates value of creating account and logging sessions
 
 #### Utility Components
 
@@ -629,6 +648,24 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 
 ---
 
+### **`/recommendations`** - Personalized Recommendation System
+
+#### Components
+
+- **`match-score-education.tsx`** - One-time educational popover explaining match scores
+  - Wraps `PersonalizedBadge` component
+  - Auto-dismisses after 8 seconds
+  - Uses `safe-storage` for one-time display tracking
+  - Shows tooltip explaining how match scores work
+
+#### Features
+
+- **Progressive Disclosure**: Educates users about personalization features
+- **One-time Display**: Never shown again after initial view
+- **Non-intrusive**: Auto-dismisses, doesn't block interaction
+
+---
+
 ### **`/session-forms`** - Session Management
 
 #### Core Form Components
@@ -647,6 +684,15 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 - **`NotesSection.tsx`** - Additional information
 - **`PhotoSelectionSection.tsx`** - Media upload
 
+#### Quick Log Components
+
+- **`QuickLocationTimeStep.tsx`** - Streamlined beach + time selection step
+  - Combines location and time in single step
+  - Used in quick log mode (`?mode=log&quick=true`)
+- **`QuickRatingStep.tsx`** - Streamlined rating + notes step
+  - Star rating with optional notes
+  - Final step in quick log wizard
+
 #### Advanced Features
 
 - **`GearSuggestionsSection.tsx`** - AI-powered board recommendations
@@ -661,6 +707,7 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 #### Architecture
 
 - **Multi-step Wizard**: Progressive form completion
+- **Quick Log Mode**: 2-step streamlined flow for rapid session logging
 - **State Management**: Centralized form state
 - **Validation**: Real-time field validation
 - **Mode Support**: Plan vs Log session workflows

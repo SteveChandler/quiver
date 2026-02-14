@@ -496,6 +496,178 @@ test.describe('Map Page - Responsive Design', () => {
   });
 });
 
+test.describe('Map Page - Stability and Performance', () => {
+  test('should not trigger infinite request loop on initial load', async ({ page }) => {
+    // Track network requests to detect looping
+    const requests: string[] = [];
+    const requestTimestamps: number[] = [];
+
+    page.on('request', (request) => {
+      const url = request.url();
+      // Track API requests and Mapbox tile requests
+      if (url.includes('/api/') || url.includes('mapbox.com')) {
+        requests.push(url);
+        requestTimestamps.push(Date.now());
+      }
+    });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Wait additional time to observe any request loops
+    await page.waitForTimeout(3000);
+
+    // Analyze request pattern for loops
+    // Group similar requests (same endpoint/tile) by time windows
+    const requestGroups = new Map<string, number[]>();
+
+    requests.forEach((url, idx) => {
+      // Normalize URL to group similar requests
+      const normalizedUrl = url.split('?')[0]; // Remove query params for grouping
+      if (!requestGroups.has(normalizedUrl)) {
+        requestGroups.set(normalizedUrl, []);
+      }
+      requestGroups.get(normalizedUrl)!.push(requestTimestamps[idx]);
+    });
+
+    // Check for repeated requests to same endpoint in short time windows
+    let loopDetected = false;
+    requestGroups.forEach((timestamps, url) => {
+      if (timestamps.length >= 3) {
+        // Check if we have 3+ requests to same endpoint within 2 seconds
+        for (let i = 0; i < timestamps.length - 2; i++) {
+          const timeWindow = timestamps[i + 2] - timestamps[i];
+          if (timeWindow < 2000) {
+            loopDetected = true;
+            console.log(`Loop detected for ${url}: ${timestamps.length} requests in ${timeWindow}ms`);
+          }
+        }
+      }
+    });
+
+    expect(loopDetected).toBe(false);
+  });
+
+  test('should not re-initialize map on prop changes', async ({ page }) => {
+    let mapInitCount = 0;
+
+    // Listen for console logs that indicate map initialization
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (text.includes('Initializing map') || text.includes('Map initialized')) {
+        mapInitCount++;
+      }
+    });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    const initialCount = mapInitCount;
+
+    // Interact with the map (which might trigger state updates)
+    // Toggle view mode
+    const listButton = page.getByTestId('view-mode-list');
+    if (await listButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await listButton.click();
+      await page.waitForTimeout(500);
+
+      const mapButton = page.getByTestId('view-mode-map');
+      await mapButton.click();
+      await page.waitForTimeout(500);
+    }
+
+    // The map should not reinitialize during normal interactions
+    // Allow for initial map creation but no subsequent recreations
+    expect(mapInitCount).toBeLessThanOrEqual(initialCount + 1);
+  });
+
+  test('should handle user location changes without infinite reloads', async ({ page, context }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({
+      latitude: 32.8473,
+      longitude: -117.2750,
+    });
+
+    const requests: string[] = [];
+    page.on('request', (request) => {
+      const url = request.url();
+      if (url.includes('/api/beaches')) {
+        requests.push(url);
+      }
+    });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    const initialRequestCount = requests.length;
+
+    // Simulate location change
+    await context.setGeolocation({
+      latitude: 33.8473, // Move north
+      longitude: -117.2750,
+    });
+
+    // Click "Near Me" button if available to trigger location-based fetch
+    const nearMeButton = page.getByRole('button', { name: /Near Me/i });
+    const nearMeVisible = await nearMeButton.isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (nearMeVisible) {
+      await nearMeButton.click();
+      await page.waitForTimeout(2000);
+    }
+
+    // Should have made new requests but not an excessive amount
+    const finalRequestCount = requests.length;
+    const newRequests = finalRequestCount - initialRequestCount;
+
+    // Allow for a reasonable number of new requests (1-3) but not a loop
+    expect(newRequests).toBeLessThanOrEqual(5);
+  });
+
+  test('map should be interactive after load without errors', async ({ page, context }) => {
+    const consoleErrors: string[] = [];
+
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({
+      latitude: 32.8473,
+      longitude: -117.2750,
+    });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Verify map canvas is visible
+    const mapCanvas = page.locator('canvas').first();
+    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
+
+    // Wait a bit to catch any delayed errors
+    await page.waitForTimeout(2000);
+
+    // Filter out expected/benign errors
+    const criticalErrors = consoleErrors.filter(err =>
+      !err.includes('favicon') &&
+      !err.includes('404') &&
+      !err.toLowerCase().includes('network')
+    );
+
+    // Should not have map-related errors
+    const mapErrors = criticalErrors.filter(err =>
+      err.toLowerCase().includes('map') ||
+      err.toLowerCase().includes('mapbox') ||
+      err.toLowerCase().includes('infinite') ||
+      err.toLowerCase().includes('maximum')
+    );
+
+    expect(mapErrors.length).toBe(0);
+  });
+});
+
 test.describe('Map Page - Marker Interactions', () => {
   test.beforeEach(async ({ page, context }) => {
     // Set up location for consistent results

@@ -83,6 +83,11 @@ export function InteractiveMap({
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
+  const initialCenterRef = useRef(initialCenter);
+  const onMapClickRef = useRef(onMapClick);
+  // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
+  const handleMoveEndRef = useRef<((...args: any[]) => any) | null>(null);
+  const populateLocationsRef = useRef<((lat: number, lng: number) => Promise<void>) | null>(null);
 
   const { user } = useAuth();
   const router = useRouter();
@@ -110,6 +115,14 @@ export function InteractiveMap({
   useEffect(() => {
     onWaveHeightsChangeRef.current = onWaveHeightsChange;
   }, [onWaveHeightsChange]);
+
+  useEffect(() => {
+    initialCenterRef.current = initialCenter;
+  }, [initialCenter]);
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
 
   // Use clustering hook
   const { clusters, getExpansionZoom } = useBeachClustering({
@@ -257,6 +270,10 @@ export function InteractiveMap({
     [beaches, cleanupMarkers]
   );
 
+  useEffect(() => {
+    populateLocationsRef.current = populateLocations;
+  }, [populateLocations]);
+
   // Optimized and debounced map move handler with viewport change detection
   const handleMoveEnd = useMemo(
     () =>
@@ -291,14 +308,19 @@ export function InteractiveMap({
     [populateLocations, hasViewportChanged]
   );
 
-  // Initialize map
+  useEffect(() => {
+    handleMoveEndRef.current = handleMoveEnd;
+  }, [handleMoveEnd]);
+
+  // Initialize map — runs once. Uses refs for values that change over time
+  // so the effect never re-fires and the map is never destroyed/recreated.
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
-      center: [initialCenter[1], initialCenter[0]], // lng, lat
+      center: [initialCenterRef.current[1], initialCenterRef.current[0]], // lng, lat
       zoom: initialZoom,
     });
 
@@ -325,11 +347,13 @@ export function InteractiveMap({
       console.error("Map error:", e);
     });
 
-    map.on("moveend", handleMoveEnd);
+    // Stable wrapper — delegates to the latest debounced handler via ref
+    const moveEndHandler = () => handleMoveEndRef.current?.();
+    map.on("moveend", moveEndHandler);
 
-    // Map click
+    // Map click — delegates to the latest onMapClick via ref
     map.on("click", async (e) => {
-      onMapClick?.(e.lngLat);
+      onMapClickRef.current?.(e.lngLat);
       if (!mapClickPopupRef.current) {
         mapClickPopupRef.current = new mapboxgl.Popup();
       }
@@ -340,11 +364,11 @@ export function InteractiveMap({
     });
 
     return () => {
-      map.off("moveend", handleMoveEnd);
-      (handleMoveEnd as any)?.cancel?.();
+      map.off("moveend", moveEndHandler);
+      (handleMoveEndRef.current as any)?.cancel?.();
       cleanupMap();
     };
-  }, [initialCenter, initialZoom, handleMoveEnd, onMapClick, cleanupMap]);
+  }, [initialZoom, cleanupMap]);
 
   // Initial population when map becomes ready
   useEffect(() => {
@@ -467,10 +491,10 @@ export function InteractiveMap({
         });
 
         // Also populate locations for the new center
-        populateLocations(newLat, newLng);
+        populateLocationsRef.current?.(newLat, newLng);
       }
     }
-  }, [isMapReady, initialCenter, populateLocations]);
+  }, [isMapReady, initialCenter]);
 
   // Re-populate locations when beaches prop changes (filters applied)
   useEffect(() => {

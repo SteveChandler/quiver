@@ -47,6 +47,7 @@ const PageTracker = dynamic(
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
+import { NativeAuthGuard } from "@/components/native-auth-guard";
 
 /**
  * AuthBodyClassManager - Manages body.authenticated class globally
@@ -132,6 +133,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           {/* Global body class manager for authenticated state */}
           <AuthBodyClassManager />
+          {/* Redirect native app users to sign-in on expired sessions */}
+          <NativeAuthGuard />
           {/* Page view tracking for engagement analytics */}
           <Suspense fallback={null}>
             <PageTracker />

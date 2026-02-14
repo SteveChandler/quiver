@@ -576,5 +576,6 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
 
       console.log(`✓ Null value handled: ${body.error}`);
     });
-  });
-});
+  }); // Close "Edge Cases and Error Messages"
+  }); // Close "Content-Type Validation"
+}); // Close "Input Validation - Phase 2 Fixes"

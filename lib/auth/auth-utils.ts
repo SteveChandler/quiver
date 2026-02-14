@@ -10,6 +10,11 @@
  */
 
 import { createClient } from "@/lib/supabase/client";
+import {
+  safeGetItem,
+  safeSetItem,
+  safeRemoveItem,
+} from "@/lib/utils/safe-storage";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
@@ -34,7 +39,7 @@ export function setAuthRedirect(path: string): void {
     return;
   }
 
-  localStorage.setItem(REDIRECT_STORAGE_KEY, path);
+  safeSetItem(REDIRECT_STORAGE_KEY, path);
 }
 
 /**
@@ -52,7 +57,7 @@ export function getAuthRedirect(): string | null {
   if (urlRedirect && urlRedirect !== "/") return urlRedirect;
 
   // 2. Check localStorage
-  const storedRedirect = localStorage.getItem(REDIRECT_STORAGE_KEY);
+  const storedRedirect = safeGetItem(REDIRECT_STORAGE_KEY);
   if (storedRedirect && storedRedirect !== "/") return storedRedirect;
 
   // 3. No redirect found
@@ -63,7 +68,7 @@ export function getAuthRedirect(): string | null {
  * Clear the stored redirect path
  */
 export function clearAuthRedirect(): void {
-  localStorage.removeItem(REDIRECT_STORAGE_KEY);
+  safeRemoveItem(REDIRECT_STORAGE_KEY);
 }
 
 /**
@@ -237,10 +242,10 @@ export async function checkUserExists(email: string): Promise<boolean> {
  * @returns The new attempt count
  */
 export function incrementRedirectAttempt(): number {
-  const current = parseInt(localStorage.getItem(REDIRECT_ATTEMPTS_KEY) || "0");
+  const current = parseInt(safeGetItem(REDIRECT_ATTEMPTS_KEY) || "0");
   // Handle NaN case (invalid value in localStorage)
   const next = (isNaN(current) ? 0 : current) + 1;
-  localStorage.setItem(REDIRECT_ATTEMPTS_KEY, next.toString());
+  safeSetItem(REDIRECT_ATTEMPTS_KEY, next.toString());
   return next;
 }
 
@@ -248,7 +253,7 @@ export function incrementRedirectAttempt(): number {
  * Clear the redirect attempt counter
  */
 export function clearRedirectAttempts(): void {
-  localStorage.removeItem(REDIRECT_ATTEMPTS_KEY);
+  safeRemoveItem(REDIRECT_ATTEMPTS_KEY);
 }
 
 /**
@@ -256,7 +261,7 @@ export function clearRedirectAttempts(): void {
  * @returns true if loop detected, false otherwise
  */
 export function isRedirectLoopDetected(): boolean {
-  const attempts = parseInt(localStorage.getItem(REDIRECT_ATTEMPTS_KEY) || "0");
+  const attempts = parseInt(safeGetItem(REDIRECT_ATTEMPTS_KEY) || "0");
   return attempts >= MAX_REDIRECT_ATTEMPTS;
 }
 

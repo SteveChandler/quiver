@@ -77,9 +77,9 @@ export const PRIVACY_CONTENT = {
   hero: {
     title: "Privacy Policy",
     subtitle: "How we protect and handle your data",
-    lastUpdated: "October 17, 2025",
+    lastUpdated: "February 12, 2026",
     effectiveDate:
-      "This policy is effective as of October 17, 2025. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of February 12, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver's Privacy Policy",
@@ -137,7 +137,7 @@ export const PRIVACY_CONTENT = {
       {
         name: "Technical Data",
         description:
-          "includes internet protocol (IP) address, device ID, login data, browser type and version, time zone setting and location, browsing patterns, operating system and platform.",
+          "includes internet protocol (IP) address, device ID, login data, browser type and version, time zone setting and location, browsing patterns, operating system and platform. We also collect interaction data including page views, feature usage, scroll behavior, and navigation patterns through analytics services. Multiple analytics services may receive the same event data for redundancy and accuracy.",
         sources: "Directly or indirectly from you, From third parties",
         purpose:
           "Performance of a contract, Necessary for our legitimate interests, Necessary to comply with a legal obligation",
@@ -147,7 +147,7 @@ export const PRIVACY_CONTENT = {
       {
         name: "Usage Data",
         description:
-          "includes information about how you use our Services, length of time spent, frequency of use, photographs, videos, comments, surf session data, and metadata.",
+          "includes information about how you use our Services, length of time spent, frequency of use, photographs, videos, comments, surf session data, and metadata. Email communications may include tracking to measure engagement such as opens and clicks. When you sign up, we may record how you discovered Quiver (e.g., referral source, landing page).",
         sources: "Directly or indirectly from you, From third parties",
         purpose:
           "Performance of a contract, Necessary for our legitimate interests, Necessary to comply with a legal obligation",
@@ -183,6 +183,16 @@ export const PRIVACY_CONTENT = {
           "Performance of a contract, Necessary for our legitimate interests, Consent (for push notifications)",
         disclosed:
           "Push notification service providers (Apple Push Notification Service), Analytics service providers, Crash reporting services",
+      },
+      {
+        name: "Live Camera Feed Data",
+        description:
+          "We display live video streams from third-party camera providers to show real-time beach conditions. These are publicly available livestreams that may capture individuals at public beaches. We do not record, store, or process video content from these feeds — streams are passed through to your device. Our servers may temporarily proxy video stream URLs to ensure reliable playback.",
+        sources: "From third-party camera providers",
+        purpose:
+          "Performance of a contract, Necessary for our legitimate interests",
+        disclosed:
+          "Third-party camera stream providers (streams are passed through, not stored)",
       },
     ],
   },
@@ -222,6 +232,16 @@ export const PRIVACY_CONTENT = {
           details:
             "When you use our iOS mobile application, we automatically collect certain device information including push notification tokens (to send you session invites and updates you've opted in to receive), device identifiers (for authentication and analytics), device model and operating system version (for compatibility and support), and app usage data (to improve features and user experience). You can control push notification permissions in your device settings at any time.",
         },
+        {
+          subtitle: "Live Camera Feeds",
+          details:
+            "We display live video streams from third-party camera providers to show real-time beach and surf conditions. These are publicly available livestreams. We do not record, store, or process video content from these feeds — streams are passed through directly to your device. Our servers may temporarily proxy video stream URLs to ensure reliable playback. Third-party camera operators have their own privacy policies governing stream capture and retention.",
+        },
+        {
+          subtitle: "Analytics and Engagement Tracking",
+          details:
+            "We collect interaction data including page views, feature usage, scroll behavior, and navigation patterns through analytics services. Multiple analytics services may receive the same event data for redundancy and accuracy. Email communications may include tracking to measure engagement (opens, clicks). When you sign up, we may record how you discovered Quiver (e.g., referral source, landing page).",
+        },
       ],
     },
     {
@@ -248,6 +268,11 @@ export const PRIVACY_CONTENT = {
           subtitle: "Marketing Communications",
           details:
             "We may use your data for marketing if you have provided express consent, requested information from us, or created an account with us and have not opted out. You can opt out anytime by contacting privacy@quiversurf.com.",
+        },
+        {
+          subtitle: "Machine Learning and Automated Analysis",
+          details:
+            "We use machine learning models to improve the accuracy of surf forecasts and wave predictions. Models are trained on aggregated, anonymized historical weather and ocean observation data from public sources. Individual user data is not used to train prediction models. Automated predictions supplement, but do not replace, source forecast data.",
         },
       ],
     },
@@ -404,6 +429,23 @@ export const PRIVACY_CONTENT = {
       ],
     },
     {
+      id: "third-party-services",
+      icon: Globe,
+      title: "Third-Party Services",
+      content: [
+        {
+          subtitle: "Categories of Service Providers",
+          details:
+            "We work with various categories of third-party service providers to operate and improve Quiver, including: authentication and database services; payment processing services; analytics and performance monitoring services; email delivery services; error tracking and diagnostics services; push notification services; mapping and geocoding services; weather and ocean data providers; live camera stream providers; and cloud hosting and compute services.",
+        },
+        {
+          subtitle: "Third-Party Data Practices",
+          details:
+            "Each third-party service provider operates under their own privacy policy and terms of service. We encourage you to review those policies. We select providers that maintain appropriate data protection standards and limit the personal data shared with each provider to what is necessary for the service they provide.",
+        },
+      ],
+    },
+    {
       id: "your-legal-rights",
       icon: Eye,
       title: "Your Legal Rights",
@@ -509,9 +551,9 @@ export const TERMS_CONTENT = {
   hero: {
     title: "Terms of Service",
     subtitle: "Rules and guidelines for using Quiver",
-    lastUpdated: "January 25, 2026",
+    lastUpdated: "February 12, 2026",
     effectiveDate:
-      "This policy is effective as of January 25, 2026. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of February 12, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver",
@@ -539,7 +581,7 @@ export const TERMS_CONTENT = {
         {
           subtitle: "What Quiver Provides",
           details:
-            "Quiver provides surf forecasting, beach condition information, session tracking, and community features for surfers. Our Service includes: surf condition forecasts and predictions, real-time weather and ocean data, beach and surf spot information, personal session logging and statistics, and community features including reviews and local intel.",
+            "Quiver provides surf forecasting, beach condition information, session tracking, and community features for surfers. Our Service includes: surf condition forecasts and predictions, machine learning-enhanced wave forecasts, real-time weather and ocean data, live beach camera feeds from third-party providers, beach and surf spot information, personal session logging and statistics, and community features including reviews and local intel.",
         },
       ],
     },
@@ -583,6 +625,11 @@ export const TERMS_CONTENT = {
             "QUIVER PROVIDES SURF FORECASTS, WAVE PREDICTIONS, AND OCEAN CONDITION INFORMATION FOR GENERAL INFORMATIONAL PURPOSES ONLY. THIS INFORMATION IS NOT A SUBSTITUTE FOR YOUR OWN JUDGMENT, LOCAL KNOWLEDGE, OR PROFESSIONAL INSTRUCTION.",
         },
         {
+          subtitle: "Machine Learning Predictions",
+          details:
+            "Forecasts may incorporate machine learning predictions derived from historical data patterns and real-time observations. Automated models are continuously updated and may produce varying results. You acknowledge that algorithmic predictions are subject to inherent limitations and should not be relied upon as the sole basis for decisions regarding ocean safety.",
+        },
+        {
           subtitle: "Your Acknowledgment",
           details:
             "You acknowledge and agree that: ocean conditions are inherently unpredictable and can change rapidly; forecasts are predictions based on available data and may be inaccurate; local conditions may differ significantly from forecasted conditions; you are solely responsible for assessing conditions before entering the water; and Quiver does not guarantee the accuracy, completeness, or timeliness of any forecast.",
@@ -590,9 +637,26 @@ export const TERMS_CONTENT = {
       ],
     },
     {
+      id: "live-camera-feeds",
+      icon: Eye,
+      title: "6. Live Camera Feeds",
+      content: [
+        {
+          subtitle: "Third-Party Camera Streams",
+          details:
+            "Quiver displays third-party live camera streams for informational purposes only. Camera feeds are publicly available content provided by independent third-party operators, not by Quiver. Camera availability, quality, angles, and stream reliability are not guaranteed and may change without notice.",
+        },
+        {
+          subtitle: "Public Beach Recording",
+          details:
+            "By visiting public beaches where cameras are present, you acknowledge you may appear in publicly accessible livestreams displayed through our Service. Quiver does not control, moderate, or store camera feed content and is not responsible for third-party camera operators' practices.",
+        },
+      ],
+    },
+    {
       id: "assumption-of-risk",
       icon: Shield,
-      title: "6. Assumption of Risk",
+      title: "7. Assumption of Risk",
       content: [
         {
           subtitle: "INHERENT DANGERS",
@@ -609,7 +673,7 @@ export const TERMS_CONTENT = {
     {
       id: "limitation-of-liability",
       icon: Lock,
-      title: "7. Limitation of Liability",
+      title: "8. Limitation of Liability",
       content: [
         {
           subtitle: "Liability Cap",
@@ -626,7 +690,7 @@ export const TERMS_CONTENT = {
     {
       id: "indemnification",
       icon: Shield,
-      title: "8. Indemnification",
+      title: "9. Indemnification",
       content: [
         {
           subtitle: "Your Agreement to Indemnify",
@@ -638,7 +702,7 @@ export const TERMS_CONTENT = {
     {
       id: "acceptable-use",
       icon: Target,
-      title: "9. Acceptable Use",
+      title: "10. Acceptable Use",
       content: [
         {
           subtitle: "Prohibited Activities",
@@ -650,7 +714,7 @@ export const TERMS_CONTENT = {
     {
       id: "intellectual-property",
       icon: Globe,
-      title: "10. Intellectual Property",
+      title: "11. Intellectual Property",
       content: [
         {
           subtitle: "Ownership",
@@ -662,7 +726,7 @@ export const TERMS_CONTENT = {
     {
       id: "third-party-services",
       icon: Globe,
-      title: "11. Third-Party Services",
+      title: "12. Third-Party Services",
       content: [
         {
           subtitle: "External Services",
@@ -674,7 +738,7 @@ export const TERMS_CONTENT = {
     {
       id: "termination",
       icon: Trash2,
-      title: "12. Termination",
+      title: "13. Termination",
       content: [
         {
           subtitle: "Account Termination",
@@ -686,7 +750,7 @@ export const TERMS_CONTENT = {
     {
       id: "arbitration",
       icon: Settings,
-      title: "13. Dispute Resolution and Arbitration",
+      title: "14. Dispute Resolution and Arbitration",
       content: [
         {
           subtitle: "PLEASE READ CAREFULLY",
@@ -711,7 +775,7 @@ export const TERMS_CONTENT = {
         {
           subtitle: "Opt-Out Right",
           details:
-            "You may opt out of this arbitration agreement by sending written notice to legal@quiversurf.com within 30 days of creating your account. If you opt out, you and Quiver may still resolve Disputes in small claims court or through litigation in accordance with Section 14.",
+            "You may opt out of this arbitration agreement by sending written notice to legal@quiversurf.com within 30 days of creating your account. If you opt out, you and Quiver may still resolve Disputes in small claims court or through litigation in accordance with Section 15.",
         },
         {
           subtitle: "Severability",
@@ -723,7 +787,7 @@ export const TERMS_CONTENT = {
     {
       id: "governing-law",
       icon: Globe,
-      title: "14. Governing Law",
+      title: "15. Governing Law",
       content: [
         {
           subtitle: "Applicable Law",
@@ -735,7 +799,7 @@ export const TERMS_CONTENT = {
     {
       id: "changes",
       icon: Settings,
-      title: "15. Changes to Terms",
+      title: "16. Changes to Terms",
       content: [
         {
           subtitle: "Updates",

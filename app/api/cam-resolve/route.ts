@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
+import { HDONTAP_HLS_RE } from "@/lib/media/cam-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +22,6 @@ const MAX_HTML_SIZE = 512 * 1024; // 512 KB — HDOnTap pages are ~50-100 KB
 
 /** Hostnames we're willing to scrape for stream URLs */
 const ALLOWED_RESOLVE_HOSTS = ["hdontap.com", "www.hdontap.com"];
-
-/** Regex to find HLS stream URL in HDOnTap pages */
-const HDONTAP_HLS_RE =
-  /https?:\/\/live\.hdontap\.com\/hls\/[^"'\\\s]+\.m3u8[^"'\\\s]*/;
 
 async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get("url");

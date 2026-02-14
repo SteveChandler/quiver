@@ -4,8 +4,9 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 
-interface BeachSources {
+export interface BeachSources {
   camera_url?: string | null;
+  embed_allowed?: boolean | null;
   // Add other source fields as needed
 }
 

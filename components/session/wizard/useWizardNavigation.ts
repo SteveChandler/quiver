@@ -163,6 +163,10 @@ export function useWizardNavigation({
             return Boolean(formState.forecastAccuracy);
           }
           return true;
+        case "quick-location-time":
+          return Boolean(formState.selectedBeach && formState.selectedDate);
+        case "quick-rating":
+          return true; // Rating is optional in quick mode
         default:
           return true; // Non-required steps are always valid
       }

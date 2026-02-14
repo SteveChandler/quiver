@@ -89,6 +89,10 @@ export type SessionFormHookParams = {
    * ```
    */
   initialFormState?: Partial<SessionFormState>;
+  /**
+   * Enable quick log mode defaults (today's date, morning/afternoon time, 1h duration).
+   */
+  quick?: boolean;
 };
 
 /**
@@ -156,10 +160,10 @@ export function useSessionForm(
   params: SessionFormMode | SessionFormHookParams = "plan"
 ) {
   // Support both legacy (mode string) and new (params object) usage
-  const { initialMode, initialFormState } =
+  const { initialMode, initialFormState, quick } =
     typeof params === "string"
-      ? { initialMode: params, initialFormState: undefined }
-      : params;
+      ? { initialMode: params, initialFormState: undefined, quick: false }
+      : { ...params, quick: params.quick ?? false };
 
   const { user } = useAuth();
   const [mode, setMode] = useState<SessionFormMode>(initialMode);
@@ -172,6 +176,15 @@ export function useSessionForm(
   // Compute initial state once: merge defaults with any provided overrides
   const [formState, setFormState] = useState<SessionFormState>(() => {
     const defaultState = getDefaultFormState(initialMode);
+
+    // Apply quick mode defaults: today's date, morning/afternoon time, 1h duration
+    if (quick) {
+      const now = new Date();
+      const hour = now.getHours();
+      defaultState.selectedDate = now.toISOString().split("T")[0];
+      defaultState.selectedTime = hour < 12 ? "07:00" : "14:00";
+      defaultState.duration = "60m";
+    }
 
     // If overrides provided, merge them (overrides take precedence)
     if (initialFormState) {
