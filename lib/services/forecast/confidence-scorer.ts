@@ -187,9 +187,10 @@ export function calculateConfidenceFromForecastRow(row: ForecastRowParams): numb
   const hasWeatherData = row.wind_speed != null;
 
   // Calculate hours ahead (negative for historical forecasts becomes 0)
+  // Prefer forecast_at, fallback to legacy forecast_date + forecast_time (assume UTC)
   const forecastDateTime = row.forecast_at
     ? new Date(row.forecast_at)
-    : new Date(`${row.forecast_date}T${row.forecast_time}`);
+    : new Date(`${row.forecast_date}T${row.forecast_time}Z`);
   const hoursAhead = Math.max(0, (forecastDateTime.getTime() - Date.now()) / (1000 * 60 * 60));
 
   return calculateConfidenceScore({

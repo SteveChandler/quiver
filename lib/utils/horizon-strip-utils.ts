@@ -147,6 +147,7 @@ function groupForecastsByDate(
   const grouped = new Map<string, EnhancedForecastEntity[]>();
 
   for (const forecast of forecasts) {
+    // Prefer forecast_at (extract date part), fallback to forecast_date
     const date = forecast.forecast_at
       ? forecast.forecast_at.split('T')[0]
       : forecast.forecast_date;
@@ -194,13 +195,14 @@ function getWaveHeightRange(
   dayForecasts: EnhancedForecastEntity[],
   bestForecast: EnhancedForecastEntity
 ): { min: number; max: number } {
-  // Parse best forecast time
+  // Parse best forecast time - prefer forecast_at, fallback to forecast_time
   const bestHour = bestForecast.forecast_at
     ? new Date(bestForecast.forecast_at).getUTCHours()
     : parseInt(bestForecast.forecast_time?.split(':')[0] || '12', 10);
 
   // Filter forecasts within ±3 hours of best time
   const windowForecasts = dayForecasts.filter((f) => {
+    // Prefer forecast_at for hour extraction, fallback to forecast_time
     const hour = f.forecast_at
       ? new Date(f.forecast_at).getUTCHours()
       : parseInt(f.forecast_time?.split(':')[0] || '12', 10);

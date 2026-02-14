@@ -257,6 +257,7 @@ export function detectSwellEvents(
 
   for (const forecasts of forecastMap.values()) {
     for (const forecast of forecasts) {
+      // Prefer forecast_at (extract date part), fallback to forecast_date
       const date = forecast.forecast_at
         ? forecast.forecast_at.split('T')[0]
         : forecast.forecast_date;
@@ -405,6 +406,7 @@ export function aggregateRegionalForecast(
 
   for (const [beachId, forecasts] of forecastMap.entries()) {
     for (const forecast of forecasts) {
+      // Prefer forecast_at (extract date part), fallback to forecast_date
       const date = forecast.forecast_at
         ? forecast.forecast_at.split('T')[0]
         : forecast.forecast_date;

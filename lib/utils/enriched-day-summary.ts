@@ -51,6 +51,7 @@ export function enrichDaySummaries(
 ): EnrichedDaySummary[] {
   const byDate = new Map<string, EnhancedForecastEntity[]>();
   for (const f of forecasts) {
+    // Prefer forecast_at (extract date part), fallback to forecast_date
     const dateKey = f.forecast_at ? f.forecast_at.split("T")[0] : f.forecast_date;
     if (!dateKey) continue;
     const bucket = byDate.get(dateKey);
@@ -73,6 +74,7 @@ export function enrichDaySummaries(
     let closest = dayForecasts[0];
     let minDiff = Infinity;
     for (const f of dayForecasts) {
+      // Prefer forecast_at for hour extraction, fallback to forecast_time
       const fHour = f.forecast_at
         ? new Date(f.forecast_at).getUTCHours()
         : parseInt(f.forecast_time?.split(":")[0] || String(DEFAULT_FORECAST_HOUR), 10);

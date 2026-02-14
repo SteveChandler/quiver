@@ -133,7 +133,7 @@ export function scoreForecast(forecast: ForecastData, beachAspect: number): numb
   // Time of day bonus (prefer early morning and late afternoon)
   const hour = forecast.forecast_at
     ? new Date(forecast.forecast_at).getUTCHours()
-    : parseInt(forecast.forecast_time.split(":")[0]);
+    : parseInt(forecast.forecast_time?.split(":")[0] || '12');
   if (hour >= 6 && hour <= 9) score += MORNING_BONUS;
   else if (hour >= 16 && hour <= 18) score += AFTERNOON_BONUS;
 
