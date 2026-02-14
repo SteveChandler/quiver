@@ -36,6 +36,7 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { BestSurfWindow } from "./best-surf-window";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 
 interface ForecastAndTidesProps {
   beach: Beach;
@@ -72,8 +73,11 @@ export function ForecastAndTides({
   }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
-    () => safeForecasts.filter((f) => f.forecast_date === todayStr),
-    [safeForecasts, todayStr]
+    () => {
+      const tz = resolveBeachTimezone(beachTimezone);
+      return safeForecasts.filter((f) => extractForecastDate(f.forecast_at, tz) === todayStr);
+    },
+    [safeForecasts, todayStr, beachTimezone]
   );
 
   // No need to transform - TideChart accepts forecasts directly

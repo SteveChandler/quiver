@@ -20,7 +20,7 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
             Today’s Forecast
           </h3>
           <p className="text-sm text-gray-600" suppressHydrationWarning>
-            {new Date(forecast.forecast_date).toLocaleDateString("en-US", {
+            {new Date(forecast.forecast_at || forecast.forecast_date).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
               day: "numeric",
@@ -73,10 +73,9 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
             <Info className="h-4 w-4 text-gray-500" />
             <span className="text-sm text-gray-600">
               Forecast for{" "}
-              {formatForecastTime(
-                forecast.forecast_date,
-                forecast.forecast_time
-              )}
+              {forecast.forecast_at
+                ? new Date(forecast.forecast_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+                : formatForecastTime(forecast.forecast_date, forecast.forecast_time)}
             </span>
           </div>
         </div>

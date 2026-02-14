@@ -62,13 +62,15 @@ async function getLatestForecast(
   beachId: string
 ): Promise<Record<string, any> | null> {
   const today = new Date().toISOString().split("T")[0];
+  const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
 
   const { data: todayData, error: todayError } = await supabase
     .from("enhanced_forecasts")
     .select("*")
     .eq("beach_id", beachId)
-    .eq("forecast_date", today)
-    .order("forecast_time", { ascending: false })
+    .gte("forecast_at", `${today}T00:00:00Z`)
+    .lt("forecast_at", `${nextDay}T00:00:00Z`)
+    .order("forecast_at", { ascending: false })
     .limit(1);
 
   if (!todayError && todayData && todayData.length > 0) return todayData[0];
@@ -77,8 +79,7 @@ async function getLatestForecast(
     .from("enhanced_forecasts")
     .select("*")
     .eq("beach_id", beachId)
-    .order("forecast_date", { ascending: false })
-    .order("forecast_time", { ascending: false })
+    .order("forecast_at", { ascending: false })
     .limit(1);
 
   if (fallbackError || !fallbackData || fallbackData.length === 0) return null;
@@ -326,14 +327,16 @@ export async function getBeginnerBeachesWithEditorial(
 
     // Batch fetch current wave heights
     const today = new Date().toISOString().split("T")[0];
+    const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const beachIds = beaches.map((b: any) => b.id);
 
     const { data: forecasts } = await supabase
       .from("enhanced_forecasts")
       .select("beach_id, wave_height")
       .in("beach_id", beachIds)
-      .eq("forecast_date", today)
-      .order("forecast_time", { ascending: false });
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${nextDay}T00:00:00Z`)
+      .order("forecast_at", { ascending: false });
 
     const waveHeightMap = new Map<string, string>();
     if (forecasts) {

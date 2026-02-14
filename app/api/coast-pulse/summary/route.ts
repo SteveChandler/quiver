@@ -89,8 +89,8 @@ async function summaryHandler(request: NextRequest) {
           .from("enhanced_forecasts")
           .select("*")
           .eq("beach_id", closestBeach.id)
-          .gte("forecast_date", now.toISOString().split("T")[0])
-          .order("forecast_date", { ascending: true })
+          .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
+          .order("forecast_at", { ascending: true })
           .limit(1)
           .single();
         if (!forecast) return null;

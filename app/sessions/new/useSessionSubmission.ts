@@ -50,22 +50,30 @@ async function tryLoadClosestForecastForFeedback(session: any) {
     if (!Array.isArray(forecasts) || forecasts.length === 0) return null;
 
     const arrivalDate = arrival.toISOString().split("T")[0];
-    const sameDay = forecasts.filter(
-      (f: any) => String(f?.forecast_date || "") === arrivalDate
-    );
+    const sameDay = forecasts.filter((f: any) => {
+      if (f?.forecast_at) {
+        return f.forecast_at.split("T")[0] === arrivalDate;
+      }
+      return String(f?.forecast_date || "") === arrivalDate;
+    });
     const candidates = sameDay.length > 0 ? sameDay : forecasts;
 
     let best: any | null = null;
     let bestDiff = Infinity;
 
     for (const f of candidates) {
-      const dateStr = String(f?.forecast_date || "");
-      const timeStrRaw = String(f?.forecast_time || "");
-      if (!dateStr) continue;
-      const hhmm = timeStrRaw.includes(":")
-        ? timeStrRaw.slice(0, 5)
-        : "00:00";
-      const forecastTs = new Date(`${dateStr}T${hhmm}:00Z`);
+      let forecastTs: Date;
+      if (f?.forecast_at) {
+        forecastTs = new Date(f.forecast_at);
+      } else {
+        const dateStr = String(f?.forecast_date || "");
+        const timeStrRaw = String(f?.forecast_time || "");
+        if (!dateStr) continue;
+        const hhmm = timeStrRaw.includes(":")
+          ? timeStrRaw.slice(0, 5)
+          : "00:00";
+        forecastTs = new Date(`${dateStr}T${hhmm}:00Z`);
+      }
       const diff = Math.abs(forecastTs.getTime() - arrival.getTime());
       if (diff < bestDiff) {
         bestDiff = diff;

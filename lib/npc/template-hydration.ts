@@ -39,6 +39,7 @@ export async function fetchSurfConditions(
 ): Promise<SurfConditions> {
   const now = new Date();
   const todayDate = now.toISOString().split('T')[0];
+  const nextDay = new Date(new Date(todayDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
 
   // Try to get forecast for current hour, fall back to most recent
   const { data: forecasts } = await supabase
@@ -47,8 +48,9 @@ export async function fetchSurfConditions(
       'wave_height, wave_period, wind_speed, wind_direction, tide_height, tide_status'
     )
     .eq('beach_id', beachId)
-    .eq('forecast_date', todayDate)
-    .order('forecast_time', { ascending: false })
+    .gte('forecast_at', `${todayDate}T00:00:00Z`)
+    .lt('forecast_at', `${nextDay}T00:00:00Z`)
+    .order('forecast_at', { ascending: false })
     .limit(1);
 
   const forecast = forecasts?.[0];

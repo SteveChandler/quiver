@@ -149,10 +149,9 @@ async function fetchEnhancedForecasts(
     .from("enhanced_forecasts")
     .select("*")
     .eq("beach_id", beachId)
-    .gte("forecast_date", startDateStr)
-    .lte("forecast_date", endDateStr)
-    .order("forecast_date", { ascending: true })
-    .order("forecast_time", { ascending: true });
+    .gte("forecast_at", `${startDateStr}T00:00:00Z`)
+    .lte("forecast_at", `${endDateStr}T23:59:59Z`)
+    .order("forecast_at", { ascending: true });
 
   if (error) {
     throw new Error(`Failed to fetch forecasts: ${error.message}`);

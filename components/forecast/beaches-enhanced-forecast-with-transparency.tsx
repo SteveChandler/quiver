@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { extractForecastDate, extractForecastTime } from "@/lib/utils/forecast-at-adapter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -152,12 +153,13 @@ export function BeachesEnhancedForecastWithTransparency({
   const todayKey = React.useMemo(() => getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone)), [beachTimezone]);
   const todayForecast = React.useMemo(() => {
     if (!forecasts.length) return null;
+    const tz = resolveBeachTimezone(beachTimezone);
     const match = forecasts.find((f) => {
-      const key = normalizeForecastDateKey(f.forecast_date);
+      const key = f.forecast_at ? extractForecastDate(f.forecast_at, tz) : normalizeForecastDateKey(f.forecast_date);
       return key === todayKey;
     });
     return match ?? primaryForecast;
-  }, [forecasts, todayKey, primaryForecast]);
+  }, [forecasts, todayKey, primaryForecast, beachTimezone]);
 
   const hasFallbackData = forecasts.some((f) => f.data_source === "FALLBACK");
 
@@ -362,7 +364,7 @@ export function BeachesEnhancedForecastWithTransparency({
                       "bg-red-400": score != null && score < 50,
                       "bg-gray-300": score == null,
                     })}
-                    title={`${forecast.forecast_date} ${forecast.forecast_time}: ${score != null ? `${score}%` : 'N/A'}`}
+                    title={`${forecast.forecast_at ? new Date(forecast.forecast_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : `${forecast.forecast_date} ${forecast.forecast_time}`}: ${score != null ? `${score}%` : 'N/A'}`}
                   />
                 );
               })}
@@ -382,7 +384,7 @@ export function BeachesEnhancedForecastWithTransparency({
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">
-                      {forecast.forecast_date} {forecast.forecast_time}
+                      {forecast.forecast_at ? new Date(forecast.forecast_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : `${forecast.forecast_date} ${forecast.forecast_time}`}
                     </span>
                     <Badge className="bg-red-100 text-red-700 text-xs">
                       {forecast.confidence_score}% confidence

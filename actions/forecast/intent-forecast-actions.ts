@@ -103,11 +103,13 @@ export async function getCityTideData(
 
     // Find a representative beach with today's forecast
     // Join beaches with enhanced_forecasts to find one with tide data
+    const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const { data: beachWithForecast, error: beachError } = await supabase
       .from("enhanced_forecasts")
       .select(
         `
         beach_id,
+        forecast_at,
         tide_status,
         tide_height,
         next_tide_time,
@@ -122,10 +124,11 @@ export async function getCityTideData(
         )
       `
       )
-      .eq("forecast_date", today)
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${nextDay}T00:00:00Z`)
       .ilike("beaches.city", cityName)
       .ilike("beaches.state", state)
-      .order("forecast_time", { ascending: true })
+      .order("forecast_at", { ascending: true })
       .limit(1)
       .single();
 
@@ -136,6 +139,7 @@ export async function getCityTideData(
         .select(
           `
           beach_id,
+          forecast_at,
           tide_status,
           tide_height,
           next_tide_time,
@@ -150,9 +154,10 @@ export async function getCityTideData(
           )
         `
         )
-        .eq("forecast_date", today)
+        .gte("forecast_at", `${today}T00:00:00Z`)
+        .lt("forecast_at", `${nextDay}T00:00:00Z`)
         .ilike("beaches.city", cityName)
-        .order("forecast_time", { ascending: true })
+        .order("forecast_at", { ascending: true })
         .limit(1)
         .single();
 
@@ -475,15 +480,15 @@ async function fetchWaterTempData(
 ): Promise<CityWaterTempData | null> {
   // Get one forecast per day with water_temp data
   // Use early morning forecast (first of day) for consistency
+  const endNextDay = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
-    .select("forecast_date, water_temp, forecast_time")
+    .select("forecast_date, forecast_at, water_temp, forecast_time")
     .eq("beach_id", beach.id)
-    .gte("forecast_date", startDate)
-    .lte("forecast_date", endDate)
+    .gte("forecast_at", `${startDate}T00:00:00Z`)
+    .lt("forecast_at", `${endNextDay}T00:00:00Z`)
     .not("water_temp", "is", null)
-    .order("forecast_date", { ascending: true })
-    .order("forecast_time", { ascending: true });
+    .order("forecast_at", { ascending: true });
 
   if (forecastError) {
     console.error("Error fetching water temp history:", forecastError.message);

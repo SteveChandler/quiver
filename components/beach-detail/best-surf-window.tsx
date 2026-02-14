@@ -13,6 +13,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { data } from "@/lib/data/client";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { UnifiedSurfCard } from "./unified-surf-card";
 import {
   Clock,
@@ -129,7 +130,8 @@ export function BestSurfWindow({
   const { magicHour, isLoading: magicHourLoading } = useMagicHour(beachId);
 
   const mappedForecasts: WindowForecast[] = useMemo(() => {
-    const rows = (forecasts || []).filter((f) => f.forecast_date === forecastDate);
+    const tz = resolveBeachTimezone(beachTimezone);
+    const rows = (forecasts || []).filter((f) => extractForecastDate(f.forecast_at, tz) === forecastDate);
     return rows.map((f) => ({
       forecast_time: f.forecast_time,
       forecast_date: f.forecast_date,
@@ -148,7 +150,7 @@ export function BestSurfWindow({
       tide_height:
         f.tide_height == null ? null : Number.parseFloat(String(f.tide_height)),
     }));
-  }, [forecasts, forecastDate]);
+  }, [forecasts, forecastDate, beachTimezone]);
 
   // Calculate best window from forecasts (used when no intel or when intel window passed)
   const bestWindowFromForecasts = useMemo(() => {
@@ -351,11 +353,14 @@ export function BestSurfWindow({
               // Share functionality - use native share if available
               if (navigator.share) {
                 // eslint-disable-next-line no-restricted-properties -- Web Share API requires full URL with origin
-                const shareUrl = `${window.location.origin}${pathname}`;
+                const shareUrl = new URL(`${window.location.origin}${pathname}`);
+                shareUrl.searchParams.set("utm_source", "quiver");
+                shareUrl.searchParams.set("utm_medium", "share");
+                shareUrl.searchParams.set("utm_campaign", "surf_intel_share");
                 navigator.share({
                   title: `Surf Intel for ${beachName}`,
                   text: `Best surf window: ${formatTime(intel.best_window_start)} - ${formatTime(intel.best_window_end)}`,
-                  url: shareUrl,
+                  url: shareUrl.toString(),
                 }).catch(() => {
                   // User cancelled or share failed silently
                 });
