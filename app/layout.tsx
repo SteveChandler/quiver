@@ -44,11 +44,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Quiver | Surf Community & Session Tracker",
+    default: "Quiver | Surf Reports, Forecasts & Conditions",
     template: "%s | Quiver",
   },
   description:
-    "Join the ultimate surf community. Find surf buddies, track sessions, get forecasts, and discover the best surf spots.",
+    SEO_CONFIG.description,
   generator: "Next.js",
 
   // Performance optimizations

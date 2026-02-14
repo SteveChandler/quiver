@@ -2,17 +2,27 @@
 
 import { useState } from "react";
 import { Share2, Check } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 export function CamsShareButton() {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
-    const url = window.location.href;
-    const title = "Live Surf Cams - Free, No Paywall | Quiver";
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set("utm_source", "quiver");
+    shareUrl.searchParams.set("utm_medium", "share");
+    shareUrl.searchParams.set("utm_campaign", "cam_share");
+    const url = shareUrl.toString();
+    const title = "Live Surf Cams | Quiver";
+
+    let shared = false;
+    let method: "native_share" | "clipboard" = "clipboard";
 
     if (navigator.share) {
       try {
         await navigator.share({ title, url });
+        shared = true;
+        method = "native_share";
       } catch {
         // User cancelled or share failed — ignore
       }
@@ -20,6 +30,25 @@ export function CamsShareButton() {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      shared = true;
+      method = "clipboard";
+    }
+
+    if (shared) {
+      // Track share event
+      track("cam_share", { method });
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "social_share",
+          metadata: {
+            content_type: "cam",
+            method,
+          },
+        }),
+        keepalive: true,
+      }).catch(() => {});
     }
   }
 

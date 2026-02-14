@@ -50,13 +50,13 @@ export function HomePageStructuredData() {
   const homePageData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "Quiver - Ultimate Surf Community Platform",
+    name: "Quiver — Surf Reports, Forecasts & Conditions",
     description:
-      "Find surf buddies, track sessions, get forecasts. Join the ultimate surf community.",
+      "ML-powered surf forecasts, crowd intelligence, and personalized surf windows for 185+ beaches. Updated every 3 hours with live buoy data.",
     url: siteUrl,
     mainEntity: {
       "@type": "SoftwareApplication",
-      name: "Quiver Surf Community App",
+      name: "Quiver Surf App",
       applicationCategory: "Sports & Recreation",
       operatingSystem: ["Web", "iOS", "Android"],
       offers: {

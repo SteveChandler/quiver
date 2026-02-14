@@ -12,7 +12,7 @@ export function CamSchema({ beaches }: CamSchemaProps) {
   const items = beaches.map((beach) => ({
     "@type": "VideoObject" as const,
     name: `${beach.name} Live Surf Cam`,
-    description: `Live surf cam at ${beach.name} in ${beach.city}, ${beach.state}. Watch real-time wave conditions, no subscription required.`,
+    description: `Live surf cam at ${beach.name} in ${beach.city}, ${beach.state}. Watch real-time wave conditions.`,
     thumbnailUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"}/images/buoy.png`,
     uploadDate: "2026-01-01",
     contentUrl: beach.camera_url,

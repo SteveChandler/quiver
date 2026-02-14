@@ -113,27 +113,27 @@ function getIntentTemplates(
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long" });
   const spotCount = beginnerCount > 0 ? beginnerCount : totalBeaches;
-  const FREE_SUFFIX = "Free, updated hourly — no subscription needed.";
+  const DATA_FRESHNESS_SUFFIX = "Updated hourly with live buoy data.";
 
   return {
     beginner: {
       title: truncateTitleForSEO(
-        `${spotCount} Beginner Surf Spots in ${cityName} (${currentYear}) | Rated by Difficulty`
+        `${spotCount} Best Beginner Surf Spots in ${cityName} (${currentYear})`
       ),
       heading: `Beginner-friendly waves in ${cityName}`,
       intro: beginnerIntro,
       metaDescription: truncateMetaDescription(
-        `${spotCount} beginner-friendly surf spots in ${cityName}. Rated by difficulty with real conditions at ${topSpotNames}. ${FREE_SUFFIX}`
+        `${spotCount} beginner-friendly surf spots in ${cityName}. Rated by difficulty with real conditions at ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     "least-crowded": {
       title: truncateTitleForSEO(
-        `${totalBeaches} Uncrowded Surf Spots in ${cityName} | Crowd Data Updated Daily`
+        `${totalBeaches} Least Crowded Surf Spots in ${cityName} (${currentYear})`
       ),
       heading: `Least crowded surf spots in ${cityName}`,
       intro: leastCrowdedIntro,
       metaDescription: truncateMetaDescription(
-        `${totalBeaches} uncrowded surf spots in ${cityName}. Real crowd data and best times to paddle out. ${FREE_SUFFIX}`
+        `${totalBeaches} uncrowded surf spots in ${cityName}. Real crowd data and best times to paddle out. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     tide: {
@@ -146,8 +146,8 @@ function getIntentTemplates(
       intro: tideIntro,
       metaDescription: truncateMetaDescription(
         tideData?.nextTideType && tideData?.nextTideTime && tideData?.nextTideHeight
-          ? `${cityName} tides today: Next ${tideData.nextTideType} ${tideData.nextTideTime} (${tideData.nextTideHeight}). Charts for ${totalBeaches} breaks including ${topSpotNames}. ${FREE_SUFFIX}`
-          : `${cityName} tide charts today. High and low times for ${totalBeaches} surf spots including ${topSpotNames}. ${FREE_SUFFIX}`
+          ? `${cityName} tides today: Next ${tideData.nextTideType} ${tideData.nextTideTime} (${tideData.nextTideHeight}). Charts for ${totalBeaches} breaks including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
+          : `${cityName} tide charts today. High and low times for ${totalBeaches} surf spots including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     "water-temp": {
@@ -160,8 +160,8 @@ function getIntentTemplates(
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
         waterTempData?.currentTemp
-          ? `${cityName} water is ${waterTempData.currentTemp}°F today. Wetsuit guide & seasonal temps for ${totalBeaches} surf spots. ${FREE_SUFFIX}`
-          : `Current water temperatures in ${cityName}. Wetsuit recommendations for ${totalBeaches} surf spots. ${FREE_SUFFIX}`
+          ? `${cityName} water is ${waterTempData.currentTemp}°F today. Wetsuit guide & seasonal temps for ${totalBeaches} surf spots. ${DATA_FRESHNESS_SUFFIX}`
+          : `Current water temperatures in ${cityName}. Wetsuit recommendations for ${totalBeaches} surf spots. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     longboard: {
@@ -171,17 +171,17 @@ function getIntentTemplates(
       heading: `Longboard-friendly waves in ${cityName}`,
       intro: longboardIntro,
       metaDescription: truncateMetaDescription(
-        `${totalBeaches} longboard spots in ${cityName} with mellow waves at ${topSpotNames}. ${FREE_SUFFIX}`
+        `${totalBeaches} longboard spots in ${cityName} with mellow waves at ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     "dawn-patrol": {
       title: truncateTitleForSEO(
-        `Dawn Patrol ${cityName}: ${totalBeaches} Spots with Glass-Off Conditions`
+        `Best Time to Surf ${cityName}: ${totalBeaches} Dawn Patrol Spots`
       ),
       heading: `Dawn patrol surfing in ${cityName}`,
       intro: dawnPatrolIntro,
       metaDescription: truncateMetaDescription(
-        `Dawn patrol in ${cityName}: glass-off conditions at ${totalBeaches} breaks including ${topSpotNames}. ${FREE_SUFFIX}`
+        `Best time to surf ${cityName} today — dawn patrol conditions at ${totalBeaches} breaks including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     sunset: {
@@ -191,7 +191,7 @@ function getIntentTemplates(
       heading: `Sunset sessions in ${cityName}`,
       intro: sunsetIntro,
       metaDescription: truncateMetaDescription(
-        `Sunset surf in ${cityName}: golden hour at ${totalBeaches} spots as afternoon winds die. ${FREE_SUFFIX}`
+        `Sunset surf in ${cityName}: golden hour at ${totalBeaches} spots as afternoon winds die. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
   };

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **California Surfer Search Query Map** - Comprehensive query research document at `docs/plans/2026-02-14-surfer-search-query-map.md` mapping the full California surfer search landscape by customer journey stage, with competitive gap analysis and priority matrix for SEO targeting.
+- **Product Marketing Context Documentation** - Formalized product-marketing-context.md with customer personas (The Daily Checker, The Beginner, The Explorer, The Optimizer, The Planner, The Switcher) and P0/P1/P2 keyword priorities based on Quiver's competitive advantages (ML forecasts, crowd intel, Best Surf Window, session tracking).
+
+### Changed
+
+- Realigned SEO metadata to lead with data richness (surf reports, forecasts, ML-powered conditions) instead of community messaging
+- Replaced "session windows" with "best surf windows" across beach and city page metadata
+- Updated intent page titles to match high-volume search queries (e.g., "Best Beginner Surf Spots", "Least Crowded", "Best Time to Surf")
+- Removed anti-signup language ("no paywall", "no sign-up", "no subscription") from cams pages and metadata
+- Updated root layout, structured data, and FAQ schema to match new data-richness positioning
+
+### Added
+
 - **Sentry Cron Monitoring for Forecast Pipeline** - Primary forecast cron (enhanced shard 0) reports check-ins to Sentry. If Vercel cron scheduling stops (e.g. during rapid deployments), Sentry will alert within the expected schedule window. Utility at `lib/monitoring/sentry-cron.ts`. (Reduced from 7 monitors to 1 to fit free-tier limit; shards 1-3, CDIP sync, and forecast refresh monitors removed.)
 - **Deep Health Check Endpoint** - `/api/health?deep=true` calls `checkForecastHealth()` to return full pipeline status: database connectivity, enhanced forecast coverage/freshness, per-source health for all 5 pipelines (enhanced, marine, tide, sun, IOOS), and issues list. Returns 200 for healthy/degraded, 503 for critical. Default shallow check unchanged.
 - **Service Health CI Workflow** - Hourly GitHub Actions workflow (`.github/workflows/service-health.yml`) runs shallow + deep health checks against production using only `curl`/`python3` (~30s). Reports coverage, issues, and pipeline status in step summary. Fails on critical status.

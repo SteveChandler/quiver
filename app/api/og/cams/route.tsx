@@ -36,7 +36,7 @@ function renderFallback() {
             display: 'flex',
           }}
         >
-          Free cameras across California, Hawaii, Florida & more
+          Live cameras across California, Hawaii, Florida & more
         </div>
         <div
           style={{
@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
     // Use region-specific title if provided, otherwise use default
     const mainHeading = name || 'Live Surf Cams';
     const subtitle = name
-      ? `Free cameras across ${name}`
-      : 'Free cameras across California, Hawaii, Florida & more';
+      ? `Live cameras across ${name}`
+      : 'Live cameras across California, Hawaii, Florida & more';
 
     const response = new ImageResponse(
       (
@@ -134,28 +134,6 @@ export async function GET(request: NextRequest) {
               {subtitle}
             </div>
 
-            {/* No Paywall badge */}
-            <div
-              style={{
-                marginTop: 32,
-                display: 'flex',
-              }}
-            >
-              <div
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(249, 115, 22, 0.15)',
-                  border: '1px solid rgba(249, 115, 22, 0.4)',
-                  fontSize: 22,
-                  color: '#f97316',
-                  fontWeight: 600,
-                  display: 'flex',
-                }}
-              >
-                No Paywall • No Sign-up
-              </div>
-            </div>
           </div>
 
           {/* Bottom section */}

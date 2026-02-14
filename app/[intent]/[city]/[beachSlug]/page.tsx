@@ -345,15 +345,15 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         keywords: [
           `${beach.name} surf report`,
           `${beach.name} surf forecast`,
-          beach.city || "",
-          beach.state || "",
+          `${beach.name} surf`,
+          `best time to surf ${beach.name}`,
+          `${beach.name} tide chart`,
+          beach.city ? `surf report ${beach.city}` : "",
+          beach.city ? `surf forecast ${beach.city}` : "",
           "surf report",
           "surf forecast",
-          "surf conditions",
-          "wave height",
-          "tide",
-          "wind",
-          "free surf report",
+          "surf conditions today",
+          "wave height today",
         ].filter(Boolean),
       });
     }

@@ -31,17 +31,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const stateCount = new Set(beaches.map((b) => b.state)).size;
 
   return buildPageMetadata({
-    title: `Live Surf Cams - ${camCount}+ Free Cameras`,
-    description: `Watch ${camCount}+ free live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more. No paywall, no sign-up. Updated 24/7.`,
+    title: `Live Surf Cams — ${camCount}+ Cameras Across ${stateCount} States`,
+    description: `Watch ${camCount}+ live surf cams across ${stateCount} states. California, Hawaii, Florida, Oregon, and more. Updated 24/7 with live conditions.`,
     path: "/cams",
     image: "/api/og/cams",
     keywords: [
       "live surf cam",
-      "free surf cam",
+      "surf cam live",
       "surf webcam",
       "beach cam",
       "live beach camera",
-      "surf cam no paywall",
       "California surf cam",
       "Hawaii surf cam",
       "Oregon surf cam",
@@ -108,7 +107,7 @@ export default async function CamsHubPage() {
             </h1>
             <p className="mt-4 font-open-sans text-lg text-gray-600 md:text-xl">
               Watch {camCount} live surf cams across {stateCount} states.
-              {" "}No subscription required.
+              {" "}Updated 24/7.
             </p>
             <div className="mt-6 flex justify-center">
               <CamsShareButton />
@@ -159,7 +158,7 @@ export default async function CamsHubPage() {
               Know a cam we&apos;re missing?
             </h2>
             <p className="mt-2 font-open-sans text-gray-600">
-              Help us grow the largest free surf cam directory.
+              Help us grow the largest surf cam directory.
             </p>
             <a
               href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion"

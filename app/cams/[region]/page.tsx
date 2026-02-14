@@ -46,15 +46,15 @@ export async function generateMetadata({
   const camCount = regionBeaches.length;
 
   return buildPageMetadata({
-    title: `Live Surf Cams in ${region.name} - ${camCount} Free Cameras`,
-    description: `Watch ${camCount} free live surf cams in ${region.name}. ${region.description} No paywall, no sign-up.`,
+    title: `Live Surf Cams in ${region.name} — ${camCount} Cameras`,
+    description: `Watch ${camCount} live surf cams in ${region.name}. ${region.description}`,
     path: `/cams/${regionSlug}`,
     image: `/api/og/cams?region=${encodeURIComponent(regionSlug)}&name=${encodeURIComponent(region.name)}`,
     keywords: [
       `${region.name} surf cam`,
       `${region.name} beach cam`,
       `live surf cam ${region.name}`,
-      "free surf cam",
+      "surf cam live",
       "surf webcam",
       "beach camera",
     ],

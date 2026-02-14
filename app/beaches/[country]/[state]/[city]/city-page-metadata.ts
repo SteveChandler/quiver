@@ -82,7 +82,7 @@ export async function generateMetadata(props: LocationPageProps) {
 
     const description = metroConfig?.description
       ? `${metroConfig.description}${ratingSnippet || ` ${stats.totalBeaches} surf spots with forecasts, tides & crowd intel.`}`
-      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more.${ratingSnippet} Forecasts, tide charts, crowd levels & session windows.`;
+      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more.${ratingSnippet} Forecasts, tide charts, crowd levels & best surf windows.`;
 
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =
@@ -98,7 +98,7 @@ export async function generateMetadata(props: LocationPageProps) {
         title,
         description,
         url,
-        siteName: "Quiver Surf App",
+        siteName: "Quiver",
         images: [
           {
             url: "/images/og-location-default.jpg",

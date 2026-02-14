@@ -5,72 +5,67 @@ export const SITE_URL = (
 export const SEO_CONFIG = {
   // Primary metadata
   title:
-    "Quiver - Ultimate Surf Community & Session Tracker | Find Surf Buddies",
+    "Quiver — Surf Reports & Forecasts for 185+ Beaches",
   description:
-    "Join the ultimate surf community. Find surf buddies, track sessions, get accurate forecasts, and discover the best surf spots. Never surf alone again with Quiver.",
+    "ML-powered surf forecasts updated every 3 hours with live buoy data. Crowd levels, tide charts, wind & personalized surf windows for California, Hawaii, Oregon & more.",
   keywords: [
-    // Core surfing keywords
-    "surfing",
-    "surf app",
-    "surf community",
-    "surfing san diego",
-    "surf lessons near me",
+    // P0: Queries to own
+    "best time to surf today",
+    "least crowded surf spots",
+    "AI surf forecast",
+    "personalized surf forecast",
 
-    // Niche & feature-focused keywords
+    // P1: High-volume daily queries
+    "surf report",
+    "surf forecast",
+    "surf conditions today",
+    "wave height today",
     "surf forecast app",
+    "tide chart",
+    "surf cam",
+
+    // P1: Discovery & beginner queries
+    "best beginner surf spots",
+    "where to surf today",
+    "learn to surf",
+    "beginner surf spots California",
+    "surf spots near me",
+
+    // P2: Feature & product keywords
     "surf tracker app",
-    "surf reports",
-    "find surf spots",
-    "surf meetups",
-    "local surf events",
-    "surf social app",
-    "surf group chat",
-    "surf journal app",
-    "surf log book",
-    "wave height tracker",
-    "surf diary",
-    "surfing progress tracker",
-    "tide tracker app",
-
-    // Long-tail & local keywords
-    "best surf app for beginners",
-    "San Diego surf community",
-    "connect with surfers app",
-    "surf lessons San Diego",
-    "surf events near me",
-    "Pacific Beach surf scene",
-    "Encinitas surf report",
-    "track my surf sessions",
-    "surf session journal",
-    "log surf conditions",
-
-    // App-specific functionality
     "surf session tracker",
+    "track my surf sessions",
+    "surf journal app",
+    "wave height tracker",
+    "best time to surf",
+
+    // P2: Community & social
+    "surf community",
     "find surf buddies",
-    "surf social network",
     "surf buddy finder",
-    "track surf sessions",
-    "surf spot reviews",
-    "plan surf sessions",
-    "surf conditions tracker",
-    "surf community platform",
-    "surfing social media",
+    "connect with surfers app",
+
+    // P2: Regional
+    "surfing California",
+    "best surfing in California",
+    "California surf forecast",
+    "Hawaii surf report",
   ],
 
   // Open Graph enhanced
   openGraph: {
-    title: "Quiver - Ultimate Surf Community Platform",
+    title: "Quiver — Surf Reports, Forecasts & Live Conditions",
     description:
-      "Join a growing surf community to find surf buddies, track epic sessions, and discover the best spots. Your surf community awaits.",
+      "ML-powered surf forecasts, crowd intelligence, and personalized surf windows for 185+ beaches. Updated every 3 hours with live buoy data.",
     type: "website",
     locale: "en_US",
-    siteName: "Quiver - Surf Community App",
+    siteName: "Quiver",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Quiver - The People's Report - Surf Community App",
+        alt: "Quiver — Surf Reports, Forecasts & Conditions",
       },
     ],
   },
@@ -78,9 +73,9 @@ export const SEO_CONFIG = {
   // Twitter Card enhanced
   twitter: {
     card: "summary_large_image",
-    title: "Quiver - Ultimate Surf Community Platform",
+    title: "Quiver — Surf Reports, Forecasts & Live Conditions",
     description:
-      "Find surf buddies, track sessions, get forecasts. Join the surf community that's revolutionizing how surfers connect.",
+      "ML-powered surf forecasts, live crowd data & personalized surf windows for 185+ beaches.",
     site: "@quiversurf",
     creator: "@quiversurf",
   },
@@ -93,7 +88,7 @@ export const SEO_CONFIG = {
       name: "Quiver",
       alternateName: "Quiver Surf App",
       description:
-        "Ultimate surf community platform - Community-driven surf session tracking and social platform",
+        "ML-powered surf forecast platform with live conditions, crowd intelligence, and session tracking for 185+ beaches across California, Hawaii, Oregon and more",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
       foundingDate: "2024",
@@ -104,7 +99,7 @@ export const SEO_CONFIG = {
     softwareApplication: {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      name: "Quiver Surf Community App",
+      name: "Quiver Surf App",
       applicationCategory: "Sports & Recreation",
       operatingSystem: "Web, iOS, Android",
       offers: {
@@ -114,16 +109,16 @@ export const SEO_CONFIG = {
       },
       url: SITE_URL,
       description:
-        "Find surf buddies, track sessions, get forecasts. Join the ultimate surf community.",
+        "Surf forecasts updated every 3 hours with real buoy data. Personalized match scores, crowd levels, tide charts & optimal surf windows for 185+ beaches.",
     },
 
     website: {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "Quiver - Surf Community App",
+      name: "Quiver — Surf Reports & Forecasts",
       alternateName: "Quiver",
       description:
-        "Ultimate surf community platform - Find surf buddies, track sessions, and join the thriving surf community",
+        "Surf forecast platform with ML-powered conditions, crowd intelligence, and personalized session tracking for 185+ beaches",
       url: SITE_URL,
       publisher: {
         "@type": "Organization",
