@@ -56,6 +56,21 @@ ExternalServices
     └── Error Handling
 ```
 
+### **Forecast Timestamptz Convention (February 2026)**
+
+**Canonical Field**: `forecast_at` (timestamptz)
+**Deprecated**: `forecast_date` (text), `forecast_time` (text)
+
+All forecast-consuming services use `forecast_at` for queries:
+
+```typescript
+.gte("forecast_at", startISO)
+.lt("forecast_at", endISO)
+.order("forecast_at")
+```
+
+Adapter utilities at `lib/utils/forecast-at-adapter.ts` for timezone conversions. See `supabase/ARCHITECTURE.md` for the full migration history and rationale.
+
 ### **Data Flow Pattern**
 
 ```typescript
@@ -494,6 +509,7 @@ export class NOAACOOPSService {
   - Personalized scoring via personalized-scoring-service
   - Optimal time window selection
   - Human-readable summaries and reasons
+  - Stale-data fallback: when all forecast data is stale, serves stale forecasts with `usingStaleData` flag rather than returning empty recommendations
 
 **Service Location:** `lib/services/surf-discovery-service.ts`
 
@@ -592,7 +608,7 @@ The capping algorithm interacts with several other window-limiting systems in `s
 
 **Processing Order:**
 ```
-Window Selection → Sunset Cap → Time Slot Cap → Duration Validation → Scoring
+Window Selection -> Sunset Cap -> Time Slot Cap -> Duration Validation -> Scoring
 ```
 
 #### **Performance Considerations**
@@ -684,8 +700,8 @@ implicitWeight = implicitPrefs.confidence * (1 - explicitConf)
 This ensures graceful handoff from implicit (new users) to explicit (power users). When explicit confidence is high (user has logged sessions), implicit preferences have minimal impact. When explicit confidence is zero (new user), implicit preferences carry full weight.
 
 **Scoring Bonus (when implicitWeight > 0.1):**
-- Wave range match: +10 pts × implicitWeight
-- Break type match: +8 pts × implicitWeight
+- Wave range match: +10 pts x implicitWeight
+- Break type match: +8 pts x implicitWeight
 - Top engaged beach: +2 pts (flat bonus)
 
 **Key Functions:**
@@ -1122,16 +1138,16 @@ All services use `createSupabaseServiceRoleClient()` for server-side access with
 import { confidenceToDecimal, decimalToConfidence } from "@/lib/services/forecast/confidence-scorer";
 
 // Convert 0-100 to 0-1 (before weighting, ML models)
-const decimal = confidenceToDecimal(confidence_score); // 75 → 0.75
+const decimal = confidenceToDecimal(confidence_score); // 75 -> 0.75
 
 // Convert 0-1 to 0-100 (after weighting, for storage/display)
-const score = decimalToConfidence(decimal); // 0.75 → 75
+const score = decimalToConfidence(decimal); // 0.75 -> 75
 ```
 
 **DO NOT** use ad-hoc conversions like:
-- ❌ `confidence / 100`
-- ❌ `Math.round(confidence * 100)`
-- ❌ `if (confidence > 1) confidence = confidence / 100`
+- `confidence / 100`
+- `Math.round(confidence * 100)`
+- `if (confidence > 1) confidence = confidence / 100`
 
 ### Confidence Types (Important Distinction)
 
@@ -1263,6 +1279,6 @@ lib/services/
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
 **Status**: Production-ready with comprehensive external service integration and personalization
 **Next Review**: After machine learning forecast enhancements and user preference algorithm tuning

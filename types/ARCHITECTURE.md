@@ -1,10 +1,10 @@
 # Types Architecture Documentation
 
-## 📋 **Overview**
+## Overview
 
 The `types/` directory contains comprehensive TypeScript type definitions for the Quiver surf app, providing type safety across the entire application stack. These types ensure data consistency, enable excellent developer experience, and support the app's evolution from a simple surf tracker to a comprehensive social surf platform.
 
-## 🏗️ **Architecture Structure**
+## Architecture Structure
 
 ```
 types/
@@ -14,7 +14,7 @@ types/
 └── ARCHITECTURE.md          # This documentation file
 ```
 
-## 🎯 **Core Type Categories**
+## Core Type Categories
 
 ### **1. Database Types (database.ts)**
 
@@ -51,8 +51,7 @@ export type SessionStatus = "planned" | "completed" | "cancelled";
 
 export type Session = {
   id: string;
-  user_id: string; // The owning user's ID
-  profile_id: string; // Required by database schema
+  user_id: string; // Sole ownership field (profile_id was dropped Feb 2026)
   beach_id?: string;
   board_id?: string;
   status: SessionStatus;
@@ -268,6 +267,9 @@ export interface CDIPBuoyData {
 export interface EnhancedForecastEntity {
   id: string;
   beach_id: string;
+  forecast_at: string; // Canonical timestamptz column (Feb 2026)
+  // Deprecated: forecast_date and forecast_time (text) remain in DB but
+  // should not be used in new code. Use forecast_at instead.
   forecast_date: string;
   forecast_time: string;
   // Wave data
@@ -281,7 +283,7 @@ export interface EnhancedForecastEntity {
 }
 ```
 
-## 🎯 **Type Safety Patterns**
+## Type Safety Patterns
 
 ### **Branded Types**
 
@@ -327,7 +329,7 @@ export interface Location {
 }
 
 // Prevents accidental mutations
-location.latitude = newLat; // ✗ Compile error
+location.latitude = newLat; // Compile error
 ```
 
 **Benefits**:
@@ -354,17 +356,17 @@ export type TideStatus =
 function handleSessionStatus(status: SessionStatus) {
   switch (status) {
     case "planned":
-      return "🌊 Planned";
+      return "Planned";
     case "completed":
-      return "✅ Completed";
+      return "Completed";
     case "cancelled":
-      return "❌ Cancelled";
+      return "Cancelled";
     // TypeScript ensures all cases handled
   }
 }
 ```
 
-## 🚀 **Database Integration**
+## Database Integration
 
 ### **Supabase Type Generation**
 
@@ -407,7 +409,7 @@ const { data, error } = await supabase
   .returns<Session[]>(); // Full type inference
 ```
 
-## 📱 **Mobile-First Type Design**
+## Mobile-First Type Design
 
 ### **Performance-Oriented Types**
 
@@ -444,7 +446,7 @@ export type SyncableEntity = {
 };
 ```
 
-## 🧪 **Testing Integration**
+## Testing Integration
 
 ### **Type-Safe Test Data**
 
@@ -454,8 +456,7 @@ export type SyncableEntity = {
 // Test data factories with full type safety
 export const createMockSession = (overrides?: Partial<Session>): Session => ({
   id: "test-session-id",
-  user_id: "test-user-id",
-  profile_id: "test-profile-id",
+  user_id: "test-user-id", // Sole ownership field
   status: "planned",
   arrival_time: new Date().toISOString(),
   created_at: new Date().toISOString(),
@@ -475,7 +476,7 @@ const sessions: Session[] = await response.json();
 // TypeScript validates response structure
 ```
 
-## 🔧 **Development Workflow**
+## Development Workflow
 
 ### **Type Evolution Strategy**
 
@@ -516,7 +517,7 @@ type SessionRequired = RequiredFields<Session>;
 // Ensures all fields are defined
 ```
 
-## 📊 **Performance Considerations**
+## Performance Considerations
 
 ### **Type Optimization**
 
@@ -547,7 +548,7 @@ export type SessionSummary = Pick<
 export type SessionStream = AsyncIterable<SessionSummary>;
 ```
 
-## 📊 **Implicit Preferences System**
+## Implicit Preferences System
 
 ### **Overview**
 
@@ -665,7 +666,7 @@ function isOnboardingStepMetadata(m: EventMetadata): m is OnboardingStepMetadata
 
 ---
 
-## 🎯 **Growth-Focused Type Design**
+## Growth-Focused Type Design
 
 ### **Social Features Support**
 
@@ -703,7 +704,7 @@ export type SessionAnalytics = {
 - Backward-compatible type evolution
 - Plugin-friendly type architecture
 
-## 🔒 **Security & Privacy**
+## Security & Privacy
 
 ### **Data Protection Types**
 
@@ -729,7 +730,7 @@ export type SanitizedInput<T> = {
 } & { __sanitized: true };
 ```
 
-## 📋 **Quality Checklist**
+## Quality Checklist
 
 Before adding new types:
 

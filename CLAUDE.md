@@ -150,6 +150,13 @@ useEffect(() => {
 Validate with `assertValidCoordinates(lat, lon, "context")` from `lib/coordinate-validation.ts`.
 See `/docs/COORDINATE_CONVENTIONS.md` for the full guide.
 
+### Forecast Timestamps
+
+- **Use**: `forecast_at` (timestamptz) -- canonical forecast time column
+- **Deprecated**: `forecast_date` + `forecast_time` -- ambiguous bare text fields, do not use in new code
+- **Adapter**: `lib/utils/forecast-at-adapter.ts` for timezone conversions
+- **Query pattern**: `.gte("forecast_at", startISO).lt("forecast_at", endISO).order("forecast_at")`
+
 ---
 
 ## Architecture Documentation
@@ -262,6 +269,8 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 - Don't add monetization or non-growth features without direction
 - Don't assume `beach.latitude` exists (it's `beach.center_lat`)
 - Don't use `lng` in new code (use `lon`)
+- Don't use `forecast_date` + `forecast_time` in new queries (use `forecast_at`)
+- Don't reference `sessions.profile_id` (dropped Feb 2026 -- use `user_id`)
 
 ---
 
