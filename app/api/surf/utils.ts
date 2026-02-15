@@ -190,9 +190,8 @@ export async function fetchForecast(lat: number, lon: number): Promise<any> {
       .from("forecasts")
       .select("*")
       .eq("beach_id", nearestBeach.id)
-      .gte("forecast_date", today)
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true })
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .order("forecast_at", { ascending: true })
       .limit(50);
 
     if (forecastsError || !forecasts || forecasts.length === 0) {
@@ -204,8 +203,7 @@ export async function fetchForecast(lat: number, lon: number): Promise<any> {
         .from("forecasts")
         .select("*")
         .eq("beach_id", nearestBeach.id)
-        .order("forecast_date", { ascending: false })
-        .order("forecast_time", { ascending: false })
+        .order("forecast_at", { ascending: false })
         .limit(1);
 
       if (!latestErr && latest && latest.length > 0) {
@@ -239,8 +237,7 @@ export async function fetchForecast(lat: number, lon: number): Promise<any> {
           .from("forecasts")
           .select("*")
           .eq("beach_id", beach.id)
-          .order("forecast_date", { ascending: false })
-          .order("forecast_time", { ascending: false })
+          .order("forecast_at", { ascending: false })
           .limit(1);
         if (!nearErr && nearLatest && nearLatest.length > 0) {
           console.log(

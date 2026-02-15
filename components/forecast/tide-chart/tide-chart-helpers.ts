@@ -196,10 +196,14 @@ export const normalizeForecasts = (
   if (!Array.isArray(forecasts)) return [];
   return forecasts
     .map((forecast) => {
-      if (!forecast?.forecast_date || !forecast.forecast_time) return undefined;
-      const date =
-        parseForecastDateTime(forecast.forecast_date, forecast.forecast_time) ??
-        new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+      // Prefer forecast_at (UTC timestamptz), fall back to legacy fields
+      const date = forecast.forecast_at
+        ? new Date(forecast.forecast_at)
+        : forecast.forecast_date && forecast.forecast_time
+          ? (parseForecastDateTime(forecast.forecast_date, forecast.forecast_time) ??
+            new Date(`${forecast.forecast_date}T${forecast.forecast_time}`))
+          : undefined;
+      if (!date) return undefined;
       if (Number.isNaN(date.getTime())) return undefined;
       const heightFt =
         parseHeight(forecast.tide_height) ??

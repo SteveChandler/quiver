@@ -305,7 +305,7 @@ export class ForecastStorageService {
         .from("enhanced_forecasts")
         .delete({ count: "exact" })
         .eq("beach_id", beachId)
-        .lt("forecast_date", cutoffDateStr);
+        .lt("forecast_at", cutoffDate.toISOString());
 
       if (error) {
         // Log but don't fail the main operation

@@ -36,8 +36,13 @@ export function extractForecastTime(
   const date = new Date(forecastAt);
   if (timezone) {
     const hour = getLocalHour(date, timezone);
-    const minutes = date.getUTCMinutes();
-    return `${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+    // Use Intl.DateTimeFormat for correct local minutes in the given timezone
+    const minuteParts = new Intl.DateTimeFormat("en-US", {
+      minute: "2-digit",
+      timeZone: timezone,
+    }).formatToParts(date);
+    const minutes = minuteParts.find((p) => p.type === "minute")?.value || "00";
+    return `${String(hour).padStart(2, "0")}:${minutes.padStart(2, "0")}:00`;
   }
   return forecastAt.split("T")[1]?.split(/[Z+-]/)[0] || "00:00:00";
 }

@@ -20,23 +20,25 @@ export function getNormalizedForecastAt(date: Date): string {
 }
 
 /**
- * Get normalized date string (YYYY-MM-DD) in local timezone
+ * Get normalized date string (YYYY-MM-DD) in UTC.
+ * @deprecated Use getNormalizedForecastAt() which returns a full ISO 8601 timestamptz.
  */
 export function getNormalizedDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 /**
- * Get normalized time string rounded to 3-hour intervals
+ * Get normalized time string rounded to 3-hour intervals.
+ * @deprecated Use getNormalizedForecastAt() which returns a full ISO 8601 timestamptz.
  *
  * Valid times: 00:00:00, 03:00:00, 06:00:00, 09:00:00,
  *              12:00:00, 15:00:00, 18:00:00, 21:00:00
  */
 export function getNormalizedTimeString(date: Date): string {
-  const currentHour = date.getHours();
+  const currentHour = date.getUTCHours();
   const roundedHour = Math.floor(currentHour / 3) * 3;
   const hours = String(roundedHour).padStart(2, "0");
   return `${hours}:00:00`;

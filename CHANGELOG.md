@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- Migrated 8 scoring and utility files to use `forecast_at` timestamptz column instead of legacy `forecast_date` + `forecast_time` columns, eliminating timezone double-conversion bug that caused 8-hour shift in tide data
+  - `forecast-snapshot-utils.ts`: Updated Supabase query to use `forecast_at` range filter (`.gte()` + `.lt()`) and `.order('forecast_at')`, with timestamp-based closest-forecast matching
+
 ### Added
 
 - **California Surfer Search Query Map** - Comprehensive query research document at `docs/plans/2026-02-14-surfer-search-query-map.md` mapping the full California surfer search landscape by customer journey stage, with competitive gap analysis and priority matrix for SEO targeting.
