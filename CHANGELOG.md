@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Dropped `_backup_beach_timezones_pr_hi` backup table (no longer needed after timezone migration)
+- Dropped dead profile columns: `favorite_spot`, `favorite_spot_id`, `home_beach_ids`, `secondary_beaches` (replaced by `home_beach_id` and `favorite_beaches` table)
+- Dropped `sessions.profile_id` column (redundant with `user_id`); rewrote RLS policies to use `user_id`
+
 ### Performance
 
 - Migrated 8 scoring and utility files to use `forecast_at` timestamptz column instead of legacy `forecast_date` + `forecast_time` columns, eliminating timezone double-conversion bug that caused 8-hour shift in tide data

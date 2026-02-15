@@ -184,7 +184,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -332,7 +350,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -415,7 +451,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -505,7 +559,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -550,7 +612,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -588,7 +658,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -675,7 +753,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -764,7 +860,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -810,7 +924,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -853,7 +975,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -943,7 +1073,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1037,7 +1185,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1129,7 +1295,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1226,7 +1410,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1324,7 +1526,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1413,7 +1633,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1492,7 +1730,25 @@ describe("/api/session-planner/invitations - PATCH", () => {
             }),
           };
         }
-        return mockSupabaseClient.from();
+        if (table === "user_events") {
+          return {
+            insert: jest.fn().mockReturnValue({
+              then: jest.fn((cb: any) => {
+                cb?.();
+                return { catch: jest.fn() };
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1533,7 +1789,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1585,7 +1849,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(
@@ -1617,7 +1889,15 @@ describe("/api/session-planner/invitations - PATCH", () => {
             })),
           };
         }
-        return mockSupabaseClient.from();
+        return {
+          select: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnValue({
+            then: jest.fn((cb: any) => { cb?.(); return { catch: jest.fn() }; }),
+          }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
       }) as any);
 
       const request = createMockRequest(

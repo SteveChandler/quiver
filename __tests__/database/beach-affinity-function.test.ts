@@ -439,7 +439,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
 
     const { error } = await adminClient.from("sessions").insert({
       user_id: userId,
-      profile_id: userId, // Required field
       beach_id: beachId,
       arrival_time: arrivalTime.toISOString(),
       duration_minutes: 120, // 2 hours (replaces departure_time)

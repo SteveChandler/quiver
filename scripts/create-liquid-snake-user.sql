@@ -107,7 +107,6 @@ BEGIN
         bio,
         location,
         experience_level,
-        favorite_spot,
         instagram,
         notification_session_reminders,
         notification_community_replies,
@@ -124,7 +123,6 @@ BEGIN
         'Former FOXHOUND operative turned surfer. Seeking the perfect wave and ultimate freedom on the water. Twin to Solid Snake. "I live on through this arm!" 🌊🏄‍♂️',
         'Shadow Moses Island → Pacific Beach, CA',
         'expert',
-        'Pacific Beach',
         '@liquid_wave_snake',
         true,
         true,
@@ -322,7 +320,6 @@ BEGIN
     FOR i IN 1..10 LOOP
         INSERT INTO sessions (
             user_id,
-            profile_id,
             beach_id,
             board_id,
             beach_name,
@@ -346,7 +343,6 @@ BEGIN
             created_at,
             updated_at
         ) VALUES (
-            liquid_snake_id,
             liquid_snake_id,
             pacific_beach_id,
             (SELECT id FROM boards WHERE user_id = liquid_snake_id LIMIT 1),

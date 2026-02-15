@@ -50,8 +50,7 @@ BEGIN
         avatar_url,
         bio,
         location,
-        experience_level,
-        favorite_spot
+        experience_level
       ) VALUES (
         solid_snake_id,
         solid_snake_name,
@@ -59,8 +58,7 @@ BEGIN
         '/placeholder.svg?height=200&width=200',
         'Legendary infiltrator. Prefers dawn patrols and tactical positioning.',
         'Shadow Moses',
-        'advanced',
-        'Blacks Beach'
+        'advanced'
       );
     END IF;
   ELSE
@@ -93,10 +91,10 @@ BEGIN
         WHERE user_id = solid_snake_id AND status = 'planned' AND beach_name = bname AND arrival_time::date = planned_dt::date
       ) THEN
         INSERT INTO sessions (
-          user_id, profile_id, beach_id, board_id, beach_name, status, arrival_time,
+          user_id, beach_id, board_id, beach_name, status, arrival_time,
           duration_minutes, wave_quality, water_temp, crowd_level, parking_ease, notes
         ) VALUES (
-          solid_snake_id, solid_snake_id, bid, board_id, bname, 'planned', planned_dt,
+          solid_snake_id, bid, board_id, bname, 'planned', planned_dt,
           120 + (i*10), NULL, NULL, NULL, NULL,
           'PLANNED: Covert approach at ' || bname || '. Optimize stealth entry and precision takeoffs.'
         );
@@ -119,10 +117,10 @@ BEGIN
         WHERE user_id = solid_snake_id AND status = 'completed' AND beach_name = bname AND arrival_time::date = planned_dt::date
       ) THEN
         INSERT INTO sessions (
-          user_id, profile_id, beach_id, board_id, beach_name, status, arrival_time,
+          user_id, beach_id, board_id, beach_name, status, arrival_time,
           duration_minutes, wave_quality, water_temp, crowd_level, parking_ease, notes
         ) VALUES (
-          solid_snake_id, solid_snake_id, bid, board_id, bname, 'completed', planned_dt,
+          solid_snake_id, bid, board_id, bname, 'completed', planned_dt,
           90 + (i*12), 3 + ((i-1) % 3), 66, 2 + ((i-1) % 4), 3 + ((i-1) % 3),
           'Infiltration successful at ' || bname || '. Minimal detection. Maximum efficiency.'
         );

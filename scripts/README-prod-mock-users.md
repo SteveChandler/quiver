@@ -141,9 +141,9 @@ Each user gets a board matching their persona and experience level:
 
 ### View All Mock Users
 ```sql
-SELECT full_name, email, created_at, experience_level, favorite_spot
-FROM profiles 
-WHERE is_mock = true 
+SELECT full_name, email, created_at, experience_level
+FROM profiles
+WHERE is_mock = true
 ORDER BY created_at;
 ```
 
@@ -152,7 +152,6 @@ ORDER BY created_at;
 SELECT 
   p.full_name,
   p.experience_level,
-  p.favorite_spot,
   b.name as board_name,
   b.board_type,
   b.dimensions

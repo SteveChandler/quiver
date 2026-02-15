@@ -55,7 +55,7 @@ BEGIN
         RAISE NOTICE 'WARNING: Auth user % (Solid Snake) not found. Create via Supabase Auth Dashboard first.', solid_snake_id;
     ELSE
         INSERT INTO profiles (
-            id, full_name, email, bio, location, experience_level, favorite_spot,
+            id, full_name, email, bio, location, experience_level,
             instagram, followers_count, following_count, created_at, updated_at
         ) VALUES (
             solid_snake_id,
@@ -64,7 +64,6 @@ BEGIN
             'Tactical espionage specialist turned surfer. Twin to Liquid Snake but prefers stealth infiltration over direct assault. "Kept you waiting, huh?" The ocean teaches patience that no battlefield can. 🐍🌊',
             'Shadow Moses → Coronado, CA',
             'expert',
-            'Coronado Beach',
             '@solid_snake_stealth',
             67, 28,
             NOW() - INTERVAL '8 months',
@@ -79,7 +78,7 @@ BEGIN
         RAISE NOTICE 'WARNING: Auth user % (Rookie Riley) not found. Create via Supabase Auth Dashboard first.', rookie_riley_id;
     ELSE
         INSERT INTO profiles (
-            id, full_name, email, bio, location, experience_level, favorite_spot,
+            id, full_name, email, bio, location, experience_level,
             instagram, followers_count, following_count, created_at, updated_at
         ) VALUES (
             rookie_riley_id,
@@ -88,7 +87,6 @@ BEGIN
             'Just started surfing 6 months ago and absolutely loving it! Learning something new every session. Looking for surf buddies and advice from experienced surfers. 🏄‍♀️✨',
             'Mission Beach, CA',
             'beginner',
-            'Mission Beach',
             '@rookie_riley_surf',
             8, 15,
             NOW() - INTERVAL '4 months',
@@ -103,7 +101,7 @@ BEGIN
         RAISE NOTICE 'WARNING: Auth user % (Local Larry) not found. Create via Supabase Auth Dashboard first.', local_larry_id;
     ELSE
         INSERT INTO profiles (
-            id, full_name, email, bio, location, experience_level, favorite_spot,
+            id, full_name, email, bio, location, experience_level,
             instagram, followers_count, following_count, created_at, updated_at
         ) VALUES (
             local_larry_id,
@@ -112,7 +110,6 @@ BEGIN
             'San Diego native, been surfing these breaks for 15 years. Know all the secret spots and best times. Always down to show newcomers around. Local knowledge is everything! 🌊🏠',
             'Ocean Beach, CA',
             'intermediate',
-            'Ocean Beach',
             '@local_larry_sd',
             47, 23,
             NOW() - INTERVAL '2 years',
@@ -127,7 +124,7 @@ BEGIN
         RAISE NOTICE 'WARNING: Auth user % (Travel Tina) not found. Create via Supabase Auth Dashboard first.', travel_tina_id;
     ELSE
         INSERT INTO profiles (
-            id, full_name, email, bio, location, experience_level, favorite_spot,
+            id, full_name, email, bio, location, experience_level,
             instagram, followers_count, following_count, created_at, updated_at
         ) VALUES (
             travel_tina_id,
@@ -136,7 +133,6 @@ BEGIN
             'Traveling surfer exploring California''s coast. Love discovering new breaks and sharing detailed reviews. Currently road-tripping from SF to SD, hitting every spot along the way! 🚐🌍',
             'Currently: San Diego, CA',
             'advanced',
-            'Varies by location',
             '@travel_tina_waves',
             156, 89,
             NOW() - INTERVAL '1 year',
@@ -151,7 +147,7 @@ BEGIN
         RAISE NOTICE 'WARNING: Auth user % (Photo Paul) not found. Create via Supabase Auth Dashboard first.', photo_paul_id;
     ELSE
         INSERT INTO profiles (
-            id, full_name, email, bio, location, experience_level, favorite_spot,
+            id, full_name, email, bio, location, experience_level,
             instagram, followers_count, following_count, created_at, updated_at
         ) VALUES (
             photo_paul_id,
@@ -160,7 +156,6 @@ BEGIN
             'Surf photographer who also loves to ride. Always capturing the perfect moment between sets. Follow for epic session photos and tips on water photography! 📸🏄‍♂️',
             'La Jolla, CA',
             'intermediate',
-            'Windansea Beach',
             '@photo_paul_surf',
             234, 67,
             NOW() - INTERVAL '8 months',
@@ -175,7 +170,7 @@ BEGIN
         RAISE NOTICE 'WARNING: Auth user % (Dawn Patrol Dana) not found. Create via Supabase Auth Dashboard first.', dawn_dana_id;
     ELSE
         INSERT INTO profiles (
-            id, full_name, email, bio, location, experience_level, favorite_spot,
+            id, full_name, email, bio, location, experience_level,
             instagram, followers_count, following_count, created_at, updated_at
         ) VALUES (
             dawn_dana_id,
@@ -184,7 +179,6 @@ BEGIN
             'Early bird gets the best waves. 20+ years surfing SD, compete in local contests. Love peaceful dawn sessions before the crowds. "The ocean is different at sunrise." 🌅🏆',
             'Encinitas, CA',
             'expert',
-            'Swami''s Beach',
             '@dawn_patrol_dana',
             78, 34,
             NOW() - INTERVAL '3 years',
@@ -316,11 +310,11 @@ BEGIN
     -- Solid Snake - Stealth sessions at various beaches
     FOR i IN 1..10 LOOP
         INSERT INTO sessions (
-            user_id, profile_id, beach_id, board_id, beach_name, status,
+            user_id, beach_id, board_id, beach_name, status,
             arrival_time, duration_minutes, wave_quality, water_temp,
             crowd_level, parking_ease, notes
         ) VALUES (
-            solid_snake_id, solid_snake_id,
+            solid_snake_id,
             (SELECT id FROM beaches ORDER BY RANDOM() LIMIT 1),
             (SELECT id FROM boards WHERE user_id = solid_snake_id ORDER BY RANDOM() LIMIT 1),
             (SELECT name FROM beaches ORDER BY RANDOM() LIMIT 1),
@@ -347,11 +341,11 @@ BEGIN
     -- Rookie Riley - Learning sessions at gentle breaks
     FOR i IN 1..8 LOOP
         INSERT INTO sessions (
-            user_id, profile_id, beach_id, board_id, beach_name, status,
+            user_id, beach_id, board_id, beach_name, status,
             arrival_time, duration_minutes, wave_quality, water_temp,
             crowd_level, parking_ease, notes
         ) VALUES (
-            rookie_riley_id, rookie_riley_id,
+            rookie_riley_id,
             (SELECT id FROM beaches WHERE name IN ('Mission Beach', 'La Jolla Shores', 'Tourmaline Surf Park') ORDER BY RANDOM() LIMIT 1),
             (SELECT id FROM boards WHERE user_id = rookie_riley_id ORDER BY RANDOM() LIMIT 1),
             'Mission Beach',
@@ -374,11 +368,11 @@ BEGIN
     -- Local Larry - Consistent local sessions
     FOR i IN 1..12 LOOP
         INSERT INTO sessions (
-            user_id, profile_id, beach_id, board_id, beach_name, status,
+            user_id, beach_id, board_id, beach_name, status,
             arrival_time, duration_minutes, wave_quality, water_temp,
             crowd_level, parking_ease, notes
         ) VALUES (
-            local_larry_id, local_larry_id,
+            local_larry_id,
             (SELECT id FROM beaches WHERE name IN ('Ocean Beach', 'Pacific Beach', 'Mission Beach', 'Sunset Cliffs') ORDER BY RANDOM() LIMIT 1),
             (SELECT id FROM boards WHERE user_id = local_larry_id ORDER BY RANDOM() LIMIT 1),
             'Ocean Beach',
@@ -402,11 +396,11 @@ BEGIN
     -- Travel Tina - Exploration sessions with detailed reviews
     FOR i IN 1..10 LOOP
         INSERT INTO sessions (
-            user_id, profile_id, beach_id, board_id, beach_name, status,
+            user_id, beach_id, board_id, beach_name, status,
             arrival_time, duration_minutes, wave_quality, water_temp,
             crowd_level, parking_ease, notes
         ) VALUES (
-            travel_tina_id, travel_tina_id,
+            travel_tina_id,
             (SELECT id FROM beaches ORDER BY RANDOM() LIMIT 1),
             (SELECT id FROM boards WHERE user_id = travel_tina_id ORDER BY RANDOM() LIMIT 1),
             (SELECT name FROM beaches ORDER BY RANDOM() LIMIT 1),

@@ -159,7 +159,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 4,
@@ -184,7 +183,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         const sessions = await Promise.all([
           supabaseAdmin.from("sessions").insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 4,
@@ -194,7 +192,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           }),
           supabaseAdmin.from("sessions").insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 5,
@@ -231,7 +228,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create session with rating
         await supabaseAdmin.from("sessions").insert({
           user_id: testUserId,
-          profile_id: testUserId,
           beach_id: testBeachId,
           board_id: testBoardId,
           rating: 5,
@@ -258,7 +254,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 3,
@@ -295,7 +290,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 5,
@@ -324,7 +318,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         await supabaseAdmin.from("sessions").insert([
           {
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 4,
@@ -334,7 +327,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           },
           {
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 5,
@@ -372,7 +364,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 4,
@@ -418,7 +409,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 5,
@@ -456,7 +446,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 4,
@@ -486,7 +475,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create session
         await supabaseAdmin.from("sessions").insert({
           user_id: testUserId,
-          profile_id: testUserId,
           beach_id: testBeachId,
           board_id: testBoardId,
           rating: 5,
@@ -512,7 +500,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create session (wave_height may be in forecast snapshot, not direct column)
         await supabaseAdmin.from("sessions").insert({
           user_id: testUserId,
-          profile_id: testUserId,
           beach_id: testBeachId,
           board_id: testBoardId,
           rating: 5,
@@ -540,7 +527,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create multiple high-rated sessions at same beach
         const sessions = [1, 2, 3].map((i) => ({
           user_id: testUserId,
-          profile_id: testUserId,
           beach_id: testBeachId,
           board_id: testBoardId,
           rating: 5,
@@ -578,7 +564,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create session
         await supabaseAdmin.from("sessions").insert({
           user_id: testUserId,
-          profile_id: testUserId,
           beach_id: testBeachId,
           board_id: testBoardId,
           rating: 4,
@@ -602,7 +587,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         await supabaseAdmin.from("sessions").insert([
           {
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             rating: 5,
@@ -612,7 +596,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           },
           {
             user_id: testUserId,
-            profile_id: testUserId,
             beach_id: testBeachId,
             board_id: testBoardId,
             status: "planned",

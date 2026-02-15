@@ -784,7 +784,6 @@ function generateSessionFromPersonality(npc: MockUser, beach: Beach): any {
   const notes = createSessionNarrative(npc, beach, sessionTime, duration, rating, surfConditions);
 
   return {
-    profile_id: npc.id,
     user_id: npc.id,
     beach_id: beach.id,
     arrival_time: sessionTime.toISOString(),

@@ -22,7 +22,6 @@ import type { SessionWithDetails, SessionAnalytics, ExportOptions, ExportResult 
 const createMockSession = (id: string, arrivalTime: string, durationMinutes: number) => ({
   id,
   user_id: "user-123",
-  profile_id: "user-123",
   beach_id: "beach-1",
   beach_name: "Test Beach",
   status: "completed",

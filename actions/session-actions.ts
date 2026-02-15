@@ -56,7 +56,7 @@ function sanitizePayload<T extends Record<string, any>>(input: T): T {
     if ((key === "board_id" || key === "beach_id") && value === "") continue;
 
     // Security: never trust client-sent ownership/status fields
-    if (key === "user_id" || key === "profile_id" || key === "status") continue;
+    if (key === "user_id" || key === "status") continue;
 
     cleaned[key] = value;
   }
@@ -367,7 +367,6 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
     const finalPayload = {
       ...cleaned,
       user_id: user.id,
-      profile_id: user.id,
       status: "completed",
       board_snapshot: boardSnapshot,
     };
@@ -500,7 +499,6 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
     const finalPayload = {
       ...cleaned,
       user_id: user.id,
-      profile_id: user.id, // Add profile_id to satisfy the constraint
       status: "planned",
       board_snapshot: boardSnapshot,
     };

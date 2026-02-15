@@ -14,27 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _backup_beach_timezones_pr_hi: {
-        Row: {
-          id: string | null
-          name: string | null
-          state: string | null
-          timezone: string | null
-        }
-        Insert: {
-          id?: string | null
-          name?: string | null
-          state?: string | null
-          timezone?: string | null
-        }
-        Update: {
-          id?: string | null
-          name?: string | null
-          state?: string | null
-          timezone?: string | null
-        }
-        Relationships: []
-      }
       admin_audit_log: {
         Row: {
           action: string
@@ -3123,13 +3102,10 @@ export type Database = {
           email: string | null
           email_session_invites: boolean
           experience_level: string | null
-          favorite_spot: string | null
-          favorite_spot_id: string | null
           followers_count: number | null
           following_count: number | null
           full_name: string | null
           home_beach_id: string | null
-          home_beach_ids: string[] | null
           home_region: string | null
           id: string
           inapp_session_invites: boolean
@@ -3155,7 +3131,6 @@ export type Database = {
           preferred_break_type: string | null
           preferred_wave_size: string | null
           referral_code: string | null
-          secondary_beaches: string[] | null
           signup_context: Json | null
           signup_location: Json | null
           surf_styles: string[] | null
@@ -3174,13 +3149,10 @@ export type Database = {
           email?: string | null
           email_session_invites?: boolean
           experience_level?: string | null
-          favorite_spot?: string | null
-          favorite_spot_id?: string | null
           followers_count?: number | null
           following_count?: number | null
           full_name?: string | null
           home_beach_id?: string | null
-          home_beach_ids?: string[] | null
           home_region?: string | null
           id?: string
           inapp_session_invites?: boolean
@@ -3206,7 +3178,6 @@ export type Database = {
           preferred_break_type?: string | null
           preferred_wave_size?: string | null
           referral_code?: string | null
-          secondary_beaches?: string[] | null
           signup_context?: Json | null
           signup_location?: Json | null
           surf_styles?: string[] | null
@@ -3225,13 +3196,10 @@ export type Database = {
           email?: string | null
           email_session_invites?: boolean
           experience_level?: string | null
-          favorite_spot?: string | null
-          favorite_spot_id?: string | null
           followers_count?: number | null
           following_count?: number | null
           full_name?: string | null
           home_beach_id?: string | null
-          home_beach_ids?: string[] | null
           home_region?: string | null
           id?: string
           inapp_session_invites?: boolean
@@ -3257,7 +3225,6 @@ export type Database = {
           preferred_break_type?: string | null
           preferred_wave_size?: string | null
           referral_code?: string | null
-          secondary_beaches?: string[] | null
           signup_context?: Json | null
           signup_location?: Json | null
           surf_styles?: string[] | null
@@ -3310,55 +3277,6 @@ export type Database = {
           {
             foreignKeyName: "profiles_default_beach_id_fkey"
             columns: ["home_beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_tide_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "beach_location_audit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "beach_ml_performance_baseline"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "v_enhanced_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "v_marine_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "v_sun_times_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]
@@ -4095,7 +4013,6 @@ export type Database = {
           likes_count: number
           notes: string | null
           parking_ease: number | null
-          profile_id: string
           rating: number | null
           share_count: number
           status: string | null
@@ -4129,7 +4046,6 @@ export type Database = {
           likes_count?: number
           notes?: string | null
           parking_ease?: number | null
-          profile_id: string
           rating?: number | null
           share_count?: number
           status?: string | null
@@ -4163,7 +4079,6 @@ export type Database = {
           likes_count?: number
           notes?: string | null
           parking_ease?: number | null
-          profile_id?: string
           rating?: number | null
           share_count?: number
           status?: string | null
@@ -4233,20 +4148,6 @@ export type Database = {
             referencedRelation: "boards"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "sessions_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sessions_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles_with_home_beach"
-            referencedColumns: ["id"]
-          },
         ]
       }
       sessions_history: {
@@ -4274,7 +4175,6 @@ export type Database = {
           likes_count: number | null
           notes: string | null
           parking_ease: number | null
-          profile_id: string | null
           rating: number | null
           status: string | null
           tide_height_ft: number | null
@@ -4310,7 +4210,6 @@ export type Database = {
           likes_count?: number | null
           notes?: string | null
           parking_ease?: number | null
-          profile_id?: string | null
           rating?: number | null
           status?: string | null
           tide_height_ft?: number | null
@@ -4346,7 +4245,6 @@ export type Database = {
           likes_count?: number | null
           notes?: string | null
           parking_ease?: number | null
-          profile_id?: string | null
           rating?: number | null
           status?: string | null
           tide_height_ft?: number | null
@@ -5474,8 +5372,6 @@ export type Database = {
           email: string | null
           email_session_invites: boolean | null
           experience_level: string | null
-          favorite_spot: string | null
-          favorite_spot_id: string | null
           followers_count: number | null
           following_count: number | null
           full_name: string | null
@@ -5536,55 +5432,6 @@ export type Database = {
           {
             foreignKeyName: "profiles_default_beach_id_fkey"
             columns: ["home_beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_tide_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "beach_location_audit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "beach_ml_performance_baseline"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "v_enhanced_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "v_marine_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
-            isOneToOne: false
-            referencedRelation: "v_sun_times_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "profiles_favorite_spot_id_fkey"
-            columns: ["favorite_spot_id"]
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]

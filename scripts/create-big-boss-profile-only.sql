@@ -84,7 +84,6 @@ BEGIN
         bio,
         location,
         experience_level,
-        favorite_spot,
         instagram,
         notification_session_reminders,
         notification_community_replies,
@@ -101,7 +100,6 @@ BEGIN
         'Legendary soldier and founder of FOXHOUND. Seeking perfect waves to match perfect battles. "A soldier''s skills aren''t measured by his politics." The ocean teaches what no battlefield can. 🌊⚡',
         'Outer Heaven → San Diego, CA',
         'expert',
-        'Blacks Beach',
         '@big_boss_waves',
         true,
         true,
@@ -115,7 +113,6 @@ BEGIN
         bio = EXCLUDED.bio,
         location = EXCLUDED.location,
         experience_level = EXCLUDED.experience_level,
-        favorite_spot = EXCLUDED.favorite_spot,
         instagram = EXCLUDED.instagram,
         phone_number = EXCLUDED.phone_number,
         avatar_url = EXCLUDED.avatar_url,
@@ -370,7 +367,6 @@ BEGIN
         
         INSERT INTO sessions (
             user_id,
-            profile_id,
             beach_id,
             board_id,
             beach_name,
@@ -383,7 +379,6 @@ BEGIN
             parking_ease,
             notes
         ) VALUES (
-            big_boss_id,
             big_boss_id,
             current_beach_id,
             (SELECT id FROM boards WHERE user_id = big_boss_id ORDER BY RANDOM() LIMIT 1),

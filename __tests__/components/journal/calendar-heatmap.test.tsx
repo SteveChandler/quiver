@@ -10,7 +10,6 @@ const mockSessions: any[] = [
   {
     id: "session-1",
     user_id: "user-123",
-    profile_id: "user-123",
     beach_id: "beach-1",
     beach_name: "Test Beach",
     status: "completed",
@@ -28,8 +27,6 @@ const mockSessions: any[] = [
   },
   {
     id: "session-2",
-    user_id: "user-123",
-    profile_id: "user-123",
     beach_id: "beach-2",
     beach_name: "Another Beach",
     status: "completed",

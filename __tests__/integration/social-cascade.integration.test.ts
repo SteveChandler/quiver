@@ -309,7 +309,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUser1Id,
-            profile_id: testUser1Id,
             beach_id: testBeachId,
             rating: 5,
             status: "completed",
@@ -339,7 +338,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUser1Id,
-            profile_id: testUser1Id,
             beach_id: testBeachId,
             rating: 4,
             status: "completed",
@@ -370,7 +368,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUser1Id,
-            profile_id: testUser1Id,
             beach_id: testBeachId,
             rating: 5,
             status: "completed",
@@ -505,7 +502,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create session
         await supabaseAdmin.from("sessions").insert({
           user_id: testUser1Id,
-          profile_id: testUser1Id,
           beach_id: testBeachId,
           rating: 4,
           status: "completed",
@@ -585,7 +581,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Create session
         const { data: session } = await supabaseAdmin.from("sessions").insert({
           user_id: tempUserId,
-          profile_id: tempUserId,
           beach_id: testBeachId,
           rating: 4,
           status: "completed",
@@ -623,7 +618,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           .from("sessions")
           .insert({
             user_id: testUser2Id,
-            profile_id: testUser2Id,
             beach_id: testBeachId,
             rating: 5,
             status: "completed",
@@ -680,7 +674,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
       it("multiple sessions created atomically", async () => {
         const sessions = [1, 2, 3].map((i) => ({
           user_id: testUser1Id,
-          profile_id: testUser1Id,
           beach_id: testBeachId,
           rating: i + 2,
           status: "completed" as const,
@@ -705,7 +698,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         const sessions = [
           {
             user_id: testUser1Id,
-            profile_id: testUser1Id,
             beach_id: testBeachId,
             rating: 4,
             status: "completed" as const,
@@ -714,7 +706,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
           },
           {
             user_id: testUser1Id,
-            profile_id: testUser1Id,
             beach_id: "invalid-beach-id", // Invalid foreign key
             rating: 5,
             status: "completed" as const,

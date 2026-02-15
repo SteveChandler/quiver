@@ -54,7 +54,6 @@ const mockSessionSnapshots = [
 const mockSession = {
   id: "session-1",
   user_id: "user-1",
-  profile_id: "user-1",
   beach_id: "beach-1",
   arrival_time: "2024-01-15T10:00:00Z",
   status: "completed",

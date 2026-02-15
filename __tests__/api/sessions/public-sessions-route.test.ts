@@ -60,7 +60,7 @@ describe("/api/sessions/public", () => {
               image_url: null,
               likes_count: 2,
               created_at: "2025-01-01T10:00:00.000Z",
-              profile_id: profileId,
+              user_id: profileId,
               duration_minutes: 90,
               crowd_level: 3,
               water_temp: 62,

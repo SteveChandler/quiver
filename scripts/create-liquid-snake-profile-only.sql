@@ -84,7 +84,6 @@
             bio,
             location,
             experience_level,
-            favorite_spot,
             instagram,
             notification_session_reminders,
             notification_community_replies,
@@ -101,7 +100,6 @@
             'Former FOXHOUND operative turned surfer. Seeking the perfect wave and ultimate freedom on the water. Twin to Solid Snake. "I live on through this arm!" 🌊🏄‍♂️',
             'Shadow Moses Island → Pacific Beach, CA',
             'expert',
-            'Pacific Beach',
             '@liquid_wave_snake',
             true,
             true,
@@ -115,7 +113,6 @@
             bio = EXCLUDED.bio,
             location = EXCLUDED.location,
             experience_level = EXCLUDED.experience_level,
-            favorite_spot = EXCLUDED.favorite_spot,
             instagram = EXCLUDED.instagram,
             phone_number = EXCLUDED.phone_number,
             avatar_url = EXCLUDED.avatar_url,
@@ -356,7 +353,6 @@
             
             INSERT INTO sessions (
                 user_id,
-                profile_id,
                 beach_id,
                 board_id,
                 beach_name,
@@ -369,7 +365,6 @@
                 parking_ease,
                 notes
             ) VALUES (
-                liquid_snake_id,
                 liquid_snake_id,
                 current_beach_id,
                 (SELECT id FROM boards WHERE user_id = liquid_snake_id LIMIT 1),

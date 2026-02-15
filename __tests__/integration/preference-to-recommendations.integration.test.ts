@@ -151,7 +151,7 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
       // Reset home beach
       await supabaseAdmin
         .from("profiles")
-        .update({ home_beach_id: null, home_beach_ids: [] })
+        .update({ home_beach_id: null })
         .eq("id", testUserId);
     });
 
@@ -285,29 +285,6 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         expect(profile2?.home_beach_id).toBe(testBeach2Id);
       });
 
-      it("multiple home beaches supported via home_beach_ids array", async () => {
-        // Set multiple home beaches
-        const { error } = await supabaseAdmin
-          .from("profiles")
-          .update({
-            home_beach_id: testBeach1Id,
-            home_beach_ids: [testBeach1Id, testBeach2Id],
-          })
-          .eq("id", testUserId);
-
-        expect(error).toBeNull();
-
-        // Verify both beaches stored
-        const { data: profile } = await supabaseAdmin
-          .from("profiles")
-          .select("home_beach_id, home_beach_ids")
-          .eq("id", testUserId)
-          .single();
-
-        expect(profile?.home_beach_id).toBe(testBeach1Id);
-        expect(profile?.home_beach_ids).toEqual([testBeach1Id, testBeach2Id]);
-      });
-
       it("removing home beach clears recommendation bias", async () => {
         // Set home beach
         await supabaseAdmin
@@ -318,7 +295,7 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Clear home beach
         const { error } = await supabaseAdmin
           .from("profiles")
-          .update({ home_beach_id: null, home_beach_ids: [] })
+          .update({ home_beach_id: null })
           .eq("id", testUserId);
 
         expect(error).toBeNull();
@@ -326,12 +303,11 @@ const { createClient } = require("@supabase/supabase-js") as typeof import("@sup
         // Verify cleared
         const { data: profile } = await supabaseAdmin
           .from("profiles")
-          .select("home_beach_id, home_beach_ids")
+          .select("home_beach_id")
           .eq("id", testUserId)
           .single();
 
         expect(profile?.home_beach_id).toBeNull();
-        expect(profile?.home_beach_ids).toEqual([]);
       });
     });
 

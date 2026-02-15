@@ -119,7 +119,7 @@ export const listSessions = withAdminActionAndUser(
       .select(
         `
         *,
-        profiles!sessions_profile_id_fkey (
+        profiles!sessions_user_id_profiles_fkey (
           email,
           display_name,
           full_name
@@ -256,7 +256,7 @@ export const getSession = withAdminActionAndUser(
       .select(
         `
         *,
-        profiles!sessions_profile_id_fkey (
+        profiles!sessions_user_id_profiles_fkey (
           id,
           email,
           display_name,

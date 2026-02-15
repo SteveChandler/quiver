@@ -71,7 +71,6 @@ BEGIN
              
              INSERT INTO sessions (
                  user_id,
-                 profile_id,
                  beach_id,
                  board_id,
                  beach_name,
@@ -84,7 +83,6 @@ BEGIN
                  parking_ease,
                  notes
              ) VALUES (
-                 current_user_id,
                  current_user_id,
                 current_beach_id,
                 board_id,
@@ -147,7 +145,6 @@ BEGIN
             
                          INSERT INTO sessions (
                  user_id,
-                 profile_id,
                  beach_id,
                  board_id,
                  beach_name,
@@ -160,7 +157,6 @@ BEGIN
                  parking_ease,
                  notes
              ) VALUES (
-                 current_user_id,
                  current_user_id,
                  current_beach_id,
                  board_id,
