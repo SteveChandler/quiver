@@ -313,11 +313,25 @@ Tracks user behavior for implicit preference learning and analytics.
 
 ---
 
+### Health Monitoring
+
+**Status**: Production (Feb 2026)
+
+Service health monitoring via `/api/health` with optional deep checks.
+
+**Endpoints:**
+- `GET /api/health` -- Basic liveness check (Supabase connectivity)
+- `GET /api/health?deep=true` -- Deep check including ML pipeline health, forecast freshness, and IOOS station status
+
+**CI Integration:** Service health assertions can be run in CI to catch regressions before deploy. The deep health check validates that ML prediction pipelines, ground truth backfill, and forecast data are within healthy thresholds (see `supabase/ARCHITECTURE.md` for threshold values).
+
+---
+
 ### Feature Status Highlights
 
 - **Personalization**: "Single User Experience" engine with affinity/history learning, time slot filtering (Jan 2026).
 - **Social Platform**: Follows, feeds, likes, comments, real-time updates.
-- **Forecasting**: 10-day NOAA integration with confidence scoring.
+- **Forecasting**: 10-day NOAA integration with confidence scoring; timezone-correct via `forecast_at` timestamptz column (Feb 2026), replacing legacy text-based `forecast_date`/`forecast_time`.
 - **ML Bias Correction**: XGBoost-corrected wave height forecasts.
 - **Terrain-Aware Scoring**: Beach-specific wind shelter and swell access factors.
 - **Email Engagement**: Automated forecast digests, re-engagement, and weekly recaps (Feb 2026).
@@ -328,6 +342,7 @@ Tracks user behavior for implicit preference learning and analytics.
 - **Intent Pages**: 7 intent types with dedicated beginner and tide experiences across 50+ cities.
 - **Forecast Hub**: 7-day regional forecast aggregation across 6 regions with animated UI.
 - **City Content Hub**: Editorial-driven beginner and tide pages with live conditions data.
+- **Health Monitoring**: Deep service health checks (`/api/health?deep=true`) covering ML pipeline, forecast freshness, and IOOS stations (Feb 2026).
 
 ---
 

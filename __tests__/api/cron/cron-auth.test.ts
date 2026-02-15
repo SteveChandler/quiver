@@ -123,7 +123,6 @@ describe("Cron Authentication", () => {
     it("rejects requests when no CRON_SECRET is configured", () => {
       // Clear the cron secret
       delete process.env.CRON_SECRET;
-      delete process.env.CRON_SECRET_TOKEN;
 
       const isValid = validateCronAuth(null);
 
@@ -177,41 +176,17 @@ describe("Cron Authentication", () => {
       expect(isValid).toBe(true);
     });
 
-    it("supports CRON_SECRET_TOKEN as alternative env var", () => {
-      // Set CRON_SECRET_TOKEN instead of CRON_SECRET
-      delete process.env.CRON_SECRET;
-      process.env.CRON_SECRET_TOKEN = "alternative-secret";
+    it("uses CRON_SECRET for bearer token validation", () => {
+      process.env.CRON_SECRET = "my-cron-secret";
 
       const request = createMockCronRequest("/api/cron/test", {
         authMethod: "bearer-token",
-        cronSecret: "alternative-secret",
+        cronSecret: "my-cron-secret",
       });
 
       const isValid = validateCronRequest(request);
 
       expect(isValid).toBe(true);
-    });
-
-    it("prefers CRON_SECRET_TOKEN over CRON_SECRET when both are set", () => {
-      // Set both environment variables
-      process.env.CRON_SECRET = "cron-secret";
-      process.env.CRON_SECRET_TOKEN = "token-secret";
-
-      // Request with CRON_SECRET_TOKEN value should work
-      const requestWithToken = createMockCronRequest("/api/cron/test", {
-        authMethod: "bearer-token",
-        cronSecret: "token-secret",
-      });
-
-      expect(validateCronRequest(requestWithToken)).toBe(true);
-
-      // Request with CRON_SECRET value should fail (because TOKEN takes priority)
-      const requestWithSecret = createMockCronRequest("/api/cron/test", {
-        authMethod: "bearer-token",
-        cronSecret: "cron-secret",
-      });
-
-      expect(validateCronRequest(requestWithSecret)).toBe(false);
     });
   });
 });

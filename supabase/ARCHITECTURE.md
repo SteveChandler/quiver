@@ -178,14 +178,17 @@ SELECT
 FROM get_ml_health_metrics();
 ```
 
-**Alert Thresholds**:
+**Alert Thresholds** (updated February 2026):
 
 | Metric | Healthy | Warning | Critical |
 |--------|---------|---------|----------|
-| `pending_observations` | < 10,000 | 10,000-50,000 | > 50,000 |
-| `pending_12_24h` | < 5,000 | 5,000-15,000 | > 15,000 |
+| `pending_observations` | < 5,000 | 5,000-10,000 | > 10,000 |
+| `pending_12_24h` | < 3,000 | 3,000-7,000 | > 7,000 |
 | `pending_gt_24h` | 0 | 1-100 | > 100 |
 | `oldest_pending_age_hours` | < 12h | 12-20h | > 20h |
+| `match_rate_24h` | > 20% | 15-20% | < 15% |
+
+**Note on `match_rate_24h`**: The structural ceiling for IOOS match rate is ~22-25% because IOOS buoys report every 2-6 hours vs hourly predictions. The previous 50% threshold was unachievable. See migration `20260209050730_fix_ml_health_metrics_observable_filter.sql` for details.
 
 **Rollback**:
 
@@ -505,6 +508,69 @@ Extended `email_send_log.email_type` constraint to include `first_session_nudge`
 - Personalization progress tracking on home screen
 - Re-engagement email after first session milestone
 - Transparent feedback on preference learning progress
+
+#### **Forecast Timestamptz Migration (20260214130000, 20260214130100, 20260214180000)**
+
+**Purpose**: Eliminate an 8-hour tide shift bug caused by ambiguous bare-text `forecast_date` + `forecast_time` columns by introducing a canonical `forecast_at` timestamptz column.
+
+**Problem Statement**:
+The `enhanced_forecasts` table stored forecast timing as separate `forecast_date` (text, e.g. `"2026-02-14"`) and `forecast_time` (text, e.g. `"14:00"`) columns. These lacked timezone context, causing a double-conversion bug: the app assumed UTC, but NOAA data was already in local time. This shifted tide data by ~8 hours for California beaches.
+
+**Migration Sequence**:
+
+1. **`20260214130000_add_forecast_at_column.sql`** -- Adds `forecast_at timestamptz` column, backfills from existing `forecast_date || forecast_time`, creates composite index `idx_ef_beach_forecast_at` and unique constraint `enhanced_forecasts_beach_forecast_at_unique`.
+
+2. **`20260214130100_update_ten_day_view_add_forecast_at.sql`** -- Updates the 10-day forecast view to include `forecast_at` in its output columns.
+
+3. **`20260214180000_update_ten_day_view_add_missing_cols.sql`** -- Adds `next_tide_at` and `coops_station_id` to the view for downstream consumers.
+
+**Query Pattern Change**:
+
+```sql
+-- BEFORE (deprecated): ambiguous text matching
+.eq("forecast_date", dateString)
+
+-- AFTER: timezone-correct range queries
+.gte("forecast_at", startISO)
+.lt("forecast_at", endISO)
+.order("forecast_at")
+```
+
+**Adapter Utility**: `lib/utils/forecast-at-adapter.ts` provides timezone conversion helpers for services that need to translate between `forecast_at` timestamps and local display times.
+
+**Status**: Complete. Legacy `forecast_date` and `forecast_time` columns remain in the database for backward compatibility but should not be used in new code.
+
+#### **Schema Cleanup (20260214180100, 20260214180200, 20260214180300)**
+
+**Purpose**: Remove dead schema elements that accumulated during feature evolution.
+
+**Migration Sequence**:
+
+1. **`20260214180100`** -- Dropped `_backup_beach_timezones_pr_hi` backup table (no longer needed after the timezone migration was verified stable).
+
+2. **`20260214180200`** -- Dropped 4 dead profile columns: `favorite_spot` (text), `favorite_spot_id` (uuid), `home_beach_ids` (uuid[]), `secondary_beaches` (uuid[]). These were superseded by `home_beach_id` (single FK) and the `favorite_beaches` join table.
+
+3. **`20260214180300`** -- Dropped `sessions.profile_id` column (redundant with `user_id` since sessions always belong to an authenticated user). Rewrote 4 RLS policies on the `sessions` table to reference `user_id` instead of the removed `profile_id`.
+
+**Impact**: Reduces schema surface area, eliminates confusing redundant columns, and ensures RLS policies reference the correct ownership field.
+
+#### **IOOS Station Discovery Tracking (20260214120000)**
+
+**Purpose**: Prevent premature IOOS station deactivation when ERDDAP discovery results are incomplete.
+
+**Problem Statement**: The IOOS station sync pipeline fetches active stations from ERDDAP. If ERDDAP returns a partial list (due to timeouts, API issues, or pagination limits), stations missing from the result would be incorrectly deactivated, causing data gaps in forecasts.
+
+**Schema Changes**:
+
+```sql
+-- New column on ioos_stations
+consecutive_discovery_misses INTEGER NOT NULL DEFAULT 0
+
+-- New RPC function
+increment_station_discovery_misses(seen_ids TEXT[])
+```
+
+**Safety Mechanism**: The IOOS sync cron job (`app/api/cron/ioos-sync/route.ts`) includes a 50% safety cap -- if more than half of all active stations would be deactivated in a single run, the deactivation step is skipped. Stations are deactivated only after 3 consecutive discovery misses. The migration provides the schema (`consecutive_discovery_misses` column) and RPC (`increment_station_discovery_misses`) that the cron job uses. Stations that reappear in any run have their counter reset to 0.
 
 ### **3. Data Source Integration**
 
@@ -919,7 +985,8 @@ Adds behavioral configuration fields to the `profiles` table:
 -- Regional assignment for NPC
 home_region TEXT                    -- e.g., 'north-san-diego', 'sf-bay-area'
 
--- Beach preferences (UUID arrays)
+-- Beach preferences (UUID arrays) -- NOTE: home_beach_ids and secondary_beaches
+-- were later removed in migration 20260214180200 (schema cleanup)
 home_beach_ids UUID[]               -- Primary beaches (70% of posts)
 secondary_beaches UUID[]            -- Regional beaches (25% of posts)
 
@@ -1072,7 +1139,7 @@ Before any new migration:
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
 **Status**: Production-ready with growth optimizations
 **Next Review**: After reaching 100 active users
 

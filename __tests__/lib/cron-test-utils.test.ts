@@ -90,11 +90,10 @@ describe("Cron Test Utilities", () => {
       restore();
     });
 
-    it("clears cron secrets when valid=false", () => {
+    it("clears cron secret when valid=false", () => {
       const restore = mockCronAuth(false);
 
       expect(process.env.CRON_SECRET).toBeUndefined();
-      expect(process.env.CRON_SECRET_TOKEN).toBeUndefined();
 
       restore();
     });
@@ -109,13 +108,11 @@ describe("Cron Test Utilities", () => {
 
     it("restores original values on cleanup", () => {
       const originalSecret = process.env.CRON_SECRET;
-      const originalToken = process.env.CRON_SECRET_TOKEN;
 
       const restore = mockCronAuth(true, "temp-secret");
       restore();
 
       expect(process.env.CRON_SECRET).toBe(originalSecret);
-      expect(process.env.CRON_SECRET_TOKEN).toBe(originalToken);
     });
   });
 

@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **California Surfer Search Query Map** - Comprehensive query research document at `docs/plans/2026-02-14-surfer-search-query-map.md` mapping the full California surfer search landscape by customer journey stage, with competitive gap analysis and priority matrix for SEO targeting.
 - **Product Marketing Context Documentation** - Formalized product-marketing-context.md with customer personas (The Daily Checker, The Beginner, The Explorer, The Optimizer, The Planner, The Switcher) and P0/P1/P2 keyword priorities based on Quiver's competitive advantages (ML forecasts, crowd intel, Best Surf Window, session tracking).
+- **Social Interaction Tracking** -- 6 new event types (`social_follow`, `social_like`, `social_share`, `social_invite_send`, `social_invite_respond`, `social_intel_confirm`), new hooks (`use-session-like.ts`, `use-user-follow.ts`), share sheet tracking
+- **IOOS Pipeline Safe Deactivation** -- 3-consecutive-miss tracking with 50% safety cap prevents premature station deactivation from incomplete ERDDAP results
+- **Growth Metrics Framework** -- `docs/GROWTH_METRICS_FRAMEWORK.md` with WASL north star, AARRR metrics, unified `/dashboard` command
 
 ### Changed
 
@@ -42,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated intent page titles to match high-volume search queries (e.g., "Best Beginner Surf Spots", "Least Crowded", "Best Time to Surf")
 - Removed anti-signup language ("no paywall", "no sign-up", "no subscription") from cams pages and metadata
 - Updated root layout, structured data, and FAQ schema to match new data-richness positioning
+- **Forecast Timestamptz Migration** -- Migrated `enhanced_forecasts` from `forecast_date` + `forecast_time` (text) to `forecast_at` (timestamptz). 50+ source files, 52 test files. Eliminates 8-hour tide shift bug. Adapter at `lib/utils/forecast-at-adapter.ts`. (Migrations: 20260214130000, 20260214130100, 20260214180000)
 
 ### Added
 
@@ -68,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ML Pipeline Stability** - Adaptive validation gates with named constants (min 30 samples per bucket, 0.10m degradation limit, 0.5m bias limit). Exponential decay sample weighting replaces binary step function. Shadow scoring pipeline: candidate models run in parallel for 24h before promotion. Auto-rollback with 7-day cooldown prevents oscillation. 502 retry logic for Fly.io cold starts. Training diagnostics logged as structured JSON. New `/ping` health endpoint with `min_machines_running=1` to prevent timeouts.
 - **Android Capacitor Auth Redirect** - Native app users with expired session cookies are now redirected to `/auth/sign-in` instead of landing on the marketing home page. New `NativeAuthGuard` component handles cold start, app resume, and mid-session expiry scenarios. Web users unaffected.
 - **Auth Utils LocalStorage Safety** - Refactored all `localStorage` calls in `lib/auth/auth-utils.ts` to use safe storage wrappers (`safeGetItem`, `safeSetItem`, `safeRemoveItem`) from `lib/utils/safe-storage.ts`. Prevents crashes in restricted environments (Safari private mode, SSR, disabled cookies) for globally mounted components like `NativeAuthGuard`.
+- **Map Page Infinite Loop** -- Unstable `useEffect` dependencies caused map init to re-fire on every render, triggering ~2,462 requests over 51 minutes. Fixed with refs for callbacks and stable dependency arrays.
 
 ### Changed
 
