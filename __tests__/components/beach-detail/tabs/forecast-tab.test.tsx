@@ -542,6 +542,22 @@ describe("ForecastTab", () => {
       expect(screen.getByText("60°F")).toBeInTheDocument();
     });
 
+    it("does not double-append °F when water_temp already includes unit", () => {
+      const forecastWithUnit = {
+        ...defaultProps.currentForecast!,
+        water_temp: "57°F",
+      };
+      render(
+        <ForecastTab
+          {...defaultProps}
+          currentForecast={forecastWithUnit}
+        />
+      );
+
+      expect(screen.getByText("57°F")).toBeInTheDocument();
+      expect(screen.queryByText("57°F°F")).not.toBeInTheDocument();
+    });
+
     it("displays next tide in secondary conditions", () => {
       render(<ForecastTab {...defaultProps} />);
 

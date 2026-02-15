@@ -172,9 +172,9 @@ export function ForecastTab({
   const firstHiddenDayName = useMemo(() => {
     if (!publicMode || horizonDaySummaries.length <= 3) return null;
     const hiddenDay = horizonDaySummaries[3];
-    if (!hiddenDay?.date) return null;
+    if (!hiddenDay?.fullDate) return null;
     try {
-      return new Date(`${hiddenDay.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+      return new Date(`${hiddenDay.fullDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
     } catch {
       return null;
     }
@@ -565,7 +565,7 @@ export function ForecastTab({
                   <div className="rounded-xl bg-gray-50/80 p-3 border border-gray-100">
                     <div className="text-xs text-muted-foreground mb-1">Water Temp</div>
                     <div className="text-sm font-semibold text-dark-grey">
-                      {currentForecast?.water_temp ? `${currentForecast.water_temp}°F` : "—"}
+                      {currentForecast?.water_temp ? `${String(currentForecast.water_temp).replace(/°F$/, "")}°F` : "—"}
                     </div>
                   </div>
 
