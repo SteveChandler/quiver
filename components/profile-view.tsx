@@ -34,7 +34,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUserPreferences } from "@/hooks/use-user-preferences";
 // Client-server boundary: use client data gateway instead of importing server actions
-import { data as gateway } from "@/lib/data/client";
+import { data as gateway, invalidateProfileCache } from "@/lib/data/client";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
@@ -155,20 +155,20 @@ function ProfileViewContent() {
   // Removed effect; home beach name provided by API DTO or joined relation
 
   const handleProfileUpdated = async () => {
-    console.log(
-      "handleProfileUpdated called - reloading data and closing modal"
-    );
     try {
       // Close the modal first to show immediate response
       setEditModalOpen(false);
+
+      // Clear stale gateway cache so refetch hits the network
+      if (user) {
+        invalidateProfileCache(user.id);
+      }
 
       // Reload the user data to get the updated profile
       await refetch();
 
       // Increment the stats refresh token to trigger UserStats refresh
       setStatsRefreshToken((prev) => prev + 1);
-
-      console.log("Profile data reloaded and modal closed successfully");
     } catch (error) {
       console.error("Error during profile update callback:", error);
       // Still close the modal even if reload fails
