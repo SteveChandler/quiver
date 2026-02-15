@@ -114,6 +114,13 @@ const VALID_EVENTS: ImplicitEventType[] = [
   'review_form_abandon',
   'review_validation_error',
   'review_submit',
+  // Social tracking events
+  'social_follow',
+  'social_like',
+  'social_share',
+  'social_invite_send',
+  'social_invite_respond',
+  'social_intel_confirm',
 ];
 
 /**

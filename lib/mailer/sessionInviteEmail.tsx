@@ -21,9 +21,13 @@ export async function sendSessionInviteEmail({
   const inviterName =
     inviter.name ??
     (inviter.username ? `@${inviter.username}` : "a surfer on Quiver");
-  const ctaUrl = `${appUrl}/inbox?activity=${activityId ?? ""}&focus=session:${
-    session.id
-  }`;
+  const ctaBaseUrl = new URL(`${appUrl}/inbox`);
+  ctaBaseUrl.searchParams.set("activity", activityId ?? "");
+  ctaBaseUrl.searchParams.set("focus", `session:${session.id}`);
+  ctaBaseUrl.searchParams.set("utm_source", "quiver");
+  ctaBaseUrl.searchParams.set("utm_medium", "invite");
+  ctaBaseUrl.searchParams.set("utm_campaign", "session_invite");
+  const ctaUrl = ctaBaseUrl.toString();
 
   await resend.emails.send({
     from: MAIL_FROM,

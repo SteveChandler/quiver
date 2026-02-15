@@ -77,6 +77,16 @@ export function ShareSheet({
       await shareImage(imageUrl, filename, { title, text });
       setState("success");
       track("share_completed", { type });
+      // Track in user_events for growth metrics
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "social_share",
+          metadata: { content_type: type, method: "native_share" },
+        }),
+        keepalive: true,
+      }).catch(() => {});
       // Close after successful share
       setTimeout(() => onOpenChange(false), 500);
     } catch (error) {

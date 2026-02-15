@@ -31,7 +31,14 @@ export type ImplicitEventType =
   | 'review_form_open'
   | 'review_form_abandon'
   | 'review_validation_error'
-  | 'review_submit';
+  | 'review_submit'
+  // Social tracking events
+  | 'social_follow'
+  | 'social_like'
+  | 'social_share'
+  | 'social_invite_send'
+  | 'social_invite_respond'
+  | 'social_intel_confirm';
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -55,6 +62,13 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   review_form_abandon: 0,
   review_validation_error: 0,
   review_submit: 0,
+  // Social tracking events (tracking only, no preference learning weight)
+  social_follow: 0,
+  social_like: 0,
+  social_share: 0,
+  social_invite_send: 0,
+  social_invite_respond: 0,
+  social_intel_confirm: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -217,6 +231,58 @@ export interface ReviewFormMetadata {
   is_edit?: boolean;
 }
 
+// -----------------------------------------------------------------------------
+// Social Tracking Metadata Interfaces
+// -----------------------------------------------------------------------------
+
+/** Metadata for social_follow events */
+export interface SocialFollowMetadata {
+  /** ID of the user being followed/unfollowed */
+  target_user_id: string;
+  /** Whether this is a follow or unfollow action */
+  action: 'follow' | 'unfollow';
+}
+
+/** Metadata for social_like events */
+export interface SocialLikeMetadata {
+  /** ID of the session being liked/unliked */
+  session_id: string;
+  /** Whether this is a like or unlike action */
+  action: 'like' | 'unlike';
+}
+
+/** Metadata for social_share events */
+export interface SocialShareMetadata {
+  /** Type of content being shared */
+  content_type: 'session' | 'wave' | 'surf_call' | 'cam' | 'page';
+  /** Method of sharing */
+  method?: 'native_share' | 'clipboard' | 'download';
+}
+
+/** Metadata for social_invite_send events */
+export interface SocialInviteSendMetadata {
+  /** Session ID the invite is for */
+  session_id: string;
+  /** Number of invitees */
+  invitee_count: number;
+}
+
+/** Metadata for social_invite_respond events */
+export interface SocialInviteRespondMetadata {
+  /** Invitation ID */
+  invitation_id: string;
+  /** Response action */
+  action: 'accepted' | 'declined';
+}
+
+/** Metadata for social_intel_confirm events */
+export interface SocialIntelConfirmMetadata {
+  /** Intel post ID */
+  post_id: string;
+  /** Whether confirming or removing confirmation */
+  action: 'confirm' | 'unconfirm';
+}
+
 /**
  * Union type of all possible event metadata
  */
@@ -232,7 +298,13 @@ export type EventMetadata =
   | ProfileUpdateMetadata
   | OnboardingStepMetadata
   | CTAClickMetadata
-  | ReviewFormMetadata;
+  | ReviewFormMetadata
+  | SocialFollowMetadata
+  | SocialLikeMetadata
+  | SocialShareMetadata
+  | SocialInviteSendMetadata
+  | SocialInviteRespondMetadata
+  | SocialIntelConfirmMetadata;
 
 /**
  * Full user event record as stored in the database
