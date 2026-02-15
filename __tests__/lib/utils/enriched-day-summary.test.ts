@@ -650,6 +650,7 @@ describe("enrichDaySummaries", () => {
     it("handles forecast without forecast_date", () => {
       const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "09:00" });
       const forecast = makeForecast({
+        forecast_at: null as any,
         forecast_date: null as any,
         forecast_time: "09:00",
       });
