@@ -43,9 +43,18 @@ export function processNOAAGridData(
   const wavePeriodCount = props.wavePeriod?.values.length || 0;
   const waveDirectionCount = props.waveDirection?.values.length || 0;
 
+  // Cap to waveHeightCount — wave height is the primary signal.
+  // Direction/period arrays are often longer (10 days vs 3 days of heights),
+  // and padding beyond real height data produces fabricated constant defaults.
+  if (waveHeightCount < Math.max(wavePeriodCount, waveDirectionCount)) {
+    log.info(
+      `NOAA array mismatch: waveHeight=${waveHeightCount}, wavePeriod=${wavePeriodCount}, waveDirection=${waveDirectionCount} — capping to ${waveHeightCount}`
+    );
+  }
+
   const maxForecasts = Math.min(
     days * FORECAST_CONFIG.FORECASTS_PER_DAY,
-    Math.max(waveHeightCount, wavePeriodCount, waveDirectionCount)
+    waveHeightCount
   );
 
   log.debug(`Processing ${maxForecasts} NOAA grid forecasts`);

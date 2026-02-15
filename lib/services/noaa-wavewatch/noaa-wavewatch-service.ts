@@ -174,6 +174,8 @@ export class NOAAWaveWatchService {
     }
 
     const merged: WaveWatchData[] = [];
+    const matchedSlots = new Set<number>();
+
     for (const fc of noaaData.forecast) {
       const ts = new Date(fc.timestamp).getTime();
       const hoursAhead = (ts - now) / 3600000;
@@ -182,22 +184,44 @@ export class NOAAWaveWatchService {
       if (hoursAhead <= NOAA_CUTOFF_HOURS) {
         // Days 1-3: use NOAA
         merged.push(fc);
+        matchedSlots.add(slot);
       } else {
         // Days 4+: prefer Open-Meteo, fall back to NOAA
         const omFc = openMeteoMap.get(slot);
         if (omFc) {
           merged.push({ ...omFc, data_source: "OPEN_METEO" });
+          matchedSlots.add(slot);
         } else {
           merged.push(fc);
         }
       }
     }
 
+    // Append Open-Meteo entries beyond NOAA range that weren't already matched.
+    // This covers the case where NOAA has fewer entries than Open-Meteo (e.g., 3 days
+    // of NOAA wave heights vs 7 days of Open-Meteo) — the merge loop above only
+    // iterates NOAA entries, so Open-Meteo entries beyond NOAA's range would be lost.
+    const lastNoaaTs = noaaData.forecast.length > 0
+      ? new Date(noaaData.forecast[noaaData.forecast.length - 1].timestamp).getTime()
+      : 0;
+
+    const appendEntries: WaveWatchData[] = [];
+    for (const [slot, fc] of openMeteoMap) {
+      if (!matchedSlots.has(slot) && slot > lastNoaaTs) {
+        appendEntries.push({ ...fc, data_source: "OPEN_METEO" });
+      }
+    }
+    // Sort chronologically before appending
+    appendEntries.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    merged.push(...appendEntries);
+
     const openMeteoCount = merged.filter(
       (f) => f.data_source === "OPEN_METEO"
     ).length;
     log.info(
-      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA ≤3d, ${openMeteoCount} Open-Meteo 4-7d)`
+      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA ≤3d, ${openMeteoCount} Open-Meteo 4-7d, ${appendEntries.length} appended beyond NOAA range)`
     );
 
     return {
