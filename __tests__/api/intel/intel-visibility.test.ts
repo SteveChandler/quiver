@@ -150,6 +150,12 @@ function setupMockChain(mockClient: MockSupabaseClient, responses: any[]) {
         }
         return { data: null, error: null };
       }),
+      maybeSingle: jest.fn().mockImplementation(async () => {
+        if (responseIndex < responses.length) {
+          return responses[responseIndex++];
+        }
+        return { data: null, error: null };
+      }),
     };
     return chain;
   });
@@ -454,7 +460,7 @@ describe("POST /api/intel/[id]/confirm - Authorization", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: post, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: confirmation, error: null },
         { data: { confirmations_count: 1 }, error: null },
       ]);
@@ -510,7 +516,7 @@ describe("POST /api/intel/[id]/report - Authorization", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: post, error: null },
-        { data: null, error: { code: "PGRST116" } }, // No existing report
+        { data: null, error: null }, // No existing report
         { data: null, error: null }, // Insert report
       ]);
 

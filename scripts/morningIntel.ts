@@ -608,9 +608,9 @@ async function upsertIntelPost(
     .eq("tag", "conditions")
     .gte("created_at", `${intelData.date}T00:00:00Z`)
     .lte("created_at", `${intelData.date}T23:59:59Z`)
-    .single();
+    .maybeSingle();
 
-  if (searchError && searchError.code !== "PGRST116") {
+  if (searchError) {
     console.warn(`⚠️  Error checking for existing post: ${searchError.message}`);
   }
 

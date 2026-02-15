@@ -277,7 +277,7 @@ describe("Forecast Calibration Actions", () => {
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+            maybeSingle: jest.fn().mockResolvedValue({
               data: mockAccuracy,
               error: null,
             }),
@@ -312,9 +312,9 @@ describe("Forecast Calibration Actions", () => {
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+            maybeSingle: jest.fn().mockResolvedValue({
               data: null,
-              error: { code: "PGRST116", message: "No rows found" },
+              error: null,
             }),
           }),
         }),
@@ -322,8 +322,8 @@ describe("Forecast Calibration Actions", () => {
 
       const result = await getBeachForecastAccuracy("new-beach");
 
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("No rows found");
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
     });
   });
 

@@ -365,7 +365,7 @@ export async function GET(request: Request) {
                     .in("source", ["cdip", "ndbc"])
                     .order("ts", { ascending: false })
                     .limit(1)
-                    .single();
+                    .maybeSingle();
 
                   const base = latestObserved.data as any | null;
                   if (base && base.ts && (base.wave_height_m || base.wave_period_s || base.wave_direction_deg)) {

@@ -33,25 +33,25 @@ export const GET = withAuth(async (request, { user, supabase }) => {
     .select('affinity_score, session_count, last_surfed_at')
     .eq('user_id', user.id)
     .eq('beach_id', beachId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    // If no affinity record exists, user hasn't surfed here
-    if (error.code === 'PGRST116') {
-      return NextResponse.json({
-        data: {
-          sessionCount: 0,
-          lastSurfed: null,
-          affinityScore: 0,
-        }
-      });
-    }
-
     console.error('Failed to get beach affinity:', error);
     return NextResponse.json(
       { error: 'Failed to retrieve affinity data' },
       { status: 500 }
     );
+  }
+
+  // No affinity record means user hasn't surfed here
+  if (!affinity) {
+    return NextResponse.json({
+      data: {
+        sessionCount: 0,
+        lastSurfed: null,
+        affinityScore: 0,
+      }
+    });
   }
 
   // Return affinity data
