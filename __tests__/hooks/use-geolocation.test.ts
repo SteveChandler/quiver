@@ -170,6 +170,46 @@ describe("useGeolocation", () => {
       expect(result.current.userLocation).toEqual(customDefault);
       expect(result.current.source).toBe("default");
     });
+
+    it("ignores lastBeach when useLastBeach is false", () => {
+      const lastBeach = { lat: 33.0, lon: -117.5, name: "Windansea" };
+      window.localStorage.setItem("quiver:lastBeach", JSON.stringify(lastBeach));
+
+      mockGeoError(1); // PERMISSION_DENIED
+      const { result } = renderHook(() =>
+        useGeolocation({ autoRequest: true, useLastBeach: false })
+      );
+
+      // Should fall through to Ocean Beach default, NOT Windansea
+      expect(result.current.userLocation).toEqual({ lat: 32.7503, lon: -117.2534 });
+      expect(result.current.source).toBe("default");
+    });
+
+    it("uses defaultLocation when useLastBeach is false even with lastBeach stored", () => {
+      const lastBeach = { lat: 33.0, lon: -117.5, name: "Windansea" };
+      window.localStorage.setItem("quiver:lastBeach", JSON.stringify(lastBeach));
+      const customDefault = { lat: 34.0, lon: -118.5 };
+
+      mockGeoError(1);
+      const { result } = renderHook(() =>
+        useGeolocation({ autoRequest: true, useLastBeach: false, defaultLocation: customDefault })
+      );
+
+      expect(result.current.userLocation).toEqual(customDefault);
+      expect(result.current.source).toBe("default");
+    });
+
+    it("defaults useLastBeach to true (backward compat)", () => {
+      const lastBeach = { lat: 33.0, lon: -117.5, name: "Test Beach" };
+      window.localStorage.setItem("quiver:lastBeach", JSON.stringify(lastBeach));
+
+      mockGeoError(1);
+      const { result } = renderHook(() => useGeolocation({ autoRequest: true }));
+
+      // Should still use lastBeach by default
+      expect(result.current.userLocation).toMatchObject({ lat: 33.0, lon: -117.5 });
+      expect(result.current.source).toBe("lastUsedBeach");
+    });
   });
 
   describe("safety timeout", () => {

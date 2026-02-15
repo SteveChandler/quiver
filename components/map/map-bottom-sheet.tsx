@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { SidebarBeachCard } from "@/components/map/sidebar-beach-card";
 import { useBeachListState } from "@/hooks/use-beach-list-state";
@@ -38,6 +38,14 @@ export function MapBottomSheet({
     selectedBeach,
     userLocation
   );
+
+  // Auto-snap to peek when a beach is selected externally (e.g. marker tap)
+  useEffect(() => {
+    if (selectedBeach) {
+      setActiveSnapPoint(PEEK_SNAP);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBeach?.id]);
 
   // When a beach card is tapped, select it and snap back to peek
   const handleBeachSelect = useCallback(

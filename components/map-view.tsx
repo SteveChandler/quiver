@@ -50,7 +50,7 @@ export function MapView() {
     getUserLocation,
     useDefaultLocation,
     resetAttempt,
-  } = useGeolocation();
+  } = useGeolocation({ useLastBeach: false });
 
   const {
     filteredBeaches,
@@ -75,8 +75,9 @@ export function MapView() {
   } = useBeachSearch();
 
   // Load nearby beaches when user location is available - prevent duplicate calls
+  // Wait for geolocation to resolve before fetching to avoid using stale fallback coords
   useEffect(() => {
-    if (!userLocation) {
+    if (!userLocation || locationLoading) {
       return;
     }
 
@@ -93,7 +94,7 @@ export function MapView() {
     // Update the last location and load nearby beaches
     lastLocationRef.current = userLocation;
     loadNearbyBeaches(userLocation.lat, userLocation.lon);
-  }, [userLocation, loadNearbyBeaches]);
+  }, [userLocation, locationLoading, loadNearbyBeaches]);
 
   // Read search query from URL params (from global header search)
   useEffect(() => {
@@ -343,14 +344,6 @@ export function MapView() {
               onWaveHeightsChange={handleWaveHeightsChange}
             />
 
-            {/* Mobile: Selected Beach Quick View */}
-            {isMobile && (
-              <SelectedBeachCard
-                selectedBeach={selectedBeach}
-                getDistanceFromUser={getDistanceFromUser}
-                userLocation={userLocation}
-              />
-            )}
           </div>
 
           {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
@@ -362,6 +355,18 @@ export function MapView() {
               userLocation={userLocation}
               onBeachSelect={handleBeachSelect}
             />
+          )}
+
+          {/* Mobile: Selected Beach Quick View - fixed above bottom sheet
+              bottom offset must match SNAP_POINTS[0] (10vh) in map-bottom-sheet.tsx */}
+          {isMobile && selectedBeach && (
+            <div className="fixed inset-x-0 z-50 px-2" style={{ bottom: "calc(10dvh + 4px)" }}>
+              <SelectedBeachCard
+                selectedBeach={selectedBeach}
+                getDistanceFromUser={getDistanceFromUser}
+                userLocation={userLocation}
+              />
+            </div>
           )}
         </div>
       ) : (
