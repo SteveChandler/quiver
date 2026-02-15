@@ -54,6 +54,8 @@ export class IOOSService {
   private readonly observationCache: ObservationCache;
   /** Track stations that returned "Unrecognized variable" errors (no wave data) */
   private readonly stationsWithoutWaveData: Set<string> = new Set();
+  /** Track stations that returned 404 (no longer exist on ERDDAP) */
+  private readonly stationsReturning404: Set<string> = new Set();
 
   constructor(configOverrides?: Partial<IOOSServiceConfig>) {
     this.config = {
@@ -78,6 +80,22 @@ export class IOOSService {
    */
   clearStationsWithoutWaveData(): void {
     this.stationsWithoutWaveData.clear();
+  }
+
+  /**
+   * Get stations that returned 404 (no longer exist on ERDDAP)
+   *
+   * @returns Array of station IDs that returned 404
+   */
+  getStationsReturning404(): string[] {
+    return Array.from(this.stationsReturning404);
+  }
+
+  /**
+   * Clear the set of stations returning 404
+   */
+  clearStationsReturning404(): void {
+    this.stationsReturning404.clear();
   }
 
   /**
@@ -379,7 +397,13 @@ export class IOOSService {
       this.observationCache.set(cacheKey, obs);
       return obs;
     } catch (error) {
-      console.error(`[IOOS] Error fetching observation for ${stationId}:`, error);
+      // Detect 404 errors (station no longer exists on ERDDAP)
+      if (error instanceof Error && error.message.startsWith("ERDDAP API error: 404")) {
+        console.warn(`[IOOS] Station ${stationId} returned 404 from ERDDAP`);
+        this.stationsReturning404.add(stationId);
+      } else {
+        console.error(`[IOOS] Error fetching observation for ${stationId}:`, error);
+      }
       this.observationCache.set(cacheKey, null);
       return null;
     }

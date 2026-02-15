@@ -51,6 +51,7 @@ describe("IOOS Sync - Observation Sync", () => {
         })
       ),
       getStationsWithoutWaveData: jest.fn(() => []),
+      getStationsReturning404: jest.fn(() => []),
       getConfig: jest.fn(() => ({
         timeoutMs: 10000,
         batchSize: 10,
@@ -153,7 +154,7 @@ describe("IOOS Sync - Observation Sync", () => {
     // Override default mock to return one station without wave_height
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === "ioos_stations") {
-        const chain = {
+        const chain: any = {
           select: jest.fn(() => chain),
           eq: jest.fn(() => chain),
           order: jest.fn(() => chain),
@@ -242,7 +243,7 @@ describe("IOOS Sync - Observation Sync", () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === "ioos_stations") {
-        const chain = {
+        const chain: any = {
           select: jest.fn(() => chain),
           eq: jest.fn(() => chain),
           order: jest.fn(() => chain),
@@ -330,7 +331,7 @@ describe("IOOS Sync - Observation Sync", () => {
 
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === "ioos_stations") {
-        const chain = {
+        const chain: any = {
           select: jest.fn(() => chain),
           update: jest.fn(() => chain),
           eq: jest.fn(() => chain),
@@ -368,6 +369,7 @@ describe("IOOS Sync - Observation Sync", () => {
         return Promise.resolve(null);
       }),
       getStationsWithoutWaveData: jest.fn(() => []),
+      getStationsReturning404: jest.fn(() => []),
       getConfig: jest.fn(() => ({
         timeoutMs: 10000,
         batchSize: 10,
