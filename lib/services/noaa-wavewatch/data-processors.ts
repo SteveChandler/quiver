@@ -141,14 +141,19 @@ export function processOpenMeteoData(
     return forecasts;
   }
 
+  // Open-Meteo returns hourly data but our forecast grid is every 3 hours.
+  // Step through in 3-hour increments to cover the full 7-day range instead
+  // of exhausting maxForecasts after ~2 days of hourly entries.
+  const HOURS_PER_STEP = FORECAST_CONFIG.FORECAST_INTERVAL_HOURS; // 3
   const maxForecasts = Math.min(
     days * FORECAST_CONFIG.FORECASTS_PER_DAY,
-    data.hourly.time.length
+    Math.floor(data.hourly.time.length / HOURS_PER_STEP)
   );
 
-  log.debug(`Processing ${maxForecasts} Open-Meteo forecasts`);
+  log.debug(`Processing ${maxForecasts} Open-Meteo forecasts (stepping every ${HOURS_PER_STEP}h over ${data.hourly.time.length} hourly entries)`);
 
-  for (let i = 0; i < maxForecasts; i++) {
+  for (let step = 0; step < maxForecasts; step++) {
+    const i = step * HOURS_PER_STEP;
     const timestamp = new Date(data.hourly.time[i]);
 
     // Extract wave data (already in meters from Open-Meteo)
