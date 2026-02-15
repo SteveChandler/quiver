@@ -79,14 +79,25 @@ export async function register(): Promise<void> {
       // Detect environment based on hostname
       const detectedEnv = detectEnvironment();
 
-      // Drop localhost events entirely - don't send to Sentry
-      if (detectedEnv === "development") {
+      // Drop localhost and preview events — don't send to Sentry
+      if (detectedEnv === "development" || detectedEnv === "preview") {
         return null;
       }
 
       // Override environment based on hostname
       event.environment = detectedEnv;
 
+      return event;
+    },
+
+    beforeSendTransaction(event) {
+      const detectedEnv = detectEnvironment();
+
+      if (detectedEnv === "development" || detectedEnv === "preview") {
+        return null;
+      }
+
+      event.environment = detectedEnv;
       return event;
     },
 
