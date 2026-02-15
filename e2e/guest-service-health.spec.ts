@@ -75,7 +75,7 @@ test.describe('Service Health: Data Pipeline @smoke', () => {
 
 test.describe('Service Health: Beach Data Rendering @smoke', () => {
   test('Beach page renders wave data @smoke @requires-data', async ({ page }) => {
-    await page.goto('/ca/san-diego/blacks-beach', {
+    await page.goto('/ca/san-diego/blacks', {
       waitUntil: 'domcontentloaded',
       timeout: 15000,
     });
@@ -107,7 +107,7 @@ test.describe('Service Health: Beach Data Rendering @smoke', () => {
   });
 
   test('Beach page title contains wave info @smoke @requires-data', async ({ page }) => {
-    await page.goto('/ca/san-diego/blacks-beach', {
+    await page.goto('/ca/san-diego/blacks', {
       waitUntil: 'domcontentloaded',
       timeout: 15000,
     });

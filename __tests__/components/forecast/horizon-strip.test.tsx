@@ -317,7 +317,7 @@ describe("HorizonStrip", () => {
           days={days}
           selectedDate="2026-02-10"
           onSelectDate={mockOnSelectDate}
-          beachSlug="blacks-beach"
+          beachSlug="blacks"
         />
       );
 
@@ -325,7 +325,7 @@ describe("HorizonStrip", () => {
       fireEvent.click(button);
 
       expect(track).toHaveBeenCalledWith("horizon_strip_day_selected", {
-        beach_slug: "blacks-beach",
+        beach_slug: "blacks",
         selected_date: "2026-02-10",
         is_today: false,
         tier: "good",

@@ -54,10 +54,10 @@ test.describe("Push Notification Deeplink Routing", () => {
     // Test multiple beach slugs that might appear in forecast alerts
     const beachSlugs = [
       "ocean-beach",
-      "blacks-beach",
+      "blacks",
       "windansea",
       "scripps-pier",
-      "sunset-cliffs",
+      "sunset-cliffs-garbage",
     ];
 
     for (const slug of beachSlugs) {
@@ -387,7 +387,7 @@ test.describe("Beach Page Loading Performance", () => {
     page,
   }) => {
     // Simulate user clicking multiple notifications quickly
-    const beaches = ["ocean-beach", "blacks-beach", "windansea"];
+    const beaches = ["ocean-beach", "blacks", "windansea"];
 
     for (const beach of beaches) {
       await page.goto(`/beach/${beach}`);

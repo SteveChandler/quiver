@@ -64,7 +64,7 @@ const mockSpots: SurfSpot[] = [
     intentTags: ["beginner", "tide"],
   },
   {
-    slug: "blacks-beach",
+    slug: "blacks",
     name: "Blacks Beach",
     citySlug: "san-diego",
     region: "San Diego, California",

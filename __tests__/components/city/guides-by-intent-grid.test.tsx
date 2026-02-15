@@ -81,7 +81,7 @@ describe("GuidesByIntentGrid Component", () => {
     {
       id: "3",
       name: "Blacks Beach",
-      slug: "blacks-beach",
+      slug: "blacks",
       skill_level: "Advanced",
       crowd_level: "Low",
     } as BeachWithMetrics,

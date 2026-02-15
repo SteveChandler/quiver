@@ -103,8 +103,8 @@ describe("SeoRedirectHandler", () => {
 
   describe("extractBeachSlugFromPath", () => {
     it("extracts slug from 3-segment URL", () => {
-      expect(extractBeachSlugFromPath("/ca/orange-county/huntington-pier")).toBe(
-        "huntington-pier"
+      expect(extractBeachSlugFromPath("/ca/orange-county/huntington-beach-pier")).toBe(
+        "huntington-beach-pier"
       );
     });
 
@@ -123,8 +123,8 @@ describe("SeoRedirectHandler", () => {
 
     it("handles trailing slashes", () => {
       expect(
-        extractBeachSlugFromPath("/ca/orange-county/huntington-pier/")
-      ).toBe("huntington-pier");
+        extractBeachSlugFromPath("/ca/orange-county/huntington-beach-pier/")
+      ).toBe("huntington-beach-pier");
     });
 
     it("returns null for invalid path patterns", () => {

@@ -173,14 +173,14 @@ describe("ForecastBuilder", () => {
     });
 
     const f = forecasts[0];
-    // forecast_date and forecast_time use local timezone, while forecast_at uses UTC.
+    // forecast_date, forecast_time, and forecast_at all use UTC.
     // Verify they all represent the same moment rounded to 3-hour intervals.
     const forecastAtDate = new Date(f.forecast_at!);
-    const localDate = `${forecastAtDate.getFullYear()}-${String(forecastAtDate.getMonth() + 1).padStart(2, "0")}-${String(forecastAtDate.getDate()).padStart(2, "0")}`;
-    const localHour = Math.floor(forecastAtDate.getHours() / 3) * 3;
-    const localTime = `${String(localHour).padStart(2, "0")}:00:00`;
-    expect(f.forecast_date).toBe(localDate);
-    expect(f.forecast_time).toBe(localTime);
+    const utcDate = `${forecastAtDate.getUTCFullYear()}-${String(forecastAtDate.getUTCMonth() + 1).padStart(2, "0")}-${String(forecastAtDate.getUTCDate()).padStart(2, "0")}`;
+    const utcHour = Math.floor(forecastAtDate.getUTCHours() / 3) * 3;
+    const utcTime = `${String(utcHour).padStart(2, "0")}:00:00`;
+    expect(f.forecast_date).toBe(utcDate);
+    expect(f.forecast_time).toBe(utcTime);
   });
 
   it("prioritizes CDIP data when available", async () => {

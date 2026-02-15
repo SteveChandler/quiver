@@ -18,6 +18,7 @@ const mockEnhancedForecast = {
   beach_id: "test-beach-123",
   forecast_date: new Date().toISOString().split("T")[0], // Today
   forecast_time: "12:00:00",
+  forecast_at: new Date().toISOString().split(".")[0] + "Z",
   wave_height: "3-4 ft",
   wave_period: "7.2s",
   wave_direction: "SW",
@@ -48,18 +49,18 @@ describe("Forecast Consistency Test", () => {
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      lt: jest.fn().mockReturnThis(),
       in: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
     });
 
     const mockSupabase = {
       ...createMockQuery(),
-      order: jest.fn(() => ({
-        order: jest.fn().mockResolvedValue({
+      order: jest.fn().mockResolvedValue({
           data: [mockEnhancedForecast],
           error: null,
         }),
-      })),
     };
 
     (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(

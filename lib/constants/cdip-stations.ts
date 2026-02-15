@@ -105,6 +105,28 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
     parameters: ["wave", "weather", "sst"],
   },
 
+  // Orange County / Camp Pendleton area
+  "45": {
+    id: "45",
+    name: "Oceanside Offshore",
+    latitude: 33.1771,
+    longitude: -117.472,
+    deployDepth: 200,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
+  // Ventura / Channel Islands area
+  "179": {
+    id: "179",
+    name: "Anacapa Passage",
+    latitude: 34.0008,
+    longitude: -119.3592,
+    deployDepth: 200,
+    hullType: "Waverider buoy",
+    parameters: ["wave"],
+  },
+
   // Additional SoCal Stations
   "67": {
     id: "67",

@@ -49,6 +49,7 @@ export const MAX_CACHE_SIZE = 20;
  * These stations frequently return 404 errors on the ERDDAP dataset
  */
 export const DEFAULT_BLACKLIST = [
+  "46", // Cabrillo Point: confirmed 404 on wave_agg (Feb 2026)
   "46221", // Point Arena: observed 404s on wave_agg
   "46225", // Point Reyes: observed 404s on wave_agg
   "46236", // Monterey Bay: treat as non-CDIP for now; observed issues on wave_agg

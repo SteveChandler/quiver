@@ -23,7 +23,7 @@ export function makeBeach(overrides: Partial<Beach> = {}): Beach {
 export const beachBlacksPunctuated = makeBeach({
   id: "beach-blacks-punctuated",
   name: "Black's Beach",
-  slug: "blacks-beach",
+  slug: "blacks",
   city: "San Diego",
   state: "CA",
 });

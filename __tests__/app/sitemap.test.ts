@@ -349,7 +349,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: "CA",
             country: "USA",
@@ -393,7 +393,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: "CA",
             country: "USA",
@@ -417,7 +417,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: "CA",
             country: "USA",
@@ -515,7 +515,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: null, // Missing city - falls back to /spots/ URL
             state: "CA",
           },
@@ -536,7 +536,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: null, // Missing state - falls back to /spots/ URL
           },
@@ -557,7 +557,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: "CA",
             country: "USA",
@@ -579,7 +579,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: "CA",
             country: "USA",
@@ -608,7 +608,7 @@ describe("Sitemap Generation", () => {
         data: [
           {
             id: "beach-1",
-            slug: "sunset-cliffs",
+            slug: "sunset-cliffs-garbage",
             city: "San Diego",
             state: "CA",
             country: "USA",
@@ -805,7 +805,7 @@ describe("Sitemap Generation", () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { id: "beach-1", slug: "sunset-cliffs", city: "San Diego", state: "CA" },
+          { id: "beach-1", slug: "sunset-cliffs-garbage", city: "San Diego", state: "CA" },
         ],
       });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({

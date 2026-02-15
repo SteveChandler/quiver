@@ -79,6 +79,7 @@ jest.mock("@/lib/utils/text-utils", () => ({
 jest.mock("@/lib/utils/timezone-utils", () => ({
   resolveBeachTimezone: jest.fn(() => "America/Los_Angeles"),
   getLocalDateString: jest.fn(() => "2026-02-10"),
+  getLocalHour: jest.fn((date: Date) => date.getUTCHours()),
 }));
 jest.mock("@/lib/utils/tide-diagnostics-generator", () => ({
   generateTideDiagnosticsFromForecasts: jest.fn(() => null),
@@ -383,7 +384,8 @@ describe("ForecastTab", () => {
 
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      expect(screen.getByText(/Sign up to see the full 12-day outlook/i)).toBeInTheDocument();
+      expect(screen.getByText(/See outlook/i)).toBeInTheDocument();
+      expect(screen.getByText(/Conditions shift on/i)).toBeInTheDocument();
     });
 
     it("does not show lock message when horizonDaySummaries.length <= 3", () => {
@@ -396,7 +398,8 @@ describe("ForecastTab", () => {
 
       render(<ForecastTab {...defaultProps} publicMode={true} />);
 
-      expect(screen.queryByText(/Sign up to see the full 12-day outlook/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/See outlook/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Conditions shift on/i)).not.toBeInTheDocument();
     });
 
     it("does not show lock message in authenticated mode", () => {
@@ -410,7 +413,8 @@ describe("ForecastTab", () => {
 
       render(<ForecastTab {...defaultProps} publicMode={false} />);
 
-      expect(screen.queryByText(/Sign up to see the full 12-day outlook/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/See outlook/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Conditions shift on/i)).not.toBeInTheDocument();
     });
   });
 

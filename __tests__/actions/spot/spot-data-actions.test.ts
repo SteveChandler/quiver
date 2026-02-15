@@ -79,7 +79,7 @@ describe("spot-data-actions", () => {
   });
 
   describe("getSpotDataBySlug", () => {
-    test('normalizes slug (" Blacks-Beach " -> "blacks-beach") and queries DB with normalized slug', async () => {
+    test('normalizes slug (" Blacks " -> "blacks") and queries DB with normalized slug', async () => {
       const { createSupabaseServerClient } = await import("@/lib/supabase/server");
       const onEq = jest.fn();
 
@@ -93,9 +93,9 @@ describe("spot-data-actions", () => {
       });
 
       const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
-      await getSpotDataBySlug(" Blacks-Beach ");
+      await getSpotDataBySlug(" Blacks ");
 
-      expect(onEq).toHaveBeenCalledWith("slug", "blacks-beach");
+      expect(onEq).toHaveBeenCalledWith("slug", "blacks");
     });
 
     test("returns merged DB + static data when both exist (DB id/coords win, static content wins)", async () => {
@@ -103,7 +103,7 @@ describe("spot-data-actions", () => {
 
       const beachRow = {
         id: "beach-db-1",
-        slug: "blacks-beach",
+        slug: "blacks",
         name: "Blacks Beach (DB)",
         lat: 1.23,
         lon: 4.56,
@@ -127,7 +127,7 @@ describe("spot-data-actions", () => {
       });
 
       const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
-      const { data: result, dbHasLocation } = await getSpotDataBySlug("blacks-beach");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("blacks");
 
       expect(result).toBeTruthy();
       expect(result?.id).toBe("beach-db-1"); // DB id wins
@@ -157,11 +157,11 @@ describe("spot-data-actions", () => {
       });
 
       const { getSpotDataBySlug } = await import("@/actions/spot/spot-data-actions");
-      const { data: result, dbHasLocation } = await getSpotDataBySlug("blacks-beach");
+      const { data: result, dbHasLocation } = await getSpotDataBySlug("blacks");
 
       expect(result).toBeTruthy();
       expect(result?.id).toBeNull(); // static entry has no id
-      expect(result?.slug).toBe("blacks-beach");
+      expect(result?.slug).toBe("blacks");
       expect(result?.history).toBeTruthy();
       expect(result?.latitude).toBeCloseTo(32.8851, 4);
 
