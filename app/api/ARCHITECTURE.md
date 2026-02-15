@@ -325,7 +325,7 @@ export const GET = withAuth(handler);
 - Triggered exclusively via Vercel Cron as configured in `vercel.json`
 - Authorization uses centralized validator `validateCronRequest(request)` from `lib/api-utils.ts`
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
-  - Keep `CRON_SECRET`/`CRON_SECRET_TOKEN` in Vercel env if you need to trigger manually
+  - Keep `CRON_SECRET` in Vercel env if you need to trigger manually
 
 #### `/cron/enhanced-forecast-sync-offset/route.ts`
 

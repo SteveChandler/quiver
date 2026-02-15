@@ -133,7 +133,6 @@ export function setupCronTestEnvironment(
   // Store original values
   const originalEnv: Record<string, string | undefined> = {
     CRON_SECRET: process.env.CRON_SECRET,
-    CRON_SECRET_TOKEN: process.env.CRON_SECRET_TOKEN,
     VERCEL_ENV: process.env.VERCEL_ENV,
     NODE_ENV: process.env.NODE_ENV,
   };
@@ -145,8 +144,6 @@ export function setupCronTestEnvironment(
 
   // Set test values
   process.env.CRON_SECRET = cronSecret;
-  // Clear CRON_SECRET_TOKEN to ensure CRON_SECRET is used (validateCronAuth prefers TOKEN)
-  delete process.env.CRON_SECRET_TOKEN;
   process.env.VERCEL_ENV = vercelEnv;
   // Use Object.defineProperty to bypass read-only restriction on NODE_ENV
   Object.defineProperty(process.env, "NODE_ENV", {
@@ -205,14 +202,12 @@ export function mockCronAuth(
   customSecret?: string
 ): () => void {
   const originalSecret = process.env.CRON_SECRET;
-  const originalToken = process.env.CRON_SECRET_TOKEN;
 
   if (valid) {
     process.env.CRON_SECRET = customSecret || "test-cron-secret";
   } else {
-    // Clear the secrets so validation will fail
+    // Clear the secret so validation will fail
     delete process.env.CRON_SECRET;
-    delete process.env.CRON_SECRET_TOKEN;
   }
 
   return () => {
@@ -220,11 +215,6 @@ export function mockCronAuth(
       delete process.env.CRON_SECRET;
     } else {
       process.env.CRON_SECRET = originalSecret;
-    }
-    if (originalToken === undefined) {
-      delete process.env.CRON_SECRET_TOKEN;
-    } else {
-      process.env.CRON_SECRET_TOKEN = originalToken;
     }
   };
 }
