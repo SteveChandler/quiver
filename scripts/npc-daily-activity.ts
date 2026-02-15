@@ -31,6 +31,7 @@ import {
   createIntelDedupeHash,
   DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
 } from '../lib/utils/intel-dedupe';
+import { getLocalHour, getTimezoneFromCoords } from '../lib/utils/timezone-utils.server';
 
 // Load environment variables
 config();
@@ -57,8 +58,8 @@ function pickRandom<T>(items: T[]): T {
   return items[index] ?? items[0];
 }
 
-function describeTimeOfDay(date: Date): string {
-  const hour = date.getHours();
+function describeTimeOfDay(date: Date, timezone: string): string {
+  const hour = getLocalHour(date, timezone);
   if (hour < 5) return 'pre-dawn';
   if (hour < 7) return 'dawn patrol';
   if (hour < 11) return 'morning';
@@ -68,8 +69,8 @@ function describeTimeOfDay(date: Date): string {
   return 'evening';
 }
 
-function formatClockTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s/g, '');
+function formatClockTime(date: Date, timezone: string): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: timezone }).replace(/\s/g, '');
 }
 
 function formatDuration(minutes: number): string {
@@ -275,6 +276,7 @@ interface Beach {
   lon: number | null;
   description?: string;
   skill_level?: string;
+  timezone?: string;
 }
 
 interface SurfConditions {
@@ -712,7 +714,7 @@ async function fetchRandomBeaches(supabase: any, count: number): Promise<Beach[]
   
   const { data: beaches, error } = await supabase
     .from('beaches')
-    .select('id, name, city, lat, lon, skill_level');
+    .select('id, name, city, lat, lon, skill_level, timezone');
 
   if (error) {
     throw new Error(`Failed to fetch beaches: ${error.message}`);
@@ -804,6 +806,7 @@ function createSessionNarrative(
   rating: number,
   conditions: SurfConditions
 ): string {
+  const timezone = beach.timezone || getTimezoneFromCoords(beach.lat ?? 0, beach.lon ?? 0);
   const template = SESSION_NARRATIVE_TEMPLATES[npc.personality] ?? SESSION_NARRATIVE_TEMPLATES.local;
   const waveRange = approximateWaveRange(conditions.wave_height_ft);
   const periodDescription = describePeriod(conditions.wave_period_sec);
@@ -813,8 +816,8 @@ function createSessionNarrative(
   const crowdSentence = describeCrowd(conditions.crowd_level);
   const context: SessionNarrativeContext = {
     beachName: beach.name,
-    timeDescriptor: describeTimeOfDay(sessionTime),
-    clockTime: formatClockTime(sessionTime),
+    timeDescriptor: describeTimeOfDay(sessionTime, timezone),
+    clockTime: formatClockTime(sessionTime, timezone),
     durationText: formatDuration(duration),
     conditionsSentence,
     windSentence,
@@ -842,9 +845,9 @@ function generateIntelPost(npc: MockUser, beach: Beach): any {
   const baselineConditions = generateRealisticSurfConditions(beach);
   const { title, description } = generateIntelContent(npc, beach, tag, createdAt, baselineConditions);
 
-  // Add slight coordinate offset for realistic posting
-  const latitude = beach.lat + (Math.random() - 0.5) * 0.002; // ~200m variance
-  const longitude = beach.lon + (Math.random() - 0.5) * 0.002;
+  // Add slight coordinate offset for realistic posting (nullish coalesce for safety)
+  const latitude = (beach.lat ?? 0) + (Math.random() - 0.5) * 0.002; // ~200m variance
+  const longitude = (beach.lon ?? 0) + (Math.random() - 0.5) * 0.002;
 
   return {
     user_id: npc.id,
@@ -857,7 +860,8 @@ function generateIntelPost(npc: MockUser, beach: Beach): any {
     surf_conditions: tag === 'conditions' ? baselineConditions : null,
     confirmations_count: Math.floor(Math.random() * 12), // 0-11 confirmations
     is_active: true,
-    created_at: createdAt.toISOString()
+    created_at: createdAt.toISOString(),
+    expires_at: new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString()
   };
 }
 
@@ -869,8 +873,9 @@ function generateIntelContent(
   surfConditions: SurfConditions
 ): { title: string; description: string } {
   const beachName = beach.name;
-  const timeDescriptor = describeTimeOfDay(createdAt);
-  const clockTime = formatClockTime(createdAt);
+  const timezone = beach.timezone || getTimezoneFromCoords(beach.lat ?? 0, beach.lon ?? 0);
+  const timeDescriptor = describeTimeOfDay(createdAt, timezone);
+  const clockTime = formatClockTime(createdAt, timezone);
 
   switch (tag) {
     case 'conditions':
@@ -1055,7 +1060,7 @@ function generateCrowdIntel(
   const lines = [
     `Checked the lineup during the ${timeDescriptor} window around ${clockTime}.`,
     `${capitalize(crowdSentence.replace(/\.$/, ''))}—roughly ${headcount} in the water.`,
-    `Plenty of rotation between peaks, so drifting ${randomIntInclusive(15, 40)} yards can change the vibe.`,
+    `Plenty of rotation between peaks, so ${pickRandom(['paddling a bit further out', 'moving down the beach a little', 'shifting to a different peak', 'picking a less crowded section'])} can change the vibe.`,
     pickRandom(personaNotes)
   ];
 
@@ -1161,66 +1166,102 @@ function generateReviewContent(npc: MockUser, beach: Beach): { title: string; co
       titles: [
         `First time at ${beachName} - Amazing!`,
         `${beachName} exceeded expectations!`,
-        `So grateful for ${beachName}!`
+        `So grateful for ${beachName}!`,
+        `Can't stop thinking about ${beachName}`,
+        `${beachName} made my whole week`
       ],
       content: [
         `Had the most incredible time at ${beachName}! This place is perfect for beginners and everyone was so welcoming. Still can't believe I caught actual waves here! The locals gave me amazing tips and I already can't wait to come back.`,
-        `${beachName} is everything I dreamed surfing would be! Safe learning environment with gentle waves and such a supportive community. Made so much progress today and met awesome people. This spot has won my heart!`
+        `${beachName} is everything I dreamed surfing would be! Safe learning environment with gentle waves and such a supportive community. Made so much progress today and met awesome people. This spot has won my heart!`,
+        `Got absolutely worked on my first wipeout at ${beachName} but honestly I couldn't stop laughing. Paddled right back out and caught the next one. That's what surfing is about and I'm completely hooked now.`,
+        `Made a couple new surf friends in the lineup at ${beachName} today. They showed me where to sit and when to paddle. Having people to share the stoke with makes the whole experience so much better.`,
+        `Finally figured out why everyone talks about wetsuit thickness at ${beachName}. Showed up in my spring suit and was freezing for the first twenty minutes, but once I got moving the waves totally made up for it. Learning something new every session!`,
+        `The drive home from ${beachName} might be my favorite part. Windows down, salt in my hair, replaying every wave in my head. Don't think I stopped smiling the entire ride back. Already checking the forecast for tomorrow.`
       ]
     },
     local: {
       titles: [
         `Another solid day at ${beachName}`,
         `${beachName} conditions update`,
-        `Why I love ${beachName}`
+        `Why I love ${beachName}`,
+        `${beachName} this time of year`,
+        `Dawn patrol debrief: ${beachName}`
       ],
       content: [
         `${beachName} delivered the goods again today. Been surfing here for years and it's always reliable. Great waves for all levels and the community stays strong. Water temp was perfect and conditions held up all morning.`,
-        `Love how consistent ${beachName} is. Today's session reminded me why this is my home break - predictable conditions, good vibes, and just the right amount of challenge. Never disappoints when you know what to expect.`
+        `Love how consistent ${beachName} is. Today's session reminded me why this is my home break - predictable conditions, good vibes, and just the right amount of challenge. Never disappoints when you know what to expect.`,
+        `This time of year ${beachName} really hits its stride. Swells line up differently than summer and the crowd thins out just enough to make every session feel personal. If you've only surfed here in peak season you're missing the real show.`,
+        `Alarm went off at 5:15, coffee in the thermos by 5:30, feet in the water at ${beachName} by 6:00. The dawn patrol ritual never gets old. Glass-off conditions with nobody out and the sun coming up behind the bluffs—that's the stuff.`,
+        `Watched ${beachName} evolve a lot over the years. More people now, sure, but the wave doesn't care. It still does its thing on the right swell and if you know where to sit you can score just like the old days. Some things don't change.`,
+        `There's a peak about a hundred yards south of the main takeoff at ${beachName} that most people walk right past. It doesn't break as often but when it does it's a longer ride with way less competition. Worth a look on a medium swell.`
       ]
     },
     traveler: {
       titles: [
         `${beachName} worth the journey`,
         `Hidden gem: ${beachName}`,
-        `${beachName} travel review`
+        `${beachName} travel review`,
+        `Surf trip dispatch: ${beachName}`,
+        `${beachName} vs my home break`
       ],
       content: [
         `Finally made it to ${beachName} and it absolutely lived up to the hype! So different from my home break but in the best possible way. The whole area has such unique character and the wave quality is exceptional.`,
-        `${beachName} is now on my list of must-return surf destinations. The combination of great waves and local culture makes this special. Already recommending it to friends planning surf trips to the area.`
+        `${beachName} is now on my list of must-return surf destinations. The combination of great waves and local culture makes this special. Already recommending it to friends planning surf trips to the area.`,
+        `${beachName} reminds me of a reef break I surfed in Portugal last year—similar shape on the wave face but with warmer water and way more consistent sets. Always cool when a new spot triggers that deja vu from another corner of the world.`,
+        `Pro tip for anyone planning a trip to ${beachName}: book your stay at least a week out and check the tide charts before picking morning or afternoon sessions. The swell window here is more predictable than you'd think if you do a little homework.`,
+        `Found an amazing taco spot two blocks from ${beachName} that the guy in the parking lot told me about. Nothing beats a post-session burrito when you're still dripping salt water. The food scene around here is seriously underrated.`,
+        `If you're visiting ${beachName} and need a place to crash, there's a hostel within walking distance that has board storage and an outdoor rinse station. Met a crew from Brazil there and we ended up surfing together all week.`
       ]
     },
     photographer: {
       titles: [
         `${beachName} visual feast`,
         `Perfect light at ${beachName}`,
-        `Capturing ${beachName}`
+        `Capturing ${beachName}`,
+        `Golden hour magic at ${beachName}`,
+        `${beachName} through the lens`
       ],
       content: [
         `${beachName} is absolutely stunning! The wave formations combined with incredible lighting made for both amazing surfing and photography. Every angle offers something different - from water colors to surrounding landscape.`,
-        `Spent an amazing session at ${beachName} today. The natural beauty here is unmatched and the surf was photogenic perfection. Got incredible shots while enjoying world-class waves. Visual paradise!`
+        `Spent an amazing session at ${beachName} today. The natural beauty here is unmatched and the surf was photogenic perfection. Got incredible shots while enjoying world-class waves. Visual paradise!`,
+        `Arrived at ${beachName} thirty minutes before golden hour and set up on the south side of the cliff. Shot the whole sequence as the light went from flat white to deep amber. The last fifteen minutes before sunset were pure gold—every lip throw and spray pattern lit up like it was staged.`,
+        `Brought the 70-200mm today instead of the fisheye and it was the right call at ${beachName}. The longer focal length compressed the lineup beautifully and isolated individual surfers against the wave texture. Sometimes less drama in the lens means more in the frame.`,
+        `Spotted a pod of dolphins cruising through the lineup at ${beachName} right as the light was getting interesting. Managed to catch a surfer and a dolphin in the same frame—complete accident but probably my favorite shot of the month. Nature doesn't wait for you to adjust your settings.`,
+        `The way ${beachName} breaks creates this really satisfying leading line from the peak all the way to the inside section. Shot from a low angle on the beach with the cliff framing the top third and let the whitewater trail draw the eye across the image. Composition basically wrote itself.`
       ]
     },
     tactical: {
       titles: [
         `${beachName} tactical assessment`,
         `Strategic analysis: ${beachName}`,
-        `${beachName} operational review`
+        `${beachName} operational review`,
+        `${beachName} positioning report`,
+        `${beachName} field assessment`
       ],
       content: [
         `Comprehensive assessment of ${beachName} complete. Location demonstrates optimal strategic advantages with predictable wave patterns and excellent positioning. Recommend for continued tactical utilization and training operations.`,
-        `${beachName} operational parameters exceeded expectations. Environmental conditions suitable for extended missions with multiple tactical advantages identified. Security assessment shows minimal hostile elements.`
+        `${beachName} operational parameters exceeded expectations. Environmental conditions suitable for extended missions with multiple tactical advantages identified. Security assessment shows minimal hostile elements.`,
+        `Strategic positioning analysis for ${beachName}: optimal entry point is 40 meters north of the main access. Holding position at the secondary peak reduces interference by approximately 60 percent. Recommend deploying during the first two hours after dawn for maximum tactical advantage.`,
+        `Environmental risk assessment at ${beachName} confirms manageable threat levels. Current patterns show predictable lateral drift requiring position corrections every 8 to 10 minutes. Water temperature within operational tolerance. No hazardous marine fauna observed during 90-minute surveillance window.`,
+        `Mission debrief for ${beachName}: arrived at 0545, conditions matched pre-mission forecast within acceptable margin. Executed 12 controlled engagements across a two-hour window. Equipment performed nominally. Recommend same deployment window for follow-up operations pending favorable swell forecast.`,
+        `Terrain advantage analysis for ${beachName} reveals an underutilized channel entry on the south flank that reduces paddle time by an estimated 35 percent. Bottom contour creates a consistent rip that can be leveraged for efficient repositioning between sets. Filed for future mission planning reference.`
       ]
     },
     competitor: {
       titles: [
         `${beachName} training analysis`,
         `Performance review: ${beachName}`,
-        `Competition prep at ${beachName}`
+        `Competition prep at ${beachName}`,
+        `${beachName} session breakdown`,
+        `Leveling up at ${beachName}`
       ],
       content: [
         `Outstanding training session at ${beachName}! Wave quality pushed my performance to new levels with perfect conditions for working on competition maneuvers. This spot offers everything needed for serious skill development.`,
-        `${beachName} continues to be essential for my competition preparation. High-performance waves with multiple sections for advanced techniques. The competitive environment here really brings out peak performance.`
+        `${beachName} continues to be essential for my competition preparation. High-performance waves with multiple sections for advanced techniques. The competitive environment here really brings out peak performance.`,
+        `Spent the whole session at ${beachName} drilling airs off the end section. Landed three clean ones out of maybe fifteen attempts—not a great ratio but two of those were the highest I've ever boosted. Progress isn't always pretty but it's progress.`,
+        `Ran my own mock heat at ${beachName} today: twenty-five minute window, best two waves count. Forced myself to be selective instead of catching everything. Ended up with a much better average score than when I just paddle for volume. Strategy matters as much as skill.`,
+        `Hit a personal best backside carve at ${beachName} that I've been chasing for weeks. The section finally lined up right and I committed fully instead of pulling back early. Felt like the kind of breakthrough that shifts everything forward.`,
+        `Surfed with my training partner at ${beachName} and we pushed each other the entire session. Taking turns calling waves, critiquing each other's turns in real time. Having someone who won't let you coast is worth more than any solo session no matter how good the waves are.`
       ]
     }
   };
