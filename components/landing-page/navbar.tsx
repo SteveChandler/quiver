@@ -183,10 +183,8 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
             </Link>
 
             {/* Auth Buttons */}
-            <div className="flex items-center gap-3 ml-2">
-              <Button
-                variant="outline"
-                className="text-white border-white/70 hover:bg-white/10 hover:text-white font-medium rounded-full px-6 bg-transparent"
+            <div className="flex items-center gap-4 ml-2">
+              <button
                 onClick={() => {
                   setAuthMode("login");
                   setAuthModalOpen(true);
@@ -195,8 +193,22 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                     source: "landing-navbar",
                   });
                 }}
+                className="text-white/70 hover:text-white text-sm font-medium transition-colors"
               >
                 Log in
+              </button>
+              <Button
+                onClick={() => {
+                  setAuthMode("signup");
+                  setAuthModalOpen(true);
+                  trackAuthModalOpened({
+                    mode: "signup",
+                    source: "landing-navbar",
+                  });
+                }}
+                className="bg-white/95 text-ocean-blue hover:bg-white font-semibold rounded-full px-5 py-2 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200"
+              >
+                Get Started
               </Button>
             </div>
           </div>
@@ -298,11 +310,26 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                   </div>
 
                   {/* Mobile Auth Buttons - Pinned to bottom */}
-                  <div className="border-t pt-4 pb-6 px-6 mt-auto">
+                  <div className="border-t pt-4 pb-6 px-6 mt-auto flex flex-col gap-3">
                     <Button
-                      variant="outline"
                       size="lg"
-                      className="w-full"
+                      className="w-full bg-ocean-blue hover:bg-ocean-blue/90 text-white font-semibold"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setAuthMode("signup");
+                        setAuthModalOpen(true);
+                        trackAuthModalOpened({
+                          mode: "signup",
+                          source: "landing-navbar-mobile",
+                        });
+                      }}
+                    >
+                      Get Started
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="w-full text-gray-600"
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setAuthMode("login");
@@ -339,6 +366,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
         mode={authMode}
         source="landing-navbar"
         returnTo="/"
+        contextMessage={authMode === "signup" ? { title: "Get Started", description: "Personalized surf forecasts in 30 seconds" } : undefined}
       />
     </nav>
   );

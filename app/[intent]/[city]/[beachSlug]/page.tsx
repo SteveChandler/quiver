@@ -7,6 +7,7 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { getBeachForecastPreview } from "@/actions/forecast-actions";
@@ -236,11 +237,19 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           surfCallIsTomorrow={surfCallIsTomorrow}
         />
 
+        <StickySignupBar
+          source={`beach-detail-${beachSlug}`}
+          ctaText="See Your Match"
+          supportingText={`Your match score for ${beach.name}`}
+          scrollThreshold={150}
+        />
+
         {/* Signup CTA for anonymous visitors */}
         <div className="container mx-auto px-4 pt-6">
           <InlineSignupCta
-            title={`Track Your Sessions at ${beach.name}`}
-            description="Log your surf sessions, get personalized forecasts, and join the community"
+            title="Know Before You Go"
+            description={`Get your personal match score, 12-day outlook, and condition alerts for ${beach.name}`}
+            primaryButtonText="Get My Forecast"
             source={`beach-detail-${beachSlug}`}
           />
         </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
@@ -16,8 +15,6 @@ interface InlineSignupCtaProps {
   description: string;
   /** Primary button text */
   primaryButtonText?: string;
-  /** Secondary button text */
-  secondaryButtonText?: string;
   /** Analytics source tracking identifier */
   source: string;
   /** Additional CSS classes */
@@ -37,14 +34,12 @@ interface InlineSignupCtaProps {
 export function InlineSignupCta({
   title,
   description,
-  primaryButtonText = "Sign Up Free",
-  secondaryButtonText = "Learn More",
+  primaryButtonText = "Get My Forecast",
   source,
   className,
 }: InlineSignupCtaProps) {
   const { user, isLoading } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
 
   const handleSignupClick = useCallback(() => {
     track("signup_cta_click", {
@@ -56,23 +51,8 @@ export function InlineSignupCta({
       mode: "signup",
       source: `inline-cta-${source}`,
     });
-    setAuthMode("signup");
     setAuthModalOpen(true);
   }, [source, primaryButtonText]);
-
-  const handleLoginClick = useCallback(() => {
-    track("signin_cta_click", {
-      source,
-      cta_type: "inline",
-      cta_text: secondaryButtonText,
-    });
-    trackAuthModalOpened({
-      mode: "login",
-      source: `inline-cta-${source}`,
-    });
-    setAuthMode("login");
-    setAuthModalOpen(true);
-  }, [source, secondaryButtonText]);
 
   // Don't render for authenticated users or while loading
   if (user || isLoading) {
@@ -83,9 +63,10 @@ export function InlineSignupCta({
     <>
       <div
         className={cn(
-          "rounded-xl border border-sky-200/60",
-          "bg-gradient-to-br from-sky-50/80 via-blue-50/50 to-cyan-50/80",
-          "p-6 md:p-8",
+          "rounded-2xl backdrop-blur-sm",
+          "bg-gradient-to-br from-white/90 to-ocean-blue/5",
+          "border border-ocean-blue/15 shadow-sm ring-1 ring-ocean-blue/5",
+          "p-6",
           className
         )}
         role="region"
@@ -100,40 +81,33 @@ export function InlineSignupCta({
             <p className="text-sm md:text-base text-gray-600">{description}</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 md:flex-shrink-0">
+          <div className="flex-shrink-0">
             <Button
               onClick={handleSignupClick}
-              className="bg-ocean-blue hover:bg-blue-700 text-white font-semibold shadow-md"
+              className="rounded-full bg-ocean-blue text-white px-6 shadow-sm hover:shadow-md font-semibold"
               data-testid="inline-signup-primary-cta"
             >
               {primaryButtonText}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-
-            <Button
-              onClick={handleLoginClick}
-              variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
-              data-testid="inline-signup-secondary-cta"
-            >
-              {secondaryButtonText}
             </Button>
           </div>
         </div>
 
         <p className="mt-4 text-xs text-gray-500">
-          Forecasts updated every 3 hours with ML-corrected predictions
+          Trusted by hundreds of surfers along the coast
         </p>
       </div>
 
       <UnifiedAuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        mode={authMode}
+        mode="signup"
         source={`inline-cta-${source}`}
+        contextMessage={{
+          title: "Know Before You Go",
+          description: "Personalized surf forecasts in 30 seconds",
+        }}
       />
     </>
   );
 }
 
-export default InlineSignupCta;

@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Visitor-to-Signup Conversion Uplift** -- Comprehensive conversion optimization across beach pages:
+  - Glassmorphic match score teaser card with IntersectionObserver view tracking (replaces dashed pill)
+  - Contextual AppHeader CTA text ("Get Your Match" on beach pages, "Full Forecast" on forecast pages)
+  - StickySignupBar on beach detail pages with frosted glass design (mobile-only, 150px scroll threshold)
+  - Redesigned forecast gates: horizon strip inline card with day name teaser, outlook card with CalendarDays icon
+  - PublicContentGate: added `ctaButtonText` prop, replaced Lock with Sparkles icon, updated social proof tagline
+  - InlineSignupCta: premium card redesign with "Know Before You Go" copy, single CTA button
+  - Landing page navbar: added "Get Started" frosted pill button alongside subtle "Log in" text link
+  - Contextual auth modal: `contextMessage` prop on UnifiedAuthModal for trigger-specific titles/descriptions
 - **California Surfer Search Query Map** - Comprehensive query research document at `docs/plans/2026-02-14-surfer-search-query-map.md` mapping the full California surfer search landscape by customer journey stage, with competitive gap analysis and priority matrix for SEO targeting.
 - **Product Marketing Context Documentation** - Formalized product-marketing-context.md with customer personas (The Daily Checker, The Beginner, The Explorer, The Optimizer, The Planner, The Switcher) and P0/P1/P2 keyword priorities based on Quiver's competitive advantages (ML forecasts, crowd intel, Best Surf Window, session tracking).
 - **Social Interaction Tracking** -- 6 new event types (`social_follow`, `social_like`, `social_share`, `social_invite_send`, `social_invite_respond`, `social_intel_confirm`), new hooks (`use-session-like.ts`, `use-user-follow.ts`), share sheet tracking

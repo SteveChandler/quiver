@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, Lock } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { track } from "@/lib/analytics";
 import React, { useEffect, useRef, useState } from "react";
@@ -16,6 +16,7 @@ interface PublicContentGateProps {
   children?: React.ReactNode;
   ctaTitle: string;
   ctaDescription?: string;
+  ctaButtonText?: string;
   blurLevel?: "sm" | "md" | "lg";
   className?: string;
   source?: string; // For tracking where the CTA was clicked
@@ -25,6 +26,7 @@ export function PublicContentGate({
   children,
   ctaTitle,
   ctaDescription,
+  ctaButtonText = "Sign Up Free",
   blurLevel = "md",
   className = "",
   source = "unknown",
@@ -101,7 +103,7 @@ export function PublicContentGate({
           <CardContent className="p-6 text-center space-y-4">
             <div className="flex justify-center">
               <div className="p-3 bg-primary/10 rounded-full">
-                <Lock className="h-8 w-8 text-primary" />
+                <Sparkles className="h-8 w-8 text-primary" />
               </div>
             </div>
 
@@ -117,7 +119,7 @@ export function PublicContentGate({
             <div className="space-y-2">
               <Button onClick={handleSignUpClick} size="lg" className="w-full">
                 <Sparkles className="h-4 w-4 mr-2" />
-                Sign Up Free
+                {ctaButtonText}
               </Button>
               <Button
                 onClick={handleSignInClick}
@@ -130,7 +132,7 @@ export function PublicContentGate({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Forecasts powered by 30,000+ surf observations
+              Trusted by hundreds of surfers along the coast
             </p>
           </CardContent>
         </Card>

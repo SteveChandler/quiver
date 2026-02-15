@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
 import {
   ArrowUp,
   ArrowDown,
@@ -11,7 +12,7 @@ import {
   Sun,
   Globe2,
   ChevronDown,
-  Lock,
+  CalendarDays,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -90,6 +91,7 @@ export function ForecastTab({
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
   const [horizonAuthModal, setHorizonAuthModal] = useState(false);
+  const [outlookAuthModal, setOutlookAuthModal] = useState(false);
 
   // Horizon Strip: selected date for filtering (defaults to today)
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
@@ -166,6 +168,28 @@ export function ForecastTab({
 
   // Public mode: limit horizon to 3 days
   const publicHorizonDays = publicMode ? horizonDaySummaries.slice(0, 3) : horizonDaySummaries;
+
+  const firstHiddenDayName = useMemo(() => {
+    if (!publicMode || horizonDaySummaries.length <= 3) return null;
+    const hiddenDay = horizonDaySummaries[3];
+    if (!hiddenDay?.date) return null;
+    try {
+      return new Date(`${hiddenDay.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+    } catch {
+      return null;
+    }
+  }, [publicMode, horizonDaySummaries]);
+
+  const firstHiddenOutlookDayName = useMemo(() => {
+    if (!publicMode || miniForecastDays.length <= 3) return null;
+    const hiddenDay = miniForecastDays[3];
+    if (!hiddenDay?.date) return null;
+    try {
+      return new Date(`${hiddenDay.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
+    } catch {
+      return null;
+    }
+  }, [publicMode, miniForecastDays]);
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -369,26 +393,41 @@ export function ForecastTab({
             beachSlug={slugify(beach.name)}
           />
           {publicMode && horizonDaySummaries.length > 3 && (
-            <div className="mt-2 text-center">
-              <button
+            <>
+              <motion.button
                 type="button"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mt-3 w-full flex items-center gap-3 rounded-xl
+                  bg-gradient-to-r from-blue-50/80 to-cyan-50/60
+                  border border-ocean-blue/10 p-3 cursor-pointer
+                  hover:border-ocean-blue/20 hover:shadow-sm transition-all"
                 onClick={() => {
                   track("signup_cta_click", { source: "horizon-strip-outlook" });
                   trackAuthModalOpened({ mode: "signup", source: "horizon-strip-outlook" });
                   setHorizonAuthModal(true);
                 }}
-                className="text-xs text-ocean-blue hover:text-ocean-blue/80 transition-colors cursor-pointer"
               >
-                <Lock className="inline h-3 w-3 mr-1" />
-                Sign up to see the full 12-day outlook
-              </button>
+                <CalendarDays className="h-4 w-4 text-ocean-blue flex-shrink-0" />
+                <p className="text-sm text-gray-700">
+                  Conditions shift on <span className="font-semibold">{firstHiddenDayName ?? "Day 4"}</span>
+                </p>
+                <span className="ml-auto text-sm font-semibold text-ocean-blue whitespace-nowrap">
+                  See outlook →
+                </span>
+              </motion.button>
               <UnifiedAuthModal
                 isOpen={horizonAuthModal}
                 onClose={() => setHorizonAuthModal(false)}
                 mode="signup"
                 source="horizon-strip-outlook"
+                contextMessage={{
+                  title: "See the Full Outlook",
+                  description: "Plan your week with the 12-day forecast",
+                }}
               />
-            </div>
+            </>
           )}
         </section>
       )}
@@ -642,17 +681,38 @@ export function ForecastTab({
                     );
                   })}
                   {publicMode && hiddenDaysCount > 0 && (
-                    <div className="col-span-1 sm:col-span-1 lg:col-span-1 flex items-center justify-center rounded-2xl border border-dashed border-ocean-blue/20 bg-blue-50/30 p-3 text-center">
-                      <div>
-                        <Lock className="h-5 w-5 text-ocean-blue/40 mx-auto mb-1" />
-                        <p className="text-xs text-ocean-blue/60 font-medium">
-                          +{hiddenDaysCount} more days
+                    <>
+                      <button
+                        type="button"
+                        className="col-span-1 flex flex-col items-center justify-center rounded-2xl
+                          border border-dashed border-ocean-blue/15 bg-gradient-to-br from-blue-50/50 to-cyan-50/30
+                          p-4 text-center cursor-pointer
+                          hover:border-ocean-blue/25 hover:bg-blue-50/70 transition-all"
+                        onClick={() => {
+                          track("signup_cta_click", { source: "5day-outlook-card" });
+                          trackAuthModalOpened({ mode: "signup", source: "5day-outlook-card" });
+                          setOutlookAuthModal(true);
+                        }}
+                      >
+                        <CalendarDays className="h-5 w-5 text-ocean-blue/50 mb-1.5" />
+                        <p className="text-xs font-medium text-gray-700">
+                          {firstHiddenOutlookDayName ?? `+${hiddenDaysCount} more`}
                         </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Sign up free
+                        <p className="text-[11px] text-ocean-blue mt-1 font-medium">
+                          See what's coming
                         </p>
-                      </div>
-                    </div>
+                      </button>
+                      <UnifiedAuthModal
+                        isOpen={outlookAuthModal}
+                        onClose={() => setOutlookAuthModal(false)}
+                        mode="signup"
+                        source="5day-outlook-card"
+                        contextMessage={{
+                          title: "See the Full Outlook",
+                          description: "Plan your week with the 12-day forecast",
+                        }}
+                      />
+                    </>
                   )}
                 </div>
               )}
