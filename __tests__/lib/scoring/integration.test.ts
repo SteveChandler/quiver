@@ -39,6 +39,7 @@ describe('Unified Scoring Integration', () => {
     return {
       id: 'test-forecast',
       beach_id: 'ob-pier',
+      forecast_at: '2026-01-14T07:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '07:00:00',
       wave_height: '3.0',
@@ -63,6 +64,7 @@ describe('Unified Scoring Integration', () => {
     it('produces consistent score and recommendation for good conditions', () => {
       const forecast = toForecastForScoring(
         createForecast({
+          forecast_at: '2026-01-14T07:00:00Z',
           forecast_date: '2026-01-14',
           forecast_time: '07:00:00',
           wave_height: '2.5',
@@ -88,6 +90,7 @@ describe('Unified Scoring Integration', () => {
       // could result in "Maybe" even when the total score was high
       const forecast = toForecastForScoring(
         createForecast({
+          forecast_at: '2026-01-14T07:00:00Z',
           forecast_date: '2026-01-14',
           forecast_time: '07:00:00',
           wave_height: '3.0',

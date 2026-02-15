@@ -181,6 +181,7 @@ export function createBeach(overrides: Partial<Beach> = {}): TestBeach {
 type TestForecast = Partial<EnhancedForecastEntity> & {
   id: string;
   beach_id: string;
+  forecast_at: `${string}T${string}Z`,
   forecast_date: string;
   forecast_time: string;
 };
@@ -193,6 +194,7 @@ export function createForecast(overrides: Partial<EnhancedForecastEntity> = {}):
   return {
     id: 'test-forecast-id',
     beach_id: 'test-beach-id',
+    forecast_at: '2025-01-15T08:00Z',
     forecast_date: '2025-01-15',
     forecast_time: '08:00',
     wave_height: '4',

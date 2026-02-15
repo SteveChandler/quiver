@@ -80,7 +80,7 @@ export function EnhancedForecastWithTransparency({
                 </div>
               </div>
               <div className="text-xs text-gray-500">
-                {forecast.forecast_date} {forecast.forecast_time}
+                {forecast.forecast_at ? new Date(forecast.forecast_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : `${forecast.forecast_date} ${forecast.forecast_time}`}
               </div>
             </div>
 

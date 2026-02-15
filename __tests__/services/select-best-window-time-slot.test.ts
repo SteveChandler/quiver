@@ -8,6 +8,7 @@ function createForecast(date: string, hour: number, score: number = 70): Enhance
   return {
     id: `forecast-${date}-${hour}`,
     beach_id: 'test-beach',
+    forecast_at: `${date}T${timeStr}Z`,
     forecast_date: date,
     forecast_time: timeStr,
     wave_height: '3.5',

@@ -87,6 +87,12 @@ export function withRateLimit(
     );
   }
 
+  if (normalized.authAware && typeof normalized.authAware !== "object") {
+    throw new Error(
+      "withRateLimit: authAware must be an object with { publicLimitKey, authenticatedLimitKey }, not a boolean"
+    );
+  }
+
   const staticLimitKey: RateLimitKey | null = normalized.authAware
     ? null
     : (normalized.key as RateLimitKey);

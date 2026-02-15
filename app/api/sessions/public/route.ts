@@ -57,11 +57,10 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
         image_url,
         likes_count,
         created_at,
-        profile_id,
         duration_minutes,
         crowd_level,
         water_temp,
-        profiles!sessions_profile_id_fkey (
+        profiles!sessions_user_id_profiles_fkey (
           id
         ),
         session_media!session_media_session_id_fkey (

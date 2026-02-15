@@ -41,6 +41,11 @@ jest.mock("@/lib/utils/forecast-client-utils", () => ({
   isDataStale: jest.fn(() => false),
 }));
 
+jest.mock("@/lib/utils/forecast-at-adapter", () => ({
+  __esModule: true,
+  extractForecastDate: jest.fn((forecastAt: string) => forecastAt?.split("T")[0] || ""),
+}));
+
 const makeChain = () => {
   const obj: any = {};
   obj.select = jest.fn(() => obj);
@@ -50,6 +55,7 @@ const makeChain = () => {
   obj.limit = jest.fn();
   obj.gte = jest.fn(() => obj);
   obj.lte = jest.fn(() => obj);
+  obj.lt = jest.fn(() => obj);
   return obj;
 };
 
@@ -120,13 +126,13 @@ describe("Forecast Actions", () => {
       expect(forecastsChain.select).toHaveBeenCalledWith("*");
       expect(forecastsChain.eq).toHaveBeenCalledWith("beach_id", "beach-123");
       expect(forecastsChain.gte).toHaveBeenCalledWith(
-        "forecast_date",
-        today
+        "forecast_at",
+        `${today}T00:00:00Z`
       );
       expect(forecastsChain.limit).toHaveBeenCalledWith(50);
     });
 
-    it("should order forecasts by date and time ascending", async () => {
+    it("should order forecasts by forecast_at ascending", async () => {
       forecastsChain.limit.mockResolvedValueOnce({
         data: [],
         error: null,
@@ -134,12 +140,10 @@ describe("Forecast Actions", () => {
 
       await getBeachForecasts("beach-123");
 
-      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_date", {
+      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_at", {
         ascending: true,
       });
-      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_time", {
-        ascending: true,
-      });
+      expect(forecastsChain.order).toHaveBeenCalledTimes(1);
     });
 
     it("should handle database errors gracefully", async () => {
@@ -197,12 +201,10 @@ describe("Forecast Actions", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockForecasts);
-      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_date", {
+      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_at", {
         ascending: false,
       });
-      expect(forecastsChain.order).toHaveBeenCalledWith("forecast_time", {
-        ascending: false,
-      });
+      expect(forecastsChain.order).toHaveBeenCalledTimes(1);
       expect(forecastsChain.limit).toHaveBeenCalledWith(5);
     });
 
@@ -225,6 +227,7 @@ describe("Forecast Actions", () => {
         {
           id: "enhanced-1",
           beach_id: "beach-123",
+          forecast_at: `${today}T12:00:00Z`,
           forecast_date: today,
           forecast_time: "12:00:00",
           wave_height: "3-4 ft",
@@ -254,13 +257,12 @@ describe("Forecast Actions", () => {
         },
       ];
 
-      // Mock the view query - setup the second order() to return a promise
+      // Mock the view query - single order() on forecast_at returns a promise
       const mockOrderChain = {
         then: jest.fn((resolve) => resolve({ data: mockEnhancedForecasts, error: null })),
       };
       tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
-      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.order.mockReturnValueOnce(mockOrderChain);
 
       const result = await getEnhancedBeachForecasts("beach-123", 12);
@@ -284,6 +286,7 @@ describe("Forecast Actions", () => {
         {
           id: "enhanced-1",
           beach_id: "beach-123",
+          forecast_at: `${today}T12:00:00Z`,
           forecast_date: today,
           forecast_time: "12:00:00",
           wave_height: "3-4 ft",
@@ -313,7 +316,6 @@ describe("Forecast Actions", () => {
       };
       tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
-      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.order.mockReturnValueOnce(mockViewChain);
 
       // Table succeeds
@@ -323,8 +325,7 @@ describe("Forecast Actions", () => {
       enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.lte.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
 
       const result = await getEnhancedBeachForecasts("beach-123", 10);
@@ -332,8 +333,8 @@ describe("Forecast Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
       expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
-        "forecast_date",
-        today
+        "forecast_at",
+        `${today}T00:00:00Z`
       );
     });
 
@@ -344,7 +345,6 @@ describe("Forecast Actions", () => {
       };
       tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
-      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.order.mockReturnValueOnce(mockViewChain);
 
       // Table also fails
@@ -354,8 +354,7 @@ describe("Forecast Actions", () => {
       enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.lte.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
 
       const result = await getEnhancedBeachForecasts("beach-123");
@@ -385,8 +384,8 @@ describe("Forecast Actions", () => {
       };
       enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.in.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockChain);
 
       const result = await getBeachForecastPreview("beach-123");
@@ -425,8 +424,8 @@ describe("Forecast Actions", () => {
       };
       enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.in.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockEnhancedChain);
 
       // Basic succeeds
@@ -435,8 +434,8 @@ describe("Forecast Actions", () => {
       };
       forecastsChain.select.mockReturnValueOnce(forecastsChain);
       forecastsChain.eq.mockReturnValueOnce(forecastsChain);
-      forecastsChain.in.mockReturnValueOnce(forecastsChain);
-      forecastsChain.order.mockReturnValueOnce(forecastsChain);
+      forecastsChain.gte.mockReturnValueOnce(forecastsChain);
+      forecastsChain.lt.mockReturnValueOnce(forecastsChain);
       forecastsChain.order.mockReturnValueOnce(mockBasicChain);
 
       const result = await getBeachForecastPreview("beach-123");
@@ -451,24 +450,24 @@ describe("Forecast Actions", () => {
     });
 
     it("should return null data when no forecasts available", async () => {
-      // Enhanced fails
+      // Enhanced returns empty
       const mockEnhancedChain = {
         then: jest.fn((resolve) => resolve({ data: [], error: null })),
       };
       enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.in.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockEnhancedChain);
 
-      // Basic also fails
+      // Basic also returns empty
       const mockBasicChain = {
         then: jest.fn((resolve) => resolve({ data: [], error: null })),
       };
       forecastsChain.select.mockReturnValueOnce(forecastsChain);
       forecastsChain.eq.mockReturnValueOnce(forecastsChain);
-      forecastsChain.in.mockReturnValueOnce(forecastsChain);
-      forecastsChain.order.mockReturnValueOnce(forecastsChain);
+      forecastsChain.gte.mockReturnValueOnce(forecastsChain);
+      forecastsChain.lt.mockReturnValueOnce(forecastsChain);
       forecastsChain.order.mockReturnValueOnce(mockBasicChain);
 
       const result = await getBeachForecastPreview("beach-123");
@@ -643,8 +642,8 @@ describe("Forecast Actions", () => {
       await getBeachForecasts("beach-123");
 
       expect(forecastsChain.gte).toHaveBeenCalledWith(
-        "forecast_date",
-        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+        "forecast_at",
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}T00:00:00Z$/)
       );
     });
 
@@ -655,7 +654,6 @@ describe("Forecast Actions", () => {
       };
       tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
-      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.order.mockReturnValueOnce(mockViewChain);
 
       const mockTableChain = {
@@ -664,8 +662,7 @@ describe("Forecast Actions", () => {
       enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.lte.mockReturnValueOnce(enhancedForecastsChain);
-      enhancedForecastsChain.order.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
       enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
 
       const daysParam = 7;
@@ -677,14 +674,20 @@ describe("Forecast Actions", () => {
       )
         .toISOString()
         .split("T")[0];
+      // dayAfterEndDate = endDate + 1 day
+      const expectedDayAfterEndDate = new Date(
+        new Date(expectedEndDate + 'T00:00:00Z').getTime() + 86400000
+      )
+        .toISOString()
+        .split("T")[0];
 
       expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
-        "forecast_date",
-        startDate
+        "forecast_at",
+        `${startDate}T00:00:00Z`
       );
-      expect(enhancedForecastsChain.lte).toHaveBeenCalledWith(
-        "forecast_date",
-        expectedEndDate
+      expect(enhancedForecastsChain.lt).toHaveBeenCalledWith(
+        "forecast_at",
+        `${expectedDayAfterEndDate}T00:00:00Z`
       );
     });
   });
@@ -712,6 +715,7 @@ describe("Forecast Actions", () => {
         {
           id: "enhanced-1",
           beach_id: "beach-123",
+          forecast_at: `${today}T12:00:00Z`,
           forecast_date: today,
           forecast_time: "12:00:00",
           wave_height: "3-4 ft",
@@ -740,7 +744,6 @@ describe("Forecast Actions", () => {
       };
       tenDayViewChain.select.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.eq.mockReturnValueOnce(tenDayViewChain);
-      tenDayViewChain.order.mockReturnValueOnce(tenDayViewChain);
       tenDayViewChain.order.mockReturnValueOnce(mockChain);
 
       const result = await getEnhancedBeachForecasts("beach-123");

@@ -167,17 +167,18 @@ export class IntelGenerationService {
     const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
     const tomorrow = formatInTimeZone(addDays(now, 1), tz, "yyyy-MM-dd");
 
+    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const { data: forecasts, error } = await this.supabase
       .from("enhanced_forecasts")
       .select(
-        "forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, next_tide_time, next_tide_type, next_tide_height, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
+        "forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, next_tide_time, next_tide_type, next_tide_height, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
       )
       .eq("beach_id", beachId)
-      .in("forecast_date", [today, tomorrow])
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
       .gte("forecast_time", "04:00:00")
       .lte("forecast_time", "12:00:00")
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
+      .order("forecast_at", { ascending: true });
 
     if (error) {
       throw new Error(`Failed to fetch forecasts: ${error.message}`);

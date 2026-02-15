@@ -61,6 +61,7 @@ interface ScoredForecast {
  * Minimal forecast data required for scoring
  */
 export interface ForecastData {
+  forecast_at?: string;
   forecast_time: string;
   forecast_date: string;
   wind_speed: number | null;
@@ -130,7 +131,9 @@ export function scoreForecast(forecast: ForecastData, beachAspect: number): numb
   else if (tideHeight >= 1.5 && tideHeight <= 6) score += TIDE_ACCEPTABLE_SCORE;
 
   // Time of day bonus (prefer early morning and late afternoon)
-  const hour = parseInt(forecast.forecast_time.split(":")[0]);
+  const hour = forecast.forecast_at
+    ? new Date(forecast.forecast_at).getUTCHours()
+    : parseInt(forecast.forecast_time?.split(":")[0] || '12');
   if (hour >= 6 && hour <= 9) score += MORNING_BONUS;
   else if (hour >= 16 && hour <= 18) score += AFTERNOON_BONUS;
 
@@ -295,6 +298,12 @@ export function findNextBestWindow(
 
   // Filter to future forecasts only
   const futureForecasts = forecasts.filter((f) => {
+    if (f.forecast_at) {
+      const forecastDate = f.forecast_at.split("T")[0];
+      if (forecastDate !== today) return false;
+      const forecastTime = new Date(f.forecast_at);
+      return forecastTime.getTime() > currentTime.getTime();
+    }
     if (f.forecast_date !== today) return false;
     const [hour, minute] = f.forecast_time.split(":").map(Number);
     return hour > currentHour || (hour === currentHour && minute > currentMinute);
@@ -379,7 +388,10 @@ export function bestWindowHeuristic(
   // 4. Between 06:00 and 10:00
 
   const bestForecasts = forecasts.filter((f) => {
-    const time = parseInt(f.forecast_time.split(":")[0]);
+    const fWithAt = f as typeof f & { forecast_at?: string };
+    const time = fWithAt.forecast_at
+      ? new Date(fWithAt.forecast_at).getUTCHours()
+      : parseInt(f.forecast_time.split(":")[0]);
     if (time < 6 || time > 10) return false;
 
     const windSpeed = f.wind_speed || 999;

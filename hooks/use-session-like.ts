@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { data as gateway } from "@/lib/data/client";
 import { useAuth } from "@/context/auth-context";
+import { track } from "@/lib/analytics";
 
 interface UseSessionLikeReturn {
   liked: boolean;
@@ -124,6 +125,19 @@ export function useSessionLike(
         setLiked(false);
         setLikesCount((prev) => Math.max(0, prev - 1));
       }
+
+      // Track social like event
+      const action = result.liked ? 'like' : 'unlike';
+      track(`session_${action}`, { session_id: sessionId });
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "social_like",
+          metadata: { session_id: sessionId, action },
+        }),
+        keepalive: true,
+      }).catch(() => {});
     } catch (error) {
       console.error("Error toggling like:", error);
     } finally {

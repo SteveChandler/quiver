@@ -257,7 +257,10 @@ export function detectSwellEvents(
 
   for (const forecasts of forecastMap.values()) {
     for (const forecast of forecasts) {
-      const date = forecast.forecast_date;
+      // Prefer forecast_at (extract date part), fallback to forecast_date
+      const date = forecast.forecast_at
+        ? forecast.forecast_at.split('T')[0]
+        : forecast.forecast_date;
       if (!dateMap.has(date)) {
         dateMap.set(date, []);
       }
@@ -403,7 +406,10 @@ export function aggregateRegionalForecast(
 
   for (const [beachId, forecasts] of forecastMap.entries()) {
     for (const forecast of forecasts) {
-      const date = forecast.forecast_date;
+      // Prefer forecast_at (extract date part), fallback to forecast_date
+      const date = forecast.forecast_at
+        ? forecast.forecast_at.split('T')[0]
+        : forecast.forecast_date;
       if (!dateMap.has(date)) {
         dateMap.set(date, new Map());
       }

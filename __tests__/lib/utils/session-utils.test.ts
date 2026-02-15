@@ -10,7 +10,6 @@ function makeSession(
   return {
     id: "s1",
     user_id: "u1",
-    profile_id: "p1",
     status: "completed",
     arrival_time: new Date("2025-01-15T06:30:00Z").toISOString(),
     created_at: new Date().toISOString(),

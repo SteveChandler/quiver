@@ -181,6 +181,7 @@ describe('horizon-strip-utils', () => {
       return {
         id: `${date}-${time}`,
         beach_id: 'test-beach',
+        forecast_at: `${date}T${time}Z`,
         forecast_date: date,
         forecast_time: time,
         wave_height: waveHeight,

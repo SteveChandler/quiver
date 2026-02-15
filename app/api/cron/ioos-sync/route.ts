@@ -20,7 +20,7 @@ import { ParsedObservation } from "@/lib/services/ioos-service";
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // Allow up to 5 minutes for full sync
+export const maxDuration = 300; // Vercel hard limit (5min); internal limit is 4min with 20s safety margin
 
 type SyncPhase = "stations" | "observations";
 
@@ -39,6 +39,7 @@ interface ObservationSyncResult {
   observationsInserted: number;
   stationsFailed: number;
   stationsSkipped: number;
+  observableBeachesRefreshed: boolean;
   errors: string[];
   duration_ms: number;
 }
@@ -239,17 +240,55 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
       }
     }
 
-    // Mark stations not seen in this discovery as inactive
-    const seenIds = stationsToUpsert.map((s) => s.station_id);
-    if (seenIds.length > 0) {
-      // Note: Supabase not.in filter expects unquoted comma-separated values
-      const { error: deactivateError } = await supabase
-        .from("ioos_stations")
-        .update({ active: false })
-        .not("station_id", "in", `(${seenIds.join(",")})`);
+    // Safe deactivation with consecutive miss tracking
+    const seenIds = stationsToUpsert
+      .map((s) => s.station_id)
+      .filter((id): id is string => typeof id === "string");
 
-      if (deactivateError) {
-        result.errors.push(`Failed to deactivate old stations: ${deactivateError.message}`);
+    if (seenIds.length > 0) {
+      // Reset miss counter for stations we found
+      const { error: resetError } = await supabase
+        .from("ioos_stations")
+        .update({ consecutive_discovery_misses: 0 })
+        .in("station_id", seenIds);
+
+      if (resetError) {
+        result.errors.push(`Failed to reset miss counters: ${resetError.message}`);
+      }
+
+      // Safety cap: if discovery found <50% of active stations, skip deactivation
+      // (ERDDAP catalog may be partially down; activeCount includes just-upserted stations by design)
+      const { count: activeCount } = await supabase
+        .from("ioos_stations")
+        .select("*", { count: "exact", head: true })
+        .eq("active", true);
+
+      if (seenIds.length < (activeCount ?? 0) * 0.5) {
+        console.warn(
+          `[IOOS] Discovery found only ${seenIds.length}/${activeCount} active stations. Skipping deactivation to prevent mass-deactivation from incomplete ERDDAP results.`
+        );
+      } else {
+        // Increment miss counter for stations NOT found
+        const { error: incrementError } = await supabase.rpc(
+          "increment_station_discovery_misses",
+          { seen_ids: seenIds }
+        );
+
+        if (incrementError) {
+          result.errors.push(`Failed to increment miss counters: ${incrementError.message}`);
+          // Skip deactivation if increment failed — stale counters could cause incorrect deactivations
+        } else {
+          // Only deactivate stations with 3+ consecutive misses (reset counter on deactivation)
+          const { error: deactivateError } = await supabase
+            .from("ioos_stations")
+            .update({ active: false, consecutive_discovery_misses: 0 })
+            .gte("consecutive_discovery_misses", 3)
+            .eq("active", true);
+
+          if (deactivateError) {
+            result.errors.push(`Failed to deactivate old stations: ${deactivateError.message}`);
+          }
+        }
       }
     }
   } catch (error) {
@@ -310,6 +349,7 @@ async function syncObservations(
     observationsInserted: 0,
     stationsFailed: 0,
     stationsSkipped: 0,
+    observableBeachesRefreshed: false,
     errors: [],
     duration_ms: 0,
   };
@@ -385,20 +425,29 @@ async function syncObservations(
       // Fetch observations for batch using dynamic URLs
       const batchResults: Array<{ stationId: string; obs: ParsedObservation | null }> = [];
 
-      for (const station of batch) {
+      // Fetch observations in parallel within each batch
+      const promises = batch.map(async (station) => {
         const variableMap = (station.variable_map || {}) as Partial<Record<CanonicalVar, string>>;
 
         // Skip stations without variable_map (will be refreshed next run)
         if (!variableMap.wave_height) {
-          console.log(
-            `⏭️ Skipping station ${station.station_id} (${station.source_network}): no wave_height mapping`
-          );
-          result.stationsSkipped++;
-          continue;
+          return { stationId: station.station_id, obs: null, skipped: true };
         }
 
         const obs = await ioosService.fetchObservationDynamic(station.station_id, variableMap);
-        batchResults.push({ stationId: station.station_id, obs });
+        return { stationId: station.station_id, obs, skipped: false };
+      });
+
+      const settled = await Promise.allSettled(promises);
+      for (const r of settled) {
+        if (r.status === "fulfilled") {
+          if (r.value.skipped) {
+            result.stationsSkipped++;
+          }
+          batchResults.push(r.value);
+        } else {
+          result.stationsFailed++;
+        }
       }
 
       // Prepare observations for insert
@@ -485,6 +534,15 @@ async function syncObservations(
 
     if (staleError) {
       result.errors.push(`Failed to mark stale stations: ${staleError.message}`);
+    }
+
+    // Refresh observable_beaches materialized view so ML health metrics stay current
+    const { error: refreshError } = await supabase.rpc("refresh_observable_beaches");
+    if (refreshError) {
+      result.errors.push(`Failed to refresh observable_beaches: ${refreshError.message}`);
+    } else {
+      result.observableBeachesRefreshed = true;
+      console.log("✅ Refreshed observable_beaches materialized view");
     }
   } catch (error) {
     result.errors.push(

@@ -46,7 +46,7 @@ DECLARE
   i INT; day_offset INT; hour_block TEXT; rnd_minutes INT;
   picked_user UUID; picked_beach UUID;
   arrival_ts TIMESTAMPTZ;
-  s_id UUID; s_beach_id UUID; s_profile_id UUID; s_user_id UUID;
+  s_id UUID; s_beach_id UUID; s_user_id UUID;
 
   -- Forecast mapping
   ef RECORD;
@@ -197,11 +197,11 @@ BEGIN
 
     -- Insert as planned first
     INSERT INTO sessions (
-      user_id, profile_id, beach_id, status,
+      user_id, beach_id, status,
       arrival_time, duration_minutes,
       water_temp, wave_quality, crowd_level, rating, notes, is_public
     ) VALUES (
-      picked_user, picked_user, picked_beach, 'planned',
+      picked_user, picked_beach, 'planned',
       arrival_ts, v_duration,
       f_water_temp, v_wave_quality, v_crowd_level, v_rating, v_notes, TRUE
     ) RETURNING id, user_id, beach_id INTO s_id, s_user_id, s_beach_id;

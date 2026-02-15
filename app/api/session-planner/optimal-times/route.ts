@@ -105,12 +105,14 @@ async function optimalTimesHandler(request: NextRequest) {
     }
 
     // Get enhanced forecast data for the specific beach and date
+    const nextDay = new Date(new Date(date + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const { data: forecasts, error: forecastError } = await supabase
       .from("enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .eq("forecast_date", date)
-      .order("forecast_time", { ascending: true });
+      .gte("forecast_at", `${date}T00:00:00Z`)
+      .lt("forecast_at", `${nextDay}T00:00:00Z`)
+      .order("forecast_at", { ascending: true });
 
     if (process.env.NODE_ENV !== "production") {
       console.log("📊 Enhanced Forecasts Query Result:", {

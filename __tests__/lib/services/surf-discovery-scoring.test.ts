@@ -189,6 +189,7 @@ function mkForecast(atIso: string, patch: Partial<EnhancedForecastEntity> = {}):
   return {
     id: patch.id ?? `${date}-${time}`,
     beach_id: patch.beach_id ?? "beach-1",
+    forecast_at: `${date}T${time}Z`,
     forecast_date: date,
     forecast_time: time,
     wave_height: patch.wave_height ?? "4",

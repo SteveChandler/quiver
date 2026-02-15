@@ -46,23 +46,26 @@ function forecastsToTidePoints(
 
   return forecasts
     .map((forecast) => {
-      if (!forecast?.forecast_date || !forecast.forecast_time) {
-        return undefined;
-      }
-
-      // Parse the date/time
-      const dateStr = forecast.forecast_date.includes("T")
-        ? forecast.forecast_date.split("T")[0]
-        : forecast.forecast_date;
-      const timeStr = (forecast.forecast_time ?? "").trim();
-
+      // Prefer forecast_at (canonical timestamptz)
       let date: Date | undefined;
-      if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
-        date = new Date(`${dateStr}T${timeStr.padStart(5, "0")}:00`);
-      } else if (/^\d{1,2}:\d{2}:\d{2}$/.test(timeStr)) {
-        date = new Date(`${dateStr}T${timeStr}`);
+      if (forecast?.forecast_at) {
+        date = new Date(forecast.forecast_at);
+      } else if (forecast?.forecast_date && forecast.forecast_time) {
+        // Legacy fallback: construct from date + time
+        const dateStr = forecast.forecast_date.includes("T")
+          ? forecast.forecast_date.split("T")[0]
+          : forecast.forecast_date;
+        const timeStr = (forecast.forecast_time ?? "").trim();
+
+        if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
+          date = new Date(`${dateStr}T${timeStr.padStart(5, "0")}:00`);
+        } else if (/^\d{1,2}:\d{2}:\d{2}$/.test(timeStr)) {
+          date = new Date(`${dateStr}T${timeStr}`);
+        } else {
+          date = new Date(`${dateStr}T${timeStr}`);
+        }
       } else {
-        date = new Date(`${dateStr}T${timeStr}`);
+        return undefined;
       }
 
       if (!date || Number.isNaN(date.getTime())) {

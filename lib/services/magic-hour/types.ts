@@ -12,6 +12,7 @@
  * Extracted from EnhancedForecastEntity for interpolation.
  */
 export interface ForecastSlot {
+  forecast_at?: string;
   forecast_date: string;
   forecast_time: string;
   local_time: Date;
@@ -49,6 +50,7 @@ export interface BeachMetadata {
 export interface EnhancedForecastEntity {
   id: string;
   beach_id: string;
+  forecast_at: string;
   forecast_date: string;
   forecast_time: string;
   wave_height: string | null;

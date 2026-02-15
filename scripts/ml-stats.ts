@@ -58,9 +58,12 @@ interface RegistryEntry {
   version: string;
   status: string;
   holdout_improvement_pct: number | null;
+  holdout_raw_mae: number | null;
+  holdout_corrected_mae: number | null;
   created_at: string;
   deployed_at: string | null;
   training_samples: number | null;
+  training_window_days: number | null;
   notes: string | null;
 }
 
@@ -79,6 +82,8 @@ interface FlyHealthResponse {
   status: string;
   model_version?: string;
   model_loaded?: boolean;
+  candidate_loaded?: boolean;
+  candidate_version?: string | null;
 }
 
 interface DeploymentHealth {
@@ -99,9 +104,9 @@ interface DeploymentHealth {
 async function queryModelRegistry(): Promise<{ data: RegistryEntry[] | null; error: string | null }> {
   const { data, error } = await supabase
     .from('ml_model_registry')
-    .select('version, status, holdout_improvement_pct, created_at, deployed_at, training_samples, notes')
+    .select('version, status, holdout_improvement_pct, holdout_raw_mae, holdout_corrected_mae, created_at, deployed_at, training_samples, training_window_days, notes')
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(10);
 
   if (error) {
     return { data: null, error: error.message };
@@ -173,6 +178,53 @@ async function queryFlyDeploymentHealth(): Promise<DeploymentHealth> {
   return result;
 }
 
+/**
+ * Query candidate shadow scoring status
+ */
+async function queryCandidateStatus(): Promise<{
+  candidateActive: boolean;
+  candidateVersion: string | null;
+  candidatePredictions: number;
+  candidateAvgError: number | null;
+  error: string | null;
+}> {
+  try {
+    // Check if any predictions have candidate scores
+    const { data, error } = await supabase
+      .from('ml_predictions_log')
+      .select('candidate_model_version, candidate_corrected_m, observed_m, corrected_forecast_m')
+      .not('candidate_corrected_m', 'is', null)
+      .order('predicted_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      return { candidateActive: false, candidateVersion: null, candidatePredictions: 0, candidateAvgError: null, error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+      return { candidateActive: false, candidateVersion: null, candidatePredictions: 0, candidateAvgError: null, error: null };
+    }
+
+    const version = data[0].candidate_model_version;
+    const withObs = data.filter(d => d.observed_m != null);
+    let candidateAvgError: number | null = null;
+    if (withObs.length > 0) {
+      const totalError = withObs.reduce((sum, d) => sum + Math.abs(d.candidate_corrected_m - d.observed_m), 0);
+      candidateAvgError = totalError / withObs.length;
+    }
+
+    return {
+      candidateActive: true,
+      candidateVersion: version,
+      candidatePredictions: data.length,
+      candidateAvgError,
+      error: null,
+    };
+  } catch (err) {
+    return { candidateActive: false, candidateVersion: null, candidatePredictions: 0, candidateAvgError: null, error: String(err) };
+  }
+}
+
 async function main() {
   try {
     // Query 1: Pipeline Health (via RPC if function exists, otherwise direct query)
@@ -181,11 +233,14 @@ async function main() {
     // Query 2: Weekly Model Performance (via RPC if function exists)
     const { data: weeklyMetrics, error: weeklyError } = await supabase.rpc("get_ml_weekly_metrics");
 
-    // Query 3: Model Registry (last 5 entries)
+    // Query 3: Model Registry (last 10 entries)
     const registryResult = await queryModelRegistry();
 
     // Query 4: Fly.io Deployment Health
     const deploymentHealth = await queryFlyDeploymentHealth();
+
+    // Query 5: Candidate Shadow Scoring Status
+    const candidateStatus = await queryCandidateStatus();
 
     // Extract 24h metrics from pipeline health (already computed by RPC)
     let metrics24h = null;
@@ -209,6 +264,13 @@ async function main() {
       metrics24h,
       modelRegistry: registryResult.data,
       modelRegistryError: registryResult.error,
+      candidateStatus: {
+        candidateActive: candidateStatus.candidateActive,
+        candidateVersion: candidateStatus.candidateVersion,
+        candidatePredictions: candidateStatus.candidatePredictions,
+        candidateAvgError: candidateStatus.candidateAvgError,
+      },
+      candidateStatusError: candidateStatus.error,
       deploymentHealth: {
         healthEndpoint: deploymentHealth.healthEndpoint,
         healthError: deploymentHealth.healthError,

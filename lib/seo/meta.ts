@@ -213,13 +213,13 @@ export function buildDynamicBeachMetadata({
     }
   }
 
-  // Build description highlighting unique features (crowd data, session windows)
+  // Build description highlighting unique features (crowd data, best surf windows)
   const hasBreakInfo = beach.break_type && beach.skill_level;
   let description: string;
 
   if (forecast?.wave_height) {
     description = hasBreakInfo
-      ? `${forecast.wave_height} waves at ${beach.name}. ${beach.break_type} for ${beach.skill_level} surfers. 7-day forecast, tides, crowds & session windows — updated hourly.`
+      ? `${forecast.wave_height} waves at ${beach.name}. ${beach.break_type} for ${beach.skill_level} surfers. 7-day forecast, tides, crowds & best surf windows — updated hourly.`
       : `${forecast.wave_height} waves at ${beach.name} right now. 7-day forecast, live wind, tide chart & crowd intel — updated hourly.`;
   } else {
     if (beach.description_excerpt && beach.break_type && locationContext) {
@@ -227,11 +227,11 @@ export function buildDynamicBeachMetadata({
       const excerpt = beach.description_excerpt.length > 100
         ? beach.description_excerpt.slice(0, 97) + "..."
         : beach.description_excerpt;
-      description = `${excerpt} ${capitalizeBreakType(beach.break_type)} in ${locationContext}. Live forecast, tide chart, crowd intel & session windows.`;
+      description = `${excerpt} ${capitalizeBreakType(beach.break_type)} in ${locationContext}. Live forecast, tide chart, crowd intel & best surf windows.`;
     } else if (hasBreakInfo) {
-      description = `${beach.name} is ${aOrAn(beach.skill_level!)} ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. 7-day forecast, tide chart, wind & best session windows.`;
+      description = `${beach.name} is ${aOrAn(beach.skill_level!)} ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. 7-day forecast, tide chart, wind & best surf windows.`;
     } else {
-      description = `Live surf conditions at ${beach.name}${locationContext ? `, ${locationContext}` : ""}. 7-day forecast, tide chart, wind, crowd levels & session windows — updated hourly.`;
+      description = `Live surf conditions at ${beach.name}${locationContext ? `, ${locationContext}` : ""}. 7-day forecast, tide chart, wind, crowd levels & best surf windows — updated hourly.`;
     }
   }
 
@@ -338,7 +338,7 @@ export function buildDynamicWaterTempMetadata({
   // CTR-optimized description with wetsuit recommendation
   const description = waterTempData?.tempF && waterTempData?.wetsuitRec
     ? `${beach.name} water is ${waterTempData.tempF}°F today. ${waterTempData.wetsuitRec} recommended. Seasonal trends and wetsuit thickness guide.`
-    : `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. No subscription required.`;
+    : `Current water temp at ${beach.name}${locationContext}. Wetsuit recommendation and seasonal trends. Updated daily with live buoy data.`;
 
   return { title, description };
 }

@@ -238,6 +238,7 @@ describe("calculateConfidenceFromForecastRow", () => {
     // Test edge case: very old date
     const veryOld = calculateConfidenceFromForecastRow({
       data_source: "CDIP",
+      forecast_at: "2020-01-01T00:00:00Z",
       forecast_date: "2020-01-01",
       forecast_time: "00:00:00",
     });
@@ -247,6 +248,7 @@ describe("calculateConfidenceFromForecastRow", () => {
     // Test edge case: very far future
     const veryFar = calculateConfidenceFromForecastRow({
       data_source: "CDIP",
+      forecast_at: "2099-12-31T23:59:59Z",
       forecast_date: "2099-12-31",
       forecast_time: "23:59:59",
     });

@@ -6,7 +6,7 @@ p.email NOT ILIKE '%test%' AND p.email NOT LIKE '%@local.test' AND p.email NOT L
 ```
 This filters out test accounts, local dev accounts, and seed/demo data (`@example.invalid`).
 
-Run these 12 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using `execute_sql`:
+Run these 14 SQL queries **in parallel** against project `vawdnbbgawichorsjiwe` using `execute_sql`:
 
 ### Query 1: Users
 ```sql
@@ -242,7 +242,7 @@ Present results as a markdown dashboard:
 | {table} | {timestamp} | {human_readable_age} |
 | ... | ... | ... |
 
-### User Behavior Events (7d) — KNOWN BROKEN
+### User Behavior Events (7d)
 | Metric | Value |
 |--------|-------|
 | Users with Events | {users_with_events_7d} |
@@ -252,12 +252,8 @@ Present results as a markdown dashboard:
 | Discovery Clicks | {discovery_clicks} |
 | Forecast Checks | {forecast_checks} |
 
-> **Note**: user_events is undercounting due to an RLS policy bug.
-> The INSERT policy on user_events requires `allow_implicit_tracking = true`
-> on the profile row, but the API defaults to allowing tracking when no
-> profile preference exists — causing a silent mismatch. Most authenticated
-> users' events are rejected at the DB layer. See migration
-> `20260125120002_implicit_preference_learning.sql` lines 244-255.
+> **Note**: RLS policy bug was fixed in migration `20260207060000`.
+> Events are now tracked correctly for all authenticated users.
 ```
 
 ### Query 11: Fallback Health — Summary (24h / 7d)
@@ -314,6 +310,68 @@ Add to the dashboard output:
 
 If the `fallback_events` table doesn't exist yet (query returns error), skip this section silently.
 
+### Query 13: Forecast Pipeline Health (Per-Source)
+```sql
+SELECT
+  source,
+  beaches_with_data,
+  ROUND(100.0 * beaches_with_data / total_beaches, 1) AS coverage_pct,
+  critical_stale,
+  warning_stale,
+  ROUND(avg_age_hours, 1) AS avg_age_hours,
+  ROUND(max_age_hours, 1) AS max_age_hours,
+  latest_update
+FROM (
+  SELECT
+    'enhanced' AS source,
+    COUNT(*) AS beaches_with_data,
+    (SELECT COUNT(*) FROM beaches) AS total_beaches,
+    COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600 > 24) AS critical_stale,
+    COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600 BETWEEN 16 AND 24) AS warning_stale,
+    AVG(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600) AS avg_age_hours,
+    MAX(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600) AS max_age_hours,
+    MAX(updated_at) AS latest_update
+  FROM v_enhanced_forecast_latest
+  UNION ALL
+  SELECT
+    'marine',
+    COUNT(*),
+    (SELECT COUNT(*) FROM beaches),
+    COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600 > 6),
+    COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600 BETWEEN 3 AND 6),
+    AVG(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600),
+    MAX(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600),
+    MAX(created_at)
+  FROM v_marine_forecast_latest
+) sources;
+```
+
+### Query 14: Enhanced Forecast Data Source Breakdown
+```sql
+SELECT
+  COALESCE(data_source, 'UNKNOWN') AS data_source,
+  COUNT(*) AS beach_count,
+  ROUND(AVG(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600), 1) AS avg_age_hours,
+  COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - updated_at)) / 3600 > 24) AS critical_count
+FROM v_enhanced_forecast_latest
+GROUP BY data_source
+ORDER BY beach_count DESC;
+```
+
+Add to the dashboard output:
+
+```
+### Forecast Pipeline Health
+| Source | Beaches | Coverage | Critical (>24h) | Warning (16-24h) | Avg Age | Latest |
+|--------|---------|----------|-----------------|------------------|---------|--------|
+| {source} | {beaches_with_data} | {coverage_pct}% | {critical_stale} | {warning_stale} | {avg_age_hours}h | {latest_update} |
+
+### Forecast Data Sources
+| Source | Beaches | Avg Age | Critical |
+|--------|---------|---------|----------|
+| {data_source} | {beach_count} | {avg_age_hours}h | {critical_count} |
+```
+
 ## Anomaly Flags
 
 After the dashboard, flag any of these conditions:
@@ -326,5 +384,9 @@ After the dashboard, flag any of these conditions:
 - **Event tracking gap** (user_events unique_users_7d < 50% of cross-table DAU peak) — "Event tracking capturing <50% of real users — RLS bug likely still active"
 - **Dangerous fallback spike** (Query 11: dangerous events_24h > 50) — "⚠ {n} dangerous fallbacks in 24h — scoring pipeline may be using fabricated data"
 - **Synthetic data active** (Query 12: domain='noaa-coops' or 'noaa-wavewatch' with occurrences_24h > 0) — "NOAA fallback generators fired {n} times in 24h — possible API outage"
+- **Enhanced forecasts critical** (Query 13: critical_stale > 35 for enhanced source) — "Enhanced forecasts: {n} beaches >24h stale — cron pipeline may be down"
+- **Enhanced forecasts all stale** (Query 13: avg_age_hours > 16 for enhanced source) — "All enhanced forecasts avg {n}h old — discovery will show stale/empty results"
+- **Marine forecasts stale** (Query 13: critical_stale > 50 for marine source) — "Marine forecasts: {n} beaches >6h stale"
+- **Low forecast coverage** (Query 13: coverage_pct < 90 for enhanced source) — "Forecast coverage at {n}% — {missing} beaches have no data"
 
 Display flags as a bulleted warnings list. If no anomalies, print "No anomalies detected."

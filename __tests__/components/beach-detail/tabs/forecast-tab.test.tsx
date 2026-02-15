@@ -176,6 +176,7 @@ const mockBeach: Beach = {
 const mockForecast: EnhancedForecastEntity = {
   id: "f1",
   beach_id: "beach-1",
+  forecast_at: "2026-02-10T12:00Z",
   forecast_date: "2026-02-10",
   forecast_time: "12:00",
   wave_height: "4.5",

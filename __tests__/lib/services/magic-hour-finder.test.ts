@@ -287,6 +287,7 @@ describe('Magic Hour Finder Service', () => {
     ) => ({
       id: `${date}-${time}`,
       beach_id: beach.id,
+      forecast_at: `${date}T${time}Z`,
       forecast_date: date,
       forecast_time: time,
       wave_height: '4',

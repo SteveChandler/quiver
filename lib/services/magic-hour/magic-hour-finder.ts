@@ -115,28 +115,27 @@ export function findMagicHour(
  * Converts EnhancedForecastEntity array to ForecastSlot array.
  */
 export function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlot[] {
-  return forecasts
-    .map((f) => {
-      try {
-        return {
-          forecast_date: f.forecast_date,
-          forecast_time: f.forecast_time,
-          // Forecast timestamps are stored in UTC (same convention as discovery service).
-          // Parse explicitly as UTC to avoid local-machine timezone drift (e.g. +8h in PST vs UTC).
-          local_time: new Date(`${f.forecast_date}T${f.forecast_time}Z`),
-          tide_height_ft: parseFloat(f.tide_height ?? "0"),
-          wind_speed_mph: parseFloat(f.wind_speed ?? "0"),
-          wind_direction_deg: f.wind_direction_deg ?? 0,
-          wave_height_ft: parseFloat(f.wave_height ?? "0"),
-          wave_period_s: parseFloat(f.wave_period ?? "0"),
-          wave_direction_deg: parseWindDirection(f.wave_direction ?? "N"),
-        };
-      } catch (error) {
-        console.warn("Failed to convert forecast to slot:", error);
-        return null;
-      }
-    })
-    .filter((slot): slot is ForecastSlot => slot !== null);
+  const slots: ForecastSlot[] = [];
+  for (const f of forecasts) {
+    try {
+      slots.push({
+        forecast_at: f.forecast_at,
+        forecast_date: f.forecast_date,
+        forecast_time: f.forecast_time,
+        // forecast_at is already a UTC ISO 8601 timestamp — parse directly.
+        local_time: new Date(f.forecast_at),
+        tide_height_ft: parseFloat(f.tide_height ?? "0"),
+        wind_speed_mph: parseFloat(f.wind_speed ?? "0"),
+        wind_direction_deg: f.wind_direction_deg ?? 0,
+        wave_height_ft: parseFloat(f.wave_height ?? "0"),
+        wave_period_s: parseFloat(f.wave_period ?? "0"),
+        wave_direction_deg: parseWindDirection(f.wave_direction ?? "N"),
+      });
+    } catch (error) {
+      console.warn("Failed to convert forecast to slot:", error);
+    }
+  }
+  return slots;
 }
 
 /**

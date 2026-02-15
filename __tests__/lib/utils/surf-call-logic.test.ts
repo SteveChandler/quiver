@@ -27,6 +27,7 @@ function makeForecast(overrides: Partial<EnhancedForecastEntity> = {}): Enhanced
   return {
     id: 'forecast-1',
     beach_id: 'test-beach-id',
+    forecast_at: '2026-01-22T08:00:00Z',
     forecast_date: '2026-01-22',
     forecast_time: '08:00:00',
     wave_height: '3-4 ft',

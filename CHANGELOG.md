@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Dropped `_backup_beach_timezones_pr_hi` backup table (no longer needed after timezone migration)
+- Dropped dead profile columns: `favorite_spot`, `favorite_spot_id`, `home_beach_ids`, `secondary_beaches` (replaced by `home_beach_id` and `favorite_beaches` table)
+- Dropped `sessions.profile_id` column (redundant with `user_id`); rewrote RLS policies to use `user_id`
+
+### Performance
+
+- Migrated 8 scoring and utility files to use `forecast_at` timestamptz column instead of legacy `forecast_date` + `forecast_time` columns, eliminating timezone double-conversion bug that caused 8-hour shift in tide data
+  - `forecast-snapshot-utils.ts`: Updated Supabase query to use `forecast_at` range filter (`.gte()` + `.lt()`) and `.order('forecast_at')`, with timestamp-based closest-forecast matching
+
 ### Fixed
 
 - **ML Pipeline Stability** - Adaptive validation gates with named constants (min 30 samples per bucket, 0.10m degradation limit, 0.5m bias limit). Exponential decay sample weighting replaces binary step function. Shadow scoring pipeline: candidate models run in parallel for 24h before promotion. Auto-rollback with 7-day cooldown prevents oscillation. 502 retry logic for Fly.io cold starts. Training diagnostics logged as structured JSON. New `/ping` health endpoint with `min_machines_running=1` to prevent timeouts.
@@ -19,7 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Sentry Cron Monitoring for Forecast Pipeline** - All 6 forecast crons (4 enhanced shards, marine refresh, CDIP sync) now report check-ins to Sentry. If Vercel cron scheduling stops (e.g. during rapid deployments), Sentry will alert within the expected schedule window. New utility at `lib/monitoring/sentry-cron.ts`.
+- **California Surfer Search Query Map** - Comprehensive query research document at `docs/plans/2026-02-14-surfer-search-query-map.md` mapping the full California surfer search landscape by customer journey stage, with competitive gap analysis and priority matrix for SEO targeting.
+- **Product Marketing Context Documentation** - Formalized product-marketing-context.md with customer personas (The Daily Checker, The Beginner, The Explorer, The Optimizer, The Planner, The Switcher) and P0/P1/P2 keyword priorities based on Quiver's competitive advantages (ML forecasts, crowd intel, Best Surf Window, session tracking).
+
+### Changed
+
+- Added internal linking for `/best-time-to-surf` pages (site footer + city hub cross-links) to improve indexation
+- Consolidated Puerto Rico `/pr/rinc-n` redirect chain from 2-hop to single-hop 301
+- Realigned SEO metadata to lead with data richness (surf reports, forecasts, ML-powered conditions) instead of community messaging
+- Replaced "session windows" with "best surf windows" across beach and city page metadata
+- Updated intent page titles to match high-volume search queries (e.g., "Best Beginner Surf Spots", "Least Crowded", "Best Time to Surf")
+- Removed anti-signup language ("no paywall", "no sign-up", "no subscription") from cams pages and metadata
+- Updated root layout, structured data, and FAQ schema to match new data-richness positioning
+
+### Added
+
+- **Sentry Cron Monitoring for Forecast Pipeline** - Primary forecast cron (enhanced shard 0) reports check-ins to Sentry. If Vercel cron scheduling stops (e.g. during rapid deployments), Sentry will alert within the expected schedule window. Utility at `lib/monitoring/sentry-cron.ts`. (Reduced from 7 monitors to 1 to fit free-tier limit; shards 1-3, CDIP sync, and forecast refresh monitors removed.)
 - **Deep Health Check Endpoint** - `/api/health?deep=true` calls `checkForecastHealth()` to return full pipeline status: database connectivity, enhanced forecast coverage/freshness, per-source health for all 5 pipelines (enhanced, marine, tide, sun, IOOS), and issues list. Returns 200 for healthy/degraded, 503 for critical. Default shallow check unchanged.
 - **Service Health CI Workflow** - Hourly GitHub Actions workflow (`.github/workflows/service-health.yml`) runs shallow + deep health checks against production using only `curl`/`python3` (~30s). Reports coverage, issues, and pipeline status in step summary. Fails on critical status.
 - **Service Health Playwright Tests** - New `e2e/guest-service-health.spec.ts` with smoke tests validating forecast pipeline health, featured beaches data, and beach page wave data rendering. Extended `e2e/api/health.spec.ts` with deep check contract tests.
@@ -34,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sentry Cron Monitor Timeout for Forecast Shards** - Fixed missing `completeCronCheckIn` calls in early-return paths of `enhanced-forecast-sync/_shared.ts`. Added `Sentry.flush(2000)` after check-in completions. (Cron monitoring now limited to shard 0 only; CDIP and forecast-refresh monitors removed.)
 - **Discovery Stale-Data Fallback** - When all forecast data is stale (e.g., cron pipeline hasn't run), discovery now falls back to serving stale forecasts instead of returning an empty "No surf recommendations" screen. Logs a `[STALE_FALLBACK]` error for internal alerting. `usingStaleData` flag added to response metadata for monitoring.
 - **Discover Endpoint Timeout & Silent Failure** - Added `maxDuration = 30` export to prevent Vercel from killing the function at default timeout. Enforced `DEFAULT_OVERALL_TIMEOUT_MS` via `Promise.race` (was declared but never used). Changed catch block to re-throw errors so `withAuth` returns a proper 500 instead of a misleading 200 with empty recommendations.
 - **Milestones Rate Limiter Crash (Production Down)** - Fixed invalid `authAware: true` (boolean) in milestones route rate limit config that caused `getCachedRateLimiter(undefined, undefined)` to throw, triggering fail-closed 503 responses on every request. Replaced with `{ key: "authenticated-default" }`. Added runtime guard in `withRateLimit` to catch boolean `authAware` misconfiguration at startup.

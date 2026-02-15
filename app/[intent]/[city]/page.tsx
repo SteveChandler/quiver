@@ -217,7 +217,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
     return buildPageMetadata({
       title: `${definition.label} Spots in ${stateName}`,
-      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. AI-powered recommendations for every skill level.`,
+      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`,
       path: `/${params.intent}/${params.city}`,
     });
   }
@@ -295,19 +295,21 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     return true; // Non-skill intents always have results
   })();
 
-  const keywords =
-    params.intent === "beginner"
-      ? [
-          `${cityMetadata.cityName} beginner surf spots`,
-          `learn to surf ${cityMetadata.cityName}`,
-          `${cityMetadata.cityName} surf lessons`,
-          `${cityMetadata.stateName} beginner surfing`,
-        ]
-      : [
-          `${cityMetadata.cityName} ${definition.label}`,
-          `${cityMetadata.cityName} surf`,
-          `${cityMetadata.stateName} surfing`,
-        ];
+  const intentKeywords: Record<string, string[]> = {
+    beginner: [`best beginner surf spots ${cityMetadata.cityName}`, `learn to surf ${cityMetadata.cityName}`, `where to learn to surf ${cityMetadata.cityName}`, `easy surf spots ${cityMetadata.cityName}`],
+    "least-crowded": [`least crowded surf spots ${cityMetadata.cityName}`, `uncrowded surf ${cityMetadata.cityName}`, `where to surf today ${cityMetadata.cityName}`, `best surf today ${cityMetadata.cityName}`],
+    "dawn-patrol": [`best time to surf ${cityMetadata.cityName}`, `best time to surf today ${cityMetadata.cityName}`, `dawn patrol ${cityMetadata.cityName}`, `surf forecast ${cityMetadata.cityName}`],
+    tide: [`${cityMetadata.cityName} tide chart`, `${cityMetadata.cityName} tide chart today`, `${cityMetadata.cityName} high tide today`],
+    "water-temp": [`${cityMetadata.cityName} water temperature`, `water temp ${cityMetadata.cityName}`, `what wetsuit for ${cityMetadata.cityName}`],
+    longboard: [`best longboard waves ${cityMetadata.cityName}`, `longboard spots ${cityMetadata.cityName}`, `mellow waves ${cityMetadata.cityName}`],
+    sunset: [`sunset surf ${cityMetadata.cityName}`, `best time to surf today ${cityMetadata.cityName}`, `after work surf ${cityMetadata.cityName}`],
+  };
+  const keywords = [
+    ...(intentKeywords[params.intent] || [`${cityMetadata.cityName} ${definition.label}`, `${cityMetadata.cityName} surf`]),
+    "surf report",
+    "surf forecast",
+    "surf conditions today",
+  ];
 
   const metadata = buildPageMetadata({
     title: pageContent.title,

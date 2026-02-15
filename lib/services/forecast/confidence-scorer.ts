@@ -135,6 +135,8 @@ export function decimalToConfidence(decimal: number): number {
 export interface ForecastRowParams {
   /** Data source identifier (e.g., 'CDIP', 'NOAA_NWS') */
   data_source: string | null;
+  /** ISO 8601 UTC timestamptz (preferred over forecast_date + forecast_time) */
+  forecast_at?: string;
   /** Forecast date in YYYY-MM-DD format */
   forecast_date: string;
   /** Forecast time in HH:MM:SS format */
@@ -185,7 +187,10 @@ export function calculateConfidenceFromForecastRow(row: ForecastRowParams): numb
   const hasWeatherData = row.wind_speed != null;
 
   // Calculate hours ahead (negative for historical forecasts becomes 0)
-  const forecastDateTime = new Date(`${row.forecast_date}T${row.forecast_time}`);
+  // Prefer forecast_at, fallback to legacy forecast_date + forecast_time (assume UTC)
+  const forecastDateTime = row.forecast_at
+    ? new Date(row.forecast_at)
+    : new Date(`${row.forecast_date}T${row.forecast_time}Z`);
   const hoursAhead = Math.max(0, (forecastDateTime.getTime() - Date.now()) / (1000 * 60 * 60));
 
   return calculateConfidenceScore({

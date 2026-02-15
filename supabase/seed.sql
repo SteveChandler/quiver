@@ -117,13 +117,12 @@ ON CONFLICT (beach_id, date, source) DO NOTHING;
 -- =============================================================================
 
 INSERT INTO public.sessions (
-  profile_id, user_id, beach_id, arrival_time, duration_minutes,
+  user_id, beach_id, arrival_time, duration_minutes,
   status, rating, notes, beach_name, wave_quality, crowd_level, is_public
 )
 SELECT * FROM (VALUES
   -- Alex "Goofy" Thompson at Big Rock, 2 days ago morning
   (
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Alex%Thompson%' LIMIT 1),
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Alex%Thompson%' LIMIT 1),
     'dbbafa09-3143-4f73-82e8-90a69a4121f5'::uuid,
     NOW() - INTERVAL '2 days 6 hours',
@@ -139,7 +138,6 @@ SELECT * FROM (VALUES
   -- Maria "Barrel" Santos at Sunset Cliffs, 3 days ago
   (
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Maria%Santos%' LIMIT 1),
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Maria%Santos%' LIMIT 1),
     'b939f928-2653-494a-831d-6394cb548190'::uuid,
     NOW() - INTERVAL '3 days 7 hours',
     90,
@@ -153,7 +151,6 @@ SELECT * FROM (VALUES
   ),
   -- Chris "Shortboard" Rodriguez at Manhattan Beach Pier, yesterday
   (
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Chris%Rodriguez%' LIMIT 1),
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Chris%Rodriguez%' LIMIT 1),
     '7a093b7e-2230-4bf1-abeb-9b31faa794d5'::uuid,
     NOW() - INTERVAL '1 day 8 hours',
@@ -169,7 +166,6 @@ SELECT * FROM (VALUES
   -- Sarah "Longboard" Mitchell at Topanga, 4 days ago
   (
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Sarah%Mitchell%' LIMIT 1),
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Sarah%Mitchell%' LIMIT 1),
     '101bd2f7-e1dc-4940-b4e3-3a820d5940dd'::uuid,
     NOW() - INTERVAL '4 days 7 hours',
     120,
@@ -183,7 +179,6 @@ SELECT * FROM (VALUES
   ),
   -- Jessica "Pro" Chen at 54th St Newport, 1 day ago
   (
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Jessica%Chen%' LIMIT 1),
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Jessica%Chen%' LIMIT 1),
     'da8ad733-8e6b-4781-8b3f-0fe4ee492c3f'::uuid,
     NOW() - INTERVAL '1 day 6 hours',
@@ -199,7 +194,6 @@ SELECT * FROM (VALUES
   -- Josh "Early Bird" Kim at Big Rock, 5 days ago dawn patrol
   (
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Josh%Kim%' LIMIT 1),
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Josh%Kim%' LIMIT 1),
     'dbbafa09-3143-4f73-82e8-90a69a4121f5'::uuid,
     NOW() - INTERVAL '5 days 9 hours',
     60,
@@ -214,7 +208,6 @@ SELECT * FROM (VALUES
   -- Luna "Sunrise" Martinez at Sunset Cliffs, 6 days ago
   (
     (SELECT id FROM public.profiles WHERE full_name LIKE 'Luna%Martinez%' LIMIT 1),
-    (SELECT id FROM public.profiles WHERE full_name LIKE 'Luna%Martinez%' LIMIT 1),
     'b939f928-2653-494a-831d-6394cb548190'::uuid,
     NOW() - INTERVAL '6 days 7 hours',
     105,
@@ -226,8 +219,8 @@ SELECT * FROM (VALUES
     2::integer,
     true
   )
-) AS s(profile_id, user_id, beach_id, arrival_time, duration_minutes, status, rating, notes, beach_name, wave_quality, crowd_level, is_public)
-WHERE s.profile_id IS NOT NULL;
+) AS s(user_id, beach_id, arrival_time, duration_minutes, status, rating, notes, beach_name, wave_quality, crowd_level, is_public)
+WHERE s.user_id IS NOT NULL;
 
 -- =============================================================================
 -- 5. FAVORITES & HOME BEACH for Emma Davis (proximity testing)

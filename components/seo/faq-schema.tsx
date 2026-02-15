@@ -123,7 +123,7 @@ export function QuiverFAQSchema() {
     {
       question: "What is Quiver?",
       answer:
-        "Quiver is the ultimate surf community platform where you can find surf buddies, track your sessions, get accurate forecasts, and discover the best surf spots - connecting the surfing community worldwide.",
+        "Quiver is an ML-powered surf forecast platform with live conditions, crowd intelligence, and session tracking for 185+ beaches across California, Hawaii, Oregon and more. Get personalized surf windows updated every 3 hours with real buoy data.",
     },
     {
       question: "How do I track surf sessions on Quiver?",

@@ -105,7 +105,7 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
     : null;
 
   return {
-    timestamp: new Date(forecast.forecast_time || Date.now()),
+    timestamp: new Date(forecast.forecast_at),
     waveHeight,
     wavePeriod,
     waveDirection,

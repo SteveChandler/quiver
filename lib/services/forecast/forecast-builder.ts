@@ -11,7 +11,7 @@
 import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
 import { cardinalToDegrees } from "./forecast-transformer";
-import { getNormalizedDateString, getNormalizedTimeString } from "./datetime-utils";
+import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
 import type { Beach } from "@/types/database";
 import {
   FORECAST_CONSTANTS,
@@ -195,6 +195,7 @@ export class ForecastBuilder {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
       forecast_time: getNormalizedTimeString(forecastTime),
+      forecast_at: getNormalizedForecastAt(forecastTime),
 
       // Wave data
       wave_height: this.getWaveHeight(cdipPoint, wavePoint, buoyData, useCDIPData, beach),
@@ -375,6 +376,7 @@ export class ForecastBuilder {
         ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
+            timeZone: "UTC",
           })
         : "Unknown",
       nextTideAt: nextTide ? new Date(nextTide.time * 1000).toISOString() : null,

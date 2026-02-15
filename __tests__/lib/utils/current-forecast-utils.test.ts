@@ -42,6 +42,7 @@ describe("current-forecast-utils", () => {
       expect(["09:00", "11:00", "15:00"]).toContain(result.forecast_time);
     } else {
       expect(result).toEqual({
+        forecast_at: "2025-01-16T06:00Z",
         forecast_date: "2025-01-16",
         forecast_time: "06:00",
       });
@@ -50,6 +51,7 @@ describe("current-forecast-utils", () => {
     // Move to later in the day so only next day is available
     setNow("2025-01-15T23:30:00.000Z");
     expect(getCurrentForecast(forecasts)).toEqual({
+      forecast_at: "2025-01-16T06:00Z",
       forecast_date: "2025-01-16",
       forecast_time: "06:00",
     });
@@ -80,6 +82,7 @@ describe("current-forecast-utils", () => {
       { forecast_date: "2025-01-16", forecast_time: "06:00" },
     ];
     expect(getBestForecastForDate(other, "2025-01-16")).toEqual({
+      forecast_at: "2025-01-16T06:00Z",
       forecast_date: "2025-01-16",
       forecast_time: "06:00",
     });
@@ -89,12 +92,14 @@ describe("current-forecast-utils", () => {
     setNow("2025-01-15T10:30:00.000Z");
     expect(
       isForecastInFuture({
+        forecast_at: "2025-01-16T00:00Z",
         forecast_date: "2025-01-16",
         forecast_time: "00:00",
       })
     ).toBe(true);
     expect(
       isForecastInFuture({
+        forecast_at: "2025-01-14T23:59Z",
         forecast_date: "2025-01-14",
         forecast_time: "23:59",
       })
@@ -115,12 +120,14 @@ describe("current-forecast-utils", () => {
 
     expect(
       isForecastInFuture({
+        forecast_at: `${nowLocal}T${after}Z`,
         forecast_date: nowLocal.toISOString().split("T")[0],
         forecast_time: after,
       })
     ).toBe(true);
     expect(
       isForecastInFuture({
+        forecast_at: `${nowLocal}T${before}Z`,
         forecast_date: nowLocal.toISOString().split("T")[0],
         forecast_time: before,
       })

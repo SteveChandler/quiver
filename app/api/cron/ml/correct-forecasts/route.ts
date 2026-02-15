@@ -98,13 +98,12 @@ export async function GET(request: Request) {
     const { data: batch, error } = await supabase
       .from('enhanced_forecasts')
       .select(
-        'beach_id, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
+        'beach_id, forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction'
       )
       .eq('data_source', 'NOAA_NWS')
-      .gte('forecast_date', today)
+      .gte('forecast_at', `${today}T00:00:00Z`)
       .order('beach_id')
-      .order('forecast_date')
-      .order('forecast_time')
+      .order('forecast_at')
       .range(offset, offset + BATCH_SIZE - 1);
 
     if (error) {
@@ -167,7 +166,7 @@ export async function GET(request: Request) {
   const parsed = forecastsToProcess
     .map((f) => ({
       beach_id: f.beach_id,
-      forecast_ts: `${f.forecast_date}T${f.forecast_time}`,
+      forecast_ts: f.forecast_at,
       wave_height_m: parseWaveHeight(f.wave_height),
       wave_period_s: parseFloat(f.wave_period) || 10,
       wave_direction_deg: parseFloat(f.wave_direction) || 270,

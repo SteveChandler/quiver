@@ -181,7 +181,13 @@ function parseNumber(value: unknown): number | null {
   return null;
 }
 
-function forecastToUtcMs(forecast: { forecast_date?: string; forecast_time?: string }): number | null {
+function forecastToUtcMs(forecast: { forecast_at?: string; forecast_date?: string; forecast_time?: string }): number | null {
+  // Prefer forecast_at (already UTC timestamptz)
+  if (forecast.forecast_at) {
+    const ts = new Date(forecast.forecast_at).getTime();
+    return Number.isFinite(ts) ? ts : null;
+  }
+  // Fallback to legacy forecast_date + forecast_time (assume UTC with Z suffix)
   if (!forecast.forecast_date || !forecast.forecast_time) return null;
   const ts = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`).getTime();
   return Number.isFinite(ts) ? ts : null;
@@ -212,6 +218,7 @@ function getUserThresholds(prefs: LearnedPrefsRow | null) {
 
 export function findFirstMatchingForecast(args: {
   forecasts: Array<{
+    forecast_at?: string;
     forecast_date: string;
     forecast_time: string;
     wave_height?: string | null;

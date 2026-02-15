@@ -49,7 +49,6 @@ const ADMIN_USER_ID = "user-789-admin";
 function createTestSession(overrides: Partial<ReturnType<typeof createMockSession>> = {}) {
   return createMockSession({
     user_id: TEST_USER_ID,
-    profile_id: TEST_USER_ID,
     ...overrides,
   });
 }
@@ -132,9 +131,9 @@ function createMockSessionMedia(overrides: Partial<{
  * Simulates RLS policy behavior for sessions table
  * Based on actual policies:
  * - sessions_select_all: FOR SELECT USING (true) - but filtered by is_public or owner
- * - sessions_insert_own: FOR INSERT WITH CHECK (auth.uid() = profile_id)
- * - sessions_update_own: FOR UPDATE USING (auth.uid() = profile_id)
- * - sessions_delete_own: FOR DELETE USING (auth.uid() = profile_id)
+ * - sessions_insert_own: FOR INSERT WITH CHECK (auth.uid() = user_id)
+ * - sessions_update_own: FOR UPDATE USING (auth.uid() = user_id)
+ * - sessions_delete_own: FOR DELETE USING (auth.uid() = user_id)
  */
 function simulateSessionsRLSPolicy(
   sessions: ReturnType<typeof createTestSession>[],
@@ -153,7 +152,7 @@ function simulateSessionsRLSPolicy(
 
   // Regular authenticated users: see own sessions + public sessions
   return sessions.filter(
-    (session) => session.profile_id === currentUserId || session.is_public === true
+    (session) => session.user_id === currentUserId || session.is_public === true
   );
 }
 
@@ -245,19 +244,19 @@ describe("RLS Policy Enforcement", () => {
   describe("Session Privacy", () => {
     const ownerSession = createTestSession({
       id: "session-owner",
-      profile_id: TEST_USER_ID,
+      user_id: TEST_USER_ID,
       is_public: false,
     });
 
     const publicSession = createTestSession({
       id: "session-public",
-      profile_id: OTHER_USER_ID,
+      user_id: OTHER_USER_ID,
       is_public: true,
     });
 
     const otherPrivateSession = createTestSession({
       id: "session-other-private",
-      profile_id: OTHER_USER_ID,
+      user_id: OTHER_USER_ID,
       is_public: false,
     });
 
@@ -540,9 +539,9 @@ describe("RLS Policy Enforcement", () => {
 
   describe("Admin Override", () => {
     const allSessions = [
-      createTestSession({ id: "session-1", profile_id: TEST_USER_ID, is_public: false }),
-      createTestSession({ id: "session-2", profile_id: OTHER_USER_ID, is_public: false }),
-      createTestSession({ id: "session-3", profile_id: OTHER_USER_ID, is_public: true }),
+      createTestSession({ id: "session-1", user_id: TEST_USER_ID, is_public: false }),
+      createTestSession({ id: "session-2", user_id: OTHER_USER_ID, is_public: false }),
+      createTestSession({ id: "session-3", user_id: OTHER_USER_ID, is_public: true }),
     ];
 
     it("service role bypasses RLS", () => {
@@ -581,7 +580,7 @@ describe("RLS Policy Enforcement", () => {
 
       // Verify admin sees private sessions of other users
       const otherPrivate = visibleToAdmin.find(
-        (s) => s.id === "session-2" && s.profile_id === OTHER_USER_ID && !s.is_public
+        (s) => s.id === "session-2" && s.user_id === OTHER_USER_ID && !s.is_public
       );
       expect(otherPrivate).toBeDefined();
     });
@@ -652,14 +651,12 @@ describe("RLS Policy Enforcement", () => {
     it("handles deleted sessions correctly", () => {
       const deletedSession = createTestSession({
         id: "session-deleted",
-        profile_id: TEST_USER_ID,
         is_public: true,
         deleted_at: new Date().toISOString(),
       });
 
       const activeSession = createTestSession({
         id: "session-active",
-        profile_id: TEST_USER_ID,
         is_public: true,
         deleted_at: null,
       });
@@ -692,16 +689,15 @@ describe("RLS Policy Enforcement", () => {
 
       const otherUserSession = createTestSession({
         id: "other-session",
-        profile_id: OTHER_USER_ID,
         user_id: OTHER_USER_ID,
       });
 
       // Simulate update attempt by TEST_USER
-      const canUpdate = otherUserSession.profile_id === TEST_USER_ID;
+      const canUpdate = otherUserSession.user_id === TEST_USER_ID;
       expect(canUpdate).toBe(false);
 
       // Simulate delete attempt by TEST_USER
-      const canDelete = otherUserSession.profile_id === TEST_USER_ID;
+      const canDelete = otherUserSession.user_id === TEST_USER_ID;
       expect(canDelete).toBe(false);
     });
   });
@@ -719,14 +715,14 @@ describe("RLS Policy Enforcement", () => {
           "Admins can view all sessions": "FOR SELECT USING (public.is_admin_user())",
         },
         insert: {
-          "sessions_insert_own": "FOR INSERT WITH CHECK (auth.uid() = profile_id)",
+          "sessions_insert_own": "FOR INSERT WITH CHECK (auth.uid() = user_id)",
         },
         update: {
-          "sessions_update_own": "FOR UPDATE USING (auth.uid() = profile_id)",
+          "sessions_update_own": "FOR UPDATE USING (auth.uid() = user_id)",
           "Admins can update any session": "FOR UPDATE USING (public.is_admin_user())",
         },
         delete: {
-          "sessions_delete_own": "FOR DELETE USING (auth.uid() = profile_id)",
+          "sessions_delete_own": "FOR DELETE USING (auth.uid() = user_id)",
           "Admins can delete any session": "FOR DELETE USING (public.is_admin_user())",
         },
       };

@@ -22,11 +22,21 @@ export const parseHeight = (value?: string | null) => {
 };
 
 export const parseForecastDateTime = (
-  dateStr: string,
-  timeStr: string
+  forecastDateOrAt: string,
+  forecastTime?: string
 ): Date | undefined => {
+  if (!forecastDateOrAt) return undefined;
+
+  // New path: single forecast_at argument (ISO 8601)
+  if (!forecastTime) {
+    const parsed = new Date(forecastDateOrAt);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  // Legacy path: forecast_date + forecast_time
+  const dateStr = forecastDateOrAt;
+  const timeStr = forecastTime;
   const trimmedTime = (timeStr ?? "").trim();
-  if (!dateStr) return undefined;
   const datePart = dateStr.includes("T")
     ? dateStr.split("T")[0]?.trim() ?? dateStr.trim()
     : dateStr.trim();
@@ -186,10 +196,14 @@ export const normalizeForecasts = (
   if (!Array.isArray(forecasts)) return [];
   return forecasts
     .map((forecast) => {
-      if (!forecast?.forecast_date || !forecast.forecast_time) return undefined;
-      const date =
-        parseForecastDateTime(forecast.forecast_date, forecast.forecast_time) ??
-        new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+      // Prefer forecast_at (UTC timestamptz), fall back to legacy fields
+      const date = forecast.forecast_at
+        ? new Date(forecast.forecast_at)
+        : forecast.forecast_date && forecast.forecast_time
+          ? (parseForecastDateTime(forecast.forecast_date, forecast.forecast_time) ??
+            new Date(`${forecast.forecast_date}T${forecast.forecast_time}`))
+          : undefined;
+      if (!date) return undefined;
       if (Number.isNaN(date.getTime())) return undefined;
       const heightFt =
         parseHeight(forecast.tide_height) ??

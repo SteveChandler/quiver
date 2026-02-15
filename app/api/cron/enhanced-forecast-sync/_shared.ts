@@ -19,6 +19,7 @@ import {
   getEnhancedShardMonitorSlug,
   getEnhancedShardSchedule,
 } from "@/lib/monitoring/sentry-cron";
+import * as Sentry from "@sentry/nextjs";
 
 // Allow up to 5 minutes for the cron job to complete (Vercel limit)
 export const MAX_DURATION_SECONDS = 300;
@@ -109,6 +110,8 @@ export async function runEnhancedForecastSync(
         executionId,
         new Error(`Cron disabled for environment: ${env}`)
       );
+      completeCronCheckIn(checkInId, monitorSlug, "error");
+      await Sentry.flush(2000);
       return createErrorResponse(
         "Forbidden",
         `Cron disabled for environment: ${env}`,
@@ -122,6 +125,8 @@ export async function runEnhancedForecastSync(
         executionId,
         new Error("Invalid cron authentication")
       );
+      completeCronCheckIn(checkInId, monitorSlug, "error");
+      await Sentry.flush(2000);
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
@@ -170,6 +175,7 @@ export async function runEnhancedForecastSync(
     });
 
     completeCronCheckIn(checkInId, monitorSlug, failed > 0 ? "error" : "ok");
+    await Sentry.flush(2000);
 
     return createSuccessResponse(
       {
@@ -184,6 +190,7 @@ export async function runEnhancedForecastSync(
     const duration = Date.now() - startTime;
 
     completeCronCheckIn(checkInId, monitorSlug, "error");
+    await Sentry.flush(2000);
 
     forecastLogger.cronFailed(
       executionId,

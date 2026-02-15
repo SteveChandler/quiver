@@ -56,6 +56,7 @@ describe("Enhanced Forecast Components", () => {
   const mockEnhancedForecasts: EnhancedForecast[] = [
     {
       id: "forecast-1",
+      forecast_at: "2024-01-15T06:00:00Z",
       forecast_date: "2024-01-15",
       forecast_time: "06:00:00",
       wave_height: "4-6 ft",
@@ -78,6 +79,7 @@ describe("Enhanced Forecast Components", () => {
     },
     {
       id: "forecast-2",
+      forecast_at: "2024-01-15T12:00:00Z",
       forecast_date: "2024-01-15",
       forecast_time: "12:00:00",
       wave_height: "5-7 ft",

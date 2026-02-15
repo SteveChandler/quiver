@@ -64,6 +64,7 @@ describe('Forecast Digest Service', () => {
     const mockForecast: EnhancedForecastEntity = {
       id: 'forecast-1',
       beach_id: 'beach-1',
+      forecast_at: '2025-01-07T12:00:00Z',
       forecast_date: '2025-01-07',
       forecast_time: '12:00:00',
       wave_height: '4',
@@ -131,6 +132,7 @@ describe('Forecast Digest Service', () => {
     const mockForecast: EnhancedForecastEntity = {
       id: 'forecast-1',
       beach_id: 'beach-1',
+      forecast_at: '2025-01-07T12:00:00Z',
       forecast_date: '2025-01-07',
       forecast_time: '12:00:00',
       wave_height: '4',
@@ -215,6 +217,7 @@ describe('Forecast Digest Service', () => {
       return {
         id: `forecast-${i}`,
         beach_id: 'beach-1',
+        forecast_at: `${dateStr}T${timeStr}Z`,
         forecast_date: dateStr,
         forecast_time: timeStr,
         wave_height: '4',

@@ -50,7 +50,6 @@ const mockUsers = [
     email: 'solid.snake@example.invalid',
     yearsExperience: 2,
     experienceLevel: 'advanced', // Persona: Tactical
-    favoriteSpot: 'Pipeline',
     board: {
       name: 'High Performance',
       type: 'shortboard',
@@ -62,7 +61,6 @@ const mockUsers = [
     name: 'Liquid Snake',
     email: 'liquid.snake@example.invalid', 
     yearsExperience: 1.5,
-    favoriteSpot: 'Mavericks',
     board: {
       name: 'High Performance',
       type: 'shortboard', 
@@ -74,7 +72,6 @@ const mockUsers = [
     name: 'Big Boss',
     email: 'big.boss@example.invalid',
     yearsExperience: 3,
-    favoriteSpot: 'Steamer Lane',
     board: {
       name: 'Classic Gun',
       type: 'gun',
@@ -87,7 +84,6 @@ const mockUsers = [
     email: 'riley.r@example.invalid',
     yearsExperience: 0.5,
     experienceLevel: 'beginner', // Persona: Rookie
-    favoriteSpot: 'Cowell Beach',
     board: {
       name: 'Beginner Longboard',
       type: 'longboard',
@@ -100,7 +96,6 @@ const mockUsers = [
     email: 'local.larry@example.invalid',
     yearsExperience: 5,
     experienceLevel: 'expert', // Persona: Local
-    favoriteSpot: 'The Lane',
     board: {
       name: 'Daily Driver Shortboard',
       type: 'shortboard',
@@ -113,7 +108,6 @@ const mockUsers = [
     email: 'tina.c@example.invalid',
     yearsExperience: 3,
     experienceLevel: 'intermediate', // Persona: Traveler
-    favoriteSpot: 'Trestles',
     board: {
       name: 'Travel Board',
       type: 'shortboard',
@@ -126,7 +120,6 @@ const mockUsers = [
     email: 'p.martinez@example.invalid',
     yearsExperience: 4,
     experienceLevel: 'intermediate', // Persona: Photographer
-    favoriteSpot: 'Malibu',
     board: {
       name: 'Performance Thruster',
       type: 'shortboard',
@@ -138,7 +131,6 @@ const mockUsers = [
     name: 'Dawn Patrol',
     email: 'dawnpatrol@example.invalid',
     yearsExperience: 6,
-    favoriteSpot: 'Ocean Beach',
     board: {
       name: 'Dawn Session Board',
       type: 'shortboard',
@@ -150,7 +142,6 @@ const mockUsers = [
     name: 'NorCal Jake',
     email: 'norcal.jake@example.invalid',
     yearsExperience: 7,
-    favoriteSpot: 'Mavericks',
     board: {
       name: 'All-Around Shortboard',
       type: 'shortboard',
@@ -162,7 +153,6 @@ const mockUsers = [
     name: 'SoCal Sofia',
     email: 'socal.sofia@example.invalid',
     yearsExperience: 4,
-    favoriteSpot: 'Rincon',
     board: {
       name: 'Longboard',
       type: 'longboard',
@@ -174,7 +164,6 @@ const mockUsers = [
     name: 'M. Johnson',
     email: 'm.johnson@example.invalid',
     yearsExperience: 2,
-    favoriteSpot: 'Montauk',
     board: {
       name: 'All-Around Shortboard',
       type: 'shortboard',
@@ -187,7 +176,6 @@ const mockUsers = [
     email: 'kai.n@example.invalid',
     yearsExperience: 10,
     experienceLevel: 'expert', // Persona: Competitor
-    favoriteSpot: 'Pipeline',
     board: {
       name: 'Gun',
       type: 'gun',
@@ -199,7 +187,6 @@ const mockUsers = [
     name: 'Emma F.',
     email: 'emma.f@example.invalid',
     yearsExperience: 1,
-    favoriteSpot: 'Scripps Pier',
     board: {
       name: 'All-Around Shortboard',
       type: 'shortboard',
@@ -211,7 +198,6 @@ const mockUsers = [
     name: 'Ryan K.',
     email: 'ryan.k@example.invalid',
     yearsExperience: 2,
-    favoriteSpot: 'Pacifica',
     board: {
       name: 'All-Around Shortboard',
       type: 'shortboard',
@@ -223,7 +209,6 @@ const mockUsers = [
     name: 'Mia R.',
     email: 'mia.r@example.invalid',
     yearsExperience: 3,
-    favoriteSpot: 'Doheny',
     board: {
       name: 'All-Around Shortboard',
       type: 'shortboard',
@@ -315,7 +300,6 @@ async function createMockUser(userData: typeof mockUsers[0]) {
           full_name: userData.name,
           is_mock: true,
           experience_level: userData.experienceLevel,
-          favorite_spot: userData.favoriteSpot,
           email_session_invites: true,
           inapp_session_invites: true,
           digest_session_invites: false,

@@ -12,7 +12,8 @@ The script:
 - Loads credentials from `.env.production.local` (not `.env` which points to local dev)
 - Uses service role key to bypass RLS
 - Calls RPC functions for pipeline health and weekly metrics
-- Queries model registry for recent deployments
+- Queries model registry for recent deployments (last 10)
+- Queries candidate shadow scoring status
 - Queries Fly.io for deployment health (requires `FLY_API_TOKEN` in .env)
 - Outputs JSON to stdout
 
@@ -58,19 +59,31 @@ The script outputs JSON in this format:
   } | null,
   "modelRegistry": [{
     "version": "v3.YYYYMMDD.HHMM",
-    "status": "deployed|validated|failed|training",
+    "status": "deployed|validated|failed|training|rolled_back",
     "holdout_improvement_pct": N.N | null,
+    "holdout_raw_mae": N.NNN | null,
+    "holdout_corrected_mae": N.NNN | null,
     "created_at": "ISO timestamp",
     "deployed_at": "ISO timestamp" | null,
     "training_samples": N | null,
-    "notes": "string" | null
+    "training_window_days": N | null,
+    "notes": "string (may contain JSON diagnostics)" | null
   }, ...] | null,
   "modelRegistryError": "message" | null,
+  "candidateStatus": {
+    "candidateActive": true|false,
+    "candidateVersion": "v3.YYYYMMDD.HHMM" | null,
+    "candidatePredictions": N,
+    "candidateAvgError": N.NNN | null
+  },
+  "candidateStatusError": "message" | null,
   "deploymentHealth": {
     "healthEndpoint": {
-      "status": "healthy",
+      "status": "ok",
       "model_version": "v3.YYYYMMDD.HHMM",
-      "model_loaded": true
+      "model_loaded": true,
+      "candidate_loaded": true|false,
+      "candidate_version": "v3.YYYYMMDD.HHMM" | null
     } | null,
     "healthError": "message" | null,
     "machines": [{
@@ -116,12 +129,24 @@ Present results as a markdown dashboard:
 | {model_version} | {predictions} | {with_ground_truth} | {avg_raw_error_m}m | {avg_corrected_error_m}m | {pct_improved}% |
 
 ### Recent Model Registry (from modelRegistry)
-| Version | Status | Improvement | Samples | Created | Deployed |
-|---------|--------|-------------|---------|---------|----------|
-| {version} | {status} | {holdout_improvement_pct}% | {training_samples} | {relative_time(created_at)} | {relative_time(deployed_at)} |
+| Version | Status | Holdout Improvement | Raw MAE | Corrected MAE | Samples | Window | Created |
+|---------|--------|---------------------|---------|---------------|---------|--------|---------|
+| {version} | {status} | {holdout_improvement_pct}% | {holdout_raw_mae}m | {holdout_corrected_mae}m | {training_samples} | {training_window_days}d | {relative_time(created_at)} |
+
+If notes field contains JSON, parse and show key diagnostics (bucket results, feature importance) in a collapsible section or brief summary.
+
+### Candidate Shadow Scoring (from candidateStatus)
+If candidateActive is false: "No candidate model in shadow scoring."
+If candidateActive is true:
+| Metric | Value |
+|--------|-------|
+| Candidate Version | {candidateVersion} |
+| Shadow Predictions | {candidatePredictions} |
+| Candidate Avg Error | {candidateAvgError}m (if available, else "awaiting ground truth") |
 
 ### Fly.io Deployment Health (from deploymentHealth)
 **Health Endpoint:** {healthEndpoint.status} - Model: {healthEndpoint.model_version}
+**Candidate:** {candidate_loaded ? candidateVersion : "none"}
 
 | Machine | State | Memory | Last Updated |
 |---------|-------|--------|--------------|
@@ -143,10 +168,17 @@ After the dashboard, flag any of these conditions:
 - **observable_beaches_count > 100** — "High observable count — verify recency filter is working"
 
 ### Model Registry Anomalies
-- **Latest model status is 'failed'** — "Most recent training failed — check logs"
+- **Latest model status is 'failed'** — "Most recent training failed — check Fly.io logs (`fly logs -a quiver-ml`)"
 - **Latest model status is 'training' for >30 min** — "Training may be stuck"
-- **No 'deployed' model in last 7 days** — "No recent deployments — pipeline may be broken"
-- **Multiple consecutive 'failed' entries** — "Repeated training failures — investigate"
+- **No 'deployed' or 'validated' model in last 14 days** — "No recent successful training — pipeline may need attention"
+- **3+ consecutive 'failed' entries** — "Repeated training failures — check adaptive gate thresholds and training data availability"
+- **Model with status 'validated' older than 48h** — "Candidate not promoted — check promote-candidate cron"
+- **Model with status 'rolled_back'** — "Auto-rollback triggered — check drift detection logs"
+
+### Candidate Scoring Anomalies
+- **candidateActive is true but candidatePredictions < 100 after 24h** — "Low candidate scoring volume"
+- **candidateActive is true and candidateAvgError > champion MAE * 1.5** — "Candidate performing significantly worse than champion"
+- **healthEndpoint.candidate_loaded != candidateStatus.candidateActive** — "Mismatch between Fly.io and DB candidate state"
 
 ### Deployment Health Anomalies
 - **healthEndpoint is null or error** — "ML service unreachable"
@@ -173,6 +205,25 @@ Number of beaches with active IOOS observation sources. The `observable_beaches`
 
 **Healthy range: 30-60 beaches** (depends on station availability)
 
+### Model Lifecycle Statuses
+| Status | Meaning |
+|--------|---------|
+| `training` | Model currently being trained |
+| `failed` | Training or validation failed |
+| `validated` | Passed holdout gates, in 24h shadow scoring period |
+| `deployed` | Promoted to production champion |
+| `rolled_back` | Was deployed but auto-rollback reverted to previous model |
+
+### Validation Gate Thresholds (Feb 2026)
+| Gate | Value | Notes |
+|------|-------|-------|
+| Min bucket samples | 30 | Buckets with <30 samples are SKIPPED, not failed |
+| Bucket degradation limit | 0.10m | Max MAE worsening per bucket |
+| Bucket improvement min | 40% | Min % predictions improved per bucket |
+| Overall improvement min | 50% | Min % predictions improved globally |
+| Mean bias limit | 0.50m | Max absolute mean bias |
+| Min holdout samples | 100 | Fail if holdout set too small |
+
 ### Stations Syncing
 Query to check active stations producing observations:
 ```sql
@@ -189,7 +240,7 @@ The ML pipeline depends on IOOS buoy data for ground truth observations. Underst
 
 ### Data Flow
 ```
-IOOS ERDDAP APIs → ioos_stations → ioos_observations → observable_beaches → ML predictions matched
+IOOS ERDDAP APIs -> ioos_stations -> ioos_observations -> observable_beaches -> ML predictions matched
 ```
 
 ### Key Components
@@ -310,6 +361,27 @@ REFRESH MATERIALIZED VIEW observable_beaches;
 - Check Vercel cron logs for errors
 - Look for timeout issues (max runtime: 5 minutes)
 
+### Training Failures
+
+**Step 1: Check Fly.io logs for diagnostics**
+```bash
+fly logs -a quiver-ml --no-tail | grep -i "train\|error\|gate\|bucket"
+```
+
+**Step 2: Check model registry for failure pattern**
+```sql
+SELECT version, status, holdout_improvement_pct, training_samples, notes
+FROM ml_model_registry
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+**Step 3: Common failure modes**
+- `0 samples in cross-validation`: Training data not reaching ML service — check cron route logs
+- `Insufficient holdout data`: Not enough recent data for holdout split — check SHOALING_CHANGE_DATE floor
+- `Bucket X failed`: Per-bucket validation gate tripped — check if bucket has <30 samples (now auto-skipped)
+- `Mean bias exceeded`: Model over-correcting — may need more diverse training data
+
 ### High Observable Count (>100 beaches)
 
 This may indicate the recency filter is not working:
@@ -347,6 +419,7 @@ Then run the station sync cron manually or wait for the next scheduled run.
 
 | Date | Match Rate | Observable Beaches | Stations Syncing | Notes |
 |------|------------|-------------------|------------------|-------|
+| Feb 13, 2026 | — | — | — | Adaptive gates + shadow scoring deployed |
 | Feb 4, 2026 (after fix) | 92% | 43 | 131 | Variable aliases + recency fix |
 | Feb 1-3, 2026 | 21% | 183 | ~52 | CeNCOOS stations stopped syncing |
 | Jan 2026 (baseline) | ~57% | ~60 | ~80 | Normal operation |

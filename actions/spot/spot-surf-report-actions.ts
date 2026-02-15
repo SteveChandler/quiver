@@ -7,6 +7,7 @@ import { computeSurfCall, type SurfCallResult } from '@/lib/utils/surf-call-logi
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-constants';
 import { formatDateInTimezone } from '@/lib/utils/date-formatting';
+import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services/preference-learning-service';
@@ -117,15 +118,15 @@ const getCachedSurfReport = unstable_cache(
     const sunTimesCache = await getBatchSunTimes([beachId], [todayStr, tomorrowStr]);
 
     // 3. Query enhanced_forecasts directly with timezone-aware dates
+    const dayAfterTomorrow = new Date(new Date(tomorrowStr + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const supabase = await createSupabaseServiceRoleClient();
     const { data, error } = await supabase
       .from('enhanced_forecasts')
       .select('*')
       .eq('beach_id', beachId)
-      .gte('forecast_date', todayStr)
-      .lte('forecast_date', tomorrowStr)
-      .order('forecast_date', { ascending: true })
-      .order('forecast_time', { ascending: true })
+      .gte('forecast_at', `${todayStr}T00:00:00Z`)
+      .lt('forecast_at', `${dayAfterTomorrow}T00:00:00Z`)
+      .order('forecast_at', { ascending: true })
       .limit(48);
 
     if (error) {
@@ -144,8 +145,8 @@ const getCachedSurfReport = unstable_cache(
     const forecasts = data as EnhancedForecastEntity[];
 
     // 4. Filter to today first; fall back to tomorrow if no viable window today
-    const todayForecasts = forecasts.filter(f => f.forecast_date === todayStr);
-    const tomorrowForecasts = forecasts.filter(f => f.forecast_date === tomorrowStr);
+    const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at) === todayStr);
+    const tomorrowForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at) === tomorrowStr);
 
     const { selectBestWindow } = await import('@/lib/services/discovery/window-selector');
 

@@ -87,6 +87,7 @@ describe("app/api/surf/utils", () => {
       wave_height: "3-4 ft",
       water_temp: "60",
       wind_speed: "5",
+      forecast_at: "2026-01-01T06:00:00Z",
       forecast_date: "2026-01-01",
       forecast_time: "06:00:00",
     };
@@ -129,6 +130,7 @@ describe("app/api/surf/utils", () => {
           wave_height: "3-4 ft",
           water_temp: "60",
           wind_speed: "5",
+          forecast_at: "2026-01-01T06:00:00Z",
           forecast_date: "2026-01-01",
           forecast_time: "06:00:00",
         },

@@ -60,6 +60,7 @@ export function calculateOnOffshore(windDir: number, beachNormal: number): boole
 export function windAt(
   targetTime: string,
   forecasts: Array<{
+    forecast_at?: string;
     forecast_date: string;
     forecast_time: string;
     wind_speed?: number | null;
@@ -84,15 +85,17 @@ export function windAt(
   const targetDate = fromZonedTime(new Date(targetDateStr), timezone);
 
   let closestForecast = forecasts[0];
-  let minDiff = Math.abs(
-    new Date(`${forecasts[0].forecast_date}T${forecasts[0].forecast_time}`)
-      .getTime() - targetDate.getTime()
-  );
+  // Prefer forecast_at, fallback to legacy forecast_date + forecast_time
+  const firstForecastDate = forecasts[0].forecast_at
+    ? new Date(forecasts[0].forecast_at)
+    : new Date(`${forecasts[0].forecast_date}T${forecasts[0].forecast_time}Z`);
+  let minDiff = Math.abs(firstForecastDate.getTime() - targetDate.getTime());
 
   for (const forecast of forecasts) {
-    const forecastDate = new Date(
-      `${forecast.forecast_date}T${forecast.forecast_time}`
-    );
+    // Prefer forecast_at, fallback to legacy forecast_date + forecast_time
+    const forecastDate = forecast.forecast_at
+      ? new Date(forecast.forecast_at)
+      : new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
     const diff = Math.abs(forecastDate.getTime() - targetDate.getTime());
     if (diff < minDiff) {
       minDiff = diff;

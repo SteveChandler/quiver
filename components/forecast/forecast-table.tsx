@@ -6,6 +6,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import { Badge } from "@/components/ui/badge";
 import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import { extractForecastDate, extractLocalHour, extractForecastTime } from "@/lib/utils/forecast-at-adapter";
 
 // Generic forecast type that can accept both EnhancedForecast and EnhancedForecastEntity
 type ForecastData = EnhancedForecastEntity | any; // Allow any to support both types
@@ -84,13 +85,14 @@ function ForecastDayTable({
   // Get key times of day (6am, Noon, 6pm) or closest available
   const getKeyTimeForecasts = () => {
     const keyTimes = [6, 12, 18]; // 6am, 12pm, 6pm
+    const tz = resolveBeachTimezone(beachTimezone);
 
     return keyTimes
       .map((targetHour) => {
         // Find closest forecast to target hour
         const closest = forecasts.reduce((prev, current) => {
-          const prevHour = parseInt(prev.forecast_time.split(":")[0]);
-          const currentHour = parseInt(current.forecast_time.split(":")[0]);
+          const prevHour = prev.forecast_at ? extractLocalHour(prev.forecast_at, tz) : parseInt(prev.forecast_time.split(":")[0]);
+          const currentHour = current.forecast_at ? extractLocalHour(current.forecast_at, tz) : parseInt(current.forecast_time.split(":")[0]);
 
           const prevDiff = Math.abs(prevHour - targetHour);
           const currentDiff = Math.abs(currentHour - targetHour);
@@ -265,7 +267,7 @@ function ForecastDayTable({
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-8 bg-blue-500 rounded-full" />
                       <span className="font-medium text-sm text-foreground">
-                        {formatTime(forecast.forecast_time)}
+                        {forecast.forecast_at ? formatTime(extractForecastTime(forecast.forecast_at, resolveBeachTimezone(beachTimezone))) : formatTime(forecast.forecast_time)}
                       </span>
                     </div>
                   </td>
@@ -386,9 +388,10 @@ export function ForecastTable({
   // Group forecasts by date
   const groupedForecasts = React.useMemo(() => {
     const grouped: Record<string, ForecastData[]> = {};
+    const tz = resolveBeachTimezone(beachTimezone);
 
     forecasts.forEach((forecast) => {
-      const date = forecast.forecast_date;
+      const date = forecast.forecast_at ? extractForecastDate(forecast.forecast_at, tz) : forecast.forecast_date;
       if (!grouped[date]) {
         grouped[date] = [];
       }
@@ -397,7 +400,7 @@ export function ForecastTable({
 
     // Only group and return; initial expansion is handled in an effect below
     return grouped;
-  }, [forecasts]);
+  }, [forecasts, beachTimezone]);
 
   // Update expanded dates when grouped forecasts change
   React.useEffect(() => {

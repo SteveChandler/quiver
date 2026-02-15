@@ -53,6 +53,7 @@ function createMockForecast(
 
   return {
     beach_id: 'test-beach-1',
+    forecast_at: `${date}T${time}Z`,
     forecast_date: date,
     forecast_time: time,
     wave_height: `${waveHeight}`,

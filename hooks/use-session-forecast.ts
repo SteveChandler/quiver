@@ -5,6 +5,7 @@ import { useDataFetcher } from "./use-data-fetcher";
 import { isNightHour } from "@/lib/utils/timezone-utils";
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
 import { SET_WAVE_VARIANCE } from "@/lib/utils/wave-height-transformer";
+import { extractForecastDate, extractLocalHour } from "@/lib/utils/forecast-at-adapter";
 
 interface SessionForecastData {
   wave_height?: number;
@@ -70,7 +71,9 @@ export function useSessionForecast(
 
     if (result.success && result.data) {
       // Filter to the specific date
-      const filtered = result.data.filter((f) => f.forecast_date === forecastDate);
+      const filtered = result.data.filter((f) =>
+        f.forecast_at ? extractForecastDate(f.forecast_at) === forecastDate : f.forecast_date === forecastDate
+      );
 
       return filtered;
     }
@@ -100,7 +103,7 @@ export function useSessionForecast(
     const sortedForecasts = forecasts
       .map((forecast) => ({
         ...forecast,
-        forecastHour: getForecastHour(forecast.forecast_time),
+        forecastHour: forecast.forecast_at ? extractLocalHour(forecast.forecast_at) : getForecastHour(forecast.forecast_time),
       }))
       .filter((f) => f.forecastHour !== null)
       .sort((a, b) => {

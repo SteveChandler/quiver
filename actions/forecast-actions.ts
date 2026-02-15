@@ -6,6 +6,7 @@ import { updateBeachForecast } from "@/lib/utils/forecast-server-utils";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import { resolveConfidence } from "@/lib/monitoring/fallback-helpers";
+import { extractForecastDate as extractForecastDateFromAt } from "@/lib/utils/forecast-at-adapter";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -50,13 +51,13 @@ export async function getBeachForecasts(beachId: string) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
+    const today = new Date().toISOString().split("T")[0];
     const { data, error } = await supabase
       .from("forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .gte("forecast_date", new Date().toISOString().split("T")[0])
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true })
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .order("forecast_at", { ascending: true })
       .limit(50);
 
     if (error) {
@@ -83,8 +84,7 @@ export async function getLatestBeachForecast(beachId: string) {
       .from("forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .order("forecast_date", { ascending: false })
-      .order("forecast_time", { ascending: false })
+      .order("forecast_at", { ascending: false })
       .limit(5);
 
     if (error) {
@@ -130,21 +130,20 @@ export async function getEnhancedBeachForecasts(
       .from("ten_day_enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
+      .order("forecast_at", { ascending: true });
 
     if (!viewAttempt.error) {
       data = viewAttempt.data as any[];
     } else {
       // Fallback to table with explicit range
+      const dayAfterEndDate = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
       const tableAttempt = await supabase
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", beachId)
-        .gte("forecast_date", startDate)
-        .lte("forecast_date", endDate)
-        .order("forecast_date", { ascending: true })
-        .order("forecast_time", { ascending: true });
+        .gte("forecast_at", `${startDate}T00:00:00Z`)
+        .lt("forecast_at", `${dayAfterEndDate}T00:00:00Z`)
+        .order("forecast_at", { ascending: true });
       data = tableAttempt.data as any[];
       error = tableAttempt.error;
     }
@@ -157,8 +156,8 @@ export async function getEnhancedBeachForecasts(
     console.log("✅ Fetched enhanced_forecasts rows:", {
       beachId,
       totalRows: data?.length || 0,
-      firstRowDate: data?.[0]?.forecast_date,
-      lastRowDate: data?.[data.length - 1]?.forecast_date,
+      firstRowDate: data?.[0]?.forecast_at ? extractForecastDateFromAt(data[0].forecast_at) : data?.[0]?.forecast_date,
+      lastRowDate: data?.[data.length - 1]?.forecast_at ? extractForecastDateFromAt(data[data.length - 1].forecast_at) : data?.[data.length - 1]?.forecast_date,
     });
 
     // Enrich forecasts with metadata for transparency
@@ -192,16 +191,18 @@ export async function getBeachForecastPreview(beachId: string) {
       .toISOString()
       .split("T")[0];
 
+    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
+
     // Get today's and tomorrow's forecasts from enhanced_forecasts table (to handle forward-looking logic)
     const { data: enhancedForecasts, error: enhancedError } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
+        "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
       )
       .eq("beach_id", beachId)
-      .in("forecast_date", [today, tomorrow])
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
+      .order("forecast_at", { ascending: true });
 
     if (enhancedError) {
       console.error("Error fetching enhanced forecast preview:", enhancedError);
@@ -239,12 +240,12 @@ export async function getBeachForecastPreview(beachId: string) {
     const { data: basicForecasts, error: basicError } = await supabase
       .from("forecasts")
       .select(
-        "forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition"
+        "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition"
       )
       .eq("beach_id", beachId)
-      .in("forecast_date", [today, tomorrow])
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
+      .order("forecast_at", { ascending: true });
 
     if (basicError) {
       console.error("Error fetching basic forecast preview:", basicError);
@@ -402,13 +403,14 @@ export async function getForecastForToday(beachId: string) {
     // Fallback to basic forecasts table if enhanced not available
     console.log("🔄 Trying fallback to basic forecasts table...");
 
+    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const { data: basicForecasts, error: basicError } = await supabase
       .from("forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .in("forecast_date", [today, tomorrow])
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
+      .gte("forecast_at", `${today}T00:00:00Z`)
+      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
+      .order("forecast_at", { ascending: true });
 
     console.log("📊 Basic forecasts query result:", {
       error: basicError,
@@ -451,9 +453,9 @@ export async function getForecastForToday(beachId: string) {
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", beachId)
-        .in("forecast_date", [today, tomorrow])
-        .order("forecast_date", { ascending: true })
-        .order("forecast_time", { ascending: true });
+        .gte("forecast_at", `${today}T00:00:00Z`)
+        .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
+        .order("forecast_at", { ascending: true });
 
       if (regenError) {
         console.warn("Post-generation query error:", regenError);

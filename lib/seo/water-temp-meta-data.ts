@@ -37,15 +37,17 @@ export const getWaterTempMetaData = cache(
     try {
       const supabase = await createSupabaseServiceRoleClient();
       const today = new Date().toISOString().split("T")[0];
+      const nextDay = new Date(new Date(today + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
 
       // Get the most recent forecast with water_temp data
       const { data: forecast, error } = await supabase
         .from("enhanced_forecasts")
         .select("water_temp")
         .eq("beach_id", beachId)
-        .eq("forecast_date", today)
+        .gte("forecast_at", `${today}T00:00:00Z`)
+        .lt("forecast_at", `${nextDay}T00:00:00Z`)
         .not("water_temp", "is", null)
-        .order("forecast_time", { ascending: false })
+        .order("forecast_at", { ascending: false })
         .limit(1)
         .single();
 
@@ -59,9 +61,10 @@ export const getWaterTempMetaData = cache(
           .from("enhanced_forecasts")
           .select("water_temp")
           .eq("beach_id", beachId)
-          .eq("forecast_date", yesterdayStr)
+          .gte("forecast_at", `${yesterdayStr}T00:00:00Z`)
+          .lt("forecast_at", `${today}T00:00:00Z`)
           .not("water_temp", "is", null)
-          .order("forecast_time", { ascending: false })
+          .order("forecast_at", { ascending: false })
           .limit(1)
           .single();
 

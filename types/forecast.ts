@@ -102,7 +102,10 @@ export interface ForecastTimePoint {
   readonly id: ForecastId;
   readonly beachId: BeachId;
   readonly timestamp: Date;
+  readonly forecastAt: string;
+  /** @deprecated Use forecastAt */
   readonly forecastDate: string;
+  /** @deprecated Use forecastAt */
   readonly forecastTime: string;
   readonly weather: WeatherConditions;
   readonly waves: WaveConditions;
@@ -117,7 +120,11 @@ export interface ForecastTimePoint {
 export interface EnhancedForecastEntity {
   id: string;
   beach_id: string;
+  /** ISO 8601 UTC timestamptz — canonical forecast time (replaces forecast_date + forecast_time) */
+  forecast_at: string;
+  /** @deprecated Use forecast_at. Bare date without timezone — ambiguous. */
   forecast_date: string;
+  /** @deprecated Use forecast_at. Bare time without timezone — ambiguous. */
   forecast_time: string;
   wave_height: string | null;
   wave_period?: string | null;

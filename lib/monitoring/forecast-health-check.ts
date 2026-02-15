@@ -572,13 +572,14 @@ export async function getBeachForecastCoverage(beachId: string): Promise<number>
   const futureDate = new Date(Date.now() + MONITORING_CONFIG.MIN_FORECAST_DAYS * 24 * 60 * 60 * 1000)
     .toISOString()
     .split('T')[0];
-  
+  const futureDateNextDay = new Date(new Date(futureDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
+
   const result = await supabase
     .from('enhanced_forecasts')
     .select('forecast_date', { count: 'exact', head: true })
     .eq('beach_id', beachId)
-    .gte('forecast_date', today)
-    .lte('forecast_date', futureDate);
+    .gte('forecast_at', `${today}T00:00:00Z`)
+    .lt('forecast_at', `${futureDateNextDay}T00:00:00Z`);
   
   if (result.error) {
     console.error('Failed to get beach forecast coverage:', result.error);

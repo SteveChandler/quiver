@@ -13,6 +13,7 @@ function fc(time: string, attrs: Partial<any> = {}) {
   return {
     id: `test-${time}`,
     beach_id: "beach-1",
+    forecast_at: `2025-01-01T${time}Z`,
     forecast_date: "2025-01-01",
     forecast_time: time,
     wave_height: "3",

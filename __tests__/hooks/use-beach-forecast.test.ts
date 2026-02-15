@@ -24,6 +24,7 @@ describe("useBeachForecast", () => {
   ];
 
   const mockForecast = {
+    forecast_at: "2023-10-27T12:00Z",
     forecast_date: "2023-10-27",
     forecast_time: "12:00",
     wave_height: 3,

@@ -31,6 +31,7 @@ interface SessionForSnapshot {
 interface EnhancedForecast {
   id: string;
   beach_id: string;
+  forecast_at?: string;
   forecast_date: string;
   forecast_time: string;
   wave_height?: string | null;
@@ -216,12 +217,18 @@ export async function createForecastSnapshotForSession(
     }
 
     // Find the closest forecast to the arrival time
+    // Calculate next day for range query
+    const nextDay = new Date(arrivalDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = nextDay.toISOString().split('T')[0];
+
     const { data: forecasts, error: forecastError } = await supabase
       .from('enhanced_forecasts')
       .select('*')
       .eq('beach_id', beachId)
-      .eq('forecast_date', arrivalDateStr)
-      .order('forecast_time', { ascending: true });
+      .gte('forecast_at', `${arrivalDateStr}T00:00:00Z`)
+      .lt('forecast_at', `${nextDayStr}T00:00:00Z`)
+      .order('forecast_at', { ascending: true });
 
     if (forecastError) {
       console.error('[Snapshot] Failed to fetch forecasts:', forecastError);
@@ -241,13 +248,13 @@ export async function createForecastSnapshotForSession(
     let minTimeDiff = Infinity;
 
     for (const forecast of forecasts) {
-      const forecastTime = forecast.forecast_time || '00:00';
-      const [forecastHour, forecastMin] = forecastTime.split(':').map(Number);
-      const [arrivalHour, arrivalMin] = arrivalTimeStr.split(':').map(Number);
+      // Prefer forecast_at if available, fall back to legacy fields
+      const forecastTimestamp = forecast.forecast_at
+        ? new Date(forecast.forecast_at).getTime()
+        : new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`).getTime();
 
-      const forecastMinutes = forecastHour * 60 + forecastMin;
-      const arrivalMinutes = arrivalHour * 60 + arrivalMin;
-      const timeDiff = Math.abs(forecastMinutes - arrivalMinutes);
+      const arrivalTimestamp = arrivalDate.getTime();
+      const timeDiff = Math.abs(forecastTimestamp - arrivalTimestamp);
 
       if (timeDiff < minTimeDiff) {
         minTimeDiff = timeDiff;

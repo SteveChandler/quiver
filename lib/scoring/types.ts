@@ -126,7 +126,7 @@ export function toForecastForScoring(
   forecast: EnhancedForecastEntity
 ): ForecastForScoring {
   return {
-    forecastTime: new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`),
+    forecastTime: new Date(forecast.forecast_at),
     waveHeight: parseFloat(forecast.wave_height || '0'),
     wavePeriod: parseFloat(forecast.wave_period?.replace('s', '') || '0'),
     windSpeed: parseFloat(forecast.wind_speed || '0'),

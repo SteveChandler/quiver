@@ -54,6 +54,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockForecasts,
                 error: null,
@@ -127,6 +129,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: [],
                 error: null,
@@ -178,16 +182,20 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: [],
                 error: null,
               }),
             };
           }
-          if (table === "forecasts") {
+          if (table === "marine_forecasts") {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: [],
                 error: null,
@@ -223,6 +231,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue(simulateDatabaseError()),
             };
           }
@@ -251,16 +261,20 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: [],
                 error: null,
               }),
             };
           }
-          if (table === "forecasts") {
+          if (table === "marine_forecasts") {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue(simulateDatabaseError()),
             };
           }
@@ -310,6 +324,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockGoodConditions,
                 error: null,
@@ -367,6 +383,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockWindConditions,
                 error: null,
@@ -418,6 +436,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockExcellentConditions,
                 error: null,
@@ -459,6 +479,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockManyForecasts,
                 error: null,
@@ -505,6 +527,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockVariedConditions,
                 error: null,
@@ -569,6 +593,8 @@ describe("/api/session-planner/optimal-times", () => {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
                 data: mockIncompleteForecasts,
                 error: null,
@@ -605,6 +631,8 @@ describe("/api/session-planner/optimal-times", () => {
         from: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnValue({
           data: [
             {
@@ -661,6 +689,8 @@ describe("/api/session-planner/optimal-times", () => {
         from: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnValue({
           data: [
             {
@@ -698,6 +728,8 @@ describe("/api/session-planner/optimal-times", () => {
         from: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnValue({
           data: [
             {

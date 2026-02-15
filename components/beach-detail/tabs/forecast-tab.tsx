@@ -31,6 +31,7 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
+import { extractForecastDate, extractLocalHour } from "@/lib/utils/forecast-at-adapter";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 import { useSunTimes } from "@/hooks/use-sun-times";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
@@ -102,11 +103,12 @@ export function ForecastTab({
 
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
+    const tz = resolveBeachTimezone(beachTimezone);
 
     if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
       forecasts.forEach((forecast) => {
-        if (forecast && forecast.forecast_date) {
-          const date = forecast.forecast_date;
+        if (forecast && forecast.forecast_at) {
+          const date = extractForecastDate(forecast.forecast_at, tz);
           if (!grouped[date]) {
             grouped[date] = [];
           }
@@ -116,7 +118,7 @@ export function ForecastTab({
     }
 
     return grouped;
-  }, [forecasts]);
+  }, [forecasts, beachTimezone]);
 
   const sortedDates = useMemo(
     () => Object.keys(forecastsByDate).sort(),
@@ -133,8 +135,9 @@ export function ForecastTab({
         if (!dayEntries.length) {
           return null;
         }
+        const tz = resolveBeachTimezone(beachTimezone);
         const middayEntry = dayEntries.find((entry) =>
-          (entry.forecast_time || "").startsWith("12")
+          entry.forecast_at ? extractLocalHour(entry.forecast_at, tz) === 12 : false
         );
         const fallbackEntry =
           dayEntries[Math.floor(dayEntries.length / 2)] || dayEntries[0];
@@ -167,30 +170,36 @@ export function ForecastTab({
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
     if (!horizonSelectedDate) return forecasts;
-    return forecasts.filter((f) => f.forecast_date === horizonSelectedDate);
-  }, [forecasts, horizonSelectedDate]);
+    const tz = resolveBeachTimezone(beachTimezone);
+    return forecasts.filter((f) => extractForecastDate(f.forecast_at, tz) === horizonSelectedDate);
+  }, [forecasts, horizonSelectedDate, beachTimezone]);
 
   // Public mode: allowed dates (first 3 days)
   const publicAllowedDates = useMemo(() => {
     if (!publicMode) return null;
-    const today = getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
-    const futureDates = [...new Set(forecasts.filter(f => f.forecast_date >= today).map(f => f.forecast_date))].sort();
+    const tz = resolveBeachTimezone(beachTimezone);
+    const today = getLocalDateString(new Date(), tz);
+    const futureDates = [...new Set(forecasts.map(f => extractForecastDate(f.forecast_at, tz)).filter(d => d >= today))].sort();
     return new Set(futureDates.slice(0, 3));
   }, [publicMode, forecasts, beachTimezone]);
 
   // Public mode: filter forecasts to 3 days (reuses publicAllowedDates)
   const publicFilteredForecasts = useMemo(() => {
     if (!publicMode || !publicAllowedDates) return forecasts;
-    return forecasts.filter(f => publicAllowedDates.has(f.forecast_date));
-  }, [publicMode, forecasts, publicAllowedDates]);
+    const tz = resolveBeachTimezone(beachTimezone);
+    return forecasts.filter(f => publicAllowedDates.has(extractForecastDate(f.forecast_at, tz)));
+  }, [publicMode, forecasts, publicAllowedDates, beachTimezone]);
 
   const todayStr = useMemo(() => {
     return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
   }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
-    () => forecasts.filter((f) => f.forecast_date === todayStr),
-    [forecasts, todayStr]
+    () => {
+      const tz = resolveBeachTimezone(beachTimezone);
+      return forecasts.filter((f) => extractForecastDate(f.forecast_at, tz) === todayStr);
+    },
+    [forecasts, todayStr, beachTimezone]
   );
 
   // Dynamic tide computation (always fresh, relative to now)

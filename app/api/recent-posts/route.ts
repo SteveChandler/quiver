@@ -46,8 +46,7 @@ async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
         image_url,
         likes_count,
         created_at,
-        profile_id,
-        profiles!sessions_profile_id_fkey (
+        profiles!sessions_user_id_profiles_fkey (
           id,
           full_name,
           avatar_url

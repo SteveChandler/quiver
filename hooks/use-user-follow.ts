@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { data as gateway } from "@/lib/data/client";
 import { useAuth } from "@/context/auth-context";
+import { track } from "@/lib/analytics";
 
 interface UseUserFollowReturn {
   following: boolean;
@@ -202,6 +203,19 @@ export function useUserFollow(
           return newCount;
         });
       }
+
+      // Track social follow event
+      const action = isFollowAction ? 'follow' : 'unfollow';
+      track(`user_${action}`, { target_user_id: userId });
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "social_follow",
+          metadata: { target_user_id: userId, action },
+        }),
+        keepalive: true,
+      }).catch(() => {});
     } catch (error) {
       console.error("Error toggling follow:", error);
     } finally {

@@ -206,16 +206,18 @@ export async function fetchRegionalForecast(
   const beachNameMap = new Map(beaches.map((b) => [b.id, b.name]));
 
   // Fetch forecasts for all regional beaches
+  const nextDay = new Date(new Date(todayDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
   const { data: forecasts } = await supabase
     .from('enhanced_forecasts')
     .select(
       'beach_id, wave_height, wave_period, wind_speed, wind_direction, tide_height, tide_status, next_tide_time'
     )
     .in('beach_id', beachIds)
-    .eq('forecast_date', todayDate)
+    .gte('forecast_at', `${todayDate}T00:00:00Z`)
+    .lt('forecast_at', `${nextDay}T00:00:00Z`)
     .gte('forecast_time', '05:00:00')
     .lte('forecast_time', '08:00:00')
-    .order('forecast_time', { ascending: true });
+    .order('forecast_at', { ascending: true });
 
   if (!forecasts || forecasts.length === 0) {
     console.warn(`No forecasts found for region ${region}`);

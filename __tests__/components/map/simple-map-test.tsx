@@ -174,6 +174,7 @@ describe("Simple Map Test", () => {
                   id: "test-forecast",
                   beach_id: "test-beach-1",
                   wave_height: "2.5 ft",
+                  forecast_at: "2025-08-16T12:00:00Z",
                   forecast_date: "2025-08-16",
                   forecast_time: "12:00:00",
                 },

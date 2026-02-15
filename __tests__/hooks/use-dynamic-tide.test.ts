@@ -9,6 +9,7 @@ function createMockForecast(
   return {
     id: "test-1",
     beach_id: "beach-1",
+    forecast_at: "2026-01-14T12:00Z",
     forecast_date: "2026-01-14",
     forecast_time: "12:00",
     wave_height: "3 ft",

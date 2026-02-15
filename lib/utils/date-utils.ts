@@ -358,13 +358,30 @@ export const dateUtils = {
   },
 
   /**
-   * Format forecast time with date and time
+   * Format forecast time with date and time.
+   * Accepts either a single forecast_at ISO string or legacy forecast_date + forecast_time.
    */
   formatForecastTime: (
-    forecast_date: string,
+    forecastDateOrAt: string,
     forecast_time?: string
   ): string => {
-    const date = new Date(forecast_date);
+    // Single-arg: forecast_at ISO 8601 timestamp
+    if (!forecast_time && forecastDateOrAt.includes('T')) {
+      const date = new Date(forecastDateOrAt);
+      const timeStr = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const dateStr = date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      return `${dateStr} at ${timeStr}`;
+    }
+
+    // Legacy two-arg: forecast_date + forecast_time
+    const date = new Date(forecastDateOrAt);
     let timeStr = "";
 
     if (forecast_time) {
@@ -387,13 +404,28 @@ export const dateUtils = {
   },
 
   /**
-   * Format forecast time with more detailed information
+   * Format forecast time with more detailed information.
+   * Accepts either a single forecast_at ISO string or legacy forecast_date + forecast_time.
    */
   formatForecastTimeDetailed: (
-    forecast_date: string,
+    forecastDateOrAt: string,
     forecast_time?: string
   ): string => {
-    const date = new Date(forecast_date);
+    // Single-arg: forecast_at ISO 8601 timestamp
+    if (!forecast_time && forecastDateOrAt.includes('T')) {
+      const date = new Date(forecastDateOrAt);
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    // Legacy two-arg: forecast_date + forecast_time
+    const date = new Date(forecastDateOrAt);
 
     if (forecast_time) {
       const [hours, minutes] = forecast_time.split(":").map(Number);

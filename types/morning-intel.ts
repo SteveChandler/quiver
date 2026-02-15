@@ -171,7 +171,15 @@ export interface MorningIntelConfig {
 
 export interface ForecastSlice {
   forecasts: Array<{
+    /**
+     * ISO 8601 UTC timestamptz — canonical forecast time.
+     * Optional during migration transition (some external/cached sources may lack it).
+     * Will become required after Phase 8 (legacy column drop).
+     */
+    forecast_at?: string;
+    /** @deprecated Use forecast_at */
     forecast_date: string;
+    /** @deprecated Use forecast_at */
     forecast_time: string;
     wave_height?: number | null;
     wave_period?: number | null;

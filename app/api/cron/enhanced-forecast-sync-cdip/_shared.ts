@@ -20,6 +20,7 @@ import {
   startCronCheckIn,
   completeCronCheckIn,
 } from "@/lib/monitoring/sentry-cron";
+import * as Sentry from "@sentry/nextjs";
 
 export const MAX_DURATION_SECONDS = 300;
 const DEFAULT_SAFETY_MARGIN_MS = 20_000;
@@ -85,6 +86,7 @@ export async function runEnhancedForecastSyncCdip(
         new Error(`Cron disabled for environment: ${env}`)
       );
       completeCronCheckIn(checkInId, monitorSlug, "error");
+      await Sentry.flush(2000);
       return createErrorResponse(
         "Forbidden",
         `Cron disabled for environment: ${env}`,
@@ -98,6 +100,7 @@ export async function runEnhancedForecastSyncCdip(
         new Error("Invalid cron authentication")
       );
       completeCronCheckIn(checkInId, monitorSlug, "error");
+      await Sentry.flush(2000);
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
@@ -147,6 +150,7 @@ export async function runEnhancedForecastSyncCdip(
     });
 
     completeCronCheckIn(checkInId, monitorSlug, failed > 0 ? "error" : "ok");
+    await Sentry.flush(2000);
 
     return createSuccessResponse(
       {
@@ -161,6 +165,7 @@ export async function runEnhancedForecastSyncCdip(
     const duration = Date.now() - startTime;
 
     completeCronCheckIn(checkInId, monitorSlug, "error");
+    await Sentry.flush(2000);
 
     forecastLogger.cronFailed(
       executionId,

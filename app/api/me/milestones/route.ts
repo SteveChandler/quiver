@@ -46,7 +46,7 @@ export const GET = withRateLimit(
     },
     { errorMessage: "Failed to load milestones" }
   ),
-  { key: "milestones", authAware: true, limit: 10, window: 60 }
+  { key: "authenticated-default" }
 );
 
 /**
@@ -94,5 +94,5 @@ export const PATCH = withRateLimit(
     },
     { errorMessage: "Failed to update milestones" }
   ),
-  { key: "milestones-update", authAware: true, limit: 10, window: 60 }
+  { key: "authenticated-default" }
 );

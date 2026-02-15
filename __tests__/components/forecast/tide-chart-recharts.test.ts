@@ -8,6 +8,7 @@ describe("TideChart data priority", () => {
       {
         id: "1",
         beach_id: "beach-1",
+        forecast_at: "2026-01-15T17:00Z",
         forecast_date: "2026-01-15",
         forecast_time: "17:00",
         tide_height: "2.3 ft",
@@ -41,6 +42,7 @@ describe("normalizeTideSchedule", () => {
       {
         id: "1",
         beach_id: "beach-1",
+        forecast_at: "2026-01-15T12:00Z",
         forecast_date: "2026-01-15",
         forecast_time: "12:00",
         wave_height: "3.0 ft",
@@ -74,6 +76,7 @@ describe("normalizeTideSchedule", () => {
       {
         id: "1",
         beach_id: "beach-1",
+        forecast_at: "2026-01-15T12:00Z",
         forecast_date: "2026-01-15",
         forecast_time: "12:00",
         wave_height: "3.0 ft",
@@ -106,6 +109,7 @@ describe("normalizeTideSchedule", () => {
       {
         id: "1",
         beach_id: "beach-1",
+        forecast_at: "2026-01-15T12:00Z",
         forecast_date: "2026-01-15",
         forecast_time: "12:00",
         wave_height: "3.0 ft",
@@ -135,6 +139,7 @@ describe("normalizeTideSchedule", () => {
       {
         id: "1",
         beach_id: "beach-1",
+        forecast_at: "2026-01-15T09:00Z",
         forecast_date: "2026-01-15",
         forecast_time: "09:00",
         wave_height: "3.0 ft",
@@ -148,6 +153,7 @@ describe("normalizeTideSchedule", () => {
       {
         id: "2",
         beach_id: "beach-1",
+        forecast_at: "2026-01-15T12:00Z",
         forecast_date: "2026-01-15",
         forecast_time: "12:00",
         wave_height: "3.5 ft",

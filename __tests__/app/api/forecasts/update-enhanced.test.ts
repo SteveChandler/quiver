@@ -98,6 +98,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
       {
         id: "1",
         beach_id: "test-beach-id",
+        forecast_at: "2025-01-01T12:00:00Z",
         forecast_date: "2025-01-01",
         forecast_time: "12:00:00",
         wave_height: "3 ft",
