@@ -671,12 +671,20 @@ export function ForecastTab({
                           <span>{label}</span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-1">
-                          <span className="text-2xl font-bold text-ocean-blue">
-                            {formatMetric(forecast.wave_height)}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            ft
-                          </span>
+                          {forecast.wave_height == null && forecast.wave_period == null ? (
+                            <span className="text-lg font-medium text-muted-foreground">
+                              No data
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-2xl font-bold text-ocean-blue">
+                                {formatMetric(forecast.wave_height)}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                ft
+                              </span>
+                            </>
+                          )}
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                           <Wind className="h-3 w-3" />

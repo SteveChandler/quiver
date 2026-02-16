@@ -97,7 +97,9 @@ export const FORECAST_CONFIG = {
   /** Interval between forecasts in hours */
   FORECAST_INTERVAL_HOURS: 3,
   /** Maximum forecast days for Open-Meteo API */
-  OPEN_METEO_MAX_DAYS: 7,
+  OPEN_METEO_MAX_DAYS: 12,
+  /** Maximum forecast days for Open-Meteo API (hard API limit) */
+  OPEN_METEO_API_LIMIT: 16,
   /** Minimum wave period for Pacific swells (seconds) */
   MIN_PACIFIC_SWELL_PERIOD: 10,
   /** Minimum wind wave period (seconds) */

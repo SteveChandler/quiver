@@ -11,7 +11,8 @@ import { createContextLogger } from "@/lib/logger";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 import { fetchNOAAPointData, fetchNOAAGridData, fetchOpenMeteoData, constructGridUrl } from "./api-client";
 import { processNOAAGridData, processOpenMeteoData } from "./data-processors";
-import { generateFallbackData } from "./fallback-generator";
+import { generateFallbackData, generateFallbackSlotsFrom } from "./fallback-generator";
+import { FORECAST_CONFIG } from "./constants";
 import { hasValidWaveData, logWaveDataAvailability, metersToFeet, getWaveDirectionText } from "./wave-analysis";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 import type { WaveWatchForecast, WaveWatchData } from "./types";
@@ -55,6 +56,26 @@ export class NOAAWaveWatchService {
       const noaaData = await this.fetchRealNOAAData(latitude, longitude, days);
 
       if (noaaData && noaaData.forecast.length > 0) {
+        const expectedSlots = days * FORECAST_CONFIG.FORECASTS_PER_DAY;
+        // Fill any remaining horizon gaps with fallback slots
+        if (noaaData.forecast.length < expectedSlots) {
+          const lastTimestamp = new Date(
+            noaaData.forecast[noaaData.forecast.length - 1].timestamp
+          );
+          const slotsNeeded = expectedSlots - noaaData.forecast.length;
+          const fillSlots = generateFallbackSlotsFrom(
+            latitude,
+            longitude,
+            lastTimestamp,
+            slotsNeeded
+          );
+          // Safe to mutate: noaaData is local to this call
+          noaaData.forecast.push(...fillSlots);
+          log.info(
+            `Filled ${fillSlots.length} horizon gap slots (${noaaData.forecast.length} total for ${days}d request)`
+          );
+        }
+
         log.debug(
           `Successfully fetched real NOAA data with ${noaaData.forecast.length} forecasts`
         );
@@ -102,8 +123,8 @@ export class NOAAWaveWatchService {
 
   /**
    * Fetch real wave forecast data from NOAA and Open-Meteo in parallel,
-   * then merge by time horizon: NOAA for days 1-3, Open-Meteo for days 4-7,
-   * NOAA for days 8+ (Open-Meteo maxes at 7 days).
+   * then merge by time horizon: NOAA for days 1-3, Open-Meteo for days 4-12,
+   * NOAA for days 8+ (Open-Meteo maxes at 12 days).
    *
    * @private
    * @param latitude - Latitude in decimal degrees
@@ -124,7 +145,7 @@ export class NOAAWaveWatchService {
       // Fetch both sources in parallel
       const [noaaResult, openMeteoResult] = await Promise.allSettled([
         this.fetchNOAANWSData(latitude, longitude, days),
-        this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, 7)),
+        this.fetchOpenMeteoDataWrapper(latitude, longitude, Math.min(days, FORECAST_CONFIG.OPEN_METEO_MAX_DAYS)),
       ]);
 
       const noaaData =
@@ -153,8 +174,8 @@ export class NOAAWaveWatchService {
 
   /**
    * Merge NOAA (near-term) and Open-Meteo (extended) forecasts.
-   * NOAA is authoritative for days 1-3, Open-Meteo for days 4-7.
-   * Days 8+ fall back to NOAA (Open-Meteo maxes at 7).
+   * NOAA is authoritative for days 1-3, Open-Meteo for days 4-12.
+   * Days 13+ fall back to NOAA (Open-Meteo maxes at 12).
    */
   private mergeForecasts(
     noaaData: WaveWatchForecast,
@@ -221,7 +242,7 @@ export class NOAAWaveWatchService {
       (f) => f.data_source === "OPEN_METEO"
     ).length;
     log.info(
-      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA ≤3d, ${openMeteoCount} Open-Meteo 4-7d, ${appendEntries.length} appended beyond NOAA range)`
+      `Merged forecasts: ${merged.length} total (${merged.length - openMeteoCount} NOAA ≤3d, ${openMeteoCount} Open-Meteo 4+d, ${appendEntries.length} appended beyond NOAA range)`
     );
 
     return {

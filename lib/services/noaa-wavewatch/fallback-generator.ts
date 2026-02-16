@@ -16,6 +16,88 @@ import type { WaveWatchData } from "./types";
 const log = createContextLogger("NOAAWaveWatch:FallbackGenerator");
 
 /**
+ * Generate a single synthetic wave forecast slot.
+ *
+ * Contains the shared wave-height variation, period, direction, swell
+ * decomposition, and wind-wave logic used by both public generators.
+ *
+ * @param latitude - Latitude in decimal degrees
+ * @param longitude - Longitude in decimal degrees
+ * @param timestamp - Forecast timestamp for this slot
+ * @param index - Slot index (drives sine-wave variability)
+ * @param baseWaveHeight - Location-based baseline wave height in meters
+ * @param seasonalFactor - Seasonal multiplier for wave height
+ * @returns A single synthetic wave forecast data point
+ */
+function generateSingleFallbackSlot(
+  latitude: number,
+  longitude: number,
+  timestamp: Date,
+  index: number,
+  baseWaveHeight: number,
+  seasonalFactor: number
+): WaveWatchData {
+  // Add realistic variability using sine wave + random noise
+  const waveHeightVariation =
+    Math.sin(index * 0.2) * 0.5 + Math.random() * 0.3 - 0.15;
+  const significantWaveHeight = Math.max(
+    FORECAST_CONFIG.MIN_WAVE_HEIGHT,
+    baseWaveHeight * seasonalFactor + waveHeightVariation
+  );
+
+  // Wave period typically correlates with wave height
+  // Pacific swells have much longer periods (12-16s) than Atlantic
+  const peakWavePeriod = Math.max(
+    FORECAST_CONFIG.MIN_PACIFIC_SWELL_PERIOD, // Minimum 10 seconds
+    12 + significantWaveHeight * 1.5 + (Math.random() - 0.5) * 4 // Generate 12-16s periods typical of Pacific
+  );
+
+  // Wave direction varies but has prevailing patterns
+  const baseDirection = getPrevailingWaveDirection(latitude, longitude);
+  const peakWaveDirection =
+    (baseDirection + (Math.random() - 0.5) * 60 + 360) % 360;
+
+  // Primary swell: Usually dominates, longer period, most of the wave height
+  const swell1Height = significantWaveHeight * (0.7 + Math.random() * 0.15); // 70-85% of total
+  const swell1Period = peakWavePeriod * (1.1 + Math.random() * 0.2); // 10-30% longer than peak
+  const swell1Direction =
+    (peakWaveDirection + (Math.random() - 0.5) * 20 + 360) % 360; // Less directional variance
+
+  // Secondary swell: Smaller, different direction, shorter period
+  const swell2Height = significantWaveHeight * (0.2 + Math.random() * 0.15); // 20-35% of total
+  const swell2Period = swell1Period * (0.8 + Math.random() * 0.15); // Shorter than primary
+  const swell2Direction =
+    (swell1Direction + 45 + (Math.random() - 0.5) * 30 + 360) % 360; // Different direction
+
+  // Wind waves: Typically much smaller than swells and have short periods
+  const windWaveHeight =
+    significantWaveHeight * (0.15 + Math.random() * 0.15); // 15-30% of total
+  const windWavePeriod = Math.max(
+    FORECAST_CONFIG.MIN_WIND_WAVE_PERIOD, // Minimum 3 seconds
+    peakWavePeriod * (0.4 + Math.random() * 0.2) // Much shorter: 40-60% of peak
+  );
+  const windWaveDirection =
+    (peakWaveDirection + (Math.random() - 0.5) * 60 + 360) % 360; // More variable direction
+
+  return {
+    timestamp: timestamp.toISOString(),
+    significant_wave_height: Math.round(significantWaveHeight * 100) / 100,
+    peak_wave_period: Math.round(peakWavePeriod * 10) / 10,
+    peak_wave_direction: Math.round(peakWaveDirection),
+    swell_1_height: Math.round(swell1Height * 100) / 100,
+    swell_1_period: Math.round(swell1Period * 10) / 10,
+    swell_1_direction: Math.round(swell1Direction),
+    swell_2_height: Math.round(swell2Height * 100) / 100,
+    swell_2_period: Math.round(swell2Period * 10) / 10,
+    swell_2_direction: Math.round(swell2Direction),
+    wind_wave_height: Math.round(windWaveHeight * 100) / 100,
+    wind_wave_period: Math.round(windWavePeriod * 10) / 10,
+    wind_wave_direction: Math.round(windWaveDirection),
+    data_source: "FALLBACK" as const,
+  };
+}
+
+/**
  * Generate fallback wave forecast data
  *
  * Creates synthetic wave forecasts based on typical conditions for the location
@@ -48,66 +130,44 @@ export function generateFallbackData(
       now.getTime() + i * FORECAST_CONFIG.FORECAST_INTERVAL_HOURS * 60 * 60 * 1000
     );
 
-    // Add realistic variability using sine wave + random noise
-    const waveHeightVariation =
-      Math.sin(i * 0.2) * 0.5 + Math.random() * 0.3 - 0.15;
-    const significantWaveHeight = Math.max(
-      FORECAST_CONFIG.MIN_WAVE_HEIGHT,
-      baseWaveHeight * seasonalFactor + waveHeightVariation
+    forecasts.push(
+      generateSingleFallbackSlot(latitude, longitude, timestamp, i, baseWaveHeight, seasonalFactor)
     );
-
-    // Wave period typically correlates with wave height
-    // Pacific swells have much longer periods (12-16s) than Atlantic
-    const peakWavePeriod = Math.max(
-      FORECAST_CONFIG.MIN_PACIFIC_SWELL_PERIOD, // Minimum 10 seconds
-      12 + significantWaveHeight * 1.5 + (Math.random() - 0.5) * 4 // Generate 12-16s periods typical of Pacific
-    );
-
-    // Wave direction varies but has prevailing patterns
-    const baseDirection = getPrevailingWaveDirection(latitude, longitude);
-    const peakWaveDirection =
-      (baseDirection + (Math.random() - 0.5) * 60 + 360) % 360;
-
-    // Primary swell: Usually dominates, longer period, most of the wave height
-    const swell1Height = significantWaveHeight * (0.7 + Math.random() * 0.15); // 70-85% of total
-    const swell1Period = peakWavePeriod * (1.1 + Math.random() * 0.2); // 10-30% longer than peak
-    const swell1Direction =
-      (peakWaveDirection + (Math.random() - 0.5) * 20 + 360) % 360; // Less directional variance
-
-    // Secondary swell: Smaller, different direction, shorter period
-    const swell2Height = significantWaveHeight * (0.2 + Math.random() * 0.15); // 20-35% of total
-    const swell2Period = swell1Period * (0.8 + Math.random() * 0.15); // Shorter than primary
-    const swell2Direction =
-      (swell1Direction + 45 + (Math.random() - 0.5) * 30 + 360) % 360; // Different direction
-
-    // Wind waves: Typically much smaller than swells and have short periods
-    const windWaveHeight =
-      significantWaveHeight * (0.15 + Math.random() * 0.15); // 15-30% of total
-    const windWavePeriod = Math.max(
-      FORECAST_CONFIG.MIN_WIND_WAVE_PERIOD, // Minimum 3 seconds
-      peakWavePeriod * (0.4 + Math.random() * 0.2) // Much shorter: 40-60% of peak
-    );
-    const windWaveDirection =
-      (peakWaveDirection + (Math.random() - 0.5) * 60 + 360) % 360; // More variable direction
-
-    forecasts.push({
-      timestamp: timestamp.toISOString(),
-      significant_wave_height: Math.round(significantWaveHeight * 100) / 100,
-      peak_wave_period: Math.round(peakWavePeriod * 10) / 10,
-      peak_wave_direction: Math.round(peakWaveDirection),
-      swell_1_height: Math.round(swell1Height * 100) / 100,
-      swell_1_period: Math.round(swell1Period * 10) / 10,
-      swell_1_direction: Math.round(swell1Direction),
-      swell_2_height: Math.round(swell2Height * 100) / 100,
-      swell_2_period: Math.round(swell2Period * 10) / 10,
-      swell_2_direction: Math.round(swell2Direction),
-      wind_wave_height: Math.round(windWaveHeight * 100) / 100,
-      wind_wave_period: Math.round(windWavePeriod * 10) / 10,
-      wind_wave_direction: Math.round(windWaveDirection),
-      data_source: "FALLBACK" as const,
-    });
   }
 
   log.debug(`Generated ${forecasts.length} fallback wave forecasts`);
+  return forecasts;
+}
+
+/**
+ * Generate fallback wave forecast slots starting from a specific timestamp.
+ * Used as a safety net to fill any gaps beyond the real data horizon.
+ *
+ * @param latitude - Latitude in decimal degrees
+ * @param longitude - Longitude in decimal degrees
+ * @param startAfter - Generate slots starting 3h after this timestamp
+ * @param count - Number of 3h slots to generate
+ * @returns Array of synthetic wave forecast data points with data_source="FALLBACK"
+ */
+export function generateFallbackSlotsFrom(
+  latitude: number,
+  longitude: number,
+  startAfter: Date,
+  count: number
+): WaveWatchData[] {
+  const forecasts: WaveWatchData[] = [];
+  const baseWaveHeight = getBaseWaveHeight(latitude, longitude);
+  const seasonalFactor = getSeasonalFactor(startAfter.getMonth(), latitude);
+
+  for (let i = 0; i < count; i++) {
+    const timestamp = new Date(
+      startAfter.getTime() + (i + 1) * FORECAST_CONFIG.FORECAST_INTERVAL_HOURS * 60 * 60 * 1000
+    );
+
+    forecasts.push(
+      generateSingleFallbackSlot(latitude, longitude, timestamp, i, baseWaveHeight, seasonalFactor)
+    );
+  }
+
   return forecasts;
 }

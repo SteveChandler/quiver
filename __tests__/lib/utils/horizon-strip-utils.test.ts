@@ -222,7 +222,7 @@ describe('horizon-strip-utils', () => {
       preferred_tide_ft_max: null,
     } as unknown as Beach;
 
-    it('trims trailing FALLBACK-only days', () => {
+    it('trims trailing days with all-null wave_height', () => {
       const today = new Date();
       const dates = Array.from({ length: 5 }, (_, i) => {
         const d = new Date(today);
@@ -238,11 +238,11 @@ describe('horizon-strip-utils', () => {
         makeForecast(dates[1], '12:00', 'NOAA_NWS'),
         makeForecast(dates[2], '06:00', 'NOAA_NWS'),
         makeForecast(dates[2], '12:00', 'NOAA_NWS'),
-        // Days 3-4: fallback only
-        makeForecast(dates[3], '06:00', 'FALLBACK'),
-        makeForecast(dates[3], '12:00', 'FALLBACK'),
-        makeForecast(dates[4], '06:00', 'FALLBACK'),
-        makeForecast(dates[4], '12:00', 'FALLBACK'),
+        // Days 3-4: null wave_height (truly missing data)
+        makeForecast(dates[3], '06:00', 'FALLBACK', null as unknown as string),
+        makeForecast(dates[3], '12:00', 'FALLBACK', null as unknown as string),
+        makeForecast(dates[4], '06:00', 'FALLBACK', null as unknown as string),
+        makeForecast(dates[4], '12:00', 'FALLBACK', null as unknown as string),
       ];
 
       const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
@@ -250,6 +250,32 @@ describe('horizon-strip-utils', () => {
       // Should only have 3 days (the real data), not 5
       expect(result.length).toBe(3);
       expect(result.map((d) => d.fullDate)).toEqual([dates[0], dates[1], dates[2]]);
+    });
+
+    it('keeps trailing FALLBACK days that have wave values (gap-filled slots)', () => {
+      const today = new Date();
+      const dates = Array.from({ length: 4 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        return d.toISOString().split('T')[0];
+      });
+
+      const forecasts = [
+        makeForecast(dates[0], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[0], '12:00', 'NOAA_NWS'),
+        makeForecast(dates[1], '06:00', 'NOAA_NWS'),
+        makeForecast(dates[1], '12:00', 'NOAA_NWS'),
+        // Days 2-3: FALLBACK but with wave values (gap-filled)
+        makeForecast(dates[2], '06:00', 'FALLBACK', '1.5'),
+        makeForecast(dates[2], '12:00', 'FALLBACK', '1.8'),
+        makeForecast(dates[3], '06:00', 'FALLBACK', '1.2'),
+        makeForecast(dates[3], '12:00', 'FALLBACK', '1.4'),
+      ];
+
+      const result = aggregateDayForecasts(forecasts, mockBeach, { maxDays: 12 });
+
+      // All 4 days should be kept (FALLBACK with values not trimmed)
+      expect(result.length).toBe(4);
     });
 
     it('keeps days with mixed real and fallback forecasts', () => {
