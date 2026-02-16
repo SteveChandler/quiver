@@ -2,7 +2,7 @@ Query Quiver growth metrics from Supabase and present a formatted dashboard.
 
 ## Execution
 
-Run all 10 SQL queries below via the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe`. Run queries in parallel where possible (queries are independent).
+Run all 10 SQL queries below via the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe` directly from the main session (do NOT delegate to subagents — they cannot access MCP tools). Run queries in parallel where possible (queries are independent).
 
 All queries exclude test/admin/seed accounts: `WHERE p.email NOT ILIKE '%test%' AND p.email NOT ILIKE '%quiver%' AND p.email NOT ILIKE '%admin%' AND p.email NOT LIKE '%@example.invalid' AND p.email NOT LIKE '%@example.invalid'`
 

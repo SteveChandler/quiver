@@ -70,6 +70,10 @@ export async function GET(request: Request) {
   let noMatch = 0;
   const PARALLEL_BATCH = 25; // Reduced from 50 to avoid connection pool exhaustion
 
+  // Cache station lookups per beach_id to avoid redundant RPC calls
+  // (many predictions share the same beach_id within a batch)
+  const stationCache = new Map<string, string | null>();
+
   // Process prediction matching and update
   // Returns: 'matched' | 'no_match' | 'error'
   async function processPrediction(
@@ -107,10 +111,17 @@ export async function GET(request: Request) {
       // If no direct match, try spatial lookup via get_beach_observation_station
       // This handles beaches that are nearby a station but not its nearest_beach_id
       if (!obs?.wave_height_m) {
-        const { data: stationId } = await supabase.rpc(
-          'get_beach_observation_station',
-          { p_beach_id: pred.beach_id }
-        );
+        let stationId: string | null;
+        if (stationCache.has(pred.beach_id)) {
+          stationId = stationCache.get(pred.beach_id)!;
+        } else {
+          const { data } = await supabase.rpc(
+            'get_beach_observation_station',
+            { p_beach_id: pred.beach_id }
+          );
+          stationId = data ?? null;
+          stationCache.set(pred.beach_id, stationId);
+        }
 
         if (stationId) {
           const { data: spatialObs } = await supabase
@@ -124,7 +135,7 @@ export async function GET(request: Request) {
             .limit(1)
             .maybeSingle();
 
-          obs = spatialObs;
+          obs = spatialObs ?? null;
         }
       }
 

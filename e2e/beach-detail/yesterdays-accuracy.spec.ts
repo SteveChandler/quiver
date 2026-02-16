@@ -24,17 +24,24 @@ test.describe("Yesterday's Accuracy Card", () => {
     await expect(forecastTab).toBeVisible({ timeout: TIMEOUTS.medium });
     await forecastTab.click();
 
-    // Wait for forecast content to load
+    // Wait for the Today sub-tab to be visible (more reliable than Current Conditions which requires currentForecast)
     await expect(
-      page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })
+      page.getByRole('tab', { name: /^Today$/i })
     ).toBeVisible({ timeout: TIMEOUTS.long });
+
+    // Wait for content to load
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.long });
 
     // Card may or may not be visible depending on data availability and accuracy thresholds.
     // If visible, verify its content structure.
     const card = page.getByTestId('yesterdays-accuracy-card');
 
-    // Give the accuracy data time to load (async fetch)
-    await page.waitForTimeout(3000);
+    // Wait for accuracy data to load (async fetch on mount).
+    // Race: card appears OR additional wait time — avoids hardcoded timeout.
+    await Promise.race([
+      card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      page.waitForTimeout(3000),
+    ]);
 
     const isVisible = await card.isVisible().catch(() => false);
 
@@ -60,12 +67,20 @@ test.describe("Yesterday's Accuracy Card", () => {
     await expect(forecastTab).toBeVisible({ timeout: TIMEOUTS.medium });
     await forecastTab.click();
 
+    // Wait for the Today sub-tab to be visible
     await expect(
-      page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })
+      page.getByRole('tab', { name: /^Today$/i })
     ).toBeVisible({ timeout: TIMEOUTS.long });
 
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.long });
+
     const card = page.getByTestId('yesterdays-accuracy-card');
-    await page.waitForTimeout(3000);
+
+    await Promise.race([
+      card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      page.waitForTimeout(3000),
+    ]);
+
     const isVisible = await card.isVisible().catch(() => false);
 
     if (isVisible) {
@@ -85,13 +100,21 @@ test.describe("Yesterday's Accuracy Card", () => {
     await expect(forecastTab).toBeVisible({ timeout: TIMEOUTS.medium });
     await forecastTab.click();
 
+    // Wait for the Today sub-tab to be visible
     await expect(
-      page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })
+      page.getByRole('tab', { name: /^Today$/i })
     ).toBeVisible({ timeout: TIMEOUTS.long });
+
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.long });
 
     // Card should render cleanly on mobile if data is available
     const card = page.getByTestId('yesterdays-accuracy-card');
-    await page.waitForTimeout(3000);
+
+    await Promise.race([
+      card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      page.waitForTimeout(3000),
+    ]);
+
     const isVisible = await card.isVisible().catch(() => false);
 
     if (isVisible) {
