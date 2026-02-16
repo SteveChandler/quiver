@@ -81,9 +81,9 @@ export async function GET(request: Request) {
       const windowStart = new Date(predTime.getTime() - 3600000).toISOString();
       const windowEnd = new Date(predTime.getTime() + 3600000).toISOString();
 
-      // Query unified_wave_observations which includes IOOS data
-      // (primary observation source - marine_forecasts doesn't have IOOS)
-      const { data: obs, error: obsError } = await supabase
+      // Try direct match first (beach is a station's nearest_beach_id)
+      let obs = null;
+      const { data: directObs, error: directError } = await supabase
         .from('unified_wave_observations')
         .select('wave_height_m, observed_at')
         .eq('nearest_beach_id', pred.beach_id)
@@ -94,12 +94,38 @@ export async function GET(request: Request) {
         .limit(1)
         .maybeSingle();
 
-      if (obsError) {
+      if (directError) {
         console.error(
           `Error fetching observation for prediction ${pred.id}:`,
-          obsError
+          directError
         );
         return 'error';
+      }
+
+      obs = directObs;
+
+      // If no direct match, try spatial lookup via get_beach_observation_station
+      // This handles beaches that are nearby a station but not its nearest_beach_id
+      if (!obs?.wave_height_m) {
+        const { data: stationId } = await supabase.rpc(
+          'get_beach_observation_station',
+          { p_beach_id: pred.beach_id }
+        );
+
+        if (stationId) {
+          const { data: spatialObs } = await supabase
+            .from('unified_wave_observations')
+            .select('wave_height_m, observed_at')
+            .eq('station_id', stationId)
+            .not('wave_height_m', 'is', null)
+            .gte('observed_at', windowStart)
+            .lte('observed_at', windowEnd)
+            .order('observed_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          obs = spatialObs;
+        }
       }
 
       if (!obs?.wave_height_m) {

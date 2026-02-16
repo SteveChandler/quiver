@@ -36,6 +36,8 @@ import { extractForecastDate, extractLocalHour } from "@/lib/utils/forecast-at-a
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 import { useSunTimes } from "@/hooks/use-sun-times";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
+import type { YesterdayAccuracy } from "@/types/accuracy";
+import { YesterdaysAccuracyCard } from "@/components/beach-detail/yesterdays-accuracy-card";
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
@@ -71,6 +73,7 @@ interface ForecastTabProps {
   surfCallIsTomorrow?: boolean;
   defaultSubTab?: "today" | "tides" | "conditions";
   publicMode?: boolean;
+  yesterdayAccuracy?: YesterdayAccuracy | null;
 }
 
 export function ForecastTab({
@@ -82,6 +85,7 @@ export function ForecastTab({
   surfCallIsTomorrow,
   defaultSubTab,
   publicMode = false,
+  yesterdayAccuracy,
 }: ForecastTabProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedForecastEntry, setSelectedForecastEntry] =
@@ -589,6 +593,11 @@ export function ForecastTab({
                 </div>
               </div>
             </section>
+          )}
+
+          {/* Yesterday's Accuracy */}
+          {yesterdayAccuracy?.should_display && (
+            <YesterdaysAccuracyCard accuracy={yesterdayAccuracy} />
           )}
 
           {/* Best Surf Window */}

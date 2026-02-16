@@ -23,6 +23,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { getYesterdayAccuracy } from "@/actions/accuracy-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -222,6 +224,12 @@ function BeachDetailContent({
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
+
+  // Fetch yesterday's accuracy data
+  const fetchAccuracy = useCallback(async () => {
+    return await getYesterdayAccuracy(id);
+  }, [id]);
+  const { data: yesterdayAccuracy } = useDataFetcher(fetchAccuracy);
 
   // Review handlers
   const handleWriteReview = useCallback((source: ReviewTrackingSource = REVIEW_TRACKING_SOURCES.OVERVIEW_CTA) => {
@@ -496,6 +504,7 @@ function BeachDetailContent({
                   surfCallIsTomorrow={surfCallIsTomorrow}
                   defaultSubTab={defaultSubTab}
                   publicMode={publicMode}
+                  yesterdayAccuracy={yesterdayAccuracy}
                 />
               </Suspense>
             )}

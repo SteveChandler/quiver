@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Yesterday's Accuracy Card** -- Trust signal on Forecast tab showing predicted vs actual wave heights from IOOS buoy observations:
+  - `YesterdaysAccuracyCard` component with predicted/actual (ft), accuracy %, color-coded progress bar, observation count
+  - `get_yesterday_accuracy()` RPC function with smart display logic (hidden when error > 1.5ft AND > 40% relative, or waves < 1ft)
+  - `swell_windows_overlap()` function for angular overlap computation with 0/360 wraparound handling
+  - Expanded `observable_beaches` from ~45 to ~100 beaches via combined nearest_beach_id + spatial proximity (10km) with swell compatibility
+  - `get_beach_observation_station()` helper for backfill spatial lookup
+  - Updated backfill-observations cron with spatial fallback for newly-covered beaches
+
 - **Visitor-to-Signup Conversion Uplift** -- Comprehensive conversion optimization across beach pages:
   - Glassmorphic match score teaser card with IntersectionObserver view tracking (replaces dashed pill)
   - Contextual AppHeader CTA text ("Get Your Match" on beach pages, "Full Forecast" on forecast pages)
