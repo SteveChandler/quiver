@@ -24,6 +24,7 @@ import {
 } from "@/lib/utils/beach-url-utils";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
+import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import {
   SITE_ORIGIN,
   resolveDisplayCityName,
@@ -70,12 +71,11 @@ export default async function LocationPage(props: LocationPageProps) {
 
   const metroConfig = resolveMetroConfig(params.city);
 
-  // Fetch editorial content for this city (if available)
-  const editorial = await getCityEditorialContent(
-    params.city,
-    params.state,
-    params.country
-  );
+  // Fetch editorial content and best time to surf URL for this city (if available)
+  const [editorial, bestTimeToSurfUrl] = await Promise.all([
+    getCityEditorialContent(params.city, params.state, params.country),
+    getBestTimeToSurfUrl(params.city, location.city, location.state),
+  ]);
 
   // JSON-LD structured data for SEO
   const jsonLd = buildLocationPlaceStructuredData({
@@ -100,6 +100,7 @@ export default async function LocationPage(props: LocationPageProps) {
         editorial={editorial}
         jsonLd={jsonLd}
         itemListItems={itemListItems}
+        bestTimeToSurfUrl={bestTimeToSurfUrl}
       />
     );
   }
@@ -114,6 +115,7 @@ export default async function LocationPage(props: LocationPageProps) {
       metroConfig={metroConfig}
       jsonLd={jsonLd}
       itemListItems={itemListItems}
+      bestTimeToSurfUrl={bestTimeToSurfUrl}
     />
   );
 }

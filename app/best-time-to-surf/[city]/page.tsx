@@ -32,6 +32,7 @@ import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
 import { MonthlyGrid } from "@/components/best-time-to-surf/monthly-grid";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { SITE_URL } from "@/lib/constants/seo";
+import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-definitions";
 
 export const revalidate = 86400; // 24 hours — monthly data changes infrequently
 
@@ -391,6 +392,41 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             </section>
           </ScrollReveal>
         )}
+
+        {/* Continue Exploring */}
+        <aside className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border border-blue-200/50 shadow-lg p-5">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">
+            Continue exploring
+          </h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-sky-700">
+            <li>
+              <Link
+                href={`/beaches/usa/${stateSlug}/${citySlug}`}
+                className="underline-offset-2 hover:underline"
+              >
+                Back to the {cityName} surf hub
+              </Link>
+            </li>
+            {INTENT_DEFINITIONS.map((intent) => (
+              <li key={intent.key}>
+                <Link
+                  href={buildCityIntentUrl(intent.key, citySlug)}
+                  className="underline-offset-2 hover:underline"
+                >
+                  {intent.label} in {cityName}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link
+                href="/forecast"
+                className="underline-offset-2 hover:underline"
+              >
+                7-Day Surf Forecast
+              </Link>
+            </li>
+          </ul>
+        </aside>
 
         {/* Cross-linking: Intent Guides Grid */}
         <IntentGuidesGrid

@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Improved Internal Linking to `/best-time-to-surf/[city]` Pages** -- Added conditional "Best Time to Surf in {City}" links across intent pages (beginner, tide, generic intents), beach detail pages, city hub pages (editorial + standard layouts), and added "Continue Exploring" section to best-time-to-surf pages. Links only appear when city has 3+ beaches with `best_months` data (via `getBestTimeToSurfUrl` utility). Eliminates broken links and improves SEO discoverability
 - Added internal linking for `/best-time-to-surf` pages (site footer + city hub cross-links) to improve indexation
 - Consolidated Puerto Rico `/pr/rinc-n` redirect chain from 2-hop to single-hop 301
 - Realigned SEO metadata to lead with data richness (surf reports, forecasts, ML-powered conditions) instead of community messaging

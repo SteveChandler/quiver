@@ -30,6 +30,7 @@ interface StandardLayoutProps {
   metroConfig: MetroAreaConfig | null;
   jsonLd: object;
   itemListItems: { name: string; url: string; position: number }[];
+  bestTimeToSurfUrl?: string;
 }
 
 export function StandardLayout({
@@ -41,6 +42,7 @@ export function StandardLayout({
   metroConfig,
   jsonLd,
   itemListItems,
+  bestTimeToSurfUrl,
 }: StandardLayoutProps) {
   const { summary: citySummary, faqs: cityFaqs } = generateCityRichContent({
     cityName: displayCityName,
@@ -248,14 +250,16 @@ export function StandardLayout({
         />
 
         {/* Best Time to Surf cross-link for SEO indexation */}
-        <div className="mt-6">
-          <Link
-            href={`/best-time-to-surf/${params.city}`}
-            className="inline-flex items-center gap-2 text-ocean-blue hover:underline font-medium"
-          >
-            Best Time to Surf {displayCityName} — Monthly Breakdown →
-          </Link>
-        </div>
+        {bestTimeToSurfUrl && (
+          <div className="mt-6">
+            <Link
+              href={bestTimeToSurfUrl}
+              className="inline-flex items-center gap-2 text-ocean-blue hover:underline font-medium"
+            >
+              Best Time to Surf {displayCityName} — Monthly Breakdown →
+            </Link>
+          </div>
+        )}
 
         {/* FAQ Section for SEO */}
         <FAQSection items={cityFaqs} locationName={displayCityName} />

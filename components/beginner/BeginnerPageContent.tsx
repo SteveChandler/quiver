@@ -35,6 +35,7 @@ interface BeginnerPageContentProps {
   cityEditorial: BeginnerCityEditorial | null;
   totalBeaches: number;
   baseUrl: string;
+  bestTimeToSurfUrl?: string;
 }
 
 export function BeginnerPageContent({
@@ -49,6 +50,7 @@ export function BeginnerPageContent({
   cityEditorial,
   totalBeaches,
   baseUrl,
+  bestTimeToSurfUrl,
 }: BeginnerPageContentProps) {
   const faqItems = [
     {
@@ -179,6 +181,7 @@ export function BeginnerPageContent({
               cityName={cityName}
               stateSlug={stateSlug}
               stateName={stateName}
+              bestTimeToSurfUrl={bestTimeToSurfUrl}
             />
           </SectionFadeUp>
 

@@ -29,6 +29,7 @@ import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
+import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -101,13 +102,16 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Fetch surf report, nearby beaches, and reviews in parallel
-    const [surfReportResult, nearbyResult, reviewsResult] = await Promise.all([
+    // Fetch surf report, nearby beaches, reviews, and best time to surf URL in parallel
+    const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl] = await Promise.all([
       getSpotSurfReport(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
         : Promise.resolve(null),
       getBeachReviews(beach.id),
+      beach.city && beach.state
+        ? getBestTimeToSurfUrl(cityToSlug(beach.city), beach.city, beach.state)
+        : Promise.resolve(undefined),
     ]);
 
     const surfCallReport = surfReportResult?.report || null;
@@ -262,7 +266,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
               sourceBeachLat={beach.lat}
               sourceBeachLon={beach.lon}
             />
-          <RelatedGuidesSection beach={beach} />
+          <RelatedGuidesSection beach={beach} bestTimeToSurfUrl={bestTimeToSurfUrl} />
         </div>
       </>
     );
