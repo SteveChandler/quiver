@@ -51,7 +51,9 @@ describe("useSessionForecast", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(mockGetEnhanced).toHaveBeenCalledWith("beach-1", 10);
+    expect(mockGetEnhanced).toHaveBeenCalledWith("beach-1", 10, {
+      startDate: "2024-01-17",
+    });
     expect(result.current.forecastData).toEqual({
       wave_height: 5,
       wave_height_range: "5-8ft",
@@ -74,6 +76,7 @@ describe("useSessionForecast", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.forecastData).toBeNull();
+    expect(mockGetEnhanced).toHaveBeenCalledWith("beach-1", 10, undefined);
     // Future date with no data => generic message
     expect(result.current.error).toBe("No forecasts found for this date");
   });
