@@ -27,7 +27,8 @@ class QuiverBiasModel:
             'max_depth': 5,
             'subsample': 0.8,
             'colsample_bytree': 0.8,
-            'n_jobs': -1
+            'n_jobs': -1,
+            'enable_categorical': True,
         }
         
     def train(self, X: pd.DataFrame, y: pd.Series, n_splits: int = 5) -> Dict[str, float]:
@@ -87,6 +88,21 @@ class QuiverBiasModel:
         if self.model is None:
             raise ValueError("Model has not been trained yet.")
 
+        # Auto-select features to match what this model was trained on.
+        # This allows the same predict() call to work with both old (13-feature)
+        # and new (14-feature with beach_id_cat) models.
+        try:
+            model_features = self.model.get_booster().feature_names
+            if model_features and list(X.columns) != model_features:
+                available = set(X.columns)
+                expected = set(model_features)
+                missing = expected - available
+                if missing:
+                    logger.warning(f"Missing features for model prediction: {missing}")
+                X = X[[f for f in model_features if f in available]]
+        except Exception:
+            pass  # Use X as-is if feature name detection fails
+
         # Predict the residual (bias)
         predicted_bias = pd.Series(self.model.predict(X), index=physics_forecast.index)
 
@@ -141,7 +157,7 @@ class QuiverBiasModel:
         import tempfile
         import urllib.request
 
-        self.model = xgb.XGBRegressor()
+        self.model = xgb.XGBRegressor(enable_categorical=True)
 
         # Handle HTTP/HTTPS URLs by downloading to temp file first
         if filepath.startswith('http://') or filepath.startswith('https://'):

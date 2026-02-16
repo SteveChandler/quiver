@@ -102,10 +102,11 @@ async function handleRetrain(request: Request) {
       console.log(`[ML Retrain] Cutoff raised to shoaling change date: ${cutoffDate.toISOString()}`);
     }
 
-    // Limit total samples to avoid 4-minute API timeout
-    // Memory supports ~100K but request times out at ~60K samples
+    // Limit total samples to stay within Vercel timeout (5 min) and ML service memory (2GB)
+    // Increased from 50K to 100K for Phase 2 (beach_id categorical feature needs more diverse data)
+    // 50K @ 200 trees trains in ~90s; 100K should take ~3min, well within 4.5min timeout
     // See: docs/plans/2026-02-01-ml-rolling-pipeline-design.md for infrastructure tracking
-    const MAX_TRAINING_SAMPLES = 50000;
+    const MAX_TRAINING_SAMPLES = 100000;
 
     // Extract all predictions with ground truth (observed_m is not null)
     // Join with beaches table to get terrain factors

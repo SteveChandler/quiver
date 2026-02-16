@@ -89,7 +89,19 @@ def preprocess_v2(df: pd.DataFrame) -> pd.DataFrame:
         df['wind_dir_deg'] if 'wind_dir_deg' in df.columns else None
     )
 
-    return out[V2_FEATURE_COLUMNS]
+    # 10. Optional: beach identity as categorical feature (Phase 2)
+    # When beach_id is present, add it as a native categorical for XGBoost
+    # to learn per-beach correction patterns (279 beaches)
+    if 'beach_id' in df.columns:
+        out['beach_id_cat'] = pd.Categorical(df['beach_id'])
+
+    # Return all computed features
+    # Base: V2_FEATURE_COLUMNS (13 features)
+    # Extended: + beach_id_cat when beach_id was provided (14 features)
+    cols = list(V2_FEATURE_COLUMNS)
+    if 'beach_id_cat' in out.columns:
+        cols.append('beach_id_cat')
+    return out[cols]
 
 
 def extract_terrain_factors_vectorized(
