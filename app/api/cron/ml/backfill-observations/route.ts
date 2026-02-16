@@ -115,16 +115,23 @@ export async function GET(request: Request) {
         if (stationCache.has(pred.beach_id)) {
           stationId = stationCache.get(pred.beach_id)!;
         } else {
-          const { data } = await supabase.rpc(
+          const { data, error: stationError } = await supabase.rpc(
             'get_beach_observation_station',
             { p_beach_id: pred.beach_id }
           );
+          if (stationError) {
+            console.error(
+              `Error resolving station for prediction ${pred.id}:`,
+              stationError
+            );
+            return 'error';
+          }
           stationId = data ?? null;
           stationCache.set(pred.beach_id, stationId);
         }
 
         if (stationId) {
-          const { data: spatialObs } = await supabase
+          const { data: spatialObs, error: spatialError } = await supabase
             .from('unified_wave_observations')
             .select('wave_height_m, observed_at')
             .eq('station_id', stationId)
@@ -134,6 +141,14 @@ export async function GET(request: Request) {
             .order('observed_at', { ascending: true })
             .limit(1)
             .maybeSingle();
+
+          if (spatialError) {
+            console.error(
+              `Error fetching spatial observation for prediction ${pred.id}:`,
+              spatialError
+            );
+            return 'error';
+          }
 
           obs = spatialObs ?? null;
         }

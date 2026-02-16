@@ -41,7 +41,7 @@ RETURNS TABLE (
   JOIN beaches b ON b.id = p.beach_id
   WHERE p.beach_id = p_beach_id
     AND DATE(p.predicted_at AT TIME ZONE COALESCE(b.timezone, 'America/Los_Angeles'))
-        = (CURRENT_DATE AT TIME ZONE COALESCE(b.timezone, 'America/Los_Angeles') - INTERVAL '1 day')::date
+        = ((NOW() AT TIME ZONE COALESCE(b.timezone, 'America/Los_Angeles'))::date - 1)
     AND p.observed_m IS NOT NULL
   GROUP BY p.beach_id, DATE(p.predicted_at AT TIME ZONE COALESCE(b.timezone, 'America/Los_Angeles'))
 $$ LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public;

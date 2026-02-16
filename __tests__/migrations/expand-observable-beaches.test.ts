@@ -114,7 +114,7 @@ describe("Migration: Expand observable_beaches nearby", () => {
 
     test("should return TEXT (station_id)", () => {
       expect(migrationSQL).toMatch(
-        /get_beach_observation_station.*RETURNS\s+TEXT/is
+        /get_beach_observation_station[\s\S]*RETURNS\s+TEXT/i
       );
     });
 

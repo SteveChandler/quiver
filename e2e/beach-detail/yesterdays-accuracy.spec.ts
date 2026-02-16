@@ -47,7 +47,7 @@ test.describe("Yesterday's Accuracy Card", () => {
 
     if (isVisible) {
       // Verify card contains expected elements
-      await expect(card.getByText(/Yesterday's Accuracy/i)).toBeVisible();
+      await expect(card.getByText(/Yesterday['’]s Accuracy/i)).toBeVisible();
       await expect(card.getByText(/Predicted/i)).toBeVisible();
       await expect(card.getByText(/Actual/i)).toBeVisible();
       await expect(card.getByText(/Accuracy/i)).toBeVisible();
