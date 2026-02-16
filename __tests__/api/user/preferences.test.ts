@@ -74,7 +74,7 @@ describe("GET /api/user/preferences", () => {
     const mockUser = createMockUser({ id: "user-123" });
 
     mockAuthenticatedUser(mockSupabaseClient, mockUser);
-    mockDatabaseError(mockSupabaseClient, "No rows", "PGRST116");
+    mockDatabaseSuccess(mockSupabaseClient, null);
 
     const request = createMockRequest("GET", "http://localhost:3000/api/user/preferences");
     const response = await GET(request);

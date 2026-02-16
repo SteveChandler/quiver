@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Star, Loader2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
@@ -91,6 +92,26 @@ export function BeachHeroCompact({
     setAuthModalOpen(true);
   }, [beach.name]);
 
+  const teaserRef = useRef<HTMLDivElement>(null);
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (!publicMode || personalizationScore || isLoadingPersonalization) return;
+    const el = teaserRef.current;
+    if (!el || hasTrackedView.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasTrackedView.current) {
+          hasTrackedView.current = true;
+          track("match_score_teaser_view", { beach_slug: slugify(beach.name) });
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [publicMode, personalizationScore, isLoadingPersonalization, beach.name]);
+
   return (
     <div className={`bg-white py-6 border-b border-gray-200 ${className || ""}`}>
       {/* Phase 4 Spec: Beach Name - 36px Roboto, 700 weight, 44px line-height, 8px margin-bottom */}
@@ -124,16 +145,35 @@ export function BeachHeroCompact({
 
       {/* Match Score Teaser - Show for anonymous users */}
       {publicMode && !personalizationScore && !isLoadingPersonalization && (
-        <div className="mb-3">
+        <motion.div
+          ref={teaserRef}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 25 }}
+          className="mb-3"
+        >
           <button
-            aria-label="Sign up to see your personalized match score"
             onClick={handleMatchScoreTeaserClick}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-dashed border-ocean-blue/30 bg-ocean-blue/5 text-ocean-blue/70 text-sm font-medium transition-all hover:bg-ocean-blue/10 hover:border-ocean-blue/50 hover:text-ocean-blue"
+            className="group w-full sm:max-w-sm flex items-center gap-3 rounded-2xl
+              border border-ocean-blue/15 bg-gradient-to-br from-ocean-blue/5 via-white to-cyan-50/80
+              p-3.5 shadow-sm ring-1 ring-ocean-blue/5
+              hover:shadow-md hover:border-ocean-blue/25 transition-all duration-200"
           >
-            <Sparkles className="h-4 w-4" />
-            <span>Your Match: ???</span>
+            <div className="flex-shrink-0 p-2 rounded-xl bg-ocean-blue/10">
+              <Sparkles className="h-5 w-5 text-ocean-blue" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold text-gray-900">
+                How well does this spot match you?
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">Takes 30 seconds</p>
+            </div>
+            <div className="flex-shrink-0 text-sm font-semibold text-ocean-blue
+              group-hover:translate-x-0.5 transition-transform">
+              See score →
+            </div>
           </button>
-        </div>
+        </motion.div>
       )}
 
       {/* Board Recommendation Badge - only show when confident */}
@@ -196,6 +236,10 @@ export function BeachHeroCompact({
           onClose={() => setAuthModalOpen(false)}
           mode="signup"
           source="match-score-teaser"
+          contextMessage={{
+            title: "See Your Match Score",
+            description: "We'll calculate how well this spot fits your style",
+          }}
         />
       )}
     </div>

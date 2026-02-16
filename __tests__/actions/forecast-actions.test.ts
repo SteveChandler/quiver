@@ -281,6 +281,31 @@ describe("Forecast Actions", () => {
       });
     });
 
+    it("should query enhanced_forecasts directly when a startDate is provided", async () => {
+      const historicalStartDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+
+      const mockTableChain = {
+        then: jest.fn((resolve) => resolve({ data: [], error: null })),
+      };
+      enhancedForecastsChain.select.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.eq.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.gte.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.lt.mockReturnValueOnce(enhancedForecastsChain);
+      enhancedForecastsChain.order.mockReturnValueOnce(mockTableChain);
+
+      await getEnhancedBeachForecasts("beach-123", 1, {
+        startDate: historicalStartDate,
+      });
+
+      expect(tenDayViewChain.select).not.toHaveBeenCalled();
+      expect(enhancedForecastsChain.gte).toHaveBeenCalledWith(
+        "forecast_at",
+        `${historicalStartDate}T00:00:00Z`
+      );
+    });
+
     it("should fallback to enhanced_forecasts table when view fails", async () => {
       const mockEnhancedForecasts: EnhancedForecastEntity[] = [
         {

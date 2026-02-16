@@ -234,7 +234,7 @@ export const MOCK_LA_JOLLA_DATA: LocationPageData = {
     createMockBeachWithMetrics({
       id: "beach-1",
       name: "Blacks Beach",
-      slug: "blacks-beach",
+      slug: "blacks",
       city: "La Jolla",
       state: "CA",
       country: "USA",

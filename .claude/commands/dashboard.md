@@ -2,9 +2,9 @@ Run all Quiver monitoring dashboards in parallel and present a unified status re
 
 ## Execution Strategy
 
-Background subagents cannot get bash permissions from the user, so split work by tool type:
+Run everything from the main session. **Do NOT use subagents for SQL queries** — they cannot reliably access MCP tools.
 
-### Step 1: Run bash-dependent scripts in parallel (main session)
+### Step 1: Launch bash scripts in background (4 parallel)
 
 Launch these 4 bash commands **in parallel** using `run_in_background: true`:
 
@@ -13,13 +13,16 @@ Launch these 4 bash commands **in parallel** using `run_in_background: true`:
 3. **Vercel Analytics**: Read token from `~/Library/Application Support/com.vercel.cli/auth.json`, then run 6 curl commands against `https://vercel.com/api/web-analytics` with project `prj_z7DDSIF65y1EbOfuDrZfYsx9Mmbx` (overview, timeseries, path, referrer, country, device_type — last 7 days)
 4. **GSC Stats**: `test -f /tmp/gsc-venv/bin/python3 || (python3 -m venv /tmp/gsc-venv && /tmp/gsc-venv/bin/pip install -q google-auth google-api-python-client) && /tmp/gsc-venv/bin/python3 /Users/stevenchandler/Desktop/quiver/scripts/gsc-stats.py` (timeout: 60s)
 
-### Step 2: Run Supabase queries via subagent (in parallel with Step 1)
+### Step 2: Run all SQL queries via MCP execute_sql (in parallel with Step 1)
 
-Dispatch **one background subagent** (`subagent_type: "general-purpose"`, `model: "haiku"`) for **App Metrics** — it runs 14 SQL queries via the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe`. Include the full app-stats skill content as the prompt. MCP tools don't need bash permissions so this works in background agents.
+Run **all 24 SQL queries** (14 from app-stats + 10 from growth-metrics) directly in the main session using the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe`.
 
-### Step 2b: Run growth metrics via subagent (in parallel with Steps 1 and 2)
+Fire all 24 `execute_sql` calls in a **single parallel batch** — they are fully independent. This completes in seconds, not minutes.
 
-Dispatch **one additional background subagent** (`subagent_type: "general-purpose"`, `model: "haiku"`) for **Growth Metrics** — it runs the 10 SQL queries defined in the `growth-metrics` skill via the Supabase MCP `execute_sql` tool against project `vawdnbbgawichorsjiwe`.
+**Do NOT:**
+- Dispatch subagents for SQL queries (they can't access MCP tools)
+- Use psql via bash (auth/connection issues)
+- Use `supabase db execute` (doesn't exist as a CLI command)
 
 ### Step 3: Collect and format
 

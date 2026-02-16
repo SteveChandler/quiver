@@ -22,10 +22,14 @@ export async function GET(
       .select("sunrise_utc, sunset_utc")
       .eq("beach_id", beachId)
       .eq("date", date)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      // Return null values if no data found (not an error condition)
+      console.error("[sun-times] Error fetching sun times:", error);
+      return NextResponse.json({ sunrise_utc: null, sunset_utc: null });
+    }
+
+    if (!data) {
       return NextResponse.json({ sunrise_utc: null, sunset_utc: null });
     }
 

@@ -23,16 +23,19 @@ export const COOPS_STATIONS: Record<string, string> = {
   moonlight: "9410230",
   "stone-steps": "9410230",
   grandview: "9410230",
-  "blacks-beach": "9410230",
+  blacks: "9410230", // DB slug
+  "blacks-beach": "9410230", // legacy alias
   windansea: "9410230",
   tourmaline: "9410230",
   "crystal-pier": "9410230",
   "pacific-beach": "9410230",
   "mission-beach": "9410230",
   "ocean-beach": "9410170",
-  "sunset-cliffs": "9410170",
+  "sunset-cliffs-garbage": "9410170", // DB slug
+  "sunset-cliffs": "9410170", // legacy alias
   coronado: "9410170",
-  "silver-strand": "9410170",
+  "silver-strand-state-beach": "9410170", // DB slug
+  "silver-strand": "9410170", // legacy alias
 
   // Orange County, CA
   "huntington-beach": "9410580", // Newport Beach station
@@ -225,4 +228,12 @@ export const COOPS_STATIONS: Record<string, string> = {
   "rincon-pr": "9759394", // Mayaguez station
   aguadilla: "9759394",
   "san-juan": "9755371", // San Juan station
+  "tres-palmas": "9759394", // Mayaguez station
+  "the-point-at-sandy": "9759394", // Mayaguez station
+  "surfer's-beach": "9759394", // Mayaguez station
+
+  // ==================== GULF COAST (additional) ====================
+
+  // Texas - additional beaches
+  "surfside-beach": "8771450", // Galveston Pier 21 station
 };

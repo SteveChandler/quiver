@@ -107,43 +107,73 @@ export interface EnhancedForecastWithMetadata extends EnhancedForecastEntity {
   metadata: ForecastMetadata;
 }
 
+interface EnhancedForecastQueryOptions {
+  startDate?: string;
+}
+
 // Get enhanced forecast data for a beach with transparency metadata
 export async function getEnhancedBeachForecasts(
   beachId: string,
-  days: number = 12
+  days: number = 12,
+  options?: EnhancedForecastQueryOptions
 ) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
     // Prefer the legacy compatibility view if present (tests assert against it), fallback to table
-    const start = new Date();
+    const today = new Date().toISOString().split("T")[0];
+    const requestedStartDate = options?.startDate;
+    const parsedRequestedStartDate = requestedStartDate
+      ? new Date(`${requestedStartDate}T00:00:00Z`)
+      : null;
+    const hasValidRequestedStartDate =
+      !!parsedRequestedStartDate &&
+      !Number.isNaN(parsedRequestedStartDate.getTime());
+    const start = hasValidRequestedStartDate
+      ? parsedRequestedStartDate
+      : new Date();
     const startDate = start.toISOString().split("T")[0];
     const endDate = new Date(start.getTime() + days * 86400000)
       .toISOString()
       .split("T")[0];
+    const shouldUseLegacyView = !hasValidRequestedStartDate && startDate >= today;
 
     let data: any[] | null = null;
     let error: any = null;
 
-    // Try view
-    const viewAttempt = await supabase
-      .from("ten_day_enhanced_forecasts")
-      .select("*")
-      .eq("beach_id", beachId)
-      .order("forecast_at", { ascending: true });
-
-    if (!viewAttempt.error) {
-      data = viewAttempt.data as any[];
-    } else {
-      // Fallback to table with explicit range
-      const dayAfterEndDate = new Date(new Date(endDate + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-      const tableAttempt = await supabase
+    const runTableQuery = async () => {
+      // Query explicit date range against source table so historical sessions can load yesterday's forecasts.
+      const dayAfterEndDate = new Date(
+        new Date(endDate + "T00:00:00Z").getTime() + 86400000
+      )
+        .toISOString()
+        .split("T")[0];
+      return supabase
         .from("enhanced_forecasts")
         .select("*")
         .eq("beach_id", beachId)
         .gte("forecast_at", `${startDate}T00:00:00Z`)
         .lt("forecast_at", `${dayAfterEndDate}T00:00:00Z`)
         .order("forecast_at", { ascending: true });
+    };
+
+    if (shouldUseLegacyView) {
+      // Try view for present/future lookups
+      const viewAttempt = await supabase
+        .from("ten_day_enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", beachId)
+        .order("forecast_at", { ascending: true });
+
+      if (!viewAttempt.error) {
+        data = viewAttempt.data as any[];
+      } else {
+        const tableAttempt = await runTableQuery();
+        data = tableAttempt.data as any[];
+        error = tableAttempt.error;
+      }
+    } else {
+      const tableAttempt = await runTableQuery();
       data = tableAttempt.data as any[];
       error = tableAttempt.error;
     }

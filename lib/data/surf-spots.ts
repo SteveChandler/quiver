@@ -61,8 +61,8 @@ export interface SurfSpot {
  * This data remains for backwards compatibility with intent pages.
  */
 export const SURF_SPOTS: Record<string, SurfSpot> = {
-  "blacks-beach": {
-    slug: "blacks-beach",
+  "blacks": {
+    slug: "blacks",
     name: "Blacks Beach",
     citySlug: "san-diego",
     region: "La Jolla, San Diego",
@@ -92,7 +92,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
     parking:
       "Park at the Glider Port lot or Torrey Pines State Beach. Expect a 10-15 minute hike down either the Goat Trail or the paved road.",
     amenities: ["No restrooms on the sand", "Closest showers at La Jolla Shores"],
-    nearby: ["torrey-pines", "la-jolla-shores", "del-mar"],
+    nearby: ["torrey-pines-state-beach", "la-jolla-shores", "del-mar"],
     faq: [
       {
         question: "What tide is best for Blacks Beach?",
@@ -148,7 +148,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers at the base of the stairs",
       "Healthy food spots within walking distance",
     ],
-    nearby: ["pipes", "cardiff-reef", "san-elijo"],
+    nearby: ["pipes", "cardiff-reef", "san-elijo-state-beach"],
     faq: [
       {
         question: "Is Swami's suitable for longboarding?",
@@ -204,7 +204,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "No restrooms on site",
       "Closest showers at La Jolla Cove",
     ],
-    nearby: ["la-jolla-shores", "sunset-cliffs", "blacks-beach"],
+    nearby: ["la-jolla-shores", "sunset-cliffs-garbage", "blacks"],
     faq: [
       {
         question: "Is Windansea good for beginners?",
@@ -261,7 +261,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers along the boardwalk",
       "Surf shops and cafes within two blocks",
     ],
-    nearby: ["blacks-beach", "windansea", "mission-beach"],
+    nearby: ["blacks", "windansea", "mission-beach"],
     faq: [
       {
         question: "Is La Jolla Shores good for beginners?",
@@ -319,7 +319,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Showers and restrooms along the boardwalk",
       "Restaurants, rentals, and bike shops on every block",
     ],
-    nearby: ["pacific-beach", "ocean-beach", "sunset-cliffs"],
+    nearby: ["pacific-beach", "ocean-beach", "sunset-cliffs-garbage"],
     faq: [
       {
         question: "Is Mission Beach good for beginners?",
@@ -433,7 +433,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers near the lifeguard station",
       "Cafes and taco shops within two blocks of the pier",
     ],
-    nearby: ["sunset-cliffs", "mission-beach", "pacific-beach"],
+    nearby: ["sunset-cliffs-garbage", "mission-beach", "pacific-beach"],
     faq: [
       {
         question: "Which side of the OB pier breaks better?",
@@ -455,8 +455,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Ocean Beach Pier delivers wedgy peaks shaped by the pier pylons. Target mid tide west swells, watch the currents, and respect the locals holding position near the bowl.",
     intentTags: ["least-crowded", "tide", "water-temp"],
   },
-  "sunset-cliffs": {
-    slug: "sunset-cliffs",
+  "sunset-cliffs-garbage": {
+    slug: "sunset-cliffs-garbage",
     name: "Sunset Cliffs",
     citySlug: "san-diego",
     region: "Point Loma, San Diego",
@@ -489,7 +489,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "No facilities on the cliffs",
       "Closest restrooms at Sunset Cliffs Natural Park",
     ],
-    nearby: ["ocean-beach", "blacks-beach", "mission-beach"],
+    nearby: ["ocean-beach", "blacks", "mission-beach"],
     faq: [
       {
         question: "How do I get in and out at Sunset Cliffs?",
@@ -545,7 +545,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Showers and restrooms at the state beach campground",
       "Food trucks and coffee stands near the parking lot",
     ],
-    nearby: ["pipes", "swamis", "san-elijo"],
+    nearby: ["pipes", "swamis", "san-elijo-state-beach"],
     faq: [
       {
         question: "What board should I ride at Cardiff Reef?",
@@ -601,7 +601,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Showers and restrooms at nearby San Elijo State Beach",
       "Food and coffee in Cardiff town center minutes away",
     ],
-    nearby: ["cardiff-reef", "swamis", "san-elijo"],
+    nearby: ["cardiff-reef", "swamis", "san-elijo-state-beach"],
     faq: [
       {
         question: "What tide works best at Pipes?",
@@ -657,7 +657,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers near the lifeguard tower",
       "Cafes and shops in downtown Del Mar steps from the beach",
     ],
-    nearby: ["torrey-pines", "cardiff-reef", "la-jolla-shores"],
+    nearby: ["torrey-pines-state-beach", "cardiff-reef", "la-jolla-shores"],
     faq: [
       {
         question: "Is Del Mar good for beginners?",
@@ -681,8 +681,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Stay south of the rivermouth on smaller days for the cleanest, longest reforms.",
     intentTags: ["beginner", "water-temp"],
   },
-  "torrey-pines": {
-    slug: "torrey-pines",
+  "torrey-pines-state-beach": {
+    slug: "torrey-pines-state-beach",
     name: "Torrey Pines",
     citySlug: "san-diego",
     region: "Torrey Pines, San Diego",
@@ -715,7 +715,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms at the North Beach lot",
       "Seasonal lifeguard towers along the shoreline",
     ],
-    nearby: ["blacks-beach", "del-mar", "la-jolla-shores"],
+    nearby: ["blacks", "del-mar", "la-jolla-shores"],
     faq: [
       {
         question: "Where is the best peak at Torrey Pines?",
@@ -737,8 +737,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Torrey Pines offers long stretches of shifting sandbars. Target mid tide west swells, watch for rip currents, and enjoy the fewer crowds compared to neighboring Blacks.",
     intentTags: ["least-crowded", "tide"],
   },
-  "san-elijo": {
-    slug: "san-elijo",
+  "san-elijo-state-beach": {
+    slug: "san-elijo-state-beach",
     name: "San Elijo State Beach",
     citySlug: "san-diego",
     region: "Cardiff-by-the-Sea, San Diego",
@@ -793,8 +793,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "San Elijo State Beach serves up consistent beachbreak peaks backed by a lively campground scene. Aim for mid tide combo swells and be ready to share the lineup with visiting campers.",
     intentTags: ["least-crowded", "water-temp"],
   },
-  "silver-strand": {
-    slug: "silver-strand",
+  "silver-strand-state-beach": {
+    slug: "silver-strand-state-beach",
     name: "Silver Strand",
     citySlug: "san-diego",
     region: "Coronado, San Diego",
@@ -883,7 +883,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers at the pier",
       "Cafes and taquerias lining Seacoast Drive",
     ],
-    nearby: ["silver-strand", "mission-beach", "ocean-beach"],
+    nearby: ["silver-strand-state-beach", "mission-beach", "ocean-beach"],
     faq: [
       {
         question: "Is Imperial Beach safe to surf after rain?",
@@ -941,7 +941,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers throughout the park",
       "Rental shops and cafes at the harbor",
     ],
-    nearby: ["old-mans", "san-onofre", "lowers-trestles"],
+    nearby: ["old-mans-sano", "san-onofre-state-beach", "lower-trestles"],
     faq: [
       {
         question: "Is Doheny good for surf lessons?",
@@ -965,8 +965,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Stay north of the creek mouth for the longest rollers and easiest paddle channels.",
     intentTags: ["beginner", "water-temp"],
   },
-  "san-onofre": {
-    slug: "san-onofre",
+  "san-onofre-state-beach": {
+    slug: "san-onofre-state-beach",
     name: "San Onofre Trails",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
@@ -999,7 +999,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Portable restrooms and showers near the parking lot",
       "Food trucks and coffee carts on summer weekends",
     ],
-    nearby: ["old-mans", "churches", "lowers-trestles"],
+    nearby: ["old-mans-sano", "church", "lower-trestles"],
     faq: [
       {
         question: "Which trail should I surf?",
@@ -1021,8 +1021,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "San Onofre offers classic point-style walls with a vintage vibe. South swells, mid tide, and patience in the lineup are the keys to scoring long rides.",
     intentTags: ["beginner", "tide", "water-temp"],
   },
-  "old-mans": {
-    slug: "old-mans",
+  "old-mans-sano": {
+    slug: "old-mans-sano",
     name: "Old Man's",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
@@ -1055,7 +1055,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms, showers, and picnic tables next to the parking lot",
       "Food trucks, coffee, and surf rentals on busy weekends",
     ],
-    nearby: ["doheny-state-beach", "san-onofre", "churches"],
+    nearby: ["doheny-state-beach", "san-onofre-state-beach", "church"],
     faq: [
       {
         question: "Is Old Man’s good for first-time surfers?",
@@ -1079,8 +1079,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Stay near the lifeguard tower for the softest takeoffs and an easy channel to paddle back out.",
     intentTags: ["beginner", "water-temp"],
   },
-  churches: {
-    slug: "churches",
+  church: {
+    slug: "church",
     name: "Churches",
     citySlug: "san-clemente",
     region: "San Onofre, Orange County",
@@ -1113,7 +1113,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms at the parking area",
       "Showers near Old Man’s, a short walk south",
     ],
-    nearby: ["lowers-trestles", "san-onofre", "old-mans"],
+    nearby: ["lower-trestles", "san-onofre-state-beach", "old-mans-sano"],
     faq: [
       {
         question: "Do I need a base pass to surf Churches?",
@@ -1135,8 +1135,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Churches serves up fast cobblestone rights with fewer crowds than Trestles. Hit it on a mid tide south swell and bring a board that holds in steep pockets.",
     intentTags: ["least-crowded", "tide"],
   },
-  "lowers-trestles": {
-    slug: "lowers-trestles",
+  "lower-trestles": {
+    slug: "lower-trestles",
     name: "Lower Trestles",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
@@ -1169,7 +1169,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "No facilities on the beach",
       "Water refill stations at the trailhead parking lot",
     ],
-    nearby: ["uppers-trestles", "churches", "san-onofre"],
+    nearby: ["upper-trestles", "church", "san-onofre-state-beach"],
     faq: [
       {
         question: "How long is the walk to Lowers?",
@@ -1191,8 +1191,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Lower Trestles is the benchmark for performance surfing in California. Time a south swell with a mid tide, bring cardio for the paddle, and expect a world-class crowd.",
     intentTags: ["least-crowded", "tide", "water-temp"],
   },
-  "uppers-trestles": {
-    slug: "uppers-trestles",
+  "upper-trestles": {
+    slug: "upper-trestles",
     name: "Upper Trestles",
     citySlug: "san-clemente",
     region: "San Clemente, Orange County",
@@ -1225,7 +1225,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "No beach facilities—pack what you need",
       "Bike racks near the trailhead",
     ],
-    nearby: ["lowers-trestles", "churches", "bolsa-chica"],
+    nearby: ["lower-trestles", "church", "bolsa-chica"],
     faq: [
       {
         question: "Is Uppers less crowded than Lowers?",
@@ -1247,8 +1247,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Upper Trestles offers a punchier alternative to Lowers. Bring a responsive board, target mid tide south swells, and enjoy the lighter crowd.",
     intentTags: ["least-crowded", "tide"],
   },
-  "huntington-pier": {
-    slug: "huntington-pier",
+  "huntington-beach-pier": {
+    slug: "huntington-beach-pier",
     name: "Huntington Beach Pier",
     citySlug: "huntington-beach",
     region: "Huntington Beach, Orange County",
@@ -1281,7 +1281,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms, showers, and restaurants at the pier base",
       "Surf shops lining Main Street",
     ],
-    nearby: ["bolsa-chica", "newport-56th-street", "seal-beach"],
+    nearby: ["bolsa-chica", "newport-56th-st", "seal-beach-pier-seal-beach-ca"],
     faq: [
       {
         question: "Which side of Huntington Pier is better?",
@@ -1303,8 +1303,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Huntington Pier is a high-energy beachbreak with contest-level surfers. Chase combo swells on a mid tide, respect the rotation, and watch the pilings on bigger sets.",
     intentTags: ["least-crowded", "tide", "water-temp"],
   },
-  "newport-56th-street": {
-    slug: "newport-56th-street",
+  "newport-56th-st": {
+    slug: "newport-56th-st",
     name: "Newport 56th Street",
     citySlug: "newport-beach",
     region: "Newport Beach, Orange County",
@@ -1337,7 +1337,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Outdoor showers at the end of 56th Street",
       "Coffee shops and breakfast spots a short walk inland",
     ],
-    nearby: ["huntington-pier", "bolsa-chica", "seal-beach"],
+    nearby: ["huntington-beach-pier", "bolsa-chica", "seal-beach-pier-seal-beach-ca"],
     faq: [
       {
         question: "Is 56th Street good for beginners?",
@@ -1393,7 +1393,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms, showers, and fire pits along the sand",
       "Food vendors and rental shacks during peak season",
     ],
-    nearby: ["huntington-pier", "seal-beach", "doheny-state-beach"],
+    nearby: ["huntington-beach-pier", "seal-beach-pier-seal-beach-ca", "doheny-state-beach"],
     faq: [
       {
         question: "Is Bolsa Chica good for first-time surfers?",
@@ -1417,8 +1417,8 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Surf near lifeguard Tower 18 for the softest takeoffs and the quickest walk from the parking lot.",
     intentTags: ["beginner", "water-temp"],
   },
-  "seal-beach": {
-    slug: "seal-beach",
+  "seal-beach-pier-seal-beach-ca": {
+    slug: "seal-beach-pier-seal-beach-ca",
     name: "Seal Beach Pier",
     citySlug: "huntington-beach",
     region: "Seal Beach, Orange County",
@@ -1451,7 +1451,7 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
       "Restrooms and showers at the pier",
       "Coffee shops and diners along Main Street",
     ],
-    nearby: ["bolsa-chica", "huntington-pier", "newport-56th-street"],
+    nearby: ["bolsa-chica", "huntington-beach-pier", "newport-56th-st"],
     faq: [
       {
         question: "Is Seal Beach good for beginners?",

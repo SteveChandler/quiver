@@ -199,11 +199,11 @@ describe("Beach URL Utils", () => {
 
     it("should handle beach slugs with hyphens", () => {
       const beach = {
-        slug: "blacks-beach",
+        slug: "blacks",
         city: "San Diego",
         state: "CA",
       };
-      expect(buildBeachUrl(beach)).toBe("/ca/san-diego/blacks-beach");
+      expect(buildBeachUrl(beach)).toBe("/ca/san-diego/blacks");
     });
   });
 
@@ -539,19 +539,19 @@ describe("Beach URL Utils", () => {
   describe("Integration tests", () => {
     it("should handle complete workflow for California beach", () => {
       const beach = {
-        slug: "blacks-beach",
+        slug: "blacks",
         city: "San Diego",
         state: "CA",
       };
 
       const url = buildBeachUrl(beach);
-      expect(url).toBe("/ca/san-diego/blacks-beach");
+      expect(url).toBe("/ca/san-diego/blacks");
 
       const parsed = parseBeachUrl(url);
       expect(parsed).toEqual({
         stateSlug: "ca",
         citySlug: "san-diego",
-        beachSlug: "blacks-beach",
+        beachSlug: "blacks",
       });
     });
 

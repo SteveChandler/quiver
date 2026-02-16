@@ -110,6 +110,12 @@ function setupMockChain(mockClient: MockSupabaseClient, responses: any[]) {
         }
         return { data: null, error: null };
       }),
+      maybeSingle: jest.fn().mockImplementation(async () => {
+        if (responseIndex < responses.length) {
+          return responses[responseIndex++];
+        }
+        return { data: null, error: null };
+      }),
     };
     return chain;
   });
@@ -131,7 +137,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null }, // Intel post lookup
-        { data: null, error: { code: "PGRST116" } }, // No existing report
+        { data: null, error: null }, // No existing report
         { data: null, error: null }, // Insert report (no data returned)
       ]);
 
@@ -150,7 +156,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -167,7 +173,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -182,7 +188,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -200,7 +206,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -291,7 +297,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } }, // No existing report
+        { data: null, error: null }, // No existing report
         { data: null, error: { message: "Database error" } }, // Insert fails
       ]);
 
@@ -306,7 +312,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -334,7 +340,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -355,7 +361,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -372,7 +378,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -389,7 +395,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 
@@ -406,7 +412,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: null, error: null },
       ]);
 

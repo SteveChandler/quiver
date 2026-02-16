@@ -42,6 +42,8 @@ interface UseGeolocationOptions {
   autoRequest?: boolean;
   /** localStorage key for "last used beach" fallback. */
   lastBeachStorageKey?: string;
+  /** Whether to include "last used beach" from localStorage in the fallback chain. Default: true */
+  useLastBeach?: boolean;
   /** Enable periodic location polling for traveling user detection. Default: false */
   enablePolling?: boolean;
   /** Polling interval in milliseconds. Default: 300000 (5 minutes) */
@@ -55,6 +57,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     defaultLocation,
     autoRequest = true,
     lastBeachStorageKey = DEFAULT_LAST_BEACH_KEY,
+    useLastBeach: useLastBeachOption = true,
     enablePolling = false,
     pollingIntervalMs = DEFAULT_POLLING_INTERVAL_MS,
     minDistanceChangeMeters = DEFAULT_MIN_DISTANCE_CHANGE_METERS,
@@ -91,7 +94,10 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     [lastBeachStorageKey]
   );
 
-  const lastBeach = useMemo(() => readLastBeach(), [readLastBeach]);
+  const lastBeach = useMemo(
+    () => (useLastBeachOption ? readLastBeach() : null),
+    [useLastBeachOption, readLastBeach]
+  );
 
   // Fallback chain: last used beach → provided default → Ocean Beach
   const fallbackCoords: Coordinates = lastBeach ?? defaultLocation ?? OCEAN_BEACH_COORDS;

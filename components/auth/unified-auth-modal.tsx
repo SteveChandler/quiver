@@ -87,6 +87,8 @@ export interface UnifiedAuthModalProps {
   /** UI customization */
   dismissible?: boolean;
   showCloseButton?: boolean;
+  /** Contextual title/description override for the modal */
+  contextMessage?: { title?: string; description?: string };
 
   /** Feature flags */
   enableMagicLink?: boolean;
@@ -118,6 +120,7 @@ export function UnifiedAuthModal({
   source = "unknown",
   dismissible = true,
   showCloseButton = true,
+  contextMessage,
   enableMagicLink = true,
   enablePassword = true,
   enableOAuth = true,
@@ -502,12 +505,18 @@ export function UnifiedAuthModal({
       >
         <DialogHeader>
           <DialogTitle>
-            {activeMode === "login" ? "Log in to Quiver" : "Sign Up"}
+            {contextMessage?.title
+              ? contextMessage.title
+              : activeMode === "login"
+                ? "Log in to Quiver"
+                : "Sign Up"}
           </DialogTitle>
           <DialogDescription>
-            {activeMode === "login"
-              ? "Access your sessions, forecasts, and community."
-              : "Join Quiver to plan sessions and connect with surfers."}
+            {contextMessage?.description
+              ? contextMessage.description
+              : activeMode === "login"
+                ? "Access your sessions, forecasts, and community."
+                : "Join Quiver to plan sessions and connect with surfers."}
           </DialogDescription>
         </DialogHeader>
 

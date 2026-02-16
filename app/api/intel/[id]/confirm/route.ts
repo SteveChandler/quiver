@@ -59,10 +59,9 @@ export const POST = withAuth(
       .select("id")
       .eq("intel_post_id", intelPostId)
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 = no rows found
+    if (checkError) {
       console.error("Error checking existing confirmation:", checkError);
       throw checkError;
     }

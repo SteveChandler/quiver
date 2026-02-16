@@ -212,7 +212,7 @@ jobs:
                     --collect.url="${DEPLOY_URL}/" \
                     --collect.url="${DEPLOY_URL}/features" \
                     --collect.url="${DEPLOY_URL}/map" \
-                    --collect.url="${DEPLOY_URL}/ca/san-diego/blacks-beach" \
+                    --collect.url="${DEPLOY_URL}/ca/san-diego/blacks" \
                     --collect.url="${DEPLOY_URL}/ca/encinitas/swamis" \
                     --collect.settings.extraHeaders="$EXTRA_HEADERS" \
                     2>&1 | tee lighthouse_output.log; then
@@ -268,7 +268,7 @@ jobs:
                   echo "- Home: ${DEPLOY_URL}/" >> $GITHUB_STEP_SUMMARY
                   echo "- Features: ${DEPLOY_URL}/features" >> $GITHUB_STEP_SUMMARY
                   echo "- Map: ${DEPLOY_URL}/map" >> $GITHUB_STEP_SUMMARY
-                  echo "- Beach (Blacks): ${DEPLOY_URL}/ca/san-diego/blacks-beach" >> $GITHUB_STEP_SUMMARY
+                  echo "- Beach (Blacks): ${DEPLOY_URL}/ca/san-diego/blacks" >> $GITHUB_STEP_SUMMARY
                   echo "- Beach (Swamis): ${DEPLOY_URL}/ca/encinitas/swamis" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
 

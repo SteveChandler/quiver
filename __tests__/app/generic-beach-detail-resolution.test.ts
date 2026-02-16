@@ -81,7 +81,7 @@ function makeBeach(overrides: Partial<Beach>) {
   return {
     id: overrides.id ?? "beach-1",
     name: overrides.name ?? "Test Beach",
-    slug: overrides.slug ?? "lowers-trestles",
+    slug: overrides.slug ?? "lower-trestles",
     city: overrides.city ?? "Dana Point",
     state: overrides.state ?? "CA",
     country: overrides.country ?? "USA",
@@ -138,7 +138,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     // We don't assert on JSX output here; we just assert it does NOT trigger `notFound()`.
     await expect(
       GenericBeachDetailPage({
-        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lowers-trestles" }),
+        params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
       })
     ).resolves.toBeTruthy();
 

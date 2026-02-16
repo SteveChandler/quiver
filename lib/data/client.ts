@@ -48,6 +48,12 @@ function __setCached<T>(map: Map<string, __CacheEntry<T>>, key: string, value: T
   map.set(key, { value, expiresAt: __now() + __CACHE_TTL_MS });
 }
 
+/** Clear the cached profile for a given user so the next fetch hits the network. */
+export function invalidateProfileCache(userId: string) {
+  __cache.usersProfile.delete(userId);
+  __cache.inflight.delete(`usersProfile:${userId}`);
+}
+
 async function getAllBeaches(): Promise<ClientBeach[]> {
   const response = await fetchWithAuthRetry("/api/beaches", {
     method: "GET",

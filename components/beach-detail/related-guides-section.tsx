@@ -9,6 +9,7 @@ import {
   Sailboat,
   MapPin,
   ArrowRight,
+  CalendarDays,
 } from "lucide-react";
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { stateToSlug, buildCityUrl } from "@/lib/utils/beach-url-utils";
@@ -63,6 +64,7 @@ const INTENT_GUIDES = [
 interface RelatedGuidesSectionProps {
   beach: Beach;
   className?: string;
+  bestTimeToSurfUrl?: string;
 }
 
 /**
@@ -73,6 +75,7 @@ interface RelatedGuidesSectionProps {
 export function RelatedGuidesSection({
   beach,
   className = "",
+  bestTimeToSurfUrl,
 }: RelatedGuidesSectionProps) {
   // Only show if we have city data
   if (!beach.city) {
@@ -123,6 +126,18 @@ export function RelatedGuidesSection({
             <p className="text-xs text-gray-500 line-clamp-2">{description}</p>
           </Link>
         ))}
+        {bestTimeToSurfUrl && (
+          <Link
+            href={bestTimeToSurfUrl}
+            className="group flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-sky-300 hover:shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-sky-600 group-hover:text-sky-700" />
+              <span className="font-medium text-gray-900 text-sm">Best Time to Surf</span>
+            </div>
+            <p className="text-xs text-gray-500 line-clamp-2">Month-by-month surf calendar</p>
+          </Link>
+        )}
       </div>
     </section>
   );

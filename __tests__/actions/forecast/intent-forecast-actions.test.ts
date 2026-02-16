@@ -25,6 +25,9 @@ describe("getCityTideData", () => {
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       single: jest.fn(),
+      gte: jest.fn().mockReturnThis(),
+      lt: jest.fn().mockReturnThis(),
+      not: jest.fn().mockReturnThis(),
     };
 
     (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(
@@ -176,11 +179,10 @@ describe("getCityWaterTempHistory", () => {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         lte: jest.fn().mockReturnThis(),
         not: jest.fn().mockReturnThis(),
-        order: jest.fn().mockImplementation(() => ({
-          order: jest.fn().mockResolvedValue({ data: [], error: null }),
-        })),
+        order: jest.fn().mockResolvedValue({ data: [], error: null }),
       };
       return chainable;
     });
@@ -209,21 +211,18 @@ describe("getCityWaterTempHistory", () => {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         lte: jest.fn().mockReturnThis(),
         not: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        // Return multiple forecasts for same dates
-        then: jest.fn().mockImplementation((resolve) =>
-          resolve({
+        order: jest.fn().mockResolvedValue({
             data: [
-              { forecast_date: "2025-01-23", water_temp: "62°F", forecast_time: "06:00" },
-              { forecast_date: "2025-01-23", water_temp: "63°F", forecast_time: "12:00" }, // Duplicate date
-              { forecast_date: "2025-01-24", water_temp: "64°F", forecast_time: "06:00" },
-              { forecast_date: "2025-01-25", water_temp: "65°F", forecast_time: "06:00" },
+              { forecast_date: "2025-01-23", forecast_at: "2025-01-23T06:00:00Z", water_temp: "62°F", forecast_time: "06:00" },
+              { forecast_date: "2025-01-23", forecast_at: "2025-01-23T12:00:00Z", water_temp: "63°F", forecast_time: "12:00" }, // Duplicate date
+              { forecast_date: "2025-01-24", forecast_at: "2025-01-24T06:00:00Z", water_temp: "64°F", forecast_time: "06:00" },
+              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00" },
             ],
             error: null,
-          })
-        ),
+          }),
       };
     });
 
@@ -249,16 +248,15 @@ describe("getCityWaterTempHistory", () => {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         lte: jest.fn().mockReturnThis(),
         not: jest.fn().mockReturnThis(),
-        order: jest.fn().mockImplementation(() => ({
-          order: jest.fn().mockResolvedValue({
+        order: jest.fn().mockResolvedValue({
             data: [
-              { forecast_date: "2025-01-25", water_temp: "65°F", forecast_time: "06:00" },
+              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "65°F", forecast_time: "06:00" },
             ],
             error: null,
           }),
-        })),
       };
     });
 
@@ -288,17 +286,16 @@ describe("getCityWaterTempHistory", () => {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         gte: jest.fn().mockReturnThis(),
+        lt: jest.fn().mockReturnThis(),
         lte: jest.fn().mockReturnThis(),
         not: jest.fn().mockReturnThis(),
-        order: jest.fn().mockImplementation(() => ({
-          order: jest.fn().mockResolvedValue({
+        order: jest.fn().mockResolvedValue({
             data: [
-              { forecast_date: "2025-01-25", water_temp: "warm", forecast_time: "06:00" },
-              { forecast_date: "2025-01-24", water_temp: null, forecast_time: "06:00" },
+              { forecast_date: "2025-01-25", forecast_at: "2025-01-25T06:00:00Z", water_temp: "warm", forecast_time: "06:00" },
+              { forecast_date: "2025-01-24", forecast_at: "2025-01-24T06:00:00Z", water_temp: null, forecast_time: "06:00" },
             ],
             error: null,
           }),
-        })),
       };
     });
 

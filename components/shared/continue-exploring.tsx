@@ -13,6 +13,7 @@ interface ContinueExploringProps {
   cityName: string;
   stateSlug: string;
   stateName: string;
+  bestTimeToSurfUrl?: string;
 }
 
 /**
@@ -33,6 +34,7 @@ export function ContinueExploring({
   cityName,
   stateSlug,
   stateName,
+  bestTimeToSurfUrl,
 }: ContinueExploringProps) {
   const currentDef = INTENT_DEFINITIONS.find((i) => i.key === currentIntent);
   const currentLabel = currentDef?.label ?? currentIntent;
@@ -72,6 +74,16 @@ export function ContinueExploring({
             </Link>
           </li>
         ))}
+        {bestTimeToSurfUrl && (
+          <li>
+            <Link
+              href={bestTimeToSurfUrl}
+              className="underline-offset-2 hover:underline"
+            >
+              Best Time to Surf in {cityName}
+            </Link>
+          </li>
+        )}
         <li>
           <Link
             href="/forecast"

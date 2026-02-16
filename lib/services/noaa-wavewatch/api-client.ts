@@ -7,7 +7,7 @@
  */
 
 import { createContextLogger } from "@/lib/logger";
-import { API_ENDPOINTS, HTTP_CONFIG } from "./constants";
+import { API_ENDPOINTS, FORECAST_CONFIG, HTTP_CONFIG } from "./constants";
 import type { NOAAWavePoint, NOAAGridData, OpenMeteoMarineResponse } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:APIClient");
@@ -136,7 +136,7 @@ export function constructGridUrl(pointData: NOAAWavePoint): string | null {
  *
  * @param latitude - Latitude in decimal degrees
  * @param longitude - Longitude in decimal degrees
- * @param days - Number of forecast days (max 7)
+ * @param days - Number of forecast days (capped to FORECAST_CONFIG.OPEN_METEO_API_LIMIT)
  * @returns Marine forecast data or null if unavailable
  */
 export async function fetchOpenMeteoData(
@@ -162,7 +162,7 @@ export async function fetchOpenMeteoData(
         "wind_wave_period",
       ].join(","),
       timezone: "America/Los_Angeles",
-      forecast_days: Math.min(days, 7).toString(),
+      forecast_days: Math.min(days, FORECAST_CONFIG.OPEN_METEO_API_LIMIT).toString(),
     });
 
     const url = `${API_ENDPOINTS.OPEN_METEO_MARINE_BASE}?${params.toString()}`;

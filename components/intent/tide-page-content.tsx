@@ -28,6 +28,7 @@ interface TidePageContentProps {
   spots: SurfSpot[];
   updatedAt: string;
   baseUrl: string;
+  bestTimeToSurfUrl?: string;
 }
 
 /**
@@ -47,6 +48,7 @@ export function TidePageContent({
   spots,
   updatedAt,
   baseUrl,
+  bestTimeToSurfUrl,
 }: TidePageContentProps) {
   const definition = SURF_INTENTS["tide"];
   const faqItems = generateIntentFAQ(
@@ -175,6 +177,7 @@ export function TidePageContent({
             cityName={cityName}
             stateSlug={stateSlug}
             stateName={stateName}
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
           />
         </div>
       </div>

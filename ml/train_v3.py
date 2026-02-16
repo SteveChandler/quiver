@@ -173,12 +173,14 @@ def main():
     X_holdout = preprocess_v2(df_holdout)
     y_train = df_train['residual_m']
     y_holdout = df_holdout['residual_m']
-    print(f"   Features ({len(V2_FEATURE_COLUMNS)}): {V2_FEATURE_COLUMNS}")
+    feature_cols = list(X_train.columns)
+    print(f"   Features ({len(feature_cols)}): {feature_cols}")
 
     # 4. Cross-validation on training set
     print("\n4. Cross-validation (5-fold TimeSeries)...")
 
     # v3: NO monotone constraints - let model learn freely from diverse data
+    # v4: enable_categorical for beach_id_cat native categorical feature
     params = {
         'objective': 'reg:squarederror',
         'n_estimators': 200,
@@ -189,6 +191,8 @@ def main():
         'reg_alpha': 0.1,
         'min_child_weight': 10,
         'n_jobs': -1,
+        'enable_categorical': True,
+        'max_cat_to_onehot': 1,  # Force partition-based splits (better for 279 categories)
     }
 
     tscv = TimeSeriesSplit(n_splits=5)
@@ -216,8 +220,9 @@ def main():
 
     # 6. Feature importances
     print("\n6. Feature importances:")
+    trained_feature_names = model.get_booster().feature_names or list(X_train.columns)
     importances = pd.DataFrame({
-        'feature': V2_FEATURE_COLUMNS,
+        'feature': trained_feature_names,
         'importance': model.feature_importances_
     }).sort_values('importance', ascending=False)
 

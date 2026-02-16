@@ -49,7 +49,7 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
       // Test cases derived from forecast-alerts.ts line 400
       const testCases = [
         { slug: "ocean-beach", expectedUrl: "/beach/ocean-beach" },
-        { slug: "blacks-beach", expectedUrl: "/beach/blacks-beach" },
+        { slug: "blacks", expectedUrl: "/beach/blacks" },
         { slug: "la-jolla-shores", expectedUrl: "/beach/la-jolla-shores" },
         { slug: "steamer-lane", expectedUrl: "/beach/steamer-lane" },
         { slug: "mavericks-half-moon-bay", expectedUrl: "/beach/mavericks-half-moon-bay" },
@@ -86,7 +86,7 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
     });
 
     it("should use relative URLs, not absolute URLs", () => {
-      const slug = "blacks-beach";
+      const slug = "blacks";
       const url = `/beach/${slug}`;
 
       // Should be relative (starts with /)
@@ -250,9 +250,9 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
           expected: "https://quiver.com/beach/ocean-beach",
         },
         {
-          dataUrl: "https://quiver.com/beach/blacks-beach",
+          dataUrl: "https://quiver.com/beach/blacks",
           origin: "https://quiver.com",
-          expected: "https://quiver.com/beach/blacks-beach",
+          expected: "https://quiver.com/beach/blacks",
         },
       ];
 
@@ -292,7 +292,7 @@ describe("Forecast Alert Push Notification Deeplink Routing", () => {
       const validSlugs = [
         "ocean-beach",
         "la-jolla-shores",
-        "blacks-beach",
+        "blacks",
         "steamer-lane",
       ];
 

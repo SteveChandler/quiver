@@ -419,37 +419,55 @@ function generateReviewText(user: MockUser, beach: Beach, beachType: string, the
     rookie: [
       `${style.phrases[0]} Had the most amazing time at ${beach.name}! This place is ${theme} and everyone was so welcoming. Still can't believe I actually caught some waves here. The locals were super helpful and gave me great tips. Already planning my next visit!`,
       `Just had my first real session at ${beach.name} and I'm absolutely hooked! The conditions were ${theme} which was perfect for someone still learning like me. ${style.phrases[2]} The whole experience was incredible and I learned so much today.`,
-      `${style.phrases[1]} about my session at ${beach.name}! This spot is definitely ${theme} and I felt safe the whole time. Met some awesome people in the water who were so encouraging. This is why I love the surf community!`
+      `${style.phrases[1]} about my session at ${beach.name}! This spot is definitely ${theme} and I felt safe the whole time. Met some awesome people in the water who were so encouraging. This is why I love the surf community!`,
+      `The learning curve at ${beach.name} is real but so worth it! Spent the whole morning working on my pop-up and by the end I was actually riding waves. The conditions were ${theme} which made it way less intimidating. Don't give up if your first few sessions are rough - it gets better!`,
+      `Made some incredible surf friends at ${beach.name} today! A group of regulars took me under their wing and we surfed together all morning. The spot is ${theme} and perfect for someone at my level. ${style.phrases[0]} Having people to share the stoke with makes everything better.`,
+      `${style.phrases[1]} Just discovered that a bigger board makes ALL the difference at ${beach.name}! Switched from a shortboard to a foamie and suddenly everything clicked. Conditions were ${theme} and I caught more waves in one session than my last three combined. Gear matters, people!`
     ],
-    
+
     local: [
       `${style.phrases[0]} everyone - ${beach.name} has been ${theme} lately. Been surfing here for over a decade and it's always reliable. Great spot for all levels and the community is solid. Water temp has been perfect and parking isn't too bad if you know where to go.`,
       `Another solid session at ${beach.name}. Conditions were ${theme} as expected this time of year. ${style.phrases[1]}: best waves are usually early morning before the wind picks up. This place never disappoints if you know what to expect.`,
-      `${beach.name} delivering the goods again! Love how this spot is ${theme} but still accessible. Been watching the conditions here for years and it's consistently one of the better breaks in the area. Perfect for building confidence and skills.`
+      `${beach.name} delivering the goods again! Love how this spot is ${theme} but still accessible. Been watching the conditions here for years and it's consistently one of the better breaks in the area. Perfect for building confidence and skills.`,
+      `This time of year ${beach.name} really comes alive. Seasonal swells are lining up perfectly and conditions have been ${theme} for weeks now. If you know the patterns here, winter is hands down the best season. Summer crowds thin out and the waves get serious.`,
+      `Proud of the community at ${beach.name}. Saw regulars helping a couple of beginners today, sharing waves and keeping the vibe positive. This spot is ${theme} and the lineup culture is what makes it special. We look out for each other here - that's what being a local means.`,
+      `${style.phrases[1]}: ${beach.name} has been consistently ${theme} all month. That's the beauty of knowing a break inside and out - you can predict exactly when it's going to turn on. Been surfing this spot through every season and it rarely lets me down. Consistency is king.`
     ],
-    
+
     traveler: [
       `Finally made it to ${beach.name} after hearing so much about it! This place is definitely ${theme} compared to my home break. ${style.phrases[3]} to experience such a unique spot. The vibe here is different from anywhere else I've surfed - really special place.`,
       `${beach.name} was a highlight of my surf trip! ${style.phrases[0]} the waves at my local spot, but in the best possible way. The whole area has such a unique character and the surfing is ${theme}. Will definitely be back on my next visit to the area.`,
-      `What an incredible experience at ${beach.name}! ${style.phrases[2]} this anywhere else I've traveled. The combination of ${theme} and the local culture makes this a must-surf destination. Already recommending it to friends planning surf trips.`
+      `What an incredible experience at ${beach.name}! ${style.phrases[2]} this anywhere else I've traveled. The combination of ${theme} and the local culture makes this a must-surf destination. Already recommending it to friends planning surf trips.`,
+      `Planning tip for anyone visiting ${beach.name}: book at least three days because you'll want to surf different tides and conditions. Conditions were ${theme} on my best day but varied a lot throughout the trip. ${style.phrases[3]} and having flexibility in your schedule is key to scoring here.`,
+      `The surf culture at ${beach.name} is so different from back home! ${style.phrases[0]} the competitive lineups in Australia - here it's way more relaxed. Conditions were ${theme} and everyone was sharing waves freely. Really refreshing compared to some of the more localized spots I've traveled to.`,
+      `Already planning my return trip to ${beach.name}. Only got three sessions in but every single one was memorable. Conditions were ${theme} and I barely scratched the surface of what this place has to offer. ${style.phrases[3]} - I'll be back with more time and the right boards next round.`
     ],
-    
+
     photographer: [
       `${style.phrases[0]} at ${beach.name} today! The waves were ${theme} and the light was absolutely stunning. Got some incredible shots of locals charging the waves. The whole scene has such a photogenic quality - from the water color to the surrounding landscape.`,
       `Spent the morning capturing ${beach.name} in action. Conditions were ${theme} which made for some beautiful compositions. ${style.phrases[2]} reflecting off the water and the wave action was perfect for photography. This spot has endless visual possibilities.`,
-      `${beach.name} never fails to deliver visually! Today's session was ${theme} and I managed to capture some really dynamic shots. The natural lighting here is incredible and every angle offers something different. Perfect spot for both surfing and photography.`
+      `${beach.name} never fails to deliver visually! Today's session was ${theme} and I managed to capture some really dynamic shots. The natural lighting here is incredible and every angle offers something different. Perfect spot for both surfing and photography.`,
+      `Brought the 70-200mm to ${beach.name} today and it was the perfect choice. The waves were ${theme} and from the cliff I could frame tight action shots without getting in anyone's way. ${style.phrases[0]} Sometimes the right lens makes all the difference between a good photo and a great one.`,
+      `${beach.name} sparked some serious creative inspiration today! The conditions were ${theme} and I ended up experimenting with long exposures during the sets. The way the water moves here creates these incredible patterns you don't see at other breaks. Left with a full memory card and a head full of ideas.`,
+      `The raw natural beauty at ${beach.name} is unreal. Conditions were ${theme} but honestly I spent half my time just taking in the scenery. The coastline, the light, the colors - this place is a visual masterpiece even when the surf is small. ${style.phrases[2]} Every visit here reminds me why I fell in love with surf photography.`
     ],
-    
+
     tactical: [
       `${style.phrases[0]} of ${beach.name} complete. Location demonstrates ${theme} under current conditions. Wave patterns analyzed and documented for future operations. Recommend this position for training exercises due to predictable conditions and strategic advantages.`,
       `Field report: ${beach.name} operations successful. Conditions assessed as ${theme} with optimal parameters for mission execution. Environmental factors favorable for sustained activity. ${style.phrases[3]} identified for future tactical deployments.`,
-      `${beach.name} reconnaissance mission accomplished. Target area shows ${theme} characteristics suitable for operational requirements. Security assessment: minimal hostile elements observed. Recommend for continued tactical utilization.`
+      `${beach.name} reconnaissance mission accomplished. Target area shows ${theme} characteristics suitable for operational requirements. Security assessment: minimal hostile elements observed. Recommend for continued tactical utilization.`,
+      `Efficiency analysis of ${beach.name} operations: time-to-lineup ratio optimal at 0800 hours. Conditions classified as ${theme} with maximum wave yield per hour of deployment. Resource expenditure minimal relative to mission output. This location scores highest in operational efficiency metrics across the sector.`,
+      `Strategic recommendation for ${beach.name}: designate as primary training facility for squad-level exercises. Conditions consistently ${theme} with predictable environmental variables. ${style.phrases[0]} confirms tactical superiority over adjacent positions. Recommend priority allocation of resources to this location.`,
+      `Resource assessment ${beach.name}: infrastructure adequate for extended deployment. Water supply, staging area, and egress routes all confirmed operational. Conditions ${theme} with sustainable mission tempo. Equipment wear factor within acceptable parameters. Location approved for long-duration tactical operations.`
     ],
-    
+
     competitor: [
       `Solid training session at ${beach.name} today! Conditions were ${theme} which pushed my performance to the next level. Working on my competitive edge here - the waves demand precision and power. ${style.phrases[2]} training ground for serious surfers.`,
       `${beach.name} delivered another intense training session! This spot is ${theme} and perfect for performance analysis. Every wave here teaches you something new about technique and strategy. The competitive environment really brings out your best surfing.`,
-      `Performance metrics from ${beach.name} today: exceptional! The waves were ${theme} which allowed for high-level maneuvers and skill development. ${style.phrases[0]} that challenges every aspect of your surfing. Perfect preparation for competition season.`
+      `Performance metrics from ${beach.name} today: exceptional! The waves were ${theme} which allowed for high-level maneuvers and skill development. ${style.phrases[0]} that challenges every aspect of your surfing. Perfect preparation for competition season.`,
+      `Dialed in my training methodology at ${beach.name} today. Started with heat-simulation drills, then moved to priority wave selection exercises. Conditions were ${theme} and I logged 47 waves in 3 hours - well above my target rep count. Structured training beats free-surfing every time for competition prep.`,
+      `Performance benchmarks from ${beach.name}: average ride time up 12% from last month, completion rate on critical maneuvers at 78%. Conditions were ${theme} which provided the perfect testing environment. ${style.phrases[0]} Tracking these numbers session-over-session is how you actually measure improvement.`,
+      `${beach.name} gave me the competitive edge insights I needed today. Studied three other surfers' wave selection patterns and identified gaps in my own approach. Conditions were ${theme} and I adapted my strategy mid-session to capitalize. ${style.phrases[2]} - the mental game is just as important as the physical performance.`
     ]
   };
 
@@ -494,7 +512,7 @@ function generateIntelContent(user: MockUser, beach: Beach): {
   surf_conditions?: SurfConditions;
 } {
   const beachType = inferBeachType(beach);
-  const tags = ['conditions', 'parking', 'crowd', 'hazards', 'access'];
+  const tags = ['conditions', 'parking', 'crowd', 'access'];
   const tag = tags[Math.floor(Math.random() * tags.length)];
   
   const content = generateIntelByTag(user, beach, tag, beachType);
@@ -533,12 +551,6 @@ function generateIntelByTag(
       return {
         title: generateCrowdTitle(user.personality, beachName),
         description: generateCrowdDescription(user, beachName, beachType)
-      };
-    
-    case 'hazards':
-      return {
-        title: generateHazardTitle(user.personality, beachName),
-        description: generateHazardDescription(user, beachName, beachType)
       };
     
     case 'access':
@@ -740,60 +752,6 @@ function generateCrowdDescription(user: MockUser, beachName: string, beachType: 
   return personalityDescriptions[Math.floor(Math.random() * personalityDescriptions.length)];
 }
 
-function generateHazardTitle(personality: string, beachName: string): string {
-  switch (personality) {
-    case 'rookie': return `Safety reminder for ${beachName}`;
-    case 'local': return `${beachName} hazard update`;
-    case 'traveler': return `${beachName} safety awareness`;
-    case 'photographer': return `${beachName} safety for photographers`;
-    case 'tactical': return `${beachName} threat assessment`;
-    case 'competitor': return `${beachName} performance hazards`;
-    default: return `Hazards at ${beachName}`;
-  }
-}
-
-function generateHazardDescription(user: MockUser, beachName: string, beachType: string): string {
-  const style = WRITING_STYLES[user.personality];
-  const phraseIdx = Math.floor(Math.random() * style.phrases.length);
-  
-  const hazardDescriptions = {
-    rookie: [
-      `Learned something important about ${beachName} today - there are some rocks on the north side that are hard to see at high tide. A local pointed them out to me and probably saved me from a bad situation. Always good to ask locals about hazards!`,
-      `Safety tip for other beginners at ${beachName}: the current can be stronger than it looks, especially near the jetty. Stay close to shore until you're more confident. Several experienced surfers gave me this advice and I'm grateful!`,
-      `Just a heads up for fellow newbies at ${beachName} - watch out for other people's boards in the whitewater! It gets pretty chaotic inside and runaway boards are no joke. Better to be overly cautious while learning.`,
-      `${style.phrases[phraseIdx]} Got some important safety advice at ${beachName} today. Apparently there's a channel with strong current that can pull you south. Locals say to paddle north to avoid it. So glad people shared this with me!`,
-      `PSA for other beginners at ${beachName}: the waves can be bigger than they look from shore! I got caught inside a few times. Take it slow and watch a full set cycle before paddling out. Safety first!`,
-      `Important lesson learned at ${beachName} - watch the tide! At low tide some sections get really shallow. An experienced surfer warned me before I found out the hard way. This community really looks out for newbies!`
-    ],
-    
-    local: [
-      `${style.phrases[phraseIdx]} - strong rip current on the south side of ${beachName} today. It's actually great for getting out back but be aware of less experienced surfers who might get caught. As always, use it to your advantage but keep an eye on others.`,
-      `${beachName} hazard update: low tide is exposing more rocks than usual near the pier. Saw a few close calls today with people not familiar with the spot. If you don't know the bottom, stay in the deeper sections.`,
-      `Reminder about ${beachName} - marine layer is super thick this morning which means low visibility. Be extra careful of other surfers and watch for boats that might not see you. Conditions should clear by mid-morning.`,
-      `${style.phrases[(phraseIdx + 1) % style.phrases.length]}: ${beachName} has active rip currents today due to the big swell. They're running straight out from the main peak. Use them to get out but know how to escape laterally if needed.`,
-      `Safety notice for ${beachName} - submerged reef section about 50 yards north of the main peak is extra shallow today. Several fins have met their end there. Give it wide berth at low tide.`,
-      `${beachName} conditions report: current is running strong south to north today. Factor this in for your positioning. Saw a few people end up way north of where they started. Stay aware out there.`,
-      `Hazard alert at ${beachName}: larger sets are closing out the inside section. Don't get caught there - the rip back out is intense. Stick to deeper water if you're not comfortable with the size.`
-    ],
-    
-    traveler: [
-      `Learning about the hazards at ${beachName} from locals - apparently there's a reef shelf that's not obvious until low tide. ${style.phrases[phraseIdx]} some of the sneaky reef breaks in Hawaii. Always worth asking about local hazards when surfing somewhere new!`,
-      `${beachName} has some interesting currents I didn't expect. ${style.phrases[(phraseIdx + 1) % style.phrases.length]} my home break but way more predictable. Just need to understand the pattern and they're actually helpful for positioning.`,
-      `Got educated about ${beachName} hazards today. The locals were super helpful pointing out the problem areas. Way different hazards than what I'm used to but nothing too scary if you know what to watch for.`
-    ],
-    
-    tactical: [
-      `Threat assessment ${beachName}: identified submerged obstacles at coordinates marked. Recommend approach vector from southwest to avoid hazardous terrain. Environmental conditions show increased risk factors during current tidal phase. Mission parameters adjusted accordingly.`,
-      `${beachName} operational hazards catalogued: strong lateral currents detected in sector 3. Advise tactical teams to maintain enhanced situational awareness. Civilian population density may complicate extraction procedures if required.`,
-      `${style.phrases[phraseIdx]}: ${beachName} shows elevated risk factors due to equipment hazards from inexperienced operators. Recommend maintaining safe operational distance and continuous threat assessment. Mission success requires adaptive tactical response.`,
-      `Environmental hazard report ${beachName}: submerged rock formations identified at low tide positions. Depth readings show minimal clearance in approach zones. Recommend abort procedures if tidal phase reaches critical thresholds.`
-    ]
-  };
-
-  const personalityDescriptions = hazardDescriptions[user.personality as keyof typeof hazardDescriptions] || hazardDescriptions.local;
-  return personalityDescriptions[Math.floor(Math.random() * personalityDescriptions.length)];
-}
-
 function generateAccessTitle(personality: string, beachName: string): string {
   switch (personality) {
     case 'rookie': return `Getting to ${beachName}`;
@@ -940,8 +898,8 @@ async function seedIntelPosts(
       const createdAt = randomDateInRange(14); // Within last 2 weeks (increased from 10 days)
       
       // Add slight offset to beach coordinates for realistic intel posting
-      const latitude = addRandomOffset(beach.lat);
-      const longitude = addRandomOffset(beach.lon);
+      const latitude = addRandomOffset(beach.lat ?? 0);
+      const longitude = addRandomOffset(beach.lon ?? 0);
       
       const intelData: Record<string, any> = {
         user_id: user.id,
@@ -954,6 +912,7 @@ async function seedIntelPosts(
         confirmations_count: Math.floor(Math.random() * 15), // Random confirmations
         is_active: true,
         created_at: createdAt.toISOString(),
+        expires_at: new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
         // Add surf conditions if it's a conditions post
         ...(surf_conditions && {
           wave_height: surf_conditions.wave_height_ft,

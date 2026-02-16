@@ -846,7 +846,7 @@ These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService`
   so callers can fail/degrade safely without serving stale conditions
 - Never calls external APIs
 - Provides staleness details using source-specific thresholds:
-  - CDIP: 1.5 hours (buoy data updates hourly)
+  - CDIP: 4 hours (buoy cron doesn't reliably update every beach every cycle)
   - NOAA_NWS: 12 hours (enhanced forecasts regenerate daily)
   - FALLBACK: 12 hours (less critical data)
 

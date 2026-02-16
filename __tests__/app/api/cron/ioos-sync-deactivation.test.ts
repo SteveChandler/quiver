@@ -32,7 +32,7 @@ import { IOOSService } from "@/lib/services/ioos-service";
 
 // Helper to create chainable query mock
 const createChainMock = (finalResult: any) => {
-  const chain = {
+  const chain: any = {
     from: jest.fn(() => chain),
     select: jest.fn(() => chain),
     update: jest.fn(() => chain),

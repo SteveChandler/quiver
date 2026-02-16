@@ -9,12 +9,16 @@ jest.mock("@/lib/supabase/server", () => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           gte: jest.fn(() => ({
-            lte: jest.fn(() => ({
-              order: jest.fn(() => ({
-                order: jest.fn(() => ({
+            lt: jest.fn(() => ({
+              lte: jest.fn(() => ({
+                order: jest.fn(() => Promise.resolve({
                   data: mockForecastData,
                   error: null,
                 })),
+              })),
+              order: jest.fn(() => Promise.resolve({
+                data: mockForecastData,
+                error: null,
               })),
             })),
           })),
@@ -83,11 +87,13 @@ for (let day = 0; day < FORECAST_CONSTANTS.DAYS; day++) {
 
   // Generate multiple forecasts per day (every 3 hours = 8 per day)
   for (let hour = 0; hour < 24; hour += 3) {
+    const forecastAt = `${dateStr}T${hour.toString().padStart(2, "0")}:00:00Z`;
     mockForecastData.push({
       id: `forecast-${day}-${hour}`,
       beach_id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
       forecast_date: dateStr,
       forecast_time: `${hour.toString().padStart(2, "0")}:00:00`,
+      forecast_at: forecastAt,
       wave_height: "2 ft",
       wave_period: "8s",
       wave_direction: "SW",

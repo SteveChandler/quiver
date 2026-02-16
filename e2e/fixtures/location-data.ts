@@ -102,7 +102,7 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
   {
     id: "beach-1",
     name: "Blacks Beach",
-    slug: "blacks-beach",
+    slug: "blacks",
     city: "La Jolla",
     state: "CA",
     country: "USA",

@@ -132,7 +132,7 @@ For each beach with forecast:
     ├─► Calculate age (hours since update)
     │
     ├─► Get source-specific threshold:
-    │   ├─► CDIP: 1.5h
+    │   ├─► CDIP: 4h
     │   ├─► NOAA_NWS: 12h
     │   └─► FALLBACK: 12h
     │

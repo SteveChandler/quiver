@@ -96,7 +96,7 @@ function createMockSupabase(options: {
 /** Create a simple chainable mock that resolves any chain to a final value. */
 function makeChainable(result: { data: unknown; error: unknown }) {
   const chain: Record<string, jest.Mock> = {};
-  const methods = ["select", "eq", "ilike", "gte", "lte", "not", "order", "limit", "single"];
+  const methods = ["select", "eq", "ilike", "gte", "lt", "lte", "not", "order", "limit", "single"];
   for (const m of methods) {
     chain[m] = jest.fn().mockReturnValue(chain);
   }

@@ -67,7 +67,10 @@ export function useSessionForecast(
     const { getEnhancedBeachForecasts } = await import(
       "@/actions/forecast-actions"
     );
-    const result = await getEnhancedBeachForecasts(beachId, 10);
+    const today = new Date().toISOString().split("T")[0];
+    const queryOptions =
+      forecastDate < today ? { startDate: forecastDate } : undefined;
+    const result = await getEnhancedBeachForecasts(beachId, 10, queryOptions);
 
     if (result.success && result.data) {
       // Filter to the specific date

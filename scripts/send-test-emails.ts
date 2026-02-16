@@ -34,7 +34,7 @@ async function sendTestEmails(toEmail: string) {
       ForecastDigestEmail({
         displayName: "Steve",
         beachName: "Blacks Beach",
-        beachSlug: "blacks-beach",
+        beachSlug: "blacks",
         forecastDate: "Monday, February 3",
         matchQuality: "excellent",
         waveHeight: "4-6ft",
@@ -48,7 +48,7 @@ async function sendTestEmails(toEmail: string) {
           startTime: "6:00 AM",
           endTime: "10:00 AM",
         },
-        ctaUrl: "https://quiversurf.app/beaches/blacks-beach",
+        ctaUrl: "https://quiversurf.app/beaches/blacks",
         unsubscribeUrl: "https://quiversurf.app/settings",
       })
     );

@@ -27,7 +27,7 @@ function getEnhancedForecastService(): EnhancedForecastService {
  * Check if forecast data is stale based on source-specific thresholds
  *
  * Different data sources update at different frequencies:
- * - CDIP (buoy data): Updates hourly → marked stale after 1.5 hours
+ * - CDIP (buoy data): Updates hourly → marked stale after 4 hours
  * - NOAA WaveWatch: Updates every 6 hours → marked stale after 6 hours
  * - FALLBACK data: Less critical → marked stale after 12 hours
  *
@@ -38,7 +38,7 @@ function getEnhancedForecastService(): EnhancedForecastService {
  * @example
  * ```typescript
  * const isStale = isDataStale("2024-01-15T10:00:00Z", "CDIP");
- * // Returns true if more than 1.5 hours have passed
+ * // Returns true if more than 4 hours have passed
  * ```
  */
 export function isDataStale(

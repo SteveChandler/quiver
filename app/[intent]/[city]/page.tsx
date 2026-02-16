@@ -54,6 +54,7 @@ import {
   getBeginnerCityEditorial,
 } from "@/actions/beginner/beginner-actions";
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
+import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 
 // ISR: revalidate intent pages every hour. These are public pages with no
 // per-user data, so Next.js can cache the rendered HTML at the edge.
@@ -466,11 +467,12 @@ export default async function IntentPage(props: IntentPageParams) {
     const stateSlugLower = cityMetadata.state.toLowerCase();
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-    const [conditionsData, beaches, cityEditorial] =
+    const [conditionsData, beaches, cityEditorial, bestTimeToSurfUrl] =
       await Promise.all([
         getBeginnerConditionsData(params.city, stateSlugLower),
         getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
         getBeginnerCityEditorial(params.city, stateSlugLower),
+        getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
       ]);
 
     const { badge: conditionsBadge, rightNow: rightNowConditions } = conditionsData;
@@ -488,6 +490,7 @@ export default async function IntentPage(props: IntentPageParams) {
         cityEditorial={cityEditorial}
         totalBeaches={beaches.length}
         baseUrl={baseUrl}
+        bestTimeToSurfUrl={bestTimeToSurfUrl}
       />
     );
   }
@@ -498,9 +501,10 @@ export default async function IntentPage(props: IntentPageParams) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const tidePageContent = buildIntentPageContent("tide", cityMetadata);
 
-    const [expandedTideData, tideBeachesResult] = await Promise.all([
+    const [expandedTideData, tideBeachesResult, bestTimeToSurfUrl] = await Promise.all([
       getCityTideDataExpanded(cityMetadata.cityName, cityMetadata.state),
       getBeachesByIntentAndCity("tide", cityMetadata.cityName, stateSlugLower),
+      getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
     ]);
 
     // If expanded data unavailable, fall through to generic intent flow
@@ -529,6 +533,7 @@ export default async function IntentPage(props: IntentPageParams) {
           spots={tideSpots}
           updatedAt="Refreshed hourly"
           baseUrl={baseUrl}
+          bestTimeToSurfUrl={bestTimeToSurfUrl}
         />
       );
     }
@@ -539,7 +544,7 @@ export default async function IntentPage(props: IntentPageParams) {
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
   // Parallelize data fetching: beaches + intent-specific data run concurrently
-  const [beachesResult, intentData] = await Promise.all([
+  const [beachesResult, intentData, bestTimeToSurfUrl] = await Promise.all([
     getBeachesByIntentAndCity(
       params.intent,
       cityMetadata.cityName,
@@ -550,6 +555,7 @@ export default async function IntentPage(props: IntentPageParams) {
       : params.intent === "water-temp"
         ? getCityWaterTempHistory(cityMetadata.cityName, cityMetadata.state)
         : Promise.resolve(null),
+    getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
   ]);
 
   // Extract intent-specific data from Promise.all result
@@ -743,6 +749,7 @@ export default async function IntentPage(props: IntentPageParams) {
                 cityName={cityMetadata.cityName}
                 stateSlug={cityMetadata.state.toLowerCase()}
                 stateName={cityMetadata.stateName}
+                bestTimeToSurfUrl={bestTimeToSurfUrl}
               />
             </aside>
           </div>

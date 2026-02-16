@@ -92,7 +92,7 @@ async function summaryHandler(request: NextRequest) {
           .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
           .order("forecast_at", { ascending: true })
           .limit(1)
-          .single();
+          .maybeSingle();
         if (!forecast) return null;
         return {
           source: { type: "forecast" as const, credibility: CREDIBILITY.FORECAST },

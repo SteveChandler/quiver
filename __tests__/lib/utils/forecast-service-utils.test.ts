@@ -93,7 +93,7 @@ describe("getFreshForecastFromCache", () => {
     const fiveHoursAgoIso = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
 
     latestResult = {
-      data: { updated_at: fiveHoursAgoIso, data_source: "CDIP" }, // CDIP threshold is 1.5h
+      data: { updated_at: fiveHoursAgoIso, data_source: "CDIP" }, // CDIP threshold is 4h
       error: null,
     };
 

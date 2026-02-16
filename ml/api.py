@@ -443,6 +443,7 @@ async def correct_single(input: ForecastInput):
         if use_v2_features:
             # v2/v3 feature pipeline
             data = {
+                'beach_id': [input.beach_id],
                 'forecast_height_m': [input.wave_height_m],
                 'forecast_period_s': [input.wave_period_s],
                 'forecast_dir_deg': [input.wave_direction_deg],
@@ -468,7 +469,7 @@ async def correct_single(input: ForecastInput):
             X = fe.preprocess(df)
             features = X.drop(columns=['timestamp', 'wave_height_model'], errors='ignore')
 
-        # Predict with active model
+        # Predict with active model (auto-selects features based on model's training set)
         corrected = active_model.predict(features, pd.Series([input.wave_height_m]))
 
     bias = corrected.iloc[0] - input.wave_height_m
@@ -595,6 +596,37 @@ async def train_model(request: TrainRequest):
         logger.info(f"[Train] Training set: {len(df_train)} samples")
         logger.info(f"[Train] Holdout set: {len(df_holdout)} samples ({request.config.holdout_days} days)")
 
+        # Guard: if training set is too small (e.g., data only spans ~2 days),
+        # reduce holdout to 1 day and retry the split
+        MIN_TRAINING_SAMPLES_FOR_CV = 50  # Need at least n_splits+1=6, use 50 for safety
+        if len(df_train) < MIN_TRAINING_SAMPLES_FOR_CV and request.config.holdout_days > 1:
+            logger.warning(
+                f"[Train] Training set too small ({len(df_train)} < {MIN_TRAINING_SAMPLES_FOR_CV}), "
+                f"reducing holdout from {request.config.holdout_days} to 1 day"
+            )
+            holdout_cutoff = max_ts - pd.Timedelta(days=1)
+            df_train = df[df['forecast_ts_utc'] <= holdout_cutoff].copy()
+            df_holdout = df[df['forecast_ts_utc'] > holdout_cutoff].copy()
+            weights_train = compute_sample_weights(
+                df_train,
+                half_life_days=request.config.recency_weight_days,
+            )
+            logger.info(f"[Train] After holdout reduction: train={len(df_train)}, holdout={len(df_holdout)}")
+
+        # Fail if training set is still too small after holdout adjustment
+        if len(df_train) < MIN_TRAINING_SAMPLES_FOR_CV:
+            error_msg = (
+                f"Insufficient training data: {len(df_train)} training samples < {MIN_TRAINING_SAMPLES_FOR_CV} minimum. "
+                f"Data may not span enough days. Total records: {len(df)}, date range: "
+                f"{df['forecast_ts_utc'].min()} to {df['forecast_ts_utc'].max()}"
+            )
+            logger.error(f"[Train] {error_msg}")
+            return TrainResponse(
+                success=False,
+                version=request.version,
+                error=error_msg
+            )
+
         # Fail if holdout set is too small for statistically valid validation
         if len(df_holdout) < request.config.min_holdout_samples:
             error_msg = (
@@ -619,6 +651,7 @@ async def train_model(request: TrainRequest):
         logger.info("[Train] Running 5-fold cross-validation...")
 
         # v3: NO monotone constraints - let model learn freely from diverse data
+        # v4: enable_categorical for beach_id_cat native categorical feature
         params = {
             'objective': 'reg:squarederror',
             'n_estimators': 200,
@@ -629,6 +662,8 @@ async def train_model(request: TrainRequest):
             'reg_alpha': 0.1,
             'min_child_weight': 10,
             'n_jobs': -1,
+            'enable_categorical': True,
+            'max_cat_to_onehot': 1,  # Force partition-based splits (better for 279 categories)
         }
 
         tscv = TimeSeriesSplit(n_splits=5)
@@ -695,9 +730,10 @@ async def train_model(request: TrainRequest):
         mean_bias = clipped_bias.mean()
         logger.info(f"[Train] Mean bias applied: {mean_bias:+.3f}m")
 
-        # Feature importance rankings
+        # Feature importance rankings (use actual model features, may include beach_id_cat)
+        trained_feature_names = model_trained.get_booster().feature_names or list(X_train.columns)
         feature_importances = dict(zip(
-            V2_FEATURE_COLUMNS,
+            trained_feature_names,
             [float(v) for v in model_trained.feature_importances_]
         ))
         sorted_features = sorted(feature_importances.items(), key=lambda x: x[1], reverse=True)
@@ -965,6 +1001,7 @@ async def correct_batch(input: BatchInput):
         if use_v2_features:
             # v2/v3 feature pipeline
             data = {
+                'beach_id': [input.forecasts[i].beach_id for i in fallback_indices],
                 'forecast_height_m': [input.forecasts[i].wave_height_m for i in fallback_indices],
                 'forecast_period_s': [input.forecasts[i].wave_period_s for i in fallback_indices],
                 'forecast_dir_deg': [input.forecasts[i].wave_direction_deg for i in fallback_indices],

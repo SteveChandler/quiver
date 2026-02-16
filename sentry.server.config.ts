@@ -60,14 +60,26 @@ Sentry.init({
     const requestUrl = event.request?.url;
     const detectedEnv = detectEnvironment(requestUrl);
 
-    // Drop localhost events entirely - don't send to Sentry
-    if (detectedEnv === "development") {
+    // Drop localhost and preview events — don't send to Sentry
+    if (detectedEnv === "development" || detectedEnv === "preview") {
       return null;
     }
 
     // Override the environment tag
     event.environment = detectedEnv;
 
+    return event;
+  },
+
+  beforeSendTransaction(event) {
+    const requestUrl = event.request?.url;
+    const detectedEnv = detectEnvironment(requestUrl);
+
+    if (detectedEnv === "development" || detectedEnv === "preview") {
+      return null;
+    }
+
+    event.environment = detectedEnv;
     return event;
   },
 });

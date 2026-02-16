@@ -237,7 +237,7 @@ const { forecasts, metadata } = await getFreshForecastFromCache(beachId, windowH
 **Staleness Thresholds**:
 | Source | Threshold | Reason |
 |--------|-----------|--------|
-| CDIP | 1.5 hours | Buoy data updates hourly |
+| CDIP | 4 hours | Buoy cron doesn't reliably update every beach every cycle |
 | NOAA_NWS | 12 hours | Enhanced forecasts regenerate daily |
 | FALLBACK | 12 hours | Less critical data |
 

@@ -7,7 +7,7 @@ import {
 describe('Forecast Staleness Configuration', () => {
   describe('STALENESS_THRESHOLDS', () => {
     it('should have correct thresholds for each source', () => {
-      expect(STALENESS_THRESHOLDS.CDIP).toBe(1.5);
+      expect(STALENESS_THRESHOLDS.CDIP).toBe(4);
       expect(STALENESS_THRESHOLDS.NOAA_NWS).toBe(12);
       expect(STALENESS_THRESHOLDS.FALLBACK).toBe(12);
       expect(STALENESS_THRESHOLDS.DEFAULT).toBe(6);
@@ -16,9 +16,9 @@ describe('Forecast Staleness Configuration', () => {
 
   describe('getStalenessThreshold', () => {
     it('should return correct threshold for CDIP', () => {
-      expect(getStalenessThreshold('CDIP')).toBe(1.5);
-      expect(getStalenessThreshold('cdip')).toBe(1.5);
-      expect(getStalenessThreshold('Cdip')).toBe(1.5);
+      expect(getStalenessThreshold('CDIP')).toBe(4);
+      expect(getStalenessThreshold('cdip')).toBe(4);
+      expect(getStalenessThreshold('Cdip')).toBe(4);
     });
 
     it('should return correct threshold for NOAA_NWS', () => {
@@ -46,17 +46,17 @@ describe('Forecast Staleness Configuration', () => {
   });
 
   describe('getStalenessInfo', () => {
-    it('should correctly identify stale CDIP data (> 1.5 hours)', () => {
-      const result = getStalenessInfo(2, 'CDIP');
+    it('should correctly identify stale CDIP data (> 4 hours)', () => {
+      const result = getStalenessInfo(5, 'CDIP');
       expect(result.isStale).toBe(true);
-      expect(result.threshold).toBe(1.5);
+      expect(result.threshold).toBe(4);
       expect(result.reason).toBe('Exceeded source-specific threshold');
     });
 
-    it('should correctly identify fresh CDIP data (< 1.5 hours)', () => {
-      const result = getStalenessInfo(1, 'CDIP');
+    it('should correctly identify fresh CDIP data (< 4 hours)', () => {
+      const result = getStalenessInfo(3, 'CDIP');
       expect(result.isStale).toBe(false);
-      expect(result.threshold).toBe(1.5);
+      expect(result.threshold).toBe(4);
       expect(result.reason).toBe('Within freshness window');
     });
 

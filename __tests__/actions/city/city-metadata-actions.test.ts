@@ -72,7 +72,7 @@ const mockSanDiegoBeaches = [
   {
     id: "beach-sd-2",
     name: "Black's Beach",
-    slug: "blacks-beach",
+    slug: "blacks",
     skill_level: "Advanced",
     lat: 32.8885,
     lon: -117.2525,

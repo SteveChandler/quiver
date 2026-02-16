@@ -284,9 +284,9 @@ async function createMockUser(userData: typeof mockUsers[0]) {
       .from('profiles')
       .select('id')
       .eq('id', authUserId)
-      .single();
+      .maybeSingle();
 
-    if (profileCheckError && profileCheckError.code !== 'PGRST116') { // PGRST116 = not found
+    if (profileCheckError) {
       console.error(`❌ Error checking profile for ${userData.name}: ${profileCheckError.message}`);
       return false;
     }
@@ -298,6 +298,7 @@ async function createMockUser(userData: typeof mockUsers[0]) {
         .insert({
           id: authUserId,
           full_name: userData.name,
+          display_name: userData.name,
           is_mock: true,
           experience_level: userData.experienceLevel,
           email_session_invites: true,
@@ -414,9 +415,14 @@ async function cleanupOrphanedAuthUsers() {
         .from('profiles')
         .select('id')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError && profileError.code === 'PGRST116') {
+      if (profileError) {
+        console.error(`❌ Error checking profile for ${authUser.email}: ${profileError.message}`);
+        continue;
+      }
+
+      if (!profile) {
         // Profile doesn't exist, this is an orphaned auth user
         console.log(`🗑️  Removing orphaned auth user: ${authUser.email}`);
         

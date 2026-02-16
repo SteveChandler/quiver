@@ -157,6 +157,7 @@ export function UserStats({
         user={{
           id: userId,
           display_name: profile?.full_name || undefined,
+          avatar_url: profile?.avatar_url || undefined,
         }}
         isOwnProfile={isCurrentUser}
       />

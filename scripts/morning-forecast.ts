@@ -48,7 +48,7 @@ async function main() {
       .eq('beach_id', beach.id)
       .order('ts', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const waveHeightFt = forecast?.wave_height_m ? (Number(forecast.wave_height_m) * 3.28).toFixed(0) : '2-3';
     const period = forecast?.wave_period_s ? Math.round(Number(forecast.wave_period_s)) : 10;

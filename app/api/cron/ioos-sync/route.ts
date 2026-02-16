@@ -39,6 +39,7 @@ interface ObservationSyncResult {
   observationsInserted: number;
   stationsFailed: number;
   stationsSkipped: number;
+  stationsDeactivated404: number;
   observableBeachesRefreshed: boolean;
   errors: string[];
   duration_ms: number;
@@ -349,6 +350,7 @@ async function syncObservations(
     observationsInserted: 0,
     stationsFailed: 0,
     stationsSkipped: 0,
+    stationsDeactivated404: 0,
     observableBeachesRefreshed: false,
     errors: [],
     duration_ms: 0,
@@ -519,6 +521,34 @@ async function syncObservations(
 
       if (noWaveError) {
         result.errors.push(`Failed to update no-wave stations: ${noWaveError.message}`);
+      }
+    }
+
+    // Deactivate stations that returned 404 (no longer exist on ERDDAP)
+    const stationsReturning404 = ioosService.getStationsReturning404();
+    if (stationsReturning404.length > 0) {
+      const totalAttempted = result.stationsSynced + result.stationsFailed;
+      const ratio404 = totalAttempted > 0 ? stationsReturning404.length / totalAttempted : 0;
+
+      if (ratio404 > 0.5) {
+        // >50% returning 404 likely indicates ERDDAP outage, not actual station removal
+        console.warn(
+          `[IOOS] ${stationsReturning404.length}/${totalAttempted} stations returned 404 (${(ratio404 * 100).toFixed(0)}%). ` +
+          `Skipping deactivation — likely ERDDAP outage.`
+        );
+      } else {
+        console.log(`📝 Deactivating ${stationsReturning404.length} stations that returned 404`);
+
+        const { error: deactivate404Error } = await supabase
+          .from("ioos_stations")
+          .update({ active: false })
+          .in("station_id", stationsReturning404);
+
+        if (deactivate404Error) {
+          result.errors.push(`Failed to deactivate 404 stations: ${deactivate404Error.message}`);
+        } else {
+          result.stationsDeactivated404 = stationsReturning404.length;
+        }
       }
     }
 

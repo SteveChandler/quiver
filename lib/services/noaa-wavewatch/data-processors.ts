@@ -39,13 +39,22 @@ export function processNOAAGridData(
   const props = gridData.properties;
 
   // Get the minimum number of available forecasts across all parameters
-  const waveHeightCount = props.waveHeight?.values.length || 0;
-  const wavePeriodCount = props.wavePeriod?.values.length || 0;
-  const waveDirectionCount = props.waveDirection?.values.length || 0;
+  const waveHeightCount = props.waveHeight?.values.length ?? 0;
+  const wavePeriodCount = props.wavePeriod?.values.length ?? 0;
+  const waveDirectionCount = props.waveDirection?.values.length ?? 0;
+
+  // Cap to waveHeightCount — wave height is the primary signal.
+  // Direction/period arrays are often longer (10 days vs 3 days of heights),
+  // and padding beyond real height data produces fabricated constant defaults.
+  if (waveHeightCount < Math.max(wavePeriodCount, waveDirectionCount)) {
+    log.info(
+      `NOAA array mismatch: waveHeight=${waveHeightCount}, wavePeriod=${wavePeriodCount}, waveDirection=${waveDirectionCount} — capping to ${waveHeightCount}`
+    );
+  }
 
   const maxForecasts = Math.min(
     days * FORECAST_CONFIG.FORECASTS_PER_DAY,
-    Math.max(waveHeightCount, wavePeriodCount, waveDirectionCount)
+    waveHeightCount
   );
 
   log.debug(`Processing ${maxForecasts} NOAA grid forecasts`);
@@ -64,12 +73,12 @@ export function processNOAAGridData(
     // Extract wave period
     const wavePeriod = getValueAtIndex(props.wavePeriod?.values, i);
     const peakWavePeriod =
-      wavePeriod || Math.max(4, 6 + significantWaveHeight * 1.5);
+      wavePeriod ?? Math.max(4, 6 + significantWaveHeight * 1.5);
 
     // Extract wave direction
     const waveDirection = getValueAtIndex(props.waveDirection?.values, i);
     const peakWaveDirection =
-      waveDirection || getPrevailingWaveDirection(latitude, longitude);
+      waveDirection ?? getPrevailingWaveDirection(latitude, longitude);
 
     // Extract swell data (if available)
     const swellHeight = getValueAtIndex(props.swellHeight?.values, i);
@@ -77,9 +86,9 @@ export function processNOAAGridData(
     const swellDirection = getValueAtIndex(props.swellDirection?.values, i);
 
     // Generate swell components based on available data
-    const swell1Height = swellHeight || significantWaveHeight * 0.7;
-    const swell1Period = swellPeriod || peakWavePeriod * 1.3;
-    const swell1Direction = swellDirection || peakWaveDirection;
+    const swell1Height = swellHeight ?? significantWaveHeight * 0.7;
+    const swell1Period = swellPeriod ?? peakWavePeriod * 1.3;
+    const swell1Direction = swellDirection ?? peakWaveDirection;
 
     const swell2Height = significantWaveHeight * 0.4;
     const swell2Period = swell1Period * 1.1;
@@ -132,35 +141,40 @@ export function processOpenMeteoData(
     return forecasts;
   }
 
+  // Open-Meteo returns hourly data but our forecast grid is every 3 hours.
+  // Step through in 3-hour increments to cover the full 7-day range instead
+  // of exhausting maxForecasts after ~2 days of hourly entries.
+  const HOURS_PER_STEP = FORECAST_CONFIG.FORECAST_INTERVAL_HOURS; // 3
   const maxForecasts = Math.min(
     days * FORECAST_CONFIG.FORECASTS_PER_DAY,
-    data.hourly.time.length
+    Math.floor(data.hourly.time.length / HOURS_PER_STEP)
   );
 
-  log.debug(`Processing ${maxForecasts} Open-Meteo forecasts`);
+  log.debug(`Processing ${maxForecasts} Open-Meteo forecasts (stepping every ${HOURS_PER_STEP}h over ${data.hourly.time.length} hourly entries)`);
 
-  for (let i = 0; i < maxForecasts; i++) {
+  for (let step = 0; step < maxForecasts; step++) {
+    const i = step * HOURS_PER_STEP;
     const timestamp = new Date(data.hourly.time[i]);
 
     // Extract wave data (already in meters from Open-Meteo)
-    const significantWaveHeight = data.hourly.wave_height?.[i] || 0.8;
-    const peakWavePeriod = data.hourly.wave_period?.[i] || 8;
-    const peakWaveDirection = data.hourly.wave_direction?.[i] || 225; // SW default for CA
+    const significantWaveHeight = data.hourly.wave_height?.[i] ?? 0.8;
+    const peakWavePeriod = data.hourly.wave_period?.[i] ?? 8;
+    const peakWaveDirection = data.hourly.wave_direction?.[i] ?? 225; // SW default for CA
 
     // Extract swell data
     const swell1Height =
-      data.hourly.swell_wave_height?.[i] || significantWaveHeight * 0.7;
-    const swell1Period = data.hourly.swell_wave_period?.[i] || peakWavePeriod;
+      data.hourly.swell_wave_height?.[i] ?? significantWaveHeight * 0.7;
+    const swell1Period = data.hourly.swell_wave_period?.[i] ?? peakWavePeriod;
     const swell1Direction =
-      data.hourly.swell_wave_direction?.[i] || peakWaveDirection;
+      data.hourly.swell_wave_direction?.[i] ?? peakWaveDirection;
 
     // Extract wind wave data (if available)
     const windWaveHeight =
-      data.hourly.wind_wave_height?.[i] || significantWaveHeight * 0.3;
+      data.hourly.wind_wave_height?.[i] ?? significantWaveHeight * 0.3;
     const windWavePeriod =
-      data.hourly.wind_wave_period?.[i] || Math.max(4, peakWavePeriod * 0.6);
+      data.hourly.wind_wave_period?.[i] ?? Math.max(4, peakWavePeriod * 0.6);
     const windWaveDirection =
-      data.hourly.wind_wave_direction?.[i] || peakWaveDirection;
+      data.hourly.wind_wave_direction?.[i] ?? peakWaveDirection;
 
     const forecast: WaveWatchData = {
       timestamp: timestamp.toISOString(),

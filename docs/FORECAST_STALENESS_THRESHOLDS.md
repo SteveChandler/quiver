@@ -10,7 +10,7 @@ Located in: `lib/config/forecast-staleness.ts`
 
 | Data Source | Update Frequency | Staleness Threshold | Rationale |
 |------------|------------------|---------------------|-----------|
-| **CDIP** | Hourly | 1.5 hours | Buoy data updates hourly, so data older than 1.5h is considered stale |
+| **CDIP** | Hourly | 4 hours | Buoy cron doesn't reliably update every beach every cycle; 4h prevents false staleness |
 | **NOAA_NWS** | Daily (6 AM) | 12 hours | Enhanced forecasts regenerate once daily, 12h threshold provides buffer |
 | **FALLBACK** | Variable | 12 hours | Fallback data is less critical, can tolerate longer staleness |
 | **DEFAULT** | N/A | 6 hours | For unknown or unspecified sources |
@@ -52,7 +52,7 @@ console.log('Forecast staleness:', {
 ```typescript
 import { getStalenessThreshold } from '@/lib/config/forecast-staleness';
 
-const threshold = getStalenessThreshold('CDIP'); // Returns 1.5
+const threshold = getStalenessThreshold('CDIP'); // Returns 4
 const threshold = getStalenessThreshold('NOAA_NWS'); // Returns 12
 const threshold = getStalenessThreshold('UNKNOWN'); // Returns 6 (DEFAULT)
 ```

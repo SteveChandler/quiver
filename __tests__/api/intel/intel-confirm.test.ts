@@ -114,6 +114,12 @@ function setupMockChain(mockClient: MockSupabaseClient, responses: any[]) {
         }
         return { data: null, error: null };
       }),
+      maybeSingle: jest.fn().mockImplementation(async () => {
+        if (responseIndex < responses.length) {
+          return responses[responseIndex++];
+        }
+        return { data: null, error: null };
+      }),
     };
     return chain;
   });
@@ -143,7 +149,7 @@ describe("POST /api/intel/[id]/confirm", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null }, // Intel post lookup
-        { data: null, error: { code: "PGRST116" } }, // No existing confirmation
+        { data: null, error: null }, // No existing confirmation
         { data: confirmation, error: null }, // Create confirmation
         { data: updatedPost, error: null }, // Updated count
       ]);
@@ -168,7 +174,7 @@ describe("POST /api/intel/[id]/confirm", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: confirmation, error: null },
         { data: updatedPost, error: null },
       ]);
@@ -190,7 +196,7 @@ describe("POST /api/intel/[id]/confirm", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: confirmation, error: null },
         { data: null, error: { message: "Database error" } }, // Count fetch fails
       ]);
@@ -261,7 +267,7 @@ describe("POST /api/intel/[id]/confirm", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: noExpiryPost, error: null },
-        { data: null, error: { code: "PGRST116" } },
+        { data: null, error: null },
         { data: confirmation, error: null },
         { data: { confirmations_count: 1 }, error: null },
       ]);
@@ -329,7 +335,7 @@ describe("POST /api/intel/[id]/confirm", () => {
 
       setupMockChain(mockSupabaseClient, [
         { data: intelPost, error: null },
-        { data: null, error: { code: "PGRST116" } }, // No existing confirmation
+        { data: null, error: null }, // No existing confirmation
         { data: null, error: { message: "Database error" } }, // Insert fails
       ]);
 

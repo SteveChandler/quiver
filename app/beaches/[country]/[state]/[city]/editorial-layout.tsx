@@ -28,6 +28,7 @@ interface EditorialLayoutProps {
   editorial: CityEditorialContent;
   jsonLd: object;
   itemListItems: { name: string; url: string; position: number }[];
+  bestTimeToSurfUrl?: string;
 }
 
 export function EditorialLayout({
@@ -38,6 +39,7 @@ export function EditorialLayout({
   editorial,
   jsonLd,
   itemListItems,
+  bestTimeToSurfUrl,
 }: EditorialLayoutProps) {
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
@@ -144,14 +146,16 @@ export function EditorialLayout({
         />
 
         {/* Best Time to Surf cross-link for SEO indexation */}
-        <div className="mt-6">
-          <Link
-            href={`/best-time-to-surf/${params.city}`}
-            className="inline-flex items-center gap-2 text-ocean-blue hover:underline font-medium"
-          >
-            Best Time to Surf {displayCityName} — Monthly Breakdown →
-          </Link>
-        </div>
+        {bestTimeToSurfUrl && (
+          <div className="mt-6">
+            <Link
+              href={bestTimeToSurfUrl}
+              className="inline-flex items-center gap-2 text-ocean-blue hover:underline font-medium"
+            >
+              Best Time to Surf {displayCityName} — Monthly Breakdown →
+            </Link>
+          </div>
+        )}
 
         {/* Planning Checklist */}
         <PlanningChecklist items={editorial.planning_checklist} />

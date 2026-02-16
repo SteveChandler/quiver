@@ -8,14 +8,16 @@
 /**
  * Staleness thresholds in hours for different forecast data sources
  *
- * - CDIP: Buoy data updates hourly, so we mark as stale after 1.5 hours
+ * - CDIP: Buoy data updates hourly but cron sharding/timeouts mean not every beach
+ *   updates every cycle. 4-hour threshold prevents false staleness while still
+ *   catching genuinely stale data.
  * - NOAA_NWS: Enhanced forecasts regenerate daily (6 AM), so 12-hour threshold prevents
  *   unnecessary regeneration attempts while providing buffer until next update
  * - FALLBACK: Fallback data is less critical and can tolerate longer staleness
  * - DEFAULT: Default threshold for unknown or unspecified sources
  */
 export const STALENESS_THRESHOLDS = {
-  CDIP: 1.5,        // 1.5 hours (CDIP buoy data updates hourly)
+  CDIP: 4,          // 4 hours (CDIP buoy cron doesn't reliably update every beach every hour)
   NOAA_NWS: 12,     // 12 hours (Enhanced forecasts regenerate daily, matches actual update cadence)
   FALLBACK: 12,     // 12 hours (fallback data less critical)
   DEFAULT: 6        // Default for unknown sources
@@ -31,8 +33,8 @@ export type DataSource = keyof typeof STALENESS_THRESHOLDS;
  *
  * @example
  * ```typescript
- * const threshold = getStalenessThreshold("CDIP"); // Returns 1.5
- * const threshold = getStalenessThreshold("noaa_nws"); // Returns 6 (case-insensitive)
+ * const threshold = getStalenessThreshold("CDIP"); // Returns 4
+ * const threshold = getStalenessThreshold("noaa_nws"); // Returns 12 (case-insensitive)
  * const threshold = getStalenessThreshold(); // Returns 6 (DEFAULT)
  * ```
  */
@@ -62,8 +64,8 @@ export function getStalenessThreshold(dataSource?: string | null): number {
  *
  * @example
  * ```typescript
- * const info = getStalenessInfo(2, "CDIP");
- * // Returns: { isStale: true, reason: "Exceeded source-specific threshold", threshold: 1.5 }
+ * const info = getStalenessInfo(5, "CDIP");
+ * // Returns: { isStale: true, reason: "Exceeded source-specific threshold", threshold: 4 }
  * ```
  */
 export function getStalenessInfo(

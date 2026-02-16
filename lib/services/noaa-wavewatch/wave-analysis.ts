@@ -205,7 +205,7 @@ export function getValueAtIndex(
   index: number
 ): number | null {
   if (!values || index >= values.length) return null;
-  return values[index]?.value || null;
+  return values[index]?.value ?? null;
 }
 
 /**
@@ -221,7 +221,7 @@ export function hasValidWaveData(
 ): boolean {
   if (!values || values.length === 0) return false;
 
-  const validValues = values.filter((v) => v.value != null && v.value > 0);
+  const validValues = values.filter((v) => v.value != null && v.value >= 0);
   return validValues.length > 0;
 }
 
@@ -245,8 +245,8 @@ export function logWaveDataAvailability(
     waveHeight: hasWaveHeight,
     wavePeriod: hasWavePeriod,
     waveDirection: hasWaveDirection,
-    waveHeightCount: waveHeightValues?.length || 0,
-    wavePeriodCount: wavePeriodValues?.length || 0,
+    waveHeightCount: waveHeightValues?.length ?? 0,
+    wavePeriodCount: wavePeriodValues?.length ?? 0,
   });
 
   // Check for valid data
@@ -254,15 +254,15 @@ export function logWaveDataAvailability(
 
   if (validValues.length === 0) {
     log.debug(
-      `NOAA NWS has no usable wave height data (${waveHeightValues?.length || 0} total, 0 valid)`
+      `NOAA NWS has no usable wave height data (${waveHeightValues?.length ?? 0} total, 0 valid)`
     );
   } else if (validValues.length === 1) {
     log.warn(
-      `NOAA NWS has limited wave data (only 1 valid value: ${validValues[0].value}m from ${waveHeightValues?.length || 0} total)`
+      `NOAA NWS has limited wave data (only 1 valid value: ${validValues[0].value}m from ${waveHeightValues?.length ?? 0} total)`
     );
   } else {
     log.debug(
-      `NOAA NWS wave data validated: ${validValues.length} valid forecasts from ${waveHeightValues?.length || 0} total`
+      `NOAA NWS wave data validated: ${validValues.length} valid forecasts from ${waveHeightValues?.length ?? 0} total`
     );
   }
 }

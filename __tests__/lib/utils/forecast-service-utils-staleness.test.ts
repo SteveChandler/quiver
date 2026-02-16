@@ -13,12 +13,12 @@ describe('Forecast Service Utils - Staleness Functions', () => {
       jest.useRealTimers();
     });
 
-    it('should mark CDIP data as stale after 1.5 hours', () => {
-      const twoHoursAgo = new Date('2024-01-15T10:00:00Z');
-      expect(isDataStale(twoHoursAgo, 'CDIP')).toBe(true);
+    it('should mark CDIP data as stale after 4 hours', () => {
+      const fiveHoursAgo = new Date('2024-01-15T07:00:00Z');
+      expect(isDataStale(fiveHoursAgo, 'CDIP')).toBe(true);
     });
 
-    it('should mark CDIP data as fresh within 1.5 hours', () => {
+    it('should mark CDIP data as fresh within 4 hours', () => {
       const oneHourAgo = new Date('2024-01-15T11:00:00Z');
       expect(isDataStale(oneHourAgo, 'CDIP')).toBe(false);
     });
@@ -44,8 +44,8 @@ describe('Forecast Service Utils - Staleness Functions', () => {
     });
 
     it('should handle string timestamps', () => {
-      const twoHoursAgo = '2024-01-15T10:00:00Z';
-      expect(isDataStale(twoHoursAgo, 'CDIP')).toBe(true);
+      const fiveHoursAgo = '2024-01-15T07:00:00Z';
+      expect(isDataStale(fiveHoursAgo, 'CDIP')).toBe(true);
     });
 
     it('should use DEFAULT threshold for unknown sources', () => {
@@ -60,10 +60,10 @@ describe('Forecast Service Utils - Staleness Functions', () => {
     });
 
     it('should be case-insensitive for data sources', () => {
-      const twoHoursAgo = new Date('2024-01-15T10:00:00Z');
-      expect(isDataStale(twoHoursAgo, 'cdip')).toBe(true);
-      expect(isDataStale(twoHoursAgo, 'Cdip')).toBe(true);
-      expect(isDataStale(twoHoursAgo, 'CDIP')).toBe(true);
+      const fiveHoursAgo = new Date('2024-01-15T07:00:00Z');
+      expect(isDataStale(fiveHoursAgo, 'cdip')).toBe(true);
+      expect(isDataStale(fiveHoursAgo, 'Cdip')).toBe(true);
+      expect(isDataStale(fiveHoursAgo, 'CDIP')).toBe(true);
     });
   });
 
@@ -80,11 +80,11 @@ describe('Forecast Service Utils - Staleness Functions', () => {
     });
 
     it('should return detailed staleness info for CDIP data', () => {
-      const twoHoursAgo = new Date('2024-01-15T10:00:00Z');
-      const result = getStalenessDetails(twoHoursAgo, 'CDIP');
+      const fiveHoursAgo = new Date('2024-01-15T07:00:00Z');
+      const result = getStalenessDetails(fiveHoursAgo, 'CDIP');
 
-      expect(result.hoursSinceUpdate).toBe(2);
-      expect(result.threshold).toBe(1.5);
+      expect(result.hoursSinceUpdate).toBe(5);
+      expect(result.threshold).toBe(4);
       expect(result.isStale).toBe(true);
       expect(result.reason).toBe('Exceeded source-specific threshold');
     });
@@ -94,17 +94,17 @@ describe('Forecast Service Utils - Staleness Functions', () => {
       const result = getStalenessDetails(oneHourAgo, 'CDIP');
 
       expect(result.hoursSinceUpdate).toBe(1);
-      expect(result.threshold).toBe(1.5);
+      expect(result.threshold).toBe(4);
       expect(result.isStale).toBe(false);
       expect(result.reason).toBe('Within freshness window');
     });
 
     it('should handle fractional hours correctly', () => {
-      const ninetyMinutesAgo = new Date('2024-01-15T10:30:00Z');
-      const result = getStalenessDetails(ninetyMinutesAgo, 'CDIP');
+      const fourHoursAgo = new Date('2024-01-15T08:00:00Z');
+      const result = getStalenessDetails(fourHoursAgo, 'CDIP');
 
-      expect(result.hoursSinceUpdate).toBe(1.5);
-      expect(result.threshold).toBe(1.5);
+      expect(result.hoursSinceUpdate).toBe(4);
+      expect(result.threshold).toBe(4);
       expect(result.isStale).toBe(false); // Exactly at threshold
     });
 
@@ -113,7 +113,7 @@ describe('Forecast Service Utils - Staleness Functions', () => {
 
       const cdipResult = getStalenessDetails(sevenHoursAgo, 'CDIP');
       expect(cdipResult.isStale).toBe(true);
-      expect(cdipResult.threshold).toBe(1.5);
+      expect(cdipResult.threshold).toBe(4);
 
       const noaaResult = getStalenessDetails(sevenHoursAgo, 'NOAA_NWS');
       expect(noaaResult.isStale).toBe(false);

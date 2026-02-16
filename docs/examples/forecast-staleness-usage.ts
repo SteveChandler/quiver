@@ -53,7 +53,7 @@ function logForecastStatus(forecast: EnhancedForecastEntity) {
   //   dataSource: 'CDIP',
   //   lastUpdated: '2024-01-15T10:00:00Z',
   //   hoursSinceUpdate: '2.00',
-  //   stalenessThreshold: 1.5,
+  //   stalenessThreshold: 4,
   //   isStale: true,
   //   status: 'Exceeded source-specific threshold'
   // }
@@ -98,8 +98,8 @@ function displayThresholds() {
   // Or access the constants directly:
   console.log('All thresholds:', STALENESS_THRESHOLDS);
   // {
-  //   CDIP: 1.5,
-  //   NOAA_NWS: 6,
+  //   CDIP: 4,
+  //   NOAA_NWS: 12,
   //   FALLBACK: 12,
   //   DEFAULT: 6
   // }

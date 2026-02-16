@@ -333,14 +333,18 @@ export function aggregateDayForecasts(
     });
   }
 
-  // Trim trailing days where ALL forecasts are FALLBACK-sourced
-  // These produce identical, obviously fake values beyond real API data range
+  // Trim trailing days where ALL forecasts have null/empty wave_height.
+  // This catches truly-null tail data while allowing FALLBACK-sourced days
+  // with generated values to render (e.g., gap-filled slots).
   while (summaries.length > 0) {
     const lastDate = summaries[summaries.length - 1].fullDate;
     const lastDayForecasts = forecastsByDate.get(lastDate) || [];
-    const allFallback = lastDayForecasts.length > 0 &&
-      lastDayForecasts.every((f) => f.data_source === 'FALLBACK');
-    if (allFallback) {
+    const allNullWaves = lastDayForecasts.length > 0 &&
+      lastDayForecasts.every((f) => {
+        const wh = f.wave_height;
+        return wh === null || wh === undefined || wh === '';
+      });
+    if (allNullWaves) {
       summaries.pop();
     } else {
       break;

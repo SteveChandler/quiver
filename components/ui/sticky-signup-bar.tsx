@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -55,13 +55,17 @@ export function StickySignupBar({
     }
   );
 
-  // Handle scroll visibility
+  // Handle scroll visibility with throttle to avoid excessive re-renders
+  const wasVisible = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      setIsVisible(scrollY > scrollThreshold);
+      const visible = window.scrollY > scrollThreshold;
+      if (visible !== wasVisible.current) {
+        wasVisible.current = visible;
+        setIsVisible(visible);
+      }
     };
 
     // Check initial scroll position
@@ -94,24 +98,23 @@ export function StickySignupBar({
     return null;
   }
 
-  const shouldShow = isVisible;
 
   return (
     <>
       <div
         className={cn(
           "fixed bottom-0 left-0 right-0 z-50",
-          "bg-gradient-to-r from-ocean-blue to-blue-600",
-          "border-t border-blue-500/30 shadow-lg",
+          "bg-white/90 backdrop-blur-lg",
+          "border-t border-gray-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]",
           "pb-[env(safe-area-inset-bottom)]",
           "md:hidden", // Only show on mobile
           reducedMotion
-            ? shouldShow
+            ? isVisible
               ? "opacity-100"
               : "opacity-0 pointer-events-none"
             : cn(
                 "transition-all duration-300 ease-out",
-                shouldShow
+                isVisible
                   ? "translate-y-0 opacity-100"
                   : "translate-y-full opacity-0 pointer-events-none"
               )
@@ -123,14 +126,14 @@ export function StickySignupBar({
       >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex-1 min-w-0 mr-3">
-            <p className="text-sm text-white/90 truncate">{supportingText}</p>
+            <p className="text-sm text-gray-600 truncate">{supportingText}</p>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               onClick={handleCtaClick}
               size="sm"
-              className="bg-white text-ocean-blue hover:bg-blue-50 font-semibold px-4 shadow-md"
+              className="bg-ocean-blue text-white hover:bg-ocean-blue/90 font-semibold px-4 rounded-full shadow-sm"
               data-testid="sticky-signup-cta"
             >
               {ctaText}
@@ -138,7 +141,7 @@ export function StickySignupBar({
 
             <button
               onClick={handleDismiss}
-              className="p-2.5 text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="p-2.5 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Dismiss signup prompt"
               data-testid="sticky-signup-dismiss"
             >
@@ -153,9 +156,12 @@ export function StickySignupBar({
         onClose={() => setAuthModalOpen(false)}
         mode="signup"
         source={`sticky-bar-${source}`}
+        contextMessage={{
+          title: "See Your Match Score",
+          description: "Personalized surf forecasts in 30 seconds",
+        }}
       />
     </>
   );
 }
 
-export default StickySignupBar;

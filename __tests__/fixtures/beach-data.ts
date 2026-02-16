@@ -14,7 +14,7 @@ import { createMockBeachWithMetrics } from "../setup/typed-mocks";
 export const mockBeachComplete: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-complete-001",
   name: "Sunset Cliffs",
-  slug: "sunset-cliffs",
+  slug: "sunset-cliffs-garbage",
   lat: 32.7198,
   lon: -117.2557,
   city: "San Diego",
@@ -110,7 +110,7 @@ export const mockBeachLongboard: BeachWithMetrics = createMockBeachWithMetrics({
 export const mockBeachAdvanced: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-advanced-001",
   name: "Blacks Beach",
-  slug: "blacks-beach",
+  slug: "blacks",
   lat: 32.8891,
   lon: -117.2529,
   city: "San Diego",

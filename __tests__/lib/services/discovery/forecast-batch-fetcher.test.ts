@@ -152,7 +152,7 @@ describe('batchFetchForecasts', () => {
           cached: true,
           stale: true,
           missing: false,
-          reason: 'Data is 3 hours old (threshold: 1.5 hours)',
+          reason: 'Data is 3 hours old (threshold: 4 hours)',
         },
       });
 

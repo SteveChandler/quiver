@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Increased CDIP staleness threshold from 1.5h to 4h -- the hourly CDIP cron doesn't reliably update every beach every cycle, causing 11 CDIP beaches (including Blacks, Oceanside Pier, PB Point) to show empty forecast states
+
 ### Removed
 
 - Dropped `_backup_beach_timezones_pr_hi` backup table (no longer needed after timezone migration)
@@ -30,6 +34,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Yesterday's Accuracy Card** -- Trust signal on Forecast tab showing predicted vs actual wave heights from IOOS buoy observations:
+  - `YesterdaysAccuracyCard` component with predicted/actual (ft), accuracy %, color-coded progress bar, observation count
+  - `get_yesterday_accuracy()` RPC function with smart display logic (hidden when error > 1.5ft AND > 40% relative, or waves < 1ft)
+  - `swell_windows_overlap()` function for angular overlap computation with 0/360 wraparound handling
+  - Expanded `observable_beaches` from ~45 to ~100 beaches via combined nearest_beach_id + spatial proximity (10km) with swell compatibility
+  - `get_beach_observation_station()` helper for backfill spatial lookup
+  - Updated backfill-observations cron with spatial fallback and station lookup cache for newly-covered beaches
+  - Optimized SQL: O(1) swell overlap (was O(360) loop), range-based index filter for accuracy queries, JOINs replacing correlated subqueries, capped relative error at 999%
+
+- **Visitor-to-Signup Conversion Uplift** -- Comprehensive conversion optimization across beach pages:
+  - Glassmorphic match score teaser card with IntersectionObserver view tracking (replaces dashed pill)
+  - Contextual AppHeader CTA text ("Get Your Match" on beach pages, "Full Forecast" on forecast pages)
+  - StickySignupBar on beach detail pages with frosted glass design (mobile-only, 150px scroll threshold)
+  - Redesigned forecast gates: horizon strip inline card with day name teaser, outlook card with CalendarDays icon
+  - PublicContentGate: added `ctaButtonText` prop, replaced Lock with Sparkles icon, updated social proof tagline
+  - InlineSignupCta: premium card redesign with "Know Before You Go" copy, single CTA button
+  - Landing page navbar: added "Get Started" frosted pill button alongside subtle "Log in" text link
+  - Contextual auth modal: `contextMessage` prop on UnifiedAuthModal for trigger-specific titles/descriptions
 - **California Surfer Search Query Map** - Comprehensive query research document at `docs/plans/2026-02-14-surfer-search-query-map.md` mapping the full California surfer search landscape by customer journey stage, with competitive gap analysis and priority matrix for SEO targeting.
 - **Product Marketing Context Documentation** - Formalized product-marketing-context.md with customer personas (The Daily Checker, The Beginner, The Explorer, The Optimizer, The Planner, The Switcher) and P0/P1/P2 keyword priorities based on Quiver's competitive advantages (ML forecasts, crowd intel, Best Surf Window, session tracking).
 - **Social Interaction Tracking** -- 6 new event types (`social_follow`, `social_like`, `social_share`, `social_invite_send`, `social_invite_respond`, `social_intel_confirm`), new hooks (`use-session-like.ts`, `use-user-follow.ts`), share sheet tracking
@@ -38,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Improved Internal Linking to `/best-time-to-surf/[city]` Pages** -- Added conditional "Best Time to Surf in {City}" links across intent pages (beginner, tide, generic intents), beach detail pages, city hub pages (editorial + standard layouts), and added "Continue Exploring" section to best-time-to-surf pages. Links only appear when city has 3+ beaches with `best_months` data (via `getBestTimeToSurfUrl` utility). Eliminates broken links and improves SEO discoverability
 - Added internal linking for `/best-time-to-surf` pages (site footer + city hub cross-links) to improve indexation
 - Consolidated Puerto Rico `/pr/rinc-n` redirect chain from 2-hop to single-hop 301
 - Realigned SEO metadata to lead with data richness (surf reports, forecasts, ML-powered conditions) instead of community messaging

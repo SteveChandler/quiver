@@ -47,7 +47,7 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   });
 
   return (
-    <div className="px-4 py-3 bg-background border-t">
+    <div className="px-4 py-3 bg-background">
       <Card
         className="cursor-pointer hover:shadow-lg transition-shadow border-primary border-2"
         onClick={() => beachUrl && router.push(beachUrl)}

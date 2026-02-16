@@ -101,9 +101,15 @@ export class ForecastBuilder {
       // Determine data source for this time point
       const useBuoyData = i === 0 && buoyData;
       const useCDIPData = !!cdipPoint;
+      // Use per-entry data_source (e.g. "OPEN_METEO" from merged forecasts)
+      // rather than the top-level waveData.data_source (always "NOAA_NWS").
+      // When wavePoint is null (no wave data for this timepoint), label as FALLBACK
+      // so horizon-strip trimming can remove it.
       const timepointDataSource = useCDIPData
         ? "CDIP"
-        : waveData?.data_source || (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
+        : wavePoint
+          ? (wavePoint.data_source || waveData?.data_source || "FALLBACK")
+          : (useBuoyData ? "NOAA_BUOY" : "FALLBACK");
 
       // Calculate confidence score
       const confidenceScore = calculateConfidenceScore({
@@ -336,6 +342,7 @@ export class ForecastBuilder {
   private getWaveDataForTime(waveData: WaveWatchForecast | null, targetTime: Date): WaveWatchData | null {
     if (!waveData?.forecast) return null;
 
+    const MAX_STALENESS_MS = 6 * 3600000; // 6 hours
     const targetTimestamp = targetTime.getTime();
     let closest = null;
     let minDiff = Infinity;
@@ -348,6 +355,12 @@ export class ForecastBuilder {
         minDiff = diff;
         closest = point;
       }
+    }
+
+    // Don't reuse wave data that's >6h from the target — it would just
+    // repeat the last real value for days, producing flat/identical forecasts.
+    if (minDiff > MAX_STALENESS_MS) {
+      return null;
     }
 
     return closest;

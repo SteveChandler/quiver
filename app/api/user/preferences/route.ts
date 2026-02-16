@@ -24,14 +24,9 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     .from("user_surf_preferences")
     .select("*")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  // PGRST116 = no rows returned, which is fine (user has no preferences yet)
   if (prefsError) {
-    if (prefsError.code === "PGRST116") {
-      return createSuccessResponse(null);
-    }
-
     console.error("Error fetching preferences:", prefsError);
     return createErrorResponse("Failed to fetch preferences", undefined, 500);
   }
