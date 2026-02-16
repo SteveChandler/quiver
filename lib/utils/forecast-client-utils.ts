@@ -11,7 +11,7 @@ import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
  * Check if forecast data is stale based on source-specific thresholds
  *
  * Different data sources update at different frequencies:
- * - CDIP (buoy data): Updates hourly → marked stale after 1.5 hours
+ * - CDIP (buoy data): Updates hourly → marked stale after 4 hours
  * - NOAA WaveWatch: Updates every 6 hours → marked stale after 6 hours
  * - FALLBACK data: Less critical → marked stale after 12 hours
  *

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Increased CDIP staleness threshold from 1.5h to 4h -- the hourly CDIP cron doesn't reliably update every beach every cycle, causing 11 CDIP beaches (including Blacks, Oceanside Pier, PB Point) to show empty forecast states
+
 ### Removed
 
 - Dropped `_backup_beach_timezones_pr_hi` backup table (no longer needed after timezone migration)
@@ -26,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `swell_windows_overlap()` function for angular overlap computation with 0/360 wraparound handling
   - Expanded `observable_beaches` from ~45 to ~100 beaches via combined nearest_beach_id + spatial proximity (10km) with swell compatibility
   - `get_beach_observation_station()` helper for backfill spatial lookup
-  - Updated backfill-observations cron with spatial fallback for newly-covered beaches
+  - Updated backfill-observations cron with spatial fallback and station lookup cache for newly-covered beaches
+  - Optimized SQL: O(1) swell overlap (was O(360) loop), range-based index filter for accuracy queries, JOINs replacing correlated subqueries, capped relative error at 999%
 
 - **Visitor-to-Signup Conversion Uplift** -- Comprehensive conversion optimization across beach pages:
   - Glassmorphic match score teaser card with IntersectionObserver view tracking (replaces dashed pill)

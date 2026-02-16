@@ -123,16 +123,16 @@ describe("forecast-client-utils", () => {
   });
 
   describe("isDataStale", () => {
-    it("returns false for fresh CDIP data (< 1.5 hours)", () => {
+    it("returns false for fresh CDIP data (< 4 hours)", () => {
       const now = Date.now();
       const oneHourAgo = new Date(now - 60 * 60 * 1000).toISOString();
       expect(isDataStale(oneHourAgo, "CDIP")).toBe(false);
     });
 
-    it("returns true for stale CDIP data (> 1.5 hours)", () => {
+    it("returns true for stale CDIP data (> 4 hours)", () => {
       const now = Date.now();
-      const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000).toISOString();
-      expect(isDataStale(twoHoursAgo, "CDIP")).toBe(true);
+      const fiveHoursAgo = new Date(now - 5 * 60 * 60 * 1000).toISOString();
+      expect(isDataStale(fiveHoursAgo, "CDIP")).toBe(true);
     });
 
     it("returns false for fresh NOAA data (< 12 hours)", () => {
@@ -157,9 +157,9 @@ describe("forecast-client-utils", () => {
 
       expect(details.hoursSinceUpdate).toBeGreaterThan(1.9);
       expect(details.hoursSinceUpdate).toBeLessThan(2.1);
-      expect(details.threshold).toBe(1.5); // CDIP threshold
-      expect(details.isStale).toBe(true);
-      expect(details.reason).toBe("Exceeded source-specific threshold");
+      expect(details.threshold).toBe(4); // CDIP threshold
+      expect(details.isStale).toBe(false);
+      expect(details.reason).toBe("Within freshness window");
     });
 
     it("returns within freshness window for fresh data", () => {
