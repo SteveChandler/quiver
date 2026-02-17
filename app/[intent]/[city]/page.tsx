@@ -31,6 +31,9 @@ import {
   TideOverviewSection,
   TidePageContent,
   WaterTempOverviewSection,
+  TodaysIntentPlan,
+  SmartChecklist,
+  MiniLogTeaser,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
@@ -43,6 +46,7 @@ import {
   getCityTideData,
   getCityTideDataExpanded,
   getCityWaterTempHistory,
+  getIntentForecastSummary,
   type CityTideData,
   type CityTideDataExpanded,
   type CityWaterTempData,
@@ -589,6 +593,25 @@ export default async function IntentPage(props: IntentPageParams) {
   }));
   const spots: SurfSpot[] = transformBeachesToSurfSpots(beachesWithMetrics);
 
+  // Fetch forecast summary for "Today's Plan" module (needs beach data)
+  const forecastSummary = await getIntentForecastSummary(
+    beachesResult.data.slice(0, 5).map(b => ({
+      id: b.id,
+      name: b.name,
+      slug: b.slug ?? "",
+      city: b.city ?? undefined,
+      state: b.state ?? undefined,
+      skill_level: b.skill_level,
+      swell_window_center_deg: b.swell_window_center_deg,
+      swell_window_halfwidth_deg: b.swell_window_halfwidth_deg,
+      wind_offshore_deg: b.wind_offshore_deg,
+      wind_offshore_tol_deg: b.wind_offshore_tol_deg,
+      preferred_tide_ft_min: b.preferred_tide_ft_min,
+      preferred_tide_ft_max: b.preferred_tide_ft_max,
+    })),
+    params.intent
+  );
+
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   const regionLabel = `${cityMetadata.cityName}, ${cityMetadata.stateName}`;
@@ -665,6 +688,15 @@ export default async function IntentPage(props: IntentPageParams) {
           <WaterTempOverviewSection data={waterTempData} />
         )}
 
+        {/* Intent-specific CTA - positioned before map for conversion */}
+        <InlineSignupCta
+          title={definition.ctaHeadline || `Track Your ${cityMetadata.cityName} Sessions`}
+          description={definition.ctaDescription || "Log your sessions, save your favorite breaks, and get personalized spot recommendations."}
+          primaryButtonText={definition.ctaButton || "Get My Forecast"}
+          source={`intent-${params.intent}-${params.city}`}
+          className="my-8"
+        />
+
         <div className="space-y-12">
           {/* Map & List Section */}
           <section>
@@ -685,64 +717,35 @@ export default async function IntentPage(props: IntentPageParams) {
             />
           </section>
 
-          {/* Inline Signup CTA */}
-          <InlineSignupCta
-            title={`Track Your ${cityMetadata.cityName} Sessions`}
-            description="Log your sessions, save your favorite breaks, and get personalized spot recommendations."
-            source={`intent-${params.intent}-${params.city}`}
-            className="my-8"
+
+          {/* Today's Plan Module */}
+          <TodaysIntentPlan
+            summary={forecastSummary}
+            intentSlug={params.intent as SurfIntentSlug}
+            cityName={cityMetadata.cityName}
+            stateSlug={cityMetadata.state.toLowerCase()}
+            citySlug={params.city}
+            focusPoints={definition.focusPoints}
           />
 
-          {/* Editorial Focus Section */}
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              What to focus on today
-            </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {definition.focusPoints.map((point) => (
-                <li
-                  key={point}
-                  className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
-                >
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </section>
-
           <div className="grid gap-8 lg:grid-cols-2">
-            {/* Logging Tips */}
-            <section>
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Session logging tips
-              </h2>
-              <p className="text-gray-700 leading-relaxed">
-                Once you wrap the surf, drop a note in your Quiver journal with
-                tide, board, and crowd observations. Over time you&apos;ll see
-                crystal-clear patterns about when {cityMetadata.cityName} rewards this type
-                of session objective.
-              </p>
-            </section>
+            {/* Mini Log Teaser */}
+            <MiniLogTeaser
+              intentSlug={params.intent}
+              cityName={cityMetadata.cityName}
+              firstBeach={beachesResult.data[0] ? { id: beachesResult.data[0].id, name: beachesResult.data[0].name } : undefined}
+            />
 
-            {/* Checklist & Links */}
+            {/* Smart Checklist & Links */}
             <aside className="space-y-6">
-              <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/40 to-indigo-50/40 border border-blue-200/50 shadow-sm p-5">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Rapid-fire checklist
-                </h2>
-                <ul className="mt-3 space-y-2 text-sm text-gray-700">
-                  <li>
-                    Screenshot the tide window and share it with your crew.
-                  </li>
-                  <li>
-                    Pack the board that matches the fastest section above.
-                  </li>
-                  <li>
-                    Stash a backup parking plan in notes—crowds shift quickly on
-                    pulsy swells.
-                  </li>
-                </ul>
-              </div>
+              <SmartChecklist
+                bestWindow={forecastSummary?.bestWindow ?? null}
+                intentSlug={params.intent}
+                cityName={cityMetadata.cityName}
+                topBeachName={forecastSummary?.topPicks[0]?.name}
+                windForecast={forecastSummary?.conditions.wind}
+                isTomorrow={forecastSummary?.isTomorrow}
+              />
               <ContinueExploring
                 currentIntent={params.intent as IntentKey}
                 citySlug={params.city}

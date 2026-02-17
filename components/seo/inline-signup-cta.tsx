@@ -93,7 +93,7 @@ export function InlineSignupCta({
         </div>
 
         <p className="mt-4 text-xs text-gray-500">
-          Trusted by hundreds of surfers along the coast
+          Built with feedback from local surfers.
         </p>
       </div>
 

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Dead code cleanup: deleted 11 unused shadcn/ui component wrappers (`context-menu`, `hover-card`, `menubar`, `navigation-menu`, `resizable`, `input-otp`, `pagination`, `particle-background`, `toggle-group`, `carousel`, `kpi-tile`), 6 dead library/component files (`use-home-data`, `daily-best-window-email`, `heads-up-alert-email`, `ForecastQuickEmail`, `board-matching`, `landing-page-server`), and 23 dead scripts from `scripts/`
+- Removed 10 unused npm dependencies: `@radix-ui/react-context-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-menubar`, `@radix-ui/react-navigation-menu`, `@radix-ui/react-toggle-group`, `react-resizable-panels`, `input-otp`, `embla-carousel-react`, `@capacitor/status-bar`, `@resvg/resvg-js`
+- Dead export cleanup: removed unused `export` keywords and deleted entirely dead exports across 18 files — `requireAdminOrThrow`, `isAdminFromCookie`, `clearViolationTracking`, `logRateLimitSuccess`, `getRateLimitMetrics`, `shouldBlockRequest`, `getBlockedBotPatterns`, `getAllowedBotPatterns`, `generateCitySummary`, `generateCityFAQ`, `withAuthAndRateLimit`, `withFullProtection`, `ENHANCED_ANIMATIONS`, `QUIVER_MOTION`, `PHASE2_ANIMATIONS`, `IOOS_REGIONAL_SERVERS`, `MILESTONE_ORDER`, `VALIDATION_MESSAGES`, `BOARD_WAVE_MATCHING`; demoted to module-private: `getAllCitiesWithBeaches`, `requireAdmin`, `getViolationStatistics`, `HUB_REGIONS`, `ENHANCED_SHARD_SCHEDULES`, `SLUG_TO_STATE`, `VALID_STATE_SLUGS`, `REGIONAL_DATA`, `logger`; migrated `getBeachAccuracy`/`getSessionForecastSnapshots` callers to canonical `getBeachForecastAccuracy`/`getBeachSessionSnapshots` and removed aliases; removed `metersToFeet` alias in favor of `metersToFeetString`
+
+### Added
+
+- Intent page conversion upgrade: CTA repositioned above map with intent-specific copy, new data-driven "Today's Plan" module replacing static focus pills, interactive `MiniLogTeaser` session preview, shareable `SmartChecklist` with copy/share buttons, and `getIntentForecastSummary()` server action powering forecast data for longboard, least-crowded, dawn-patrol, sunset, and water-temp intent pages
+- Auth-gated `TodaysIntentPlan`: converted to client component; logged-out users see best-window times locked/blurred with a signup CTA that opens `UnifiedAuthModal`; after login, component auto-scrolls back to `#todays-plan` via sessionStorage flag; tracks `plan_unlock_click` event per intent
+
 ### Fixed
 
 - Removed VideoObject JSON-LD schema from `/cams` listing pages to fix Google Search Console "not on a watch page" warnings — these are category pages, not dedicated video watch pages

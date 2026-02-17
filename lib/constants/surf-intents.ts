@@ -24,6 +24,12 @@ export interface SurfIntentDefinition {
   metaDescription: (args: { cityName: string; topSpots: string[] }) => string;
   intro: (args: { cityName: string; stateSlug?: string }) => string;
   focusPoints: string[];
+  /** CTA headline for conversion-focused signup prompt */
+  ctaHeadline?: string;
+  /** CTA supporting description */
+  ctaDescription?: string;
+  /** CTA button text */
+  ctaButton?: string;
 }
 
 export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
@@ -70,6 +76,9 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "Forecast cues that trigger locals-only surges",
       "Nearby alternates when the primary target turns into a zoo",
     ],
+    ctaHeadline: "A crowd-aware forecast that learns your go-tos",
+    ctaDescription: "Quick post-session note → fewer crowds next time.",
+    ctaButton: "Get my forecast",
   },
   tide: {
     slug: "tide",
@@ -128,6 +137,9 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "Upwelling signals that drop temps overnight",
       "Health and recovery tips for long cold sessions",
     ],
+    ctaHeadline: "A wetsuit planner that tracks your comfort zone",
+    ctaDescription: "Log board + rubber → dialed gear recs next time.",
+    ctaButton: "Get my forecast",
   },
   longboard: {
     slug: "longboard",
@@ -146,6 +158,9 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "Classic surf spots with old-school vibes",
       "Best tide windows for logging sessions",
     ],
+    ctaHeadline: "Your longboard forecast, tuned by your sessions",
+    ctaDescription: "15-second log → smarter spot picks next time.",
+    ctaButton: "Get my forecast",
   },
   "dawn-patrol": {
     slug: "dawn-patrol",
@@ -164,6 +179,9 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "East-facing beaches for sunrise views",
       "Spots with easy parking for early arrivals",
     ],
+    ctaHeadline: "A dawn patrol forecast tuned to your schedule",
+    ctaDescription: "15-second log → better early windows next time.",
+    ctaButton: "Get my forecast",
   },
   sunset: {
     slug: "sunset",
@@ -182,5 +200,8 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
       "Golden hour photography opportunities",
       "After-work session favorites",
     ],
+    ctaHeadline: "A sunset forecast tuned to your after-work windows",
+    ctaDescription: "Log when you paddle out → better evening picks next time.",
+    ctaButton: "Get my forecast",
   },
 };
