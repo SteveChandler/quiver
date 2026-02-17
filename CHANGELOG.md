@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Removed VideoObject JSON-LD schema from `/cams` listing pages to fix Google Search Console "not on a watch page" warnings — these are category pages, not dedicated video watch pages
 - Increased CDIP staleness threshold from 1.5h to 4h -- the hourly CDIP cron doesn't reliably update every beach every cycle, causing 11 CDIP beaches (including Blacks, Oceanside Pier, PB Point) to show empty forecast states
 
 ### Removed

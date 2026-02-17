@@ -6,7 +6,6 @@ import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { CAM_REGIONS } from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { CamSchema } from "@/components/seo/cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { OceanBackground } from "@/components/ui/ocean-background";
@@ -71,8 +70,6 @@ export default async function CamsHubPage() {
           { name: "Live Surf Cams", url: `${baseUrl}/cams` },
         ]}
       />
-      <CamSchema beaches={beaches} />
-
       {/* Visible breadcrumbs */}
       <div className="px-4 pt-6 md:pt-8">
         <div className="mx-auto max-w-6xl">
