@@ -146,7 +146,7 @@ References: `ARCHITECTURE.md`, `docs/ARCHITECTURE.md`
 - **Interactive Hero Demo**: Tab switching animations addressing 74% bounce rate
 - **Onboarding Flow**: 5-step guided tour with progress visualization (addresses 0% retention)
 - **Session Wizard**: Exemplary implementation with spring physics (damping: 22, stiffness: 260), step transitions, validation feedback
-- **Animation Foundation**: Comprehensive constants in `lib/constants/animations.ts` (WIZARD_MOTION, MAP_MOTION, ENHANCED_ANIMATIONS)
+- **Animation Foundation**: Comprehensive constants in `lib/constants/animations.ts` (WIZARD_MOTION, MAP_MOTION, HOME_HEADER_MOTION)
 
 **Key Patterns**:
 

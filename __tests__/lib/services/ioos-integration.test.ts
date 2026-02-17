@@ -14,8 +14,8 @@
  */
 
 import { ForecastDataSourceManager } from "@/lib/services/forecast/data-source-manager";
-import { IOOSService, ParsedObservation } from "@/lib/services/ioos-service";
-import { CDIPService } from "@/lib/services/cdip-service";
+import { IOOSService, ParsedObservation } from "@/lib/services/ioos";
+import { CDIPService } from "@/lib/services/cdip";
 import { rankStations, StationCandidate } from "@/lib/services/ioos-station-scorer";
 import type { IOOSStation } from "@/types/ioos";
 import type { Location } from "@/types/forecast";

@@ -137,6 +137,79 @@ export function toRadians(degrees: number): number {
 }
 
 /**
+ * Calculate distance in miles between two coordinate pairs, returning null for
+ * missing or invalid inputs. Matches the signature from the legacy
+ * utils/distance.ts module.
+ *
+ * @param a Starting coordinates (optional/nullable)
+ * @param b Destination coordinates (optional/nullable)
+ * @returns Distance in miles, or null if either coordinate is missing/invalid
+ */
+export function milesBetween(
+  a?: Coordinates | null,
+  b?: Coordinates | null
+): number | null {
+  if (!a || !b) return null;
+
+  const { lat: lat1, lon: lon1 } = a;
+  const { lat: lat2, lon: lon2 } = b;
+
+  if (
+    !Number.isFinite(lat1) ||
+    !Number.isFinite(lon1) ||
+    !Number.isFinite(lat2) ||
+    !Number.isFinite(lon2)
+  ) {
+    return null;
+  }
+
+  const toRad = (degrees: number) => (degrees * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const radLat1 = toRad(lat1);
+  const radLat2 = toRad(lat2);
+
+  const sinHalfDLat = Math.sin(dLat / 2);
+  const sinHalfDLon = Math.sin(dLon / 2);
+
+  const haversine =
+    sinHalfDLat * sinHalfDLat +
+    Math.cos(radLat1) * Math.cos(radLat2) * sinHalfDLon * sinHalfDLon;
+
+  const arc = 2 * Math.asin(Math.min(1, Math.sqrt(haversine)));
+
+  return EARTH_RADIUS_MI * arc;
+}
+
+/**
+ * Format a distance in miles for display. Matches the legacy formatMiles
+ * signature from utils/distance.ts.
+ *
+ * @param miles Distance in miles
+ * @param digits Decimal precision (default 1)
+ * @returns Formatted string, e.g. "3.5 miles away", or "—" for invalid input
+ */
+export function formatMiles(miles?: number, digits = 1): string {
+  if (typeof miles !== "number" || !Number.isFinite(miles) || miles < 0) {
+    return "—";
+  }
+
+  if (miles === 0) {
+    return "0.0 miles away";
+  }
+
+  if (miles < 0.05) {
+    return "<0.1 miles away";
+  }
+
+  const factor = 10 ** Math.max(0, digits);
+  const rounded = Math.round(miles * factor) / factor;
+
+  return `${rounded.toFixed(digits)} miles away`;
+}
+
+/**
  * Format distance for display in UI components
  *
  * @param distanceMiles Distance in miles (undefined/null/0/negative returns null)

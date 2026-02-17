@@ -138,7 +138,7 @@ function createLogger(context?: string): Logger {
  * const log = logger.withContext('CDIPService');
  * log.info('Fetching buoy data'); // [CDIPService] Fetching buoy data
  */
-export const logger = createLogger();
+const logger = createLogger();
 
 /**
  * Create a logger with a specific context

@@ -14,7 +14,7 @@ export interface RegionalSurfData {
   trunksSeason: string | null;
 }
 
-export const REGIONAL_DATA: Record<string, RegionalSurfData> = {
+const REGIONAL_DATA: Record<string, RegionalSurfData> = {
   ca: { waterTempRange: "55-72", summerWetsuit: "spring suit or 3/2mm", winterWetsuit: "4/3mm", warmestMonth: "August-September", coldestMonth: "January-February", trunksSeason: null },
   hi: { waterTempRange: "73-80", summerWetsuit: "boardshorts or rashguard", winterWetsuit: "spring suit optional", warmestMonth: "September", coldestMonth: "February", trunksSeason: "year-round" },
   fl: { waterTempRange: "65-85", summerWetsuit: "boardshorts", winterWetsuit: "3/2mm", warmestMonth: "August", coldestMonth: "January", trunksSeason: "May-October" },

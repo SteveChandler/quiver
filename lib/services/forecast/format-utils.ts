@@ -61,11 +61,6 @@ export function metersToFeetString(meters: number): string {
 }
 
 /**
- * @deprecated Use metersToFeetString for clarity
- */
-export const metersToFeet = metersToFeetString;
-
-/**
  * Extract numeric wind speed from string like "15 mph"
  */
 export function extractWindSpeed(windSpeedStr: string): string {

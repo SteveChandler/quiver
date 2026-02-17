@@ -8,10 +8,10 @@
  * to reduce file size and improve maintainability.
  */
 
-import { NOAAWaveWatchService } from "../noaa-wavewatch-service";
-import { NOAACOOPSService } from "../noaa-coops-service";
-import { CDIPService } from "../cdip-service";
-import { IOOSService, ParsedObservation } from "../ioos-service";
+import { NOAAWaveWatchService } from "../noaa-wavewatch";
+import { NOAACOOPSService } from "../noaa-coops";
+import { CDIPService } from "../cdip";
+import { IOOSService, ParsedObservation } from "../ioos";
 import { rankStations, StationCandidate } from "../ioos-station-scorer";
 import {
   IOOS_OBSERVATION_CONFIG,

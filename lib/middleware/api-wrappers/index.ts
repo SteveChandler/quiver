@@ -97,11 +97,7 @@ export {
 // PROTECTION WRAPPERS
 // =============================================================================
 
-export {
-  withAuthAndRateLimit,
-  withFullProtection,
-  withProtection,
-} from "./protection-wrappers";
+export { withProtection } from "./protection-wrappers";
 
 // =============================================================================
 // RESPONSE UTILITIES (RE-EXPORTS FROM API-UTILS)

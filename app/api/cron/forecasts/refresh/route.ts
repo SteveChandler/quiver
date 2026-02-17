@@ -1,6 +1,6 @@
 import { createErrorResponse, createSuccessResponse, handleApiError, validateCronRequest } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { CDIPService } from "@/lib/services/cdip-service";
+import { CDIPService } from "@/lib/services/cdip";
 import { NwsWindService } from "@/lib/services/nws-wind-service";
 import {
   getNearestNDBCStation,
@@ -10,7 +10,7 @@ import {
   getNearestTideStation,
   fetchHourlyTidePredictions,
 } from "@/lib/services/noaa-tide-service";
-import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
+import { NOAACOOPSService } from "@/lib/services/noaa-coops";
 import { fanOutTidePointsToBeaches } from "../../../../../lib/services/tide-forecast-batch-utils";
 import SunCalc from "suncalc";
 

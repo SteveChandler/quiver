@@ -29,7 +29,7 @@ export const GET = withProtection(handler, {
 | **Protect a public endpoint** | `withProtection(handler, { rateLimit: { key: "public-default" }, botBlocking: { enabled: true } })` |
 | **Require authentication** | `withProtection(handler, { auth: { required: true } })` |
 | **Require auth + rate limiting** | `withProtection(handler, { auth: { required: true }, rateLimit: { key: "authenticated-default" } })` |
-| **Full protection (auth + rate + bot)** | `withFullProtection(handler, { auth: { required: true }, rateLimit: { key: "authenticated-default" }, botBlocking: { enabled: true } })` |
+| **Full protection (auth + rate + bot)** | `withProtection(handler, { auth: { required: true }, rateLimit: { key: "authenticated-default" }, botBlocking: { enabled: true } })` |
 
 ---
 
@@ -72,13 +72,13 @@ START: New API route
 |       |   |   |   |
 |       |   |   |   +-- YES --> Need bot blocking too?
 |       |   |   |   |   |
-|       |   |   |   |   +-- YES --> withFullProtection(handler, {
+|       |   |   |   |   +-- YES --> withProtection(handler, {
 |       |   |   |   |   |             auth: { required: true },
 |       |   |   |   |   |             rateLimit: { key: "authenticated-default" },
 |       |   |   |   |   |             botBlocking: { enabled: true }
 |       |   |   |   |   |           })
 |       |   |   |   |   |
-|       |   |   |   |   +-- NO  --> withAuthAndRateLimit(handler, {
+|       |   |   |   |   +-- NO  --> withProtection(handler, {
 |       |   |   |   |               auth: { required: true },
 |       |   |   |   |               rateLimit: { key: "authenticated-default" }
 |       |   |   |   |             })
@@ -190,17 +190,6 @@ export const POST = withProtection(handler, {
 });
 ```
 
-**Or use convenience wrapper:**
-
-```typescript
-import { withAuthAndRateLimit } from "@/lib/middleware/api-wrappers";
-
-export const POST = withAuthAndRateLimit(handler, {
-  auth: { required: true },
-  rateLimit: { key: "authenticated-default" }
-});
-```
-
 ---
 
 ### Pattern 4: Authenticated Endpoint (Full Protection)
@@ -214,18 +203,6 @@ async function handler(req: NextRequest, { user, supabase }: AuthenticatedContex
 }
 
 export const POST = withProtection(handler, {
-  auth: { required: true },
-  rateLimit: { key: "authenticated-default" },
-  botBlocking: { enabled: true }
-});
-```
-
-**Or use convenience wrapper:**
-
-```typescript
-import { withFullProtection } from "@/lib/middleware/api-wrappers";
-
-export const POST = withFullProtection(handler, {
   auth: { required: true },
   rateLimit: { key: "authenticated-default" },
   botBlocking: { enabled: true }
@@ -548,9 +525,7 @@ import { withAuth } from "@/lib/middleware/api-wrappers";
 import {
   withProtection,
   withAuth,
-  withAuthAndRateLimit,
   withBotBlockingAndRateLimit,
-  withFullProtection,
   type AuthenticatedContext,
   type OptionalAuthHandler,
   createSuccessResponse,
@@ -902,8 +877,6 @@ import {
 ```typescript
 import {
   withBotBlockingAndRateLimit, // Bot blocking + rate limiting
-  withAuthAndRateLimit,        // Auth + rate limiting
-  withFullProtection,          // All protections
 } from "@/lib/middleware/api-wrappers";
 ```
 

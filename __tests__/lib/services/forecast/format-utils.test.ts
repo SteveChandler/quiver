@@ -2,7 +2,7 @@ import {
   formatPeriodSeconds,
   formatWaveFeet,
   formatFeet,
-  metersToFeet,
+  metersToFeetString,
   extractWindSpeed,
 } from "@/lib/services/forecast/format-utils";
 
@@ -69,13 +69,13 @@ describe("formatFeet", () => {
   });
 });
 
-describe("metersToFeet", () => {
+describe("metersToFeetString", () => {
   it("converts meters to feet string", () => {
-    expect(metersToFeet(1)).toBe("3.3 ft");
+    expect(metersToFeetString(1)).toBe("3.3 ft");
   });
 
   it("handles sub-foot values with decimal", () => {
-    expect(metersToFeet(0.2)).toBe("0.7 ft");
+    expect(metersToFeetString(0.2)).toBe("0.7 ft");
   });
 });
 

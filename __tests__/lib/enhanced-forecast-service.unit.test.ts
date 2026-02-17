@@ -1,7 +1,7 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 
 // Mock CDIP Service with all required methods
-jest.mock("@/lib/services/cdip-service", () => {
+jest.mock("@/lib/services/cdip", () => {
   return {
     CDIPService: jest.fn().mockImplementation(() => {
       return {
@@ -13,7 +13,7 @@ jest.mock("@/lib/services/cdip-service", () => {
 });
 
 // Mock COOPS Service with all tide methods
-jest.mock("@/lib/services/noaa-coops-service", () => {
+jest.mock("@/lib/services/noaa-coops", () => {
   return {
     NOAACOOPSService: jest.fn().mockImplementation(() => {
       return {
@@ -32,7 +32,7 @@ jest.mock("@/lib/services/noaa-coops-service", () => {
 });
 
 // Mock WaveWatch Service
-jest.mock("@/lib/services/noaa-wavewatch-service", () => {
+jest.mock("@/lib/services/noaa-wavewatch", () => {
   return {
     NOAAWaveWatchService: jest.fn().mockImplementation(() => {
       return {

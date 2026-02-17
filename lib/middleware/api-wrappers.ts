@@ -63,8 +63,6 @@ export {
   withBotBlockingAndRateLimit,
 
   // Protection wrappers
-  withAuthAndRateLimit,
-  withFullProtection,
   withProtection,
 
   // Response utilities (re-exports from api-utils)

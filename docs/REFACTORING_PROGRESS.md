@@ -16,9 +16,7 @@
    - `withErrorHandler()` - HOF for centralized try-catch
    - `withRateLimit()` - HOF for rate limiting (backward compatible with string keys)
    - `withBotBlockingAndRateLimit()` - Combined bot blocking + rate limiting
-   - `withAuthAndRateLimit()` - Combined auth + rate limiting
-   - `withFullProtection()` - All protections: bot + rate + auth
-   - `withProtection()` - **NEW: Unified declarative wrapper** for any combination
+   - `withProtection()` - Unified declarative wrapper for any combination
    - `validateUuidParam()` - Validates UUID params, returns discriminated union
    - `requireOwnership()` - Checks resource ownership
    - Re-exports: `createSuccessResponse`, `createValidationError`, `createAuthError`, `createNotFoundError`, `methodNotAllowed`, `handleApiError`
@@ -287,6 +285,4 @@ export const GET = withAuth(
 | `withRateLimit()` | Rate limiting (backward compatible) |
 | `withBotBlocking()` | Bot detection/blocking |
 | `withBotBlockingAndRateLimit()` | Bot + rate limit combined |
-| `withAuthAndRateLimit()` | Auth + rate limit combined |
-| `withFullProtection()` | All protections combined |
-| `withProtection()` | **Unified declarative wrapper** |
+| `withProtection()` | Unified declarative wrapper |

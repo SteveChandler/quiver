@@ -4,7 +4,7 @@
  */
 
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
-import { CDIPService } from "@/lib/services/cdip-service";
+import { CDIPService } from "@/lib/services/cdip";
 import { CDIPBuoyData } from "@/types/forecast";
 
 // Create spy for Supabase upsert
@@ -23,7 +23,7 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // Mock CDIP Service
-jest.mock("@/lib/services/cdip-service", () => ({
+jest.mock("@/lib/services/cdip", () => ({
   CDIPService: jest.fn(() => ({
     fetchBuoyData: jest.fn(),
     fetchMultipleStations: jest.fn(),
@@ -34,7 +34,7 @@ jest.mock("@/lib/services/cdip-service", () => ({
 }));
 
 // Mock existing NOAA services
-jest.mock("@/lib/services/noaa-wavewatch-service", () => ({
+jest.mock("@/lib/services/noaa-wavewatch", () => ({
   NOAAWaveWatchService: jest.fn(() => ({
     fetchWaveWatchForecast: jest.fn(() =>
       Promise.resolve({
@@ -64,7 +64,7 @@ jest.mock("@/lib/services/noaa-wavewatch-service", () => ({
   })),
 }));
 
-jest.mock("@/lib/services/noaa-coops-service", () => ({
+jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn(() => ({
     getStationForLocation: jest.fn(() => "9414290"),
     fetchCOOPSData: jest.fn(() => Promise.resolve({ tides: [], currents: [] })),

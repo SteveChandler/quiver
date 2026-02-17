@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Follow-up refactoring pass after dead code cleanup: removed dead `getViolationStatistics` function from `lib/monitoring/rate-limit-telemetry.ts` (was module-private and never called); stripped stale commented-out code blocks (deferred Sentry/analytics TODOs) from the same file; updated `docs/API_MIDDLEWARE.md`, `docs/API_MIDDLEWARE_REFERENCE.md`, `docs/REFACTORING_PROGRESS.md`, and `docs/DESIGN_PRINCIPLES.md` to remove references to deleted exports (`withAuthAndRateLimit`, `withFullProtection`, `ENHANCED_ANIMATIONS`)
+
 ### Removed
 
 - Dead code cleanup: deleted 11 unused shadcn/ui component wrappers (`context-menu`, `hover-card`, `menubar`, `navigation-menu`, `resizable`, `input-otp`, `pagination`, `particle-background`, `toggle-group`, `carousel`, `kpi-tile`), 6 dead library/component files (`use-home-data`, `daily-best-window-email`, `heads-up-alert-email`, `ForecastQuickEmail`, `board-matching`, `landing-page-server`), and 23 dead scripts from `scripts/`

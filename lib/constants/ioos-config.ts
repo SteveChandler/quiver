@@ -21,24 +21,6 @@ export const IOOS_API_CONFIG: IOOSServiceConfig = {
 };
 
 /**
- * Regional ERDDAP servers (fallbacks and specialized endpoints)
- */
-export const IOOS_REGIONAL_SERVERS: Record<IOOSNetwork, string> = {
-  PacIOOS: "https://pae-paha.pacioos.hawaii.edu/erddap",
-  NANOOS: "https://nvs.nanoos.org/erddap",
-  CeNCOOS: "https://erddap.cencoos.org/erddap",
-  SCCOOS: "https://erddap.sccoos.org/erddap",
-  GCOOS: "https://erddap.gcoos.org/erddap",
-  SECOORA: "https://erddap.secoora.org/erddap",
-  MARACOOS: "https://erddap.maracoos.org/erddap",
-  NERACOOS: "https://www.neracoos.org/erddap",
-  GLOS: "https://glbuoys.glos.org/erddap",
-  AOOS: "https://erddap.aoos.org/erddap",
-  NDBC: "https://erddap.ioos.us/erddap",
-  unknown: "https://erddap.sensors.ioos.us/erddap",
-};
-
-/**
  * ERDDAP endpoints for different data types
  */
 export const IOOS_ENDPOINTS = {

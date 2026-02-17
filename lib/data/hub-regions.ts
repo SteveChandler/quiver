@@ -16,7 +16,7 @@ export interface HubRegion {
   zoom: number;
 }
 
-export const HUB_REGIONS: Record<string, HubRegion> = {
+const HUB_REGIONS: Record<string, HubRegion> = {
   "southern-california": {
     slug: "southern-california",
     name: "Southern California",

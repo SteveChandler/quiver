@@ -664,8 +664,3 @@ export async function getUserForecastAccuracySummary(): Promise<
   });
 }
 
-/**
- * Function aliases for backward compatibility with hooks
- */
-export const getBeachAccuracy = getBeachForecastAccuracy;
-export const getSessionForecastSnapshots = getBeachSessionSnapshots;

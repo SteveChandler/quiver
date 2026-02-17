@@ -21,7 +21,7 @@ import {
   findMagicHour,
   type ForecastSlot,
   type BeachMetadata,
-} from '@/lib/services/magic-hour-finder';
+} from '@/lib/services/magic-hour';
 
 describe('Magic Hour Finder Service', () => {
   // ============================================================================

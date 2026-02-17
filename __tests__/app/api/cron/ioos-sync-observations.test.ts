@@ -22,12 +22,12 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-jest.mock("@/lib/services/ioos-service", () => ({
+jest.mock("@/lib/services/ioos", () => ({
   IOOSService: jest.fn(),
 }));
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { IOOSService } from "@/lib/services/ioos-service";
+import { IOOSService } from "@/lib/services/ioos";
 
 describe("IOOS Sync - Observation Sync", () => {
   let mockSupabase: any;

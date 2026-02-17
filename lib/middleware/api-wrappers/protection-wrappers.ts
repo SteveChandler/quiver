@@ -11,95 +11,10 @@ import type {
   AuthenticatedHandler,
   OptionalAuthHandler,
   ProtectionOptions,
-  WithRateLimitOptions,
 } from "./types";
 import { withAuth } from "./auth-wrapper";
 import { withErrorHandler } from "./error-handler";
 import { withRateLimit } from "./rate-limit-wrapper";
-
-/**
- * Combined auth + rate limiting wrapper
- *
- * Pre-composed wrapper for authenticated endpoints with rate limits.
- *
- * @param handler - Handler receiving AuthenticatedContext
- * @param options - Auth and rate limit configuration
- * @returns Wrapped handler
- *
- * @example Required auth with rate limiting
- * ```ts
- * export const POST = withAuthAndRateLimit(
- *   async (req, { user, supabase }) => {
- *     return createSuccessResponse({ userId: user.id });
- *   },
- *   {
- *     auth: { required: true },
- *     rateLimit: { key: 'authenticated-default' }
- *   }
- * );
- * ```
- */
-export function withAuthAndRateLimit(
-  handler: AuthenticatedHandler | OptionalAuthHandler,
-  options: {
-    auth: { required: boolean; errorMessage?: string };
-    rateLimit: WithRateLimitOptions;
-    errorMessage?: string;
-  }
-): RouteHandler {
-  const authHandler = withAuth(handler, {
-    optional: !options.auth.required,
-    authErrorMessage: options.auth.errorMessage,
-    errorMessage: options.errorMessage,
-  });
-
-  return withRateLimit(authHandler, options.rateLimit);
-}
-
-/**
- * Full protection suite wrapper
- *
- * Bot blocking + rate limiting + authentication + error handling.
- * All protections applied in optimal order.
- *
- * @param handler - Handler receiving AuthenticatedContext
- * @param options - Full protection configuration
- * @returns Wrapped handler
- *
- * @example
- * ```ts
- * export const POST = withFullProtection(
- *   async (req, { user, supabase }) => {
- *     return createSuccessResponse({ data });
- *   },
- *   {
- *     auth: { required: true },
- *     rateLimit: { key: 'authenticated-default' },
- *     botBlocking: { enabled: true }
- *   }
- * );
- * ```
- */
-export function withFullProtection(
-  handler: AuthenticatedHandler | OptionalAuthHandler,
-  options: ProtectionOptions
-): RouteHandler {
-  let wrappedHandler: RouteHandler = withAuth(handler, {
-    optional: options.auth ? !options.auth.required : true,
-    authErrorMessage: options.auth?.errorMessage,
-    errorMessage: options.errorHandling?.errorMessage,
-  });
-
-  if (options.rateLimit) {
-    wrappedHandler = withRateLimit(wrappedHandler, options.rateLimit);
-  }
-
-  if (options.botBlocking?.enabled) {
-    wrappedHandler = withBotBlocking(wrappedHandler);
-  }
-
-  return wrappedHandler;
-}
 
 /**
  * Unified protection wrapper with declarative configuration

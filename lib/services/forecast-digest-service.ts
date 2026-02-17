@@ -15,7 +15,7 @@ import {
   BeachMetadata,
   EnhancedForecastEntity,
   OptimalWindow,
-} from '@/lib/services/magic-hour-finder';
+} from '@/lib/services/magic-hour';
 
 // ============================================================================
 // Type Definitions

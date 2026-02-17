@@ -175,15 +175,6 @@ export const MODE_STYLES = {
   },
 } as const;
 
-// Validation messages
-export const VALIDATION_MESSAGES = {
-  location: "Please select a beach location",
-  date: "Please select a date",
-  time: "Please select a time",
-  board: "Please select a board",
-  notes: "Please add some notes about your session",
-} as const;
-
 // Helper functions
 export function getFormText<M extends SessionFormMode>(
   mode: M

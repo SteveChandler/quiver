@@ -3,7 +3,7 @@
  * Tests data fetching from CDIP API for Southern California buoy stations
  */
 
-import { CDIPService, transformToCDIPBuoyData } from "@/lib/services/cdip-service";
+import { CDIPService, transformToCDIPBuoyData } from "@/lib/services/cdip";
 import {
   CDIPBuoyData,
   CDIPMetaResponse,

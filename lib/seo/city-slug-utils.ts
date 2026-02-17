@@ -26,14 +26,14 @@ export const US_STATE_SLUGS: Record<string, string> = {
 /**
  * Reverse mapping: slug to state abbreviation.
  */
-export const SLUG_TO_STATE: Record<string, string> = Object.fromEntries(
+const SLUG_TO_STATE: Record<string, string> = Object.fromEntries(
   Object.entries(US_STATE_SLUGS).map(([abbrev, slug]) => [slug, abbrev])
 );
 
 /**
  * All valid state slugs as a Set for O(1) lookup.
  */
-export const VALID_STATE_SLUGS = new Set(Object.values(US_STATE_SLUGS));
+const VALID_STATE_SLUGS = new Set(Object.values(US_STATE_SLUGS));
 
 export interface CityStateRecord {
   city: string;

@@ -167,26 +167,3 @@ export function detectBot(request: NextRequest): BotDetectionResult {
   };
 }
 
-/**
- * Check if request should be blocked
- *
- * @param request - NextRequest object
- * @returns true if request should be blocked
- */
-export function shouldBlockRequest(request: NextRequest): boolean {
-  return detectBot(request).shouldBlock;
-}
-
-/**
- * Get a list of all blocked bot patterns (for documentation/logging)
- */
-export function getBlockedBotPatterns(): readonly string[] {
-  return BOT_USER_AGENTS;
-}
-
-/**
- * Get a list of all allowed bot patterns (for documentation/logging)
- */
-export function getAllowedBotPatterns(): readonly string[] {
-  return ALLOWED_BOTS;
-}

@@ -1,4 +1,4 @@
-import { CDIPService } from "@/lib/services/cdip-service";
+import { CDIPService } from "@/lib/services/cdip";
 
 jest.mock("@/lib/utils/rate-limiter", () => ({
   CDIPRateLimiter: {
