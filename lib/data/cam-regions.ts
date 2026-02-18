@@ -83,6 +83,7 @@ const SOCAL_CITIES = new Set([
   "Del Mar",
   "Encinitas",
   "Carlsbad",
+  "Oceanside",
   "Dana Point",
   "San Clemente",
   "Newport Beach",
