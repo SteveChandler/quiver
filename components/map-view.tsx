@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
@@ -10,7 +9,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { MapContent } from "@/components/map/map-content";
 import { BeachList } from "@/components/map/beach-list";
-import { SelectedBeachCard } from "@/components/map/selected-beach-card";
 import { MapSidebar } from "@/components/map/map-sidebar";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
@@ -21,8 +19,6 @@ import type { Beach } from "@/types/database";
 export function MapView() {
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
-  const [portalMounted, setPortalMounted] = useState(false);
-  useEffect(() => setPortalMounted(true), []);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
@@ -52,7 +48,6 @@ export function MapView() {
     loading: locationLoading,
     getUserLocation,
     useDefaultLocation,
-    resetAttempt,
   } = useGeolocation({ useLastBeach: false });
 
   const {
@@ -66,8 +61,6 @@ export function MapView() {
     filters,
     loadBeaches,
     loadNearbyBeaches,
-    loadNearbyBeachesForSelected,
-    clearSelectedBeachNearby,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,
@@ -129,13 +122,10 @@ export function MapView() {
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
-      // Load beaches near the selected beach (not user location)
-      // NOTE: This was used for NearbyBeachScroll component (removed). Kept for potential future use.
-      loadNearbyBeachesForSelected(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [setSelectedBeach, loadNearbyBeachesForSelected]
+    [setSelectedBeach]
   );
 
   const handleClearSearch = useCallback(() => {
@@ -163,6 +153,10 @@ export function MapView() {
     },
     [userLocation]
   );
+
+  const handleMapClick = useCallback(() => {
+    setSelectedBeach(null);
+  }, [setSelectedBeach]);
 
   const handleBoundsChange = useCallback(
     (bounds: { west: number; south: number; east: number; north: number }) => {
@@ -257,7 +251,6 @@ export function MapView() {
         onNearMe={() => {
           // Clear selection so map centers on user location
           setSelectedBeach(null);
-          clearSelectedBeachNearby(); // Clear selected beach's nearby list
           clearSearch();
           lastLocationRef.current = null; // Allow reload at same location
           getUserLocation(true); // Force fresh geolocation
@@ -345,6 +338,8 @@ export function MapView() {
               onBeachSelect={handleBeachSelect}
               onBoundsChange={handleBoundsChange}
               onWaveHeightsChange={handleWaveHeightsChange}
+              onMapClick={isMobile ? handleMapClick : undefined}
+              autoNavigateOnMarkerClick={!isMobile}
             />
 
           </div>
@@ -357,27 +352,11 @@ export function MapView() {
               selectedBeach={selectedBeach}
               userLocation={userLocation}
               onBeachSelect={handleBeachSelect}
+              getDistanceFromUser={getDistanceFromUser}
+              onDeselectBeach={handleMapClick}
             />
           )}
 
-          {/* Mobile: Selected Beach Quick View - portaled to document.body
-              so it shares the same stacking context as the Vaul drawer portal.
-              bottom offset must match SNAP_POINTS[0] (10vh) in map-bottom-sheet.tsx */}
-          {portalMounted && isMobile && selectedBeach && createPortal(
-            <div
-              className="pointer-events-none fixed inset-x-0 z-[70] px-2"
-              style={{ bottom: "calc(10dvh + 12px)" }}
-            >
-              <div className="pointer-events-auto" data-vaul-no-drag>
-                <SelectedBeachCard
-                  selectedBeach={selectedBeach}
-                  getDistanceFromUser={getDistanceFromUser}
-                  userLocation={userLocation}
-                />
-              </div>
-            </div>,
-            document.body
-          )}
         </div>
       ) : (
         <BeachList

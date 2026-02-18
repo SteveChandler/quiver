@@ -65,6 +65,23 @@ describe("SelectedBeachCard", () => {
     expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/blacks-beach");
   });
 
+  it("calls onClose and does not navigate when X button is clicked", () => {
+    const onClose = jest.fn();
+    render(
+      <SelectedBeachCard
+        selectedBeach={beach}
+        getDistanceFromUser={() => "1.2 mi away"}
+        userLocation={{ lat: 32.88, lon: -117.24 }}
+        onClose={onClose}
+      />
+    );
+
+    const closeButton = screen.getByLabelText("Deselect beach");
+    fireEvent.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it("does not render a link when no valid beach URL exists", () => {
     render(
       <SelectedBeachCard
