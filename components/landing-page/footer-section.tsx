@@ -1,62 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import { Instagram, Play } from "lucide-react";
-
-const FOOTER_LINKS = {
-  about: [
-    { name: "About Quiver", href: "/about" },
-    { name: "Features", href: "/features" },
-    { name: "How It Works", href: "/features" },
-  ],
-  beaches: [
-    { name: "United States", href: "/beaches/usa" },
-    { name: "Mexico", href: "/beaches/mexico" },
-  ],
-  guides: [
-    { name: "7-Day Outlook", href: "/forecast" },
-    { name: "Live Surf Cams", href: "/cams" },
-    { name: "Beginner Spots", href: "/beginner/ca" },
-    { name: "Tide Charts", href: "/tide/san-diego" },
-    { name: "Dawn Patrol", href: "/dawn-patrol/ca" },
-    { name: "Sunset Sessions", href: "/sunset/ca" },
-    { name: "Less Crowded", href: "/least-crowded/ca" },
-    { name: "Longboard Spots", href: "/longboard/ca" },
-    { name: "Water Temp", href: "/water-temp/san-diego" },
-  ],
-  support: [
-    { name: "Help Center", href: "#" },
-    { name: "Contact Us", href: "#" },
-    { name: "Community Guidelines", href: "#" },
-  ],
-  legal: [
-    { name: "Privacy Policy", href: "/privacy" },
-    { name: "Terms of Service", href: "/terms" },
-    { name: "Cookie Policy", href: "#" },
-  ],
-} as const;
-
-/**
- * Render a footer link - uses Next.js Link for internal routes,
- * native anchor for placeholder (#) links
- */
-function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const isInternalRoute = href.startsWith("/");
-
-  if (isInternalRoute) {
-    return (
-      <Link href={href} className="hover:text-white transition-colors">
-        {children}
-      </Link>
-    );
-  }
-
-  return (
-    <a href={href} className="hover:text-white transition-colors">
-      {children}
-    </a>
-  );
-}
+import { FOOTER_LINKS } from "@/lib/constants/footer-links";
 
 export function FooterSection() {
   const currentYear = new Date().getFullYear();
@@ -65,7 +9,7 @@ export function FooterSection() {
     <footer className="bg-dark-grey text-white py-12 md:py-16 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-8 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-10">
           {/* Brand Section */}
           <div className="md:col-span-2">
             <h3 className="text-3xl font-roboto font-bold mb-3">Quiver</h3>
@@ -106,7 +50,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.about.map((link) => (
                 <li key={link.name}>
-                  <FooterLink href={link.href}>{link.name}</FooterLink>
+                  <Link href={link.href} className="hover:text-white transition-colors">{link.name}</Link>
                 </li>
               ))}
             </ul>
@@ -120,7 +64,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.beaches.map((link) => (
                 <li key={link.name}>
-                  <FooterLink href={link.href}>{link.name}</FooterLink>
+                  <Link href={link.href} className="hover:text-white transition-colors">{link.name}</Link>
                 </li>
               ))}
             </ul>
@@ -134,21 +78,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.guides.map((link) => (
                 <li key={link.name}>
-                  <FooterLink href={link.href}>{link.name}</FooterLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h4 className="font-roboto font-semibold mb-4 text-lg">
-              Support / Contact
-            </h4>
-            <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
-              {FOOTER_LINKS.support.map((link) => (
-                <li key={link.name}>
-                  <FooterLink href={link.href}>{link.name}</FooterLink>
+                  <Link href={link.href} className="hover:text-white transition-colors">{link.name}</Link>
                 </li>
               ))}
             </ul>
@@ -160,7 +90,7 @@ export function FooterSection() {
             <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
               {FOOTER_LINKS.legal.map((link) => (
                 <li key={link.name}>
-                  <FooterLink href={link.href}>{link.name}</FooterLink>
+                  <Link href={link.href} className="hover:text-white transition-colors">{link.name}</Link>
                 </li>
               ))}
             </ul>

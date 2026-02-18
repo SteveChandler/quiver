@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `FooterSection`: removed dead `FooterLink` wrapper (external branch was unreachable — all `FOOTER_LINKS` entries are internal routes); replaced usages with `Link` directly; removed `"use client"` directive, making the component a server component
+- `BeachBreadcrumb`: replaced trailing-space-prone template literal className with `cn()` utility
+- Breadcrumbs: beach detail pages now show `Home › State › City › Beach` (USA) / `Home › City › Beach` (international) instead of `← Back to Map`
+- Breadcrumbs: city browse pages now show `Home › United States › State › City` instead of `← Back to Map`
+- Breadcrumbs: city browse standard and editorial layouts now derive country/state labels and URLs from `params.country` instead of hardcoding "United States" and `/beaches/usa`; Mexico pages now render "Mexico" with correct `/beaches/mexico/...` paths; breadcrumb separator `<span>` elements now carry `aria-hidden="true"`
+- Footer: extracted shared `FOOTER_LINKS` to `lib/constants/footer-links.ts`, removed 4 dead `#` links and 1 duplicate from landing footer
 - Follow-up refactoring pass after dead code cleanup: removed dead `getViolationStatistics` function from `lib/monitoring/rate-limit-telemetry.ts` (was module-private and never called); stripped stale commented-out code blocks (deferred Sentry/analytics TODOs) from the same file; updated `docs/API_MIDDLEWARE.md`, `docs/API_MIDDLEWARE_REFERENCE.md`, `docs/REFACTORING_PROGRESS.md`, and `docs/DESIGN_PRINCIPLES.md` to remove references to deleted exports (`withAuthAndRateLimit`, `withFullProtection`, `ENHANCED_ANIMATIONS`)
 
 ### Removed
@@ -19,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `BreadcrumbList` JSON-LD structured data on city browse pages for SERP breadcrumb display
+- "More Surf Tools" cross-link section on `/cams` hub (forecast, beaches, best-time-to-surf)
+- Footer links to `/for-businesses` and `/for-surf-schools` (previously zero inbound links)
 - Intent page conversion upgrade: CTA repositioned above map with intent-specific copy, new data-driven "Today's Plan" module replacing static focus pills, interactive `MiniLogTeaser` session preview, shareable `SmartChecklist` with copy/share buttons, and `getIntentForecastSummary()` server action powering forecast data for longboard, least-crowded, dawn-patrol, sunset, and water-temp intent pages
 - Auth-gated `TodaysIntentPlan`: converted to client component; logged-out users see best-window times locked/blurred with a signup CTA that opens `UnifiedAuthModal`; after login, component auto-scrolls back to `#todays-plan` via sessionStorage flag; tracks `plan_unlock_click` event per intent
 

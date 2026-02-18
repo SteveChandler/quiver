@@ -147,6 +147,27 @@ export default async function CamsHubPage() {
         </div>
       </div>
 
+      {/* More Surf Tools */}
+      <div className="px-4 pb-12">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="mb-4 font-roboto text-xl font-semibold text-gray-900">
+            More Surf Tools
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[
+              { href: "/forecast", title: "7-Day Forecast", desc: "Regional surf forecasts with swell and wind analysis" },
+              { href: "/beaches/usa", title: "Browse All Beaches", desc: "Find surf spots by state and city" },
+              { href: "/best-time-to-surf", title: "Best Time to Surf", desc: "Month-by-month surf season guides" },
+            ].map((card) => (
+              <Link key={card.href} href={card.href} className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group">
+                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{card.title}</h3>
+                <p className="text-sm text-gray-600">{card.desc}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Bottom CTA */}
       <div className="px-4 pb-20">
         <div className="mx-auto max-w-3xl text-center">
