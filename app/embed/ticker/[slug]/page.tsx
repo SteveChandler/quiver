@@ -4,19 +4,19 @@ import { getFreshForecastFromCache } from "@/lib/utils/forecast-server-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import type { ConditionsData } from "@/types/conditions";
-import { EmbedConditionsWidget } from "./embed-conditions-widget";
+import { EmbedTickerWidget } from "./embed-ticker-widget";
 
 export const revalidate = 300; // 5-minute ISR caching
 
-interface EmbedConditionsPageProps {
+interface EmbedTickerPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ theme?: string }>;
 }
 
-export default async function EmbedConditionsPage({
+export default async function EmbedTickerPage({
   params,
   searchParams,
-}: EmbedConditionsPageProps) {
+}: EmbedTickerPageProps) {
   const { slug } = await params;
   const { theme } = await searchParams;
 
@@ -24,39 +24,39 @@ export default async function EmbedConditionsPage({
   if (!beach) return notFound();
 
   // Fetch current forecast
-  let currentConditions: ConditionsData = {};
+  let tickerData: ConditionsData = {};
   try {
     const result = await getFreshForecastFromCache(beach.id, 2);
     if (result?.forecasts?.length) {
-      // Use the most recent forecast as "current conditions"
+      // Find the forecast closest to now by time proximity
       const now = Date.now();
       const sorted = [...result.forecasts].sort((a, b) => {
-        const tA = new Date(`${a.forecast_date}T${a.forecast_time || "00:00"}`).getTime();
-        const tB = new Date(`${b.forecast_date}T${b.forecast_time || "00:00"}`).getTime();
+        const tA = new Date(a.forecast_at).getTime();
+        const tB = new Date(b.forecast_at).getTime();
         return Math.abs(tA - now) - Math.abs(tB - now);
       });
       const closest = sorted[0];
       if (closest) {
-        currentConditions = forecastToConditionsData(closest);
+        tickerData = forecastToConditionsData(closest);
       }
     }
   } catch {
-    // Render with empty data
+    // Render with empty data on fetch failure
   }
 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-  // Build canonical beach URL using utility
+  // Build canonical beach URL using utility, with ticker-specific UTM campaign
   const beachPath = buildBeachUrl(beach);
-  const beachUrl = `${siteUrl}${beachPath}?utm_source=embed&utm_medium=widget&utm_campaign=conditions`;
+  const beachUrl = `${siteUrl}${beachPath}?utm_source=embed&utm_medium=widget&utm_campaign=ticker`;
 
   return (
-    <EmbedConditionsWidget
+    <EmbedTickerWidget
       beachName={beach.name}
       beachUrl={beachUrl}
       slug={slug}
-      conditions={currentConditions}
+      data={tickerData}
       theme={theme === "dark" ? "dark" : "light"}
     />
   );

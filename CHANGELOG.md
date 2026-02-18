@@ -7,7 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ConditionsTicker` in-app component (`components/conditions/conditions-ticker.tsx`): reusable at-a-glance conditions strip showing waves, swell, wind, water temp, and tide with Lucide icons, dark/light theme support, loading skeleton, and ARIA labels
+- `ConditionsData` shared type (`types/conditions.ts`) and `forecastToConditionsData` mapper (`lib/mappers/conditions-mappers.ts`) for converting `EnhancedForecastEntity` to ticker-compatible shape; embed widgets re-export aliases for backward compat
+- `buildConditionsCards` pure function (`lib/utils/conditions-card-builder.ts`) extracted from embed ticker — returns data objects instead of JSX for testability
+- Beach detail "at a glance" strip between stats grid and action buttons
+- Home screen conditions ticker for home beach (dark theme, `useDataFetcher` pattern)
+- Landing page conditions ticker showing top-scored beach conditions (light theme)
+- 45 tests across 6 suites covering card builder, ticker component, and all three integration points
+
+### Removed
+
+- Dead code cleanup: deleted `TodaysForecast`, `FallbackForecastDisplay`, and `ConditionsSnapshot` components plus their test files (5 files, zero real imports)
+
 ### Changed
+
+- Rebuilt mobile map to AllTrails-style bottom sheet pattern: selected beach card now renders inside the Vaul drawer (same DOM tree = reliable mobile taps), marker taps snap sheet to 40% showing detail card, map canvas taps deselect, X button on card deselects; removed `createPortal` approach and debug coordinate popup; desktop sidebar + auto-navigation unchanged
+
+### Added
+
+- Scrolling surf ticker embed widget at `/embed/ticker/[slug]`: horizontal stock-ticker–style strip showing waves, swell, wind, water temp, and tide data; CSS keyframe scroll with hover-pause, `prefers-reduced-motion` static fallback, light/dark theme, and `utm_campaign=ticker` attribution link
+- 3-way intel voting system: `intel_votes` table with `helpful`/`off`/`confirmed` types, cached counters on `intel_posts`, trigger-maintained counts, trust-weighted report auto-hide, and time-decayed ranking RPC (`rank_score`)
+- `IntelVoteButtons` component (`components/intel/intel-vote-buttons.tsx`): shared 3-button voting row (Helpful / Off / Confirmed) with optimistic toggle logic and `getVoteConfidenceBadge` confidence badge
+- `ReportDialog` component (`components/intel/report-dialog.tsx`): structured report dialog with radio-group reason selection (spam, harassment, dangerous, false_info, other) and optional details field
+- `POST/DELETE /api/intel/[id]/vote` API routes for casting, changing, and removing votes
+- `voteOnIntelPost` / `removeIntelVote` server actions with XP awards on first vote
+- 131 new tests: 72 unit (confidence badges, Zod schemas, server actions), 19 integration (API route), 40 E2E (vote/confirm/report contract tests)
+
+### Changed
+
+- Removed `as any` cast in `intel-tab-simple.tsx` optimistic vote update — `IntelPostWithUser` already declares all spread fields as optional so the object literal satisfies the type without a cast
+- Removed `(supabase as any)` casts in `app/api/intel/[id]/report/route.ts` — `intel_reports` is now present in `types/database.generated.ts` so direct typed access works
+- Added post-ID guard in `intel_votes` realtime subscription handler: vote events for posts outside the current feed are silently skipped, reducing unnecessary refetches (`postsRef` pattern avoids re-subscribing)
+- Documented the check-then-insert pattern in `intel-vote-actions.ts` with a comment explaining why it is safe: the UNIQUE constraint provides a data-integrity safety net and the UI `isVoting` guard prevents double-clicks
+- Replaced all `(supabase as any)` casts in intel voting API routes with a typed `fromIntelVotes` helper (`lib/supabase/intel-votes-query.ts`) that isolates the single `as any` escape hatch at the `.from()` call boundary, with a `TODO: remove after type regen` comment
+- Replaced all `(post as any).field` casts in `intel-feed.tsx`, `beach-intel-section.tsx`, and `intel-post-modal.tsx` with direct `post.field` access — `IntelPostWithUser` already declared `user_vote_type`, `helpful_count`, `off_count`, and `confirmed_count` as optional fields
+- Updated `intel-confirm.test.ts` mock chains to match the refactored confirm route (no longer returns `confirmation_id`, uses `confirmed_count` from unified `selectIntelVoteCounts` helper)
+- Updated `intel-visibility.test.ts` vote mock to include `vote_type: "confirmed"` so `user_confirmed` propagates correctly through the votes map
+
+### Fixed
+
+- `voteOnIntelPost` / `removeIntelVote`: removed `setTimeout(100ms)` delays that waited for DB triggers — UI optimistic updates make the delay unnecessary latency
+- `voteOnIntelPost` / `removeIntelVote`: added UUID validation via `uuidSchema` before any auth or DB calls, returning `"Invalid intel post ID"` for malformed input
+- `voteOnIntelPost` / `removeIntelVote`: refactored to use `withAuthenticatedAction` wrapper from `lib/server-action-utils.ts` (removes manual `supabase.auth.getUser()` calls)
+- `voteOnIntelPost`: XP is now only awarded on first votes with type `"helpful"` or `"confirmed"` — `"off"` votes no longer trigger XP credits
+- `confirmIntelPost` / `removeIntelPostConfirmation`: replaced `result.data!` non-null assertions with `result.data?.confirmed_count ?? 0` optional chaining
+
+- `IntelVoteButtons`: added `aria-label` attributes to all three vote buttons with toggle-aware text ("Mark as helpful" / "Remove helpful vote", etc.) for screen reader accessibility
+- `getVoteConfidenceBadge` (`lib/constants/intel.ts`): removed unreachable duplicate `if (total === 0)` branch — merged into single terminal return
+- `ReportDialog`: empty catch block now logs via `console.error` for debuggability; toast message preserved
+- `get_nearby_intel_posts` RPC (`20260218120200_update_intel_ranking_rpc.sql`): clamped `rank_score` numerator to `GREATEST(0, ...)` so heavily-downvoted posts never score below zero-engagement posts
+- `update_intel_vote_counts` trigger (`20260218120000_add_intel_voting_schema.sql`): added `SECURITY DEFINER` comment explaining why the trigger owner context is required to bypass RLS for counter updates on non-owned posts
+- `POST /api/intel`: enriched response now includes `user_vote_type: null`, `helpful_count: 0`, `off_count: 0`, `confirmed_count: 0` so newly created posts have the same shape as GET results
+
+### Changed
+
+- `IntelFeed` / `IntelFeedCard`: replaced single confirm button with `IntelVoteButtons` + kebab dropdown (Report); prop renamed `onConfirm` → `onVote` with new `IntelVoteType | null` signature
+- `IntelPostModal`: replaced confirm button + confirmations count with `IntelVoteButtons`; added Report kebab menu; prop renamed `onConfirm` → `onVote`
+- `BeachIntelSection` / `IntelPostCard`: migrated from `confirmIntelPost` / `removeIntelPostConfirmation` to `voteOnIntelPost` / `removeIntelVote`; updated optimistic state to include `user_vote_type`, `helpful_count`, `off_count`, `confirmed_count`
+- `IntelTabSimple`: migrated confirm handler to vote handler using `voteOnIntelPost` / `removeIntelVote`
+- `IntelMap`: migrated confirm handler to vote handler
+- `CoastPulse`: hardcoded report reason changed from freeform string to structured `"spam"` enum value matching `IntelReportSchemaV2`
 
 - `FooterSection`: removed dead `FooterLink` wrapper (external branch was unreachable — all `FOOTER_LINKS` entries are internal routes); replaced usages with `Link` directly; removed `"use client"` directive, making the component a server component
 - `BeachBreadcrumb`: replaced trailing-space-prone template literal className with `cn()` utility

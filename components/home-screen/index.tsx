@@ -33,6 +33,7 @@ import { TopSpotsCarousel } from "./top-spots-carousel";
 import { TimeSlotSelector } from "./time-slot-selector";
 import { BottomNav } from "./bottom-nav";
 import { ForecastOutlookCard } from "./forecast-outlook-card";
+import { HomeConditionsTicker } from "./home-conditions-ticker";
 
 // Dynamic imports for below-fold components to reduce initial bundle size
 const CoastPulse = dynamic(
@@ -457,6 +458,13 @@ export function HomeScreen() {
                 showLocationCta={geoSource !== "browser"}
                 locationLoading={geoLoading}
               />
+            </section>
+          )}
+
+          {/* 5a. Home Beach Conditions Ticker */}
+          {profile && homeBeach?.id && (
+            <section className="centered-container px-4 sm:px-0">
+              <HomeConditionsTicker beachId={homeBeach.id} beachName={homeBeach.name} />
             </section>
           )}
 

@@ -13,7 +13,7 @@ components/beach-detail/
 ├── beach-quick-actions.tsx   # Plan/Log session buttons + favorite
 ├── cams-section.tsx          # Live camera feed (iframe, HLS, or video)
 ├── hls-video-player.tsx      # HLS video playback via hls.js / native
-├── todays-forecast.tsx       # Today's forecast with calibration
+├── (deleted: todays-forecast.tsx — superseded by ConditionsTicker)
 ├── detailed-swell-modal.tsx  # Detailed swell/forecast modal dialog
 ├── recent-sessions-section.tsx # Community sessions display
 └── ...                       # Additional components for tabs and features

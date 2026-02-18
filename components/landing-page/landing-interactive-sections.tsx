@@ -8,6 +8,7 @@ import { PersonalizationShowcase } from "@/components/landing-page/personalizati
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
+import { LandingConditionsTicker } from "@/components/landing-page/landing-conditions-ticker";
 
 function ForecastSectionFallback() {
   // Deterministic placeholder to avoid SSR/client mismatches (e.g. Intl/animation libs).
@@ -45,6 +46,7 @@ export function LandingInteractiveSections() {
   return (
     <div className="space-y-0">
       <BestConditionsSection />
+      <LandingConditionsTicker />
       <SurfHighlightsSection />
       <UpgradeSessionSection />
       <PersonalizationShowcase />
