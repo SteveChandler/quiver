@@ -85,11 +85,7 @@ export function MapBottomSheet({
       shouldScaleBackground={false}
     >
       <DrawerPrimitive.Content
-          className="fixed inset-x-0 bottom-0 z-40 flex h-auto flex-col rounded-t-xl border-t bg-background shadow-lg"
-          style={{
-            // Prevent content from exceeding 90% of viewport
-            maxHeight: "90dvh",
-          }}
+          className="fixed inset-x-0 bottom-0 z-40 flex min-h-[90dvh] flex-col rounded-t-xl border-t bg-background shadow-lg"
         >
           {/* Drag handle — must be DrawerPrimitive.Handle when handleOnly is set */}
           <DrawerPrimitive.Handle className="!mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !shrink-0 !rounded-full !bg-muted-foreground/30 !border-none !shadow-none !p-0" />
@@ -108,7 +104,7 @@ export function MapBottomSheet({
 
           {/* Selected beach detail card — inside the drawer for reliable mobile taps */}
           {selectedBeach && (
-            <div className="border-b overflow-hidden">
+            <div className="border-b overflow-hidden px-4 py-3" data-vaul-no-drag>
               <SelectedBeachCard
                 selectedBeach={selectedBeach}
                 getDistanceFromUser={getDistanceFromUser}

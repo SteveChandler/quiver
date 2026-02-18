@@ -1,11 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SelectedBeachCard } from "@/components/map/selected-beach-card";
 
-const mockPush = jest.fn();
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
-
 jest.mock("@/hooks/use-forecast-preview", () => ({
   useForecastPreview: () => ({
     forecastPreview: null,
@@ -27,11 +22,7 @@ describe("SelectedBeachCard", () => {
     average_rating: 4.4,
   } as any;
 
-  beforeEach(() => {
-    mockPush.mockClear();
-  });
-
-  it("renders a tappable card that navigates via router.push", () => {
+  it("renders a native link that points to the beach detail page", () => {
     render(
       <SelectedBeachCard
         selectedBeach={beach}
@@ -40,29 +31,11 @@ describe("SelectedBeachCard", () => {
       />
     );
 
-    const card = screen.getByRole("link", {
+    const link = screen.getByRole("link", {
       name: /view details for blacks beach/i,
     });
-    expect(card).toBeInTheDocument();
-
-    fireEvent.click(card);
-    expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/blacks-beach");
-  });
-
-  it("navigates on Enter key press", () => {
-    render(
-      <SelectedBeachCard
-        selectedBeach={beach}
-        getDistanceFromUser={() => "1.2 mi away"}
-        userLocation={{ lat: 32.88, lon: -117.24 }}
-      />
-    );
-
-    const card = screen.getByRole("link", {
-      name: /view details for blacks beach/i,
-    });
-    fireEvent.keyDown(card, { key: "Enter" });
-    expect(mockPush).toHaveBeenCalledWith("/ca/san-diego/blacks-beach");
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/ca/san-diego/blacks-beach");
   });
 
   it("calls onClose and does not navigate when X button is clicked", () => {
@@ -79,7 +52,6 @@ describe("SelectedBeachCard", () => {
     const closeButton = screen.getByLabelText("Deselect beach");
     fireEvent.click(closeButton);
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("does not render a link when no valid beach URL exists", () => {

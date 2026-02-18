@@ -541,3 +541,72 @@ test.describe('Map Page - Marker Interactions', () => {
     }
   });
 });
+
+test.describe('Map Page - Beach Card Navigation', () => {
+  test('desktop: clicking sidebar beach card navigates to beach detail page', async ({ page, context }) => {
+    await page.setViewportSize(VIEWPORTS.desktop);
+
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    // Use search to ensure predictable sidebar content
+    await page.goto('/map?search=Blacks');
+    await waitForPageLoad(page);
+
+    // Wait for sidebar beach cards to appear (desktop shows MapSidebar)
+    const sidebarCards = page.locator('[data-testid="sidebar-beach-card"]');
+    const hasSidebarCards = await sidebarCards.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+
+    if (!hasSidebarCards) {
+      // Fallback: look for any clickable beach link in the sidebar area
+      const sidebarLinks = page.locator('a[href*="/ca/"], a[href*="/beach/"]');
+      const hasLinks = await sidebarLinks.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+
+      if (!hasLinks) {
+        throw new Error('No sidebar beach cards or links found on desktop map page');
+      }
+
+      await sidebarLinks.first().click();
+    } else {
+      await sidebarCards.first().click();
+    }
+
+    // Should have navigated away from /map
+    await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
+  });
+
+  test('mobile: clicking selected beach card navigates to beach detail page', async ({ page, context }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Wait for map canvas to fully load
+    const mapCanvas = page.locator('canvas').first();
+    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
+
+    // Wait for beach markers to load
+    const beachMarkers = page.locator('[data-testid="beach-marker"]');
+    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+
+    if (!hasMarkers) {
+      throw new Error('No beach markers found on mobile map page');
+    }
+
+    // Click a marker to select a beach (triggers SelectedBeachCard in bottom sheet)
+    await beachMarkers.first().click({ force: true });
+
+    // Wait for the selected beach card link to appear
+    const selectedCardLink = page.locator('a[aria-label*="View details for"]');
+    await expect(selectedCardLink).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    // Click the selected beach card link
+    await selectedCardLink.click();
+
+    // Should have navigated away from /map
+    await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
+  });
+});

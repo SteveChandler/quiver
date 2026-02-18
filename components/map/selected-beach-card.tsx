@@ -1,9 +1,9 @@
 "use client";
 
 import { memo } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Database, Activity } from "lucide-react";
+import { MapPin, Database, Activity, X } from "lucide-react";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 import { StarRating } from "@/components/ui/star-rating";
@@ -15,15 +15,15 @@ interface SelectedBeachCardProps {
   selectedBeach: Beach | null;
   getDistanceFromUser: (beachLat: number, beachLng: number) => string;
   userLocation: { lat: number; lon: number } | null;
+  onClose?: () => void;
 }
 
 const SelectedBeachCardComponent = function SelectedBeachCard({
   selectedBeach,
   getDistanceFromUser,
   userLocation,
+  onClose,
 }: SelectedBeachCardProps) {
-  const router = useRouter();
-
   // Use shared forecast preview hook
   const {
     forecastPreview,
@@ -47,8 +47,22 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   });
 
   const card = (
-    <Card className="cursor-pointer border-2 border-primary transition-shadow hover:shadow-lg">
+    <Card className="cursor-pointer border-2 border-primary transition-shadow hover:shadow-lg relative">
       <CardContent className="p-3">
+        {onClose && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            className="absolute top-2 right-2 z-10 rounded-full p-1 hover:bg-muted transition-colors"
+            aria-label="Deselect beach"
+          >
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <div className="h-16 w-16 rounded-md bg-primary/10 flex items-center justify-center">
             <MapPin className="h-8 w-8 text-primary" />
@@ -116,33 +130,28 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
     </Card>
   );
 
-  return (
-    <div className="bg-background px-4 py-3" data-vaul-no-drag>
-      {beachUrl ? (
-        <div
-          role="link"
-          tabIndex={0}
-          className="block"
-          data-vaul-no-drag
-          style={{ touchAction: "manipulation" }}
-          onClick={() => router.push(beachUrl)}
-          onKeyDown={(e) => { if (e.key === "Enter") router.push(beachUrl); }}
-          aria-label={`View details for ${selectedBeach.name}`}
-        >
-          {card}
-        </div>
-      ) : (
-        card
-      )}
-    </div>
-  );
+  if (beachUrl) {
+    return (
+      <Link
+        href={beachUrl}
+        className="block"
+        style={{ touchAction: "manipulation" }}
+        aria-label={`View details for ${selectedBeach.name}`}
+        data-vaul-no-drag
+      >
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
 };
 
 /**
  * Custom comparison function for SelectedBeachCard memoization
  * Handles Beach object and location props correctly
  *
- * Note: getDistanceFromUser function prop is NOT compared
+ * Note: getDistanceFromUser and onClose function props are NOT compared
  * (expected to be stable via parent's useCallback)
  */
 const areSelectedBeachCardPropsEqual = (

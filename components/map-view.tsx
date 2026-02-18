@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapSearchHeader } from "@/components/map/map-search-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,6 +19,7 @@ import type { Beach } from "@/types/database";
 
 export function MapView() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
@@ -126,6 +128,19 @@ export function MapView() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [setSelectedBeach]
+  );
+
+  const handleSidebarNavigate = useCallback(
+    (beach: Beach) => {
+      const beachUrl = getBeachUrlSafe({
+        id: beach.id,
+        slug: beach.slug,
+        city: beach.city,
+        state: beach.state,
+      });
+      if (beachUrl) router.push(beachUrl);
+    },
+    [router]
   );
 
   const handleClearSearch = useCallback(() => {
@@ -316,7 +331,7 @@ export function MapView() {
                 waveHeightMap={waveHeightMap}
                 selectedBeach={selectedBeach}
                 userLocation={userLocation}
-                onBeachSelect={handleBeachSelect}
+                onBeachSelect={handleSidebarNavigate}
               />
             </div>
           )}
