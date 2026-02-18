@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { AlertTriangle } from "lucide-react";
 
 // Mapbox CSS is imported globally in app/globals.css
@@ -164,7 +164,7 @@ export function HubMapView({
 
       // Create popup with beach info and link
       // Note: All user-provided content is escaped to prevent XSS
-      const beachUrl = getBeachUrlSafe(beach);
+      const beachUrl = getBeachHrefSafe(beach);
       if (!beachUrl) return; // Skip beaches without valid URLs
 
       const safeName = escapeHtml(beach.name);

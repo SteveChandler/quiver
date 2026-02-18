@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapSearchHeader } from "@/components/map/map-search-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -132,7 +132,7 @@ export function MapView() {
 
   const handleSidebarNavigate = useCallback(
     (beach: Beach) => {
-      const beachUrl = getBeachUrlSafe({
+      const beachUrl = getBeachHrefSafe({
         id: beach.id,
         slug: beach.slug,
         city: beach.city,

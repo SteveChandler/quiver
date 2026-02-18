@@ -9,7 +9,7 @@ import Link from "next/link";
 import { MapImage } from "@/components/map-image";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { formatRatingSimple } from "@/lib/utils/rating-formatters";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 
@@ -73,7 +73,7 @@ const BeachCardComponent = function BeachCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Generate beach URL (hierarchical if slug/city/state available, otherwise fallback to ID)
-  const beachUrl = getBeachUrlSafe({ id, slug, city, state });
+  const beachUrl = getBeachHrefSafe({ id, slug, city, state });
 
   const beachReviewsUrl = beachUrl ? `${beachUrl}?tab=reviews` : null;
 

@@ -54,7 +54,7 @@ describe("SelectedBeachCard", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("does not render a link when no valid beach URL exists", () => {
+  it("renders a fallback link when slug/city/state are missing", () => {
     render(
       <SelectedBeachCard
         selectedBeach={{ ...beach, slug: null, city: null, state: null }}
@@ -63,9 +63,10 @@ describe("SelectedBeachCard", () => {
       />
     );
 
-    expect(
-      screen.queryByRole("link", { name: /view details for/i })
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/view details/i)).toBeInTheDocument();
+    const link = screen.getByRole("link", {
+      name: /view details for/i,
+    });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/beach/beach-1");
   });
 });

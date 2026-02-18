@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Map Navigation:** Fixed mobile map beach card "View Details" being a dead link when `get_nearby_beaches` RPC didn't return `slug`/`city`/`state`. Applied missing DB migration and switched all beach URL generation from `getBeachUrlSafe` to `getBeachHrefSafe` for graceful fallback across map card, marker clicks, sidebar nav, hub map, nearby chips, and beach cards.
+- **ML Deployment:** Fixed Fly.io model deployment silently failing because GraphQL `setSecrets` doesn't override machine-level env vars. Replaced with Machines REST API (`POST /machines/{id}`) that directly updates machine config. Created shared `lib/services/fly-deploy.ts` utility used by both retrain and promote-candidate cron routes.
+- **ML Deployment (promote-candidate):** Standardized to use `createServiceRoleClient()`, `validateCronRequest()`, and static imports — was using raw `createClient` and inline auth checks inconsistent with codebase patterns.
+- **ML Deployment (fly-deploy):** Added defensive validation for Fly API responses, terminal machine state filtering, error logging in catch blocks, and nullish coalescing for timeout defaults.
+
 ### Added
 
 - `ConditionsTicker` in-app component (`components/conditions/conditions-ticker.tsx`): reusable at-a-glance conditions strip showing waves, swell, wind, water temp, and tide with Lucide icons, dark/light theme support, loading skeleton, and ARIA labels

@@ -2,7 +2,7 @@ import type { Beach } from "@/types/database";
 import { formatWaveHeight } from "@/lib/utils/wave-height-formatter";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 
 /**
  * Dependencies injected into createWaveHeightBadge so that the function
@@ -149,7 +149,7 @@ export function createWaveHeightBadge(
       // Animate selection and navigate after slight delay using hierarchical URL
       if (deps.autoNavigate) {
         setTimeout(() => {
-          const beachUrl = getBeachUrlSafe(location);
+          const beachUrl = getBeachHrefSafe(location);
           if (beachUrl) deps.router.push(beachUrl);
         }, 400);
       }

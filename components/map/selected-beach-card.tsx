@@ -8,7 +8,7 @@ import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 import { StarRating } from "@/components/ui/star-rating";
 import type { Beach } from "@/types/database";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface SelectedBeachCardProps {
@@ -39,7 +39,7 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   }
 
   // Generate beach details URL when enough location data is available.
-  const beachUrl = getBeachUrlSafe({
+  const beachUrl = getBeachHrefSafe({
     id: selectedBeach.id,
     slug: selectedBeach.slug,
     city: selectedBeach.city,
