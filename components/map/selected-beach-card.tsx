@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Database, Activity } from "lucide-react";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
@@ -22,8 +22,6 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   getDistanceFromUser,
   userLocation,
 }: SelectedBeachCardProps) {
-  const router = useRouter();
-
   // Use shared forecast preview hook
   const {
     forecastPreview,
@@ -38,7 +36,7 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
     return null;
   }
 
-  // Generate hierarchical URL (with fallback to ID-based URL)
+  // Generate beach details URL when enough location data is available.
   const beachUrl = getBeachUrlSafe({
     id: selectedBeach.id,
     slug: selectedBeach.slug,
@@ -46,78 +44,93 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
     state: selectedBeach.state,
   });
 
-  return (
-    <div className="px-4 py-3 bg-background">
-      <Card
-        className="cursor-pointer hover:shadow-lg transition-shadow border-primary border-2"
-        onClick={() => beachUrl && router.push(beachUrl)}
-      >
-        <CardContent className="p-3">
-          <div className="flex items-center gap-3">
-            <div className="h-16 w-16 rounded-md bg-primary/10 flex items-center justify-center">
-              <MapPin className="h-8 w-8 text-primary" />
+  const card = (
+    <Card className="cursor-pointer border-2 border-primary transition-shadow hover:shadow-lg">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-3">
+          <div className="h-16 w-16 rounded-md bg-primary/10 flex items-center justify-center">
+            <MapPin className="h-8 w-8 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-medium text-primary">{selectedBeach.name}</h3>
+            <div className="flex items-center text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span>
+                {userLocation && selectedBeach.lat != null && selectedBeach.lon != null
+                  ? getDistanceFromUser(
+                      selectedBeach.lat,
+                      selectedBeach.lon
+                    )
+                  : getBeachLocation(selectedBeach)}
+              </span>
             </div>
-            <div className="flex-1">
-              <h3 className="font-medium text-primary">{selectedBeach.name}</h3>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4 mr-1" />
-                <span>
-                  {userLocation && selectedBeach.lat != null && selectedBeach.lon != null
-                    ? getDistanceFromUser(
-                        selectedBeach.lat,
-                        selectedBeach.lon
-                      )
-                    : getBeachLocation(selectedBeach)}
+            {(selectedBeach.review_count ?? 0) > 0 && (
+              <div className="flex items-center mt-1">
+                <StarRating rating={Math.round(selectedBeach.average_rating ?? 0)} size="sm" />
+                <span className="text-sm ml-1 text-muted-foreground">
+                  ({selectedBeach.review_count})
                 </span>
               </div>
-              {(selectedBeach.review_count ?? 0) > 0 && (
-                <div className="flex items-center mt-1">
-                  <StarRating rating={Math.round(selectedBeach.average_rating ?? 0)} size="sm" />
-                  <span className="text-sm ml-1 text-muted-foreground">
-                    ({selectedBeach.review_count})
-                  </span>
+            )}
+
+            {/* Forecast Preview */}
+            <div className="mt-2">
+              <ForecastPreview
+                forecastPreview={forecastPreview}
+                loading={loadingForecast}
+                error={forecastError}
+                variant="grid"
+                showConfidenceScore={true}
+              />
+
+              {/* Data Source Badge (Transparency) */}
+              {forecastPreview && (forecastPreview as any).metadata && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  {(forecastPreview as any).metadata.isRealTimeData ? (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <Activity className="h-3 w-3" />
+                      <span className="font-medium">Real-time Data</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <Database className="h-3 w-3" />
+                      <span>{(forecastPreview as any).metadata.primarySource}</span>
+                    </div>
+                  )}
                 </div>
               )}
-
-              {/* Forecast Preview */}
-              <div className="mt-2">
-                <ForecastPreview
-                  forecastPreview={forecastPreview}
-                  loading={loadingForecast}
-                  error={forecastError}
-                  variant="grid"
-                  showConfidenceScore={true}
-                />
-
-                {/* Data Source Badge (Transparency) */}
-                {forecastPreview && (forecastPreview as any).metadata && (
-                  <div className="mt-2 flex items-center gap-2 text-xs">
-                    {(forecastPreview as any).metadata.isRealTimeData ? (
-                      <div className="flex items-center gap-1 text-green-600">
-                        <Activity className="h-3 w-3" />
-                        <span className="font-medium">Real-time Data</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-blue-600">
-                        <Database className="h-3 w-3" />
-                        <span>{(forecastPreview as any).metadata.primarySource}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">
-                Selected Beach
-              </div>
-              <div className="text-primary font-medium text-sm">
-                View Details →
-              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">
+              Selected Beach
+            </div>
+            <div className="text-primary font-medium text-sm">
+              View Details →
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="bg-background px-4 py-3" data-vaul-no-drag>
+      {beachUrl ? (
+        <Link
+          href={beachUrl}
+          className="block"
+          aria-label={`View details for ${selectedBeach.name}`}
+          data-vaul-no-drag
+          style={{ touchAction: "manipulation" }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {card}
+        </Link>
+      ) : (
+        card
+      )}
     </div>
   );
 };
