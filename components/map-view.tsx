@@ -362,7 +362,7 @@ export function MapView() {
           {isMobile && selectedBeach && (
             <div
               className="pointer-events-none fixed inset-x-0 z-[70] px-2"
-              style={{ bottom: "calc(10dvh + 4px)" }}
+              style={{ bottom: "calc(10dvh + 12px)" }}
             >
               <div className="pointer-events-auto" data-vaul-no-drag>
                 <SelectedBeachCard

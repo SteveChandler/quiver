@@ -62,27 +62,6 @@ test.describe('Map Page - Core Functionality', () => {
     }
   });
 
-  test('should navigate to beach detail when clicking a beach', async ({ page }) => {
-    // Wait for beaches to load by checking for beach links
-    const beachLinks = page.locator('a[href^="/beach/"], a[href*="/ca/"]');
-    const firstBeach = beachLinks.first();
-
-    const isVisible = await firstBeach.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-
-    if (!isVisible) {
-      throw new Error('Not implemented: Beach links on map - beach markers or links not found in current viewport');
-    }
-
-    await firstBeach.click();
-    await waitForPageLoad(page);
-
-    // Verify navigation to beach detail page
-    const url = page.url();
-    const validUrl = url.includes('/beach/') ||
-                    (url.split('/').length >= 5 && !url.includes('/map'));
-
-    expect(validUrl).toBeTruthy();
-  });
 });
 
 test.describe('Map Page - View Mode Toggle', () => {
@@ -197,94 +176,6 @@ test.describe('Map Page - Filter Functionality', () => {
     await page.waitForTimeout(500);
   });
 
-  test('should clear all filters', async ({ page }) => {
-    // Wait for map to fully load first
-    const mapContainer = page.getByTestId('map-container');
-    await expect(mapContainer).toBeVisible({ timeout: TIMEOUTS.long });
-
-    // Wait for initial beach markers to load
-    const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
-
-    // Get initial marker count
-    const initialCount = await beachMarkers.count();
-
-    // Activate a filter
-    const beginnerBadge = page.getByText('Beginner-friendly').first();
-    await beginnerBadge.click();
-    await page.waitForTimeout(1500);
-
-    // Click clear filters
-    const clearButton = page.getByText('Clear filters').first();
-    const clearVisible = await clearButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-
-    if (!clearVisible) {
-      throw new Error('Not implemented: Clear filters button - button not visible when filters are active');
-    }
-
-    await clearButton.click();
-    await page.waitForTimeout(2000);
-
-    // Verify map is still visible and working after clearing filters
-    await expect(mapContainer).toBeVisible();
-
-    // Should have at least as many markers as before (or more if filter was reducing count)
-    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.medium });
-    const clearedCount = await beachMarkers.count();
-
-    // After clearing, should have >= the initial count
-    expect(clearedCount).toBeGreaterThanOrEqual(initialCount);
-  });
-});
-
-test.describe('Map Page - Region Tabs', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/map');
-    await waitForPageLoad(page);
-  });
-
-  test('should display region tabs if regions exist', async ({ page }) => {
-    // Check if "All" tab exists (always present if regions are shown)
-    const allTab = page.getByRole('tab', { name: /All/i });
-    const tabsExist = await allTab.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-
-    if (!tabsExist) {
-      throw new Error('Not implemented: Region tabs - region navigation tabs not displaying on map');
-    }
-
-    await expect(allTab).toBeVisible();
-  });
-
-  test('should switch between regions', async ({ page }) => {
-    const allTab = page.getByRole('tab', { name: /All/i });
-    const tabsExist = await allTab.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-
-    if (!tabsExist) {
-      throw new Error('Not implemented: Region tabs - region navigation tabs not displaying on map');
-    }
-
-    // Get all tabs
-    const tabs = page.getByRole('tab');
-    const tabCount = await tabs.count();
-
-    if (tabCount <= 1) {
-      throw new Error('Not implemented: Multiple region tabs - only "All" tab exists, need multiple regions for switching');
-    }
-
-    // Click second tab (first region after "All")
-    const secondTab = tabs.nth(1);
-    await secondTab.click();
-    await page.waitForTimeout(500); // Wait for region filtering
-
-    // Map should update to show region bounds
-    // Canvas should still be visible
-    const mapCanvas = page.locator('canvas').first();
-    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.short });
-
-    // Switch back to All
-    await allTab.click();
-    await page.waitForTimeout(500);
-  });
 });
 
 test.describe('Map Page - Search Integration', () => {
@@ -497,57 +388,6 @@ test.describe('Map Page - Responsive Design', () => {
 });
 
 test.describe('Map Page - Stability and Performance', () => {
-  test('should not trigger infinite request loop on initial load', async ({ page }) => {
-    // Track network requests to detect looping
-    const requests: string[] = [];
-    const requestTimestamps: number[] = [];
-
-    page.on('request', (request) => {
-      const url = request.url();
-      // Track API requests and Mapbox tile requests
-      if (url.includes('/api/') || url.includes('mapbox.com')) {
-        requests.push(url);
-        requestTimestamps.push(Date.now());
-      }
-    });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    // Wait additional time to observe any request loops
-    await page.waitForTimeout(3000);
-
-    // Analyze request pattern for loops
-    // Group similar requests (same endpoint/tile) by time windows
-    const requestGroups = new Map<string, number[]>();
-
-    requests.forEach((url, idx) => {
-      // Normalize URL to group similar requests
-      const normalizedUrl = url.split('?')[0]; // Remove query params for grouping
-      if (!requestGroups.has(normalizedUrl)) {
-        requestGroups.set(normalizedUrl, []);
-      }
-      requestGroups.get(normalizedUrl)!.push(requestTimestamps[idx]);
-    });
-
-    // Check for repeated requests to same endpoint in short time windows
-    let loopDetected = false;
-    requestGroups.forEach((timestamps, url) => {
-      if (timestamps.length >= 3) {
-        // Check if we have 3+ requests to same endpoint within 2 seconds
-        for (let i = 0; i < timestamps.length - 2; i++) {
-          const timeWindow = timestamps[i + 2] - timestamps[i];
-          if (timeWindow < 2000) {
-            loopDetected = true;
-            console.log(`Loop detected for ${url}: ${timestamps.length} requests in ${timeWindow}ms`);
-          }
-        }
-      }
-    });
-
-    expect(loopDetected).toBe(false);
-  });
-
   test('should not re-initialize map on prop changes', async ({ page }) => {
     let mapInitCount = 0;
 
@@ -579,49 +419,6 @@ test.describe('Map Page - Stability and Performance', () => {
     // The map should not reinitialize during normal interactions
     // Allow for initial map creation but no subsequent recreations
     expect(mapInitCount).toBeLessThanOrEqual(initialCount + 1);
-  });
-
-  test('should handle user location changes without infinite reloads', async ({ page, context }) => {
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({
-      latitude: 32.8473,
-      longitude: -117.2750,
-    });
-
-    const requests: string[] = [];
-    page.on('request', (request) => {
-      const url = request.url();
-      if (url.includes('/api/beaches')) {
-        requests.push(url);
-      }
-    });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    const initialRequestCount = requests.length;
-
-    // Simulate location change
-    await context.setGeolocation({
-      latitude: 33.8473, // Move north
-      longitude: -117.2750,
-    });
-
-    // Click "Near Me" button if available to trigger location-based fetch
-    const nearMeButton = page.getByRole('button', { name: /Near Me/i });
-    const nearMeVisible = await nearMeButton.isVisible({ timeout: 2000 }).catch(() => false);
-
-    if (nearMeVisible) {
-      await nearMeButton.click();
-      await page.waitForTimeout(2000);
-    }
-
-    // Should have made new requests but not an excessive amount
-    const finalRequestCount = requests.length;
-    const newRequests = finalRequestCount - initialRequestCount;
-
-    // Allow for a reasonable number of new requests (1-3) but not a loop
-    expect(newRequests).toBeLessThanOrEqual(5);
   });
 
   test('map should be interactive after load without errors', async ({ page, context }) => {

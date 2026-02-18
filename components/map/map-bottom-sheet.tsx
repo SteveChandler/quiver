@@ -63,6 +63,7 @@ export function MapBottomSheet({
     <DrawerPrimitive.Root
       open={true}
       modal={false}
+      handleOnly={true}
       snapPoints={SNAP_POINTS}
       activeSnapPoint={activeSnapPoint}
       setActiveSnapPoint={setActiveSnapPoint}
@@ -77,8 +78,8 @@ export function MapBottomSheet({
             maxHeight: "90dvh",
           }}
         >
-          {/* Drag handle */}
-          <div className="mx-auto mt-3 mb-1 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
+          {/* Drag handle — must be DrawerPrimitive.Handle when handleOnly is set */}
+          <DrawerPrimitive.Handle className="!mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !shrink-0 !rounded-full !bg-muted-foreground/30 !border-none !shadow-none !p-0" />
 
           {/* Header */}
           <div className="px-4 pb-2 pt-1">
