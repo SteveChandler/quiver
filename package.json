@@ -239,7 +239,7 @@
   "resolutions": {
     "lodash": "^4.17.23",
     "lodash-es": "^4.17.23",
-    "tar": "^7.5.3",
+    "tar": "^7.5.8",
     "xmlbuilder": "^15.1.1",
     "tmp": "^0.2.5",
     "undici": "^6.23.0",
