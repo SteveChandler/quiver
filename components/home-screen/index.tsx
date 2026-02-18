@@ -442,6 +442,13 @@ export function HomeScreen() {
           )}
         </motion.div>
 
+        {/* Conditions Ticker - full width for edge-to-edge scroll */}
+        {profile && homeBeach?.id && (
+          <section className="w-full">
+            <HomeConditionsTicker beachId={homeBeach.id} beachName={homeBeach.name} />
+          </section>
+        )}
+
         {/* Content below gradient */}
         <div className="pt-6 space-y-6 xs:space-y-8">
           {/* 5. Top Spots Carousel - full width for edge-to-edge scroll */}
@@ -461,14 +468,7 @@ export function HomeScreen() {
             </section>
           )}
 
-          {/* 5a. Home Beach Conditions Ticker */}
-          {profile && homeBeach?.id && (
-            <section className="centered-container px-4 sm:px-0">
-              <HomeConditionsTicker beachId={homeBeach.id} beachName={homeBeach.name} />
-            </section>
-          )}
-
-          {/* 5b. Personalization Progress Card */}
+          {/* Personalization Progress Card */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
               <PersonalizationProgress status={personalizationStatus} />
