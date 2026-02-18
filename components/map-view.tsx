@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
@@ -20,6 +21,8 @@ import type { Beach } from "@/types/database";
 export function MapView() {
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
+  const [portalMounted, setPortalMounted] = useState(false);
+  useEffect(() => setPortalMounted(true), []);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
@@ -357,9 +360,10 @@ export function MapView() {
             />
           )}
 
-          {/* Mobile: Selected Beach Quick View - fixed above bottom sheet
+          {/* Mobile: Selected Beach Quick View - portaled to document.body
+              so it shares the same stacking context as the Vaul drawer portal.
               bottom offset must match SNAP_POINTS[0] (10vh) in map-bottom-sheet.tsx */}
-          {isMobile && selectedBeach && (
+          {portalMounted && isMobile && selectedBeach && createPortal(
             <div
               className="pointer-events-none fixed inset-x-0 z-[70] px-2"
               style={{ bottom: "calc(10dvh + 12px)" }}
@@ -371,7 +375,8 @@ export function MapView() {
                   userLocation={userLocation}
                 />
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       ) : (

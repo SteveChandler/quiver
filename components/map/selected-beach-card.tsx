@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Database, Activity } from "lucide-react";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
@@ -22,6 +22,8 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   getDistanceFromUser,
   userLocation,
 }: SelectedBeachCardProps) {
+  const router = useRouter();
+
   // Use shared forecast preview hook
   const {
     forecastPreview,
@@ -117,17 +119,18 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   return (
     <div className="bg-background px-4 py-3" data-vaul-no-drag>
       {beachUrl ? (
-        <Link
-          href={beachUrl}
+        <div
+          role="link"
+          tabIndex={0}
           className="block"
-          aria-label={`View details for ${selectedBeach.name}`}
           data-vaul-no-drag
           style={{ touchAction: "manipulation" }}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => event.stopPropagation()}
+          onClick={() => router.push(beachUrl)}
+          onKeyDown={(e) => { if (e.key === "Enter") router.push(beachUrl); }}
+          aria-label={`View details for ${selectedBeach.name}`}
         >
           {card}
-        </Link>
+        </div>
       ) : (
         card
       )}
