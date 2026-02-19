@@ -32,7 +32,7 @@ export function MapSearchHeader({
       className="sticky top-0 z-10 bg-background border-b p-4"
       data-testid="map-controls"
     >
-      <div className="flex items-center gap-2 justify-between">
+      <div className="flex items-center gap-2 justify-between flex-nowrap" data-testid="search-header-actions">
         {/* Near me button */}
         {onNearMe && (
           <Button variant="secondary" size="sm" onClick={onNearMe}>

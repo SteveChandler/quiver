@@ -19,6 +19,7 @@ export interface MapBottomSheetProps {
   onBeachSelect: (beach: Beach) => void;
   getDistanceFromUser: (beachLat: number, beachLng: number) => string;
   onDeselectBeach: () => void;
+  onDismissAttempt?: () => void;
 }
 
 /**
@@ -35,10 +36,24 @@ export function MapBottomSheet({
   onBeachSelect,
   getDistanceFromUser,
   onDeselectBeach,
+  onDismissAttempt,
 }: MapBottomSheetProps) {
-  const [activeSnapPoint, setActiveSnapPoint] = useState<
+  const [activeSnapPoint, setActiveSnapPointRaw] = useState<
     number | string | null
   >(PEEK_SNAP);
+
+  // Guard against Vaul dismissing the drawer to null or below the peek snap
+  const setActiveSnapPoint = useCallback(
+    (value: number | string | null) => {
+      if (value === null || (typeof value === "number" && value < PEEK_SNAP)) {
+        setActiveSnapPointRaw(PEEK_SNAP);
+        onDismissAttempt?.();
+      } else {
+        setActiveSnapPointRaw(value);
+      }
+    },
+    [onDismissAttempt]
+  );
   const { setCardRef, distanceMap } = useBeachListState(
     beaches,
     selectedBeach,
@@ -66,12 +81,21 @@ export function MapBottomSheet({
   // Vaul (via Radix Dialog) sets pointer-events: none on <body> when the
   // drawer is open, which kills all touch/click events on the map page.
   // Since this drawer is non-modal and always open, force-reset it.
+  // Uses MutationObserver to catch async re-applications by Vaul/Radix.
   useEffect(() => {
     document.body.style.pointerEvents = "";
-  });
+    const observer = new MutationObserver(() => {
+      if (document.body.style.pointerEvents !== "") {
+        document.body.style.pointerEvents = "";
+      }
+    });
+    observer.observe(document.body, { attributeFilter: ["style"] });
+    return () => observer.disconnect();
+  }, []);
 
-  // Only allow scrolling when the drawer is at the largest snap point
-  const isExpanded = activeSnapPoint === SNAP_POINTS[2];
+  // Allow scrolling at detail (40%) and full (90%) snap points
+  const isScrollable =
+    activeSnapPoint === SNAP_POINTS[1] || activeSnapPoint === SNAP_POINTS[2];
 
   return (
     <DrawerPrimitive.Root
@@ -88,7 +112,12 @@ export function MapBottomSheet({
           className="fixed inset-x-0 bottom-0 z-40 flex min-h-[90dvh] flex-col rounded-t-xl border-t bg-background shadow-lg"
         >
           {/* Drag handle — must be DrawerPrimitive.Handle when handleOnly is set */}
-          <DrawerPrimitive.Handle className="!mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !shrink-0 !rounded-full !bg-muted-foreground/30 !border-none !shadow-none !p-0" />
+          <div
+            data-testid="drawer-handle-area"
+            className="flex justify-center py-4 cursor-grab active:cursor-grabbing"
+          >
+            <DrawerPrimitive.Handle className="!mx-auto !h-1.5 !w-10 !shrink-0 !rounded-full !bg-muted-foreground/30 !border-none !shadow-none !p-0" />
+          </div>
 
           {/* Header */}
           <div className="px-4 pb-2 pt-1">
@@ -117,9 +146,10 @@ export function MapBottomSheet({
           {/* Scrollable list - only scrollable when fully expanded */}
           <div
             className="flex-1 overflow-y-auto px-2 pb-safe"
-            data-vaul-no-drag={isExpanded ? "" : undefined}
+            data-testid="drawer-scroll-container"
+            data-vaul-no-drag={isScrollable ? "" : undefined}
             style={{
-              overflowY: isExpanded ? "auto" : "hidden",
+              overflowY: isScrollable ? "auto" : "hidden",
             }}
           >
             {beaches.length === 0 ? (

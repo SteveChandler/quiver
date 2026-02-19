@@ -34,6 +34,9 @@ interface MapContentProps {
   onBeachSelect: (beach: Beach) => void;
   onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
+  onMapClick?: () => void;
+  autoNavigateOnMarkerClick?: boolean;
+  onShowBeaches?: () => void;
 }
 
 const MAX_DISTANCE_MILES = 30;
@@ -61,6 +64,9 @@ export function MapContent({
   onBeachSelect,
   onBoundsChange,
   onWaveHeightsChange,
+  onMapClick,
+  autoNavigateOnMarkerClick,
+  onShowBeaches,
 }: MapContentProps) {
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
@@ -155,7 +161,7 @@ export function MapContent({
 
       {/* Interactive Map */}
       <div
-        className="flex-1 relative overflow-hidden min-h-[400px] bg-gray-200 map-container"
+        className="flex-1 relative overflow-hidden min-h-[200px] sm:min-h-[400px] bg-gray-200 map-container"
         data-testid="map-container"
       >
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
@@ -164,16 +170,18 @@ export function MapContent({
             initialCenter={initialCenterArray}
             initialZoom={12}
             onLocationClick={onBeachSelect}
+            onMapClick={onMapClick ? () => onMapClick() : undefined}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
             onBoundsChange={onBoundsChange}
             onWaveHeightsChange={onWaveHeightsChange}
+            autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>
 
         {/* Map overlay with beach count */}
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-xs z-10">
+        <div data-testid="map-overlay" className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-[55vw] sm:max-w-xs z-10">
           <p className="text-sm font-medium">
             {searchQuery
               ? filteredBeaches.length > 0
@@ -232,6 +240,17 @@ export function MapContent({
               {!userLocation ? "Use My Location" : "Use My Actual Location"}
             </Button>
           </div>
+        )}
+
+        {/* Recovery button to bring back bottom sheet */}
+        {onShowBeaches && (
+          <button
+            onClick={onShowBeaches}
+            aria-label="Show beach list"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-primary text-primary-foreground rounded-full px-4 py-2 shadow-lg text-sm font-medium md:hidden"
+          >
+            Show Beaches
+          </button>
         )}
       </div>
     </>

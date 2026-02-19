@@ -57,14 +57,14 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
               e.stopPropagation();
               onClose();
             }}
-            className="absolute top-2 right-2 z-10 rounded-full p-1 hover:bg-muted transition-colors"
+            className="absolute top-1 right-1 z-10 rounded-full min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted active:bg-muted/80 transition-colors"
             aria-label="Deselect beach"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
         )}
         <div className="flex items-center gap-3">
-          <div className="h-16 w-16 rounded-md bg-primary/10 flex items-center justify-center">
+          <div data-testid="beach-icon-container" className="h-16 w-16 rounded-md bg-primary/10 hidden sm:flex items-center justify-center">
             <MapPin className="h-8 w-8 text-primary" />
           </div>
           <div className="flex-1">
@@ -117,10 +117,7 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
               )}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-muted-foreground">
-              Selected Beach
-            </div>
+          <div className="text-right shrink-0">
             <div className="text-primary font-medium text-sm">
               View Details →
             </div>

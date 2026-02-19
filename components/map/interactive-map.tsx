@@ -34,6 +34,7 @@ interface InteractiveMapProps {
     zoom?: number;
   } | null;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
+  autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -49,13 +50,12 @@ export function InteractiveMap({
   className = "h-full w-full",
   regionViewport,
   beaches,
+  autoNavigateOnMarkerClick = true,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
   const lastPopulateKeyRef = useRef<string | null>(null);
-  // Popup instance used for displaying click coordinates on the map
-  const mapClickPopupRef = useRef<mapboxgl.Popup | null>(null);
   const lastViewportRef = useRef<{
     lat: number;
     lng: number;
@@ -155,7 +155,6 @@ export function InteractiveMap({
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
     cleanupMarkers();
-    if (mapClickPopupRef.current) mapClickPopupRef.current.remove();
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
@@ -207,10 +206,11 @@ export function InteractiveMap({
         onSelectChange: setSelectedBeachId,
         onLocationClick,
         router,
+        autoNavigate: autoNavigateOnMarkerClick,
       };
       return createWaveHeightBadge(location, waveHeight, deps);
     },
-    [onLocationClick, router]
+    [onLocationClick, router, autoNavigateOnMarkerClick]
   );
 
   // Create cluster marker using extracted module with deps from refs
@@ -352,15 +352,8 @@ export function InteractiveMap({
     map.on("moveend", moveEndHandler);
 
     // Map click — delegates to the latest onMapClick via ref
-    map.on("click", async (e) => {
+    map.on("click", (e) => {
       onMapClickRef.current?.(e.lngLat);
-      if (!mapClickPopupRef.current) {
-        mapClickPopupRef.current = new mapboxgl.Popup();
-      }
-      mapClickPopupRef.current
-        .setLngLat(e.lngLat)
-        .setHTML(`${e.lngLat.lat.toFixed(4)}, ${e.lngLat.lng.toFixed(4)}`)
-        .addTo(map);
     });
 
     return () => {
@@ -542,52 +535,11 @@ export function InteractiveMap({
     });
   }, [clusters, isMapReady, buildClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
 
-  // Add CSS for popup animations
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.textContent = `
-      .forecast-popup-mapbox .mapboxgl-popup-content {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        padding: 16px;
-        animation: popupFadeIn 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-        transform-origin: bottom center;
-      }
-      
-      .forecast-popup-mapbox .mapboxgl-popup-tip {
-        border-top-color: white;
-      }
-      
-      @keyframes popupFadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px) scale(0.9);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-      }
-      
-      @media (prefers-reduced-motion: reduce) {
-        .forecast-popup-mapbox .mapboxgl-popup-content {
-          animation: none;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
-
   return (
     <div
       ref={mapContainerRef}
       className={`${className} mapbox-container`}
-      style={{ width: "100%", height: "100%", minHeight: "400px" }}
+      style={{ width: "100%", height: "100%" }}
     />
   );
 }

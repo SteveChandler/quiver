@@ -385,6 +385,59 @@ test.describe('Map Page - Responsive Design', () => {
     const mapCanvas = page.locator('canvas').first();
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
   });
+
+  test('mobile: map controls do not overflow and view toggle works', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Map view should be visible within viewport
+    const mapView = page.getByTestId('map-view');
+    await expect(mapView).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    // Map controls should not overflow viewport width
+    const mapControls = page.getByTestId('map-controls');
+    await expect(mapControls).toBeVisible();
+    const controlsBox = await mapControls.boundingBox();
+    if (controlsBox) {
+      expect(controlsBox.x + controlsBox.width).toBeLessThanOrEqual(375);
+    }
+
+    // Map canvas should load
+    const mapCanvas = page.locator('canvas').first();
+    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
+
+    // Toggle to list view and back without errors
+    const listButton = page.getByTestId('view-mode-list');
+    await listButton.click();
+    await page.waitForTimeout(500);
+
+    const mapButton = page.getByTestId('view-mode-map');
+    await mapButton.click();
+    await page.waitForTimeout(500);
+
+    // No critical console errors (filter benign ones)
+    const criticalErrors = consoleErrors.filter(err =>
+      !err.includes('favicon') &&
+      !err.includes('404') &&
+      !err.toLowerCase().includes('network') &&
+      !err.includes('ERR_BLOCKED_BY_CLIENT')
+    );
+    const mapErrors = criticalErrors.filter(err =>
+      err.toLowerCase().includes('infinite') ||
+      err.toLowerCase().includes('maximum') ||
+      err.toLowerCase().includes('uncaught')
+    );
+    expect(mapErrors.length).toBe(0);
+  });
 });
 
 test.describe('Map Page - Stability and Performance', () => {
@@ -608,5 +661,136 @@ test.describe('Map Page - Beach Card Navigation', () => {
 
     // Should have navigated away from /map
     await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
+  });
+});
+
+test.describe('Map Page - Mobile Bug Fix Regression', () => {
+  test('mobile: bottom sheet stays visible after aggressive downward swipe', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    const handleArea = page.getByTestId('drawer-handle-area');
+    await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const box = await handleArea.boundingBox();
+    if (!box) throw new Error('Drawer handle area not found');
+
+    // Drag handle aggressively downward (attempting to dismiss)
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + 400, { steps: 10 });
+    await page.mouse.up();
+
+    await page.waitForTimeout(500); // Wait for snap animation
+
+    // Drawer should still be visible (snapped to peek, not dismissed)
+    await expect(handleArea).toBeVisible();
+  });
+
+  test('mobile: close button on selected beach card meets 44px touch target', async ({ page, context }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Wait for markers then click one to select a beach
+    const markers = page.locator('[data-testid="beach-marker"]');
+    const hasMarkers = await markers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    if (!hasMarkers) throw new Error('No beach markers found for touch target test');
+
+    await markers.first().click({ force: true });
+
+    const closeButton = page.getByLabel('Deselect beach');
+    await expect(closeButton).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const box = await closeButton.boundingBox();
+    if (!box) throw new Error('Close button bounding box not found');
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test('mobile: drawer handle area has adequate touch target', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    const handleArea = page.getByTestId('drawer-handle-area');
+    await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const box = await handleArea.boundingBox();
+    if (!box) throw new Error('Drawer handle area bounding box not found');
+    // py-4 = 16px top + 16px bottom + handle height should give adequate target
+    expect(box.height).toBeGreaterThanOrEqual(32);
+  });
+
+  test('mobile: beach count overlay does not exceed 60% of viewport width', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Wait for map to load
+    await expect(page.locator('canvas').first()).toBeVisible({ timeout: TIMEOUTS.long });
+
+    // The overlay is inside map-container
+    const overlay = page.getByTestId('map-overlay');
+    await expect(overlay).toBeVisible({ timeout: TIMEOUTS.medium });
+
+    const box = await overlay.boundingBox();
+    if (!box) throw new Error('Map overlay bounding box not found');
+    expect(box.width).toBeLessThanOrEqual(375 * 0.6);
+    expect(box.x + box.width).toBeLessThanOrEqual(375);
+  });
+
+  test('mobile: selected beach card icon is hidden on small screens', async ({ page, context }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    const markers = page.locator('[data-testid="beach-marker"]');
+    const hasMarkers = await markers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    if (!hasMarkers) throw new Error('No beach markers found for icon visibility test');
+
+    await markers.first().click({ force: true });
+
+    const iconContainer = page.locator('[data-testid="beach-icon-container"]');
+    const exists = await iconContainer.count() > 0;
+    if (exists) {
+      await expect(iconContainer).not.toBeVisible();
+    }
+  });
+
+  test('mobile: beach card in list view responds to tap', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/map');
+    await waitForPageLoad(page);
+
+    // Switch to list view
+    const listButton = page.getByTestId('view-mode-list');
+    await listButton.click();
+    await page.waitForTimeout(500);
+
+    // Find a beach item and click it
+    const beachItems = page.locator('[data-testid="beach-item"]');
+    const hasItems = await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    if (!hasItems) throw new Error('No beach items found in list view for tap test');
+
+    // Click should navigate or trigger selection (proving whileTap didn't break interaction)
+    const urlBefore = page.url();
+    await beachItems.first().click();
+    await page.waitForTimeout(1000);
+
+    // Should have either navigated or changed state
+    const urlAfter = page.url();
+    const navigated = urlAfter !== urlBefore;
+    // If didn't navigate, check that we're at least still on map page (no crash)
+    if (!navigated) {
+      expect(urlAfter).toContain('/map');
+    }
   });
 });

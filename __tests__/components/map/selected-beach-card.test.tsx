@@ -69,4 +69,52 @@ describe("SelectedBeachCard", () => {
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute("href", "/beach/beach-1");
   });
+
+  // Bug 4: Close button touch target must be at least 44px (WCAG)
+  it("close button has WCAG-compliant 44px minimum touch target", () => {
+    const onClose = jest.fn();
+    render(
+      <SelectedBeachCard
+        selectedBeach={beach}
+        getDistanceFromUser={() => "1.2 mi away"}
+        userLocation={{ lat: 32.88, lon: -117.24 }}
+        onClose={onClose}
+      />
+    );
+
+    const closeButton = screen.getByLabelText("Deselect beach");
+    expect(closeButton).toHaveClass("min-w-[44px]");
+    expect(closeButton).toHaveClass("min-h-[44px]");
+  });
+
+  it("close button has active state for touch feedback", () => {
+    const onClose = jest.fn();
+    render(
+      <SelectedBeachCard
+        selectedBeach={beach}
+        getDistanceFromUser={() => "1.2 mi away"}
+        userLocation={{ lat: 32.88, lon: -117.24 }}
+        onClose={onClose}
+      />
+    );
+
+    const closeButton = screen.getByLabelText("Deselect beach");
+    expect(closeButton).toHaveClass("active:bg-muted/80");
+  });
+
+  // Bug 10: Icon container should be hidden on mobile
+  it("icon container is hidden on mobile and visible on sm+", () => {
+    render(
+      <SelectedBeachCard
+        selectedBeach={beach}
+        getDistanceFromUser={() => "1.2 mi away"}
+        userLocation={{ lat: 32.88, lon: -117.24 }}
+      />
+    );
+
+    // The icon container wrapping the large MapPin
+    const iconContainer = screen.getByTestId("beach-icon-container");
+    expect(iconContainer).toHaveClass("hidden");
+    expect(iconContainer).toHaveClass("sm:flex");
+  });
 });

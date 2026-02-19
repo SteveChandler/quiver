@@ -22,6 +22,7 @@ export function MapView() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [showRecovery, setShowRecovery] = useState(false);
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -172,6 +173,15 @@ export function MapView() {
   const handleMapClick = useCallback(() => {
     setSelectedBeach(null);
   }, [setSelectedBeach]);
+
+  const handleShowBeaches = useCallback(() => {
+    setSelectedBeach(null);
+    setShowRecovery(false);
+  }, [setSelectedBeach]);
+
+  const handleDismissAttempt = useCallback(() => {
+    setShowRecovery(true);
+  }, []);
 
   const handleBoundsChange = useCallback(
     (bounds: { west: number; south: number; east: number; north: number }) => {
@@ -355,6 +365,7 @@ export function MapView() {
               onWaveHeightsChange={handleWaveHeightsChange}
               onMapClick={isMobile ? handleMapClick : undefined}
               autoNavigateOnMarkerClick={!isMobile}
+              onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
             />
 
           </div>
@@ -369,6 +380,7 @@ export function MapView() {
               onBeachSelect={handleBeachSelect}
               getDistanceFromUser={getDistanceFromUser}
               onDeselectBeach={handleMapClick}
+              onDismissAttempt={handleDismissAttempt}
             />
           )}
 

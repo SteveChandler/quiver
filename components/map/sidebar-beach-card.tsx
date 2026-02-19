@@ -74,6 +74,7 @@ const SidebarBeachCardComponent = function SidebarBeachCard({
         {/* Beach info (left) */}
         <div className="min-w-0 flex-1">
           <p
+            title={beach.name}
             className={cn(
               "truncate text-sm font-semibold leading-tight",
               isSelected && "text-primary"
@@ -81,7 +82,7 @@ const SidebarBeachCardComponent = function SidebarBeachCard({
           >
             {beach.name}
           </p>
-          <p className="truncate text-xs text-muted-foreground mt-0.5">
+          <p title={locationText} className="truncate text-xs text-muted-foreground mt-0.5">
             {locationText}
           </p>
         </div>

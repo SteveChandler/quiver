@@ -114,8 +114,15 @@ describe("MapSearchHeader", () => {
       render(<MapSearchHeader {...defaultProps} />);
 
       // Container should be flex with proper spacing
-      const container = screen.getByTestId("map-controls").querySelector(".flex.items-center.gap-2");
+      const container = screen.getByTestId("search-header-actions");
       expect(container).toBeInTheDocument();
+    });
+
+    it("Bug 8: flex container should have flex-nowrap to prevent overflow on narrow screens", () => {
+      render(<MapSearchHeader {...defaultProps} onNearMe={jest.fn()} />);
+
+      const container = screen.getByTestId("search-header-actions");
+      expect(container).toHaveClass("flex-nowrap");
     });
   });
 
