@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { TIMEOUTS } from './fixtures/test-data';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
  * Map Coordinate Validation Tests
@@ -18,10 +20,17 @@ import { TIMEOUTS } from './fixtures/test-data';
  */
 
 test.describe('Map Coordinate Validation', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page, context }) => {
+    errorCapture = setupErrorDetection(page);
     // Grant geolocation for map features
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Coordinate Validation' });
   });
 
   test('map loads without console errors', async ({ page }) => {
@@ -40,7 +49,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for map to initialize
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     // Check for coordinate-related errors
@@ -83,7 +92,7 @@ test.describe('Map Coordinate Validation', () => {
     const mapContainer = page.locator('.mapboxgl-map, [class*="mapbox"]').first();
     await expect(mapContainer).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // Wait for markers to be added to DOM
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox markers to render
     await page.waitForTimeout(3000);
 
     // Get all Mapbox markers
@@ -95,7 +104,7 @@ test.describe('Map Coordinate Validation', () => {
     if (markerCount === 0) {
       // If no markers visible, check if there's an error state
       const errorMessage = page.locator('[data-testid*="error"], [class*="error"]').first();
-      const hasError = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false);
+      const hasError = await isVisibleSafe(errorMessage, { timeout: 2000 });
 
       if (hasError) {
         const errorText = await errorMessage.textContent();
@@ -146,7 +155,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for map to load
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     // Execute JavaScript to check marker positions
@@ -185,7 +194,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for markers
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox markers to render
     await page.waitForTimeout(3000);
 
     const markers = await page.locator('.mapboxgl-marker').all();
@@ -198,7 +207,7 @@ test.describe('Map Coordinate Validation', () => {
     const firstMarker = markers[0];
     await firstMarker.click();
 
-    // Wait for beach info popup/card to appear
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach info popup animation
     await page.waitForTimeout(1000);
 
     // Look for beach detail card or popup
@@ -206,7 +215,7 @@ test.describe('Map Coordinate Validation', () => {
       '[data-testid*="beach-card"], [data-testid*="selected-beach"], [class*="beach-info"]'
     ).first();
 
-    const cardVisible = await beachCard.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const cardVisible = await isVisibleSafe(beachCard, { timeout: TIMEOUTS.medium });
 
     if (cardVisible) {
       // Verify card has beach name
@@ -229,7 +238,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for map initialization
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     // Check map bounds using Mapbox API
@@ -305,7 +314,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for map
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     const zoomLevel = await page.evaluate(() => {
@@ -336,7 +345,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for initial load
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     // Get initial marker count
@@ -344,13 +353,15 @@ test.describe('Map Coordinate Validation', () => {
 
     // Zoom out
     const zoomOutButton = page.locator('[class*="mapboxgl-ctrl-zoom-out"], button[aria-label*="Zoom out"]').first();
-    const hasZoomControl = await zoomOutButton.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasZoomControl = await isVisibleSafe(zoomOutButton, { timeout: 2000 });
 
     if (hasZoomControl) {
       // Click zoom out 2 times
       await zoomOutButton.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox zoom animation
       await page.waitForTimeout(500);
       await zoomOutButton.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox zoom animation
       await page.waitForTimeout(1000);
 
       // Marker count may change with zoom (clustering)
@@ -372,7 +383,7 @@ test.describe('Map Coordinate Validation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for map load
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     // Check for beaches near coordinate boundaries
@@ -414,10 +425,21 @@ test.describe('Map Coordinate Validation', () => {
 });
 
 test.describe('Map Coordinate Validation - Data Quality', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Data Quality' });
+  });
+
   test('all beaches in database have valid latitude', async ({ page }) => {
     // Navigate to a page that loads beach data
     await page.goto('/map');
     await waitForPageLoad(page);
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     // Check beach data quality via API
@@ -475,6 +497,7 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
   test('all beaches in database have valid longitude', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     const beachDataCheck = await page.evaluate(async () => {
@@ -590,16 +613,24 @@ test.describe('Map Coordinate Validation - Data Quality', () => {
 });
 
 test.describe('Map Coordinate Validation - Mobile', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page, context }) => {
+    errorCapture = setupErrorDetection(page);
     // Mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
   });
 
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Mobile Validation' });
+  });
+
   test('markers render correctly on mobile viewport', async ({ page }) => {
     await page.goto('/map');
     await waitForPageLoad(page);
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(3000);
 
     const markers = await page.locator('.mapboxgl-marker').all();

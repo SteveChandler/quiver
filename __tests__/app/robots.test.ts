@@ -14,7 +14,7 @@ describe("robots.txt", () => {
     (process.env as any).NODE_ENV = "production";
 
     jest.resetModules();
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const robots = require("@/app/robots").default as () => any;
     const r = robots();
 
@@ -29,7 +29,7 @@ describe("robots.txt", () => {
     process.env.DISALLOW_ROBOTS = "true";
 
     jest.resetModules();
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const robots = require("@/app/robots").default as () => any;
     const r = robots();
 

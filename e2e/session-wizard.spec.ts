@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { TEST_BEACH_IDS } from './fixtures/test-data';
+import { isVisibleSafe } from './utils/strict-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Session Wizard Tests
@@ -10,9 +12,16 @@ import { TEST_BEACH_IDS } from './fixtures/test-data';
  */
 
 test.describe('Session Wizard - Plan Mode', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/sessions/new?mode=plan');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Plan Mode' });
   });
 
   test('should display session wizard in plan mode', async ({ page }) => {
@@ -20,7 +29,7 @@ test.describe('Session Wizard - Plan Mode', () => {
 
     // 1. Look for any heading
     const anyHeading = page.getByRole('heading').first();
-    const hasHeading = await anyHeading.isVisible().catch(() => false);
+    const hasHeading = await isVisibleSafe(anyHeading);
 
     if (hasHeading) {
       expect(hasHeading).toBe(true);
@@ -29,7 +38,7 @@ test.describe('Session Wizard - Plan Mode', () => {
 
     // 2. Look for beach selection (wizard first step)
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasBeachInput = await beachInput.isVisible().catch(() => false);
+    const hasBeachInput = await isVisibleSafe(beachInput);
 
     if (hasBeachInput) {
       expect(hasBeachInput).toBe(true);
@@ -38,7 +47,7 @@ test.describe('Session Wizard - Plan Mode', () => {
 
     // 3. Look for any form elements
     const formElement = page.locator('form, input, button').first();
-    const hasForm = await formElement.isVisible().catch(() => false);
+    const hasForm = await isVisibleSafe(formElement);
 
     // Wizard should have some interactive elements
     expect(hasForm).toBe(true);
@@ -49,8 +58,8 @@ test.describe('Session Wizard - Plan Mode', () => {
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
     const beachSelect = page.locator('select, [role="combobox"]').first();
 
-    const hasInput = await beachInput.isVisible().catch(() => false);
-    const hasSelect = await beachSelect.isVisible().catch(() => false);
+    const hasInput = await isVisibleSafe(beachInput);
+    const hasSelect = await isVisibleSafe(beachSelect);
 
     expect(hasInput || hasSelect).toBe(true);
   });
@@ -58,15 +67,16 @@ test.describe('Session Wizard - Plan Mode', () => {
   test('should allow selecting a beach', async ({ page }) => {
     // Try to type beach name
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const isVisible = await beachInput.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(beachInput);
 
     if (isVisible) {
       await beachInput.fill('Black');
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
       await page.waitForTimeout(1000);
 
       // Should show beach suggestions
       const beachOption = page.getByText(/black/i).first();
-      const hasOption = await beachOption.isVisible().catch(() => false);
+      const hasOption = await isVisibleSafe(beachOption);
 
       if (hasOption) {
         await beachOption.click();
@@ -79,7 +89,7 @@ test.describe('Session Wizard - Plan Mode', () => {
   test('should have date and time selection', async ({ page }) => {
     // Look for date input
     const dateInput = page.locator('input[type="date"], input[placeholder*="date" i]').first();
-    const hasDate = await dateInput.isVisible().catch(() => false);
+    const hasDate = await isVisibleSafe(dateInput);
 
     if (hasDate) {
       await expect(dateInput).toBeVisible();
@@ -87,7 +97,7 @@ test.describe('Session Wizard - Plan Mode', () => {
 
     // Look for time input
     const timeInput = page.locator('input[type="time"], input[placeholder*="time" i]').first();
-    const hasTime = await timeInput.isVisible().catch(() => false);
+    const hasTime = await isVisibleSafe(timeInput);
 
     if (!hasDate && !hasTime) {
       throw new Error('Not implemented: Date/time inputs not found - may be in different step');
@@ -96,7 +106,7 @@ test.describe('Session Wizard - Plan Mode', () => {
 
   test('should have next/continue button', async ({ page }) => {
     const nextButton = page.getByRole('button', { name: /next|continue|proceed/i });
-    const hasNext = await nextButton.isVisible().catch(() => false);
+    const hasNext = await isVisibleSafe(nextButton);
 
     expect(hasNext).toBe(true);
   });
@@ -108,10 +118,10 @@ test.describe('Session Wizard - Plan Mode', () => {
     const closeButton = page.getByRole('button', { name: /close|×/i });
     const backLink = page.getByRole('link', { name: /back|cancel|close/i });
 
-    const hasCancel = await cancelButton.isVisible().catch(() => false);
-    const hasBack = await backButton.isVisible().catch(() => false);
-    const hasClose = await closeButton.isVisible().catch(() => false);
-    const hasBackLink = await backLink.isVisible().catch(() => false);
+    const hasCancel = await isVisibleSafe(cancelButton);
+    const hasBack = await isVisibleSafe(backButton);
+    const hasClose = await isVisibleSafe(closeButton);
+    const hasBackLink = await isVisibleSafe(backLink);
 
     // At least one way to exit the wizard should exist
     if (!hasCancel && !hasBack && !hasClose && !hasBackLink) {
@@ -123,9 +133,16 @@ test.describe('Session Wizard - Plan Mode', () => {
 });
 
 test.describe('Session Wizard - Log Mode', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Log Mode' });
   });
 
   test('should display session wizard in log mode', async ({ page }) => {
@@ -133,7 +150,7 @@ test.describe('Session Wizard - Log Mode', () => {
 
     // 1. Look for any heading
     const anyHeading = page.getByRole('heading').first();
-    const hasHeading = await anyHeading.isVisible().catch(() => false);
+    const hasHeading = await isVisibleSafe(anyHeading);
 
     if (hasHeading) {
       expect(hasHeading).toBe(true);
@@ -142,7 +159,7 @@ test.describe('Session Wizard - Log Mode', () => {
 
     // 2. Look for beach selection (wizard first step)
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasBeachInput = await beachInput.isVisible().catch(() => false);
+    const hasBeachInput = await isVisibleSafe(beachInput);
 
     if (hasBeachInput) {
       expect(hasBeachInput).toBe(true);
@@ -151,7 +168,7 @@ test.describe('Session Wizard - Log Mode', () => {
 
     // 3. Look for any form elements
     const formElement = page.locator('form, input, button').first();
-    const hasForm = await formElement.isVisible().catch(() => false);
+    const hasForm = await isVisibleSafe(formElement);
 
     // Wizard should have some interactive elements
     expect(hasForm).toBe(true);
@@ -160,11 +177,11 @@ test.describe('Session Wizard - Log Mode', () => {
   test('should have beach selection step', async ({ page }) => {
     // Look for beach selection
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasInput = await beachInput.isVisible().catch(() => false);
+    const hasInput = await isVisibleSafe(beachInput);
 
     if (!hasInput) {
       const beachText = page.getByText(/select.*beach|choose.*location/i).first();
-      const hasText = await beachText.isVisible().catch(() => false);
+      const hasText = await isVisibleSafe(beachText);
       expect(hasText).toBe(true);
     }
   });
@@ -241,13 +258,23 @@ test.describe('Session Wizard - Log Mode', () => {
 });
 
 test.describe('Session Wizard - Complete Flow', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Complete Flow' });
+  });
+
   test('should complete plan session flow end-to-end', async ({ page }) => {
     await page.goto('/sessions/new?mode=plan');
     await waitForPageLoad(page);
 
     // Step 1: Select beach
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasBeachInput = await beachInput.isVisible().catch(() => false);
+    const hasBeachInput = await isVisibleSafe(beachInput);
 
     if (!hasBeachInput) {
       throw new Error('Not implemented: Cannot complete flow - beach selection not found');
@@ -255,11 +282,12 @@ test.describe('Session Wizard - Complete Flow', () => {
 
     // Fill beach
     await beachInput.fill('Black');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
     await page.waitForTimeout(1000);
 
     // Select first beach option
     const beachOption = page.getByText(/black/i).first();
-    const hasOption = await beachOption.isVisible().catch(() => false);
+    const hasOption = await isVisibleSafe(beachOption);
     if (hasOption) {
       await beachOption.click();
     } else {
@@ -268,15 +296,16 @@ test.describe('Session Wizard - Complete Flow', () => {
 
     // Step 2: Click next/continue if needed
     const nextButton = page.getByRole('button', { name: /next|continue/i }).first();
-    const hasNext = await nextButton.isVisible().catch(() => false);
+    const hasNext = await isVisibleSafe(nextButton);
     if (hasNext) {
       await nextButton.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
       await page.waitForTimeout(500);
     }
 
     // Step 3: Set date (tomorrow)
     const dateInput = page.locator('input[type="date"]').first();
-    const hasDate = await dateInput.isVisible().catch(() => false);
+    const hasDate = await isVisibleSafe(dateInput);
 
     if (hasDate) {
       const tomorrow = new Date();
@@ -287,7 +316,7 @@ test.describe('Session Wizard - Complete Flow', () => {
 
     // Step 4: Set time
     const timeInput = page.locator('input[type="time"]').first();
-    const hasTime = await timeInput.isVisible().catch(() => false);
+    const hasTime = await isVisibleSafe(timeInput);
 
     if (hasTime) {
       await timeInput.fill('09:00');
@@ -295,7 +324,7 @@ test.describe('Session Wizard - Complete Flow', () => {
 
     // Step 5: Look for submit/plan button
     const submitButton = page.getByRole('button', { name: /plan|submit|complete|finish/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton);
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Submit button not found - wizard may have more steps');
@@ -309,8 +338,8 @@ test.describe('Session Wizard - Complete Flow', () => {
     const celebration = page.getByText(/🎉|Success!/i);
 
     // Either success toast or celebration overlay should appear
-    const hasSuccess = await successMessage.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasCelebration = await celebration.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasSuccess = await isVisibleSafe(successMessage, { timeout: 5000 });
+    const hasCelebration = await isVisibleSafe(celebration, { timeout: 5000 });
 
     expect(hasSuccess || hasCelebration).toBe(true);
   });
@@ -323,7 +352,7 @@ test.describe('Session Wizard - Complete Flow', () => {
 
     // Just verify wizard is functional
     const wizard = page.locator('form, [class*="wizard"]').first();
-    const hasWizard = await wizard.isVisible().catch(() => false);
+    const hasWizard = await isVisibleSafe(wizard);
 
     expect(hasWizard).toBe(true);
   });
@@ -334,7 +363,7 @@ test.describe('Session Wizard - Complete Flow', () => {
 
     // Find and click cancel button
     const cancelButton = page.getByRole('button', { name: /cancel|back/i }).first();
-    const hasCancel = await cancelButton.isVisible().catch(() => false);
+    const hasCancel = await isVisibleSafe(cancelButton);
 
     if (!hasCancel) {
       throw new Error('Not implemented: Cancel button not found');
@@ -351,20 +380,30 @@ test.describe('Session Wizard - Complete Flow', () => {
 });
 
 test.describe('Session Wizard - Validation', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Validation' });
+  });
+
   test('should not allow submitting without required fields', async ({ page }) => {
     await page.goto('/sessions/new?mode=plan');
     await waitForPageLoad(page);
 
     // Try to find and click submit button without filling form
     const submitButton = page.getByRole('button', { name: /plan|submit|complete|finish/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton);
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Submit button not visible - may be multi-step wizard');
     }
 
     // Button should be disabled or clicking should show validation error
-    const isDisabled = await submitButton.isDisabled().catch(() => false);
+    const isDisabled = await submitButton.isDisabled();
 
     if (!isDisabled) {
       // Try clicking
@@ -372,7 +411,7 @@ test.describe('Session Wizard - Validation', () => {
 
       // Should show validation error
       const validationError = page.getByText(/required|select.*beach|choose/i);
-      const hasError = await validationError.isVisible({ timeout: 2000 }).catch(() => false);
+      const hasError = await isVisibleSafe(validationError, { timeout: 2000 });
 
       expect(hasError).toBe(true);
     } else {
@@ -382,6 +421,16 @@ test.describe('Session Wizard - Validation', () => {
 });
 
 test.describe('Session Wizard - Forecast Snapshot Creation', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Forecast Snapshot' });
+  });
+
   /**
    * Tests for forecast snapshot creation when sessions are logged.
    * Snapshots capture forecast conditions at the time of the session
@@ -399,7 +448,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
 
     // Fill out the session form
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
+    const isVisible = await isVisibleSafe(beachInput, { timeout: 5000 });
 
     if (!isVisible) {
       throw new Error('Not implemented: Beach input not found - different UI');
@@ -407,19 +456,21 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
 
     // Select a beach
     await beachInput.fill('Black');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
     await page.waitForTimeout(1000);
 
     const beachOption = page.getByText(/black/i).first();
-    const hasOption = await beachOption.isVisible().catch(() => false);
+    const hasOption = await isVisibleSafe(beachOption);
 
     if (hasOption) {
       await beachOption.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for beach selection to apply
       await page.waitForTimeout(500);
     }
 
     // Fill in other required fields if present
     const ratingInput = page.locator('input[type="range"], [role="slider"]').first();
-    const hasRating = await ratingInput.isVisible().catch(() => false);
+    const hasRating = await isVisibleSafe(ratingInput);
 
     if (hasRating) {
       await ratingInput.fill('8');
@@ -427,7 +478,7 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
 
     // Submit the session
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton);
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Submit button not found');
@@ -439,8 +490,8 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     const successMessage = page.getByText(/success|logged|created|saved/i);
     const celebration = page.getByText(/🎉|Success!/i);
 
-    const hasSuccess = await successMessage.isVisible({ timeout: 10000 }).catch(() => false);
-    const hasCelebration = await celebration.isVisible({ timeout: 10000 }).catch(() => false);
+    const hasSuccess = await isVisibleSafe(successMessage, { timeout: 10000 });
+    const hasCelebration = await isVisibleSafe(celebration, { timeout: 10000 });
 
     // Session should be created successfully
     // Note: Forecast snapshot creation happens in background via:
@@ -458,18 +509,19 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
 
     // Fill minimal required fields
     const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
+    const isVisible = await isVisibleSafe(beachInput, { timeout: 5000 });
 
     if (!isVisible) {
       throw new Error('Not implemented: Beach input not found');
     }
 
     await beachInput.fill('Test');
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
     await page.waitForTimeout(1000);
 
     // Try to submit
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton);
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Submit button not found');
@@ -479,12 +531,12 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
     // The snapshot creation is non-blocking and won't fail the session creation
     await submitButton.click();
 
-    // Should either succeed or show validation errors (but not fail due to snapshot)
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form submission and redirect
     await page.waitForTimeout(3000);
 
     // Page should not crash or show unexpected errors
     const errorMessage = page.getByText(/unexpected error|failed to create session/i);
-    const hasError = await errorMessage.isVisible().catch(() => false);
+    const hasError = await isVisibleSafe(errorMessage);
 
     // Should NOT have unexpected errors (validation errors are ok)
     expect(hasError).toBe(false);

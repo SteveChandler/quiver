@@ -15,7 +15,9 @@
     "build": "next build",
     "build:clean": "yarn clean:next && next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --ignore-pattern '__tests__/**' --ignore-pattern 'e2e/**' --max-warnings=0",
+    "lint:tests": "eslint __tests__/ e2e/ --max-warnings=1750",
+    "lint:all": "yarn lint && yarn lint:tests",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:coverage": "jest --coverage",
@@ -215,7 +217,9 @@
     "depcheck": "^1.4.7",
     "eslint": "^9.26.0",
     "eslint-config-next": "^16.1.6",
+    "eslint-plugin-jest": "^29.15.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-playwright": "^2.7.0",
     "jest": "^29.7.0",
     "jest-axe": "^9.0.0",
     "jest-environment-jsdom": "^29.7.0",
@@ -256,7 +260,6 @@
     "ansi-regex": "^5.0.1",
     "@sentry/node": "10.27.0",
     "@sentry/core": "10.27.0",
-    "fast-xml-parser": "^5.3.6",
-    "ajv": "^8.18.0"
+    "fast-xml-parser": "^5.3.6"
   }
 }

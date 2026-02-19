@@ -501,7 +501,7 @@ describe("createIntelPost", () => {
       );
 
       expect(result.success).toBe(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const data = result.data as any;
       expect(data.id).toBe("intel-1");
       expect(data.user.full_name).toBe("John Doe");

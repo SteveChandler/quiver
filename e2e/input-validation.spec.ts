@@ -14,6 +14,7 @@
 
 import { test, expect } from "@playwright/test";
 import { ensureAuthenticated } from "./utils/test-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 const BASE_URL =
   process.env.BASE_URL ||
@@ -41,8 +42,15 @@ async function createTestSession(request: any): Promise<string | null> {
 }
 
 test.describe("Input Validation - Phase 2 Fixes", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Phase 2 Fixes' });
   });
 
   test.describe("Comment Max Length Validation", () => {

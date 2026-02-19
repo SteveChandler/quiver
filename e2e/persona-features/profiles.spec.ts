@@ -11,8 +11,19 @@ import { test, expect } from '@playwright/test';
 import { ALL_PERSONA_TYPES, PERSONAS, PersonaType } from '../fixtures/personas';
 import { getPersonaAuthStatePath, createPersonaPage, personaAuthStateExists } from '../utils/persona-auth';
 import { verifyLoggedInAsPersona, updateProfileAsPersona, verifyProfileExperienceLevel } from '../utils/persona-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 test.describe('Profiles - All Personas', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'All Personas' });
+  });
+
   test.describe('Persona Identity', () => {
     for (const personaType of ALL_PERSONA_TYPES) {
       const persona = PERSONAS[personaType];

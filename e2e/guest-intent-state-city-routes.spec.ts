@@ -14,10 +14,21 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 const PAGE_LOAD_TIMEOUT = 10000;
 
 test.describe("Intent State Routes - /[intent]/[state]/", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: '/[intent]/[state]/' });
+  });
+
   test("should load California beginner state page", async ({ page }) => {
     await page.goto("/beginner/ca", { timeout: PAGE_LOAD_TIMEOUT });
     await expect(page).not.toHaveURL(/404/);

@@ -49,6 +49,7 @@ jest.mock("@/components/landing-page/cta-section", () => ({
 
 describe("AuthAwareLandingWrapper post-signup confirm email", () => {
   const replace = jest.fn();
+  // eslint-disable-next-line no-restricted-properties -- test needs to mock window.location
   const originalLocation = window.location;
 
   beforeEach(() => {

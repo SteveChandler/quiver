@@ -381,13 +381,10 @@ describe("IOOS Sync - Observation Sync", () => {
     const response = await GET(request);
     const data = await response.json();
 
-    // Note: In the current implementation, Promise.allSettled may mark these as failures
-    // even though null is a valid response (no data available).
-    // This test verifies the actual behavior rather than expected behavior.
-    // TODO: Consider updating route to distinguish between errors and "no data" cases.
-
-    // Verify stations were attempted
-    expect(mockIOOSService.fetchObservationDynamic || data.stationsFailed >= 0).toBeTruthy();
+    // The IOOSService mock was re-created in this test, so verify via response data
+    // rather than the stale mockIOOSService reference from beforeEach.
+    expect(data.stationsFailed).toBeGreaterThanOrEqual(0);
+    expect(typeof data.stationsSynced).toBe("number");
 
     // Verify no observations were inserted (null = no data)
     expect(data.observationsInserted).toBe(0);

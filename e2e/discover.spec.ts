@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { VIEWPORTS } from './fixtures/test-data';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Discover Page Tests
@@ -10,9 +11,16 @@ import { VIEWPORTS } from './fixtures/test-data';
  */
 
 test.describe('Discover Page - Authenticated', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/discover');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Authenticated' });
   });
 
   test('should display discover page for authenticated users', async ({ page }) => {
@@ -57,11 +65,11 @@ test.describe('Discover Page - Authenticated', () => {
     await searchButton.click();
 
     // Wait for search to complete (either results or no results message)
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     // Either search results should appear, or we should get some feedback
     const searchResults = page.getByText(/search results/i);
-    const hasResults = await searchResults.isVisible().catch(() => false);
+    const hasResults = await isVisibleSafe(searchResults);
 
     // If no results text, we might have empty results (which is ok for this test)
     // Just verify the search didn't error out
@@ -71,11 +79,12 @@ test.describe('Discover Page - Authenticated', () => {
   test('should display suggested users section', async ({ page }) => {
     // Scroll to find the suggested users section
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- scroll animation settling
     await page.waitForTimeout(500);
 
     // Should show suggested surfers heading
     const suggestedHeading = page.getByText(/suggested surfers/i);
-    const hasSuggestedHeading = await suggestedHeading.isVisible().catch(() => false);
+    const hasSuggestedHeading = await isVisibleSafe(suggestedHeading);
 
     if (!hasSuggestedHeading) {
       throw new Error('Not implemented: Suggested users section not found - may not be implemented');
@@ -87,7 +96,7 @@ test.describe('Discover Page - Authenticated', () => {
     const emptyState = page.getByText(/no suggested users/i);
     const userCard = page.locator('[class*="border"]').filter({ hasText: /followers/i });
 
-    const hasEmpty = await emptyState.isVisible().catch(() => false);
+    const hasEmpty = await isVisibleSafe(emptyState);
     const hasUsers = (await userCard.count()) > 0;
 
     // Section exists, either with empty state or users
@@ -128,11 +137,11 @@ test.describe('Discover Page - Authenticated', () => {
     await searchButton.click();
 
     // Wait for results
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     // Check if search results section appears
     const resultsHeading = page.getByText(/search results/i);
-    const hasResults = await resultsHeading.isVisible().catch(() => false);
+    const hasResults = await isVisibleSafe(resultsHeading);
 
     if (hasResults) {
       // If results exist, should show follow buttons
@@ -150,7 +159,7 @@ test.describe('Discover Page - Authenticated', () => {
 
     await searchInput.fill('test');
     await searchButton.click();
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     // Check for view profile buttons
     const viewProfileButtons = page.getByRole('button', { name: /view profile/i });
@@ -167,11 +176,11 @@ test.describe('Discover Page - Authenticated', () => {
 
     await searchInput.fill('test');
     await searchButton.click();
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     // Find first view profile button
     const viewProfileButton = page.getByRole('button', { name: /view profile/i }).first();
-    const hasButton = await viewProfileButton.isVisible().catch(() => false);
+    const hasButton = await isVisibleSafe(viewProfileButton);
 
     if (!hasButton) {
       throw new Error('Not implemented: View profile modal - search results missing view profile buttons');
@@ -184,8 +193,6 @@ test.describe('Discover Page - Authenticated', () => {
     // Should open modal
     const modal = page.locator('[role="dialog"]');
     await expect(modal).toBeVisible({ timeout: 5000 });
-    await page.waitForTimeout(5000);
-
   });
 });
 
@@ -202,15 +209,15 @@ test.describe('Discover Page - Guest', () => {
     const signInMessage = page.getByText(/sign in to discover/i);
     const signInPrompt = page.getByText(/sign in|log in|authenticate/i);
 
-    const hasSignInMessage = await signInMessage.isVisible().catch(() => false);
-    const hasSignInPrompt = await signInPrompt.isVisible().catch(() => false);
+    const hasSignInMessage = await isVisibleSafe(signInMessage);
+    const hasSignInPrompt = await isVisibleSafe(signInPrompt);
 
     // Either specific message or general auth prompt should be visible
     // OR the page might show limited content for guests
     if (!hasSignInMessage && !hasSignInPrompt) {
       // Check if page is showing limited content instead
       const searchSection = page.getByText(/search users/i);
-      const hasSearch = await searchSection.isVisible().catch(() => false);
+      const hasSearch = await isVisibleSafe(searchSection);
 
       // If search is visible, the page might just show the UI without explicit sign-in prompt
       // which is also valid for a guest view
@@ -254,7 +261,7 @@ test.describe('Discover Page - Responsive', () => {
     await searchButton.click();
 
     // Should not crash on mobile
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     expect(true).toBe(true); // Test passes if no error
   });
@@ -270,7 +277,7 @@ test.describe('Discover Page - Follow Functionality', () => {
 
     await searchInput.fill('test');
     await searchButton.click();
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     // Look for follow buttons
     const followButtons = page.getByRole('button', { name: /^follow$/i });
@@ -290,11 +297,11 @@ test.describe('Discover Page - Follow Functionality', () => {
 
     await searchInput.fill('test');
     await searchButton.click();
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
 
     // Find first follow button
     const followButton = page.getByRole('button', { name: /^follow$/i }).first();
-    const hasButton = await followButton.isVisible().catch(() => false);
+    const hasButton = await isVisibleSafe(followButton);
 
     if (!hasButton) {
       throw new Error('Not implemented: Follow user functionality - no follow buttons found in search results');
@@ -304,10 +311,10 @@ test.describe('Discover Page - Follow Functionality', () => {
     await followButton.click();
 
     // Button text should change to "Following" or show different state
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const followingButton = page.getByRole('button', { name: /following/i }).first();
-    const isFollowing = await followingButton.isVisible().catch(() => false);
+    const isFollowing = await isVisibleSafe(followingButton);
 
     expect(isFollowing).toBe(true);
   });

@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad, ensureAuthenticated } from './utils/test-helpers';
 import { TIMEOUTS, VIEWPORTS } from './fixtures/test-data';
+import { isVisibleSafe } from './utils/strict-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Personalized Insights E2E Tests
@@ -46,13 +48,20 @@ import { TIMEOUTS, VIEWPORTS } from './fixtures/test-data';
  */
 
 test.describe('Personalized Insights', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     // Ensure user is authenticated
     await ensureAuthenticated(page);
 
     // Navigate to home page where insights are displayed
     await page.goto('/');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalized Insights' });
   });
 
   /**
@@ -64,7 +73,7 @@ test.describe('Personalized Insights', () => {
   test('should show onboarding state when user has insufficient sessions', async ({ page }) => {
     // Wait for personalized forecast card to load
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     // Skip test if no recommendation is available
     if (!cardVisible) {
@@ -73,7 +82,7 @@ test.describe('Personalized Insights', () => {
 
     // Check for insights section within the card
     const summarySection = card.locator('.space-y-3.p-4.rounded-lg.bg-slate-50');
-    const sectionVisible = await summarySection.isVisible().catch(() => false);
+    const sectionVisible = await isVisibleSafe(summarySection);
 
     if (sectionVisible) {
       const text = await summarySection.textContent();
@@ -88,12 +97,12 @@ test.describe('Personalized Insights', () => {
       if (hasOnboardingMessage) {
         // Should not show board recommendations in onboarding state
         const boardTip = page.getByText(/board recommendation/i);
-        const hasBoardTip = await boardTip.isVisible().catch(() => false);
+        const hasBoardTip = await isVisibleSafe(boardTip);
         expect(hasBoardTip).toBe(false);
 
         // Should not show "View similar sessions" link
         const similarSessionsLink = page.getByRole('button', { name: /view.*similar session/i });
-        const hasLink = await similarSessionsLink.isVisible().catch(() => false);
+        const hasLink = await isVisibleSafe(similarSessionsLink);
         expect(hasLink).toBe(false);
       }
     }
@@ -107,7 +116,7 @@ test.describe('Personalized Insights', () => {
    */
   test('should display insights when user has sufficient session history', async ({ page }) => {
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
@@ -115,7 +124,7 @@ test.describe('Personalized Insights', () => {
 
     // Check for "For You" KPI tile which shows insights label
     const forYouTile = card.locator('.bg-purple-50').first();
-    const tileVisible = await forYouTile.isVisible().catch(() => false);
+    const tileVisible = await isVisibleSafe(forYouTile);
 
     if (tileVisible) {
       const tileText = await forYouTile.textContent();
@@ -143,7 +152,7 @@ test.describe('Personalized Insights', () => {
 
     // Check for reason bullets in summary section
     const summarySection = card.locator('.space-y-3.p-4.rounded-lg.bg-slate-50');
-    const sectionVisible = await summarySection.isVisible().catch(() => false);
+    const sectionVisible = await isVisibleSafe(summarySection);
 
     if (sectionVisible) {
       // Look for bullet points with checkmarks
@@ -170,7 +179,7 @@ test.describe('Personalized Insights', () => {
    */
   test('should display board recommendation when pattern detected', async ({ page }) => {
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
@@ -178,7 +187,7 @@ test.describe('Personalized Insights', () => {
 
     // Look for board tip section (amber background)
     const boardTipSection = card.locator('.bg-amber-50.border-amber-200');
-    const boardTipVisible = await boardTipSection.isVisible().catch(() => false);
+    const boardTipVisible = await isVisibleSafe(boardTipSection);
 
     if (boardTipVisible) {
       // Verify board recommendation label
@@ -209,7 +218,7 @@ test.describe('Personalized Insights', () => {
    */
   test('should open similar sessions drawer when clicked', async ({ page }) => {
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
@@ -219,7 +228,7 @@ test.describe('Personalized Insights', () => {
     const viewSimilarButton = card.getByRole('button', {
       name: /view.*similar session/i
     });
-    const buttonVisible = await viewSimilarButton.isVisible().catch(() => false);
+    const buttonVisible = await isVisibleSafe(viewSimilarButton);
 
     if (buttonVisible) {
       // Click the button
@@ -251,7 +260,7 @@ test.describe('Personalized Insights', () => {
 
       let foundIndicator = false;
       for (const indicator of sessionIndicators) {
-        const visible = await indicator.first().isVisible().catch(() => false);
+        const visible = await isVisibleSafe(indicator.first());
         if (visible) {
           foundIndicator = true;
           break;
@@ -262,7 +271,7 @@ test.describe('Personalized Insights', () => {
 
       // Close drawer
       const closeButton = drawer.getByRole('button', { name: /close/i });
-      const hasCloseButton = await closeButton.isVisible().catch(() => false);
+      const hasCloseButton = await isVisibleSafe(closeButton);
 
       if (hasCloseButton) {
         await closeButton.click();
@@ -282,7 +291,7 @@ test.describe('Personalized Insights', () => {
    */
   test('should open similar sessions drawer when clicking For You tile', async ({ page }) => {
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
@@ -290,7 +299,7 @@ test.describe('Personalized Insights', () => {
 
     // Find the "For You" KPI tile (purple background)
     const forYouTile = card.locator('.bg-purple-50').first();
-    const tileVisible = await forYouTile.isVisible().catch(() => false);
+    const tileVisible = await isVisibleSafe(forYouTile);
 
     if (!tileVisible) {
       throw new Error('Not implemented: For You tile not visible');
@@ -310,7 +319,7 @@ test.describe('Personalized Insights', () => {
 
       // Close drawer
       const closeButton = drawer.getByRole('button', { name: /close/i });
-      const hasCloseButton = await closeButton.isVisible().catch(() => false);
+      const hasCloseButton = await isVisibleSafe(closeButton);
 
       if (hasCloseButton) {
         await closeButton.click();
@@ -340,7 +349,7 @@ test.describe('Personalized Insights', () => {
     await waitForPageLoad(page);
 
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (cardVisible) {
       // Card should still render even if insights fail
@@ -348,7 +357,7 @@ test.describe('Personalized Insights', () => {
 
       // For You tile should still be present with fallback label
       const forYouTile = card.locator('.bg-purple-50').first();
-      const tileVisible = await forYouTile.isVisible().catch(() => false);
+      const tileVisible = await isVisibleSafe(forYouTile);
 
       if (tileVisible) {
         const tileText = await forYouTile.textContent();
@@ -366,14 +375,14 @@ test.describe('Personalized Insights', () => {
 
       // Should NOT show board recommendation on error
       const boardTip = card.locator('.bg-amber-50.border-amber-200');
-      const hasBoardTip = await boardTip.isVisible().catch(() => false);
+      const hasBoardTip = await isVisibleSafe(boardTip);
       expect(hasBoardTip).toBe(false);
 
       // Should NOT show similar sessions link on error
       const similarSessionsLink = card.getByRole('button', {
         name: /view.*similar session/i
       });
-      const hasLink = await similarSessionsLink.isVisible().catch(() => false);
+      const hasLink = await isVisibleSafe(similarSessionsLink);
       expect(hasLink).toBe(false);
     }
   });
@@ -390,7 +399,7 @@ test.describe('Personalized Insights', () => {
 
     // Immediately look for loading skeleton
     const loadingSkeleton = page.getByTestId('personalized-forecast-card-loading');
-    const hasLoading = await loadingSkeleton.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasLoading = await isVisibleSafe(loadingSkeleton, { timeout: 2000 });
 
     if (hasLoading) {
       // Wait for loading to complete
@@ -398,10 +407,10 @@ test.describe('Personalized Insights', () => {
 
       // Card should now be visible
       const card = page.getByTestId('personalized-forecast-card');
-      const cardVisible = await card.isVisible().catch(() => false);
+      const cardVisible = await isVisibleSafe(card);
 
       // Either card is visible OR we see error state
-      expect(cardVisible || await page.getByTestId('personalized-forecast-card-error').isVisible().catch(() => false)).toBe(true);
+      expect(cardVisible || await isVisibleSafe(page.getByTestId('personalized-forecast-card-error'))).toBe(true);
     }
   });
 
@@ -419,7 +428,7 @@ test.describe('Personalized Insights', () => {
     await waitForPageLoad(page);
 
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
@@ -436,7 +445,7 @@ test.describe('Personalized Insights', () => {
     const viewSimilarButton = card.getByRole('button', {
       name: /view.*similar session/i
     });
-    const buttonVisible = await viewSimilarButton.isVisible().catch(() => false);
+    const buttonVisible = await isVisibleSafe(viewSimilarButton);
 
     if (buttonVisible) {
       // Button should have adequate touch target size
@@ -451,7 +460,7 @@ test.describe('Personalized Insights', () => {
 
     // Board tip should wrap properly on mobile
     const boardTip = card.locator('.bg-amber-50.border-amber-200');
-    const boardTipVisible = await boardTip.isVisible().catch(() => false);
+    const boardTipVisible = await isVisibleSafe(boardTip);
 
     if (boardTipVisible) {
       // Should not cause horizontal scroll
@@ -472,14 +481,14 @@ test.describe('Personalized Insights', () => {
    */
   test('should show consistent match percentage and label', async ({ page }) => {
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
     }
 
     const forYouTile = card.locator('.bg-purple-50').first();
-    const tileVisible = await forYouTile.isVisible().catch(() => false);
+    const tileVisible = await isVisibleSafe(forYouTile);
 
     if (tileVisible) {
       const tileText = await forYouTile.textContent();
@@ -513,7 +522,7 @@ test.describe('Personalized Insights', () => {
    */
   test('should display "For You" personalization badge', async ({ page }) => {
     const card = page.getByTestId('personalized-forecast-card');
-    const cardVisible = await card.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(card, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: No personalized forecast available');
@@ -521,7 +530,7 @@ test.describe('Personalized Insights', () => {
 
     // Look for "For You" badge
     const badge = page.getByTestId('personalization-badge');
-    const badgeVisible = await badge.isVisible().catch(() => false);
+    const badgeVisible = await isVisibleSafe(badge);
 
     if (badgeVisible) {
       await expect(badge).toBeVisible();

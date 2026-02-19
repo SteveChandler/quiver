@@ -85,6 +85,7 @@ describe("buildDynamicObservationUrl", () => {
   let buildDynamicObservationUrl: typeof import("@/lib/services/ioos").buildDynamicObservationUrl;
 
   beforeAll(async () => {
+    // eslint-disable-next-line @next/next/no-assign-module-variable -- dynamic import binding, not reassigning global `module`
     const module = await import("@/lib/services/ioos");
     buildDynamicObservationUrl = module.buildDynamicObservationUrl;
   });
@@ -133,6 +134,7 @@ describe("parseObservationRow", () => {
   let parseObservationRow: typeof import("@/lib/services/ioos").parseObservationRow;
 
   beforeAll(async () => {
+    // eslint-disable-next-line @next/next/no-assign-module-variable -- dynamic import binding, not reassigning global `module`
     const module = await import("@/lib/services/ioos");
     parseObservationRow = module.parseObservationRow;
   });

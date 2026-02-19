@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_USER } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Guest Authentication Tests
@@ -10,9 +11,16 @@ import { waitForPageLoad } from './utils/test-helpers';
  */
 
 test.describe('Authentication Flow', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Authentication Flow' });
   });
 
   test('should successfully login with valid credentials', async ({ page }) => {
@@ -25,11 +33,11 @@ test.describe('Authentication Flow', () => {
 
     // Click "Continue with Email"
     const emailButton = page.getByRole('button', { name: /continue with email/i }).first();
-    const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+    const emailButtonVisible = await isVisibleSafe(emailButton);
 
     if (emailButtonVisible) {
       await emailButton.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load');
     }
 
     // Fill in credentials
@@ -40,11 +48,11 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: /log in|sign in/i }).last().click();
 
     // Wait for login to complete (modal should close)
-    await page.waitForTimeout(3000);
+    await page.waitForLoadState('networkidle');
 
     // Verify authentication succeeded (modal should be gone, and we see authenticated content)
     const dialog = page.locator('[role="dialog"]');
-    const isVisible = await dialog.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(dialog);
 
     expect(isVisible).toBe(false);
   });
@@ -58,11 +66,11 @@ test.describe('Authentication Flow', () => {
 
     // Click "Continue with Email"
     const emailButton = page.getByRole('button', { name: /continue with email/i }).first();
-    const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+    const emailButtonVisible = await isVisibleSafe(emailButton);
 
     if (emailButtonVisible) {
       await emailButton.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load');
     }
 
     // Fill in INVALID credentials
@@ -73,16 +81,16 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: /log in|sign in/i }).last().click();
 
     // Should see error message - look for alert role or common error patterns
-    await page.waitForTimeout(3000);
+    await page.waitForLoadState('networkidle');
 
     // Try multiple error selectors
     const errorByRole = page.getByRole('alert');
     const errorByText = page.getByText(/invalid|wrong|incorrect|failed|error/i).first();
     const errorByClass = page.locator('[class*="error"], [class*="alert"]').first();
 
-    const hasErrorRole = await errorByRole.isVisible().catch(() => false);
-    const hasErrorText = await errorByText.isVisible().catch(() => false);
-    const hasErrorClass = await errorByClass.isVisible().catch(() => false);
+    const hasErrorRole = await isVisibleSafe(errorByRole);
+    const hasErrorText = await isVisibleSafe(errorByText);
+    const hasErrorClass = await isVisibleSafe(errorByClass);
 
     // At least one error indicator should be visible
     expect(hasErrorRole || hasErrorText || hasErrorClass).toBe(true);
@@ -99,11 +107,11 @@ test.describe('Authentication Flow', () => {
 
     // Click "Continue with Email"
     const emailButton = page.getByRole('button', { name: /continue with email/i }).first();
-    const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+    const emailButtonVisible = await isVisibleSafe(emailButton);
 
     if (emailButtonVisible) {
       await emailButton.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load');
     }
 
     // Fill in credentials
@@ -114,11 +122,11 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: /log in|sign in/i }).last().click();
 
     // Wait for auth to complete
-    await page.waitForTimeout(4000);
+    await page.waitForLoadState('networkidle');
 
     // Modal should be CLOSED (not reopened)
     const dialog = page.locator('[role="dialog"]');
-    const modalStillOpen = await dialog.isVisible().catch(() => false);
+    const modalStillOpen = await isVisibleSafe(dialog);
 
     expect(modalStillOpen).toBe(false);
 
@@ -148,11 +156,11 @@ test.describe('Authentication Flow', () => {
 
     // Click "Continue with Email"
     const emailButton = page.getByRole('button', { name: /continue with email/i }).first();
-    const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+    const emailButtonVisible = await isVisibleSafe(emailButton);
 
     if (emailButtonVisible) {
       await emailButton.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load');
     }
 
     // Fill in credentials
@@ -174,7 +182,7 @@ test.describe('Authentication Flow', () => {
     }
 
     // Wait for auth to complete or page to navigate
-    await page.waitForTimeout(3000).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Test passes if: 1) Button was disabled preventing clicks, or 2) No duplicate errors logged
     // We can't reliably check the button state because successful login navigates the page
@@ -192,9 +200,9 @@ test.describe('Authentication Flow', () => {
     await page.keyboard.press('Escape');
 
     // Modal should close
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('load');
     const dialog = page.locator('[role="dialog"]');
-    const isVisible = await dialog.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(dialog);
 
     expect(isVisible).toBe(false);
   });

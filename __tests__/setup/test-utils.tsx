@@ -346,20 +346,56 @@ export const assertHookCalledWithBeachIds = (
 export const waitForLoadingToFinish = () =>
   new Promise((resolve) => setTimeout(resolve, 0));
 
-export const mockConsoleError = () => {
-  const originalError = console.error;
-  console.error = jest.fn();
-  return () => {
-    console.error = originalError;
-  };
+/**
+ * Declare that this test intentionally triggers console.error matching the
+ * given patterns.  Matched errors are cleared so the afterEach guard in
+ * jest.setup.js won't fail the test.  Unmatched errors still fail.
+ */
+export const expectConsoleErrors = (patterns: RegExp[]) => {
+  const tracked = (globalThis as any).__quiverConsoleErrors as
+    | string[]
+    | undefined;
+  if (!tracked) return; // fallback if setup hasn't run yet
+
+  const unmatched: string[] = [];
+  for (const msg of tracked) {
+    if (!patterns.some((p) => p.test(msg))) {
+      unmatched.push(msg);
+    }
+  }
+  // Clear the array so afterEach doesn't double-report
+  tracked.length = 0;
+  if (unmatched.length > 0) {
+    throw new Error(
+      `Unexpected console.error(s) not matching provided patterns:\n  ${unmatched.join("\n  ")}`
+    );
+  }
 };
 
-export const mockConsoleWarn = () => {
-  const originalWarn = console.warn;
-  console.warn = jest.fn();
-  return () => {
-    console.warn = originalWarn;
-  };
+/**
+ * Declare that this test intentionally triggers console.warn matching the
+ * given patterns.  Matched warnings are cleared so the afterEach guard in
+ * jest.setup.js won't fail the test.  Unmatched warnings still fail.
+ */
+export const expectConsoleWarnings = (patterns: RegExp[]) => {
+  const tracked = (globalThis as any).__quiverConsoleWarns as
+    | string[]
+    | undefined;
+  if (!tracked) return; // fallback if setup hasn't run yet
+
+  const unmatched: string[] = [];
+  for (const msg of tracked) {
+    if (!patterns.some((p) => p.test(msg))) {
+      unmatched.push(msg);
+    }
+  }
+  // Clear the array so afterEach doesn't double-report
+  tracked.length = 0;
+  if (unmatched.length > 0) {
+    throw new Error(
+      `Unexpected console.warn(s) not matching provided patterns:\n  ${unmatched.join("\n  ")}`
+    );
+  }
 };
 
 // Mock window.matchMedia for responsive tests

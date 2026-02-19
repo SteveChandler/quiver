@@ -280,38 +280,5 @@ describe("POST /api/session-planner/invitations (integration)", () => {
     seedSupabaseMocks();
   });
 
-  it.skip(
-    "creates invitations and returns aggregate metrics",
-    async () => {
-      // TODO: Implement a realistic Supabase test harness so this integration test can run end-to-end.
-      const { POST } = await import("@/app/api/session-planner/invitations/route");
-
-    const requestBody = {
-      sessionId: "session-1",
-      invitees: [
-        { email: "friend@example.com", name: "Friend" },
-        { email: "second@example.com", name: "Second" },
-      ],
-      message: "Come surf!",
-    };
-
-    const req = new NextRequest("http://localhost/api/session-planner/invitations", {
-      method: "POST",
-      body: JSON.stringify(requestBody),
-      headers: {
-        "Content-Type": "application/json",
-        "Idempotency-Key": "abc-123",
-      },
-    });
-
-    const res = await POST(req as any);
-    const json = await res.json();
-    expect(res.status).toBe(200);
-    expect(json.success).toBe(true);
-    expect(json.data.sessionId).toBe("session-1");
-    expect(json.data.invitationsSent).toBe(2);
-    expect(Array.isArray(json.data.invitations)).toBe(true);
-    expect(json.data.errors).toEqual([]);
-    expect(sendSessionInviteEmail).toHaveBeenCalled();
-  });
+  test.todo("creates invitations and returns aggregate metrics - requires realistic Supabase test harness for end-to-end validation");
 });

@@ -16,6 +16,8 @@ import { test, expect, Page, APIRequestContext, Route, BrowserContext } from "@p
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { isVisibleSafe } from "./utils/strict-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 const BASE_URL =
   process.env.BASE_URL ||
@@ -31,6 +33,16 @@ interface PageRequestFixture { page: Page; request: APIRequestContext }
 interface PageContextFixture { page: Page; context: BrowserContext }
 
 test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'All Phases Combined @smoke' });
+  });
+
   // Run serially to avoid browser context issues during parallel execution
   test.describe.configure({ mode: 'serial' });
 
@@ -55,7 +67,7 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
       // Step 2: Look for session planning UI
       const planButton = page.locator('button, a').filter({ hasText: /plan|new session|create/i }).first();
-      const planButtonVisible = await planButton.isVisible({ timeout: 5000 }).catch(() => false);
+      const planButtonVisible = await isVisibleSafe(planButton, { timeout: 5000 });
 
       if (!planButtonVisible) {
         console.log("⊘ Session planning UI not found - testing API directly");
@@ -129,16 +141,16 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
       // Step 3: Click plan session button
       await planButton.click();
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('load');
 
       // Step 4: Fill form with invalid data first (test validation)
       const beachInput = page.locator('input[name="beach_name"], input[placeholder*="beach" i]').first();
-      const beachInputVisible = await beachInput.isVisible({ timeout: 2000 }).catch(() => false);
+      const beachInputVisible = await isVisibleSafe(beachInput, { timeout: 2000 });
 
       if (beachInputVisible) {
         // Test validation by entering too-long notes
         const notesField = page.locator('textarea[name="notes"], textarea').first();
-        const notesVisible = await notesField.isVisible().catch(() => false);
+        const notesVisible = await isVisibleSafe(notesField);
 
         if (notesVisible) {
           await notesField.fill("x".repeat(1001)); // Over limit
@@ -146,11 +158,11 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
           // Try to submit
           const submitButton = page.locator('button[type="submit"]').first();
           await submitButton.click();
-          await page.waitForTimeout(1000);
+          await page.waitForLoadState('load');
 
           // Should show validation error
           const errorMessage = page.locator('text=/1000 characters|too long/i').first();
-          const errorVisible = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false);
+          const errorVisible = await isVisibleSafe(errorMessage, { timeout: 2000 });
 
           if (errorVisible) {
             console.log("✓ Client-side validation working");
@@ -161,13 +173,13 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
         await beachInput.fill("Windansea Beach");
 
         const dateInput = page.locator('input[type="date"], input[name*="date"]').first();
-        const dateVisible = await dateInput.isVisible().catch(() => false);
+        const dateVisible = await isVisibleSafe(dateInput);
         if (dateVisible) {
           await dateInput.fill("2025-12-15");
         }
 
         const timeInput = page.locator('input[type="time"], input[name*="time"]').first();
-        const timeVisible = await timeInput.isVisible().catch(() => false);
+        const timeVisible = await isVisibleSafe(timeInput);
         if (timeVisible) {
           await timeInput.fill("09:00");
         }
@@ -183,7 +195,7 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
         await submitButton.click();
 
         // Wait for response
-        await page.waitForTimeout(2000);
+        await page.waitForLoadState('networkidle');
 
         console.log("✓ Session planning form submitted");
 
@@ -204,25 +216,25 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
       });
 
       const planButton = page.locator('button, a').filter({ hasText: /plan|new/i }).first();
-      const planButtonVisible = await planButton.isVisible({ timeout: 5000 }).catch(() => false);
+      const planButtonVisible = await isVisibleSafe(planButton, { timeout: 5000 });
 
       if (planButtonVisible) {
         await planButton.click();
-        await page.waitForTimeout(500);
+        await page.waitForLoadState('load');
 
         // Fill and submit form (will fail due to network error)
         const beachInput = page.locator('input').first();
-        const inputVisible = await beachInput.isVisible().catch(() => false);
+        const inputVisible = await isVisibleSafe(beachInput);
 
         if (inputVisible) {
           await beachInput.fill("Test Beach");
 
           const submitButton = page.locator('button[type="submit"]').first();
-          const submitVisible = await submitButton.isVisible().catch(() => false);
+          const submitVisible = await isVisibleSafe(submitButton);
 
           if (submitVisible) {
             await submitButton.click();
-            await page.waitForTimeout(2000);
+            await page.waitForLoadState('networkidle');
 
             // Error boundary should catch this
             const bodyVisible = await page.isVisible("body");
@@ -264,9 +276,8 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
       const personalizedForecastCard = page.locator(
         '[data-testid="personalized-forecast-card"]'
       );
-      const personalizedVisible = await personalizedForecastCard
-        .isVisible({ timeout: 2000 })
-        .catch(() => false);
+      // Personalized card depends on user history — genuinely optional
+      const personalizedVisible = await isVisibleSafe(personalizedForecastCard, { timeout: 2000 });
 
       if (discoveryCardCount > 0) {
         console.log(
@@ -288,15 +299,8 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
         const beforeUrl = page.url();
         await viewBeachAction.click();
-        const navigated = await page
-          .waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 })
-          .then(() => true)
-          .catch(() => false);
-        if (navigated && page.url() !== beforeUrl) {
-          console.log(`✓ Navigated to beach detail: ${page.url()}`);
-        } else {
-          console.log("⊘ View Beach click did not navigate (non-fatal in dev)");
-        }
+        await page.waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 });
+        expect(page.url()).not.toBe(beforeUrl);
       } else if (personalizedVisible) {
         console.log(`✓ Personalized forecast card visible`);
 
@@ -308,15 +312,8 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
         const beforeUrl = page.url();
         await detailsButton.click();
-        const navigated = await page
-          .waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 })
-          .then(() => true)
-          .catch(() => false);
-        if (navigated && page.url() !== beforeUrl) {
-          console.log(`✓ Navigated to beach detail: ${page.url()}`);
-        } else {
-          console.log("⊘ Details click did not navigate (non-fatal in dev)");
-        }
+        await page.waitForURL(/\/ca\/|\/hi\/|\/or\/|\/wa\//, { timeout: 10000 });
+        expect(page.url()).not.toBe(beforeUrl);
       } else {
         console.log(
           "⊘ No discovery cards found - testing recommendations API directly"
@@ -351,12 +348,12 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
       // Step 5: Interact with map (test performance under interaction)
       const map = page.locator('[data-testid="beach-map"]');
-      const mapVisible = await map.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const mapVisible = await isVisibleSafe(map, { timeout: TIMEOUTS.medium });
 
       if (mapVisible) {
         // Click on map
         await map.click();
-        await page.waitForTimeout(500);
+        await page.waitForLoadState('load');
 
         // Page should remain responsive
         const bodyVisible = await page.isVisible("body");
@@ -370,22 +367,22 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
       await waitForPageLoad(page);
 
       const searchInput = page.locator('input[type="search"], input[placeholder*="search" i]').first();
-      const searchVisible = await searchInput.isVisible({ timeout: 5000 }).catch(() => false);
+      const searchVisible = await isVisibleSafe(searchInput, { timeout: 5000 });
 
       if (searchVisible) {
         // Test valid search
         await searchInput.fill("Malibu");
-        await page.waitForTimeout(1000);
+        await page.waitForLoadState('networkidle');
 
         // Should show results or loading
         console.log("✓ Beach search working");
 
         // Test that search doesn't hit rate limits with normal use
         await searchInput.fill("La Jolla");
-        await page.waitForTimeout(500);
+        await page.waitForLoadState('networkidle');
 
         await searchInput.fill("San Diego");
-        await page.waitForTimeout(500);
+        await page.waitForLoadState('networkidle');
 
         // Should still be functional (not rate limited)
         const bodyVisible = await page.isVisible("body");
@@ -436,30 +433,30 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
       // Step 2: Click edit if available
       const editButton = page.locator('button').filter({ hasText: /edit|update/i }).first();
-      const editVisible = await editButton.isVisible({ timeout: 5000 }).catch(() => false);
+      const editVisible = await isVisibleSafe(editButton, { timeout: 5000 });
 
       if (editVisible) {
         await editButton.click();
-        await page.waitForTimeout(1000);
+        await page.waitForLoadState('load');
 
         // Step 3: Test validation - enter too-long bio
         const bioField = page.locator('textarea[name="bio"], textarea').first();
-        const bioVisible = await bioField.isVisible().catch(() => false);
+        const bioVisible = await isVisibleSafe(bioField);
 
         if (bioVisible) {
           // Test validation
           await bioField.fill("x".repeat(501)); // Over 500 char limit
 
           const saveButton = page.locator('button').filter({ hasText: /save|update/i }).first();
-          const saveVisible = await saveButton.isVisible().catch(() => false);
+          const saveVisible = await isVisibleSafe(saveButton);
 
           if (saveVisible) {
             await saveButton.click();
-            await page.waitForTimeout(1000);
+            await page.waitForLoadState('load');
 
             // Should show validation error
             const errorMessage = page.locator('text=/500 characters|too long/i').first();
-            const errorVisible = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false);
+            const errorVisible = await isVisibleSafe(errorMessage, { timeout: 2000 });
 
             if (errorVisible) {
               console.log("✓ Bio validation working");
@@ -471,7 +468,7 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
             // Save
             await saveButton.click();
-            await page.waitForTimeout(2000);
+            await page.waitForLoadState('networkidle');
 
             console.log("✓ Profile update submitted");
           }
@@ -502,13 +499,13 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
       // before trying to open the edit flow again.
       try {
         await page.keyboard.press("Escape");
-        await page.waitForTimeout(500);
+        await page.waitForLoadState('load');
         const closeButton = page
           .locator('button[aria-label="Close"]')
           .first();
-        if (await closeButton.isVisible().catch(() => false)) {
+        if (await isVisibleSafe(closeButton)) {
           await closeButton.click();
-          await page.waitForTimeout(300);
+          await page.waitForLoadState('load');
         }
       } catch {
         // ignore
@@ -520,28 +517,28 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
 
       // Try to update (will fail)
       const dialog = page.locator('[role="dialog"]').first();
-      const dialogOpen = await dialog.isVisible().catch(() => false);
+      const dialogOpen = await isVisibleSafe(dialog);
 
       if (!dialogOpen) {
         const editButton2 = page
           .locator("button")
           .filter({ hasText: /edit/i })
           .first();
-        const editVisible2 = await editButton2.isVisible().catch(() => false);
+        const editVisible2 = await isVisibleSafe(editButton2);
         if (editVisible2) {
           await editButton2.click();
-          await page.waitForTimeout(500);
+          await page.waitForLoadState('load');
         }
       }
 
       const bioField2 = page.locator("textarea").first();
-      if (await bioField2.isVisible().catch(() => false)) {
+      if (await isVisibleSafe(bioField2)) {
         await bioField2.fill("This will fail");
 
         const saveButton2 = page.locator('button[type="submit"]').first();
-        if (await saveButton2.isVisible().catch(() => false)) {
+        if (await isVisibleSafe(saveButton2)) {
           await saveButton2.click();
-          await page.waitForTimeout(2000);
+          await page.waitForLoadState('networkidle');
 
           // Error boundary should catch
           const bodyVisible = await page.isVisible("body");
@@ -614,6 +611,7 @@ test.describe("Critical Flows Integration - All Phases Combined @smoke", () => {
         }, 200);
       });
 
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for injected error timers to fire
       await page.waitForTimeout(1000);
 
       // Restore network by removing route interception

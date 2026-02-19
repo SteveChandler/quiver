@@ -52,7 +52,7 @@ describe('actions/activity-actions', () => {
 
     const res = await getUserActivities('u1', ['post'], 5, 0);
     if (!res.success) {
-      // eslint-disable-next-line no-console
+       
       console.log('getUserActivities debug', res);
     }
     expect(res.success).toBe(true);

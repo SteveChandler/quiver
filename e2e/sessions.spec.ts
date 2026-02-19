@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Sessions Page Tests
@@ -9,15 +10,22 @@ import { waitForPageLoad } from './utils/test-helpers';
  */
 
 test.describe('Sessions Page', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/sessions');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Sessions Page' });
   });
 
   test('should display sessions page', async ({ page }) => {
     // Should show sessions heading
     const heading = page.getByRole('heading', { name: /sessions?|my sessions/i });
-    const hasHeading = await heading.isVisible().catch(() => false);
+    const hasHeading = await isVisibleSafe(heading);
 
     if (!hasHeading) {
       // Maybe different text
@@ -36,7 +44,7 @@ test.describe('Sessions Page', () => {
     if (count === 0) {
       // Should show empty state
       const emptyState = page.getByText(/no sessions|get started|log your first/i);
-      const hasEmpty = await emptyState.isVisible().catch(() => false);
+      const hasEmpty = await isVisibleSafe(emptyState);
 
       if (!hasEmpty) {
         throw new Error('Not implemented: Session empty state - no sessions found and no empty state UI displayed');
@@ -52,8 +60,8 @@ test.describe('Sessions Page', () => {
     const createButton = page.getByRole('button', { name: /log session|add session|new session|create/i });
     const createLink = page.getByRole('link', { name: /log session|add session|new session|create/i });
 
-    const hasButton = await createButton.isVisible().catch(() => false);
-    const hasLink = await createLink.isVisible().catch(() => false);
+    const hasButton = await isVisibleSafe(createButton);
+    const hasLink = await isVisibleSafe(createLink);
 
     expect(hasButton || hasLink).toBe(true);
   });
@@ -78,7 +86,7 @@ test.describe('Sessions Page', () => {
   test('should filter or sort sessions if available', async ({ page }) => {
     // Look for filter/sort controls
     const filterButton = page.getByRole('button', { name: /filter|sort|recent|oldest/i });
-    const hasFilter = await filterButton.isVisible().catch(() => false);
+    const hasFilter = await isVisibleSafe(filterButton);
 
     if (!hasFilter) {
       throw new Error('Not implemented: Session filters - filter or sort functionality not visible on sessions page');

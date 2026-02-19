@@ -17,13 +17,18 @@ import {
   TEST_PREFERENCES,
 } from './utils/profile-preferences-helpers';
 import { TEST_USER } from './fixtures/test-data';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe('Edit Profile - Preferences Fields', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await ensureAuthenticated(page);
   });
 
-  test.afterEach(async () => {
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Profile Edit Preferences' });
     await resetUserToCleanState(TEST_USER.email);
   });
 
@@ -223,7 +228,7 @@ test.describe('Edit Profile - Preferences Fields', () => {
     await saveButton.click();
 
     // Should show validation error (form shouldn't submit)
-    // Modal should still be open
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation feedback
     await page.waitForTimeout(1000);
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -233,6 +238,7 @@ test.describe('Edit Profile - Preferences Fields', () => {
 
     // Now preferences can be optional (saving should work)
     await saveButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form save API call
     await page.waitForTimeout(2000);
 
     // Success - should be able to save even without preferences filled
@@ -291,7 +297,7 @@ test.describe('Edit Profile - Preferences Fields', () => {
     const saveButton = page.getByTestId('save-profile');
     await saveButton.click();
 
-    // Should succeed
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form save API call
     await page.waitForTimeout(2000);
 
     // Verify preferences are still null/empty

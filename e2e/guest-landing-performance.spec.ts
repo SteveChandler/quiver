@@ -15,10 +15,21 @@
 
 import { test, expect } from '@playwright/test'
 import { waitForPageLoad } from './utils/test-helpers'
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
 test.describe('Landing Page - Server Rendering', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Server Rendering' });
+  });
+
   test('should render hero section immediately without JavaScript', async ({ browser }) => {
     // Create a new context with JavaScript disabled
     const context = await browser.newContext({
@@ -60,7 +71,7 @@ test.describe('Landing Page - Server Rendering', () => {
 
     // Footer should render (static content)
     const footer = page.locator('footer').first()
-    const footerVisible = await footer.isVisible().catch(() => false)
+    const footerVisible = await isVisibleSafe(footer)
 
     // Page should have substantive content
     const bodyText = await page.locator('body').textContent()
@@ -126,6 +137,7 @@ test.describe('Landing Page - Lazy Search Component', () => {
 
     // Click to ensure focus
     await searchInput.click()
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search focus state transition
     await page.waitForTimeout(500)
 
     // Value should be preserved
@@ -275,7 +287,7 @@ test.describe('Landing Page - Featured Beaches Display', () => {
 
     // Find beach images
     const beachImages = page.locator('a[href*="/beach/"] img, a[href^="/"] img').first()
-    const imageVisible = await beachImages.isVisible({ timeout: 10000 }).catch(() => false)
+    const imageVisible = await isVisibleSafe(beachImages, { timeout: 10000 })
 
     if (imageVisible) {
       // Verify image loaded successfully
@@ -362,16 +374,17 @@ test.describe('Landing Page - Performance Metrics', () => {
 
     // Wait for page to stabilize
     await page.waitForLoadState('networkidle')
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for layout to stabilize after network idle
     await page.waitForTimeout(1000)
 
     // Get initial hero position
     const hero = page.getByRole('heading', { level: 1 })
-    const heroVisible = await hero.isVisible().catch(() => false)
+    const heroVisible = await isVisibleSafe(hero)
 
     if (heroVisible) {
       const initialBox = await hero.boundingBox()
 
-      // Wait a bit more
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for layout shift measurement window
       await page.waitForTimeout(1000)
 
       // Check position again

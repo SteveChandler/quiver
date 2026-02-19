@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { navigateToBeach } from './utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Spot Surf Report Card Tests
@@ -13,12 +14,22 @@ import { navigateToBeach } from './utils/test-helpers';
  */
 
 test.describe('Spot Surf Report', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Spot Surf Report' });
+  });
+
   test('displays surf report card or gracefully degrades on beach page', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     // The surf report section uses aria-label containing "surf call"
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await surfReport.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
       // Verify verdict badge is present (YES, MAYBE, or NO)
@@ -92,12 +103,12 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await surfReport.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
       // Check for the "Best window" label (inline layout with dot separators)
       const bestWindowLabel = surfReport.getByText(/best window/i);
-      const hasWindow = await bestWindowLabel.isVisible().catch(() => false);
+      const hasWindow = await isVisibleSafe(bestWindowLabel);
 
       if (hasWindow) {
         await expect(bestWindowLabel).toBeVisible();
@@ -114,7 +125,7 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await surfReport.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
       // Verify card doesn't overflow viewport on mobile
@@ -133,7 +144,7 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await surfReport.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
       const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });
@@ -146,7 +157,7 @@ test.describe('Spot Surf Report', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await surfReport.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
       const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });
@@ -182,12 +193,12 @@ test.describe('Spot Surf Report', () => {
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await forecastTab.click();
 
-    // Wait for forecast content to load
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for forecast content to load
     await page.waitForTimeout(1000);
 
     // Verify the section heading shows "3-Day Outlook" (not "5-Day Outlook")
     const outlookHeading = page.getByText(/3-day outlook/i);
-    const hasOutlook = await outlookHeading.isVisible().catch(() => false);
+    const hasOutlook = await isVisibleSafe(outlookHeading);
 
     if (hasOutlook) {
       await expect(outlookHeading).toBeVisible();
@@ -209,8 +220,10 @@ test.describe('Spot Surf Report', () => {
     const outlookCTA = page.getByText(/sign up to see the full 12-day outlook/i);
 
     // Scroll down to ensure CTA gates are in view
-    const hasBestTimeGate = await bestTimeCTA.scrollIntoViewIfNeeded().then(() => bestTimeCTA.isVisible()).catch(() => false);
-    const hasOutlookGate = await outlookCTA.scrollIntoViewIfNeeded().then(() => outlookCTA.isVisible()).catch(() => false);
+    await bestTimeCTA.scrollIntoViewIfNeeded().catch(() => {});
+    const hasBestTimeGate = await isVisibleSafe(bestTimeCTA);
+    await outlookCTA.scrollIntoViewIfNeeded().catch(() => {});
+    const hasOutlookGate = await isVisibleSafe(outlookCTA);
 
     // At least one gate should be visible
     expect(hasBestTimeGate || hasOutlookGate).toBe(true);
@@ -222,6 +235,7 @@ test.describe('Spot Surf Report', () => {
     // Test Reviews tab
     const reviewsTab = page.getByRole('tab', { name: /reviews/i });
     await reviewsTab.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
     await page.waitForTimeout(500);
 
     const reviewsCTA = page.getByText(/read surfer reviews/i);
@@ -230,6 +244,7 @@ test.describe('Spot Surf Report', () => {
     // Test Local Intel tab
     const localIntelTab = page.getByRole('tab', { name: /local intel/i });
     await localIntelTab.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
     await page.waitForTimeout(500);
 
     const intelCTA = page.getByText(/see local intel/i);
@@ -238,6 +253,7 @@ test.describe('Spot Surf Report', () => {
     // Test Sessions tab
     const sessionsTab = page.getByRole('tab', { name: /sessions/i });
     await sessionsTab.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
     await page.waitForTimeout(500);
 
     const sessionsCTA = page.getByText(/browse surf sessions/i);
@@ -258,15 +274,15 @@ test.describe('Spot Surf Report', () => {
     // Check for lock icons in tab triggers
     // Reviews tab
     const reviewsTab = page.getByRole('tab', { name: /reviews/i });
-    const reviewsHasLock = await reviewsTab.locator('svg').isVisible().catch(() => false);
+    const reviewsHasLock = await isVisibleSafe(reviewsTab.locator('svg'));
 
     // Local Intel tab
     const localIntelTab = page.getByRole('tab', { name: /local intel/i });
-    const intelHasLock = await localIntelTab.locator('svg').isVisible().catch(() => false);
+    const intelHasLock = await isVisibleSafe(localIntelTab.locator('svg'));
 
     // Sessions tab
     const sessionsTab = page.getByRole('tab', { name: /sessions/i });
-    const sessionsHasLock = await sessionsTab.locator('svg').isVisible().catch(() => false);
+    const sessionsHasLock = await isVisibleSafe(sessionsTab.locator('svg'));
 
     // At least one of the gated tabs should show a lock icon
     const hasAnyLock = reviewsHasLock || intelHasLock || sessionsHasLock;

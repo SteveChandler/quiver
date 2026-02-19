@@ -26,9 +26,9 @@ jest.mock("@/lib/profile/fetchers", () => ({
 }));
 
 // Import after mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { GET, POST, PUT, PATCH, DELETE } = require("@/app/api/users/[id]/stats/route");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { getProfileWithHomeBeachById } = require("@/lib/profile/fetchers");
 
 describe("GET /api/users/[id]/stats", () => {

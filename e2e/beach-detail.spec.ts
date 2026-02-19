@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Beach Detail Page Tests
@@ -10,8 +11,15 @@ import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
  */
 
 test.describe('Beach Detail Page', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Beach Detail' });
   });
 
   test('should display beach name and location', async ({ page }) => {
@@ -33,8 +41,8 @@ test.describe('Beach Detail Page', () => {
     const rating = page.locator('[class*="rating"], [data-testid="rating"]').first();
     const ratingText = page.getByText(/reviews?|rating/i).first();
 
-    const hasRating = await rating.isVisible().catch(() => false);
-    const hasRatingText = await ratingText.isVisible().catch(() => false);
+    const hasRating = await isVisibleSafe(rating);
+    const hasRatingText = await isVisibleSafe(ratingText);
 
     expect(hasRating || hasRatingText).toBe(true);
   });
@@ -45,16 +53,16 @@ test.describe('Beach Detail Page', () => {
     const photoGallery = page.getByRole('button', { name: /photos?|gallery/i });
     const photoSection = page.locator('[class*="photo"], [class*="gallery"], [class*="image"]').first();
 
-    const hasPhotos = await photos.isVisible().catch(() => false);
-    const hasGallery = await photoGallery.isVisible().catch(() => false);
-    const hasPhotoSection = await photoSection.isVisible().catch(() => false);
+    const hasPhotos = await isVisibleSafe(photos);
+    const hasGallery = await isVisibleSafe(photoGallery);
+    const hasPhotoSection = await isVisibleSafe(photoSection);
 
     // At least one should be visible
     expect(hasPhotos || hasGallery || hasPhotoSection).toBe(true);
   });
 
   test('should display forecast information', async ({ page }) => {
-    // Wait for forecast to load
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for forecast data to load
     await page.waitForTimeout(3000);
 
     // Should show wave height or forecast data
@@ -67,8 +75,8 @@ test.describe('Beach Detail Page', () => {
     const logSessionButton = page.getByRole('button', { name: /log session|add session/i });
     const planSessionButton = page.getByRole('button', { name: /plan session/i });
 
-    const hasLogSession = await logSessionButton.isVisible().catch(() => false);
-    const hasPlanSession = await planSessionButton.isVisible().catch(() => false);
+    const hasLogSession = await isVisibleSafe(logSessionButton);
+    const hasPlanSession = await isVisibleSafe(planSessionButton);
 
     expect(hasLogSession || hasPlanSession).toBe(true);
   });
@@ -98,11 +106,12 @@ test.describe('Beach Detail Page', () => {
   test('should allow favoriting/unfavoriting beach', async ({ page }) => {
     // Look for favorite button
     const favoriteButton = page.getByRole('button', { name: /favorite|add to favorites/i });
-    const hasFavorite = await favoriteButton.isVisible().catch(() => false);
+    const hasFavorite = await isVisibleSafe(favoriteButton);
 
     if (hasFavorite) {
       // Click to favorite
       await favoriteButton.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for favorite toggle API call
       await page.waitForTimeout(1000);
 
       // State should change (button text or icon)
@@ -171,9 +180,16 @@ test.describe('Beach Detail Page', () => {
 });
 
 test.describe('Beach Detail - Forecast Tab', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Beach Forecast Tab' });
   });
 
   test('should switch to forecast tab and display forecast', async ({ page }) => {
@@ -230,7 +246,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
       const tabpanel = page.getByRole('tabpanel');
       await expect(tabpanel).toBeVisible();
 
-      // Brief pause to allow content to load
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab content to load
       await page.waitForTimeout(500);
     }
 
@@ -241,7 +257,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
   test('should display tides if available', async ({ page }) => {
     // Look for tide information
     const tideInfo = page.getByText(/tide|high tide|low tide/i).first();
-    const hasTide = await tideInfo.isVisible().catch(() => false);
+    const hasTide = await isVisibleSafe(tideInfo);
 
     if (!hasTide) {
       throw new Error('Not implemented: Tide information not visible on this page');

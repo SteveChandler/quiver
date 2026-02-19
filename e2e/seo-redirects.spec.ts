@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * SEO Redirect Recovery Tests
@@ -15,6 +16,16 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('SEO Redirect Recovery', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'SEO Redirect Recovery' });
+  });
+
   test.describe('City Mismatch Redirects', () => {
     test('redirects /ca/orange-county/doheny-state-beach to correct city', async ({ page }) => {
       // Doheny State Beach is in Dana Point, not Orange County

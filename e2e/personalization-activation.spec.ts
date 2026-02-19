@@ -13,6 +13,7 @@ import { test, expect } from "@playwright/test";
 import { waitForPageLoad, ensureAuthenticated } from "./utils/test-helpers";
 import { VIEWPORTS, TIMEOUTS } from "./fixtures/test-data";
 import { skipIfNoPersonalizationData } from "./utils/personalization-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Skip tests in dev/production environments
@@ -24,11 +25,18 @@ const isDevEnvironment =
   process.env.TEST_ENV === 'dev';
 
 test.describe("Personalization Activation - Favorites", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     if (isDevEnvironment) {
       throw new Error('Not implemented: Personalization tests - requires local environment with seeded personalization data');
     }
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalization Favorites' });
   });
 
   /**
@@ -90,7 +98,7 @@ test.describe("Personalization Activation - Favorites", () => {
 
     // Find a card with a favorite heart
     const favoriteHeart = page.locator('[data-testid="favorite-heart"]').first();
-    const heartVisible = await favoriteHeart.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const heartVisible = await isVisibleSafe(favoriteHeart, { timeout: TIMEOUTS.medium });
 
     if (!heartVisible) {
       throw new Error('Not implemented: Favorite beaches in carousel - no favorite heart badges visible to test interaction');
@@ -136,11 +144,18 @@ test.describe("Personalization Activation - Favorites", () => {
 });
 
 test.describe("Personalization Activation - Surf Style Profile Card", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     if (isDevEnvironment) {
       throw new Error('Not implemented: Personalization tests - requires local environment with seeded personalization data');
     }
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalization Surf Style' });
   });
 
   /**
@@ -157,7 +172,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
 
     // Look for "Your Surf Style" heading
     const surfStyleCard = page.getByText("Your Surf Style");
-    const cardVisible = await surfStyleCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(surfStyleCard, { timeout: TIMEOUTS.long });
 
     if (cardVisible) {
       await expect(surfStyleCard).toBeVisible();
@@ -182,7 +197,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
     await waitForPageLoad(page);
 
     const surfStyleCard = page.getByText("Your Surf Style");
-    const cardVisible = await surfStyleCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(surfStyleCard, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: Surf style card - surf style card not visible on profile page');
@@ -190,11 +205,11 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
 
     // Look for wave range pattern (e.g., "3-6ft waves")
     const waveRange = page.getByText(/\d+-\d+ft waves/i);
-    const hasWaveRange = await waveRange.isVisible().catch(() => false);
+    const hasWaveRange = await isVisibleSafe(waveRange);
 
     // Look for session count (e.g., "Based on 12 sessions")
     const sessionCount = page.getByText(/Based on \d+ sessions/i);
-    const hasSessionCount = await sessionCount.isVisible().catch(() => false);
+    const hasSessionCount = await isVisibleSafe(sessionCount);
 
     // At least one of these should be visible for high confidence
     if (hasWaveRange) {
@@ -218,7 +233,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
     await waitForPageLoad(page);
 
     const surfStyleCard = page.getByText("Your Surf Style");
-    const cardVisible = await surfStyleCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(surfStyleCard, { timeout: TIMEOUTS.long });
 
     if (!cardVisible) {
       throw new Error('Not implemented: Surf style card - surf style card not visible on profile page');
@@ -226,7 +241,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
 
     // Check for progress message
     const progressMessage = page.getByText(/Log \d+ more sessions/i);
-    const hasProgressMessage = await progressMessage.isVisible().catch(() => false);
+    const hasProgressMessage = await isVisibleSafe(progressMessage);
 
     if (hasProgressMessage) {
       await expect(progressMessage).toBeVisible();
@@ -250,7 +265,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
 
     // Look for any text with "Log -" pattern (negative number)
     const negativePattern = page.getByText(/Log -\d+ more sessions/i);
-    const hasNegative = await negativePattern.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasNegative = await isVisibleSafe(negativePattern, { timeout: 2000 });
 
     expect(hasNegative).toBe(false);
   });
@@ -267,7 +282,7 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
     await waitForPageLoad(page);
 
     const surfStyleCard = page.getByText("Your Surf Style");
-    const cardVisible = await surfStyleCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const cardVisible = await isVisibleSafe(surfStyleCard, { timeout: TIMEOUTS.long });
 
     if (cardVisible) {
       await expect(surfStyleCard).toBeVisible();
@@ -285,6 +300,16 @@ test.describe("Personalization Activation - Surf Style Profile Card", () => {
 });
 
 test.describe("Personalization Activation - Unauthenticated User Degradation", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalization Unauthenticated' });
+  });
+
   /**
    * Test: Unauthenticated users do not see personalized features
    *
@@ -300,7 +325,7 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
     await page.goto("/");
     await waitForPageLoad(page);
 
-    // Wait for page to stabilize
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for page to stabilize after navigation
     await page.waitForTimeout(2000);
 
     // Favorite hearts should not appear for guests
@@ -328,7 +353,7 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
 
     await page.goto("/profile");
 
-    // Should redirect to login or show auth required message
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for auth redirect
     await page.waitForTimeout(3000);
 
     const url = page.url();
@@ -340,7 +365,7 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
 
     // Either redirected OR shows auth required UI
     const authRequired = page.getByText(/sign in|log in|authenticate/i);
-    const showsAuthRequired = await authRequired.isVisible({ timeout: 2000 }).catch(() => false);
+    const showsAuthRequired = await isVisibleSafe(authRequired, { timeout: 2000 });
 
     expect(isRedirected || showsAuthRequired).toBe(true);
   });
@@ -395,7 +420,8 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
 
     // Look for any beach cards or discovery content
     const beachContent = page.getByText(/beach|surf|waves/i);
-    const hasContent = await beachContent.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    /* Beach content may not be visible on guest landing depending on featured content */
+    const hasContent = await isVisibleSafe(beachContent.first(), { timeout: TIMEOUTS.long });
 
     if (hasContent) {
       // Content should render
@@ -412,11 +438,18 @@ test.describe("Personalization Activation - Unauthenticated User Degradation", (
 });
 
 test.describe("Personalization Activation - Analytics Events", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     if (isDevEnvironment) {
       throw new Error('Not implemented: Personalization analytics/responsive - requires local environment with seeded data');
     }
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalization Analytics' });
   });
 
   /**
@@ -451,13 +484,13 @@ test.describe("Personalization Activation - Analytics Events", () => {
     await page.goto("/profile");
     await waitForPageLoad(page);
 
-    // Wait for analytics to potentially fire
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for analytics events to fire
     await page.waitForTimeout(2000);
 
     // Check if surf_profile_viewed was tracked
     // Note: Analytics implementation may vary - this verifies the event exists
     const surfStyleCard = page.getByText("Your Surf Style");
-    const cardVisible = await surfStyleCard.isVisible().catch(() => false);
+    const cardVisible = await isVisibleSafe(surfStyleCard);
 
     if (cardVisible) {
       // Card is visible, analytics should have fired
@@ -468,11 +501,18 @@ test.describe("Personalization Activation - Analytics Events", () => {
 });
 
 test.describe("Personalization Activation - Responsive Design", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     if (isDevEnvironment) {
       throw new Error('Not implemented: Personalization analytics/responsive - requires local environment with seeded data');
     }
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalization Responsive' });
   });
 
   /**

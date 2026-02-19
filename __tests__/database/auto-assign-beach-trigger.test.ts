@@ -23,7 +23,7 @@ const shouldRunIntegration =
   !!supabaseServiceKey;
 
 // Restore real fetch for database tests (jest.setup.js mocks fetch)
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const undici = require("undici");
 // @ts-ignore
 global.fetch = undici.fetch;
@@ -35,7 +35,7 @@ global.Request = undici.Request;
 global.Response = undici.Response;
 
 // Import supabase-js after restoring real fetch
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
 
 // Test beach coordinates (near Ocean Beach Pier which has valid coords in DB)

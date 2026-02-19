@@ -27,7 +27,7 @@ const shouldRunIntegration =
 // Restore real fetch for database tests.
 // jest.setup.js installs a mocked fetch for UI/server-action tests; this integration test
 // needs a real fetch implementation for Supabase admin calls.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const undici = require("undici");
 // @ts-ignore
 global.fetch = undici.fetch;
@@ -40,7 +40,7 @@ global.Response = undici.Response;
 
 // IMPORTANT: require supabase-js after installing a real fetch.
 // Some library code may snapshot the global fetch implementation at import time.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
 
 (shouldRunIntegration ? describe : describe.skip)(

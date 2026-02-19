@@ -86,7 +86,7 @@ export function createPersonaTest(personaType: PersonaType) {
       });
       const page = await context.newPage();
 
-      await use(page);
+      await use(page); // eslint-disable-line react-hooks/rules-of-hooks -- Playwright fixture `use`, not a React hook
 
       await context.close();
     },
@@ -113,7 +113,7 @@ export function createPersonaTest(personaType: PersonaType) {
       const context = await browser.newContext({
         storageState: authStatePath,
       });
-      await use(context);
+      await use(context); // eslint-disable-line react-hooks/rules-of-hooks -- Playwright fixture `use`, not a React hook
       await context.close();
     },
   });

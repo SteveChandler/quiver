@@ -29,7 +29,7 @@ const shouldRunSecurity =
 // Restore real fetch for database tests.
 // jest.setup.js installs a mocked fetch for UI/server-action tests; these security tests
 // need a real fetch implementation for Supabase admin/anon calls.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const undici = require("undici");
 // @ts-ignore
 global.fetch = undici.fetch;

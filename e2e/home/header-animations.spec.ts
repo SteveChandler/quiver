@@ -136,7 +136,7 @@ test.describe('Home Header Animations', () => {
       // Wait for loading to complete
       await expect(heroLoading).not.toBeVisible({ timeout: TIMEOUTS.long }).catch(() => {});
 
-      const actionsVisible = await primaryActions.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const actionsVisible = await isVisibleSafe(primaryActions, { timeout: TIMEOUTS.long });
 
       if (!actionsVisible) {
         throw new Error('Not implemented: Primary action buttons - buttons not visible, requires recommendations data and profile setup');
@@ -158,7 +158,7 @@ test.describe('Home Header Animations', () => {
 
     test('should have icons in primary action buttons', async ({ page }) => {
       const primaryActions = page.getByTestId('primary-actions');
-      const actionsVisible = await primaryActions.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const actionsVisible = await isVisibleSafe(primaryActions, { timeout: TIMEOUTS.long });
 
       if (!actionsVisible) {
         throw new Error('Not implemented: Primary action buttons icons - buttons not visible for icon validation');
@@ -178,7 +178,7 @@ test.describe('Home Header Animations', () => {
       await waitForPageLoad(page);
 
       const primaryActions = page.getByTestId('primary-actions');
-      const actionsVisible = await primaryActions.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const actionsVisible = await isVisibleSafe(primaryActions, { timeout: TIMEOUTS.long });
 
       if (!actionsVisible) {
         throw new Error('Not implemented: Primary action buttons on mobile - buttons not visible on mobile viewport');
@@ -200,7 +200,7 @@ test.describe('Home Header Animations', () => {
       // Wait for loading to complete
       await expect(heroLoading).not.toBeVisible({ timeout: TIMEOUTS.long }).catch(() => {});
 
-      const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
       if (!heroVisible) {
         throw new Error('Not implemented: Hero recommendation - hero recommendation not visible, requires recommendation data');
@@ -217,7 +217,7 @@ test.describe('Home Header Animations', () => {
 
     test('should display staggered badges', async ({ page }) => {
       const heroRecommendation = page.getByTestId('hero-recommendation');
-      const heroVisible = await heroRecommendation.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const heroVisible = await isVisibleSafe(heroRecommendation, { timeout: TIMEOUTS.long });
 
       if (!heroVisible) {
         throw new Error('Not implemented: Hero recommendation - hero recommendation not visible, requires recommendation data');
@@ -280,7 +280,7 @@ test.describe('Home Header Animations', () => {
 
         // Verify time slot selector still works
         const timeSlotGroup = page.locator('[role="radiogroup"][aria-label="Time slot filter"]');
-        const selectorVisible = await timeSlotGroup.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+        const selectorVisible = await isVisibleSafe(timeSlotGroup, { timeout: TIMEOUTS.medium });
 
         if (selectorVisible) {
           const lunchSessionButton = page.getByRole('button', { name: 'Lunch session' });
@@ -308,7 +308,7 @@ test.describe('Home Header Animations', () => {
       await expect(greetingSection).toBeVisible({ timeout: TIMEOUTS.long });
 
       // Time slot selector should be visible after profile loads
-      const selectorVisible = await timeSlotGroup.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const selectorVisible = await isVisibleSafe(timeSlotGroup, { timeout: TIMEOUTS.medium });
 
       if (selectorVisible) {
         // Get bounding boxes to verify order (greeting above time slots)
@@ -332,8 +332,8 @@ test.describe('Home Header Animations', () => {
       const animatedHeader = page.locator('.animate-ocean-swell').first();
 
       // Either pattern should be visible (depending on user's reduced motion setting)
-      const hasReducedMotion = await reducedMotionHeader.isVisible({ timeout: 1000 }).catch(() => false);
-      const hasAnimated = await animatedHeader.isVisible({ timeout: 1000 }).catch(() => false);
+      const hasReducedMotion = await isVisibleSafe(reducedMotionHeader, { timeout: 1000 });
+      const hasAnimated = await isVisibleSafe(animatedHeader, { timeout: 1000 });
 
       expect(hasReducedMotion || hasAnimated).toBe(true);
     });

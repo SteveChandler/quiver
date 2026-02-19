@@ -46,9 +46,9 @@ jest.mock("@/lib/profile/fetchers", () => ({
 }));
 
 // Import after mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { GET } = require("@/app/api/profile/route");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { getProfileDTOById } = require("@/lib/profile/fetchers");
 
 describe("GET /api/profile - onboarding_completed_at field", () => {

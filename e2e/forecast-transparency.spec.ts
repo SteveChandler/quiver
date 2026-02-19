@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe("Forecast Transparency Features", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Forecast Transparency Features' });
+  });
+
   // Use a known beach with forecast data
   const TEST_BEACH_SLUG = "blacks";
 

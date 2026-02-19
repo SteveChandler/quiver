@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { navigateToBeach } from './utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Authenticated Spot Surf Report Tests
@@ -12,11 +13,21 @@ import { navigateToBeach } from './utils/test-helpers';
  */
 
 test.describe('Spot Surf Report (Authenticated)', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Spot Surf Report (Authenticated)' });
+  });
+
   test('authenticated users do not see sign-in CTA', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
-    const isVisible = await surfReport.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
       const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });

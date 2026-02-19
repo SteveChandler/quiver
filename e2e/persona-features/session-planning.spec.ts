@@ -11,8 +11,19 @@ import { test, expect } from '@playwright/test';
 import { ALL_PERSONA_TYPES, PERSONAS } from '../fixtures/personas';
 import { getPersonaAuthStatePath, createPersonaPage, personaAuthStateExists } from '../utils/persona-auth';
 import { checkSessionPlannerAsPersona } from '../utils/persona-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 test.describe('Session Planning - All Personas', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'All Personas' });
+  });
+
   test.describe('Persona Skill Levels', () => {
     test('beginner personas should get beginner-appropriate recommendations', () => {
       // Rookies are beginners

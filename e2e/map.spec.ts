@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
+import { isVisibleSafe } from './utils/strict-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Map Page Tests
@@ -10,9 +12,16 @@ import { waitForPageLoad } from './utils/test-helpers';
  */
 
 test.describe('Map Page - Core Functionality', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Core' });
   });
 
   test('should display the map container', async ({ page }) => {
@@ -44,8 +53,8 @@ test.describe('Map Page - Core Functionality', () => {
 
     // Wait for any beach indicator to appear (longer timeout for initial load)
     // Try markers first, then items, then just verify map loaded
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-    const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
 
     // If we found markers or items, verify count
     if (hasMarkers) {
@@ -65,9 +74,16 @@ test.describe('Map Page - Core Functionality', () => {
 });
 
 test.describe('Map Page - View Mode Toggle', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map View Mode' });
   });
 
   test('should toggle between map and list view', async ({ page }) => {
@@ -80,19 +96,19 @@ test.describe('Map Page - View Mode Toggle', () => {
 
     // Switch to list view
     await listButton.click();
-    await page.waitForTimeout(500); // Brief wait for UI transition
+    await page.waitForLoadState('load');
 
     // List view should now be active (button has 'default' variant)
     // In list mode, canvas should not be visible
     const mapCanvas = page.locator('canvas').first();
-    const canvasVisible = await mapCanvas.isVisible({ timeout: 2000 }).catch(() => false);
+    const canvasVisible = await isVisibleSafe(mapCanvas, { timeout: 2000 });
 
     // Canvas might be hidden or removed in list view
     expect(canvasVisible).toBe(false);
 
     // Switch back to map view
     await mapButton.click();
-    await page.waitForTimeout(500); // Brief wait for UI transition
+    await page.waitForLoadState('load');
 
     // Canvas should be visible again
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
@@ -101,15 +117,15 @@ test.describe('Map Page - View Mode Toggle', () => {
   test('should display beaches in list view', async ({ page }) => {
     const listButton = page.getByTestId('view-mode-list');
     await listButton.click();
-    await page.waitForTimeout(1000); // Wait for view mode transition
+    await page.waitForLoadState('load');
 
     // In list view, beaches appear with data-testid="beach-item"
     const beachList = page.getByTestId('beach-list');
     const beachItems = page.locator('[data-testid="beach-item"]');
 
     // Wait for list to render
-    const hasList = await beachList.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-    const hasItems = await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasList = await isVisibleSafe(beachList, { timeout: TIMEOUTS.medium });
+    const hasItems = await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
 
     expect(hasList || hasItems).toBe(true);
 
@@ -121,9 +137,16 @@ test.describe('Map Page - View Mode Toggle', () => {
 });
 
 test.describe('Map Page - Filter Functionality', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Filters' });
   });
 
   test('should display filter badges', async ({ page }) => {
@@ -144,7 +167,7 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click to activate filter
     await beginnerBadge.click();
-    await page.waitForTimeout(500); // Brief wait for filtering
+    await page.waitForLoadState('networkidle');
 
     // Badge should change visual state (outline -> default variant)
     // We can verify this by checking if beaches are filtered
@@ -156,7 +179,7 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click again to deactivate
     await beginnerBadge.click();
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle');
   });
 
   test('should toggle break type filters', async ({ page }) => {
@@ -164,7 +187,7 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click to activate beach break filter
     await beachBadge.click();
-    await page.waitForTimeout(500); // Brief wait for filtering
+    await page.waitForLoadState('networkidle');
 
     const beachesAfterFilter = page.locator('a[href^="/beach/"], a[href*="/ca/"]');
     const countAfterFilter = await beachesAfterFilter.count();
@@ -173,15 +196,22 @@ test.describe('Map Page - Filter Functionality', () => {
 
     // Click again to deactivate
     await beachBadge.click();
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle');
   });
 
 });
 
 test.describe('Map Page - Search Integration', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Search' });
   });
 
   test('should accept search query from URL params', async ({ page }) => {
@@ -217,6 +247,16 @@ test.describe('Map Page - Search Integration', () => {
 });
 
 test.describe('Map Page - Geolocation', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Geolocation' });
+  });
+
   test('should handle geolocation permission granted', async ({ page, context }) => {
     // Grant geolocation permission
     await context.grantPermissions(['geolocation']);
@@ -237,9 +277,9 @@ test.describe('Map Page - Geolocation', () => {
     const beachItems = page.locator('[data-testid="beach-item"]');
     const mapContainer = page.getByTestId('map-container');
 
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-    const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-    const hasMap = !hasMarkers && !hasItems && await mapContainer.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
+    const hasMap = !hasMarkers && !hasItems && await isVisibleSafe(mapContainer, { timeout: TIMEOUTS.short });
 
     expect(hasMarkers || hasItems || hasMap).toBe(true);
   });
@@ -260,9 +300,9 @@ test.describe('Map Page - Geolocation', () => {
     const beachItems = page.locator('[data-testid="beach-item"]');
     const mapContainer = page.getByTestId('map-container');
 
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-    const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-    const hasMap = !hasMarkers && !hasItems && await mapContainer.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
+    const hasMap = !hasMarkers && !hasItems && await isVisibleSafe(mapContainer, { timeout: TIMEOUTS.short });
 
     expect(hasMarkers || hasItems || hasMap).toBe(true);
   });
@@ -286,7 +326,7 @@ test.describe('Map Page - Geolocation', () => {
     await page.goto('/map');
     await waitForPageLoad(page);
 
-    // Wait for any async geolocation operations
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors over time window for geolocation operations
     await page.waitForTimeout(TIMEOUTS.short);
 
     // Should not have geolocation-related errors
@@ -307,7 +347,7 @@ test.describe('Map Page - Geolocation', () => {
 
     // Click "Near Me" button - text is "Use Near Me"
     const nearMeButton = page.getByRole('button', { name: /Near Me/i });
-    const nearMeVisible = await nearMeButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const nearMeVisible = await isVisibleSafe(nearMeButton, { timeout: TIMEOUTS.medium });
 
     if (!nearMeVisible) {
       throw new Error('Not implemented: Near Me button - geolocation button not visible or accessible');
@@ -321,22 +361,32 @@ test.describe('Map Page - Geolocation', () => {
     });
 
     await nearMeButton.click();
-    await page.waitForTimeout(2000); // Wait for location request and beach load
+    await page.waitForLoadState('networkidle');
 
     // Wait for beaches to load - check using data-testid
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
     const beachItems = page.locator('[data-testid="beach-item"]');
     const mapContainer = page.getByTestId('map-container');
 
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-    const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
-    const hasMap = !hasMarkers && !hasItems && await mapContainer.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.medium });
+    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.short });
+    const hasMap = !hasMarkers && !hasItems && await isVisibleSafe(mapContainer, { timeout: TIMEOUTS.short });
 
     expect(hasMarkers || hasItems || hasMap).toBe(true);
   });
 });
 
 test.describe('Map Page - Responsive Design', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Responsive' });
+  });
+
   test('should be responsive on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
 
@@ -418,11 +468,11 @@ test.describe('Map Page - Responsive Design', () => {
     // Toggle to list view and back without errors
     const listButton = page.getByTestId('view-mode-list');
     await listButton.click();
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('load');
 
     const mapButton = page.getByTestId('view-mode-map');
     await mapButton.click();
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('load');
 
     // No critical console errors (filter benign ones)
     const criticalErrors = consoleErrors.filter(err =>
@@ -441,6 +491,16 @@ test.describe('Map Page - Responsive Design', () => {
 });
 
 test.describe('Map Page - Stability and Performance', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Stability' });
+  });
+
   test('should not re-initialize map on prop changes', async ({ page }) => {
     let mapInitCount = 0;
 
@@ -460,13 +520,13 @@ test.describe('Map Page - Stability and Performance', () => {
     // Interact with the map (which might trigger state updates)
     // Toggle view mode
     const listButton = page.getByTestId('view-mode-list');
-    if (await listButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await isVisibleSafe(listButton, { timeout: 2000 })) {
       await listButton.click();
-      await page.waitForTimeout(500);
+      await page.waitForLoadState('load');
 
       const mapButton = page.getByTestId('view-mode-map');
       await mapButton.click();
-      await page.waitForTimeout(500);
+      await page.waitForLoadState('load');
     }
 
     // The map should not reinitialize during normal interactions
@@ -496,7 +556,7 @@ test.describe('Map Page - Stability and Performance', () => {
     const mapCanvas = page.locator('canvas').first();
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // Wait a bit to catch any delayed errors
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors over time window
     await page.waitForTimeout(2000);
 
     // Filter out expected/benign errors
@@ -519,7 +579,10 @@ test.describe('Map Page - Stability and Performance', () => {
 });
 
 test.describe('Map Page - Marker Interactions', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page, context }) => {
+    errorCapture = setupErrorDetection(page);
     // Set up location for consistent results
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({
@@ -531,13 +594,17 @@ test.describe('Map Page - Marker Interactions', () => {
     await waitForPageLoad(page);
   });
 
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Markers' });
+  });
+
   test('should show beach details on marker interaction', async ({ page }) => {
     // Wait for beaches to load using data-testid
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
     const beachItems = page.locator('[data-testid="beach-item"]');
 
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-    const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
 
     if (!hasMarkers && !hasItems) {
       throw new Error('Not implemented: Beach markers interaction - no beach markers or items found to interact with');
@@ -548,8 +615,7 @@ test.describe('Map Page - Marker Interactions', () => {
     const beachElement = hasMarkers ? beachMarkers.first() : beachItems.first();
     await beachElement.click({ force: true });
 
-    // Small wait for either navigation or card appearance
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('load');
 
     // Check if we navigated or if a selected beach card appeared
     const url = page.url();
@@ -571,9 +637,9 @@ test.describe('Map Page - Marker Interactions', () => {
     const beachItems = page.locator('[data-testid="beach-item"]');
     const mapContainer = page.getByTestId('map-container');
 
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-    const hasItems = !hasMarkers && await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
-    const hasMap = !hasMarkers && !hasItems && await mapContainer.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
+    const hasMap = !hasMarkers && !hasItems && await isVisibleSafe(mapContainer, { timeout: TIMEOUTS.short });
 
     expect(hasMarkers || hasItems || hasMap).toBe(true);
 
@@ -596,6 +662,16 @@ test.describe('Map Page - Marker Interactions', () => {
 });
 
 test.describe('Map Page - Beach Card Navigation', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Beach Card Nav' });
+  });
+
   test('desktop: clicking sidebar beach card navigates to beach detail page', async ({ page, context }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
 
@@ -608,12 +684,12 @@ test.describe('Map Page - Beach Card Navigation', () => {
 
     // Wait for sidebar beach cards to appear (desktop shows MapSidebar)
     const sidebarCards = page.locator('[data-testid="sidebar-beach-card"]');
-    const hasSidebarCards = await sidebarCards.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasSidebarCards = await isVisibleSafe(sidebarCards.first(), { timeout: TIMEOUTS.long });
 
     if (!hasSidebarCards) {
       // Fallback: look for any clickable beach link in the sidebar area
       const sidebarLinks = page.locator('a[href*="/ca/"], a[href*="/beach/"]');
-      const hasLinks = await sidebarLinks.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const hasLinks = await isVisibleSafe(sidebarLinks.first(), { timeout: TIMEOUTS.medium });
 
       if (!hasLinks) {
         throw new Error('No sidebar beach cards or links found on desktop map page');
@@ -643,7 +719,7 @@ test.describe('Map Page - Beach Card Navigation', () => {
 
     // Wait for beach markers to load
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await beachMarkers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
 
     if (!hasMarkers) {
       throw new Error('No beach markers found on mobile map page');
@@ -665,6 +741,16 @@ test.describe('Map Page - Beach Card Navigation', () => {
 });
 
 test.describe('Map Page - Mobile Bug Fix Regression', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Mobile Regression' });
+  });
+
   test('mobile: bottom sheet stays visible after aggressive downward swipe', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/map');
@@ -682,7 +768,8 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await page.mouse.move(box.x + box.width / 2, box.y + 400, { steps: 10 });
     await page.mouse.up();
 
-    await page.waitForTimeout(500); // Wait for snap animation
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- snap animation settling time
+    await page.waitForTimeout(500);
 
     // Drawer should still be visible (snapped to peek, not dismissed)
     await expect(handleArea).toBeVisible();
@@ -698,7 +785,7 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
 
     // Wait for markers then click one to select a beach
     const markers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await markers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
     if (!hasMarkers) throw new Error('No beach markers found for touch target test');
 
     await markers.first().click({ force: true });
@@ -753,7 +840,7 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await waitForPageLoad(page);
 
     const markers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await markers.first().isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
     if (!hasMarkers) throw new Error('No beach markers found for icon visibility test');
 
     await markers.first().click({ force: true });
@@ -773,17 +860,17 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     // Switch to list view
     const listButton = page.getByTestId('view-mode-list');
     await listButton.click();
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('load');
 
     // Find a beach item and click it
     const beachItems = page.locator('[data-testid="beach-item"]');
-    const hasItems = await beachItems.first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasItems = await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
     if (!hasItems) throw new Error('No beach items found in list view for tap test');
 
     // Click should navigate or trigger selection (proving whileTap didn't break interaction)
     const urlBefore = page.url();
     await beachItems.first().click();
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('load');
 
     // Should have either navigated or changed state
     const urlAfter = page.url();

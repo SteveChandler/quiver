@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS, TIMEOUTS } from '../fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from '../utils/test-helpers';
+import { isVisibleSafe } from '../utils/strict-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 /**
  * ForecastTab - Tabbed Interface Tests
@@ -14,7 +16,10 @@ import { waitForPageLoad, navigateToBeach } from '../utils/test-helpers';
  */
 
 test.describe('ForecastTab - Tabbed Interface', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     // Navigate to a known beach page (Blacks Beach)
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
@@ -30,6 +35,10 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
     // Wait for forecast content to load (Current Conditions heading appears when forecast data is ready)
     await expect(page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 })).toBeVisible({ timeout: TIMEOUTS.long });
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Tabbed Interface' });
   });
 
   test.describe('Default Tab Behavior', () => {
@@ -79,7 +88,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       // Click Tides tab
       await tidesTab.click();
-      await page.waitForTimeout(500); // Allow tab transition
 
       // Verify tide chart becomes visible
       const tideSvg = page.locator('svg').first();
@@ -91,7 +99,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       // Click Tides tab
       await tidesTab.click();
-      await page.waitForTimeout(500);
 
       // Verify Today content is hidden
       const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
@@ -117,7 +124,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       // Click Conditions tab
       await conditionsTab.click();
-      await page.waitForTimeout(500); // Allow tab transition
 
       // Verify conditions overview content becomes visible (hero section)
       // Text may be "Best Day This Week" or "Selected Day" depending on
@@ -132,12 +138,10 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       // Switch to Tides
       await tidesTab.click();
-      await page.waitForTimeout(500); // Allow tab transition
       await expect(tidesTab).toHaveAttribute('data-state', 'active');
 
       // Switch back to Today
       await todayTab.click();
-      await page.waitForTimeout(500); // Allow tab transition
       await expect(todayTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
       // Verify Today content is visible again - use exact match and level to target the h2, not h4
@@ -162,7 +166,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       for (const { tab, name } of sequence) {
         await tab.click();
         await expect(tab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
-        await page.waitForTimeout(300); // Brief pause for transition
       }
 
       // Final state: Today should be active
@@ -193,7 +196,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     test('should display tide information with trend', async ({ page }) => {
       // Tide should show type (High/Low)
       const tideType = page.locator('text=/high|low/i').first();
-      const hasTideType = await tideType.isVisible().catch(() => false);
+      const hasTideType = await isVisibleSafe(tideType);
 
       // Should have some tide information visible
       expect(hasTideType || await page.getByText(/next tide/i).isVisible()).toBe(true);
@@ -205,10 +208,11 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(windCard).toBeVisible({ timeout: TIMEOUTS.short });
 
       // Check for wind speed (should have mph or kts)
-      const hasWindData = await page.locator('text=/mph|kts|kt|knots/i').first().isVisible().catch(() => false);
+      const hasWindData = await isVisibleSafe(page.locator('text=/mph|kts|kt|knots/i').first());
 
       // Or check for wind direction (N, NE, E, SE, S, SW, W, NW)
-      const hasWindDirection = await page.locator('text=/^(N|NE|E|SE|S|SW|W|NW|NNE|ENE|ESE|SSE|SSW|WSW|WNW|NNW)$/i').first().isVisible().catch(() => false);
+      /* Wind direction text depends on forecast data availability */
+      const hasWindDirection = await isVisibleSafe(page.locator('text=/^(N|NE|E|SE|S|SW|W|NW|NNE|ENE|ESE|SSE|SSW|WSW|WNW|NNW)$/i').first());
 
       expect(hasWindData || hasWindDirection).toBe(true);
     });
@@ -223,7 +227,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       // Best Surf Window section should be visible
       // The component may show "Best Surf Window" heading or related session-related content
       const bestSurfSection = page.getByRole('heading', { name: /best|surf window|when to paddle/i }).first();
-      const hasBestSurf = await bestSurfSection.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const hasBestSurf = await isVisibleSafe(bestSurfSection, { timeout: TIMEOUTS.medium });
 
       // If the heading isn't visible, check for the overall section
       if (!hasBestSurf) {
@@ -265,7 +269,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       // Click to expand
       await detailedForecastButton.click();
-      await page.waitForTimeout(500); // Allow animation
 
       // Verify forecast table appears
       const forecastTable = page.getByRole('table').first();
@@ -275,7 +278,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     test('should conditionally display Live Cam section if beach has camera', async ({ page }) => {
       // Check if Live Cam section exists
       const liveCamHeading = page.getByRole('heading', { name: /live cam/i });
-      const hasLiveCam = await liveCamHeading.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+      const hasLiveCam = await isVisibleSafe(liveCamHeading, { timeout: TIMEOUTS.short });
 
       // This test just verifies the conditional rendering works
       // Some beaches have cameras, some don't
@@ -291,7 +294,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       // Switch to Tides tab
       const tidesTab = page.getByRole('tab', { name: /tides/i });
       await tidesTab.click();
-      await page.waitForTimeout(500); // Allow tab transition
     });
 
     test('should render TideChart component', async ({ page }) => {
@@ -331,7 +333,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       // Switch to Conditions tab
       const conditionsTab = page.getByRole('tab', { name: /conditions/i });
       await conditionsTab.click();
-      await page.waitForTimeout(500); // Allow tab transition
     });
 
     test('should render Best Day hero section', async ({ page }) => {
@@ -436,8 +437,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
         const currentConditionsHeading = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
         await expect(currentConditionsHeading).toBeVisible({ timeout: TIMEOUTS.short });
 
-        // Brief pause before next viewport
-        await page.waitForTimeout(300);
       }
     });
   });
@@ -560,12 +559,15 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       const todayTab = page.getByRole('tab', { name: /today/i });
 
       await tidesTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors between tab switches
       await page.waitForTimeout(500);
 
       await conditionsTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors between tab switches
       await page.waitForTimeout(500);
 
       await todayTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors between tab switches
       await page.waitForTimeout(500);
 
       // Should have no critical errors

@@ -64,7 +64,7 @@ describe("api-utils", () => {
   });
 
   test("validateRequiredParams detects missing", () => {
-    expect(validateRequiredParams({ a: 1 }, ["a"]))?.toBeNull;
+    expect(validateRequiredParams({ a: 1 }, ["a"])).toBeNull();
     const msg = validateRequiredParams({ a: 1 }, ["a", "b"]);
     expect(msg).toContain("b");
   });

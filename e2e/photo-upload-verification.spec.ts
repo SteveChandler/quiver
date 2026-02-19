@@ -6,6 +6,7 @@
 import { test, expect } from "@playwright/test";
 import path from "path";
 import fs from "fs";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 // Test configuration
 // Using a session ID from the local or production database
@@ -16,12 +17,19 @@ const TEST_SESSION_ID =
 const TEST_SESSION_URL = `${process.env.BASE_URL || "http://localhost:3000"}/sessions/${TEST_SESSION_ID}`;
 
 test.describe("Photo Upload E2E Verification", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     // Navigate to session detail page
     await page.goto(TEST_SESSION_URL);
 
     // Wait for page to load
     await page.waitForLoadState("networkidle");
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Photo Upload E2E Verification' });
   });
 
   // TODO: Test drift - photo upload section UI changed
@@ -51,6 +59,7 @@ test.describe("Photo Upload E2E Verification", () => {
         }
       });
 
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- collecting console errors over time window
       await page.waitForTimeout(2000);
 
       // Check for database errors in console

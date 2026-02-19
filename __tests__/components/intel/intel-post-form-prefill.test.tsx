@@ -11,6 +11,7 @@ jest.mock("@/actions/intel-actions");
 jest.mock("sonner");
 jest.mock("next/image", () => ({
   __esModule: true,
+  // eslint-disable-next-line jsx-a11y/alt-text -- mock component passes through all props
   default: (props: any) => <img {...props} />,
 }));
 

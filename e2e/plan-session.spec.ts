@@ -18,6 +18,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { TIMEOUTS } from './fixtures/test-data';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Helper to wait for wizard to be visible and interactive
@@ -29,7 +30,7 @@ async function waitForWizard(page: Page) {
   const form = page.locator('form, [data-testid="session-wizard-form"]').first();
   await expect(form).toBeVisible({ timeout: TIMEOUTS.long });
 
-  // Allow any initial animations to complete
+  // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for initial wizard animations to complete
   await page.waitForTimeout(500);
 }
 
@@ -49,9 +50,9 @@ async function getCurrentStep(page: Page): Promise<number | null> {
   }
 
   // Fallback: Check for step-specific content
-  const hasLocationContent = await page.locator('text=/beach|location|where/i').first().isVisible().catch(() => false);
-  const hasDateContent = await page.locator('text=/date|when|time/i').first().isVisible().catch(() => false);
-  const hasGoalsContent = await page.locator('text=/goals?|focus|what.*want/i').first().isVisible().catch(() => false);
+  const hasLocationContent = await isVisibleSafe(page.locator('text=/beach|location|where/i').first());
+  const hasDateContent = await isVisibleSafe(page.locator('text=/date|when|time/i').first());
+  const hasGoalsContent = await isVisibleSafe(page.locator('text=/goals?|focus|what.*want/i').first());
 
   if (hasGoalsContent) return 3;
   if (hasDateContent) return 2;
@@ -83,6 +84,16 @@ async function getDisplayedBeachName(page: Page): Promise<string | null> {
 }
 
 test.describe('Plan Session from Surf Discovery', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Plan Session from Surf Discovery' });
+  });
+
   test('should prefill wizard and jump to Goals step from discovery CTA', async ({ page }) => {
     // Step 1: Navigate to discover page
     await page.goto('/discover');
@@ -90,7 +101,7 @@ test.describe('Plan Session from Surf Discovery', () => {
 
     // Step 2: Wait for surf discovery recommendations to load
     const discoverySection = page.locator('[data-testid="discovery-section"], [data-testid="surf-discovery"]').first();
-    const hasSectionFound = await discoverySection.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasSectionFound = await isVisibleSafe(discoverySection, { timeout: TIMEOUTS.long });
 
     if (!hasSectionFound) {
       // Try to find any beach recommendations
@@ -104,7 +115,7 @@ test.describe('Plan Session from Surf Discovery', () => {
 
     // Step 3: Find and click "Plan Session" CTA
     const planButton = page.getByRole('button', { name: /plan.*session/i }).first();
-    const hasPlanButton = await planButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasPlanButton = await isVisibleSafe(planButton, { timeout: TIMEOUTS.medium });
 
     if (!hasPlanButton) {
       throw new Error('Not implemented: Plan Session button not found - feature may not be deployed');
@@ -143,13 +154,14 @@ test.describe('Plan Session from Surf Discovery', () => {
       expect(currentStep).toBe(3);
     } else {
       // Fallback: Check for goals content
-      const hasGoalsContent = await page.locator('text=/goals?|what.*focus|objectives/i').first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      /* Goals content depends on wizard step layout */
+      const hasGoalsContent = await isVisibleSafe(page.locator('text=/goals?|what.*focus|objectives/i').first(), { timeout: TIMEOUTS.medium });
       expect(hasGoalsContent).toBe(true);
     }
 
     // Step 9: Verify user can add goals and continue
     const continueButton = page.getByRole('button', { name: /next|continue|finish|plan/i }).first();
-    const hasContinue = await continueButton.isVisible().catch(() => false);
+    const hasContinue = await isVisibleSafe(continueButton);
 
     if (hasContinue && !await continueButton.isDisabled()) {
       // Button should be enabled since beach/date/time are prefilled
@@ -170,7 +182,7 @@ test.describe('Plan Session from Surf Discovery', () => {
     if (!hasRecommendations) {
       // Should show empty state or guidance
       const emptyState = page.locator('text=/no.*recommendations|set.*preferences|complete.*profile/i').first();
-      const hasEmptyState = await emptyState.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const hasEmptyState = await isVisibleSafe(emptyState, { timeout: TIMEOUTS.medium });
 
       // Either shows empty state OR the page is still loading
       // Both are acceptable
@@ -185,7 +197,7 @@ test.describe('Plan Session from Surf Discovery', () => {
     await waitForPageLoad(page);
 
     const planButton = page.getByRole('button', { name: /plan.*session/i }).first();
-    const hasPlanButton = await planButton.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasPlanButton = await isVisibleSafe(planButton, { timeout: TIMEOUTS.long });
 
     if (!hasPlanButton) {
       throw new Error('Not implemented: Plan Session button not available');
@@ -211,7 +223,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
 
     // Step 2: Wait for personalized forecast to load
     const forecastSection = page.locator('[data-testid="personalized-forecast"], [data-testid="forecast-section"]').first();
-    const hasForecast = await forecastSection.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasForecast = await isVisibleSafe(forecastSection, { timeout: TIMEOUTS.long });
 
     if (!hasForecast) {
       throw new Error('Not implemented: Personalized forecast not available - may need user setup');
@@ -219,7 +231,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
 
     // Step 3: Find and click "Plan Session" CTA on forecast card
     const planButton = page.getByRole('button', { name: /plan.*session/i }).first();
-    const hasPlanButton = await planButton.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasPlanButton = await isVisibleSafe(planButton, { timeout: TIMEOUTS.medium });
 
     if (!hasPlanButton) {
       throw new Error('Not implemented: Plan Session CTA not found on forecast card');
@@ -257,7 +269,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
     await waitForPageLoad(page);
 
     const forecastCard = page.locator('[data-testid="forecast-card"]').first();
-    const hasCard = await forecastCard.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasCard = await isVisibleSafe(forecastCard, { timeout: TIMEOUTS.long });
 
     if (!hasCard) {
       throw new Error('Not implemented: Forecast cards not available');
@@ -270,7 +282,7 @@ test.describe('Plan Session from Personalized Forecast', () => {
       console.log('Forecast card shows time:', timeText);
 
       const planButton = forecastCard.getByRole('button', { name: /plan/i }).first();
-      const hasPlan = await planButton.isVisible().catch(() => false);
+      const hasPlan = await isVisibleSafe(planButton);
 
       if (hasPlan) {
         await planButton.click();
@@ -428,7 +440,8 @@ test.describe('Direct URL Navigation with Prefill', () => {
     expect(hasContent).toBe(true);
 
     // Check if log mode is active (look for log-specific content)
-    const hasLogContent = await page.locator('text=/log|completed|past.*session/i').first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    /* Log content depends on wizard mode parameter being recognized */
+    const hasLogContent = await isVisibleSafe(page.locator('text=/log|completed|past.*session/i').first(), { timeout: TIMEOUTS.medium });
 
     // Either has log-specific content OR wizard just loads (both acceptable)
     console.log('Has log content:', hasLogContent);
@@ -465,7 +478,8 @@ test.describe('Wizard Navigation with Prefill', () => {
       expect(currentStep).toBe(1);
     } else {
       // Alternative check: Should see location selection content
-      const hasLocationContent = await page.locator('text=/beach|location|where/i').first().isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      /* Location content depends on wizard step layout */
+      const hasLocationContent = await isVisibleSafe(page.locator('text=/beach|location|where/i').first(), { timeout: TIMEOUTS.medium });
       expect(hasLocationContent).toBe(true);
     }
 

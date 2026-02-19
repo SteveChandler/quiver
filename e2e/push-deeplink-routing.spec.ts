@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { waitForPageLoad, ensureAuthenticated } from "./utils/test-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Push Notification Deeplink Routing E2E Tests
@@ -17,6 +18,16 @@ import { waitForPageLoad, ensureAuthenticated } from "./utils/test-helpers";
  */
 
 test.describe("Push Notification Deeplink Routing", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Push Notification Deeplink Routing' });
+  });
+
   test("should navigate to beach detail page using deeplink URL format", async ({
     page,
   }) => {
@@ -164,8 +175,8 @@ test.describe("Push Notification Deeplink Routing", () => {
     await page.goto("/beach/ocean-beach");
     await waitForPageLoad(page);
 
-    // Wait for forecast data to load (if available)
-    await page.waitForTimeout(2000); // Brief wait for data fetch
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for forecast data to load
+    await page.waitForTimeout(2000);
 
     // Check if page has loaded content (either forecast or placeholder)
     const hasContent =

@@ -111,7 +111,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     });
 
     // Import GET after mocks are configured (and module cache reset)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const { GET } = require("@/app/api/cron/forecasts/refresh/route");
 
     const req = new Request(

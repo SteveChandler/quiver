@@ -334,7 +334,7 @@ describe("Cron: forecast-alerts", () => {
       expect(typeof data.timestamp).toBe("string");
 
       // Verify timestamp is a valid ISO date
-      expect(() => new Date(data.timestamp)).not.toThrow();
+      expect(new Date(data.timestamp).getTime()).not.toBeNaN();
     });
 
     it("returns properly formatted error response", async () => {

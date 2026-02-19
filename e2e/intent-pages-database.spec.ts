@@ -15,12 +15,23 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 // Test timeouts
 const PAGE_LOAD_TIMEOUT = 10000;
 const MAP_LOAD_TIMEOUT = 5000;
 
 test.describe("Database-driven intent pages - City level", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'City level' });
+  });
+
   test("should load Santa Cruz beginner page from database", async ({ page }) => {
     await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
 
@@ -197,7 +208,7 @@ test.describe("Database-driven intent pages - Content structure", () => {
       '[class*="mapbox"], [class*="map-container"], canvas, [data-testid*="map"]'
     );
 
-    // Give map time to render
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for Mapbox map initialization
     await page.waitForTimeout(MAP_LOAD_TIMEOUT);
 
     // Map should be present in DOM (may not be visible if below fold)

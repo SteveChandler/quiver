@@ -17,10 +17,12 @@
 import { test, expect } from "@playwright/test";
 import { waitForPageLoad, ensureAuthenticated, navigateToBeach } from "./utils/test-helpers";
 import { VIEWPORTS, TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
+import { isVisibleSafe } from "./utils/strict-helpers";
 import {
   hasPersonalizationData,
   skipIfNoPersonalizationData,
 } from "./utils/personalization-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Skip all personalization score tests in dev/production environments
@@ -32,13 +34,20 @@ const isDevEnvironment =
   process.env.TEST_ENV === 'dev';
 
 test.describe('Personalization Match Scores', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     // Skip in dev - requires local DB setup with personalization data
     if (isDevEnvironment) {
       throw new Error('Not implemented: Personalization score tests require local environment with seeded data');
     }
 
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Personalization Match Scores' });
   });
 
   /**
@@ -81,7 +90,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No personalized badges to test positioning');
@@ -111,7 +120,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No personalized badge to test hover interaction');
@@ -122,7 +131,7 @@ test.describe('Personalization Match Scores', () => {
 
       // Wait for tooltip to appear
       const tooltip = page.locator('[role="tooltip"]').or(page.locator('[data-testid="personalized-tooltip"]'));
-      const tooltipVisible = await tooltip.isVisible({ timeout: 2000 }).catch(() => false);
+      const tooltipVisible = await isVisibleSafe(tooltip, { timeout: 2000 });
 
       if (!tooltipVisible) {
         throw new Error('Not implemented: Tooltip not available - badge may not have breakdown data');
@@ -140,10 +149,11 @@ test.describe('Personalization Match Scores', () => {
 
       // Move away from badge
       await page.mouse.move(0, 0);
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tooltip dismiss animation
       await page.waitForTimeout(500);
 
       // Tooltip should disappear
-      const tooltipStillVisible = await tooltip.isVisible({ timeout: 1000 }).catch(() => false);
+      const tooltipStillVisible = await isVisibleSafe(tooltip, { timeout: 1000 });
       expect(tooltipStillVisible).toBe(false);
     });
 
@@ -154,7 +164,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');
@@ -163,7 +173,7 @@ test.describe('Personalization Match Scores', () => {
       await badge.hover();
 
       const tooltip = page.locator('[role="tooltip"]').or(page.locator('[data-testid="personalized-tooltip"]'));
-      const tooltipVisible = await tooltip.isVisible({ timeout: 2000 }).catch(() => false);
+      const tooltipVisible = await isVisibleSafe(tooltip, { timeout: 2000 });
 
       if (!tooltipVisible) {
         throw new Error('Not implemented: No tooltip available');
@@ -201,7 +211,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge available for mobile test');
@@ -212,7 +222,7 @@ test.describe('Personalization Match Scores', () => {
 
       // Wait for collapsible content to appear
       const collapsible = page.locator('[data-testid="personalized-breakdown-mobile"]');
-      const collapsibleVisible = await collapsible.isVisible({ timeout: 2000 }).catch(() => false);
+      const collapsibleVisible = await isVisibleSafe(collapsible, { timeout: 2000 });
 
       if (!collapsibleVisible) {
         throw new Error('Not implemented: Collapsible breakdown not available');
@@ -226,10 +236,11 @@ test.describe('Personalization Match Scores', () => {
 
       // Tap again to collapse
       await badge.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for collapsible collapse animation
       await page.waitForTimeout(500);
 
       // Collapsible should disappear
-      const stillVisible = await collapsible.isVisible({ timeout: 1000 }).catch(() => false);
+      const stillVisible = await isVisibleSafe(collapsible, { timeout: 1000 });
       expect(stillVisible).toBe(false);
     });
 
@@ -240,7 +251,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');
@@ -248,7 +259,7 @@ test.describe('Personalization Match Scores', () => {
 
       // Look for chevron icon within badge
       const chevron = badge.locator('svg').last(); // ChevronDown is typically the last icon
-      const hasChevron = await chevron.isVisible().catch(() => false);
+      const hasChevron = await isVisibleSafe(chevron);
 
       if (!hasChevron) {
         // Chevron may not be present if no breakdown data
@@ -298,7 +309,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const affinityBadge = page.locator('[data-testid="affinity-badge"]');
-      const badgeVisible = await affinityBadge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(affinityBadge, { timeout: TIMEOUTS.medium });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No affinity badge on this beach');
@@ -331,7 +342,7 @@ test.describe('Personalization Match Scores', () => {
 
       // Look for personalized badge in hero section or header
       const badge = page.locator('[data-testid="personalized-badge"]');
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.medium });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No personalized badge on beach detail page');
@@ -351,7 +362,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]');
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.medium });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test size');
@@ -378,7 +389,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]');
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.medium });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');
@@ -388,7 +399,7 @@ test.describe('Personalization Match Scores', () => {
       await badge.hover();
 
       const tooltip = page.locator('[role="tooltip"]').or(page.locator('[data-testid="personalized-tooltip"]'));
-      const tooltipVisible = await tooltip.isVisible({ timeout: 2000 }).catch(() => false);
+      const tooltipVisible = await isVisibleSafe(tooltip, { timeout: 2000 });
 
       if (!tooltipVisible) {
         throw new Error('Not implemented: Tooltip not available');
@@ -473,7 +484,7 @@ test.describe('Personalization Match Scores', () => {
 
       // Check for loading state immediately
       const loadingIndicator = page.locator('text=/calculating.*match/i');
-      const loadingVisible = await loadingIndicator.isVisible({ timeout: 1000 }).catch(() => false);
+      const loadingVisible = await isVisibleSafe(loadingIndicator, { timeout: 1000 });
 
       if (loadingVisible) {
         // Loading state appeared - verify it disappears
@@ -484,7 +495,7 @@ test.describe('Personalization Match Scores', () => {
 
       // Eventually, badge should appear
       const badge = page.locator('[data-testid="personalized-badge"]');
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.medium });
 
       // Badge may or may not be present depending on data
       // Test passes either way - we're verifying no infinite loading
@@ -503,7 +514,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test display mode');
@@ -524,7 +535,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');
@@ -548,7 +559,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test accessibility');
@@ -571,7 +582,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');
@@ -594,7 +605,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test keyboard navigation');
@@ -618,7 +629,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test color contrast');
@@ -648,7 +659,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test focus state');
@@ -731,7 +742,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test responsive design');
@@ -756,7 +767,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');
@@ -773,7 +784,7 @@ test.describe('Personalization Match Scores', () => {
       await waitForPageLoad(page);
 
       const badge = page.locator('[data-testid="personalized-badge"]').first();
-      const badgeVisible = await badge.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+      const badgeVisible = await isVisibleSafe(badge, { timeout: TIMEOUTS.long });
 
       if (!badgeVisible) {
         throw new Error('Not implemented: No badge to test');

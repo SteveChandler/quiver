@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS, TIMEOUTS } from '../fixtures/test-data';
 import { navigateToBeach } from '../utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 /**
  * Yesterday's Accuracy Card - E2E Tests
@@ -15,6 +16,16 @@ import { navigateToBeach } from '../utils/test-helpers';
  */
 
 test.describe("Yesterday's Accuracy Card", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: "Yesterday's Accuracy Card" });
+  });
+
   test('should show accuracy card on Forecast tab for observable beach when data available', async ({ page }) => {
     // Blacks Beach is an observable beach (near CDIP/Scripps station)
     await navigateToBeach(page, TEST_BEACHES.blacks);
@@ -40,10 +51,11 @@ test.describe("Yesterday's Accuracy Card", () => {
     // Race: card appears OR additional wait time — avoids hardcoded timeout.
     await Promise.race([
       card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- Promise.race fallback for async accuracy data load
       page.waitForTimeout(3000),
     ]);
 
-    const isVisible = await card.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(card);
 
     if (isVisible) {
       // Verify card contains expected elements
@@ -78,10 +90,11 @@ test.describe("Yesterday's Accuracy Card", () => {
 
     await Promise.race([
       card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- Promise.race fallback for async accuracy data load
       page.waitForTimeout(3000),
     ]);
 
-    const isVisible = await card.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(card);
 
     if (isVisible) {
       // Should show values in feet (e.g., "3.2 ft")
@@ -112,10 +125,11 @@ test.describe("Yesterday's Accuracy Card", () => {
 
     await Promise.race([
       card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- Promise.race fallback for async accuracy data load
       page.waitForTimeout(3000),
     ]);
 
-    const isVisible = await card.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(card);
 
     if (isVisible) {
       // On mobile, card should still be fully visible (not clipped)

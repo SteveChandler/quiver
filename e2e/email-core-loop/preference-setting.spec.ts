@@ -21,10 +21,21 @@ import {
   generateTestEmailToken,
   isEmailTokenTestingAvailable,
 } from '../utils/email-token-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 const TEST_USER_ID = 'e2e-test-user-12345';
 
 test.describe('Email Preference Setting', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Email Preference Setting' });
+  });
+
   test.describe('Valid preference setting', () => {
     // These tests require EMAIL_TOKEN_SECRET to generate valid tokens
     test.beforeEach(async () => {

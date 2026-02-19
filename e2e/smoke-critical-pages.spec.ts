@@ -35,11 +35,11 @@ test.describe('Smoke: Critical Pages', () => {
     const forecastArea = page.locator(
       '[data-testid="spot-overview"], [data-testid="forecast"], [class*="forecast"], [class*="surf-report"]'
     ).first();
-    const hasForecast = await forecastArea.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasForecast = await isVisibleSafe(forecastArea, { timeout: 5000 });
 
     // Alternatively, check for wave height or swell text
     const waveInfo = page.getByText(/ft|swell|wave/i).first();
-    const hasWaveInfo = await waveInfo.isVisible().catch(() => false);
+    const hasWaveInfo = await isVisibleSafe(waveInfo);
 
     expect(hasForecast || hasWaveInfo).toBe(true);
 
@@ -61,14 +61,14 @@ test.describe('Smoke: Critical Pages', () => {
 
     // Page heading or title should be visible
     const heading = page.getByRole('heading', { name: /session/i }).first();
-    const hasHeading = await heading.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasHeading = await isVisibleSafe(heading, { timeout: 5000 });
 
     // Either session list items or empty state should render
     const sessionItems = page.locator('[data-testid="session-item"], [class*="session-card"]').first();
     const emptyState = page.getByText(/no sessions|get started|log your first/i).first();
 
-    const hasItems = await sessionItems.isVisible().catch(() => false);
-    const hasEmpty = await emptyState.isVisible().catch(() => false);
+    const hasItems = await isVisibleSafe(sessionItems);
+    const hasEmpty = await isVisibleSafe(emptyState);
 
     expect(hasHeading || hasItems || hasEmpty).toBe(true);
 

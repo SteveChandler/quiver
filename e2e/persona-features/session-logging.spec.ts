@@ -17,8 +17,19 @@ import {
   generateSessionNotes,
   verifyPersonaContent,
 } from '../utils/persona-content-generators';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 test.describe('Session Logging - All Personas', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'All Personas' });
+  });
+
   test.describe('Session Content Generation', () => {
     for (const personaType of ALL_PERSONA_TYPES) {
       const persona = PERSONAS[personaType];

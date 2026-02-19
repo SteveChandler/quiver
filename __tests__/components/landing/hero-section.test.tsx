@@ -11,6 +11,7 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/components/landing-page/hero-search-lazy", () => {
   return {
     __esModule: true,
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- mock factory, not a real component
     default: ({
       onFallback,
       onQueryChange,
@@ -19,6 +20,7 @@ jest.mock("@/components/landing-page/hero-search-lazy", () => {
       onQueryChange?: (query: string) => void;
     }) => {
       // Simple mock that behaves like a text input wired to the callbacks.
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- mock component inside jest.mock factory
       const [value, setValue] = React.useState("");
       return (
         <input

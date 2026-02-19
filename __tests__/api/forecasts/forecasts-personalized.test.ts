@@ -55,7 +55,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
 });
 
 // Import after mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { POST } = require("@/app/api/beach/personalized-score/route");
 
 describe("POST /api/beach/personalized-score", () => {

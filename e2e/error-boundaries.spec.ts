@@ -15,10 +15,18 @@
 import { test, expect } from "@playwright/test";
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { TIMEOUTS } from "./fixtures/test-data";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe("Error Boundaries - Phase 5 Fixes", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Phase 5 Fixes' });
   });
 
   test.describe("Route-Level Error Boundaries", () => {
@@ -35,7 +43,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Some implementations may catch this, some may not
       // The key is that the app doesn't crash completely
-      const pageVisible = await page.isVisible("body").catch(() => false);
+      const pageVisible = await page.isVisible("body");
       expect(pageVisible).toBe(true);
 
       console.log("✓ Page remained functional after error injection");
@@ -48,14 +56,14 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Look for error UI elements
       const errorMessage = page.locator('text=/error|something went wrong|not found/i').first();
-      const errorVisible = await errorMessage.isVisible({ timeout: 5000 }).catch(() => false);
+      const errorVisible = await isVisibleSafe(errorMessage, { timeout: 5000 });
 
       if (errorVisible) {
         console.log("✓ Error message displayed");
 
         // Look for retry/home button
         const retryButton = page.locator('button, a').filter({ hasText: /try again|go home|back/i }).first();
-        const buttonVisible = await retryButton.isVisible({ timeout: 2000 }).catch(() => false);
+        const buttonVisible = await isVisibleSafe(retryButton, { timeout: 2000 });
 
         if (buttonVisible) {
           console.log("✓ Recovery button found");
@@ -100,13 +108,13 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Trigger potential errors by rapid navigation
       await page.goto("/map");
-      await page.waitForTimeout(100);
+      await page.waitForLoadState("load");
 
       await page.goto("/discover");
-      await page.waitForTimeout(100);
+      await page.waitForLoadState("load");
 
       await page.goto("/");
-      await page.waitForTimeout(100);
+      await page.waitForLoadState("load");
 
       // Even if there are errors, the page should still render something
       const bodyVisible = await page.isVisible("body");
@@ -135,14 +143,14 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Try to load data (will fail)
       await page.goto("/discover");
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState("networkidle");
 
       // Go back online
       await context.setOffline(false);
 
       // Look for retry button
       const retryButton = page.locator('button').filter({ hasText: /retry|try again/i }).first();
-      const retryVisible = await retryButton.isVisible({ timeout: 2000 }).catch(() => false);
+      const retryVisible = await isVisibleSafe(retryButton, { timeout: 2000 });
 
       if (retryVisible) {
         // Click retry
@@ -173,7 +181,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Look for a form
       const formInput = page.locator('input[type="text"], textarea').first();
-      const inputVisible = await formInput.isVisible({ timeout: 5000 }).catch(() => false);
+      const inputVisible = await isVisibleSafe(formInput, { timeout: 5000 });
 
       if (inputVisible) {
         // Fill in some data
@@ -184,12 +192,12 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
         // Trigger a potential error (e.g., rapid form submission)
         const submitButton = page.locator('button[type="submit"]').first();
-        const buttonVisible = await submitButton.isVisible().catch(() => false);
+        const buttonVisible = await isVisibleSafe(submitButton);
 
         if (buttonVisible) {
           // Try to submit (may fail validation or encounter error)
           await submitButton.click();
-          await page.waitForTimeout(1000);
+          await page.waitForLoadState("networkidle");
 
           // Check if data is still there
           const currentValue = await formInput.inputValue();
@@ -218,7 +226,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       // Even without triggering an error, we can verify the error boundary is in place
       // by checking that forms don't crash the app on invalid input
       const input = page.locator('input').first();
-      const inputVisible = await input.isVisible({ timeout: 2000 }).catch(() => false);
+      const inputVisible = await isVisibleSafe(input, { timeout: 2000 });
 
       if (inputVisible) {
         // Enter invalid data
@@ -351,6 +359,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
         }, 100);
       });
 
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for injected error timers to fire
       await page.waitForTimeout(1000);
 
       // App should still be functional
@@ -369,7 +378,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       await page.waitForLoadState("load");
 
       const notFoundMessage = page.locator('text=/not found|404/i').first();
-      const notFoundVisible = await notFoundMessage.isVisible({ timeout: 5000 }).catch(() => false);
+      const notFoundVisible = await isVisibleSafe(notFoundMessage, { timeout: 5000 });
 
       if (notFoundVisible) {
         // Should have home link or back button
@@ -386,13 +395,14 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Temporarily break connectivity
       await context.setOffline(true);
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- simulating offline duration before recovery
       await page.waitForTimeout(1000);
 
       // Restore connectivity
       await context.setOffline(false);
 
       // App should auto-recover
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState("networkidle");
 
       const bodyVisible = await page.isVisible("body");
       expect(bodyVisible).toBe(true);
@@ -425,7 +435,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Should not show error UI anymore
       const errorUI = page.locator('text=/error occurred|something went wrong/i').first();
-      const errorVisible = await errorUI.isVisible({ timeout: 2000 }).catch(() => false);
+      const errorVisible = await isVisibleSafe(errorUI, { timeout: 2000 });
 
       expect(errorVisible).toBe(false);
 
@@ -452,7 +462,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Map may load async data - verify it handles errors
       const mapElement = page.locator('[data-testid="beach-map"]');
-      const mapVisible = await mapElement.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const mapVisible = await isVisibleSafe(mapElement, { timeout: TIMEOUTS.medium });
 
       // Whether map loads or not, page should be functional
       const bodyVisible = await page.isVisible("body");
@@ -477,11 +487,11 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
 
       // Click buttons - should not crash app
       const button = page.locator("button").first();
-      const buttonVisible = await button.isVisible().catch(() => false);
+      const buttonVisible = await isVisibleSafe(button);
 
       if (buttonVisible) {
         await button.click();
-        await page.waitForTimeout(500);
+        await page.waitForLoadState("load");
 
         // App should still be functional
         const bodyVisible = await page.isVisible("body");

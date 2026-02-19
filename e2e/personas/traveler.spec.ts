@@ -24,6 +24,7 @@ import {
   generateSessionContent,
   verifyPersonaContent,
 } from '../utils/persona-content-generators';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 const PERSONA_TYPE = 'traveler' as const;
 const persona = PERSONAS[PERSONA_TYPE];
@@ -40,6 +41,16 @@ test.describe(`${persona.displayName} Persona Tests`, () => {
   });
 
   test.describe('Authentication', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Authentication' });
+  });
+
     test('should be logged in as traveler persona', async ({ page }) => {
       const result = await verifyLoggedInAsPersona(page, PERSONA_TYPE);
       expect(result.isCorrectPersona || result.currentUser !== undefined).toBeTruthy();

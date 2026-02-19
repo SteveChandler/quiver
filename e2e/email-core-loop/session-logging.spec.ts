@@ -23,6 +23,7 @@ import {
   generateTestEmailToken,
   isEmailTokenTestingAvailable,
 } from '../utils/email-token-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
 /**
  * Check if the session log route is available
@@ -76,10 +77,13 @@ function buildSessionLogUrl(params: {
 }
 
 test.describe('Session Logging', () => {
+  let errorCapture: ErrorCapture;
+
   // All session logging tests require:
   // 1. EMAIL_TOKEN_SECRET to be configured
   // 2. Dev server running from this worktree (not main)
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     if (!isEmailTokenTestingAvailable()) {
       throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured - skipping tests that need valid tokens');
     }
@@ -89,6 +93,10 @@ test.describe('Session Logging', () => {
     if (!routeAvailable) {
       throw new Error('Not implemented: Session log route not available - dev server must run from email-core-loop worktree');
     }
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Logging' });
   });
 
   test.describe('Page loads correctly', () => {

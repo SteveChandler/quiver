@@ -73,7 +73,7 @@ describe('actions/like-actions', () => {
 
     const res = await getSessionLikeStatus('session-3');
     if (!res.success) {
-      // eslint-disable-next-line no-console
+       
       console.log('getSessionLikeStatus debug', res);
     }
     expect(res.success).toBe(true);

@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { TIMEOUTS } from './fixtures/test-data';
+import { isVisibleSafe } from "./utils/strict-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Session Wizard Auto-Forecast Autofill Tests
@@ -20,10 +22,17 @@ import { TIMEOUTS } from './fixtures/test-data';
  */
 
 test.describe('Session Wizard - Auto-Forecast Autofill', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     // Navigate to new session log mode
     await page.goto('/sessions/new?mode=log');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Session Wizard Autofill' });
   });
 
   test('should auto-prefill condition fields after selecting beach and date/time', async ({ page }) => {
@@ -64,8 +73,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Step 4: Navigate to Conditions step (skip Equipment step)
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000); // Wait for Equipment step to load
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000); // Wait for Conditions step to load
 
     // Step 5: Verify condition fields are auto-prefilled
@@ -75,7 +86,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="waveHeight"]')
     ).first();
 
-    const waveHeightVisible = await waveHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const waveHeightVisible = await isVisibleSafe(waveHeightInput, { timeout: TIMEOUTS.short });
 
     if (waveHeightVisible) {
       const waveHeightValue = await waveHeightInput.inputValue();
@@ -97,7 +108,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="windSpeed"]')
     ).first();
 
-    const windSpeedVisible = await windSpeedInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const windSpeedVisible = await isVisibleSafe(windSpeedInput, { timeout: TIMEOUTS.short });
 
     if (windSpeedVisible) {
       const windSpeedValue = await windSpeedInput.inputValue();
@@ -113,7 +124,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="waterTemp"]')
     ).first();
 
-    const waterTempVisible = await waterTempInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const waterTempVisible = await isVisibleSafe(waterTempInput, { timeout: TIMEOUTS.short });
 
     if (waterTempVisible) {
       const waterTempValue = await waterTempInput.inputValue();
@@ -130,7 +141,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="tideHeight"]')
     ).first();
 
-    const tideHeightVisible = await tideHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const tideHeightVisible = await isVisibleSafe(tideHeightInput, { timeout: TIMEOUTS.short });
 
     if (tideHeightVisible) {
       const tideHeightValue = await tideHeightInput.inputValue();
@@ -178,8 +189,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Navigate to Conditions step
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
 
     // Step 3: Override auto-prefilled wave height with custom value
@@ -188,7 +201,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="waveHeight"]')
     ).first();
 
-    const waveHeightVisible = await waveHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const waveHeightVisible = await isVisibleSafe(waveHeightInput, { timeout: TIMEOUTS.short });
 
     if (!waveHeightVisible) {
       throw new Error('Not implemented: Wave height input not found - UI may have changed');
@@ -204,7 +217,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="windSpeed"]')
     ).first();
 
-    const windSpeedVisible = await windSpeedInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const windSpeedVisible = await isVisibleSafe(windSpeedInput, { timeout: TIMEOUTS.short });
 
     if (windSpeedVisible) {
       const customWindSpeed = '15';
@@ -218,7 +231,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('#wave-quality-slider')
     ).first();
 
-    const waveQualityVisible = await waveQualitySlider.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const waveQualityVisible = await isVisibleSafe(waveQualitySlider, { timeout: TIMEOUTS.short });
 
     if (waveQualityVisible) {
       await waveQualitySlider.fill('8');
@@ -226,7 +239,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Step 6: Submit the session
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton, { timeout: TIMEOUTS.short });
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Submit button not found - may need to fill more fields');
@@ -298,8 +311,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Navigate to Conditions step
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
 
     // Step 3: Fill all condition fields (whether prefilled or manual)
@@ -315,7 +330,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="waveHeight"]')
     ).first();
 
-    if (await waveHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false)) {
+    if (await isVisibleSafe(waveHeightInput, { timeout: TIMEOUTS.short })) {
       await waveHeightInput.clear();
       await waveHeightInput.fill(testConditions.waveHeight);
     }
@@ -325,7 +340,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="windSpeed"]')
     ).first();
 
-    if (await windSpeedInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false)) {
+    if (await isVisibleSafe(windSpeedInput, { timeout: TIMEOUTS.short })) {
       await windSpeedInput.clear();
       await windSpeedInput.fill(testConditions.windSpeed);
     }
@@ -335,7 +350,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="waterTemp"]')
     ).first();
 
-    if (await waterTempInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false)) {
+    if (await isVisibleSafe(waterTempInput, { timeout: TIMEOUTS.short })) {
       await waterTempInput.clear();
       await waterTempInput.fill(testConditions.waterTemp);
     }
@@ -345,7 +360,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('input[name="tideHeight"]')
     ).first();
 
-    if (await tideHeightInput.isVisible({ timeout: TIMEOUTS.short }).catch(() => false)) {
+    if (await isVisibleSafe(tideHeightInput, { timeout: TIMEOUTS.short })) {
       await tideHeightInput.clear();
       await tideHeightInput.fill(testConditions.tideHeight);
     }
@@ -355,13 +370,13 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('#wave-quality-slider')
     ).first();
 
-    if (await waveQualitySlider.isVisible({ timeout: TIMEOUTS.short }).catch(() => false)) {
+    if (await isVisibleSafe(waveQualitySlider, { timeout: TIMEOUTS.short })) {
       await waveQualitySlider.fill('7');
     }
 
     // Step 5: Submit
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton, { timeout: TIMEOUTS.short });
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Session wizard submit button - requires complete form flow with all required fields and submission handler');
@@ -373,8 +388,8 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     const successMessage = page.getByText(/success|logged|created|saved/i);
     const celebration = page.getByText(/🎉|Success!/i);
 
-    const hasSuccess = await successMessage.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-    const hasCelebration = await celebration.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const hasSuccess = await isVisibleSafe(successMessage, { timeout: TIMEOUTS.long });
+    const hasCelebration = await isVisibleSafe(celebration, { timeout: TIMEOUTS.long });
 
     // If submission didn't show success message, check if we navigated away from form
     const stillOnForm = page.url().includes('/sessions/new');
@@ -428,8 +443,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Navigate to Conditions step
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
 
     // Step 3: Verify no "recommended" or promotional language appears
@@ -447,7 +464,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Look for night session indicator if it exists
     const nightIndicator = page.getByText(/night session|after dark|evening/i);
-    const hasNightIndicator = await nightIndicator.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasNightIndicator = await isVisibleSafe(nightIndicator, { timeout: TIMEOUTS.short });
 
     // Night indicator is optional but good UX
     if (hasNightIndicator) {
@@ -489,8 +506,10 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Skip to conditions
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
     await nextButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
 
     // Fill wave quality
@@ -498,13 +517,13 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
       page.locator('#wave-quality-slider')
     ).first();
 
-    if (await waveQualitySlider.isVisible({ timeout: TIMEOUTS.short }).catch(() => false)) {
+    if (await isVisibleSafe(waveQualitySlider, { timeout: TIMEOUTS.short })) {
       await waveQualitySlider.fill('8');
     }
 
     // Submit
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasSubmit = await isVisibleSafe(submitButton, { timeout: TIMEOUTS.short });
 
     if (!hasSubmit) {
       throw new Error('Not implemented: Session wizard submit - forecast snapshot feature requires complete session submission and detail view display');
@@ -512,7 +531,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     await submitButton.click();
 
-    // Wait for success and potential redirect
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form submission and redirect
     await page.waitForTimeout(3000);
 
     // Check if we're on session detail or profile page
@@ -520,7 +539,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Look for forecast snapshot section on the page
     const forecastSnapshotSection = page.getByText(/forecast from|conditions at time|forecast snapshot/i);
-    const hasSnapshotSection = await forecastSnapshotSection.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const hasSnapshotSection = await isVisibleSafe(forecastSnapshotSection, { timeout: TIMEOUTS.short });
 
     // Forecast snapshot display might not be implemented yet
     // This test documents the expected behavior
@@ -530,7 +549,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
         page.locator('.forecast-snapshot')
       ).first();
 
-      const hasData = await snapshotData.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+      const hasData = await isVisibleSafe(snapshotData, { timeout: TIMEOUTS.short });
 
       if (hasData) {
         expect(hasData).toBe(true);

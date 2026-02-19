@@ -6,8 +6,19 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe("State Hub Intent Guides Grid", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'State Hub Intent Guides Grid' });
+  });
+
   test.describe("California State Page", () => {
     test.beforeEach(async ({ page }) => {
       await page.goto("/beaches/usa/ca");
@@ -72,7 +83,7 @@ test.describe("State Hub Intent Guides Grid", () => {
 
       // Wait for page header to ensure page loaded
       const header = page.getByRole("heading", { name: /Best surf beaches in Hawaii/i });
-      const headerVisible = await header.isVisible().catch(() => false);
+      const headerVisible = await isVisibleSafe(header);
 
       if (!headerVisible) {
         throw new Error('Not implemented: Hawaii state page header not visible - page content missing');

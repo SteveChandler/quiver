@@ -83,7 +83,7 @@ test.describe('Smoke: SEO Infrastructure', () => {
     // Check for noindex robots meta (thin-content protection)
     // Pages may have multiple robots meta tags (default + noindex override)
     const noindexMeta = page.locator('meta[name="robots"][content*="noindex"]');
-    const hasNoindex = await noindexMeta.count().then(c => c > 0).catch(() => false);
+    const hasNoindex = await noindexMeta.count().then(c => c > 0);
 
     if (!hasNoindex) {
       // No noindex → page should render meaningful content

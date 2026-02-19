@@ -8,10 +8,21 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('Service Health: Data Pipeline @smoke', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Service Health: Data Pipeline @smoke' });
+  });
+
   test('Deep health check reports non-critical status @smoke', async ({ request }) => {
     const response = await request.get(`${BASE_URL}/api/health?deep=true`);
 
@@ -82,10 +93,10 @@ test.describe('Service Health: Beach Data Rendering @smoke', () => {
     await page.waitForLoadState('load', { timeout: 15000 });
 
     const waveHeightText = page.getByText(/\d+\s*ft/i).first();
-    const hasWaveHeight = await waveHeightText.isVisible({ timeout: 10000 }).catch(() => false);
+    const hasWaveHeight = await isVisibleSafe(waveHeightText, { timeout: 10000 });
 
     const surfCallText = page.getByText(/flat|poor|fair|good|epic/i).first();
-    const hasSurfCall = await surfCallText.isVisible({ timeout: 10000 }).catch(() => false);
+    const hasSurfCall = await isVisibleSafe(surfCallText, { timeout: 10000 });
 
     expect(hasWaveHeight || hasSurfCall).toBe(true);
 

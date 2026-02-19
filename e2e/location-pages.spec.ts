@@ -37,8 +37,19 @@ import {
   LOCATION_PAGE_TIMEOUTS,
 } from "./fixtures/location-data";
 import { VIEWPORTS } from "./fixtures/test-data";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe("Location Pages - URL and Routing", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'URL and Routing' });
+  });
+
   test("should load location page with correct URL structure", async ({
     page,
   }) => {

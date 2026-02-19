@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 // Beach page URL - using the correct route pattern
 const BEACH_URL = "/ca/la-jolla/blacks";
@@ -7,6 +8,16 @@ const BEACH_URL = "/ca/la-jolla/blacks";
  * E2E tests for the enhanced tide chart with diagnostics
  */
 test.describe("Enhanced Tide Chart", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Enhanced Tide Chart' });
+  });
+
   test.describe("Tide Chart Display", () => {
     test("shows tide chart on beach detail page", async ({ page }) => {
       // Navigate to a known beach page

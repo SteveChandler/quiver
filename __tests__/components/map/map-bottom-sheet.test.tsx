@@ -2,13 +2,14 @@ import { render, screen, act } from "@testing-library/react";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 
 // Capture the setActiveSnapPoint handler passed to Drawer Root
+// eslint-disable-next-line react-hooks/globals -- test-scoped variable for mock capture
 let capturedSetActiveSnapPoint: ((val: number | string | null) => void) | null =
   null;
 
 // Mock vaul Drawer primitives as passthrough divs
 jest.mock("vaul", () => {
   const Root = ({ children, setActiveSnapPoint, activeSnapPoint }: any) => {
-    capturedSetActiveSnapPoint = setActiveSnapPoint;
+    capturedSetActiveSnapPoint = setActiveSnapPoint; // eslint-disable-line react-hooks/globals -- test mock capture
     return (
       <div data-testid="drawer-root" data-snap={String(activeSnapPoint)}>
         {children}

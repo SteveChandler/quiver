@@ -76,7 +76,7 @@ jest.mock("@/lib/auth/admin", () => ({
 }));
 
 // Import after mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { POST, GET } = require("@/app/api/forecasts/update/route");
 
 describe("POST /api/forecasts/update", () => {
