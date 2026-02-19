@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Embed chart (wind bars):** Wind histogram bars now span the full chart width instead of being compressed to the left ~1/6. Switched visible range sync from logical (index-based) to time-based, so charts with different data densities (smoothed wave vs raw wind) share the same time window.
+- **Embed chart (wind bars):** Wind histogram bars now span the full chart width instead of being compressed to the left ~1/6. Switched visible range sync from logical (index-based) to time-based, so charts with different data densities (smoothed wave vs raw wind) share the same time window. Added an invisible anchor series with dense time points to the wind chart so the crosshair snaps to fine-grained positions instead of nearest hourly bar.
 
 - **cam-resolve security hardening:** Added `redirect: "manual"` to both the primary page fetch and the HDRelay config fetch to prevent SSRF via open redirects; both return 502 if a redirect response is received. Added domain validation requiring HDRelay `servers.hls` to be a `*.hdrelay.com` hostname before constructing the HLS URL. Added a 64 KB size guard on the HDRelay config body (read as text, then `JSON.parse`). Extracted `HDRELAY_CONFIG_BASE` constant and reformatted `ALLOWED_RESOLVE_HOSTS` as multi-line. Made `HDRELAY_PLAYER_RE` case-insensitive for UUID hex digits (`[0-9a-fA-F-]`). Added explanatory comment on `kind: "hdontap"` reuse in `cam-embed.ts`. Test suite updated to use `text()` mock on HDRelay config responses and covers all new security paths.
 

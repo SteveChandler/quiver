@@ -111,6 +111,7 @@ function setDataOnSeries(
   wave: ISeriesApi<"Area"> | null,
   tide: ISeriesApi<"Line"> | null,
   ml: ISeriesApi<"Line"> | null,
+  windAnchor: ISeriesApi<"Line"> | null,
   wind: ISeriesApi<"Histogram"> | null,
   swell: ISeriesApi<"Line"> | null
 ) {
@@ -137,6 +138,17 @@ function setDataOnSeries(
       data.mlCorrectedHeight.map((d) => ({
         time: d.time as UTCTimestamp,
         value: d.value,
+      }))
+    );
+  }
+
+  // Invisible anchor series shares wave chart's dense time points so
+  // the crosshair on the wind pane snaps to fine-grained positions.
+  if (windAnchor) {
+    windAnchor.setData(
+      data.waveHeight.map((d) => ({
+        time: d.time as UTCTimestamp,
+        value: 0,
       }))
     );
   }
@@ -202,6 +214,7 @@ export function SurfTerminal({
   const waveSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const tideSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const mlSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const windAnchorSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const windSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const swellSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
@@ -319,6 +332,23 @@ export function SurfTerminal({
         width: windEl.clientWidth,
       });
 
+      // Invisible anchor series with dense time points (same as wave chart)
+      // so the crosshair snaps to fine-grained positions instead of sparse
+      // hourly bars. Must be added first so it's getSeries()[0].
+      const windAnchorSeries = windChart.addSeries(LineSeries, {
+        color: "rgba(0,0,0,0)",
+        lineWidth: 1,
+        lineVisible: false,
+        pointMarkersVisible: false,
+        crosshairMarkerVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        priceScaleId: "_anchor",
+        autoscaleInfoProvider: () => null,
+      });
+      // Hide the anchor's own price scale
+      windChart.priceScale("_anchor").applyOptions({ visible: false });
+
       const windSeries = windChart.addSeries(HistogramSeries, {
         priceFormat: { type: "price", precision: 0, minMove: 1 },
       });
@@ -355,6 +385,7 @@ export function SurfTerminal({
       waveSeriesRef.current = waveSeries;
       tideSeriesRef.current = tideSeries;
       mlSeriesRef.current = mlSeries;
+      windAnchorSeriesRef.current = windAnchorSeries;
       windSeriesRef.current = windSeries;
       swellSeriesRef.current = swellSeries;
 
@@ -381,6 +412,7 @@ export function SurfTerminal({
         waveSeries,
         tideSeries,
         mlSeries,
+        windAnchorSeries,
         windSeries,
         swellSeries
       );
@@ -445,6 +477,7 @@ export function SurfTerminal({
       waveSeriesRef.current,
       tideSeriesRef.current,
       mlSeriesRef.current,
+      windAnchorSeriesRef.current,
       windSeriesRef.current,
       swellSeriesRef.current
     );
