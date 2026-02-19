@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Dashboard skill:** Clarified Vercel Analytics API calls in `dashboard.md` — the 6 queries use `overview` + `timeseries` (with 4 `groupBy` variants), not separate endpoint names like `/path` or `/referrer` that don't exist.
 - **Service role leak:** Landing page components (`BestConditionsSection`, `LandingConditionsTicker`) were importing `getTopBeachesRightNow` directly, pulling `createSupabaseServiceRoleClient` into the client bundle. Switched to `getTopBeachesNow` server action.
 - **Embed impressions:** `/api/embed-impressions` now accepts all four widget types (`tides`, `conditions`, `surf-terminal`, `ticker`) — was rejecting the two new types added by the DB migration.
 - **E2E tests:** Removed duplicate `test.describe` block in `location-pages.spec.ts`.
