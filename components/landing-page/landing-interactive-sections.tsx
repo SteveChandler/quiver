@@ -51,7 +51,9 @@ export function LandingInteractiveSections() {
       <UpgradeSessionSection />
       <PersonalizationShowcase />
       <ActivitiesSection />
-      {hasMounted ? <ForecastSection /> : <ForecastSectionFallback />}
+      <div suppressHydrationWarning>
+        {hasMounted ? <ForecastSection /> : <ForecastSectionFallback />}
+      </div>
       <CTASection />
     </div>
   );

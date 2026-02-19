@@ -87,9 +87,9 @@ describe("LandingConditionsTicker", () => {
     render(<LandingConditionsTicker />);
 
     await waitFor(() => {
-      expect(screen.getByText("5-7ft")).toBeInTheDocument();
+      expect(screen.getAllByText("5-7ft").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("61\u00B0F")).toBeInTheDocument();
+    expect(screen.getAllByText("61\u00B0F").length).toBeGreaterThan(0);
     expect(screen.getByText(/Blacks Beach/)).toBeInTheDocument();
   });
 
@@ -133,7 +133,7 @@ describe("LandingConditionsTicker", () => {
     render(<LandingConditionsTicker />);
 
     await waitFor(() => {
-      expect(screen.getByText("3ft")).toBeInTheDocument();
+      expect(screen.getAllByText("3ft").length).toBeGreaterThan(0);
     });
     const region = screen.getByRole("region");
     expect(region.className).toContain("bg-white");

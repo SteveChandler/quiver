@@ -101,16 +101,19 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
               <Image
                 src="/logoQuiver.png"
                 alt="Quiver Logo"
-                width={32}
-                height={32}
+                width={40}
+                height={40}
                 priority
                 className="transition-transform group-hover:scale-110"
               />
+              <span className="text-white font-semibold text-lg tracking-tight [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)] hidden sm:inline">
+                Quiver
+              </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-6" suppressHydrationWarning>
             {/* Explore Dropdown */}
             {mounted ? (
               <DropdownMenu>
@@ -214,7 +217,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
           </div>
 
           {/* Mobile Menu Toggle */}
-          <div className="md:hidden">
+          <div className="md:hidden" suppressHydrationWarning>
             {mounted ? (
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>

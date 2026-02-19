@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Bookmark, Star, Waves } from "lucide-react";
 import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
@@ -74,19 +74,12 @@ export function SurfSpotCard({
   // Track image load errors to show fallback
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   // Generate beach URL using hierarchical format with safe fallback chain
   const beachUrl = getBeachHrefSafe({ id, slug, city, state }) || "/";
 
   // Show fallback if no imageUrl or if image failed to load
   const showFallback = !imageUrl || imageError;
-
-  const returnTo = (() => {
-    const qs = searchParams?.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
-  })();
 
   const handleSaveClick = (
     event:
@@ -95,6 +88,7 @@ export function SurfSpotCard({
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    const returnTo = window.location.pathname + window.location.search;
     router.push(`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
