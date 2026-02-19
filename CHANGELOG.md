@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Landing page:** Removed "Best conditions right now" card grid section — ticker remains.
+- **Dead code:** Deleted `actions/forecast/get-best-conditions-today.ts` — consumed only by the now-deleted `BestConditionsSection` component, zero live references remaining.
+
 ### Fixed
 
+- **Embed chart (data-transform):** Hoisted `windowStartMs` and exported `LOOKBACK_HOURS = 6` constant in `data-transform.ts` so the lookback boundary is defined once and reusable in tests. Updated JSDoc to reflect `[now - 6h, now + timeRangeHours]` window. Fixed `"excludes forecasts older than 6h lookback"` test (was using a 1h-past timestamp that now falls inside the lookback window; moved to 7h past) and added `"includes forecasts within 6h lookback window"` boundary test.
+- **Embed chart:** Surf Terminal embed charts now show 6 hours of historical data before the "Now" marker instead of starting blank.
+- **Cardiff Reef camera:** Added `portal.hdontap.com` support to cam-embed and cam-resolve pipeline so portal-hosted HDOnTap streams resolve correctly. Added unit test coverage for `portal.hdontap.com` in `cam-embed.test.ts` (buildCamEmbed returns `hdontap` kind) and `cam-resolve.test.ts` (allowlist passes, no `/embed/` suffix appended).
 - **Dashboard skill:** Clarified Vercel Analytics API calls in `dashboard.md` — the 6 queries use `overview` + `timeseries` (with 4 `groupBy` variants), not separate endpoint names like `/path` or `/referrer` that don't exist.
 - **Service role leak:** Landing page components (`BestConditionsSection`, `LandingConditionsTicker`) were importing `getTopBeachesRightNow` directly, pulling `createSupabaseServiceRoleClient` into the client bundle. Switched to `getTopBeachesNow` server action.
 - **Embed impressions:** `/api/embed-impressions` now accepts all four widget types (`tides`, `conditions`, `surf-terminal`, `ticker`) — was rejecting the two new types added by the DB migration.

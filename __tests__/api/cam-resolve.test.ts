@@ -158,6 +158,23 @@ describe("GET /api/cam-resolve", () => {
       expect(res.status).not.toBe(403);
     });
 
+    it("allows portal.hdontap.com", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html>no stream here</html>"),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest(
+          "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
+        )
+      );
+      // Should proceed past host check (may return 404 if no HLS found)
+      expect(res.status).not.toBe(403);
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
     it("does not follow redirects to internal hosts", async () => {
       // The fetch should always go to hdontap.com, never to localhost/internal IPs
       mockFetch.mockResolvedValue({
@@ -218,6 +235,26 @@ describe("GET /api/cam-resolve", () => {
       const fetchedUrl = mockFetch.mock.calls[0][0];
       // Query params should be preserved, /embed/ added to path
       expect(fetchedUrl).toMatch(/\/embed\/.*ref=quiver/);
+    });
+
+    it("does NOT append /embed/ to portal.hdontap.com URLs", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html></html>"),
+        headers: new Headers(),
+      });
+
+      await GET(
+        makeRequest(
+          "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
+        )
+      );
+
+      const fetchedUrl = mockFetch.mock.calls[0][0];
+      // The portal URL must be fetched unchanged — no /embed/ suffix added
+      expect(fetchedUrl).toBe(
+        "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
+      );
     });
 
     it("includes User-Agent header in fetch request", async () => {

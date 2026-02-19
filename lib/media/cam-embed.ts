@@ -74,6 +74,11 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hdontap", pageUrl: href };
     }
 
+    // HDOnTap portal embeds (private/customer streams)
+    if (u.hostname === "portal.hdontap.com") {
+      return { kind: "hdontap", pageUrl: href };
+    }
+
     // Default iframe attempt (may be blocked)
     return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {

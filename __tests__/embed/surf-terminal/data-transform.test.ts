@@ -18,6 +18,7 @@ import {
   type BeachChartConfig,
   type SurfTerminalData,
   WIND_COLORS,
+  LOOKBACK_HOURS,
 } from "@/app/embed/surf-terminal/[slug]/data-transform";
 
 // ---------------------------------------------------------------------------
@@ -592,29 +593,47 @@ describe("transformForecastsToChartData", () => {
     expect(result.mlCorrectedHeight[result.mlCorrectedHeight.length - 1].value).toBe(3.5);
   });
 
-  it("excludes forecasts with forecast_at before now", () => {
+  it("excludes forecasts older than 6h lookback", () => {
+    // NOW = 2026-02-18T12:00:00Z, so window start = 2026-02-18T06:00:00Z
+    // A forecast at 05:00Z is 7h before NOW — outside the 6h lookback window.
     const forecasts = [
       makeForecast({
-        forecast_at: "2026-02-18T11:00:00Z", // 1h before NOW
+        forecast_at: "2026-02-18T05:00:00Z", // 7h before NOW — excluded
         wave_height: "2 ft",
       }),
       makeForecast({
-        forecast_at: "2026-02-18T13:00:00Z", // 1h after NOW
+        forecast_at: "2026-02-18T13:00:00Z", // 1h after NOW — included
         wave_height: "4 ft",
       }),
     ];
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
-    // Past forecasts should still be included if we want to show history,
-    // but the spec says "filter to requested time window from now"
-    // which means only future. We include the past one only if within range.
-    // Actually, the requirement says "within timeRangeHours from now" –
-    // 11:00 is 1h before now but still within the 48h window looking back?
-    // The typical use-case is forward-looking. Let's check the implementation.
-    // The spec says "Filters to requested time window" – this should be
-    // now → now + timeRangeHours
     expect(result.waveHeight).toHaveLength(1);
     expect(result.waveHeight[0].value).toBe(4);
+  });
+
+  it("includes forecasts within 6h lookback window", () => {
+    // LOOKBACK_HOURS = 6; window start = NOW - 6h = 2026-02-18T06:00:00Z
+    // A forecast at 09:00Z is 3h before NOW — inside the lookback window.
+    const forecasts = [
+      makeForecast({
+        forecast_at: "2026-02-18T09:00:00Z", // 3h before NOW — within lookback
+        wave_height: "3 ft",
+      }),
+      makeForecast({
+        forecast_at: "2026-02-18T13:00:00Z", // 1h after NOW — also included
+        wave_height: "5 ft",
+      }),
+    ];
+
+    const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
+    // Both points should be present; smoothing with 2 raw points yields 7 output points.
+    // Verify endpoints to confirm both raw values made it through.
+    expect(result.waveHeight.length).toBeGreaterThanOrEqual(2);
+    expect(result.waveHeight[0].value).toBe(3); // first raw point preserved
+    expect(result.waveHeight[result.waveHeight.length - 1].value).toBe(5); // last raw point preserved
+    // Sanity-check: the LOOKBACK_HOURS constant matches the expectation encoded here
+    expect(LOOKBACK_HOURS).toBe(6);
   });
 
   it("handles duplicate timestamps gracefully", () => {

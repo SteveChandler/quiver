@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BestConditionsSection } from "@/components/landing-page/best-conditions-section";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { UpgradeSessionSection } from "./upgrade-session-section";
 import { PersonalizationShowcase } from "@/components/landing-page/personalization-showcase";
@@ -45,7 +44,6 @@ export function LandingInteractiveSections() {
 
   return (
     <div className="space-y-0">
-      <BestConditionsSection />
       <LandingConditionsTicker />
       <SurfHighlightsSection />
       <UpgradeSessionSection />

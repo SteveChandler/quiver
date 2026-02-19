@@ -86,6 +86,16 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns hdontap kind with pageUrl for portal.hdontap.com embed URLs", () => {
+    const result = buildCamEmbed(
+      "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
+    );
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST",
+    });
+  });
+
   // --- Protocol validation ---
   it("rejects javascript: URIs", () => {
     expect(buildCamEmbed("javascript:alert(1)")).toEqual({ kind: "none" });

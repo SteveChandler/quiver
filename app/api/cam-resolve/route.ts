@@ -21,7 +21,7 @@ const REQUEST_TIMEOUT = 10_000;
 const MAX_HTML_SIZE = 512 * 1024; // 512 KB — HDOnTap pages are ~50-100 KB
 
 /** Hostnames we're willing to scrape for stream URLs */
-const ALLOWED_RESOLVE_HOSTS = ["hdontap.com", "www.hdontap.com"];
+const ALLOWED_RESOLVE_HOSTS = ["hdontap.com", "www.hdontap.com", "portal.hdontap.com"];
 
 async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get("url");
@@ -45,7 +45,10 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   }
 
   // Ensure we fetch the /embed/ version (lighter HTML)
-  parsed.pathname = parsed.pathname.replace(/\/?$/, "/embed/");
+  // Portal URLs are already embed pages — only rewrite standard /stream/ URLs
+  if (parsed.hostname !== "portal.hdontap.com") {
+    parsed.pathname = parsed.pathname.replace(/\/?$/, "/embed/");
+  }
   const embedUrl = parsed.toString();
 
   const controller = new AbortController();

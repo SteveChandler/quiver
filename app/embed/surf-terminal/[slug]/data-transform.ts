@@ -35,6 +35,9 @@ export interface SurfTerminalData {
   swellPeriod: ChartDataPoint[];
 }
 
+/** Hours of historical data to include before "now" in the chart window. */
+export const LOOKBACK_HOURS = 6;
+
 /** Wind-direction → bar color mapping */
 export const WIND_COLORS = {
   offshore: "#22c55e", // green
@@ -225,7 +228,7 @@ export function smoothSeries(
  * Transform an array of forecast entities into chart-ready time-series data.
  *
  * 1. Sorts by `forecast_at`
- * 2. Filters to `[now, now + timeRangeHours]`
+ * 2. Filters to `[now - 6h, now + timeRangeHours]`
  * 3. Parses string values and builds typed data-point arrays
  * 4. Skips nulls (no interpolation)
  * 5. Colors wind bars by offshore/onshore/cross-shore
@@ -248,6 +251,7 @@ export function transformForecastsToChartData(
 
   const nowMs = Date.now();
   const cutoffMs = nowMs + timeRangeHours * 3600_000;
+  const windowStartMs = nowMs - LOOKBACK_HOURS * 3600_000;
 
   // Sort ascending by forecast_at
   const sorted = [...forecasts].sort(
@@ -258,8 +262,8 @@ export function transformForecastsToChartData(
   for (const fc of sorted) {
     const fcMs = new Date(fc.forecast_at).getTime();
 
-    // Only include forecasts in the future window [now, now + range]
-    if (fcMs < nowMs || fcMs > cutoffMs) continue;
+    // Include LOOKBACK_HOURS of historical data plus the future window
+    if (fcMs < windowStartMs || fcMs > cutoffMs) continue;
 
     const timeSec = utcToLocalChartTimestamp(
       Math.floor(fcMs / 1000),
