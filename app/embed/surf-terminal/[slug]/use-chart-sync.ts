@@ -3,8 +3,8 @@
 import { useEffect, useRef, type RefObject } from "react";
 import type {
   IChartApi,
+  IRange,
   MouseEventParams,
-  LogicalRange,
   Time,
 } from "lightweight-charts";
 
@@ -67,25 +67,25 @@ export function useChartSync(
 
     // --- Visible time range sync ---
     for (const sourceChart of validCharts) {
-      const handler = (range: LogicalRange | null) => {
+      const handler = (range: IRange<Time> | null) => {
         if (isSyncing.current || !range) return;
         isSyncing.current = true;
 
         try {
           for (const targetChart of validCharts) {
             if (targetChart === sourceChart) continue;
-            targetChart.timeScale().setVisibleLogicalRange(range);
+            targetChart.timeScale().setVisibleRange(range);
           }
         } finally {
           isSyncing.current = false;
         }
       };
 
-      sourceChart.timeScale().subscribeVisibleLogicalRangeChange(handler);
+      sourceChart.timeScale().subscribeVisibleTimeRangeChange(handler);
       unsubscribers.push(() =>
         sourceChart
           .timeScale()
-          .unsubscribeVisibleLogicalRangeChange(handler)
+          .unsubscribeVisibleTimeRangeChange(handler)
       );
     }
 
