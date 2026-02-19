@@ -41,7 +41,7 @@ import { YesterdaysAccuracyCard } from "@/components/beach-detail/yesterdays-acc
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
-import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
+import { aggregateDayForecasts, formatWaveRange, type DaySummary } from "@/lib/utils/horizon-strip-utils";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -169,6 +169,15 @@ export function ForecastTab({
       timezone: beachTimezone || undefined,
     });
   }, [forecasts, beach, beachTimezone]);
+
+  // Lookup horizon summaries by date for 5-Day Outlook wave range display
+  const horizonSummaryByDate = useMemo(() => {
+    const map = new Map<string, DaySummary>();
+    for (const summary of horizonDaySummaries) {
+      map.set(summary.fullDate, summary);
+    }
+    return map;
+  }, [horizonDaySummaries]);
 
   // Public mode: limit horizon to 3 days
   const publicHorizonDays = publicMode ? horizonDaySummaries.slice(0, 3) : horizonDaySummaries;
@@ -656,6 +665,7 @@ export function ForecastTab({
                       periodDisplay === "—"
                         ? `— · ${swellDirection}`
                         : `${periodDisplay} s · ${swellDirection}`;
+                    const daySummary = horizonSummaryByDate.get(date);
                     return (
                       <button
                         key={date}
@@ -671,7 +681,11 @@ export function ForecastTab({
                           <span>{label}</span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-1">
-                          {forecast.wave_height == null && forecast.wave_period == null ? (
+                          {daySummary ? (
+                            <span className="text-2xl font-bold text-ocean-blue">
+                              {formatWaveRange(daySummary.minHeight, daySummary.maxHeight)}
+                            </span>
+                          ) : forecast.wave_height == null && forecast.wave_period == null ? (
                             <span className="text-lg font-medium text-muted-foreground">
                               No data
                             </span>

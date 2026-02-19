@@ -86,6 +86,13 @@ jest.mock("@/lib/utils/tide-diagnostics-generator", () => ({
 }));
 jest.mock("@/lib/utils/horizon-strip-utils", () => ({
   aggregateDayForecasts: jest.fn(() => []),
+  formatWaveRange: jest.fn((min: number, max: number) => {
+    if (min <= 0 && max <= 0) return "Flat";
+    const minInt = Math.max(0, Math.floor(min));
+    const maxInt = Math.ceil(max);
+    if (minInt === maxInt) return `${minInt}ft`;
+    return `${minInt}-${maxInt}ft`;
+  }),
 }));
 jest.mock("@/lib/surf/tide-direction", () => ({
   getTideAlert: jest.fn(() => null),
@@ -303,6 +310,72 @@ describe("ForecastTab", () => {
 
       expect(screen.getByText("Swell")).toBeInTheDocument();
       expect(screen.getByText("4.5 ft")).toBeInTheDocument();
+    });
+
+    it("displays wave range from horizon summary in 5-Day Outlook cards", () => {
+      (aggregateDayForecasts as jest.Mock).mockReturnValue([
+        {
+          fullDate: "2026-02-10",
+          dayName: "Today",
+          date: "Feb 10",
+          minHeight: 2,
+          maxHeight: 5,
+          tier: "good",
+          score: 70,
+          isToday: true,
+          bestTime: "08:00",
+          period: 12,
+        },
+      ]);
+
+      render(<ForecastTab {...defaultProps} />);
+
+      expect(screen.getByText("2-5ft")).toBeInTheDocument();
+    });
+
+    it("falls back to single wave height when no horizon summary matches", () => {
+      (aggregateDayForecasts as jest.Mock).mockReturnValue([
+        {
+          fullDate: "2026-02-11",
+          dayName: "Wed",
+          date: "Feb 11",
+          minHeight: 3,
+          maxHeight: 6,
+          tier: "good",
+          score: 65,
+          isToday: false,
+          bestTime: "10:00",
+          period: 14,
+        },
+      ]);
+
+      render(<ForecastTab {...defaultProps} />);
+
+      // The forecast date is 2026-02-10 but horizon summary is for 2026-02-11
+      // so the card should fall back to the single midday value
+      const outlookSection = screen.getByText("5-Day Outlook").closest("section")!;
+      expect(outlookSection).toHaveTextContent("4.5");
+    });
+
+    it("displays 'Flat' in outlook card when horizon summary has zero heights", () => {
+      (aggregateDayForecasts as jest.Mock).mockReturnValue([
+        {
+          fullDate: "2026-02-10",
+          dayName: "Today",
+          date: "Feb 10",
+          minHeight: 0,
+          maxHeight: 0,
+          tier: "marginal",
+          score: 10,
+          isToday: true,
+          bestTime: "12:00",
+          period: null,
+        },
+      ]);
+
+      render(<ForecastTab {...defaultProps} />);
+
+      expect(screen.getByText("Flat")).toBeInTheDocument();
     });
   });
 
