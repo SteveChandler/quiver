@@ -12,6 +12,7 @@ import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
 import {
   FORECAST_CONSTANTS,
@@ -94,7 +95,7 @@ export class ForecastBuilder {
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
-      const tideInfo = this.getTideInfo(tideData, forecastTime);
+      const tideInfo = this.getTideInfo(tideData, forecastTime, beach.timezone);
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
       const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
 
@@ -366,7 +367,7 @@ export class ForecastBuilder {
     return closest;
   }
 
-  private getTideInfo(tideData: COOPSForecast | null, targetTime: Date): ResolvedTideInfo {
+  private getTideInfo(tideData: COOPSForecast | null, targetTime: Date, beachTimezone?: string | null): ResolvedTideInfo {
     const defaultTideInfo = {
       status: "Unknown",
       currentHeight: "2.5 ft",
@@ -389,7 +390,7 @@ export class ForecastBuilder {
         ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
-            timeZone: "UTC",
+            timeZone: beachTimezone || DEFAULT_TIMEZONE,
           })
         : "Unknown",
       nextTideAt: nextTide ? new Date(nextTide.time * 1000).toISOString() : null,

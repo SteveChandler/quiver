@@ -101,7 +101,7 @@ describe("DetailCard", () => {
       expect(screen.getByText("3.2 ft")).toBeInTheDocument();
     });
 
-    it("displays next tide info", () => {
+    it("displays next tide info (fallback to next_tide_time)", () => {
       render(
         <DetailCard
           forecast={makeForecast({ next_tide_type: "High" })}
@@ -110,6 +110,38 @@ describe("DetailCard", () => {
       );
       expect(screen.getByText("Next High")).toBeInTheDocument();
       expect(screen.getByText("18:45")).toBeInTheDocument();
+    });
+
+    it("formats next_tide_at in the provided timezone instead of showing raw next_tide_time", () => {
+      render(
+        <DetailCard
+          forecast={makeForecast({
+            next_tide_type: "High",
+            next_tide_at: "2026-02-19T00:00:00Z", // midnight UTC = 4:00 PM PST
+            next_tide_time: "12:00 AM", // old UTC-formatted value
+          })}
+          {...DEFAULT_PROPS}
+          timezone="America/Los_Angeles"
+        />
+      );
+      // Should show 4:00 PM (from next_tide_at in PST), NOT "12:00 AM" (raw UTC)
+      expect(screen.getByText(/4:00\s*PM/)).toBeInTheDocument();
+      expect(screen.queryByText("12:00 AM")).not.toBeInTheDocument();
+    });
+
+    it("formats next_tide_at correctly for Hawaii timezone", () => {
+      render(
+        <DetailCard
+          forecast={makeForecast({
+            next_tide_type: "Low",
+            next_tide_at: "2026-02-19T00:00:00Z", // midnight UTC = 2:00 PM HST (UTC-10)
+            next_tide_time: "12:00 AM",
+          })}
+          {...DEFAULT_PROPS}
+          timezone="Pacific/Honolulu"
+        />
+      );
+      expect(screen.getByText(/2:00\s*PM/)).toBeInTheDocument();
     });
 
     it("displays air temp, water temp, and weather condition", () => {

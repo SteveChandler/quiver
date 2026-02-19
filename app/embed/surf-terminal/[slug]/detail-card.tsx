@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 
 interface DetailCardProps {
   forecast: EnhancedForecastEntity | null;
@@ -109,7 +110,7 @@ export const DetailCard = memo(function DetailCard({
           {forecast.next_tide_type && (
             <Row
               label={`Next ${forecast.next_tide_type}`}
-              value={display(forecast.next_tide_time)}
+              value={forecast.next_tide_at ? formatTimeInBeachTimezone(forecast.next_tide_at, timezone) : display(forecast.next_tide_time)}
             />
           )}
         </Section>
