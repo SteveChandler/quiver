@@ -24,10 +24,13 @@ export async function getNearbyIntelPosts(
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
-    // Try to get authenticated user, but don't fail if missing (treat as public)
+    // Use the session-aware client to resolve the authenticated user.
+    // The service-role client bypasses RLS and has no session context, so
+    // calling getUser() on it would always return null.
+    const serverClient = await createSupabaseServerClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await serverClient.auth.getUser();
 
     const { lat, lon, radius = 5, tag, limit = 50 } = params;
 

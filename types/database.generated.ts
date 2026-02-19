@@ -1820,10 +1820,15 @@ export type Database = {
         Row: {
           best_beach_id: string | null
           best_score: number | null
+          bounced_at: string | null
+          clicked_at: string | null
+          delivered_at: string | null
           email_type: string
           id: number
           local_date: string
           meta: Json
+          opened_at: string | null
+          resend_message_id: string | null
           sent_at: string
           subject: string
           user_id: string
@@ -1831,10 +1836,15 @@ export type Database = {
         Insert: {
           best_beach_id?: string | null
           best_score?: number | null
+          bounced_at?: string | null
+          clicked_at?: string | null
+          delivered_at?: string | null
           email_type: string
           id?: number
           local_date: string
           meta?: Json
+          opened_at?: string | null
+          resend_message_id?: string | null
           sent_at?: string
           subject: string
           user_id: string
@@ -1842,10 +1852,15 @@ export type Database = {
         Update: {
           best_beach_id?: string | null
           best_score?: number | null
+          bounced_at?: string | null
+          clicked_at?: string | null
+          delivered_at?: string | null
           email_type?: string
           id?: number
           local_date?: string
           meta?: Json
+          opened_at?: string | null
+          resend_message_id?: string | null
           sent_at?: string
           subject?: string
           user_id?: string
@@ -1961,6 +1976,7 @@ export type Database = {
           wave_period: string | null
           weather_condition: string | null
           wind_direction: string | null
+          wind_direction_deg: number | null
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
@@ -1997,6 +2013,7 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
+          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -2033,6 +2050,7 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
+          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -2089,6 +2107,39 @@ export type Database = {
             referencedColumns: ["beach_id"]
           },
         ]
+      }
+      fallback_events: {
+        Row: {
+          context: Json | null
+          created_at: string
+          domain: string
+          fallback_value: string | null
+          field: string
+          id: number
+          reason: string | null
+          severity: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          domain: string
+          fallback_value?: string | null
+          field: string
+          id?: never
+          reason?: string | null
+          severity: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          domain?: string
+          fallback_value?: string | null
+          field?: string
+          id?: never
+          reason?: string | null
+          severity?: string
+        }
+        Relationships: []
       }
       favorite_beaches: {
         Row: {
@@ -2425,15 +2476,18 @@ export type Database = {
         Row: {
           beach_id: string | null
           confirmations_count: number
+          confirmed_count: number
           created_at: string
           dedupe_hash: string | null
           description: string
           emoji_rating: string | null
           expires_at: string | null
+          helpful_count: number
           id: string
           is_active: boolean
           latitude: number
           longitude: number
+          off_count: number
           photo_storage_path: string | null
           photo_url: string | null
           report_count: number
@@ -2446,15 +2500,18 @@ export type Database = {
         Insert: {
           beach_id?: string | null
           confirmations_count?: number
+          confirmed_count?: number
           created_at?: string
           dedupe_hash?: string | null
           description: string
           emoji_rating?: string | null
           expires_at?: string | null
+          helpful_count?: number
           id?: string
           is_active?: boolean
           latitude: number
           longitude: number
+          off_count?: number
           photo_storage_path?: string | null
           photo_url?: string | null
           report_count?: number
@@ -2467,15 +2524,18 @@ export type Database = {
         Update: {
           beach_id?: string | null
           confirmations_count?: number
+          confirmed_count?: number
           created_at?: string
           dedupe_hash?: string | null
           description?: string
           emoji_rating?: string | null
           expires_at?: string | null
+          helpful_count?: number
           id?: string
           is_active?: boolean
           latitude?: number
           longitude?: number
+          off_count?: number
           photo_storage_path?: string | null
           photo_url?: string | null
           report_count?: number
@@ -2583,6 +2643,52 @@ export type Database = {
           },
         ]
       }
+      intel_votes: {
+        Row: {
+          created_at: string
+          id: string
+          intel_post_id: string
+          user_id: string
+          vote_type: Database["public"]["Enums"]["intel_vote_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intel_post_id: string
+          user_id: string
+          vote_type: Database["public"]["Enums"]["intel_vote_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intel_post_id?: string
+          user_id?: string
+          vote_type?: Database["public"]["Enums"]["intel_vote_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intel_votes_intel_post_id_fkey"
+            columns: ["intel_post_id"]
+            isOneToOne: false
+            referencedRelation: "intel_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ioos_observations: {
         Row: {
           created_at: string | null
@@ -2640,6 +2746,7 @@ export type Database = {
         Row: {
           active: boolean | null
           available_variables: Json
+          consecutive_discovery_misses: number
           coordinates: unknown
           created_at: string | null
           distance_to_beach_km: number | null
@@ -2659,6 +2766,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           available_variables?: Json
+          consecutive_discovery_misses?: number
           coordinates?: unknown
           created_at?: string | null
           distance_to_beach_km?: number | null
@@ -2678,6 +2786,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           available_variables?: Json
+          consecutive_discovery_misses?: number
           coordinates?: unknown
           created_at?: string | null
           distance_to_beach_km?: number | null
@@ -2914,6 +3023,8 @@ export type Database = {
         Row: {
           beach_id: string
           bias_applied_m: number | null
+          candidate_corrected_m: number | null
+          candidate_model_version: string | null
           corrected_error_m: number | null
           corrected_forecast_m: number | null
           created_at: string | null
@@ -2934,6 +3045,8 @@ export type Database = {
         Insert: {
           beach_id: string
           bias_applied_m?: number | null
+          candidate_corrected_m?: number | null
+          candidate_model_version?: string | null
           corrected_error_m?: number | null
           corrected_forecast_m?: number | null
           created_at?: string | null
@@ -2954,6 +3067,8 @@ export type Database = {
         Update: {
           beach_id?: string
           bias_applied_m?: number | null
+          candidate_corrected_m?: number | null
+          candidate_model_version?: string | null
           corrected_error_m?: number | null
           corrected_forecast_m?: number | null
           created_at?: string | null
@@ -3089,6 +3204,33 @@ export type Database = {
         }
         Relationships: []
       }
+      personalization_milestones: {
+        Row: {
+          achieved_at: string
+          id: string
+          metadata: Json | null
+          milestone_key: string
+          shown_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achieved_at?: string
+          id?: string
+          metadata?: Json | null
+          milestone_key: string
+          shown_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achieved_at?: string
+          id?: string
+          metadata?: Json | null
+          milestone_key?: string
+          shown_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           activity_level: string | null
@@ -3135,6 +3277,7 @@ export type Database = {
           signup_location: Json | null
           surf_styles: string[] | null
           timezone: string | null
+          trust_score: number
           updated_at: string | null
         }
         Insert: {
@@ -3182,6 +3325,7 @@ export type Database = {
           signup_location?: Json | null
           surf_styles?: string[] | null
           timezone?: string | null
+          trust_score?: number
           updated_at?: string | null
         }
         Update: {
@@ -3229,6 +3373,7 @@ export type Database = {
           signup_location?: Json | null
           surf_styles?: string[] | null
           timezone?: string | null
+          trust_score?: number
           updated_at?: string | null
         }
         Relationships: [
@@ -4146,6 +4291,20 @@ export type Database = {
             columns: ["board_id"]
             isOneToOne: false
             referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
             referencedColumns: ["id"]
           },
         ]
@@ -5311,57 +5470,7 @@ export type Database = {
         Row: {
           beach_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beach_location_audit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beach_ml_performance_baseline"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_enhanced_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_marine_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_sun_times_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "ioos_stations_nearest_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_tide_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-        ]
+        Relationships: []
       }
       profiles_with_home_beach: {
         Row: {
@@ -6019,6 +6128,7 @@ export type Database = {
         Returns: {
           active: boolean | null
           available_variables: Json
+          consecutive_discovery_misses: number
           coordinates: unknown
           created_at: string | null
           distance_to_beach_km: number | null
@@ -6186,6 +6296,10 @@ export type Database = {
           raw_mae: number
         }[]
       }
+      get_beach_observation_station: {
+        Args: { p_beach_id: string }
+        Returns: string
+      }
       get_beach_review_stats: {
         Args: { target_beach_id: string }
         Returns: {
@@ -6304,6 +6418,15 @@ export type Database = {
           start_ts: string
         }[]
       }
+      get_bulk_current_forecasts: {
+        Args: { p_beach_ids: string[]; p_target_date?: string }
+        Returns: {
+          beach_id: string
+          forecast_date: string
+          forecast_time: string
+          wave_height: string
+        }[]
+      }
       get_cities_with_beach_skills: {
         Args: { min_beaches?: number }
         Returns: {
@@ -6350,23 +6473,43 @@ export type Database = {
           score: number
         }[]
       }
-      get_conditions_alert_candidates: {
-        Args: { p_cooldown_hours?: number; p_min_score?: number }
-        Returns: {
-          beach_name: string
-          beach_slug: string
-          best_window_end: string
-          best_window_start: string
-          conditions_score: number
-          display_name: string
-          email: string
-          home_beach_id: string
-          recommendation: string
-          surf_description: string
-          user_id: string
-          wind_description: string
-        }[]
-      }
+      get_conditions_alert_candidates:
+        | {
+            Args: { p_min_score?: number }
+            Returns: {
+              beach_city: string
+              beach_name: string
+              beach_slug: string
+              beach_state: string
+              best_window_end: string
+              best_window_start: string
+              conditions_score: number
+              display_name: string
+              email: string
+              home_beach_id: string
+              recommendation: string
+              surf_description: string
+              user_id: string
+              wind_description: string
+            }[]
+          }
+        | {
+            Args: { p_cooldown_hours?: number; p_min_score?: number }
+            Returns: {
+              beach_name: string
+              beach_slug: string
+              best_window_end: string
+              best_window_start: string
+              conditions_score: number
+              display_name: string
+              email: string
+              home_beach_id: string
+              recommendation: string
+              surf_description: string
+              user_id: string
+              wind_description: string
+            }[]
+          }
       get_current_production_model: {
         Args: never
         Returns: {
@@ -6469,6 +6612,7 @@ export type Database = {
           max_distance_meters?: number
         }
         Returns: {
+          city: string
           distance_meters: number
           id: string
           is_private: boolean
@@ -6476,6 +6620,8 @@ export type Database = {
           location: string
           lon: number
           name: string
+          slug: string
+          state: string
         }[]
       }
       get_nearby_buoys: {
@@ -6514,15 +6660,19 @@ export type Database = {
           beach_id: string
           beach_name: string
           confirmations_count: number
+          confirmed_count: number
           created_at: string
           description: string
           distance_miles: number
           expires_at: string
+          helpful_count: number
           id: string
           is_active: boolean
           latitude: number
           longitude: number
+          off_count: number
           photo_url: string
+          rank_score: number
           surf_conditions: Json
           tag: Database["public"]["Enums"]["intel_post_tag"]
           title: string
@@ -6589,20 +6739,35 @@ export type Database = {
           wind_description: string
         }[]
       }
-      get_session_prompt_candidates: {
-        Args: { p_cooldown_hours?: number; p_min_score?: number }
-        Returns: {
-          beach_name: string
-          beach_slug: string
-          conditions_score: number
-          display_name: string
-          email: string
-          home_beach_id: string
-          surf_description: string
-          user_id: string
-          wind_description: string
-        }[]
-      }
+      get_session_prompt_candidates:
+        | {
+            Args: { p_min_score?: number }
+            Returns: {
+              beach_name: string
+              beach_slug: string
+              conditions_score: number
+              display_name: string
+              email: string
+              home_beach_id: string
+              surf_description: string
+              user_id: string
+              wind_description: string
+            }[]
+          }
+        | {
+            Args: { p_cooldown_hours?: number; p_min_score?: number }
+            Returns: {
+              beach_name: string
+              beach_slug: string
+              conditions_score: number
+              display_name: string
+              email: string
+              home_beach_id: string
+              surf_description: string
+              user_id: string
+              wind_description: string
+            }[]
+          }
       get_session_share_stats: {
         Args: { p_session_id: string }
         Returns: {
@@ -6662,9 +6827,26 @@ export type Database = {
           raw_mae: number
         }[]
       }
+      get_yesterday_accuracy: {
+        Args: { p_beach_id: string }
+        Returns: {
+          avg_observed_m: number
+          avg_predicted_m: number
+          beach_id: string
+          forecast_date: string
+          mae_m: number
+          observation_count: number
+          relative_error_pct: number
+          should_display: boolean
+        }[]
+      }
       gettransactionid: { Args: never; Returns: unknown }
       increment_session_share_count: {
         Args: { session_id: string }
+        Returns: undefined
+      }
+      increment_station_discovery_misses: {
+        Args: { seen_ids: string[] }
         Returns: undefined
       }
       is_admin_user: { Args: never; Returns: boolean }
@@ -7360,6 +7542,10 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      swell_windows_overlap: {
+        Args: { p_max1: number; p_max2: number; p_min1: number; p_min2: number }
+        Returns: number
+      }
       trigger_manual_maintenance: { Args: never; Returns: Json }
       unaccent: { Args: { "": string }; Returns: string }
       unlockrows: { Args: { "": string }; Returns: number }
@@ -7395,6 +7581,7 @@ export type Database = {
         | "conditions"
         | "access"
         | "other"
+      intel_vote_type: "helpful" | "off" | "confirmed"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -7538,6 +7725,7 @@ export const Constants = {
         "access",
         "other",
       ],
+      intel_vote_type: ["helpful", "off", "confirmed"],
     },
   },
 } as const

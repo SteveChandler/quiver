@@ -137,8 +137,8 @@ const SAMPLE_PROFILES = [
 describe("getNearbyIntelPosts", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default: authenticated user
-    mockServiceRoleClient.auth.getUser.mockResolvedValue({
+    // Default: authenticated user via server client (used for auth check)
+    mockServerClient.auth.getUser.mockResolvedValue({
       data: { user: mockAuthUser },
       error: null,
     });
@@ -300,7 +300,7 @@ describe("getNearbyIntelPosts", () => {
   });
 
   test("skips confirmations check for unauthenticated user", async () => {
-    mockServiceRoleClient.auth.getUser.mockResolvedValueOnce({
+    mockServerClient.auth.getUser.mockResolvedValueOnce({
       data: { user: null },
       error: null,
     });

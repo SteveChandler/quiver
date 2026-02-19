@@ -277,6 +277,8 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     signup_context: null,
     signup_location: null,
     timezone: null,
+    // Trust score for intel voting
+    trust_score: 0.4,
     ...restOverrides,
   };
 }
@@ -394,6 +396,9 @@ export function createMockIntelPost(
     surf_conditions: null,
     emoji_rating: null,
     report_count: 0,
+    helpful_count: 0,
+    off_count: 0,
+    confirmed_count: 0,
     ...overrides,
   };
 }

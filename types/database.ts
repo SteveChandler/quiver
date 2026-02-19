@@ -202,8 +202,12 @@ export interface IntelPostWithUser extends IntelPost {
     avatar_url: string | null
   } | null
 
-  // User confirmation status
+  // User confirmation status (legacy, computed from user_vote_type for backward compat)
   user_has_confirmed?: boolean
+
+  // Voting system fields (from intel_votes table)
+  user_vote_type?: 'helpful' | 'off' | 'confirmed' | null
+  rank_score?: number
 }
 
 // ===================================================

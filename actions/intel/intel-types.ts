@@ -19,7 +19,22 @@ export interface IntelPostsData {
 export interface ConfirmationData {
   confirmed: boolean;
   confirmations_count: number;
+  /**
+   * Semantic note: after the voting migration, `confirmation_id` is actually
+   * the `intel_votes.id` for the user's `confirmed` vote, not a row from
+   * the legacy `intel_post_confirmations` table. Existing callers rely on
+   * the field name for backward-compat.
+   */
   confirmation_id: string;
+}
+
+export type IntelVoteType = 'helpful' | 'off' | 'confirmed';
+
+export interface VoteData {
+  vote_type: IntelVoteType | null;
+  helpful_count: number;
+  off_count: number;
+  confirmed_count: number;
 }
 
 export interface SupabaseErrorLike {
@@ -44,6 +59,10 @@ export interface IntelPostRPCResult {
   created_at: string;
   updated_at: string;
   confirmations_count: number;
+  helpful_count: number;
+  off_count: number;
+  confirmed_count: number;
+  rank_score: number;
   beach_name: string;
   distance_miles: number;
   user_name: string;
