@@ -55,14 +55,23 @@ describe("wind-analyzer", () => {
     test("selects closest forecast to target time and rounds speed/direction", () => {
       setNowLocal(`${TODAY}T12:00:00`);
 
+      // Use fromZonedTime to construct forecast_at values in the same
+      // timezone that windAt will use, so "09:00 local" and "12:00 local"
+      // are properly comparable to the target "10:00 local".
+      const { fromZonedTime } = require("date-fns-tz");
+      const forecast9am = fromZonedTime(new Date(`${TODAY}T09:00:00`), tz).toISOString();
+      const forecast12pm = fromZonedTime(new Date(`${TODAY}T12:00:00`), tz).toISOString();
+
       const forecasts = [
         {
+          forecast_at: forecast9am,
           forecast_date: TODAY,
           forecast_time: "09:00",
           wind_speed: 4.4,
           wind_direction: 269.6,
         },
         {
+          forecast_at: forecast12pm,
           forecast_date: TODAY,
           forecast_time: "12:00",
           wind_speed: 12,

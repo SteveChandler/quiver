@@ -58,6 +58,8 @@ const createMockChain = (finalResult: any): Record<string, jest.Mock> => {
     not: jest.fn(),
     gt: jest.fn(() => finalResult),
     in: jest.fn(),
+    update: jest.fn(),
+    then: jest.fn((resolve) => resolve?.(finalResult)),
   };
   // Chain methods return themselves
   chainMethods.select.mockReturnValue(chainMethods);
@@ -67,6 +69,7 @@ const createMockChain = (finalResult: any): Record<string, jest.Mock> => {
   chainMethods.order.mockReturnValue(chainMethods);
   chainMethods.not.mockReturnValue(chainMethods);
   chainMethods.in.mockReturnValue(chainMethods);
+  chainMethods.update.mockReturnValue(chainMethods);
   return chainMethods;
 };
 

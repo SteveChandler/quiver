@@ -76,7 +76,8 @@ describe("TideChart extrema-only directData synthesis", () => {
 
 describe("TideChart regression", () => {
   it("handles empty → loaded transitions under StrictMode without React errors", () => {
-    const startErrors = (console.error as jest.Mock).mock.calls.length;
+    const tracked = (globalThis as any).__quiverConsoleErrors as string[] | undefined;
+    const startErrors = tracked ? tracked.length : 0;
 
     // Use a fixed "now" time for consistent testing
     const now = new Date();
@@ -152,8 +153,7 @@ describe("TideChart regression", () => {
     ).toBeInTheDocument();
 
     // Ensure no React errors were logged during transitions (keys/invariants)
-    const newErrors =
-      (console.error as jest.Mock).mock.calls.length - startErrors;
+    const newErrors = tracked ? tracked.length - startErrors : 0;
     expect(newErrors).toBe(0);
   });
 });

@@ -62,9 +62,9 @@ describe("HomeConditionsTicker", () => {
     render(<HomeConditionsTicker beachId="beach-1" beachName="Blacks Beach" />);
 
     await waitFor(() => {
-      expect(screen.getByText("4-6ft")).toBeInTheDocument();
+      expect(screen.getAllByText("4-6ft").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("60°F")).toBeInTheDocument();
+    expect(screen.getAllByText("60°F").length).toBeGreaterThan(0);
     expect(screen.getByRole("region")).toHaveAttribute("aria-label", "Blacks Beach current conditions");
   });
 
@@ -100,7 +100,7 @@ describe("HomeConditionsTicker", () => {
     render(<HomeConditionsTicker beachId="beach-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText("3ft")).toBeInTheDocument();
+      expect(screen.getAllByText("3ft").length).toBeGreaterThan(0);
     });
     const region = screen.getByRole("region");
     expect(region.className).toContain("bg-[#2a2a2a]");

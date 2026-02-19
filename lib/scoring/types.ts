@@ -3,6 +3,7 @@
  */
 
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 
 /**
  * Beach with wind threshold configuration
@@ -120,13 +121,21 @@ export interface ForecastForScoring {
 }
 
 /**
- * Convert EnhancedForecastEntity to ForecastForScoring
+ * Convert EnhancedForecastEntity to ForecastForScoring.
+ *
+ * When `beachTz` is provided, uses the timezone-aware heuristic from
+ * `resolveForecastTime` to correctly handle both proper-UTC and
+ * legacy local-as-UTC `forecast_at` values. Without a timezone,
+ * falls back to parsing `forecast_at` as UTC directly.
  */
 export function toForecastForScoring(
-  forecast: EnhancedForecastEntity
+  forecast: EnhancedForecastEntity,
+  beachTz?: string
 ): ForecastForScoring {
+  const forecastTime = resolveForecastTime(forecast, beachTz);
+
   return {
-    forecastTime: new Date(forecast.forecast_at),
+    forecastTime,
     waveHeight: parseFloat(forecast.wave_height || '0'),
     wavePeriod: parseFloat(forecast.wave_period?.replace('s', '') || '0'),
     windSpeed: parseFloat(forecast.wind_speed || '0'),

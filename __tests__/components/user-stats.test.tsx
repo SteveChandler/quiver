@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { UserStats } from "@/components/user-stats";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 // We'll inject a local mock function via component props rather than module mocking
 
 // Mock auth context and profile hook used by the component
@@ -60,12 +61,6 @@ jest.mock("@/components/profile/gamification-section", () => ({
   ),
 }));
 
-// Mock console to avoid noise in tests
-const mockConsole = {
-  log: jest.fn(),
-  error: jest.fn(),
-};
-Object.assign(console, mockConsole);
 
 describe("UserStats", () => {
   const mockGetUserStats = jest.fn();
@@ -368,7 +363,7 @@ describe("UserStats", () => {
         expect(screen.getByText("Stats unavailable")).toBeInTheDocument();
       });
 
-      expect(mockConsole.error).toHaveBeenCalled();
+      expectConsoleErrors([/API Error/]);
     });
 
     it("shows error state when API returns unsuccessful result", async () => {

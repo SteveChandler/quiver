@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Rebuilt mobile map to AllTrails-style bottom sheet pattern: selected beach card now renders inside the Vaul drawer (same DOM tree = reliable mobile taps), marker taps snap sheet to 40% showing detail card, map canvas taps deselect, X button on card deselects; removed `createPortal` approach and debug coordinate popup; desktop sidebar + auto-navigation unchanged
+- Test suite hardening: removed global console suppression, added eslint-plugin-jest/playwright, deployed error detection to 67 E2E specs, eliminated .catch(() => false) patterns, replaced waitForTimeout with semantic waits
+- Fixed 13 failing test suites (63 tests) exposed by test hardening: migrated console mock conflicts to `expectConsoleErrors()`, updated stale selectors ("Sign Up" → "Get Started", SEO templates), fixed Supabase mock chains (`.lte()` → `.lt()`), added `.then()` for fire-and-forget mock patterns
+- Extracted `resolveForecastTime` and `localDateTimeToUTC` to shared `lib/utils/forecast-time-resolver.ts`; `toForecastForScoring()` now accepts optional `beachTz` parameter for timezone-aware forecast time resolution
+- **Forecast Timezone Fix:** Fixed `prepareForecasts()` and `toForecastForScoring()` treating `forecast_time` (local time) as UTC — introduced timezone-aware heuristic that detects legacy local-as-UTC encoding and converts correctly
 
 ### Added
 
