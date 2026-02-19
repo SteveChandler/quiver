@@ -338,6 +338,7 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     wave_period: "12s",
     wind_speed: "5-10mph",
     wind_direction: "NW",
+    wind_direction_deg: null,
     weather_condition: "sunny",
     confidence_score: 0.8,
     created_at: new Date().toISOString(),

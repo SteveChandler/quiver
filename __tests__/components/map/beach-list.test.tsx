@@ -25,13 +25,13 @@ jest.mock("@/lib/utils/beach-card-utils", () => ({
       rating: 4.0,
       reviewCount: 10,
       mapImageUrl: "",
-      latitude: b.center_lat,
-      longitude: b.center_lng,
+      latitude: b.lat,
+      longitude: b.lon,
       slug: b.slug,
       city: "San Diego",
       state: "CA",
     })),
-  getBeachLocation: (beach: Beach) => beach.city_name || "Unknown",
+  getBeachLocation: (beach: Beach) => beach.city || "Unknown",
 }));
 
 jest.mock("@/components/beach-card", () => ({
