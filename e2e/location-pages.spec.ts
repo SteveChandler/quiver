@@ -291,12 +291,6 @@ test.describe("Location Pages - Responsive Design", () => {
   test("should display correctly on mobile", async ({ page }) => {
     throw new Error('Not implemented: Mobile responsive design changed - need to update selectors and layout verification logic to match current implementation');
   });
-});
-
-test.describe("Location Pages - Responsive Design", () => {
-  test("should display correctly on mobile", async ({ page }) => {
-    throw new Error('Not implemented: Mobile responsive design changed - need to update selectors and layout verification logic to match current implementation');
-  });
 
   test("should display correctly on tablet", async ({ page }) => {
     throw new Error('Not implemented: Tablet responsive design changed - need to update selectors and layout verification logic to match current implementation');

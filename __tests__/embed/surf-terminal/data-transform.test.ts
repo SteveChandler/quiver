@@ -12,6 +12,9 @@ import {
   parseNumericValue,
   classifyWindDirection,
   transformForecastsToChartData,
+  utcToLocalChartTimestamp,
+  localChartTimestampToUtc,
+  smoothSeries,
   type BeachChartConfig,
   type SurfTerminalData,
   WIND_COLORS,
@@ -182,6 +185,132 @@ describe("classifyWindDirection", () => {
 });
 
 // ---------------------------------------------------------------------------
+// utcToLocalChartTimestamp / localChartTimestampToUtc
+// ---------------------------------------------------------------------------
+
+describe("utcToLocalChartTimestamp", () => {
+  it("shifts UTC to PST (UTC-8) correctly", () => {
+    // 2026-02-18T13:00:00Z → 05:00 AM PST
+    const utcSec = Math.floor(new Date("2026-02-18T13:00:00Z").getTime() / 1000);
+    const result = utcToLocalChartTimestamp(utcSec, "America/Los_Angeles");
+    const expected = Math.floor(Date.UTC(2026, 1, 18, 5, 0, 0) / 1000);
+    expect(result).toBe(expected);
+  });
+
+  it("handles DST transition (PDT, UTC-7)", () => {
+    // July 15 2026 20:00:00Z → 13:00 PDT
+    const utcSec = Math.floor(new Date("2026-07-15T20:00:00Z").getTime() / 1000);
+    const result = utcToLocalChartTimestamp(utcSec, "America/Los_Angeles");
+    const expected = Math.floor(Date.UTC(2026, 6, 15, 13, 0, 0) / 1000);
+    expect(result).toBe(expected);
+  });
+
+  it("handles Hawaii timezone (no DST, UTC-10)", () => {
+    const utcSec = Math.floor(new Date("2026-02-18T13:00:00Z").getTime() / 1000);
+    const result = utcToLocalChartTimestamp(utcSec, "Pacific/Honolulu");
+    const expected = Math.floor(Date.UTC(2026, 1, 18, 3, 0, 0) / 1000);
+    expect(result).toBe(expected);
+  });
+
+  it("handles day boundary crossing", () => {
+    // 2026-02-18T02:00:00Z in PST = 2026-02-17 18:00
+    const utcSec = Math.floor(new Date("2026-02-18T02:00:00Z").getTime() / 1000);
+    const result = utcToLocalChartTimestamp(utcSec, "America/Los_Angeles");
+    const expected = Math.floor(Date.UTC(2026, 1, 17, 18, 0, 0) / 1000);
+    expect(result).toBe(expected);
+  });
+});
+
+describe("localChartTimestampToUtc", () => {
+  it("round-trips through utcToLocalChartTimestamp for PST", () => {
+    const utcSec = Math.floor(new Date("2026-02-18T13:00:00Z").getTime() / 1000);
+    const fakeUtc = utcToLocalChartTimestamp(utcSec, "America/Los_Angeles");
+    const roundTripped = localChartTimestampToUtc(fakeUtc, "America/Los_Angeles");
+    expect(roundTripped).toBe(utcSec);
+  });
+
+  it("round-trips for Hawaii timezone", () => {
+    const utcSec = Math.floor(new Date("2026-02-18T13:00:00Z").getTime() / 1000);
+    const fakeUtc = utcToLocalChartTimestamp(utcSec, "Pacific/Honolulu");
+    const roundTripped = localChartTimestampToUtc(fakeUtc, "Pacific/Honolulu");
+    expect(roundTripped).toBe(utcSec);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// smoothSeries
+// ---------------------------------------------------------------------------
+
+describe("smoothSeries", () => {
+  it("returns empty array for empty input", () => {
+    expect(smoothSeries([])).toEqual([]);
+  });
+
+  it("returns single point unchanged", () => {
+    const points = [{ time: 100, value: 5 }];
+    expect(smoothSeries(points)).toEqual(points);
+  });
+
+  it("produces stepsPerInterval * (n-1) + 1 output points", () => {
+    const points = [
+      { time: 0, value: 0 },
+      { time: 3600, value: 10 },
+      { time: 7200, value: 5 },
+    ];
+    const result = smoothSeries(points, 6);
+    expect(result).toHaveLength(13);
+  });
+
+  it("preserves original endpoint values", () => {
+    const points = [
+      { time: 0, value: 0 },
+      { time: 3600, value: 10 },
+    ];
+    const result = smoothSeries(points, 4);
+    expect(result[0].value).toBe(0);
+    expect(result[0].time).toBe(0);
+    expect(result[result.length - 1].value).toBe(10);
+    expect(result[result.length - 1].time).toBe(3600);
+  });
+
+  it("midpoint matches cosine interpolation formula", () => {
+    const points = [
+      { time: 0, value: 0 },
+      { time: 100, value: 10 },
+    ];
+    const result = smoothSeries(points, 2);
+    // At step=1, u=0.5: value = 0 + 10 * (1 - cos(PI*0.5)) / 2 = 5
+    // Use toBeCloseTo because cos(PI*0.5) has floating-point rounding error
+    expect(result[1].value).toBeCloseTo(5, 10);
+    expect(result[1].time).toBe(50);
+  });
+
+  it("handles duplicate timestamps (dt=0) gracefully", () => {
+    const points = [
+      { time: 100, value: 3 },
+      { time: 100, value: 4 },
+    ];
+    const result = smoothSeries(points, 6);
+    // dt=0: first point kept as-is, plus final point = 2
+    expect(result).toHaveLength(2);
+    expect(result[0].value).toBe(3);
+    expect(result[1].value).toBe(4);
+  });
+
+  it("output times are monotonically increasing", () => {
+    const points = [
+      { time: 0, value: 1 },
+      { time: 3600, value: 5 },
+      { time: 7200, value: 2 },
+    ];
+    const result = smoothSeries(points, 4);
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].time).toBeGreaterThanOrEqual(result[i - 1].time);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // transformForecastsToChartData
 // ---------------------------------------------------------------------------
 
@@ -224,16 +353,18 @@ describe("transformForecastsToChartData", () => {
     ];
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
-    expect(result.waveHeight).toHaveLength(3);
+    expect(result.waveHeight.length).toBeGreaterThanOrEqual(3);
 
-    // Sorted by time ascending
+    // After smoothing, first and last values are preserved
     expect(result.waveHeight[0].value).toBe(3);
-    expect(result.waveHeight[1].value).toBe(4);
-    expect(result.waveHeight[2].value).toBe(5);
+    expect(result.waveHeight[result.waveHeight.length - 1].value).toBe(5);
 
-    // Time should be ascending
-    expect(result.waveHeight[0].time).toBeLessThan(result.waveHeight[1].time);
-    expect(result.waveHeight[1].time).toBeLessThan(result.waveHeight[2].time);
+    // Time should be ascending throughout
+    for (let i = 1; i < result.waveHeight.length; i++) {
+      expect(result.waveHeight[i].time).toBeGreaterThanOrEqual(
+        result.waveHeight[i - 1].time
+      );
+    }
   });
 
   it("produces tideHeight data points", () => {
@@ -382,7 +513,7 @@ describe("transformForecastsToChartData", () => {
     expect(result.mlCorrectedHeight[0].value).toBe(3.2);
   });
 
-  it("time values are UTCTimestamp (seconds since epoch)", () => {
+  it("time values are shifted to local timezone for chart display", () => {
     const forecasts = [
       makeForecast({
         forecast_at: "2026-02-18T13:00:00Z",
@@ -391,10 +522,11 @@ describe("transformForecastsToChartData", () => {
     ];
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
-    const expectedSeconds = Math.floor(
-      new Date("2026-02-18T13:00:00Z").getTime() / 1000
+    // With timezone "America/Los_Angeles" (PST, UTC-8), 13:00 UTC = 05:00 local
+    const expectedFakeUtcSeconds = Math.floor(
+      Date.UTC(2026, 1, 18, 5, 0, 0) / 1000
     );
-    expect(result.waveHeight[0].time).toBe(expectedSeconds);
+    expect(result.waveHeight[0].time).toBe(expectedFakeUtcSeconds);
   });
 
   it("wind speed point without wind_direction_deg defaults to cross-shore color", () => {
@@ -437,25 +569,27 @@ describe("transformForecastsToChartData", () => {
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
 
-    expect(result.waveHeight).toHaveLength(2);
-    expect(result.mlCorrectedHeight).toHaveLength(2);
-    expect(result.tideHeight).toHaveLength(2);
+    // Smoothed series: 2 raw points → 7 interpolated
+    expect(result.waveHeight).toHaveLength(7);
+    expect(result.mlCorrectedHeight).toHaveLength(7);
+    expect(result.tideHeight).toHaveLength(7);
+    expect(result.swellPeriod).toHaveLength(7);
+    // Wind is NOT smoothed (histogram)
     expect(result.windSpeed).toHaveLength(2);
-    expect(result.swellPeriod).toHaveLength(2);
 
-    // First point
+    // First point values (index 0 is always the first raw point)
     expect(result.waveHeight[0].value).toBe(4); // avg of 3-5
     expect(result.windSpeed[0].color).toBe(WIND_COLORS.offshore);
     expect(result.tideHeight[0].value).toBe(4.2);
     expect(result.swellPeriod[0].value).toBe(14);
     expect(result.mlCorrectedHeight[0].value).toBe(3.8);
 
-    // Second point
-    expect(result.waveHeight[1].value).toBe(4);
+    // Last point values
+    expect(result.waveHeight[result.waveHeight.length - 1].value).toBe(4);
     expect(result.windSpeed[1].color).toBe(WIND_COLORS.onshore);
-    expect(result.tideHeight[1].value).toBe(2.1);
-    expect(result.swellPeriod[1].value).toBe(12);
-    expect(result.mlCorrectedHeight[1].value).toBe(3.5);
+    expect(result.tideHeight[result.tideHeight.length - 1].value).toBe(2.1);
+    expect(result.swellPeriod[result.swellPeriod.length - 1].value).toBe(12);
+    expect(result.mlCorrectedHeight[result.mlCorrectedHeight.length - 1].value).toBe(3.5);
   });
 
   it("excludes forecasts with forecast_at before now", () => {
@@ -496,7 +630,7 @@ describe("transformForecastsToChartData", () => {
     ];
 
     const result = transformForecastsToChartData(forecasts, DEFAULT_CONFIG, 48);
-    // Both should be included (no dedup); lightweight-charts handles this
+    // Duplicate timestamps: smoothSeries skips interpolation for dt=0
     expect(result.waveHeight).toHaveLength(2);
   });
 });

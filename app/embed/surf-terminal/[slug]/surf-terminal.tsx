@@ -17,6 +17,8 @@ import type {
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import {
   transformForecastsToChartData,
+  utcToLocalChartTimestamp,
+  localChartTimestampToUtc,
   type BeachChartConfig,
   type SurfTerminalData,
 } from "./data-transform";
@@ -241,17 +243,18 @@ export function SurfTerminal({
   const handleChartClick = useCallback(
     (param: MouseEventParams<Time>) => {
       if (param.time === undefined) return;
-      const timeSec =
+      const chartTimeSec =
         typeof param.time === "number"
           ? param.time
           : new Date(param.time as string).getTime() / 1000;
-      const nearest = findNearestForecast(forecastsRef.current, timeSec);
+      const realUtcSec = localChartTimestampToUtc(chartTimeSec, timezone);
+      const nearest = findNearestForecast(forecastsRef.current, realUtcSec);
       if (nearest) {
         setSelectedForecast(nearest);
         setShowDetail(true);
       }
     },
-    []
+    [timezone]
   );
 
   // --- Initialize charts (runs once after mount) ---
@@ -356,7 +359,10 @@ export function SurfTerminal({
       swellSeriesRef.current = swellSeries;
 
       // ---- Now marker on wave chart (v5 plugin API) ----
-      const nowSec = Math.floor(Date.now() / 1000) as UTCTimestamp;
+      const nowSec = utcToLocalChartTimestamp(
+        Math.floor(Date.now() / 1000),
+        timezone
+      ) as UTCTimestamp;
       createSeriesMarkers(waveSeries, [
         {
           time: nowSec,

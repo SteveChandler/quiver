@@ -6,11 +6,11 @@ import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
-import { getTopBeachesRightNow } from "@/lib/utils/forecast-hub-utils";
+import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
 
 export function LandingConditionsTicker() {
   const fetchConditions = useCallback(async () => {
-    const topBeaches = await getTopBeachesRightNow(1);
+    const topBeaches = await getTopBeachesNow(1);
     if (!topBeaches?.length) return null;
 
     const topBeach = topBeaches[0];

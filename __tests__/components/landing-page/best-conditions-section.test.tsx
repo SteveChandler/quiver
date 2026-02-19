@@ -21,8 +21,8 @@ jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: jest.fn(),
 }));
 
-jest.mock("@/lib/utils/forecast-hub-utils", () => ({
-  getTopBeachesRightNow: jest.fn(),
+jest.mock("@/actions/forecast/get-top-beaches-now", () => ({
+  getTopBeachesNow: jest.fn(),
 }));
 
 jest.mock("@/lib/analytics/engagement-tracking", () => ({
@@ -628,8 +628,9 @@ describe("BestConditionsSection", () => {
   });
 
   describe("Data Fetcher Integration", () => {
-    it("calls getTopBeachesRightNow with correct limit", () => {
-      const { getTopBeachesRightNow } = require("@/lib/utils/forecast-hub-utils");
+    it("calls getTopBeachesNow with correct limit", async () => {
+      const { getTopBeachesNow } = require("@/actions/forecast/get-top-beaches-now");
+      getTopBeachesNow.mockResolvedValue(mockEntries);
 
       useDataFetcher.mockReturnValue({
         data: mockEntries,
@@ -638,12 +639,13 @@ describe("BestConditionsSection", () => {
 
       render(<BestConditionsSection />);
 
-      // Verify useDataFetcher was called
-      expect(useDataFetcher).toHaveBeenCalled();
-
-      // The fetch function passed to useDataFetcher should call getTopBeachesRightNow(6)
-      // We can't directly verify this without calling the function, but we can verify the hook was called
+      // Verify useDataFetcher was called with a function
       expect(useDataFetcher).toHaveBeenCalledWith(expect.any(Function));
+
+      // Invoke the captured fetch function to verify it calls getTopBeachesNow(6)
+      const fetchFn = useDataFetcher.mock.calls[0][0];
+      await fetchFn();
+      expect(getTopBeachesNow).toHaveBeenCalledWith(6);
     });
   });
 });

@@ -2,8 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { LandingConditionsTicker } from "@/components/landing-page/landing-conditions-ticker";
 
-jest.mock("@/lib/utils/forecast-hub-utils", () => ({
-  getTopBeachesRightNow: jest.fn(),
+jest.mock("@/actions/forecast/get-top-beaches-now", () => ({
+  getTopBeachesNow: jest.fn(),
 }));
 
 jest.mock("@/actions/forecast-actions", () => ({
@@ -22,12 +22,12 @@ jest.mock("@/hooks/use-reduced-motion", () => ({
   useReducedMotion: () => false,
 }));
 
-import { getTopBeachesRightNow } from "@/lib/utils/forecast-hub-utils";
+import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 
-const mockGetTopBeaches = getTopBeachesRightNow as jest.MockedFunction<
-  typeof getTopBeachesRightNow
+const mockGetTopBeaches = getTopBeachesNow as jest.MockedFunction<
+  typeof getTopBeachesNow
 >;
 const mockGetForecasts = getEnhancedBeachForecasts as jest.MockedFunction<
   typeof getEnhancedBeachForecasts

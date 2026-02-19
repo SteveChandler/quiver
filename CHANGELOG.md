@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Service role leak:** Landing page components (`BestConditionsSection`, `LandingConditionsTicker`) were importing `getTopBeachesRightNow` directly, pulling `createSupabaseServiceRoleClient` into the client bundle. Switched to `getTopBeachesNow` server action.
+- **Embed impressions:** `/api/embed-impressions` now accepts all four widget types (`tides`, `conditions`, `surf-terminal`, `ticker`) — was rejecting the two new types added by the DB migration.
+- **E2E tests:** Removed duplicate `test.describe` block in `location-pages.spec.ts`.
+
+### Changed
+
+- **Surf Terminal embed:** Chart x-axis now displays beach local time instead of UTC. Added `utcToLocalChartTimestamp` / `localChartTimestampToUtc` helpers in `data-transform.ts` that encode local wall-clock time as fake-UTC seconds (the format lightweight-charts expects). The "Now" marker and click handler both use the same conversion so forecast lookups remain accurate.
+- **Surf Terminal embed:** Chart lines (wave height, tide, ML-corrected height, swell period) are now smooth curves rendered via cosine interpolation (`smoothSeries`). Wind histogram bars are intentionally excluded from smoothing.
+
 - **Map Navigation:** Fixed mobile map beach card "View Details" being a dead link when `get_nearby_beaches` RPC didn't return `slug`/`city`/`state`. Applied missing DB migration and switched all beach URL generation from `getBeachUrlSafe` to `getBeachHrefSafe` for graceful fallback across map card, marker clicks, sidebar nav, hub map, nearby chips, and beach cards.
 - **ML Deployment:** Fixed Fly.io model deployment silently failing because GraphQL `setSecrets` doesn't override machine-level env vars. Replaced with Machines REST API (`POST /machines/{id}`) that directly updates machine config. Created shared `lib/services/fly-deploy.ts` utility used by both retrain and promote-candidate cron routes.
 - **ML Deployment (promote-candidate):** Standardized to use `createServiceRoleClient()`, `validateCronRequest()`, and static imports — was using raw `createClient` and inline auth checks inconsistent with codebase patterns.

@@ -18,7 +18,7 @@ export interface BeachChartConfig {
 }
 
 export interface ChartDataPoint {
-  /** UTCTimestamp – seconds since Unix epoch */
+  /** Seconds value for lightweight-charts (may be local-time-encoded fake-UTC via utcToLocalChartTimestamp) */
   time: number;
   value: number;
 }
@@ -114,6 +114,110 @@ export function classifyWindDirection(
 }
 
 // ---------------------------------------------------------------------------
+// utcToLocalChartTimestamp / localChartTimestampToUtc
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a real UTC timestamp (seconds) to a "fake UTC" timestamp for
+ * lightweight-charts. The returned value has UTC date/time components
+ * equal to the local date/time in `timezone`, so the chart displays
+ * local time even though it renders in UTC mode.
+ */
+export function utcToLocalChartTimestamp(
+  utcSec: number,
+  timezone: string
+): number {
+  const date = new Date(utcSec * 1000);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+
+  let hour = get("hour");
+  if (hour === 24) hour = 0;
+
+  return Math.floor(
+    Date.UTC(get("year"), get("month") - 1, get("day"), hour, get("minute"), get("second")) / 1000
+  );
+}
+
+/**
+ * Inverse of utcToLocalChartTimestamp. Converts a "fake UTC" chart
+ * timestamp back to real UTC seconds. Used by the click handler to
+ * map chart-reported times back to forecast lookup times.
+ *
+ * Note: offset is computed at the shifted instant, so it may drift ~1h
+ * during DST transitions. Acceptable because findNearestForecast has
+ * tolerance built in.
+ */
+export function localChartTimestampToUtc(
+  fakeUtcSec: number,
+  timezone: string
+): number {
+  const fakeDate = new Date(fakeUtcSec * 1000);
+  const utcRepr = fakeDate.toLocaleString("en-US", { timeZone: "UTC" });
+  const localRepr = fakeDate.toLocaleString("en-US", { timeZone: timezone });
+  const offsetMs =
+    new Date(utcRepr).getTime() - new Date(localRepr).getTime();
+  return fakeUtcSec + Math.round(offsetMs / 1000);
+}
+
+// ---------------------------------------------------------------------------
+// smoothSeries
+// ---------------------------------------------------------------------------
+
+/**
+ * Smooth a time series by interpolating additional points between each
+ * pair of consecutive data points using cosine interpolation.
+ * Matches the pattern used in tide-chart-helpers.ts synthesizeFromExtrema.
+ *
+ * @param points - Original data points (sorted by time ascending)
+ * @param stepsPerInterval - Sub-points between consecutive points (default 6)
+ */
+export function smoothSeries(
+  points: ChartDataPoint[],
+  stepsPerInterval = 6
+): ChartDataPoint[] {
+  if (points.length < 2) return points;
+
+  const result: ChartDataPoint[] = [];
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const dt = p1.time - p0.time;
+
+    if (dt === 0) {
+      // Duplicate timestamps — keep as-is, skip interpolation
+      result.push(p0);
+      continue;
+    }
+
+    for (let step = 0; step < stepsPerInterval; step++) {
+      const u = step / stepsPerInterval;
+      const time = Math.round(p0.time + dt * u);
+      const value =
+        p0.value + ((p1.value - p0.value) * (1 - Math.cos(Math.PI * u))) / 2;
+      result.push({ time, value });
+    }
+  }
+
+  // Include the final point
+  result.push(points[points.length - 1]);
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // transformForecastsToChartData
 // ---------------------------------------------------------------------------
 
@@ -157,7 +261,10 @@ export function transformForecastsToChartData(
     // Only include forecasts in the future window [now, now + range]
     if (fcMs < nowMs || fcMs > cutoffMs) continue;
 
-    const timeSec = Math.floor(fcMs / 1000);
+    const timeSec = utcToLocalChartTimestamp(
+      Math.floor(fcMs / 1000),
+      config.timezone
+    );
 
     // Wave height
     const wh = parseNumericValue(fc.wave_height);
@@ -204,6 +311,13 @@ export function transformForecastsToChartData(
       result.swellPeriod.push({ time: timeSec, value: sp });
     }
   }
+
+  // Cosine-interpolate continuous series for smooth rendering.
+  // Wind (histogram bars) excluded — interpolated colors would be ambiguous.
+  result.waveHeight = smoothSeries(result.waveHeight);
+  result.tideHeight = smoothSeries(result.tideHeight);
+  result.mlCorrectedHeight = smoothSeries(result.mlCorrectedHeight);
+  result.swellPeriod = smoothSeries(result.swellPeriod);
 
   return result;
 }

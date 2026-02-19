@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { SurfSpotCard } from "@/components/landing-page/surf-spot-card";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import {
-  getTopBeachesRightNow,
-  type TopBeachEntry,
-} from "@/lib/utils/forecast-hub-utils";
+import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
+import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 import {
   trackBestConditionsClick,
   trackBestConditionsViewed,
@@ -33,7 +31,7 @@ export function BestConditionsSection() {
   const hasTrackedView = useRef(false);
 
   const fetchTopBeaches = useCallback(async (): Promise<TopBeachEntry[]> => {
-    return getTopBeachesRightNow(6);
+    return getTopBeachesNow(6);
   }, []);
 
   const { data: entries, loading } = useDataFetcher(fetchTopBeaches);
