@@ -96,6 +96,14 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns hdontap kind for obhotel.com webcam pages", () => {
+    const result = buildCamEmbed("https://www.obhotel.com/Webcam-Oceanbeach.php");
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
+    });
+  });
+
   // --- Protocol validation ---
   it("rejects javascript: URIs", () => {
     expect(buildCamEmbed("javascript:alert(1)")).toEqual({ kind: "none" });

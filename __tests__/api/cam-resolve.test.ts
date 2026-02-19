@@ -271,6 +271,19 @@ describe("GET /api/cam-resolve", () => {
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
       );
     });
+
+    it("sends redirect: manual on the primary page fetch", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html></html>"),
+        headers: new Headers(),
+      });
+
+      await GET(makeRequest("https://hdontap.com/stream/186699"));
+
+      const fetchOptions = mockFetch.mock.calls[0][1];
+      expect(fetchOptions.redirect).toBe("manual");
+    });
   });
 
   // ===== HLS URL Extraction =====
@@ -442,6 +455,21 @@ describe("GET /api/cam-resolve", () => {
       expect(json.error).toBe("Failed to fetch camera page");
     });
 
+    it("returns 502 when primary fetch returns a redirect response", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 301,
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://hdontap.com/stream/123/test/")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("Redirects not followed");
+    });
+
     it("returns 504 on fetch timeout", async () => {
       mockFetch.mockImplementation(() => {
         const error = new Error("The operation was aborted");
@@ -519,6 +547,355 @@ describe("GET /api/cam-resolve", () => {
       expect(res.status).toBe(404);
       const json = await res.json();
       expect(json.error).toBe("No stream found");
+    });
+  });
+
+  // ===== HDRelay (OB Hotel) =====
+
+  describe("HDRelay (OB Hotel)", () => {
+    it("admits obhotel.com (not 403)", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html>no stream here</html>"),
+        headers: new Headers(),
+      });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).not.toBe(403);
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it("does NOT append /embed/ to obhotel.com URLs", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve("<html>no stream here</html>"),
+        headers: new Headers(),
+      });
+
+      await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+
+      const fetchedUrl = mockFetch.mock.calls[0][0];
+      expect(fetchedUrl).not.toContain("/embed/");
+      expect(fetchedUrl).toBe("https://www.obhotel.com/Webcam-Oceanbeach.php");
+    });
+
+    it("resolves HDRelay stream via manage.hdrelay.com config", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+      const hdrelayConfig = {
+        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
+        servers: { hls: "//b16.hdrelay.com" },
+      };
+
+      mockFetch
+        // First call: fetch the obhotel.com page
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        // Second call: fetch the HDRelay config
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(hdrelayConfig)),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.hlsUrl).toBe(
+        "https://b16.hdrelay.com/camera/1549b2bd-baa9-4eb6-a6bf-c7500a22dc90/relay/playlist.m3u8"
+      );
+    });
+
+    it("sets longer Cache-Control for HDRelay streams", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+      const hdrelayConfig = {
+        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
+        servers: { hls: "//b16.hdrelay.com" },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(hdrelayConfig)),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Cache-Control")).toBe(
+        "public, max-age=300, stale-while-revalidate=120"
+      );
+    });
+
+    it("returns 502 when HDRelay config fetch fails", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("HDRelay config unavailable");
+    });
+
+    it("returns 502 when HDRelay config is missing camera field", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ servers: { hls: "//b16.hdrelay.com" } })),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("HDRelay config incomplete");
+    });
+
+    it("returns 502 when HDRelay config is missing servers.hls field", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" })),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("HDRelay config incomplete");
+    });
+
+    it("fetches the HDRelay player config at the correct manage.hdrelay.com URL", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'ca0364a0-1c13-4e74-9ef1-2b1eac33423a'})
+      </script></body></html>`;
+      const hdrelayConfig = {
+        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
+        servers: { hls: "//b16.hdrelay.com" },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(hdrelayConfig)),
+        });
+
+      await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+
+      const configFetchUrl = mockFetch.mock.calls[1][0];
+      expect(configFetchUrl).toBe(
+        "https://manage.hdrelay.com/player/ca0364a0-1c13-4e74-9ef1-2b1eac33423a"
+      );
+    });
+
+    it("sends redirect: manual on the HDRelay config fetch", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+      const hdrelayConfig = {
+        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
+        servers: { hls: "//b16.hdrelay.com" },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(hdrelayConfig)),
+        });
+
+      await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+
+      const configFetchOptions = mockFetch.mock.calls[1][1];
+      expect(configFetchOptions.redirect).toBe("manual");
+    });
+
+    it("returns 502 when HDRelay config fetch returns a redirect", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 302,
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("Redirects not followed");
+    });
+
+    it("returns 502 when HDRelay config body exceeds 64 KB", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve("x".repeat(65 * 1024)),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("HDRelay config too large");
+    });
+
+    it("returns 502 when HDRelay hls server is not a trusted hdrelay.com subdomain", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+      const maliciousConfig = {
+        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
+        servers: { hls: "//evil.example.com" },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(maliciousConfig)),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("Untrusted stream server");
+    });
+
+    it("accepts a valid *.hdrelay.com hls server", async () => {
+      const pageHtml = `<html><body><script>
+        HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
+      </script></body></html>`;
+      const hdrelayConfig = {
+        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
+        servers: { hls: "//relay99.hdrelay.com" },
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(pageHtml),
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(hdrelayConfig)),
+        });
+
+      const res = await GET(
+        makeRequest("https://www.obhotel.com/Webcam-Oceanbeach.php")
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.hlsUrl).toContain("relay99.hdrelay.com");
     });
   });
 
