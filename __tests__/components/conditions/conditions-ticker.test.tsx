@@ -1,13 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import type { ConditionsData } from "@/types/conditions";
 
 jest.mock("@/components/ui/animated-wave-icon", () => ({
   AnimatedWaveIcon: () => <span data-testid="wave-icon" />,
-}));
-
-jest.mock("@/hooks/use-reduced-motion", () => ({
-  useReducedMotion: () => false,
 }));
 
 const fullData: ConditionsData = {
@@ -25,26 +21,28 @@ describe("ConditionsTicker", () => {
   it("renders all cards with correct values when full data provided", () => {
     render(<ConditionsTicker data={fullData} />);
 
-    expect(screen.getByText("Waves")).toBeInTheDocument();
-    expect(screen.getByText("3-5ft")).toBeInTheDocument();
-    expect(screen.getByText("Swell")).toBeInTheDocument();
-    expect(screen.getByText("12s SW")).toBeInTheDocument();
-    expect(screen.getByText("Wind")).toBeInTheDocument();
-    expect(screen.getByText("8mph NW")).toBeInTheDocument();
-    expect(screen.getByText("Water")).toBeInTheDocument();
-    expect(screen.getByText("62°F")).toBeInTheDocument();
-    expect(screen.getByText("Tide")).toBeInTheDocument();
-    expect(screen.getByText("Rising 3.2ft")).toBeInTheDocument();
+    const track = within(screen.getByTestId("ticker-content"));
+    expect(track.getByText("Waves")).toBeInTheDocument();
+    expect(track.getByText("3-5ft")).toBeInTheDocument();
+    expect(track.getByText("Swell")).toBeInTheDocument();
+    expect(track.getByText("12s SW")).toBeInTheDocument();
+    expect(track.getByText("Wind")).toBeInTheDocument();
+    expect(track.getByText("8mph NW")).toBeInTheDocument();
+    expect(track.getByText("Water")).toBeInTheDocument();
+    expect(track.getByText("62°F")).toBeInTheDocument();
+    expect(track.getByText("Tide")).toBeInTheDocument();
+    expect(track.getByText("Rising 3.2ft")).toBeInTheDocument();
   });
 
   it("renders fewer cards with partial data", () => {
     render(<ConditionsTicker data={{ waveHeight: "2ft", waterTemp: "60°F" }} />);
 
-    expect(screen.getByText("Waves")).toBeInTheDocument();
-    expect(screen.getByText("Water")).toBeInTheDocument();
-    expect(screen.queryByText("Swell")).not.toBeInTheDocument();
-    expect(screen.queryByText("Wind")).not.toBeInTheDocument();
-    expect(screen.queryByText("Tide")).not.toBeInTheDocument();
+    const track = within(screen.getByTestId("ticker-content"));
+    expect(track.getByText("Waves")).toBeInTheDocument();
+    expect(track.getByText("Water")).toBeInTheDocument();
+    expect(track.queryByText("Swell")).not.toBeInTheDocument();
+    expect(track.queryByText("Wind")).not.toBeInTheDocument();
+    expect(track.queryByText("Tide")).not.toBeInTheDocument();
   });
 
   it("returns null when data is empty", () => {
@@ -96,15 +94,17 @@ describe("ConditionsTicker", () => {
   it("renders wave icon with aria-hidden via AnimatedWaveIcon", () => {
     render(<ConditionsTicker data={{ waveHeight: "3ft" }} />);
 
-    const waveIcon = screen.getByTestId("wave-icon");
+    const track = within(screen.getByTestId("ticker-content"));
+    const waveIcon = track.getByTestId("wave-icon");
     expect(waveIcon).toBeInTheDocument();
   });
 
   it("renders dividers between cards", () => {
-    const { container } = render(<ConditionsTicker data={fullData} />);
+    render(<ConditionsTicker data={fullData} />);
 
+    const track = screen.getByTestId("ticker-content");
     // Dividers are aria-hidden spans with w-px class
-    const dividers = container.querySelectorAll("[aria-hidden='true'].w-px");
+    const dividers = track.querySelectorAll("[aria-hidden='true'].w-px");
     // 5 cards = 4 dividers between them
     expect(dividers).toHaveLength(4);
   });

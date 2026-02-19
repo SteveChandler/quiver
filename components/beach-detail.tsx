@@ -425,6 +425,16 @@ function BeachDetailContent({
           className="mb-6"
         />
 
+        {/* At-a-Glance Conditions Ticker */}
+        {currentForecast && (
+          <ConditionsTicker
+            data={forecastToConditionsData(currentForecast)}
+            theme="light"
+            beachName={beach.name}
+            className="mb-4"
+          />
+        )}
+
         {/* Surf Call Card (server-rendered slot) */}
         {surfReportSlot}
 
@@ -445,16 +455,6 @@ function BeachDetailContent({
           currentForecast={currentForecast}
           className="mb-6"
         />
-
-        {/* At-a-Glance Conditions Ticker */}
-        {currentForecast && (
-          <ConditionsTicker
-            data={forecastToConditionsData(currentForecast)}
-            theme="light"
-            beachName={beach.name}
-            className="mb-6"
-          />
-        )}
 
         {/* Action Buttons */}
         <BeachActions

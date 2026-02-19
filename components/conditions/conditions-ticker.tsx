@@ -102,10 +102,17 @@ export function ConditionsTicker({
 
   if (!loading && cards.length === 0) return null;
 
+  const cardsContent = cards.map((card, i) => (
+    <span key={card.id} className="flex items-center gap-3 shrink-0">
+      {i > 0 && <Divider isDark={isDark} />}
+      <TickerCard card={card} isDark={isDark} />
+    </span>
+  ));
+
   return (
     <div
       className={cn(
-        "flex items-center gap-3 overflow-x-auto scrollbar-hide px-4 py-3 rounded-xl",
+        "overflow-hidden rounded-xl group",
         isDark
           ? "bg-[#2a2a2a] text-gray-300"
           : "bg-white border border-gray-100 text-gray-700",
@@ -119,14 +126,41 @@ export function ConditionsTicker({
       }
     >
       {loading ? (
-        <TickerSkeleton isDark={isDark} />
+        <div className="px-4 py-3">
+          <TickerSkeleton isDark={isDark} />
+        </div>
       ) : (
-        cards.map((card, i) => (
-          <span key={card.id} className="flex items-center gap-3">
-            {i > 0 && <Divider isDark={isDark} />}
-            <TickerCard card={card} isDark={isDark} />
-          </span>
-        ))
+        <>
+          {/* Static track: visible only when prefers-reduced-motion */}
+          <div
+            className="ticker-static-track items-center gap-3 overflow-x-auto scrollbar-hide px-4 py-3"
+            data-testid="ticker-content"
+          >
+            {cardsContent}
+          </div>
+
+          {/* Animated track: auto-scrolling, hidden for reduced motion */}
+          <div
+            className="ticker-animated-track items-center py-3"
+            aria-hidden="true"
+          >
+            <div className="flex items-center gap-3 w-max animate-ticker-scroll group-hover:[animation-play-state:paused] px-4 will-change-transform">
+              {cards.map((card, i) => (
+                <span key={card.id} className="flex items-center gap-3 shrink-0">
+                  {i > 0 && <Divider isDark={isDark} />}
+                  <TickerCard card={card} isDark={isDark} />
+                </span>
+              ))}
+              <Divider isDark={isDark} />
+              {cards.map((card, i) => (
+                <span key={`dup-${card.id}`} className="flex items-center gap-3 shrink-0">
+                  {i > 0 && <Divider isDark={isDark} />}
+                  <TickerCard card={card} isDark={isDark} />
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

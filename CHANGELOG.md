@@ -16,10 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ConditionsTicker` auto-scroll: replaced static horizontal scroll with a dual-track CSS marquee using a new `animate-ticker-scroll` utility (30s `waveFlow` loop). Hover pauses animation via `group-hover:[animation-play-state:paused]`. `prefers-reduced-motion` users see a scrollable static track instead (`ticker-static-track` / `ticker-animated-track` CSS classes in `globals.css`).
+- `ConditionsTicker` repositioned on beach detail page: moved above the surf report slot (just below `BeachHeroCompact`) so conditions are visible at the top of the page without scrolling; spacing updated from `mb-6` to `mb-4`.
 - `ConditionsTicker` in-app component (`components/conditions/conditions-ticker.tsx`): reusable at-a-glance conditions strip showing waves, swell, wind, water temp, and tide with Lucide icons, dark/light theme support, loading skeleton, and ARIA labels
 - `ConditionsData` shared type (`types/conditions.ts`) and `forecastToConditionsData` mapper (`lib/mappers/conditions-mappers.ts`) for converting `EnhancedForecastEntity` to ticker-compatible shape; embed widgets re-export aliases for backward compat
 - `buildConditionsCards` pure function (`lib/utils/conditions-card-builder.ts`) extracted from embed ticker — returns data objects instead of JSX for testability
-- Beach detail "at a glance" strip between stats grid and action buttons
 - Home screen conditions ticker for home beach (dark theme, `useDataFetcher` pattern)
 - Landing page conditions ticker showing top-scored beach conditions (light theme)
 - 45 tests across 6 suites covering card builder, ticker component, and all three integration points

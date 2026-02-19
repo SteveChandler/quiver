@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -6,10 +6,6 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 // Mock the AnimatedWaveIcon to avoid SVG complexity in tests
 jest.mock("@/components/ui/animated-wave-icon", () => ({
   AnimatedWaveIcon: () => <span data-testid="wave-icon" />,
-}));
-
-jest.mock("@/hooks/use-reduced-motion", () => ({
-  useReducedMotion: () => false,
 }));
 
 function makeForecast(
@@ -45,9 +41,10 @@ describe("ConditionsTicker in beach detail context", () => {
       <ConditionsTicker data={data} theme="light" beachName="Blacks Beach" />
     );
 
-    expect(screen.getByText("3-5ft")).toBeInTheDocument();
-    expect(screen.getByText("8 mph NW")).toBeInTheDocument();
-    expect(screen.getByText("62°F")).toBeInTheDocument();
+    const track = within(screen.getByTestId("ticker-content"));
+    expect(track.getByText("3-5ft")).toBeInTheDocument();
+    expect(track.getByText("8 mph NW")).toBeInTheDocument();
+    expect(track.getByText("62°F")).toBeInTheDocument();
     expect(screen.getByRole("region")).toHaveAttribute(
       "aria-label",
       "Blacks Beach current conditions"
@@ -78,5 +75,7 @@ describe("ConditionsTicker in beach detail context", () => {
     render(<ConditionsTicker data={data} theme="light" beachName="Blacks" />);
     const region = screen.getByRole("region");
     expect(region.className).toContain("bg-white");
+    const track = within(screen.getByTestId("ticker-content"));
+    expect(track.getByText("3-5ft")).toBeInTheDocument();
   });
 });
