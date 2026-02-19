@@ -588,8 +588,8 @@ describe("GET /api/cam-resolve", () => {
         HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
       </script></body></html>`;
       const hdrelayConfig = {
-        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
-        servers: { hls: "//b16.hdrelay.com" },
+        camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" },
+        server: { hls: "//b16.hdrelay.com" },
       };
 
       mockFetch
@@ -622,8 +622,8 @@ describe("GET /api/cam-resolve", () => {
         HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
       </script></body></html>`;
       const hdrelayConfig = {
-        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
-        servers: { hls: "//b16.hdrelay.com" },
+        camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" },
+        server: { hls: "//b16.hdrelay.com" },
       };
 
       mockFetch
@@ -688,7 +688,7 @@ describe("GET /api/cam-resolve", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          text: () => Promise.resolve(JSON.stringify({ servers: { hls: "//b16.hdrelay.com" } })),
+          text: () => Promise.resolve(JSON.stringify({ server: { hls: "//b16.hdrelay.com" } })),
         });
 
       const res = await GET(
@@ -714,7 +714,7 @@ describe("GET /api/cam-resolve", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          text: () => Promise.resolve(JSON.stringify({ camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" })),
+          text: () => Promise.resolve(JSON.stringify({ camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" } })),
         });
 
       const res = await GET(
@@ -730,8 +730,8 @@ describe("GET /api/cam-resolve", () => {
         HDRelay.create({target:'webcam_holder',id:'ca0364a0-1c13-4e74-9ef1-2b1eac33423a'})
       </script></body></html>`;
       const hdrelayConfig = {
-        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
-        servers: { hls: "//b16.hdrelay.com" },
+        camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" },
+        server: { hls: "//b16.hdrelay.com" },
       };
 
       mockFetch
@@ -762,8 +762,8 @@ describe("GET /api/cam-resolve", () => {
         HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
       </script></body></html>`;
       const hdrelayConfig = {
-        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
-        servers: { hls: "//b16.hdrelay.com" },
+        camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" },
+        server: { hls: "//b16.hdrelay.com" },
       };
 
       mockFetch
@@ -843,8 +843,8 @@ describe("GET /api/cam-resolve", () => {
         HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
       </script></body></html>`;
       const maliciousConfig = {
-        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
-        servers: { hls: "//evil.example.com" },
+        camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" },
+        server: { hls: "//evil.example.com" },
       };
 
       mockFetch
@@ -873,8 +873,8 @@ describe("GET /api/cam-resolve", () => {
         HDRelay.create({target:'webcam_holder',id:'aabb1122-cc33-dd44-ee55-ff6677889900'})
       </script></body></html>`;
       const hdrelayConfig = {
-        camera: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90",
-        servers: { hls: "//relay99.hdrelay.com" },
+        camera: { id: "1549b2bd-baa9-4eb6-a6bf-c7500a22dc90" },
+        server: { hls: "//relay99.hdrelay.com" },
       };
 
       mockFetch

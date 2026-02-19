@@ -160,8 +160,8 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ error: "HDRelay config too large" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
         }
         const config = JSON.parse(configText);
-        const cameraId = config?.camera;
-        const hlsServer = config?.servers?.hls?.replace(/^\/\//, "https://");
+        const cameraId = config?.camera?.id;
+        const hlsServer = config?.server?.hls?.replace(/^\/\//, "https://");
         if (!cameraId || !hlsServer) {
           console.warn("[cam-resolve] HDRelay config missing camera/server:", { playerId });
           return NextResponse.json({ error: "HDRelay config incomplete" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
