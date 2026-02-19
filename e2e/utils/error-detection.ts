@@ -384,7 +384,7 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
 
   // Analytics/tracking API errors - background operations that don't affect user experience
   // These should never block tests as they're non-essential functionality
-  if (url.includes('/api/events')) {
+  if (url.includes('/api/events') || url.includes('/api/embed-impressions')) {
     return true;
   }
 
