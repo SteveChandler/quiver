@@ -118,7 +118,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
             {mounted ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
-                  Explore
+                  Spots
                   <ChevronDown className="h-4 w-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-80 max-h-[80vh] overflow-y-auto p-4">
@@ -172,18 +172,10 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
               </DropdownMenu>
             ) : (
               <span className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
-                Explore
+                Spots
                 <ChevronDown className="h-4 w-4" />
               </span>
             )}
-
-            {/* Other Nav Links */}
-            <Link
-              href="/discover"
-              className="text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]"
-            >
-              Discover
-            </Link>
 
             {/* Auth Buttons */}
             <div className="flex items-center gap-4 ml-2">
@@ -211,7 +203,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                 }}
                 className="bg-white/95 text-ocean-blue hover:bg-white font-semibold rounded-full px-5 py-2 shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-200"
               >
-                Get Started
+                Start surfing smarter
               </Button>
             </div>
           </div>
@@ -242,7 +234,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                       {/* Mobile Explore - Region groups */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                          Explore
+                          Spots
                         </h3>
                         {REGION_GROUPS.map((group) => (
                           <div key={group.label} className="mb-4">
@@ -299,16 +291,6 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         ))}
                       </div>
 
-                      {/* Mobile Other Links */}
-                      <div className="border-t pt-4">
-                        <Link
-                          href="/discover"
-                          className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded font-medium"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          Discover
-                        </Link>
-                      </div>
                     </div>
                   </div>
 
@@ -327,7 +309,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
                         });
                       }}
                     >
-                      Get Started
+                      Start surfing smarter
                     </Button>
                     <Button
                       variant="ghost"
@@ -369,7 +351,7 @@ export function Navbar({ autoOpenLogin = false }: { autoOpenLogin?: boolean }) {
         mode={authMode}
         source="landing-navbar"
         returnTo="/"
-        contextMessage={authMode === "signup" ? { title: "Get Started", description: "Personalized surf forecasts in 30 seconds" } : undefined}
+        contextMessage={authMode === "signup" ? { title: "Start surfing smarter", description: "Personalized surf forecasts in 30 seconds" } : undefined}
       />
     </nav>
   );

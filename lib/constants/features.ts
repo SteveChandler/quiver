@@ -246,9 +246,9 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Find your next wave",
-    subtitle: "Surf forecasts that learn your style. Personalized match scores, real-time conditions, and recommendations that get smarter with every session.",
-    cta: "Join Free Today",
+    title: "Forecasts that know your breaks",
+    subtitle: "Real-time conditions, personalized match scores, and local intel from surfers in the water — so every session counts.",
+    cta: "Start surfing smarter",
     secondaryCta: "Explore Features",
     benefits: [
       "🏄‍♀️ Connect with local surfers",
@@ -265,7 +265,7 @@ export const CONTENT = {
       title: "Upgrade your next Session",
       subtitle:
         "Whether you want to explore new breaks or plan your next session, Quiver helps you make the most of every minute in the water.",
-      primaryCta: "Sign up",
+      primaryCta: "Start surfing smarter",
     },
     social: {
       title: "Join the surf community that's growing every day",
@@ -289,7 +289,7 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions - your complete surf community platform",
     },
     cta: {
-      title: "Ready to join the surf community?",
+      title: "Ready to surf smarter?",
       subtitle:
         "Find your crew, track epic sessions, and discover amazing spots. Free to join — priceless connections.",
     },

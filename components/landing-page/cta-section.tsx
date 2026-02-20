@@ -30,7 +30,7 @@ export function CTASection() {
 
       <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
         <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6 animate-fade-in-up">
-          Ready to Join the Surf Community?
+          Ready to surf smarter?
         </h2>
 
         <p
@@ -50,7 +50,7 @@ export function CTASection() {
             asChild
           >
             <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
-              Join Free Today
+              Start surfing smarter
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
