@@ -405,7 +405,7 @@ export function formatIntelMessage(post: {
   // 3. Wind conditions
   if (conditions?.wind_speed != null) {
     const dir = conditions.wind_direction || "";
-    parts.push(`${formatWindSpeed(Math.round(conditions.wind_speed * 1.151))} ${dir}`.trim());
+    parts.push(`${formatWindSpeed(conditions.wind_speed * 1.151)} ${dir}`.trim());
     hasStructuredData = true;
   }
 

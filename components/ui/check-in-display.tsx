@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckInWithUser, ForecastAccuracyStats } from "@/types/database";
-import { formatWaterTemp } from "@/lib/formatters/surf-data";
+import { formatWaterTemp, formatWindSpeed } from "@/lib/formatters/surf-data";
 import {
   Waves,
   Wind,
@@ -152,7 +152,7 @@ export function CheckInDisplay({
               <div>
                 <div className="text-sm font-medium">
                   {checkIn.wind_speed !== null
-                    ? `${checkIn.wind_speed}mph`
+                    ? formatWindSpeed(checkIn.wind_speed)
                     : "—"}
                 </div>
                 <div className="text-xs text-gray-500">

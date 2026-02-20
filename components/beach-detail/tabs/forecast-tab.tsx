@@ -42,6 +42,7 @@ import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
 import { aggregateDayForecasts, formatWaveRange, type DaySummary } from "@/lib/utils/horizon-strip-utils";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
@@ -350,7 +351,7 @@ export function ForecastTab({
     : currentForecast?.next_tide_type ?? "—";
 
   const heroNextTideHeight = dynamicTide.nextTide
-    ? `${dynamicTide.nextTide.height.toFixed(1)} ft`
+    ? `${formatTideHeight(dynamicTide.nextTide.height)}`
     : currentForecast?.next_tide_height ?? "";
 
   // Helper for next tide time display

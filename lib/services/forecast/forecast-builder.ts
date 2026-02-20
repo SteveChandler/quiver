@@ -12,6 +12,7 @@ import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
 import { cardinalToDegrees } from "./forecast-transformer";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
+import { formatPeriodSeconds } from "./format-utils";
 import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
@@ -473,14 +474,6 @@ export class ForecastBuilder {
     buoyData: NDBCBuoyRow | null,
     useCDIPData: boolean
   ): string | null {
-    const formatPeriodSeconds = (value: number | string | null | undefined): string | null => {
-      if (value == null) return null;
-      const num = typeof value === "string" ? parseFloat(value) : value;
-      if (!isFinite(num)) return null;
-      if (num < 4 || num > 25) return null;
-      const rounded = Math.round(num * 10) / 10;
-      return `${rounded}s`;
-    };
 
     if (useCDIPData && cdipPoint?.peakWavePeriod != null)
       return formatPeriodSeconds(cdipPoint.peakWavePeriod);
@@ -525,14 +518,6 @@ export class ForecastBuilder {
   }
 
   private getSwell1Period(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
-    const formatPeriodSeconds = (value: number | string | null | undefined): string | null => {
-      if (value == null) return null;
-      const num = typeof value === "string" ? parseFloat(value) : value;
-      if (!isFinite(num)) return null;
-      if (num < 4 || num > 25) return null;
-      const rounded = Math.round(num * 10) / 10;
-      return `${rounded}s`;
-    };
 
     if (useCDIPData && cdipPoint?.swellPeriod != null)
       return formatPeriodSeconds(cdipPoint.swellPeriod);
@@ -559,11 +544,7 @@ export class ForecastBuilder {
 
   private getSwell2Period(wavePoint: WaveWatchData | null): string | null {
     if (wavePoint?.swell_2_period == null) return null;
-    const num = wavePoint.swell_2_period;
-    if (!isFinite(num)) return null;
-    if (num < 4 || num > 25) return null;
-    const rounded = Math.round(num * 10) / 10;
-    return `${rounded}s`;
+    return formatPeriodSeconds(wavePoint.swell_2_period);
   }
 
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {

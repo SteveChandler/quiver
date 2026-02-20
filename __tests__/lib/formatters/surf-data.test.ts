@@ -41,6 +41,20 @@ describe("formatWaveHeight", () => {
     });
   });
 
+  describe("NaN and Infinity guards", () => {
+    it("returns 'Flat' for NaN", () => {
+      expect(formatWaveHeight(NaN)).toBe("Flat");
+    });
+
+    it("returns 'Flat' for Infinity", () => {
+      expect(formatWaveHeight(Infinity)).toBe("Flat");
+    });
+
+    it("returns 'Flat' for -Infinity", () => {
+      expect(formatWaveHeight(-Infinity)).toBe("Flat");
+    });
+  });
+
   describe("small ranges that collapse to a single value", () => {
     it("collapses 0.5ft (set=0.75) to a single value '1ft'", () => {
       // low=0.5 rounds to 1, high=0.75 rounds to 1 → same → "1ft"
@@ -127,6 +141,20 @@ describe("formatWindSpeed", () => {
     });
   });
 
+  describe("NaN and Infinity guards", () => {
+    it("returns '-- mph' for NaN", () => {
+      expect(formatWindSpeed(NaN)).toBe("-- mph");
+    });
+
+    it("returns '-- mph' for Infinity", () => {
+      expect(formatWindSpeed(Infinity)).toBe("-- mph");
+    });
+
+    it("returns '-- mph' for -Infinity", () => {
+      expect(formatWindSpeed(-Infinity)).toBe("-- mph");
+    });
+  });
+
   describe("return type and format", () => {
     it("always returns a string", () => {
       expect(typeof formatWindSpeed(12)).toBe("string");
@@ -194,6 +222,20 @@ describe("formatSwellPeriod", () => {
       expect(formatSwellPeriod(13.6)).not.toContain(".");
     });
   });
+
+  describe("NaN and Infinity guards", () => {
+    it("returns '--s' for NaN", () => {
+      expect(formatSwellPeriod(NaN)).toBe("--s");
+    });
+
+    it("returns '--s' for Infinity", () => {
+      expect(formatSwellPeriod(Infinity)).toBe("--s");
+    });
+
+    it("returns '--s' for -Infinity", () => {
+      expect(formatSwellPeriod(-Infinity)).toBe("--s");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -256,6 +298,20 @@ describe("formatTideHeight", () => {
       expect(formatTideHeight(0)).toMatch(/\.\dft$/);
     });
   });
+
+  describe("NaN and Infinity guards", () => {
+    it("returns '--ft' for NaN", () => {
+      expect(formatTideHeight(NaN)).toBe("--ft");
+    });
+
+    it("returns '--ft' for Infinity", () => {
+      expect(formatTideHeight(Infinity)).toBe("--ft");
+    });
+
+    it("returns '--ft' for -Infinity", () => {
+      expect(formatTideHeight(-Infinity)).toBe("--ft");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -309,6 +365,20 @@ describe("formatWaterTemp", () => {
 
     it("no decimal in the numeric portion", () => {
       expect(formatWaterTemp(64.8)).not.toContain(".");
+    });
+  });
+
+  describe("NaN and Infinity guards", () => {
+    it("returns '--°F' for NaN", () => {
+      expect(formatWaterTemp(NaN)).toBe("--°F");
+    });
+
+    it("returns '--°F' for Infinity", () => {
+      expect(formatWaterTemp(Infinity)).toBe("--°F");
+    });
+
+    it("returns '--°F' for -Infinity", () => {
+      expect(formatWaterTemp(-Infinity)).toBe("--°F");
     });
   });
 });

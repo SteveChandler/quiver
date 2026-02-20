@@ -1,5 +1,6 @@
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 
 interface TideData {
   time: number;
@@ -48,7 +49,7 @@ export function TidesDisplay({
           >
             <span className="font-medium">{tide.name}</span>
             <span>
-              {Math.round(tide.height * 10) / 10}ft @ {formatTideTime(tide.time)}
+              {formatTideHeight(tide.height)} @ {formatTideTime(tide.time)}
             </span>
           </div>
         ))}
@@ -74,7 +75,7 @@ export function TidesDisplay({
             className="flex justify-between items-center text-sm bg-gray-50 px-2 py-1 rounded"
           >
             <span className="font-medium">{tide.name}</span>
-            <span>{Math.round(tide.height * 10) / 10}ft</span>
+            <span>{formatTideHeight(tide.height)}</span>
             <span className="text-right text-gray-600">
               {formatTideTime(tide.time)}
             </span>

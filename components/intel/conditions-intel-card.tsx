@@ -5,6 +5,7 @@ import type { MorningIntelSurfConditionsPayloadV2 } from "@/types/morning-intel"
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Clock, Waves, Wind } from "lucide-react";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -117,7 +118,7 @@ export function ConditionsIntelCard({
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Tide</p>
             <p className="text-sm font-medium truncate">
-              {payload.tide.height.toFixed(1)} ft {payload.tide.direction}
+              {formatTideHeight(payload.tide.height)} {payload.tide.direction}
             </p>
           </div>
         </div>

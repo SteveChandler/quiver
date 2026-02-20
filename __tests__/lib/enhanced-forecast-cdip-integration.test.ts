@@ -203,7 +203,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       expect(firstForecast.data_source).toBe("CDIP");
       // Calibrated face height: CDIP significant height may be adjusted; assert calibrated output
       expect(firstForecast.wave_height).toBe("2.4 ft");
-      expect(firstForecast.wave_period).toBe("13.1s");
+      expect(firstForecast.wave_period).toBe("13s");
     });
 
     it("should fall back to NOAA when CDIP data unavailable", async () => {
