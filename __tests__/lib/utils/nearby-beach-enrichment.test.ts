@@ -349,5 +349,32 @@ describe("enrichBeachesWithConditions", () => {
         photoUrl: null,
       });
     });
+
+    it("preserves skill_level through enrichment", async () => {
+      const beaches = [
+        createMockBeach({
+          id: "beach-1",
+          name: "Advanced Reef",
+          skill_level: "advanced",
+        }),
+        createMockBeach({
+          id: "beach-2",
+          name: "Beginner Beach",
+          skill_level: "beginner-intermediate",
+        }),
+        createMockBeach({
+          id: "beach-3",
+          name: "Unknown Level Beach",
+        }),
+      ];
+
+      getBatchFreshForecastsFromCache.mockResolvedValue(new Map());
+
+      const result = await enrichBeachesWithConditions(beaches);
+
+      expect(result[0].skill_level).toBe("advanced");
+      expect(result[1].skill_level).toBe("beginner-intermediate");
+      expect(result[2].skill_level).toBeUndefined();
+    });
   });
 });

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Nearby Surf Spots "All levels" bug:** Added `skill_level` to the `get_nearby_beaches` RPC return columns so nearby beach cards display actual skill levels instead of "All levels" for every card.
+- **SD beach skill ratings:** Corrected skill levels for Ocean Beach Pier (→ advanced), Swami's (→ advanced), and Avalanche (→ intermediate-advanced).
+- **QuickStats skill level formatting:** Fixed `formatSkillLevel` in QuickStats to properly title-case compound hyphenated values (e.g., "intermediate-advanced" → "Intermediate-Advanced" instead of "Intermediate-advanced").
+
 ### Removed
 
 - **Duplicate 5-Day Outlook section:** Removed the card-style "5-Day Outlook" section (mini forecast cards + collapsible forecast table) from the Today sub-tab in `ForecastTab`. The `HorizonStrip` at the top of the tab already provides the N-Day Outlook, making the section redundant. Deleted the now-orphaned `DetailedSwellModal` component and its tests.
