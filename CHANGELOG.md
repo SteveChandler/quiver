@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **NPC forecast bot — 9 bug fixes across `forecast-formatter.ts` and `template-hydration.ts`:**
+  - **Beach disambiguation (Bug 1):** Replaced `REGIONAL_SEARCH_TERMS` with `REGIONAL_BEACHES` (includes `city` field) and updated `fetchRegionalForecast` / `getRegionalBeachId` to filter by both name AND city, preventing Ocean Beach SD from appearing in NorCal reports.
+  - **Wind descriptions with offshore/onshore awareness (Bugs 2 & 7):** Rewrote `describeWindForForecast` and `describeConditionsBriefly` to use `classifyWindDirection` from `lib/utils/wind-classification`. Offshore winds get enthusiastic copy; onshore gets honest descriptors with speed-appropriate intensity.
+  - **Tide double AM/PM suffix (Bug 3):** Rewrote `formatTideInfo` to parse "HH:MM AM/PM" DB format correctly — no longer appends a redundant am/pm after the existing suffix.
+  - **Tide type from DB (Bug 4):** `formatTideInfo` now accepts and uses `tideType` (High/Low) and `tideAt` (timestamptz) parameters; defaults to "Low" only when type is absent.
+  - **Water temp — parse DB text (Bug 5):** Replaced random `getDefaultWaterTemp()` with `parseWaterTemp()` (parses "57°F" text) and `getSeasonalWaterTemp()` (deterministic monthly averages per region).
+  - **Water temp in template-hydration (Bug 6):** `fetchSurfConditions` now selects `water_temp` from `enhanced_forecasts` and parses it; deterministic fallback of 64°F replaces `62 + Math.random() * 8`.
+  - **Opening tone logic (Bug 7):** `generateRegionalForecast` now selects "waking up to" / "showing" / "at" based on wind classification and speed.
+  - **SELECT columns (Bug 8):** `fetchRegionalForecast` now selects `wind_direction_deg`, `next_tide_type`, `next_tide_height`, `next_tide_at`, `water_temp` from `enhanced_forecasts` and `wind_offshore_deg` from `beaches`.
+  - **Remove deprecated `forecast_time` filter (Bug 9):** Removed `.gte('forecast_time', '05:00:00').lte('forecast_time', '08:00:00')` — the `forecast_at` range already handles the time window.
+
+- **E2E self-cleaning intel post tests:** `e2e/input-validation.spec.ts` and `e2e/api/intel.spec.ts` now track IDs of successfully created intel posts and soft-delete them (`is_active = false`) in a `test.afterAll` hook using the Supabase service role client, rather than relying solely on global teardown.
+
 - **Nearby Surf Spots "All levels" bug:** Added `skill_level` to the `get_nearby_beaches` RPC return columns so nearby beach cards display actual skill levels instead of "All levels" for every card.
 - **SD beach skill ratings:** Corrected skill levels for Ocean Beach Pier (→ advanced), Swami's (→ advanced), and Avalanche (→ intermediate-advanced).
 - **QuickStats skill level formatting:** Fixed `formatSkillLevel` in QuickStats to properly title-case compound hyphenated values (e.g., "intermediate-advanced" → "Intermediate-Advanced" instead of "Intermediate-advanced").

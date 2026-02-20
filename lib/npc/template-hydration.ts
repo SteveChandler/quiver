@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import { describeTimeOfDay } from './posting-windows';
+import { parseWaterTemp } from './forecast-formatter';
 
 export interface SurfConditions {
   waveHeight: number | null;
@@ -45,7 +46,7 @@ export async function fetchSurfConditions(
   const { data: forecasts } = await supabase
     .from('enhanced_forecasts')
     .select(
-      'wave_height, wave_period, wind_speed, wind_direction, tide_height, tide_status'
+      'wave_height, wave_period, wind_speed, wind_direction, tide_height, tide_status, water_temp'
     )
     .eq('beach_id', beachId)
     .gte('forecast_at', `${todayDate}T00:00:00Z`)
@@ -55,8 +56,8 @@ export async function fetchSurfConditions(
 
   const forecast = forecasts?.[0];
 
-  // Try to get water temp from buoy data or default
-  const waterTemp = 62 + Math.random() * 8; // 62-70°F default range
+  // Parse water_temp from DB text (e.g., "57°F") with deterministic fallback (Bug 6)
+  const waterTemp = parseWaterTemp(forecast?.water_temp as string | null) ?? 64;
 
   return {
     waveHeight: parseFloat(String(forecast?.wave_height || 0)) || null,
@@ -65,7 +66,7 @@ export async function fetchSurfConditions(
     windDirection: forecast?.wind_direction || null,
     tideHeight: parseFloat(String(forecast?.tide_height || 0)) || null,
     tideStatus: forecast?.tide_status || null,
-    waterTemp: Math.round(waterTemp),
+    waterTemp,
   };
 }
 
