@@ -11,26 +11,18 @@ import {
   Wind,
   Sun,
   Globe2,
-  ChevronDown,
   CalendarDays,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
-import { SimplifiedForecastTable } from "@/components/forecast/forecast-table";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { resolveBeachTimezone, getLocalDateString } from "@/lib/utils/timezone-utils";
-import { extractForecastDate, extractLocalHour } from "@/lib/utils/forecast-at-adapter";
+import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { useDynamicTide } from "@/hooks/use-dynamic-tide";
 import { useSunTimes } from "@/hooks/use-sun-times";
 import { TideConditionsCard } from "@/components/beach-detail/tide-conditions-card";
@@ -39,21 +31,13 @@ import { YesterdaysAccuracyCard } from "@/components/beach-detail/yesterdays-acc
 import { TideAlertBadge } from "@/components/beach-detail/tide-alert";
 import { getTideAlert } from "@/lib/surf/tide-direction";
 import { HorizonStrip } from "@/components/forecast/horizon-strip";
-import { aggregateDayForecasts, formatWaveRange, type DaySummary } from "@/lib/utils/horizon-strip-utils";
+import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
-
-const DetailedSwellModal = dynamic(
-  () =>
-    import("@/components/beach-detail/detailed-swell-modal").then(
-      (m) => m.DetailedSwellModal
-    ),
-  { ssr: false }
-);
 
 const ConditionsOverview = dynamic(
   () =>
@@ -86,15 +70,10 @@ export function ForecastTab({
   publicMode = false,
   yesterdayAccuracy,
 }: ForecastTabProps) {
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [selectedForecastEntry, setSelectedForecastEntry] =
-    useState<EnhancedForecastEntity | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
   const [horizonAuthModal, setHorizonAuthModal] = useState(false);
-  const [outlookAuthModal, setOutlookAuthModal] = useState(false);
 
   // Horizon Strip: selected date for filtering (defaults to today)
   const [horizonSelectedDate, setHorizonSelectedDate] = useState<string>(() => {
@@ -106,61 +85,6 @@ export function ForecastTab({
     setActiveSubTab("conditions");
   }, []); // State setters are stable refs
 
-  const forecastsByDate = useMemo(() => {
-    const grouped: Record<string, EnhancedForecastEntity[]> = {};
-    const tz = resolveBeachTimezone(beachTimezone);
-
-    if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
-      forecasts.forEach((forecast) => {
-        if (forecast && forecast.forecast_at) {
-          const date = extractForecastDate(forecast.forecast_at, tz);
-          if (!grouped[date]) {
-            grouped[date] = [];
-          }
-          grouped[date].push(forecast);
-        }
-      });
-    }
-
-    return grouped;
-  }, [forecasts, beachTimezone]);
-
-  const sortedDates = useMemo(
-    () => Object.keys(forecastsByDate).sort(),
-    [forecastsByDate]
-  );
-
-  const miniForecastDays = useMemo(() => {
-    const today = getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
-    return sortedDates
-      .filter((date) => date >= today)
-      .slice(0, 5)
-      .map((date) => {
-        const dayEntries = forecastsByDate[date] || [];
-        if (!dayEntries.length) {
-          return null;
-        }
-        const tz = resolveBeachTimezone(beachTimezone);
-        const middayEntry = dayEntries.find((entry) =>
-          entry.forecast_at ? extractLocalHour(entry.forecast_at, tz) === 12 : false
-        );
-        const fallbackEntry =
-          dayEntries[Math.floor(dayEntries.length / 2)] || dayEntries[0];
-        return {
-          date,
-          forecast: middayEntry || fallbackEntry,
-        };
-      })
-      .filter(Boolean) as {
-      date: string;
-      forecast: EnhancedForecastEntity;
-    }[];
-  }, [sortedDates, forecastsByDate, beachTimezone]);
-
-  // Public mode: visible and hidden days for 5-Day Outlook
-  const visibleDays = publicMode ? miniForecastDays.slice(0, 3) : miniForecastDays;
-  const hiddenDaysCount = publicMode ? Math.max(0, miniForecastDays.length - 3) : 0;
-
   // Horizon Strip: aggregated day summaries (12 days)
   const horizonDaySummaries = useMemo(() => {
     return aggregateDayForecasts(forecasts, beach, {
@@ -168,15 +92,6 @@ export function ForecastTab({
       timezone: beachTimezone || undefined,
     });
   }, [forecasts, beach, beachTimezone]);
-
-  // Lookup horizon summaries by date for 5-Day Outlook wave range display
-  const horizonSummaryByDate = useMemo(() => {
-    const map = new Map<string, DaySummary>();
-    for (const summary of horizonDaySummaries) {
-      map.set(summary.fullDate, summary);
-    }
-    return map;
-  }, [horizonDaySummaries]);
 
   // Public mode: limit horizon to 3 days
   const publicHorizonDays = publicMode ? horizonDaySummaries.slice(0, 3) : horizonDaySummaries;
@@ -191,17 +106,6 @@ export function ForecastTab({
       return null;
     }
   }, [publicMode, horizonDaySummaries]);
-
-  const firstHiddenOutlookDayName = useMemo(() => {
-    if (!publicMode || miniForecastDays.length <= 3) return null;
-    const hiddenDay = miniForecastDays[3];
-    if (!hiddenDay?.date) return null;
-    try {
-      return new Date(`${hiddenDay.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" });
-    } catch {
-      return null;
-    }
-  }, [publicMode, miniForecastDays]);
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -339,7 +243,6 @@ export function ForecastTab({
   };
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
-  const heroPeriod = formatMetric(currentForecast?.wave_period);
 
   // Dynamic tide display with fallback to static forecast values
   const heroNextTideType = dynamicTide.nextTide
@@ -620,142 +523,6 @@ export function ForecastTab({
               </PublicContentGate>
             ) : bestSurfWindowContent;
           })()}
-
-          {/* 5-Day Outlook */}
-          {forecasts.length > 0 && (
-            <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                  {publicMode ? "3-Day Outlook" : "5-Day Outlook"}
-                </h2>
-                <span className="text-sm text-muted-foreground">
-                  Quick glance forecast
-                </span>
-              </div>
-              {miniForecastDays.length > 0 && (
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                  {visibleDays.map(({ date, forecast }) => {
-                    const label = (() => {
-                      try {
-                        return new Date(`${date}T00:00:00`).toLocaleDateString(
-                          undefined,
-                          { weekday: "short" }
-                        );
-                      } catch {
-                        return date;
-                      }
-                    })();
-                    const periodDisplay = formatMetric(forecast.wave_period);
-                    const windDirection = forecast.wind_direction ?? "";
-                    const swellDirection = forecast.wave_direction ?? "—";
-                    const swellDetails =
-                      periodDisplay === "—"
-                        ? `— · ${swellDirection}`
-                        : `${periodDisplay} s · ${swellDirection}`;
-                    const daySummary = horizonSummaryByDate.get(date);
-                    return (
-                      <button
-                        key={date}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDay(date);
-                          setSelectedForecastEntry(forecast);
-                          setIsModalOpen(true);
-                        }}
-                        className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
-                      >
-                        <div className="text-xs font-medium text-muted-foreground" suppressHydrationWarning>
-                          <span>{label}</span>
-                        </div>
-                        <div className="mt-2 flex items-baseline gap-1">
-                          {daySummary ? (
-                            <span className="text-2xl font-bold text-ocean-blue">
-                              {formatWaveRange(daySummary.minHeight, daySummary.maxHeight)}
-                            </span>
-                          ) : forecast.wave_height == null && forecast.wave_period == null ? (
-                            <span className="text-lg font-medium text-muted-foreground">
-                              No data
-                            </span>
-                          ) : (
-                            <>
-                              <span className="text-2xl font-bold text-ocean-blue">
-                                {formatMetric(forecast.wave_height)}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                ft
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Wind className="h-3 w-3" />
-                          <span>{forecast.wind_speed ?? "—"}</span>
-                          <span className="uppercase">{windDirection}</span>
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {swellDetails}
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {publicMode && hiddenDaysCount > 0 && (
-                    <>
-                      <button
-                        type="button"
-                        className="col-span-1 flex flex-col items-center justify-center rounded-2xl
-                          border border-dashed border-ocean-blue/15 bg-gradient-to-br from-blue-50/50 to-cyan-50/30
-                          p-4 text-center cursor-pointer
-                          hover:border-ocean-blue/25 hover:bg-blue-50/70 transition-all"
-                        onClick={() => {
-                          track("signup_cta_click", { source: "5day-outlook-card" });
-                          trackAuthModalOpened({ mode: "signup", source: "5day-outlook-card" });
-                          setOutlookAuthModal(true);
-                        }}
-                      >
-                        <CalendarDays className="h-5 w-5 text-ocean-blue/50 mb-1.5" />
-                        <p className="text-xs font-medium text-gray-700">
-                          {firstHiddenOutlookDayName ?? `+${hiddenDaysCount} more`}
-                        </p>
-                        <p className="text-[11px] text-ocean-blue mt-1 font-medium">
-                          See what's coming
-                        </p>
-                      </button>
-                      <UnifiedAuthModal
-                        isOpen={outlookAuthModal}
-                        onClose={() => setOutlookAuthModal(false)}
-                        mode="signup"
-                        source="5day-outlook-card"
-                        contextMessage={{
-                          title: "See the Full Outlook",
-                          description: "Plan your week with the 12-day forecast",
-                        }}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Collapsible Detailed Forecast */}
-              <Collapsible className="mt-6">
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-between rounded-2xl hover:bg-blue-50/50"
-                  >
-                    <span className="text-sm font-medium">
-                      View Detailed {publicMode ? "3" : "5"}-Day Forecast
-                    </span>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="mt-4">
-                    <SimplifiedForecastTable forecasts={publicFilteredForecasts} beachTimezone={beachTimezone} />
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </section>
-          )}
         </TabsContent>
 
         {/* Tides Tab */}
@@ -795,20 +562,6 @@ export function ForecastTab({
         </TabsContent>
       </Tabs>
 
-      {/* Detailed Swell Modal */}
-      <DetailedSwellModal
-        forecast={
-          selectedForecastEntry ||
-          (selectedDay ? forecastsByDate[selectedDay]?.[0] || null : null)
-        }
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedDay(null);
-          setSelectedForecastEntry(null);
-        }}
-        selectedDate={selectedDay}
-      />
     </div>
     </DataErrorBoundary>
   );

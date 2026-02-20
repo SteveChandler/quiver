@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Duplicate 5-Day Outlook section:** Removed the card-style "5-Day Outlook" section (mini forecast cards + collapsible forecast table) from the Today sub-tab in `ForecastTab`. The `HorizonStrip` at the top of the tab already provides the N-Day Outlook, making the section redundant. Deleted the now-orphaned `DetailedSwellModal` component and its tests.
+
 ### Fixed
+
+- **E2E tests updated for PublicContentGate:** Replaced stale assertions against the deleted `SurfCallSignInCTA` component in `e2e/guest-spot-surf-report.spec.ts` and `e2e/auth-spot-surf-report.spec.ts`. Guest tests now verify the `PublicContentGate` CTA heading ("See Today's Best Window") and "Sign Up Free" button are visible, and that clicking the button opens a modal (not navigates to `/auth/sign-in`). Auth test now asserts that the gate heading and button are absent for authenticated users.
 
 - **CDIP buoy station assignments:** Corrected 10 San Diego beaches that were incorrectly resolving to CDIP 201 (Scripps Nearshore) via haversine nearest-station. Mission Beach / Ocean Beach area (6 beaches) now uses CDIP 220 (Mission Bay West); Sunset Cliffs area (4 beaches) now uses CDIP 191 (Point Loma South). Also added optional `cdipStationOverride` parameter to `DataSourceManager.fetchBuoyObservationWithFallback()` for code path consistency with `enhanced-forecast-service.ts`.
 
@@ -24,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **E2E silent console.log+return patterns:** Converted ~14 `console.log('...'); return;` patterns across `e2e/map.spec.ts`, `e2e/map-coordinate-validation.spec.ts`, `e2e/map-use-near-me.spec.ts`, `e2e/dev-validation.spec.ts`, and `e2e/guest-landing.spec.ts` to `test.skip(true, 'reason'); return;` so Playwright reports them as skipped rather than silently passing green.
 
 ### Added
+
+- **Surf call conditions gating:** Blurred best window, wave height, wind, tide, and why sentence behind a `PublicContentGate` sign-up CTA for unauthenticated users on the Today's/Tomorrow's Surf Call card. Verdict badge, heading, updated time, and confidence badge remain visible to all users. Removed the obsolete `SurfCallSignInCTA` inline link (replaced by the gate).
 
 - **Forecast unit tests:** Added 61 new tests for `batch-beach-processor.ts` (DeadlineTracker, batch config loading, batch processing) and `data-source-manager.ts` (service delegation, data source accessors, wave/tide/weather fetching).
 

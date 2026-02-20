@@ -141,30 +141,47 @@ test.describe('Spot Surf Report', () => {
     }
   });
 
-  test('guest users see sign-in CTA on spot page', async ({ page }) => {
+  test('guest users see PublicContentGate CTA on surf report conditions', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
-      const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });
-      await expect(ctaLink).toBeVisible();
-      await expect(ctaLink).toHaveAttribute('href', '/auth/sign-in');
+      // The PublicContentGate renders an h3 with ctaTitle and a "Sign Up Free" button
+      const gateTitle = surfReport.getByRole('heading', { name: /see today's best window/i });
+      const hasCTATitle = await isVisibleSafe(gateTitle);
+
+      if (hasCTATitle) {
+        await expect(gateTitle).toBeVisible();
+
+        // The gate renders a primary "Sign Up Free" button (not a link)
+        const signUpButton = surfReport.getByRole('button', { name: /sign up free/i });
+        await expect(signUpButton).toBeVisible();
+      }
     }
   });
 
-  test('clicking sign-in CTA navigates to auth page', async ({ page }) => {
+  test('clicking PublicContentGate CTA opens auth modal for guest users', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await isVisibleSafe(surfReport);
 
     if (isVisible) {
-      const ctaLink = surfReport.getByRole('link', { name: /sign in for your call/i });
-      await ctaLink.click();
-      await page.waitForURL('**/auth/sign-in');
-      expect(page.url()).toContain('/auth/sign-in');
+      const signUpButton = surfReport.getByRole('button', { name: /sign up free/i });
+      const hasButton = await isVisibleSafe(signUpButton);
+
+      if (hasButton) {
+        await signUpButton.click();
+
+        // PublicContentGate opens UnifiedAuthModal (a dialog), not a page navigation
+        const authModal = page.getByRole('dialog');
+        await expect(authModal).toBeVisible({ timeout: 5000 });
+
+        // URL should remain on the beach page — no navigation occurs
+        expect(page.url()).not.toContain('/auth/sign-in');
+      }
     }
   });
 

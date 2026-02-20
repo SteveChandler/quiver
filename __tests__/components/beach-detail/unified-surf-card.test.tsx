@@ -65,6 +65,7 @@ describe("UnifiedSurfCard", () => {
     windType: "offshore",
     tideDescription: "Rising mid tide",
     tidePhase: "rising",
+    tideHeight: null,
     nextTideType: "high",
     nextTideAt: "2026-02-10T14:00:00",
     trendTags: [],

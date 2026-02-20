@@ -8,7 +8,7 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/erro
  * ForecastTab - Tabbed Interface Tests
  *
  * Tests the restructured ForecastTab component with three sub-tabs:
- * 1. Today (default) - Current conditions, live cam, best surf window, 5-day outlook
+ * 1. Today (default) - Current conditions, live cam, best surf window
  * 2. Tides - Tide chart visualization
  * 3. Conditions - Detailed forecast table
  *
@@ -237,44 +237,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       }
     });
 
-    test('should display 5-Day Outlook section', async ({ page }) => {
-      const outlookHeading = page.getByRole('heading', { name: /5-day outlook/i });
-      await expect(outlookHeading).toBeVisible({ timeout: TIMEOUTS.short });
-    });
-
-    test('should display mini forecast cards (5 days)', async ({ page }) => {
-      // Look for forecast cards with day labels (Mon, Tue, Wed, etc.)
-      const forecastCards = page.locator('[class*="rounded-2xl"]').filter({
-        hasText: /mon|tue|wed|thu|fri|sat|sun/i
-      });
-
-      const cardCount = await forecastCards.count();
-
-      // Should have at least 3 forecast cards (may not always have full 5 days)
-      expect(cardCount).toBeGreaterThanOrEqual(3);
-      expect(cardCount).toBeLessThanOrEqual(5);
-    });
-
-    test('should display collapsible detailed forecast button', async ({ page }) => {
-      const detailedForecastButton = page.getByRole('button', {
-        name: /view detailed 5-day forecast/i
-      });
-      await expect(detailedForecastButton).toBeVisible({ timeout: TIMEOUTS.short });
-    });
-
-    test('should expand detailed forecast when collapsible is clicked', async ({ page }) => {
-      const detailedForecastButton = page.getByRole('button', {
-        name: /view detailed 5-day forecast/i
-      });
-
-      // Click to expand
-      await detailedForecastButton.click();
-
-      // Verify forecast table appears
-      const forecastTable = page.getByRole('table').first();
-      await expect(forecastTable).toBeVisible({ timeout: TIMEOUTS.short });
-    });
-
     test('should conditionally display Live Cam section if beach has camera', async ({ page }) => {
       // Check if Live Cam section exists
       const liveCamHeading = page.getByRole('heading', { name: /live cam/i });
@@ -396,8 +358,8 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       const tidesTab = page.getByRole('tab', { name: /tides/i });
       await expect(tidesTab).toBeVisible();
 
-      // Verify content layout adapts
-      const outlookHeading = page.getByRole('heading', { name: /5-day outlook/i });
+      // Verify content layout adapts - HorizonStrip heading uses dynamic day count
+      const outlookHeading = page.getByRole('heading', { name: /\d+-day outlook/i });
       await expect(outlookHeading).toBeVisible({ timeout: TIMEOUTS.short });
     });
 
