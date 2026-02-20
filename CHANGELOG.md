@@ -7,12 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`lib/formatters/surf-data.ts`:** New single source of truth for all surf data formatting. Exports `formatWaveHeight` (integer-rounded range string, "Flat" for non-positive), `formatWindSpeed` (rounded integer + " mph"), `formatSwellPeriod` (rounded integer + "s"), `formatTideHeight` (1 decimal + "ft"), and `formatWaterTemp` (rounded integer + "°F").
+
+### Changed
+
+- **Tide height formatting:** Migrated all inline tide height display to `formatTideHeight()` from `@/lib/formatters/surf-data`. Replaced `.toFixed(1) + "ft"` patterns and the manual `Math.round(x * 10) / 10}ft` equivalent across `components/forecast/tide-hourly-table.tsx` (3 occurrences), `components/forecast/tide-chart-recharts.tsx` (Now-line label), `components/forecast/tide-chart/TideTooltip.tsx`, `components/forecast/tide-next-extreme.tsx` (4 occurrences across card, compact, and row variants), `components/intent/seven-day-tide-table.tsx` (3 occurrences), `components/intent/beach-tide-cards.tsx`, and `components/ui/tide-timing.tsx`. Chart Y-axis `tickFormatter` and diagnostic `.toFixed(2)` usages intentionally preserved.
+
+- **Swell period formatting:** Migrated all inline swell period display to `formatSwellPeriod()` from `@/lib/formatters/surf-data`. Replaced `{day.period.toFixed(0)}s` in `components/forecast/horizon-strip.tsx`, `{event.period.toFixed(0)}s` in `components/forecast/swell-event-card.tsx`, the inline `` `${num}s` `` template in the `formatPeriod` helper in `components/ui/wave-period-display.tsx`, and the final return in `lib/services/forecast/format-utils.ts` `formatPeriodSeconds` (validation logic preserved, delegation added).
+
+- **Wave height formatting:** Migrated all inline wave height display formatting to `formatWaveHeight()` from `@/lib/formatters/surf-data`. Affected files: `components/landing-page/surf-spot-card.tsx` (removed `Math.round(waveHeight)}ft`), `components/map/sidebar-beach-card.tsx` (replaced local `formatCompactWaveHeight` body), `components/forecast/best-right-now.tsx` (removed template literal), `components/forecast/adjusted-forecast-display.tsx` (all raw/adjusted wave display strings), `lib/utils/surf-call-logic.ts` (too-small wave height fallback string).
+
+- **Water temperature formatting:** Migrated all inline water temperature display to `formatWaterTemp()` from `@/lib/formatters/surf-data`. Replaced `Math.round(tempF)}°F` and `${tempF}°F` patterns in `lib/utils/coast-pulse-formatter.ts` (fallback buoy message path, via aliased import `formatWaterTempSimple`), `lib/services/forecast/forecast-builder.ts` (IOOS and NDBC priority paths, and `estimateWaterTemperature`). Removed duplicate local `formatWaterTemp` implementation from `lib/utils/wetsuit-utils.ts`, replacing it with a re-export from `@/lib/formatters/surf-data`. Migrated `{forecastData.water_temp}°F` in `components/session-forms/ConditionsSection.tsx` and `formatConditionValue(checkIn.water_temp, "°F")` in `components/ui/check-in-display.tsx`.
+
+- **Wind speed formatting:** Migrated all inline wind speed display to `formatWindSpeed()` from `@/lib/formatters/surf-data`. In `lib/utils/coast-pulse-formatter.ts`, replaced the knot-based `${conditions.wind_speed}kt` display in `formatIntelMessage` with `formatWindSpeed(Math.round(conditions.wind_speed * 1.151))` (knots-to-mph conversion), and replaced `${Math.round(windSpeed)}mph` patterns in `formatForecastConditions` (onshore, cross-shore, and fallback branches). In `lib/analyzers/wind-analyzer.ts`, replaced all six `${wind.speed} mph` template literals in `analyzeWindConditions` with `formatWindSpeed(wind.speed)`.
+
 ### Removed
 
 - **Landing page:** Removed "Best conditions right now" card grid section — ticker remains.
 - **Dead code:** Deleted `actions/forecast/get-best-conditions-today.ts` — consumed only by the now-deleted `BestConditionsSection` component, zero live references remaining.
 
 ### Fixed
+
+- **Tide height display (`surf-call-logic`, `spot-surf-report`):** Added `tideHeight` field (formatted as e.g. `"2.3ft"`) to `TideData`, `SurfCallResult`, and all `getWindowTide` return paths. `spot-surf-report.tsx` now renders `"Rising 2.3ft"` when next-tide-event data is unavailable but a current height reading exists, instead of just `"Rising"`. All 85 existing `surf-call-logic` tests continue to pass with no changes to test expectations.
 
 - **Embed chart (wind bars):** Wind histogram bars now span the full chart width instead of being compressed to the left ~1/6. Switched visible range sync from logical (index-based) to time-based, so charts with different data densities (smoothed wave vs raw wind) share the same time window. Added an invisible anchor series with dense time points to the wind chart so the crosshair snaps to fine-grained positions instead of nearest hourly bar.
 

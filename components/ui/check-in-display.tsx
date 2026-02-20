@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckInWithUser, ForecastAccuracyStats } from "@/types/database";
+import { formatWaterTemp } from "@/lib/formatters/surf-data";
 import {
   Waves,
   Wind,
@@ -170,7 +171,7 @@ export function CheckInDisplay({
               <Thermometer className="h-4 w-4 text-blue-500 flex-shrink-0" />
               <div>
                 <div className="text-sm font-medium">
-                  {formatConditionValue(checkIn.water_temp, "°F")}
+                  {formatWaterTemp(checkIn.water_temp)}
                 </div>
                 <div className="text-xs text-gray-500">Water</div>
               </div>

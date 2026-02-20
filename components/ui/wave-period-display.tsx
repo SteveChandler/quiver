@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Waves, Timer, Navigation, Activity } from "lucide-react";
+import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
 interface WavePeriodDisplayProps {
   waveHeight: string | null;
@@ -37,7 +38,7 @@ export function WavePeriodDisplay({
     // Try to parse as number and add seconds
     const num = parseFloat(period);
     if (!isNaN(num)) {
-      return `${num}s`;
+      return formatSwellPeriod(num);
     }
 
     return period;

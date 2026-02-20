@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowUp, ArrowDown, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 import type { TideNextExtremeProps } from "@/types/tide-diagnostics";
 
 /**
@@ -84,9 +85,8 @@ function TideExtremeCard({
             isHigh ? "text-blue-900" : "text-slate-900"
           )}
         >
-          {height.toFixed(1)}
+          {formatTideHeight(height)}
         </span>
-        <span className="text-sm text-slate-500 ml-1">{unit}</span>
       </div>
 
       {/* Time */}
@@ -224,7 +224,7 @@ export function TideNextExtremeCompact({
           >
             <ArrowUp className="h-4 w-4 text-blue-600" />
             <span className="font-medium">
-              {nextHigh.height.toFixed(1)} {unit}
+              {formatTideHeight(nextHigh.height)}
             </span>
             <span className="text-slate-500">
               @ {formatTime(nextHigh.time)}
@@ -243,7 +243,7 @@ export function TideNextExtremeCompact({
           >
             <ArrowDown className="h-4 w-4 text-slate-600" />
             <span className="font-medium">
-              {nextLow.height.toFixed(1)} {unit}
+              {formatTideHeight(nextLow.height)}
             </span>
             <span className="text-slate-500">
               @ {formatTime(nextLow.time)}
@@ -290,7 +290,7 @@ export function TideNextExtremeRow({
         <div className="text-xs text-slate-500 mb-0.5">Next High</div>
         {nextHigh && minutesToHigh !== null ? (
           <div className="font-medium text-blue-700">
-            {formatTime(nextHigh.time)} · {nextHigh.height.toFixed(1)} {unit}
+            {formatTime(nextHigh.time)} · {formatTideHeight(nextHigh.height)}
           </div>
         ) : (
           <div className="text-slate-400">—</div>
@@ -300,7 +300,7 @@ export function TideNextExtremeRow({
         <div className="text-xs text-slate-500 mb-0.5">Next Low</div>
         {nextLow && minutesToLow !== null ? (
           <div className="font-medium text-slate-700">
-            {formatTime(nextLow.time)} · {nextLow.height.toFixed(1)} {unit}
+            {formatTime(nextLow.time)} · {formatTideHeight(nextLow.height)}
           </div>
         ) : (
           <div className="text-slate-400">—</div>

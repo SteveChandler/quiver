@@ -11,6 +11,7 @@
 import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
 import { cardinalToDegrees } from "./forecast-transformer";
+import { formatWaterTemp } from "@/lib/formatters/surf-data";
 import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
@@ -612,13 +613,13 @@ export class ForecastBuilder {
   ): string | null {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
-      const tempF = Math.round((ioosWaterTempC * 9) / 5 + 32);
-      return `${tempF}°F`;
+      const tempF = (ioosWaterTempC * 9) / 5 + 32;
+      return formatWaterTemp(tempF);
     }
 
     // Priority 2: NDBC buoy water temperature
     if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
-      return `${Math.round((buoyData.water_temperature * 9) / 5 + 32)}°F`;
+      return formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32);
     }
 
     // Priority 3: Latitude-based estimation
@@ -693,8 +694,8 @@ export class ForecastBuilder {
     // Seasonal adjustment - water temp peaks around Aug-Sep (lags air by 1-2 months)
     const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 2) * Math.PI) / 6);
 
-    const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
-    return `${estimatedTemp}°F`;
+    const estimatedTemp = baseTemp + seasonalAdjustment;
+    return formatWaterTemp(estimatedTemp);
   }
 
   private estimateAirTemperature(lat: number, date: Date): string {

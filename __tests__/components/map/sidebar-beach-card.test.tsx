@@ -35,7 +35,8 @@ describe("SidebarBeachCard", () => {
 
   it("renders wave height", () => {
     render(<SidebarBeachCard {...defaultProps} />);
-    expect(screen.getByText("3.5 ft")).toBeInTheDocument();
+    // formatWaveHeight(3.5): low=round(3.5)=4, high=round(3.5*1.5)=round(5.25)=5 -> "4-5ft"
+    expect(screen.getByText("4-5ft")).toBeInTheDocument();
   });
 
   it("renders distance", () => {

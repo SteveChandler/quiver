@@ -42,7 +42,7 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
         .filter(Boolean).join(' ')
     : report.windDescription !== 'Unknown' ? report.windDescription : null;
 
-  // Format tide display: "Rising → High @ 1:10 PM"
+  // Format tide display: "Rising → High @ 1:10 PM" or "Rising 2.3ft"
   let tideDisplay: string | null = null;
   if (report.tidePhase) {
     const phase = report.tidePhase.charAt(0).toUpperCase() + report.tidePhase.slice(1);
@@ -53,6 +53,8 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
       } else {
         tideDisplay = phase;
       }
+    } else if (report.tideHeight) {
+      tideDisplay = `${phase} ${report.tideHeight}`;
     } else {
       tideDisplay = phase;
     }

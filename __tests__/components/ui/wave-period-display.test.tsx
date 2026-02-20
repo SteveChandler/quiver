@@ -291,7 +291,8 @@ describe("WavePeriodDisplay", () => {
         />
       );
 
-      expect(screen.getByText("12.5s")).toBeInTheDocument();
+      // formatSwellPeriod rounds to nearest integer: round(12.5)=13 -> "13s"
+      expect(screen.getByText("13s")).toBeInTheDocument();
     });
 
     it("should handle invalid period values", () => {

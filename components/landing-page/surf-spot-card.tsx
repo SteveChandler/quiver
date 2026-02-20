@@ -8,6 +8,7 @@ import { Bookmark, Star, Waves } from "lucide-react";
 import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
+import { formatWaveHeight } from "@/lib/formatters/surf-data";
 
 export interface SurfSpotCardProps {
   id: string;
@@ -152,7 +153,7 @@ export function SurfSpotCard({
                 <>
                   <span className="flex items-center gap-0.5">
                     <Waves className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="font-medium text-gray-800">{Math.round(waveHeight)}ft</span>
+                    <span className="font-medium text-gray-800">{formatWaveHeight(waveHeight)}</span>
                   </span>
                   <span className="text-gray-300">·</span>
                 </>

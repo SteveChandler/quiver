@@ -3,6 +3,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatWaveHeight } from "@/lib/formatters/surf-data";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
@@ -154,10 +155,10 @@ export function AdjustedForecastDisplay({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground line-through">
-                  {rawWaveHeight}ft
+                  {formatWaveHeight(rawWaveHeight)}
                 </span>
                 <span className="font-medium text-blue-600">
-                  {adjustedWaveHeight}ft
+                  {formatWaveHeight(adjustedWaveHeight)}
                 </span>
               </div>
             </div>
@@ -278,7 +279,7 @@ export function AdjustedForecastDisplay({
                         : "text-blue-600"
                     )}
                   >
-                    {rawWaveHeight} ft
+                    {formatWaveHeight(rawWaveHeight)}
                   </div>
                 </div>
 
@@ -288,14 +289,14 @@ export function AdjustedForecastDisplay({
                       Community Adjusted
                     </div>
                     <div className="text-lg font-bold text-blue-600">
-                      {adjustedWaveHeight} ft
+                      {formatWaveHeight(adjustedWaveHeight)}
                     </div>
                   </div>
                 ) : (
                   <div className="text-center p-2 bg-blue-50 rounded">
                     <div className="text-sm text-blue-600">Confirmed</div>
                     <div className="text-lg font-bold text-blue-600">
-                      {adjustedWaveHeight} ft
+                      {formatWaveHeight(adjustedWaveHeight)}
                     </div>
                   </div>
                 )}

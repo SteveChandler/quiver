@@ -12,6 +12,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 import { interpolateTideHeight } from "@/lib/utils/tide-interpolation";
 import {
   calculateTideWindow,
@@ -407,7 +408,7 @@ export function TideChart({
                 label={{
                   value:
                     nowHeight !== null
-                      ? `Now · ${nowHeight.toFixed(1)} ${unit}`
+                      ? `Now · ${formatTideHeight(nowHeight)}`
                       : "Now",
                   position: "top",
                   fill: "#dc2626",

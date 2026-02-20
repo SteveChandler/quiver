@@ -9,6 +9,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 import type {
   TideHourlyTableProps,
   TideHourlyPoint,
@@ -92,9 +93,8 @@ function TableRow({ point, unit }: { point: TideHourlyPoint; unit: string }) {
             point.isCurrent && "text-blue-800"
           )}
         >
-          {point.height.toFixed(1)}
+          {formatTideHeight(point.height)}
         </span>
-        <span className="text-slate-400 ml-1">{unit}</span>
       </td>
 
       {/* Trend */}
@@ -242,7 +242,7 @@ export function TideHourlyTableCompact({
                 >
                   <td className="py-1.5 px-2">{formatTime(point.time)}</td>
                   <td className="py-1.5 px-2 text-right font-medium">
-                    {point.height.toFixed(1)}
+                    {formatTideHeight(point.height)}
                   </td>
                   <td className="py-1.5 px-2">{getTrendIcon(point.trend)}</td>
                 </tr>
@@ -276,7 +276,7 @@ export function TideHourlyTableCompact({
                 >
                   <td className="py-1.5 px-2">{formatTime(point.time)}</td>
                   <td className="py-1.5 px-2 text-right font-medium">
-                    {point.height.toFixed(1)}
+                    {formatTideHeight(point.height)}
                   </td>
                   <td className="py-1.5 px-2">{getTrendIcon(point.trend)}</td>
                 </tr>

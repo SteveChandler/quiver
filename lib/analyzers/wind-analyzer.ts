@@ -16,6 +16,7 @@ import type {
   BeachPreferences,
   ConditionEvaluation,
 } from "@/types/morning-intel";
+import { formatWindSpeed } from "@/lib/formatters/surf-data";
 
 // Ocean Beach, San Diego faces approximately WSW (260-270°)
 const OB_SHORE_NORMAL = 270; // degrees
@@ -145,19 +146,19 @@ export function analyzeWindConditions(
       return {
         status: "optimal",
         emoji: "✅",
-        message: `Light winds (${wind.speed} mph ${wind.cardinal})`,
+        message: `Light winds (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
       };
     } else if (wind.speed < 10) {
       return {
         status: "acceptable",
         emoji: "⚠️",
-        message: `Moderate winds (${wind.speed} mph ${wind.cardinal})`,
+        message: `Moderate winds (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
       };
     } else {
       return {
         status: "poor",
         emoji: "❌",
-        message: `Strong winds (${wind.speed} mph ${wind.cardinal})`,
+        message: `Strong winds (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
       };
     }
   }
@@ -171,19 +172,19 @@ export function analyzeWindConditions(
     return {
       status: "optimal",
       emoji: "✅",
-      message: `${wind.description} (${wind.speed} mph ${wind.cardinal})`,
+      message: `${wind.description} (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
     };
   } else if (isOffshore || wind.speed < 8) {
     return {
       status: "acceptable",
       emoji: "⚠️",
-      message: `${wind.description} (${wind.speed} mph ${wind.cardinal})`,
+      message: `${wind.description} (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
     };
   } else {
     return {
       status: "poor",
       emoji: "❌",
-      message: `${wind.description} (${wind.speed} mph ${wind.cardinal})`,
+      message: `${wind.description} (${formatWindSpeed(wind.speed)} ${wind.cardinal})`,
     };
   }
 }

@@ -11,6 +11,7 @@ import {
 } from "@/lib/utils/horizon-strip-utils";
 import { HorizonStripSkeleton } from "./horizon-strip-skeleton";
 import { track } from "@/lib/analytics";
+import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
 export interface HorizonStripProps {
   /** Array of day summaries to display */
@@ -119,7 +120,7 @@ function DayCard({
         </span>
         {day.period && (
           <span className="text-[10px] opacity-80 leading-tight">
-            {day.period.toFixed(0)}s
+            {formatSwellPeriod(day.period)}
           </span>
         )}
       </div>

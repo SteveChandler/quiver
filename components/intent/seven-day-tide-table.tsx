@@ -2,6 +2,7 @@
 
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 import type { TideDayExtrema, TideExtremaEvent } from "@/actions/forecast/intent-forecast-actions";
 
 interface SevenDayTideTableProps {
@@ -21,7 +22,7 @@ function TideEventCell({ event }: { event: TideExtremaEvent | undefined }) {
     <span className="inline-flex items-center gap-1">
       <Icon className={cn("h-3.5 w-3.5", colorClass)} />
       <span className="font-medium">{event.timeFormatted}</span>
-      <span className="text-gray-500 text-xs">({event.height.toFixed(1)} ft)</span>
+      <span className="text-gray-500 text-xs">({formatTideHeight(event.height)})</span>
     </span>
   );
 }
@@ -118,7 +119,7 @@ export function SevenDayTideTable({ days }: SevenDayTideTableProps) {
                     <span>
                       {h.timeFormatted}{" "}
                       <span className="text-gray-500">
-                        ({h.height.toFixed(1)} ft)
+                        ({formatTideHeight(h.height)})
                       </span>
                     </span>
                   </div>
@@ -129,7 +130,7 @@ export function SevenDayTideTable({ days }: SevenDayTideTableProps) {
                     <span>
                       {l.timeFormatted}{" "}
                       <span className="text-gray-500">
-                        ({l.height.toFixed(1)} ft)
+                        ({formatTideHeight(l.height)})
                       </span>
                     </span>
                   </div>
