@@ -9,9 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Forecast unit tests:** Added 61 new tests for `batch-beach-processor.ts` (DeadlineTracker, batch config loading, batch processing) and `data-source-manager.ts` (service delegation, data source accessors, wave/tide/weather fetching).
+
+- **Personalization API mocks:** New `e2e/fixtures/personalization-mocks.ts` provides `setupPersonalizationMocks(page)` for E2E tests — intercepts 4 personalization API endpoints via `page.route()` so tests run in any environment without seeded data.
+
+### Changed
+
+- **Jest coverage thresholds:** Added `coverageThreshold` to `jest.config.js` (lines: 54%, statements: 54%, functions: 61%, branches: 72%) to prevent silent regression. Removed `collectCoverage: true` from default config so `yarn test:unit` runs fast (~4s vs ~180s).
+
+- **Personalization E2E tests:** Refactored all 3 personalization specs (`personalization-scores`, `personalization-activation`, `personalized-insights`) from `test.skip()` on non-local environments to API mocking via `page.route()`. Tests now verify real UI behavior in any environment (42 passing, 10 fixme for deleted component).
+
+### Fixed
+
+- **E2E selector:** Fixed `familiarity-badge` -> `affinity-badge` in `personalization-helpers.ts` (3 occurrences).
+
+- **E2E selector:** Fixed brittle XPath `contains(@class, 'bg-white')` in surf style card test — matched 2 elements (`bg-white/80` and `bg-white/10`). Now targets `backdrop-blur` ancestor with `.first()`.
+
+- **Error detection comments:** Clarified why `error-detection.ts` suppresses generic Chrome 500 console messages — they're de-duplicated, not ignored (network error reporter still catches 500s with full URLs).
+
+### Fixed
+
+- **E2E tests:** Fixed assertion-less tests and silent error swallowing across 3 spec files. `e2e/personalization-scores.spec.ts`: added `expect(activeTag).toBeTruthy()` to keyboard navigation test and added `expect(badgeClasses).toBeTruthy()` plus computed outline-style assertion to focus states test. `e2e/beach-detail/yesterdays-accuracy.spec.ts`: replaced 3 `Promise.race([card.waitFor().catch(() => {}), waitForTimeout()])` blocks with direct `isVisibleSafe(card, { timeout: 5000 })` calls; added missing `isVisibleSafe` import. `e2e/home/header-animations.spec.ts`: replaced 2 `expect(heroLoading).not.toBeVisible().catch(() => {})` assertion-as-wait patterns with `heroLoading.waitFor({ state: 'hidden' }).catch(() => {})` (wait mechanism, not assertion); added missing `isVisibleSafe` import.
+
+- **E2E tests:** Replaced 8 `expect(true).toBe(true)` antipatterns across `e2e/discover.spec.ts`, `e2e/api/user-profile.spec.ts`, `e2e/session-wizard-autofill.spec.ts`, and `e2e/coast-pulse-infinite-scroll.spec.ts` with real assertions (`toBeVisible`, `toBeDefined`) or `throw new Error('Not implemented: ...')` per project convention for unimplemented features.
+
+### Added
+
 - **`lib/formatters/surf-data.ts`:** New single source of truth for all surf data formatting. Exports `formatWaveHeight` (integer-rounded range string, "Flat" for non-positive), `formatWindSpeed` (rounded integer + " mph"), `formatSwellPeriod` (rounded integer + "s"), `formatTideHeight` (1 decimal + "ft"), and `formatWaterTemp` (rounded integer + "°F").
 
 ### Changed
+
+- **surf-data.ts formatter hardening:** Added `Number.isFinite` guards to all 5 formatters (`formatWaveHeight`, `formatWindSpeed`, `formatSwellPeriod`, `formatTideHeight`, `formatWaterTemp`) returning safe fallback strings (`'Flat'`, `'-- mph'`, `'--s'`, `'--ft'`, `'--°F'`) for NaN/Infinity inputs. Added corresponding test cases for all guards.
+
+- **`forecast-builder.ts` period formatting:** Removed 3 private `formatPeriodSeconds` closures that used decimal rounding (`Math.round(num * 10) / 10`). Replaced with import of the canonical `formatPeriodSeconds` from `lib/services/forecast/format-utils.ts`, which delegates to `formatSwellPeriod` (integer rounding). Updated the stale integration test expectation (`"13.1s"` → `"13s"`).
+
+- **Missed formatter migrations:** Migrated 5 files that were not updated in the initial refactor: `components/buoy/tides-display.tsx` (2 inline tide heights → `formatTideHeight`), `components/intel/conditions-intel-card.tsx` (tide height `toFixed(1)` → `formatTideHeight`), `components/beach-detail/tabs/forecast-tab.tsx` (dynamic tide height → `formatTideHeight`), `components/ui/check-in-display.tsx` (raw `wind_speed` → `formatWindSpeed`), `components/journal/journal-view.tsx` (`Math.round(mph)` → `formatWindSpeed`).
+
+- **`forecast-digest-service.ts` wind formatting:** Replaced 6 inline `${Math.round(windSpeed)} mph` template literals in natural-language reason strings with `formatWindSpeed(windSpeed)`.
+
+- **`coast-pulse-formatter.ts` double-rounding fix:** Removed outer `Math.round()` from `formatWindSpeed(Math.round(conditions.wind_speed * 1.151))` — `formatWindSpeed` already rounds internally.
+
+- **`surf-data.ts` doc comment:** Updated `formatWaveHeight` JSDoc to accurately describe its implementation (uses `Math.round` and `SET_WAVE_VARIANCE` directly; no delegation to `formatWaveHeightRangeString`).
 
 - **Tide height formatting:** Migrated all inline tide height display to `formatTideHeight()` from `@/lib/formatters/surf-data`. Replaced `.toFixed(1) + "ft"` patterns and the manual `Math.round(x * 10) / 10}ft` equivalent across `components/forecast/tide-hourly-table.tsx` (3 occurrences), `components/forecast/tide-chart-recharts.tsx` (Now-line label), `components/forecast/tide-chart/TideTooltip.tsx`, `components/forecast/tide-next-extreme.tsx` (4 occurrences across card, compact, and row variants), `components/intent/seven-day-tide-table.tsx` (3 occurrences), `components/intent/beach-tide-cards.tsx`, and `components/ui/tide-timing.tsx`. Chart Y-axis `tickFormatter` and diagnostic `.toFixed(2)` usages intentionally preserved.
 

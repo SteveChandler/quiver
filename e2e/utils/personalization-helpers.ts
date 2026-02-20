@@ -27,7 +27,7 @@ export async function hasPersonalizationData(page: Page): Promise<{
 
     // Check for personalization indicators in the UI
     const personalizedBadge = page.locator('[data-testid="personalized-badge"]');
-    const affinityBadge = page.locator('[data-testid="familiarity-badge"]');
+    const affinityBadge = page.locator('[data-testid="affinity-badge"]');
     const sessionCards = page.locator('[data-testid="session-card"]');
 
     const hasPersonalizedBadge = await personalizedBadge.count() > 0;
@@ -69,7 +69,7 @@ export async function verifyAffinityScore(
     await page.waitForLoadState('networkidle');
 
     // Look for familiarity badge
-    const familiarityBadge = page.locator('[data-testid="familiarity-badge"]');
+    const familiarityBadge = page.locator('[data-testid="affinity-badge"]');
     const hasBadge = await familiarityBadge.isVisible({ timeout: 2000 }).catch(() => false);
 
     if (!hasBadge) {
