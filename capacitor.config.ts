@@ -11,9 +11,6 @@ const config: CapacitorConfig = {
     allowNavigation: ['*']
   },
   plugins: {
-    StatusBar: {
-      overlay: true,
-    },
     SplashScreen: {
       launchShowDuration: 0,
     },
