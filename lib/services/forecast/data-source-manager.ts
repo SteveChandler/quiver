@@ -410,11 +410,13 @@ export class ForecastDataSourceManager {
    *
    * @param location - The location to fetch buoy data for
    * @param radiusKm - Search radius in kilometers (default: 150km)
+   * @param cdipStationOverride - Explicit CDIP station ID to use instead of nearest-station lookup
    * @returns Observation data with source indicator, or null if no data
    */
   async fetchBuoyObservationWithFallback(
     location: Location,
-    radiusKm: number = 150
+    radiusKm: number = 150,
+    cdipStationOverride?: string
   ): Promise<{
     source: "CDIP" | "IOOS";
     stationId: string;
@@ -432,11 +434,12 @@ export class ForecastDataSourceManager {
       );
 
       const cdipFetch = (async () => {
-        const cdipStation = await this.cdipService.getNearestStation(
-          location.latitude,
-          location.longitude,
-          radiusKm
-        );
+        const cdipStation = cdipStationOverride
+          ?? await this.cdipService.getNearestStation(
+            location.latitude,
+            location.longitude,
+            radiusKm
+          );
 
         if (cdipStation) {
           const cdipData = await this.cdipService.fetchBuoyData(cdipStation);

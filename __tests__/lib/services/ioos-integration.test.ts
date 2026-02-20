@@ -174,6 +174,36 @@ describe("fetchBuoyObservationWithFallback integration", () => {
       expect(result).toBeNull();
       expect(mockIOOSService.findNearbyStations).toHaveBeenCalled();
     });
+
+    it("should use cdipStationOverride and skip getNearestStation", async () => {
+      const getNearestSpy = jest.spyOn(mockCDIPService, "getNearestStation");
+      jest.spyOn(mockCDIPService, "fetchBuoyData").mockResolvedValue({
+        stationId: "220",
+        stationName: "Mission Bay West",
+        dataSource: "CDIP",
+        data: [
+          {
+            timestamp: "2026-02-20T12:00:00Z",
+            significantWaveHeight: 1.8,
+            peakWavePeriod: 12.0,
+            peakWaveDirection: 260,
+          },
+        ],
+        lastUpdated: "2026-02-20T12:00:00Z",
+      });
+
+      const result = await manager.fetchBuoyObservationWithFallback(
+        loc(32.75, -117.25),
+        150,
+        "220"
+      );
+
+      expect(getNearestSpy).not.toHaveBeenCalled();
+      expect(result).not.toBeNull();
+      expect(result?.stationId).toBe("220");
+      expect(result?.source).toBe("CDIP");
+      expect(result?.waveHeight).toBe(1.8);
+    });
   });
 
   describe("IOOS fallback path", () => {

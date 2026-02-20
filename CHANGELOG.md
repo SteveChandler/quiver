@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CDIP buoy station assignments:** Corrected 10 San Diego beaches that were incorrectly resolving to CDIP 201 (Scripps Nearshore) via haversine nearest-station. Mission Beach / Ocean Beach area (6 beaches) now uses CDIP 220 (Mission Bay West); Sunset Cliffs area (4 beaches) now uses CDIP 191 (Point Loma South). Also added optional `cdipStationOverride` parameter to `DataSourceManager.fetchBuoyObservationWithFallback()` for code path consistency with `enhanced-forecast-service.ts`.
+
+- **E2E selector bugs:** Fixed "Use Near Me" button selector mismatch across 4 tests in `e2e/map.spec.ts` and `e2e/map-use-near-me.spec.ts` — updated from `/Near Me/i` to `/use near me/i` to match the exact "Use Near Me" button text rendered by `MapSearchHeader`. Removed `isVisibleSafe + test.skip` guards wrapping the button checks, replacing them with `await expect(nearMeButton).toBeVisible()` so failures are reported correctly. Removed now-unused `isVisibleSafe` import from `map-use-near-me.spec.ts`.
+
+- **E2E silent skip in dev-validation:** Replaced `test.skip(true, 'No beach cards found...')` in the "Clicking beach card navigates to detail" test with `throw new Error(...)` — the test runs in authenticated context where `[data-testid="beach-card"]` and `a[href*="/california/"]` selectors should always resolve.
+
+- **E2E silent skip in map-coordinate-validation:** Replaced `test.skip(true, 'Coordinate validation test encountered an error...')` in `coordinate validation prevents invalid data entry` with `throw new Error(...)` — a JS page evaluation error is a real failure, not an environment limitation.
+
+- **E2E test skip reasons:** Replaced 16 generic `'Beach input not found - UI may have changed'` skip messages in `e2e/session-wizard.spec.ts` and `e2e/session-wizard-autofill.spec.ts` with specific descriptions matching the actual condition checked (e.g., `'Rating fields not found on step 4'`, `'Submit button not found on last wizard step'`, `'Date/time inputs not found on step 2'`, `'Previous/cancel button not visible'`).
+
+- **E2E defensive skips removed:** Removed all `if (!found) { test.skip(true, '...'); return; }` guard patterns from `e2e/session-wizard.spec.ts` and `e2e/session-wizard-autofill.spec.ts`. Replaced with `await expect(element).toBeVisible()` assertions that fail loudly. Fixed the rating-field selector in "should have rating fields for logged sessions" — `RatingInput` renders star `<button>` elements with `aria-label="Rate X as Y out of 5"`, not `input[type="range"]` or `data-testid*="rating"`. Removed a silent post-submission skip in the "persist all condition fields" test that masked submission failures.
+
+- **E2E silent console.log+return patterns:** Converted ~14 `console.log('...'); return;` patterns across `e2e/map.spec.ts`, `e2e/map-coordinate-validation.spec.ts`, `e2e/map-use-near-me.spec.ts`, `e2e/dev-validation.spec.ts`, and `e2e/guest-landing.spec.ts` to `test.skip(true, 'reason'); return;` so Playwright reports them as skipped rather than silently passing green.
+
 ### Added
 
 - **Forecast unit tests:** Added 61 new tests for `batch-beach-processor.ts` (DeadlineTracker, batch config loading, batch processing) and `data-source-manager.ts` (service delegation, data source accessors, wave/tide/weather fetching).
