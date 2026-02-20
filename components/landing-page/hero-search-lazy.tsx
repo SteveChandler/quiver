@@ -196,8 +196,8 @@ export default function HeroSearchLazy({
       <BeachSearchAutocomplete
         initialValue={searchValue}
         placeholder="Search by beach, spot, or region"
-        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden placeholder:text-slate-500"
-        inputClassName=""
+        className="w-full h-14 md:h-16 bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&>.relative]:h-full [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-0 [&_[cmdk-input-wrapper]]:pl-4 [&_[cmdk-input-wrapper]]:pr-6 [&_[cmdk-input-wrapper]]:h-full [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:mr-3 [&_[cmdk-input-wrapper]_svg]:opacity-100 [&_[cmdk-input-wrapper]_svg]:text-slate-400 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+        inputClassName="h-full py-0 text-lg placeholder:text-slate-500"
         maxResults={8}
         requireExplicitSelection
         onFallback={onFallback}

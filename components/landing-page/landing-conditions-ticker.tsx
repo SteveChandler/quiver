@@ -36,7 +36,7 @@ export function LandingConditionsTicker() {
       <div className="max-w-4xl mx-auto">
         {result?.beachName && (
           <p className="text-sm text-gray-500 mb-2 text-center">
-            Current conditions at {result.beachName}
+            Current conditions nearby
           </p>
         )}
         <ConditionsTicker

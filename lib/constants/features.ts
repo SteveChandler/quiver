@@ -247,7 +247,7 @@ export const SURF_ACTIVITIES = [
 export const CONTENT = {
   hero: {
     title: "Forecasts that know your breaks",
-    subtitle: "Real-time conditions, personalized match scores, and local intel from surfers in the water — so every session counts.",
+    subtitle: "Real-time conditions, personalized match scores, and local intel from surfers in the water so every session counts.",
     cta: "Start surfing smarter",
     secondaryCta: "Explore Features",
     benefits: [

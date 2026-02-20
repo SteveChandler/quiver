@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Google OAuth on mobile (Capacitor):** Fixed `Error 403: disallowed_useragent` by opening OAuth in the system browser (Chrome Custom Tabs / SFSafariViewController) instead of the WebView. Deep links route the `/auth/callback` back to the app for session exchange. Added `@capacitor/browser` plugin, Android App Links intent-filters, and iOS Associated Domains entitlements.
+
+### Changed
+
+- **Landing page hero polish:** conditions ticker now says "Current conditions nearby" instead of showing a random beach name, hero title uses `text-balance` for even word wrapping, removed em dash from subtitle, and aligned search bar icon/text positioning between placeholder and loaded cmdk states
+
+### Fixed
+
 - **NPC forecast bot — 9 bug fixes across `forecast-formatter.ts` and `template-hydration.ts`:**
   - **Beach disambiguation (Bug 1):** Replaced `REGIONAL_SEARCH_TERMS` with `REGIONAL_BEACHES` (includes `city` field) and updated `fetchRegionalForecast` / `getRegionalBeachId` to filter by both name AND city, preventing Ocean Beach SD from appearing in NorCal reports.
   - **Wind descriptions with offshore/onshore awareness (Bugs 2 & 7):** Rewrote `describeWindForForecast` and `describeConditionsBriefly` to use `classifyWindDirection` from `lib/utils/wind-classification`. Offshore winds get enthusiastic copy; onshore gets honest descriptors with speed-appropriate intensity.

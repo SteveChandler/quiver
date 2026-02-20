@@ -42,7 +42,7 @@ export function HeroSection() {
       <div className="relative z-30 w-full max-w-3xl mx-auto px-6 text-center text-white flex flex-col items-center gap-6">
         {/* Main Headline - AllTrails style: lighter weight, tighter tracking */}
         <h1
-          className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-roboto animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)]"
+          className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-roboto animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)] text-balance"
           style={{ animationDelay: "100ms" }}
         >
           {CONTENT.hero.title}
