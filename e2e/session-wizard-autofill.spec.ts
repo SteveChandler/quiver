@@ -71,15 +71,15 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('09:00'); // Morning session (not night)
 
-    // Step 4: Navigate to Conditions step (skip Equipment step)
+    // Step 4: Navigate to Session Details step (through Equipment step 3)
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000); // Wait for Equipment step to load
+    await page.waitForTimeout(1000); // Wait for Equipment step (3) to load
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000); // Wait for Conditions step to load
+    await page.waitForTimeout(1000); // Wait for Session Details step (4) to load
 
-    // Step 5: Verify condition fields are auto-prefilled
+    // Step 5: Verify condition fields are auto-prefilled on Session Details
     // Wave height field should have a numeric value or be editable
     // Note: Components use id="wave-height-input", not data-testid
     const waveHeightInput = page.locator('#wave-height-input').or(
@@ -187,7 +187,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('10:00');
 
-    // Navigate to Conditions step
+    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
@@ -195,17 +195,13 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
 
-    // Step 3: Override auto-prefilled wave height with custom value
+    // Override auto-prefilled wave height with custom value
     // Note: Components use id="wave-height-input", not data-testid
     const waveHeightInput = page.locator('#wave-height-input').or(
       page.locator('input[name="waveHeight"]')
     ).first();
 
-    const waveHeightVisible = await isVisibleSafe(waveHeightInput, { timeout: TIMEOUTS.short });
-
-    if (!waveHeightVisible) {
-      throw new Error('Not implemented: Wave height input not found - UI may have changed');
-    }
+    await expect(waveHeightInput).toBeVisible({ timeout: TIMEOUTS.medium });
 
     // Clear and set custom value
     const customWaveHeight = '6.5';
@@ -239,11 +235,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Step 6: Submit the session
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await isVisibleSafe(submitButton, { timeout: TIMEOUTS.short });
-
-    if (!hasSubmit) {
-      throw new Error('Not implemented: Submit button not found - may need to fill more fields');
-    }
+    await expect(submitButton).toBeVisible({ timeout: TIMEOUTS.medium });
 
     await submitButton.click();
 
@@ -268,12 +260,14 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     // This is covered by integration/API tests
   });
 
-  test('should NOT auto-prefill when editing existing session', async ({ page }) => {
-    throw new Error('Not implemented: Edit mode auto-prefill prevention - requires session creation flow, edit endpoint, and state management to verify forecast data does not override existing manual values when editing sessions');
+  test.fixme('should NOT auto-prefill when editing existing session', async ({ page }) => {
+    // Edit mode not built yet — requires session creation flow, edit endpoint, and
+    // state management to verify forecast data does not override existing manual values
   });
 
-  test('should display placeholder examples when forecast data is missing', async ({ page }) => {
-    throw new Error('Not implemented: Placeholder examples for missing forecast - requires UI to show example values (e.g., "3.5 ft") when historical forecast data is unavailable for past sessions');
+  test.fixme('should display placeholder examples when forecast data is missing', async ({ page }) => {
+    // Placeholder examples not implemented — requires UI to show example values
+    // (e.g., "3.5 ft") when historical forecast data is unavailable for past sessions
   });
 
   test('should persist all condition fields to database after submission', async ({ page }) => {
@@ -309,7 +303,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('11:00');
 
-    // Navigate to Conditions step
+    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
@@ -376,11 +370,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // Step 5: Submit
     const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await isVisibleSafe(submitButton, { timeout: TIMEOUTS.short });
-
-    if (!hasSubmit) {
-      throw new Error('Not implemented: Session wizard submit button - requires complete form flow with all required fields and submission handler');
-    }
+    await expect(submitButton).toBeVisible({ timeout: TIMEOUTS.medium });
 
     await submitButton.click();
 
@@ -393,10 +383,6 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
 
     // If submission didn't show success message, check if we navigated away from form
     const stillOnForm = page.url().includes('/sessions/new');
-
-    if (!hasSuccess && !hasCelebration && stillOnForm) {
-      throw new Error('Not implemented: Session wizard complete submission flow - form submission requires all required fields and success indication');
-    }
 
     // Either we saw success or we navigated away (both indicate progress)
     expect(hasSuccess || hasCelebration || !stillOnForm).toBe(true);
@@ -441,7 +427,7 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
     await timeInput.fill('21:00'); // 9 PM - night time
 
-    // Navigate to Conditions step
+    // Navigate to Session Details step (step 3 = Equipment, step 4 = Session Details)
     await nextButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
     await page.waitForTimeout(1000);
@@ -472,107 +458,20 @@ test.describe('Session Wizard - Auto-Forecast Autofill', () => {
     }
   });
 
-  test('should show forecast snapshot on session detail after logging', async ({ page }) => {
-    // Create a session and verify forecast snapshot is available on detail view
-    // This is an end-to-end smoke test
-
-    // Step 1: Complete session creation
-    const beachInput = page.getByTestId('beach-search-input');
-    await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
-    await beachInput.fill('Black');
-
-    const beachSelectorRoot = beachInput.locator('..');
-    const beachOption = beachSelectorRoot
-      .locator('ul')
-      .locator('button')
-      .filter({ hasText: /black/i })
-      .first();
-
-    await expect(beachOption).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachOption.click();
-
-    const nextButton = page.getByRole('button', { name: /next/i }).first();
-    await nextButton.click();
-
-    const dateInput = page.getByTestId('session-date-input');
-    await expect(dateInput).toBeVisible({ timeout: TIMEOUTS.long });
-
-    const today = new Date().toISOString().split('T')[0];
-    await dateInput.fill(today);
-
-    const timeInput = page.getByTestId('session-time-input');
-    await expect(timeInput).toBeVisible({ timeout: TIMEOUTS.long });
-    await timeInput.fill('12:00');
-
-    // Skip to conditions
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
-    await nextButton.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for wizard step transition animation
-    await page.waitForTimeout(1000);
-
-    // Fill wave quality
-    const waveQualitySlider = page.locator('input[type="range"][name="waveQuality"]').or(
-      page.locator('#wave-quality-slider')
-    ).first();
-
-    if (await isVisibleSafe(waveQualitySlider, { timeout: TIMEOUTS.short })) {
-      await waveQualitySlider.fill('8');
-    }
-
-    // Submit
-    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await isVisibleSafe(submitButton, { timeout: TIMEOUTS.short });
-
-    if (!hasSubmit) {
-      throw new Error('Not implemented: Session wizard submit - forecast snapshot feature requires complete session submission and detail view display');
-    }
-
-    await submitButton.click();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for form submission and redirect
-    await page.waitForTimeout(3000);
-
-    // Check if we're on session detail or profile page
-    const currentUrl = page.url();
-
-    // Look for forecast snapshot section on the page
-    const forecastSnapshotSection = page.getByText(/forecast from|conditions at time|forecast snapshot/i);
-    const hasSnapshotSection = await isVisibleSafe(forecastSnapshotSection, { timeout: TIMEOUTS.short });
-
-    // Forecast snapshot display might not be implemented yet
-    // This test documents the expected behavior
-    if (hasSnapshotSection) {
-      // If snapshot section exists, it should show condition data
-      const snapshotData = page.locator('[data-testid*="forecast-snapshot"]').or(
-        page.locator('.forecast-snapshot')
-      ).first();
-
-      const hasData = await isVisibleSafe(snapshotData, { timeout: TIMEOUTS.short });
-
-      if (hasData) {
-        expect(hasData).toBe(true);
-      } else {
-        console.log('Forecast snapshot section found but data not rendered - feature may be partially implemented');
-      }
-    } else {
-      // Document that this feature may not be implemented yet
-      console.log('Forecast snapshot section not found on session detail - feature may be pending implementation');
-    }
-
-    // This test passes if session was created successfully
-    // Forecast snapshot display is a future enhancement
-    expect(true).toBe(true);
+  test.fixme('should show forecast snapshot on session detail after logging', async ({ page }) => {
+    // Forecast snapshot display on session detail not yet implemented —
+    // requires storing and displaying forecast-at-time-of-session data on the detail view
   });
 });
 
 test.describe('Session Wizard Autofill - Edge Cases', () => {
-  test('should handle beach change after conditions are prefilled', async ({ page }) => {
-    throw new Error('Not implemented: Beach change after autofill - requires wizard back navigation, state management to clear previous forecast values, and re-fetch forecast for new beach selection');
+  test.fixme('should handle beach change after conditions are prefilled', async ({ page }) => {
+    // Requires wizard back navigation, state management to clear previous forecast values,
+    // and re-fetch forecast for new beach selection — not yet implemented
   });
 
-  test('should handle partial forecast data gracefully', async ({ page }) => {
-    throw new Error('Not implemented: Partial forecast data handling - requires graceful degradation when forecast API returns incomplete data (e.g., null wind or tide values) with helpful placeholders');
+  test.fixme('should handle partial forecast data gracefully', async ({ page }) => {
+    // Requires graceful degradation when forecast API returns incomplete data
+    // (e.g., null wind or tide values) with helpful placeholders — not yet implemented
   });
 });

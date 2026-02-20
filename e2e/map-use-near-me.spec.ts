@@ -32,13 +32,13 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     // Wait for map container (networkidle can hang due to map tile loading)
     await expect(page.getByTestId('map-container')).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // Look for the Near Me button
-    const nearMeButton = page.getByRole('button', { name: /Near Me/i });
-    const isVisible = await isVisibleSafe(nearMeButton, { timeout: TIMEOUTS.medium });
+    // Wait for map controls to appear before looking for Near Me button
+    const mapControls = page.getByTestId('map-controls');
+    await expect(mapControls).toBeVisible({ timeout: TIMEOUTS.long });
 
-    if (!isVisible) {
-      throw new Error('Not implemented: Near Me button not visible on this page state');
-    }
+    // Look for the "Use Near Me" button — matches exact button text
+    const nearMeButton = page.getByRole('button', { name: /use near me/i });
+    await expect(nearMeButton).toBeVisible({ timeout: TIMEOUTS.long });
 
     await nearMeButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for geolocation and map re-center
@@ -68,12 +68,13 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     await page.goto('/map');
     await expect(page.getByTestId('map-container')).toBeVisible({ timeout: TIMEOUTS.long });
 
-    const nearMeButton = page.getByRole('button', { name: /Near Me/i });
-    const isVisible = await isVisibleSafe(nearMeButton, { timeout: TIMEOUTS.medium });
+    // Wait for map controls before looking for Near Me button
+    const mapControls2 = page.getByTestId('map-controls');
+    await expect(mapControls2).toBeVisible({ timeout: TIMEOUTS.long });
 
-    if (!isVisible) {
-      throw new Error('Not implemented: Near Me button not visible on this page state');
-    }
+    // Look for the "Use Near Me" button — matches exact button text
+    const nearMeButton = page.getByRole('button', { name: /use near me/i });
+    await expect(nearMeButton).toBeVisible({ timeout: TIMEOUTS.long });
 
     // First click - should use La Jolla coords
     await nearMeButton.click();
@@ -104,12 +105,13 @@ test.describe('Map Page - Use Near Me Fresh Position', () => {
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
-    const nearMeButton = page.getByRole('button', { name: /Near Me/i });
-    const isVisible = await isVisibleSafe(nearMeButton, { timeout: TIMEOUTS.medium });
+    // Wait for map controls before looking for Near Me button
+    const mapControls3 = page.getByTestId('map-controls');
+    await expect(mapControls3).toBeVisible({ timeout: TIMEOUTS.long });
 
-    if (!isVisible) {
-      throw new Error('Not implemented: Near Me button not visible on this page state');
-    }
+    // Look for the "Use Near Me" button — matches exact button text
+    const nearMeButton = page.getByRole('button', { name: /use near me/i });
+    await expect(nearMeButton).toBeVisible({ timeout: TIMEOUTS.long });
 
     await nearMeButton.click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for geolocation and map re-center

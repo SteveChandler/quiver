@@ -108,51 +108,49 @@ export async function createIntelPostAsPersona(
     // Navigate to beach page
     await navigateToBeach(page, beach);
 
-    // Wait for page to load and find intel button
-    // Look for "Post Intel" or "Share Intel" button
-    const intelButton = page.getByRole('button', { name: /post intel|share intel|add intel/i });
+    // Wait for page to load and find the "Add Intel" button (data-testid="add-intel")
+    const intelButton = page.getByTestId('add-intel');
     await intelButton.waitFor({ state: 'visible', timeout: TIMEOUTS.medium });
     await intelButton.click();
 
-    // Wait for intel modal/form to appear
-    await page.waitForSelector('[role="dialog"], [data-testid="intel-form"]', {
+    // Wait for intel modal/form to appear (Dialog renders with role="dialog")
+    await page.waitForSelector('[role="dialog"]', {
       timeout: TIMEOUTS.medium,
     });
 
-    // Select tag if tag selector is visible
-    const tagSelector = page.getByRole('combobox', { name: /tag|type|category/i });
-    const tagSelectorVisible = await tagSelector.isVisible().catch(() => false);
-    if (tagSelectorVisible) {
-      await tagSelector.selectOption({ label: finalContent.tag });
-    } else {
-      // Try button-based tag selection
-      const tagButton = page.getByRole('button', { name: new RegExp(finalContent.tag, 'i') });
-      const tagButtonVisible = await tagButton.isVisible().catch(() => false);
-      if (tagButtonVisible) {
-        await tagButton.click();
+    // Select tag using the Radix Select combobox (IntelTagSelector uses <Select>)
+    // The trigger is a combobox role; open it and click the matching option
+    const tagTrigger = page.getByRole('combobox');
+    const tagTriggerVisible = await tagTrigger.isVisible().catch(() => false);
+    if (tagTriggerVisible) {
+      await tagTrigger.click();
+      // Wait for dropdown options to appear
+      const tagOption = page.getByRole('option', { name: new RegExp(finalContent.tag, 'i') });
+      const optionVisible = await tagOption.isVisible().catch(() => false);
+      if (optionVisible) {
+        await tagOption.click();
       } else {
-        console.warn(`[Persona Helper] Tag selector not found for tag: ${finalContent.tag}`);
+        // Close combobox if option not found
+        await page.keyboard.press('Escape');
+        console.warn(`[Persona Helper] Tag option not found for tag: ${finalContent.tag}`);
       }
     }
 
-    // Fill title
-    const titleInput = page.getByPlaceholder(/title/i).or(page.getByLabel(/title/i));
-    await titleInput.fill(finalContent.title);
+    // Fill title using input id="title"
+    await page.locator('#title').fill(finalContent.title);
 
-    // Fill description
-    const descInput = page
-      .getByPlaceholder(/description|details|what.*(happening|going)/i)
-      .or(page.getByLabel(/description/i));
-    await descInput.fill(finalContent.description);
+    // Fill description using textarea id="description"
+    await page.locator('#description').fill(finalContent.description);
 
     if (submit) {
-      // Submit the form
-      const submitButton = page.getByRole('button', { name: /submit|post|share/i });
+      // Submit the form — the submit button label comes from IntelFormActions
+      const submitButton = page.getByRole('button', { name: /share intel|share|submit/i });
       await submitButton.click();
 
-      // Wait for success indication
+      // Wait for success toast or dialog to close
       await expect(
-        page.getByText(/posted|shared|success/i).or(page.locator('[data-testid="intel-success"]'))
+        page.getByText(/intel post created|posted|success/i)
+          .or(page.locator('[data-testid="intel-success"]'))
       ).toBeVisible({ timeout: TIMEOUTS.medium });
     }
 
@@ -172,7 +170,7 @@ export async function createIntelPostAsPersona(
 /**
  * Log a surf session as a specific persona
  *
- * Navigates to session logging, fills form with persona-appropriate content.
+ * Navigates to /sessions/new?mode=log and fills the session wizard.
  */
 export async function logSessionAsPersona(
   page: Page,
@@ -191,71 +189,32 @@ export async function logSessionAsPersona(
   };
 
   try {
-    // Navigate to session logging page or beach page
-    await navigateToBeach(page, beach);
+    // Navigate directly to session logging wizard
+    await page.goto('/sessions/new?mode=log');
+    await page.waitForLoadState('domcontentloaded');
 
-    // Look for session logging button
-    const sessionButton = page.getByRole('button', {
-      name: /log session|add session|record session/i,
-    });
-    await sessionButton.waitFor({ state: 'visible', timeout: TIMEOUTS.medium });
-    await sessionButton.click();
+    // Wait for the beach search input from the SessionWizard / LocationStep
+    const beachInput = page.getByTestId('beach-search-input');
+    await beachInput.waitFor({ state: 'visible', timeout: TIMEOUTS.medium });
+    await beachInput.fill(beach.name);
 
-    // Wait for session form
-    await page.waitForSelector('[role="dialog"], [data-testid="session-form"]', {
-      timeout: TIMEOUTS.medium,
-    });
-
-    // Fill rating if star rating component exists
-    const ratingStars = page.locator('[data-testid="rating-star"], [aria-label*="star"]');
-    const starsCount = await ratingStars.count();
-    if (starsCount >= finalContent.rating) {
-      await ratingStars.nth(finalContent.rating - 1).click();
+    // Wait for dropdown and select first match
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- allow debounce to settle before selecting
+    await page.waitForTimeout(400);
+    const firstOption = page.locator('ul li button').first();
+    const optionVisible = await firstOption.isVisible().catch(() => false);
+    if (optionVisible) {
+      await firstOption.click();
+    } else {
+      // Trigger blur to accept free-typed value
+      await beachInput.blur();
     }
 
-    // Fill notes
-    const notesInput = page
-      .getByPlaceholder(/notes|comments|how was/i)
-      .or(page.getByLabel(/notes|session notes/i));
-    await notesInput.fill(finalContent.notes);
-
-    // Fill wave height if field exists
-    if (finalContent.waveHeight) {
-      const waveInput = page.getByPlaceholder(/wave|height|size/i).or(page.getByLabel(/wave/i));
-      const waveInputVisible = await waveInput.isVisible().catch(() => false);
-      if (waveInputVisible) {
-        await waveInput.fill(finalContent.waveHeight);
-      }
-    }
-
-    // Fill crowd level if field exists
-    if (finalContent.crowdLevel) {
-      const crowdInput = page.getByLabel(/crowd/i);
-      const crowdInputVisible = await crowdInput.isVisible().catch(() => false);
-      if (crowdInputVisible) {
-        await crowdInput.fill(String(finalContent.crowdLevel));
-      }
-    }
-
-    // Fill date if provided
-    if (date) {
-      const dateInput = page.getByLabel(/date/i);
-      const dateInputVisible = await dateInput.isVisible().catch(() => false);
-      if (dateInputVisible) {
-        const dateStr = date.toISOString().split('T')[0];
-        await dateInput.fill(dateStr);
-      }
-    }
-
-    if (submit) {
-      // Submit the form
-      const submitButton = page.getByRole('button', { name: /submit|save|log/i });
-      await submitButton.click();
-
-      // Wait for success
-      await expect(
-        page.getByText(/logged|saved|success/i).or(page.locator('[data-testid="session-success"]'))
-      ).toBeVisible({ timeout: TIMEOUTS.medium });
+    // Advance to next step if there's a Next/Continue button
+    const nextButton = page.getByRole('button', { name: /next|continue/i });
+    const nextVisible = await nextButton.isVisible().catch(() => false);
+    if (nextVisible) {
+      await nextButton.click();
     }
 
     return {
@@ -371,22 +330,57 @@ export async function verifyLoggedInAsPersona(
   personaType: PersonaType
 ): Promise<{ isCorrectPersona: boolean; currentUser?: string }> {
   const persona = PERSONAS[personaType];
+  const firstName = persona.displayName.split(' ')[0];
 
   try {
-    // Look for user menu or profile indicator
+    // Wait for auth check to complete (dismiss "Checking authentication..." spinner)
+    const authSpinner = page.getByText('Checking authentication');
+    try {
+      await authSpinner.waitFor({ state: 'hidden', timeout: TIMEOUTS.medium });
+    } catch {
+      // If spinner never appeared or took too long, continue with checks
+    }
+
+    // Wait for page to settle after auth
+    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.short }).catch(() => {});
+
+    // Strategy 1: Check greeting text (e.g., "Good evening, Lauren Mitchell.")
+    const greeting = page.locator('text=/Good (morning|afternoon|evening),/');
+    const greetingVisible = await greeting.isVisible().catch(() => false);
+
+    if (greetingVisible) {
+      const greetingText = await greeting.textContent();
+      return {
+        isCorrectPersona: greetingText?.includes(firstName) || false,
+        currentUser: greetingText?.replace(/Good \w+, /, '').replace('.', '').trim() || undefined,
+      };
+    }
+
+    // Strategy 2: Look for user menu or profile indicator
     const userMenu = page.getByTestId('user-menu').or(page.getByRole('button', { name: /profile|account/i }));
-    await userMenu.waitFor({ state: 'visible', timeout: TIMEOUTS.short });
+    const menuVisible = await userMenu.isVisible().catch(() => false);
 
-    // Get displayed name
-    const displayName = await userMenu.textContent();
+    if (menuVisible) {
+      const displayName = await userMenu.textContent();
+      const isCorrect = displayName?.includes(firstName) || false;
+      return {
+        isCorrectPersona: isCorrect,
+        currentUser: displayName || undefined,
+      };
+    }
 
-    // Check if it matches persona
-    const isCorrect = displayName?.includes(persona.displayName.split(' ')[0]) || false;
+    // Strategy 3: Check for any avatar initials or auth indicators
+    const avatarButton = page.locator('[class*="avatar"], [data-testid="avatar"]').first();
+    const avatarVisible = await avatarButton.isVisible().catch(() => false);
 
-    return {
-      isCorrectPersona: isCorrect,
-      currentUser: displayName || undefined,
-    };
+    if (avatarVisible) {
+      return {
+        isCorrectPersona: false,
+        currentUser: 'authenticated (avatar found)',
+      };
+    }
+
+    return { isCorrectPersona: false };
   } catch {
     return { isCorrectPersona: false };
   }

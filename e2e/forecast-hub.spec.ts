@@ -15,6 +15,7 @@ import {
   type ErrorCapture,
 } from "./utils/error-detection";
 import { TIMEOUTS } from "./fixtures/test-data";
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe("Forecast Hub Landing Page", () => {
   let errorCapture: ErrorCapture;

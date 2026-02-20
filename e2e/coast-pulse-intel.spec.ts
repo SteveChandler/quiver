@@ -7,6 +7,7 @@ import {
   gotoWithErrorCheck,
   ErrorCapture,
 } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
  * Coast Pulse Intel Tests

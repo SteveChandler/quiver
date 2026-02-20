@@ -17,6 +17,7 @@ import {
 } from './utils/error-detection';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 

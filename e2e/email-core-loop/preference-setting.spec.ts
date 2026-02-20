@@ -23,25 +23,29 @@ import {
 } from '../utils/email-token-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
 
-const TEST_USER_ID = 'e2e-test-user-12345';
+// Must be a real mock user UUID from auth.users (FK constraint on user_email_prefs)
+const TEST_USER_ID = '6faced01-8c47-4821-bf2f-cafb0cadca27'; // Tyler OBrien (liquid.snake@example.invalid)
 
 test.describe('Email Preference Setting', () => {
   let errorCapture: ErrorCapture;
+  let expectedErrorStatuses: number[] = [];
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
+    expectedErrorStatuses = [];
   });
 
   test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Email Preference Setting' });
+    await assertNoErrors(page, errorCapture, {
+      context: 'Email Preference Setting',
+      allowedStatuses: expectedErrorStatuses,
+    });
   });
 
   test.describe('Valid preference setting', () => {
     // These tests require EMAIL_TOKEN_SECRET to generate valid tokens
     test.beforeEach(async () => {
-      if (!isEmailTokenTestingAvailable()) {
-        throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured - skipping tests that need valid tokens');
-      }
+      test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
     });
     test('should set time preference to dawn', async ({ page }) => {
       const token = await generatePrefsToken(TEST_USER_ID);
@@ -137,6 +141,8 @@ test.describe('Email Preference Setting', () => {
   });
 
   test.describe('Invalid token handling', () => {
+    test.beforeEach(async () => { expectedErrorStatuses = [400]; });
+
     test('should show error for invalid token', async ({ page }) => {
       await page.goto('/api/prefs/set?time=dawn&token=invalid_token_here');
 
@@ -161,6 +167,8 @@ test.describe('Email Preference Setting', () => {
   });
 
   test.describe('Missing token handling', () => {
+    test.beforeEach(async () => { expectedErrorStatuses = [400]; });
+
     test('should show error when token is missing', async ({ page }) => {
       await page.goto('/api/prefs/set?time=dawn');
 
@@ -178,9 +186,8 @@ test.describe('Email Preference Setting', () => {
   test.describe('Missing preference handling', () => {
     // These tests require EMAIL_TOKEN_SECRET to generate valid tokens
     test.beforeEach(async () => {
-      if (!isEmailTokenTestingAvailable()) {
-        throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured - skipping tests that need valid tokens');
-      }
+      expectedErrorStatuses = [400];
+      test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
     });
 
     test('should show error when no preference is specified', async ({ page }) => {
@@ -204,9 +211,8 @@ test.describe('Email Preference Setting', () => {
   test.describe('Invalid preference value handling', () => {
     // These tests require EMAIL_TOKEN_SECRET to generate valid tokens
     test.beforeEach(async () => {
-      if (!isEmailTokenTestingAvailable()) {
-        throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured - skipping tests that need valid tokens');
-      }
+      expectedErrorStatuses = [400];
+      test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
     });
 
     test('should show error for invalid time value', async ({ page }) => {
@@ -239,9 +245,7 @@ test.describe('Email Preference Setting', () => {
 
   test.describe('Page styling and UX', () => {
     test('success page should have green styling', async ({ page }) => {
-      if (!isEmailTokenTestingAvailable()) {
-        throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured');
-      }
+      test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
       const token = await generatePrefsToken(TEST_USER_ID);
 
       await page.goto(`/api/prefs/set?time=dawn&token=${token}`);
@@ -258,6 +262,7 @@ test.describe('Email Preference Setting', () => {
     });
 
     test('error page should have red styling', async ({ page }) => {
+      expectedErrorStatuses = [400];
       await page.goto('/api/prefs/set?time=dawn&token=invalid');
 
       // Check for red background (error state)
@@ -272,9 +277,7 @@ test.describe('Email Preference Setting', () => {
     });
 
     test('should be mobile responsive', async ({ page }) => {
-      if (!isEmailTokenTestingAvailable()) {
-        throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured');
-      }
+      test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
       const token = await generatePrefsToken(TEST_USER_ID);
 
       // Set mobile viewport
@@ -294,10 +297,10 @@ test.describe('Email Preference Setting', () => {
   });
 
   test.describe('Wrong purpose token handling', () => {
+    test.beforeEach(async () => { expectedErrorStatuses = [400]; });
+
     test('should reject token with wrong purpose', async ({ page }) => {
-      if (!isEmailTokenTestingAvailable()) {
-        throw new Error('Not implemented: EMAIL_TOKEN_SECRET not configured');
-      }
+      test.skip(!isEmailTokenTestingAvailable(), 'Requires email token secret');
       // Generate a token with save_window purpose instead of prefs
       const token = await generateTestEmailToken({
         user_id: TEST_USER_ID,

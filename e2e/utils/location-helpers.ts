@@ -193,7 +193,7 @@ export async function clickBeachCard(
   }
 
   await cards[index].click();
-  await page.waitForURL(/\/beaches\/.+/);
+  await page.waitForURL(/\/(ca|or|wa|hi|beaches)\/.+/);
 }
 
 /**

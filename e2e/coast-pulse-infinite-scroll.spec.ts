@@ -7,6 +7,7 @@ import {
   gotoWithErrorCheck,
   ErrorCapture,
 } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
  * Coast Pulse Infinite Scroll Tests
@@ -64,8 +65,9 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       const isSkeletonVisible = await isVisibleSafe(skeleton);
 
       // Either skeleton was visible briefly or content loaded quickly
-      // Both are acceptable behaviors
-      expect(true).toBe(true);
+      // Both are acceptable behaviors - verify the section is present either way
+      const coastPulseSection = page.locator('[data-testid="coast-pulse-section"]');
+      await expect(coastPulseSection).toBeVisible();
     });
   });
 
@@ -160,7 +162,8 @@ test.describe('Coast Pulse Infinite Scroll', () => {
 
       // If we didn't find end message after scrolling, that's also okay
       // (might have many intel posts or real-time data only)
-      expect(true).toBe(true);
+      // Verify the timeline is still visible after scrolling (no crash/blank screen)
+      await expect(timeline).toBeVisible();
     });
 
     test('should not show loading indicator when hasMore is false', async ({ page }) => {
@@ -255,8 +258,8 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       /* Loading dots appear briefly during fetch - genuinely transient */
       const isLoadingVisible = await isVisibleSafe(loadingDots.first());
 
-      // Test passes regardless - we're verifying no errors occur
-      expect(true).toBe(true);
+      // Verify the coast pulse section remained stable during scroll
+      await expect(coastPulse).toBeVisible();
     });
   });
 
@@ -383,9 +386,9 @@ test.describe('Coast Pulse Infinite Scroll - Mobile', () => {
     // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for smooth scroll to complete
     await page.waitForTimeout(1000);
 
-    // Verify no errors occurred during scroll
-    // (Error detection in afterEach will catch any issues)
-    expect(true).toBe(true);
+    // Verify page remained stable during touch scroll
+    // (Error detection in afterEach will catch any JS errors)
+    await expect(coastPulse).toBeVisible();
   });
 
   test('should display loading states correctly on mobile @mobile @p1', async ({ page }) => {

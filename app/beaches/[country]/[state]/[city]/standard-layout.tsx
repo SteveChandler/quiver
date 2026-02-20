@@ -295,7 +295,7 @@ export function StandardLayout({
 
         {/* Empty State (shouldn't happen due to notFound check above) */}
         {beaches.length === 0 && (
-          <div className="text-center py-12">
+          <div data-testid="empty-state" className="text-center py-12">
             <p className="text-gray-600">No beaches found in this location.</p>
           </div>
         )}

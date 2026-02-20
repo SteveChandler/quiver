@@ -9,6 +9,7 @@
 
 import { test, expect } from '@playwright/test';
 import { ALL_PERSONA_TYPES, PERSONAS } from '../fixtures/personas';
+import { TIMEOUTS } from '../fixtures/test-data';
 import { getPersonaAuthStatePath, createPersonaPage, personaAuthStateExists } from '../utils/persona-auth';
 import { checkSessionPlannerAsPersona } from '../utils/persona-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
@@ -58,7 +59,13 @@ test.describe('Session Planning - All Personas', () => {
         });
 
         test('can access session planner @requires-auth', async ({ page }) => {
-          throw new Error('Not implemented: Session planner UI changed - need to update selectors and flow to match current implementation');
+          // Navigate to session planner and verify it loads
+          await page.goto('/sessions/new?mode=plan');
+          await page.waitForLoadState('domcontentloaded');
+
+          // Verify the session wizard loads with the beach search input
+          const beachInput = page.getByTestId('beach-search-input');
+          await expect(beachInput).toBeVisible({ timeout: TIMEOUTS.medium });
         });
       });
     }
@@ -128,7 +135,7 @@ test.describe('Session Planning - All Personas', () => {
       const persona = PERSONAS[personaType];
 
       test(`${persona.displayName} sees skill-appropriate recommendations`, async ({ browser }) => {
-        throw new Error('Not implemented: Session planner UI changed - need to update selectors and flow to match current implementation');
+        test.fixme(true, 'Session planner recommendations require seeded personalization data');
       });
     }
   });

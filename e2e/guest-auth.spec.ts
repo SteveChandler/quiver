@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { TEST_USER } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
  * Guest Authentication Tests

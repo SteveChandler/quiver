@@ -124,8 +124,8 @@ test.describe('User Profile API Contract', () => {
             expect(typeof profile.avatar_url).toBe('string');
           }
         }
-        // Test passes whether avatar_url is present or not
-        expect(true).toBe(true);
+        // Profile was successfully fetched and avatar_url field (if present) was validated
+        expect(profile).toBeDefined();
       });
 
       test('should have home_beach_id field', async ({ request }) => {

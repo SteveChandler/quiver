@@ -9,6 +9,7 @@
 
 import { test, expect } from '@playwright/test';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 

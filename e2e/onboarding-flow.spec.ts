@@ -14,6 +14,7 @@ import { test, expect } from "@playwright/test";
 import { TIMEOUTS } from "./fixtures/test-data";
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe("Onboarding - close + view full forecast", () => {
   let errorCapture: ErrorCapture;

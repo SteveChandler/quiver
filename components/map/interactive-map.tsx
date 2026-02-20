@@ -328,6 +328,10 @@ export function InteractiveMap({
 
     map.on("load", async () => {
       setIsMapReady(true);
+      // Expose map instance in dev/test mode for E2E tests
+      if (process.env.NODE_ENV !== 'production') {
+        (window as any).__quiverMapInstance = mapRef.current;
+      }
       // Initialize bounds for clustering
       const bounds = map.getBounds();
       if (bounds) {
