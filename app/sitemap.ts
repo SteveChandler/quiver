@@ -279,10 +279,10 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
     console.error("Sitemap: Failed to generate city intent routes", error);
   }
 
-  // State-level intent pages for major US surf markets.
-  // This is a curated subset (not all coastal states) focusing on states with
-  // significant surf communities: CA, HI, FL (Tier 1), plus East Coast, PNW, TX (Tier 2).
-  const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx", "ma", "me", "nh", "ri", "ga"];
+  // State-level intent pages for major US surf markets and territories.
+  // This is a curated subset (not all coastal states) focusing on states/territories with
+  // significant surf communities: CA, HI, FL (Tier 1), plus East Coast, PNW, TX (Tier 2), and PR (territory).
+  const usStates = ["ca", "or", "wa", "hi", "pr", "fl", "nj", "ny", "nc", "sc", "tx", "ma", "me", "nh", "ri", "ga"];
   for (const state of usStates) {
     for (const intent of intents) {
       routes.push({
