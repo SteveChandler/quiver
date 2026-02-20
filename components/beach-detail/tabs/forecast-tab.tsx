@@ -26,8 +26,6 @@ import {
 } from "@/components/ui/collapsible";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { SimplifiedForecastTable } from "@/components/forecast/forecast-table";
-import { TideChartEnhanced } from "@/components/forecast/tide-chart-enhanced";
-import { generateTideDiagnosticsFromForecasts } from "@/lib/utils/tide-diagnostics-generator";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
@@ -373,18 +371,6 @@ export function ForecastTab({
     snapshotSwellPeriod === "—"
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
-
-  // Generate tide diagnostics from forecast data for enhanced tide components
-  // Depends on dynamicTide to recompute when user returns to tab (visibility change)
-  const tideDiagnostics = useMemo(() => {
-    if (!forecasts || forecasts.length === 0) return null;
-    return generateTideDiagnosticsFromForecasts(forecasts, {
-      beachName: beach.name,
-      stationName: beach.name,
-      isPrimaryStation: true,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forecasts, beach.name, dynamicTide.minutesUntil]);
 
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
@@ -774,22 +760,19 @@ export function ForecastTab({
 
         {/* Tides Tab */}
         <TabsContent value="tides" className="mt-6">
-          <section className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg backdrop-blur">
-            <div className="flex items-center justify-between mb-4">
+          <section className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg backdrop-blur overflow-hidden">
+            <div className="flex items-center justify-between p-6 pb-0 mb-4">
               <h2 className="text-xl font-roboto font-semibold text-dark-grey">
                 Tide Forecast
               </h2>
               <EmbedCodeButton beachSlug={beach.slug} beachName={beach.name} />
             </div>
-            <TideChartEnhanced
-              forecasts={forecasts}
-              diagnostics={tideDiagnostics ?? undefined}
-              compact={false}
-              now={new Date()}
-              showNextExtreme={!!tideDiagnostics}
-              showHourlyTable={true}
-              showWarnings={true}
-              showVerifiedBadge={!!tideDiagnostics}
+            <iframe
+              src={`/embed/surf-terminal/${beach.slug}?theme=light&range=3d`}
+              width="100%"
+              className="border-0 h-[clamp(380px,60vh,600px)]"
+              title={`${beach.name} Surf Terminal`}
+              loading="lazy"
             />
           </section>
 

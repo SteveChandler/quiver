@@ -15,9 +15,6 @@ jest.mock("@/components/beach-detail/best-surf-window", () => ({
 jest.mock("@/components/forecast/forecast-table", () => ({
   SimplifiedForecastTable: (props: any) => <div data-testid="forecast-table" />,
 }));
-jest.mock("@/components/forecast/tide-chart-enhanced", () => ({
-  TideChartEnhanced: (props: any) => <div data-testid="tide-chart" />,
-}));
 jest.mock("@/components/forecast/horizon-strip", () => ({
   HorizonStrip: (props: any) => (
     <div
@@ -80,9 +77,6 @@ jest.mock("@/lib/utils/timezone-utils", () => ({
   resolveBeachTimezone: jest.fn(() => "America/Los_Angeles"),
   getLocalDateString: jest.fn(() => "2026-02-10"),
   getLocalHour: jest.fn((date: Date) => date.getUTCHours()),
-}));
-jest.mock("@/lib/utils/tide-diagnostics-generator", () => ({
-  generateTideDiagnosticsFromForecasts: jest.fn(() => null),
 }));
 jest.mock("@/lib/utils/horizon-strip-utils", () => ({
   aggregateDayForecasts: jest.fn(() => []),
@@ -530,10 +524,16 @@ describe("ForecastTab", () => {
   });
 
   describe("Tides Tab", () => {
-    it("renders TideChartEnhanced in Tides tab", () => {
+    it("renders surf-terminal iframe in Tides tab", () => {
       render(<ForecastTab {...defaultProps} defaultSubTab="tides" />);
 
-      expect(screen.getByTestId("tide-chart")).toBeInTheDocument();
+      const iframe = screen.getByTitle("Test Beach Surf Terminal");
+      expect(iframe).toBeInTheDocument();
+      expect(iframe).toHaveAttribute(
+        "src",
+        "/embed/surf-terminal/test-beach?theme=light&range=3d"
+      );
+      expect(iframe).toHaveAttribute("loading", "lazy");
     });
 
     it("renders TideConditionsCard in Tides tab", () => {
