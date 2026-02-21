@@ -20,9 +20,9 @@ import {
   getNearestNDBCStation,
   fetchLatestNDBCObservation,
 } from "@/lib/services/ndbc-service";
-import { CDIPService } from "@/lib/services/cdip-service";
+import { CDIPService } from "@/lib/services/cdip";
 import { CDIP_STATIONS } from "@/lib/constants/cdip-stations";
-import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
+import { NOAACOOPSService } from "@/lib/services/noaa-coops";
 import {
   CDIP_NDBC_OVERLAPS,
   isNDBCDuplicateOfCDIP,

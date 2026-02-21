@@ -57,6 +57,9 @@ describe("useIntelData", () => {
     dedupe_hash: null,
     emoji_rating: null,
     report_count: 0,
+    helpful_count: 0,
+    off_count: 0,
+    confirmed_count: 0,
     user: {
       full_name: "Test User",
       avatar_url: null,

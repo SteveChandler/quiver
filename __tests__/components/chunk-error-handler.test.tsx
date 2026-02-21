@@ -34,10 +34,12 @@ beforeAll(() => {
     value: mockSessionStorage,
     writable: true,
   });
+  /* eslint-disable no-restricted-properties -- test needs to mock window.location.reload */
   Object.defineProperty(window, "location", {
     value: { ...window.location, reload: mockReload },
     writable: true,
   });
+  /* eslint-enable no-restricted-properties */
 });
 
 beforeEach(() => {

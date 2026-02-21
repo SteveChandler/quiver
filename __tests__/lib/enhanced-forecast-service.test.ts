@@ -29,14 +29,14 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // Mock the NOAAWaveWatchService and NOAACOOPSService
-jest.mock("@/lib/services/noaa-wavewatch-service", () => ({
+jest.mock("@/lib/services/noaa-wavewatch", () => ({
   NOAAWaveWatchService: jest.fn(() => ({
     fetchWaveWatchForecast: jest.fn(() => Promise.resolve({ forecast: [] })),
     getWaveDirectionText: jest.fn(() => "SW"),
   })),
 }));
 
-jest.mock("@/lib/services/noaa-coops-service", () => ({
+jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn(() => ({
     getStationForLocation: jest.fn(() => "9414290"),
     fetchCOOPSData: jest.fn(() => Promise.resolve({ tides: [], currents: [] })),

@@ -42,8 +42,9 @@ export function SurfHighlightsSection() {
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
     try {
       let url = "/api/beaches/featured";
-      if (coordinates) {
-        url += `?lat=${coordinates.lat.toFixed(2)}&lon=${coordinates.lon.toFixed(2)}`;
+      if (coordsKey) {
+        const [lat, lon] = coordsKey.split(",");
+        url += `?lat=${lat}&lon=${lon}`;
       }
       const response = await fetch(url);
       if (!response.ok) {
@@ -110,7 +111,8 @@ export function SurfHighlightsSection() {
       console.error("Error fetching beaches:", error);
       return [];
     }
-  }, [coordinates, coordsKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- coordsKey is the stable serialization of coordinates
+  }, [coordsKey]);
 
   const { data: surfSpots, loading, refetch } = useDataFetcher(fetchBeaches);
 

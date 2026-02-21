@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapSearchHeader } from "@/components/map/map-search-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { MapContent } from "@/components/map/map-content";
 import { BeachList } from "@/components/map/beach-list";
-import { SelectedBeachCard } from "@/components/map/selected-beach-card";
 import { MapSidebar } from "@/components/map/map-sidebar";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
@@ -19,8 +19,10 @@ import type { Beach } from "@/types/database";
 
 export function MapView() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [showRecovery, setShowRecovery] = useState(false);
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -49,7 +51,6 @@ export function MapView() {
     loading: locationLoading,
     getUserLocation,
     useDefaultLocation,
-    resetAttempt,
   } = useGeolocation({ useLastBeach: false });
 
   const {
@@ -63,8 +64,6 @@ export function MapView() {
     filters,
     loadBeaches,
     loadNearbyBeaches,
-    loadNearbyBeachesForSelected,
-    clearSelectedBeachNearby,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,
@@ -126,13 +125,23 @@ export function MapView() {
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
-      // Load beaches near the selected beach (not user location)
-      // NOTE: This was used for NearbyBeachScroll component (removed). Kept for potential future use.
-      loadNearbyBeachesForSelected(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [setSelectedBeach, loadNearbyBeachesForSelected]
+    [setSelectedBeach]
+  );
+
+  const handleSidebarNavigate = useCallback(
+    (beach: Beach) => {
+      const beachUrl = getBeachHrefSafe({
+        id: beach.id,
+        slug: beach.slug,
+        city: beach.city,
+        state: beach.state,
+      });
+      if (beachUrl) router.push(beachUrl);
+    },
+    [router]
   );
 
   const handleClearSearch = useCallback(() => {
@@ -160,6 +169,19 @@ export function MapView() {
     },
     [userLocation]
   );
+
+  const handleMapClick = useCallback(() => {
+    setSelectedBeach(null);
+  }, [setSelectedBeach]);
+
+  const handleShowBeaches = useCallback(() => {
+    setSelectedBeach(null);
+    setShowRecovery(false);
+  }, [setSelectedBeach]);
+
+  const handleDismissAttempt = useCallback(() => {
+    setShowRecovery(true);
+  }, []);
 
   const handleBoundsChange = useCallback(
     (bounds: { west: number; south: number; east: number; north: number }) => {
@@ -254,7 +276,6 @@ export function MapView() {
         onNearMe={() => {
           // Clear selection so map centers on user location
           setSelectedBeach(null);
-          clearSelectedBeachNearby(); // Clear selected beach's nearby list
           clearSearch();
           lastLocationRef.current = null; // Allow reload at same location
           getUserLocation(true); // Force fresh geolocation
@@ -320,7 +341,7 @@ export function MapView() {
                 waveHeightMap={waveHeightMap}
                 selectedBeach={selectedBeach}
                 userLocation={userLocation}
-                onBeachSelect={handleBeachSelect}
+                onBeachSelect={handleSidebarNavigate}
               />
             </div>
           )}
@@ -342,6 +363,9 @@ export function MapView() {
               onBeachSelect={handleBeachSelect}
               onBoundsChange={handleBoundsChange}
               onWaveHeightsChange={handleWaveHeightsChange}
+              onMapClick={isMobile ? handleMapClick : undefined}
+              autoNavigateOnMarkerClick={!isMobile}
+              onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
             />
 
           </div>
@@ -354,20 +378,12 @@ export function MapView() {
               selectedBeach={selectedBeach}
               userLocation={userLocation}
               onBeachSelect={handleBeachSelect}
+              getDistanceFromUser={getDistanceFromUser}
+              onDeselectBeach={handleMapClick}
+              onDismissAttempt={handleDismissAttempt}
             />
           )}
 
-          {/* Mobile: Selected Beach Quick View - fixed above bottom sheet
-              bottom offset must match SNAP_POINTS[0] (10vh) in map-bottom-sheet.tsx */}
-          {isMobile && selectedBeach && (
-            <div className="fixed inset-x-0 z-50 px-2" style={{ bottom: "calc(10dvh + 4px)" }}>
-              <SelectedBeachCard
-                selectedBeach={selectedBeach}
-                getDistanceFromUser={getDistanceFromUser}
-                userLocation={userLocation}
-              />
-            </div>
-          )}
         </div>
       ) : (
         <BeachList

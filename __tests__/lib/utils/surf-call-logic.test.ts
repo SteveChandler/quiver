@@ -356,6 +356,422 @@ describe('computeSurfCall', () => {
     });
   });
 
+  // ============================================================================
+  // getWindowTide (tested via computeSurfCall)
+  //
+  // getWindowTide is private. The four columns exercised below are exposed on
+  // SurfCallResult as:  tideDescription, tidePhase, nextTideType, nextTideAt
+  //
+  // Selection order inside getWindowTide:
+  //   1. First forecast whose next_tide_at >= windowStartMs
+  //   2. Fallback: first forecast that has a tide_status at all
+  //   3. If nothing qualifies → { description:'Unknown', phase:null, … }
+  // ============================================================================
+  describe('getWindowTide — tide display path', () => {
+    // Window used across most sub-cases: 08:00–11:00 UTC on 2026-01-22
+    // windowStartMs = new Date('2026-01-22T08:00:00Z').getTime()
+
+    describe('tide_status present, next_tide_type/next_tide_at absent', () => {
+      it('sets tidePhase to "rising" and tideDescription to "rising" (not "Rising → …")', () => {
+        // Only tide_status provided — no next tide event data.
+        // getWindowTide falls back to find(f => f.tide_status).
+        // desc is set to phase because nextType/nextAt are null.
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Rising',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('rising');
+        expect(result.tideDescription).toBe('rising');
+        // No arrow format — next type is unknown
+        expect(result.tideDescription).not.toContain('→');
+        expect(result.nextTideType).toBeNull();
+        expect(result.nextTideAt).toBeNull();
+      });
+
+      it('sets tidePhase to "falling" and tideDescription to "falling" without arrow', () => {
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Falling',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('falling');
+        expect(result.tideDescription).toBe('falling');
+        expect(result.tideDescription).not.toContain('→');
+      });
+
+      it('sets tidePhase to "high slack" when status is "High Slack" with no next event', () => {
+        const forecasts = [
+          makeForecast({
+            tide_status: 'High Slack',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('high slack');
+        expect(result.tideDescription).toBe('high slack');
+        expect(result.tideDescription).not.toContain('→');
+      });
+
+      it('sets tidePhase to "low slack" when status is "Low Slack" with no next event', () => {
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Low Slack',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('low slack');
+        expect(result.tideDescription).toBe('low slack');
+        expect(result.tideDescription).not.toContain('→');
+      });
+    });
+
+    describe('all three fields present — arrow format', () => {
+      it('returns "Rising → High" when tide_status=Rising and next_tide_type=High', () => {
+        // next_tide_at is AFTER window start → selected by the first loop.
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Rising',
+            next_tide_type: 'High',
+            next_tide_at: '2026-01-22T09:30:00Z', // within the 08:00–11:00 window
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('rising');
+        expect(result.tideDescription).toBe('Rising → High');
+        expect(result.nextTideType).toBe('High');
+        expect(result.nextTideAt).toBe('2026-01-22T09:30:00Z');
+      });
+
+      it('returns "Falling → Low" when tide_status=Falling and next_tide_type=Low', () => {
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Falling',
+            next_tide_type: 'Low',
+            next_tide_at: '2026-01-22T10:00:00Z',
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('falling');
+        expect(result.tideDescription).toBe('Falling → Low');
+        expect(result.nextTideType).toBe('Low');
+        expect(result.nextTideAt).toBe('2026-01-22T10:00:00Z');
+      });
+
+      it('capitalizes both sides of the arrow correctly', () => {
+        // Ensure capitalize() is applied to BOTH phase and nextType.
+        // Source line: `${capitalize(phase)} → ${capitalize(nextType)}`
+        const forecasts = [
+          makeForecast({
+            tide_status: 'rising',  // lowercase input → normalized phase = 'rising'
+            next_tide_type: 'high', // lowercase input → capitalize() → 'High'
+            next_tide_at: '2026-01-22T09:00:00Z',
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // tidePhase is the normalized phase string (lowercase)
+        expect(result.tidePhase).toBe('rising');
+        // Both sides are capitalized by capitalize() in the description
+        expect(result.tideDescription).toBe('Rising → High');
+      });
+
+      it('picks the first forecast whose next_tide_at >= windowStart, ignoring earlier ones', () => {
+        // first forecast has next_tide_at BEFORE window start → skipped
+        // second forecast has next_tide_at AFTER window start → selected
+        const forecasts = [
+          makeForecast({
+            forecast_at: '2026-01-22T07:00:00Z',
+            tide_status: 'Falling',
+            next_tide_type: 'Low',
+            next_tide_at: '2026-01-22T07:45:00Z', // before windowStartMs (08:00)
+          } as any),
+          makeForecast({
+            forecast_at: '2026-01-22T08:00:00Z',
+            tide_status: 'Rising',
+            next_tide_type: 'High',
+            next_tide_at: '2026-01-22T09:30:00Z', // at/after windowStartMs
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // Should use the second forecast, not the first
+        expect(result.tidePhase).toBe('rising');
+        expect(result.tideDescription).toBe('Rising → High');
+        expect(result.nextTideType).toBe('High');
+      });
+
+      it('uses next_tide_at exactly equal to windowStart as the selected forecast', () => {
+        const windowStart = '2026-01-22T08:00:00Z';
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Rising',
+            next_tide_type: 'High',
+            next_tide_at: windowStart, // exactly equal to windowStartMs → qualifies
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tideDescription).toBe('Rising → High');
+        expect(result.nextTideAt).toBe(windowStart);
+      });
+    });
+
+    describe('next_tide_at is in the past relative to window start', () => {
+      it('falls back to tide_status-only row when all next_tide_at values predate window start', () => {
+        // next_tide_at is before the window start → first loop finds nothing.
+        // Fallback: first forecast with tide_status → description = phase only.
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Rising',
+            next_tide_type: 'High',
+            next_tide_at: '2026-01-22T07:00:00Z', // before window start 08:00
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // Falls back to tide_status-only path; nextType/nextAt from the fallback row
+        // are still populated (getWindowTide reads them from the same record)
+        expect(result.tidePhase).toBe('rising');
+        // nextType is 'High' and nextAt is non-null so desc uses arrow format
+        // (fallback still reads nextType/nextAt from the row — they're just past events)
+        expect(result.tideDescription).toBe('Rising → High');
+      });
+
+      it('returns description as phase only when next_tide_at is past AND next_tide_type is null', () => {
+        // next_tide_at is past (skipped by loop), fallback finds tide_status row,
+        // but next_tide_type is null → description = phase string, no arrow.
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Rising',
+            next_tide_type: null,
+            next_tide_at: '2026-01-22T06:00:00Z', // well before window start
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('rising');
+        expect(result.tideDescription).toBe('rising');
+        expect(result.tideDescription).not.toContain('→');
+      });
+    });
+
+    describe('non-standard tide_status values', () => {
+      it('uses raw tide_status string as phase when it does not match known patterns', () => {
+        // Status "ebbing" is not in the if/else chain → phase = status (raw string).
+        const forecasts = [
+          makeForecast({
+            tide_status: 'ebbing',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // phase is set to 'ebbing' (the raw status) since it matches none of
+        // rising/falling/high/low patterns
+        expect(result.tidePhase).toBe('ebbing');
+        expect(result.tideDescription).toBe('ebbing');
+      });
+
+      it('uses raw tide_status for non-standard value even with next event data', () => {
+        const forecasts = [
+          makeForecast({
+            tide_status: 'slack_water',
+            next_tide_type: 'High',
+            next_tide_at: '2026-01-22T09:00:00Z',
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // phase = 'slack_water' (raw), desc uses arrow format since nextType/nextAt present
+        expect(result.tidePhase).toBe('slack_water');
+        expect(result.tideDescription).toBe('Slack_water → High');
+      });
+
+      it('matches "RISING" (uppercase) as normalized "rising" phase', () => {
+        // The comparison uses .toLowerCase() so case-insensitive
+        const forecasts = [
+          makeForecast({
+            tide_status: 'RISING',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('rising');
+        expect(result.tideDescription).toBe('rising');
+      });
+
+      it('matches "falling tide" (contains keyword) as normalized "falling" phase', () => {
+        // .includes('falling') is true for "falling tide"
+        const forecasts = [
+          makeForecast({
+            tide_status: 'falling tide',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('falling');
+        expect(result.tideDescription).toBe('falling');
+      });
+    });
+
+    describe('empty or absent tide data', () => {
+      it('returns tideDescription "Unknown" and tidePhase null when all tide fields are null', () => {
+        const forecasts = [
+          makeForecast({
+            tide_status: null,
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tideDescription).toBe('Unknown');
+        expect(result.tidePhase).toBeNull();
+        expect(result.nextTideType).toBeNull();
+        expect(result.nextTideAt).toBeNull();
+      });
+
+      it('returns tideDescription null/Unknown and tidePhase null when no forecasts reach the tide path', () => {
+        // Empty forecasts → hard NO gate before getWindowTide is called.
+        // tideDescription stays null (from baseResult).
+        const result = computeSurfCall(null, [], makeBeach());
+
+        expect(result.tideDescription).toBeNull();
+        expect(result.tidePhase).toBeNull();
+      });
+
+      it('returns tideDescription "Unknown" and tidePhase null when window forecasts have no tide_status', () => {
+        // Forecasts exist and pass wave-height gate, window is valid,
+        // but no forecast in the effective set has a tide_status.
+        const forecasts = [
+          makeForecast({
+            wave_height: '3-4 ft',
+            tide_status: null,
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tideDescription).toBe('Unknown');
+        expect(result.tidePhase).toBeNull();
+        expect(result.nextTideType).toBeNull();
+        expect(result.nextTideAt).toBeNull();
+      });
+
+      it('selects first forecast with tide_status among multiple when none has qualifying next_tide_at', () => {
+        // Multiple forecasts, none with next_tide_at >= windowStart.
+        // Fallback should pick the FIRST one that has tide_status.
+        const forecasts = [
+          makeForecast({
+            forecast_at: '2026-01-22T08:00:00Z',
+            tide_status: null, // no tide_status → skipped by fallback find()
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+          makeForecast({
+            forecast_at: '2026-01-22T09:00:00Z',
+            tide_status: 'Falling',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+          makeForecast({
+            forecast_at: '2026-01-22T10:00:00Z',
+            tide_status: 'Rising',
+            next_tide_type: null,
+            next_tide_at: null,
+          } as any),
+        ];
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // Should use the second forecast (first with tide_status), not the third
+        expect(result.tidePhase).toBe('falling');
+        expect(result.tideDescription).toBe('falling');
+      });
+    });
+
+    describe('tidePhase passthrough to whySentence', () => {
+      it('whySentence references "rising tide" when tide is rising and verdict is YES', () => {
+        // The buildWhySentence YES branch checks hasGoodTide (rising or low slack).
+        // With offshore wind + rising tide we should get both parts in the sentence.
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Rising',
+            next_tide_type: null,
+            next_tide_at: null,
+            wind_speed: '8',
+            wind_direction_deg: 90, // offshore for beach with wind_offshore_deg: 90
+          } as any),
+        ];
+        const beach = makeBeach({ wind_offshore_deg: 90 } as any);
+        const window = makeWindow({ score: 80 });
+        const result = computeSurfCall(window, forecasts, beach);
+
+        expect(result.verdict).toBe('YES');
+        // The why sentence should mention the rising tide (good tide condition)
+        expect(result.whySentence.toLowerCase()).toContain('tide');
+      });
+
+      it('whySentence references dropping tide when tide is falling and verdict is MAYBE', () => {
+        // buildWhySentence MAYBE branch: tide.phase === 'falling' → "Good swell, but tide is dropping…"
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Falling',
+            next_tide_type: null,
+            next_tide_at: null,
+            wind_speed: '8',
+            // wind_direction_deg not set → wind type will be null (no offshore data match)
+          } as any),
+        ];
+        const beach = makeBeach({ wind_offshore_deg: null } as any);
+        const window = makeWindow({ score: 55 });
+        const result = computeSurfCall(window, forecasts, beach);
+
+        expect(result.verdict).toBe('MAYBE');
+        expect(result.whySentence).toContain('dropping');
+      });
+    });
+  });
+
   describe('output structure', () => {
     const forecasts = [makeForecast()];
 

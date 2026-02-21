@@ -10,7 +10,7 @@ Launch these 4 bash commands **in parallel** using `run_in_background: true`:
 
 1. **ML Pipeline**: `npx tsx scripts/ml-stats.ts 2>/dev/null` (timeout: 120s)
 2. **Camera Health**: `npx tsx scripts/validate-cameras.ts --json 2>/dev/null` (timeout: 300s)
-3. **Vercel Analytics**: Read token from `~/Library/Application Support/com.vercel.cli/auth.json`, then run 6 curl commands against `https://vercel.com/api/web-analytics` with project `prj_z7DDSIF65y1EbOfuDrZfYsx9Mmbx` (overview, timeseries, path, referrer, country, device_type — last 7 days)
+3. **Vercel Analytics**: Read token from `~/Library/Application Support/com.vercel.cli/auth.json`, then run 6 curl commands against `https://vercel.com/api/web-analytics` with project `prj_z7DDSIF65y1EbOfuDrZfYsx9Mmbx` (1x `overview`, 1x `timeseries` for daily trend, 4x `timeseries?groupBy=` with path/referrer/country/device_type — last 7 days)
 4. **GSC Stats**: `test -f /tmp/gsc-venv/bin/python3 || (python3 -m venv /tmp/gsc-venv && /tmp/gsc-venv/bin/pip install -q google-auth google-api-python-client) && /tmp/gsc-venv/bin/python3 /Users/stevenchandler/Desktop/quiver/scripts/gsc-stats.py` (timeout: 60s)
 
 ### Step 2: Run all SQL queries via MCP execute_sql (in parallel with Step 1)

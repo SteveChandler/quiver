@@ -16,7 +16,7 @@ This document tracks E2E tests that have been temporarily skipped due to test dr
 |------|------|-------|
 | `guest-landing-performance.spec.ts` | should have proper HTML structure from server | `main[role="main"]` selector no longer matches |
 | `guest-landing-surf-highlights.spec.ts` | renders and advances via next button | Carousel test-ids and structure changed |
-| `guest-landing.spec.ts` | should open auth modal when clicking signup | "Sign up" button may now be "Get Started" |
+| `guest-landing.spec.ts` | should open auth modal when clicking signup | Button text is now "Start surfing smarter" (regex updated to match) |
 
 ### 2. API Tests (2 tests)
 | File | Test | Issue |

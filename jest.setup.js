@@ -223,12 +223,181 @@ if (typeof window !== "undefined") {
   window.scrollTo = jest.fn();
 }
 
-// Suppress console errors during tests
-global.console = {
-  ...console,
-  error: jest.fn(),
-  warn: jest.fn(),
-};
+// --- Fail-on-unexpected-console strategy ---
+// Instead of blanket suppression, track unexpected console.error/warn calls
+// and fail tests that produce them.  Tests that intentionally trigger errors
+// should use the `expectConsoleErrors` / `expectConsoleWarnings` helpers from
+// test-utils.tsx.
+
+const ALLOWED_CONSOLE_PATTERNS = [
+  // ── jsdom / Node.js environment ──
+  /Not implemented: navigation/,
+  /The `punycode` module is deprecated/,
+  /localStorage not available/,
+
+  // ── React internals & DOM warnings ──
+  /inside a test was not wrapped in act/,
+  /React\.createElement is no longer supported/,
+  /ReactDOM\.render is no longer supported/,
+  /was passed to the .* attribute/,             // empty-string attribute warnings
+  /for a non-boolean attribute/,                // non-boolean prop warnings
+  /cannot be a descendant of/,                  // DOM nesting violations
+  /Encountered two children with the same key/, // duplicate key warnings
+  /requires a .* for the component to be accessible/, // Radix a11y warnings (DialogTitle etc.)
+  /React does not recognize the .* prop on a DOM element/, // unknown DOM prop warnings
+  /is unrecognized in this browser/,            // unrecognized HTML tag warnings
+  /cannot contain a nested/,                    // HTML nesting warnings
+  /ReactDOMTestUtils\.act.*is deprecated/,      // React test utils deprecation
+  /suspended resource finished loading.*not wrapped in act/, // React suspense in tests
+
+  // ── Radix UI / component library ──
+  /Missing `Teleport` component context/,
+  /Missing.*Description/,                        // Radix Dialog description warnings
+  /Missing.*aria-describedby/,                   // Radix Dialog aria warnings
+
+  // ── Error-handling test output (code under test logs before returning) ──
+  // These cover the vast majority of intentional error-path tests.
+  // Phase 2 should migrate each test to use `expectConsoleErrors([/pattern/])`
+  // so these broad patterns can be removed.
+  /Server action error:/,
+  /Admin server action error:/,
+  /API Error:/,
+  /\[ForecastError\]/,
+  /\[getSpotSurfReport\]/,
+  /\[CDIPApiClient\]/,
+  /\[CDIP\] Failed/,
+  /Error processing invitee/,
+  /Error (creating|checking|fetching|getting|loading|updating|marking|refreshing|in )/,
+  /Error (toggling|submitting|searching|removing|inserting|deleting|casting|analyzing)/,
+  /Failed to fetch/,
+  /Failed to (load|parse|update|save|log|credit|check|remove)/,
+  /Error .* invitation/,
+  /selectIntelVoteCounts/,
+  /Stack trace: /,                              // error handler stack traces
+  /supabase\.from\(.*\).*is not a function/,    // mock chain errors in error-path tests
+  /writeClient\.from\(.*\).*is not a function/, // write client mock chain errors
+  /serviceSupabase\.from\(.*\).*is not a function/,
+  /Database error:/,
+  /Device (token |upsert|deletion)/,
+  /Supabase error in/,
+  /Unhandled error type:/,
+  /Unexpected error in/,
+  /Tide data fetch error/,
+  /Unauthorized preference update/,
+  /\[AuthValidator\]/,
+  /Service role client error/,
+  /Scorer .* threw error/,
+  /Profile update error/,
+  /nearest_beaches RPC failed/,
+  /Nearest beach lookup failed/,
+  /Live NDBC fetch error/,
+  /In-app notification records failed/,
+  /Exception refreshing session/,
+  /\[welcome-email\]/,
+  /\[test-email\]/,
+  /\[send-welcome-email\]/,
+  /\[session-prompt-email\]/,
+  /\[reengagement-email\]/,
+  /\[conditions-alert-email\]/,
+  /\[factory-tag\]/,
+  /\[custom-context\]/,
+  /\[RateLimit:/,
+  /\[CRITICAL\] RPC/,
+  /recovery-test:/,
+  /Failed to query eligible users/,
+  /\[getLocalDateString\]/,
+  /failures encountered:/,
+  /- User .+: /,                                // cron job per-user error logging
+
+  // ── Warning-level output from error-path tests ──
+  /\[SurfDiscoveryOrchestrator\]/,
+  /Beach missing required URL components/,
+  /\[FALLBACK:/,
+  /\[useGeolocation\]/,
+  /\[onboarding\]/,
+  /\[Sentry Cron\]/,
+  /\[cam-resolve\]/,
+  /\[hls-proxy\]/,
+  /GoTrueClient.*Multiple GoTrueClient instances/,
+  /limit exceeded/,
+  /must be authenticated/,
+  /No coordinates provided/,
+  /Blocked duplicate/,
+  /\[SEO Redirect\]/,
+  /Profiles lookup failed/,
+  /Wave height batch .* failed/,
+  /Invalid coordinates provided/,
+  /\[CDIPService\]/,
+  /\[CDIPDataParser\]/,
+  /\[NOAACOOPS\]/,
+  /\[NOAA\]/,
+  /\[IOOS\]/,
+  /\[DataSourceManager\]/,
+  /\[DEGRADED\]/,
+  /\[getLocationPageData\]/,
+  /\[resend-webhook\]/,
+  /GoalsSection:.*undefined/,
+  /get_beaches_by_location.*returned object/,
+  /Error merging ML corrections/,
+  /getFreshForecastFromCache/,
+  /\[EnhancedForecastService\]/,
+  /Network request returned null/,
+];
+
+function isAllowed(args) {
+  const message = args.map(String).join(" ");
+  return ALLOWED_CONSOLE_PATTERNS.some((p) => p.test(message));
+}
+
+const _originalError = console.error;
+const _originalWarn = console.warn;
+
+// Expose tracking arrays globally so test-utils helpers can access them
+globalThis.__quiverConsoleErrors = [];
+globalThis.__quiverConsoleWarns = [];
+
+beforeEach(() => {
+  globalThis.__quiverConsoleErrors = [];
+  globalThis.__quiverConsoleWarns = [];
+
+  console.error = (...args) => {
+    if (!isAllowed(args)) {
+      globalThis.__quiverConsoleErrors.push(args.map(String).join(" "));
+    }
+    // Still print so developers see the output when debugging
+    _originalError.apply(console, args);
+  };
+
+  console.warn = (...args) => {
+    if (!isAllowed(args)) {
+      globalThis.__quiverConsoleWarns.push(args.map(String).join(" "));
+    }
+    _originalWarn.apply(console, args);
+  };
+});
+
+afterEach(() => {
+  // Restore originals
+  console.error = _originalError;
+  console.warn = _originalWarn;
+
+  // If a test used expectConsoleErrors/expectConsoleWarnings, it already
+  // asserted and cleared these arrays.  Only fail on truly unexpected output.
+  if (globalThis.__quiverConsoleErrors.length > 0) {
+    const summary = globalThis.__quiverConsoleErrors.slice(0, 3).join("\n  ");
+    throw new Error(
+      `Test produced ${globalThis.__quiverConsoleErrors.length} unexpected console.error(s):\n  ${summary}\n` +
+      `If intentional, use expectConsoleErrors([/pattern/]) from test-utils.`
+    );
+  }
+  if (globalThis.__quiverConsoleWarns.length > 0) {
+    const summary = globalThis.__quiverConsoleWarns.slice(0, 3).join("\n  ");
+    throw new Error(
+      `Test produced ${globalThis.__quiverConsoleWarns.length} unexpected console.warn(s):\n  ${summary}\n` +
+      `If intentional, use expectConsoleWarnings([/pattern/]) from test-utils.`
+    );
+  }
+});
 
 // Note: date-fns mocking is now done per-test-file as needed
 // Global mocking of date-fns causes issues with named exports like 'format'

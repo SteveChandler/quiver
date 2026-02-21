@@ -151,7 +151,7 @@ export function BeachList({
             />
             {filterValue && (
               <motion.button
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 onClick={() => handleFilter("")}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -290,6 +290,10 @@ export function BeachList({
                             scale: 1.02,
                             y: -2,
                             transition: { duration: 0.2 },
+                          }}
+                          whileTap={{
+                            scale: 0.98,
+                            transition: { duration: 0.1 },
                           }}
                           layout
                         >

@@ -133,9 +133,9 @@ describe("buildIntentPageContent", () => {
     ] as const;
 
     intents.forEach((intent) => {
-      it(`includes free differentiator in ${intent} meta description`, () => {
+      it(`includes live data freshness suffix in ${intent} meta description`, () => {
         const content = buildIntentPageContent(intent, mockMetadata);
-        expect(content.metaDescription.toLowerCase()).toContain("free");
+        expect(content.metaDescription.toLowerCase()).toContain("updated hourly");
       });
     });
 

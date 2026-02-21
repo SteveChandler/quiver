@@ -9,6 +9,235 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Google OAuth on mobile (Capacitor):** Fixed `Error 403: disallowed_useragent` by opening OAuth in the system browser (Chrome Custom Tabs / SFSafariViewController) instead of the WebView. Deep links route the `/auth/callback` back to the app for session exchange. Added `@capacitor/browser` plugin, Android App Links intent-filters, and iOS Associated Domains entitlements.
+
+### Changed
+
+- **Landing page hero polish:** conditions ticker now says "Current conditions nearby" instead of showing a random beach name, hero title uses `text-balance` for even word wrapping, removed em dash from subtitle, and aligned search bar icon/text positioning between placeholder and loaded cmdk states
+
+### Fixed
+
+- **NPC forecast bot — 9 bug fixes across `forecast-formatter.ts` and `template-hydration.ts`:**
+  - **Beach disambiguation (Bug 1):** Replaced `REGIONAL_SEARCH_TERMS` with `REGIONAL_BEACHES` (includes `city` field) and updated `fetchRegionalForecast` / `getRegionalBeachId` to filter by both name AND city, preventing Ocean Beach SD from appearing in NorCal reports.
+  - **Wind descriptions with offshore/onshore awareness (Bugs 2 & 7):** Rewrote `describeWindForForecast` and `describeConditionsBriefly` to use `classifyWindDirection` from `lib/utils/wind-classification`. Offshore winds get enthusiastic copy; onshore gets honest descriptors with speed-appropriate intensity.
+  - **Tide double AM/PM suffix (Bug 3):** Rewrote `formatTideInfo` to parse "HH:MM AM/PM" DB format correctly — no longer appends a redundant am/pm after the existing suffix.
+  - **Tide type from DB (Bug 4):** `formatTideInfo` now accepts and uses `tideType` (High/Low) and `tideAt` (timestamptz) parameters; defaults to "Low" only when type is absent.
+  - **Water temp — parse DB text (Bug 5):** Replaced random `getDefaultWaterTemp()` with `parseWaterTemp()` (parses "57°F" text) and `getSeasonalWaterTemp()` (deterministic monthly averages per region).
+  - **Water temp in template-hydration (Bug 6):** `fetchSurfConditions` now selects `water_temp` from `enhanced_forecasts` and parses it; deterministic fallback of 64°F replaces `62 + Math.random() * 8`.
+  - **Opening tone logic (Bug 7):** `generateRegionalForecast` now selects "waking up to" / "showing" / "at" based on wind classification and speed.
+  - **SELECT columns (Bug 8):** `fetchRegionalForecast` now selects `wind_direction_deg`, `next_tide_type`, `next_tide_height`, `next_tide_at`, `water_temp` from `enhanced_forecasts` and `wind_offshore_deg` from `beaches`.
+  - **Remove deprecated `forecast_time` filter (Bug 9):** Removed `.gte('forecast_time', '05:00:00').lte('forecast_time', '08:00:00')` — the `forecast_at` range already handles the time window.
+
+- **E2E self-cleaning intel post tests:** `e2e/input-validation.spec.ts` and `e2e/api/intel.spec.ts` now track IDs of successfully created intel posts and soft-delete them (`is_active = false`) in a `test.afterAll` hook using the Supabase service role client, rather than relying solely on global teardown.
+
+- **Nearby Surf Spots "All levels" bug:** Added `skill_level` to the `get_nearby_beaches` RPC return columns so nearby beach cards display actual skill levels instead of "All levels" for every card.
+- **SD beach skill ratings:** Corrected skill levels for Ocean Beach Pier (→ advanced), Swami's (→ advanced), and Avalanche (→ intermediate-advanced).
+- **QuickStats skill level formatting:** Fixed `formatSkillLevel` in QuickStats to properly title-case compound hyphenated values (e.g., "intermediate-advanced" → "Intermediate-Advanced" instead of "Intermediate-advanced").
+
+### Removed
+
+- **Duplicate 5-Day Outlook section:** Removed the card-style "5-Day Outlook" section (mini forecast cards + collapsible forecast table) from the Today sub-tab in `ForecastTab`. The `HorizonStrip` at the top of the tab already provides the N-Day Outlook, making the section redundant. Deleted the now-orphaned `DetailedSwellModal` component and its tests.
+
+### Fixed
+
+- **E2E tests updated for PublicContentGate:** Replaced stale assertions against the deleted `SurfCallSignInCTA` component in `e2e/guest-spot-surf-report.spec.ts` and `e2e/auth-spot-surf-report.spec.ts`. Guest tests now verify the `PublicContentGate` CTA heading ("See Today's Best Window") and "Sign Up Free" button are visible, and that clicking the button opens a modal (not navigates to `/auth/sign-in`). Auth test now asserts that the gate heading and button are absent for authenticated users.
+
+- **CDIP buoy station assignments:** Corrected 10 San Diego beaches that were incorrectly resolving to CDIP 201 (Scripps Nearshore) via haversine nearest-station. Mission Beach / Ocean Beach area (6 beaches) now uses CDIP 220 (Mission Bay West); Sunset Cliffs area (4 beaches) now uses CDIP 191 (Point Loma South). Also added optional `cdipStationOverride` parameter to `DataSourceManager.fetchBuoyObservationWithFallback()` for code path consistency with `enhanced-forecast-service.ts`.
+
+- **E2E selector bugs:** Fixed "Use Near Me" button selector mismatch across 4 tests in `e2e/map.spec.ts` and `e2e/map-use-near-me.spec.ts` — updated from `/Near Me/i` to `/use near me/i` to match the exact "Use Near Me" button text rendered by `MapSearchHeader`. Removed `isVisibleSafe + test.skip` guards wrapping the button checks, replacing them with `await expect(nearMeButton).toBeVisible()` so failures are reported correctly. Removed now-unused `isVisibleSafe` import from `map-use-near-me.spec.ts`.
+
+- **E2E silent skip in dev-validation:** Replaced `test.skip(true, 'No beach cards found...')` in the "Clicking beach card navigates to detail" test with `throw new Error(...)` — the test runs in authenticated context where `[data-testid="beach-card"]` and `a[href*="/california/"]` selectors should always resolve.
+
+- **E2E silent skip in map-coordinate-validation:** Replaced `test.skip(true, 'Coordinate validation test encountered an error...')` in `coordinate validation prevents invalid data entry` with `throw new Error(...)` — a JS page evaluation error is a real failure, not an environment limitation.
+
+- **E2E test skip reasons:** Replaced 16 generic `'Beach input not found - UI may have changed'` skip messages in `e2e/session-wizard.spec.ts` and `e2e/session-wizard-autofill.spec.ts` with specific descriptions matching the actual condition checked (e.g., `'Rating fields not found on step 4'`, `'Submit button not found on last wizard step'`, `'Date/time inputs not found on step 2'`, `'Previous/cancel button not visible'`).
+
+- **E2E defensive skips removed:** Removed all `if (!found) { test.skip(true, '...'); return; }` guard patterns from `e2e/session-wizard.spec.ts` and `e2e/session-wizard-autofill.spec.ts`. Replaced with `await expect(element).toBeVisible()` assertions that fail loudly. Fixed the rating-field selector in "should have rating fields for logged sessions" — `RatingInput` renders star `<button>` elements with `aria-label="Rate X as Y out of 5"`, not `input[type="range"]` or `data-testid*="rating"`. Removed a silent post-submission skip in the "persist all condition fields" test that masked submission failures.
+
+- **E2E silent console.log+return patterns:** Converted ~14 `console.log('...'); return;` patterns across `e2e/map.spec.ts`, `e2e/map-coordinate-validation.spec.ts`, `e2e/map-use-near-me.spec.ts`, `e2e/dev-validation.spec.ts`, and `e2e/guest-landing.spec.ts` to `test.skip(true, 'reason'); return;` so Playwright reports them as skipped rather than silently passing green.
+
+### Added
+
+- **Surf call conditions gating:** Blurred best window, wave height, wind, tide, and why sentence behind a `PublicContentGate` sign-up CTA for unauthenticated users on the Today's/Tomorrow's Surf Call card. Verdict badge, heading, updated time, and confidence badge remain visible to all users. Removed the obsolete `SurfCallSignInCTA` inline link (replaced by the gate).
+
+- **Forecast unit tests:** Added 61 new tests for `batch-beach-processor.ts` (DeadlineTracker, batch config loading, batch processing) and `data-source-manager.ts` (service delegation, data source accessors, wave/tide/weather fetching).
+
+- **Personalization API mocks:** New `e2e/fixtures/personalization-mocks.ts` provides `setupPersonalizationMocks(page)` for E2E tests — intercepts 4 personalization API endpoints via `page.route()` so tests run in any environment without seeded data.
+
+### Changed
+
+- **Jest coverage thresholds:** Added `coverageThreshold` to `jest.config.js` (lines: 54%, statements: 54%, functions: 61%, branches: 72%) to prevent silent regression. Removed `collectCoverage: true` from default config so `yarn test:unit` runs fast (~4s vs ~180s).
+
+- **Personalization E2E tests:** Refactored all 3 personalization specs (`personalization-scores`, `personalization-activation`, `personalized-insights`) from `test.skip()` on non-local environments to API mocking via `page.route()`. Tests now verify real UI behavior in any environment (42 passing, 10 fixme for deleted component).
+
+### Fixed
+
+- **E2E selector:** Fixed `familiarity-badge` -> `affinity-badge` in `personalization-helpers.ts` (3 occurrences).
+
+- **E2E selector:** Fixed brittle XPath `contains(@class, 'bg-white')` in surf style card test — matched 2 elements (`bg-white/80` and `bg-white/10`). Now targets `backdrop-blur` ancestor with `.first()`.
+
+- **Error detection comments:** Clarified why `error-detection.ts` suppresses generic Chrome 500 console messages — they're de-duplicated, not ignored (network error reporter still catches 500s with full URLs).
+
+### Fixed
+
+- **E2E tests:** Fixed assertion-less tests and silent error swallowing across 3 spec files. `e2e/personalization-scores.spec.ts`: added `expect(activeTag).toBeTruthy()` to keyboard navigation test and added `expect(badgeClasses).toBeTruthy()` plus computed outline-style assertion to focus states test. `e2e/beach-detail/yesterdays-accuracy.spec.ts`: replaced 3 `Promise.race([card.waitFor().catch(() => {}), waitForTimeout()])` blocks with direct `isVisibleSafe(card, { timeout: 5000 })` calls; added missing `isVisibleSafe` import. `e2e/home/header-animations.spec.ts`: replaced 2 `expect(heroLoading).not.toBeVisible().catch(() => {})` assertion-as-wait patterns with `heroLoading.waitFor({ state: 'hidden' }).catch(() => {})` (wait mechanism, not assertion); added missing `isVisibleSafe` import.
+
+- **E2E tests:** Replaced 8 `expect(true).toBe(true)` antipatterns across `e2e/discover.spec.ts`, `e2e/api/user-profile.spec.ts`, `e2e/session-wizard-autofill.spec.ts`, and `e2e/coast-pulse-infinite-scroll.spec.ts` with real assertions (`toBeVisible`, `toBeDefined`) or `throw new Error('Not implemented: ...')` per project convention for unimplemented features.
+
+### Added
+
+- **`lib/formatters/surf-data.ts`:** New single source of truth for all surf data formatting. Exports `formatWaveHeight` (integer-rounded range string, "Flat" for non-positive), `formatWindSpeed` (rounded integer + " mph"), `formatSwellPeriod` (rounded integer + "s"), `formatTideHeight` (1 decimal + "ft"), and `formatWaterTemp` (rounded integer + "°F").
+
+### Changed
+
+- **surf-data.ts formatter hardening:** Added `Number.isFinite` guards to all 5 formatters (`formatWaveHeight`, `formatWindSpeed`, `formatSwellPeriod`, `formatTideHeight`, `formatWaterTemp`) returning safe fallback strings (`'Flat'`, `'-- mph'`, `'--s'`, `'--ft'`, `'--°F'`) for NaN/Infinity inputs. Added corresponding test cases for all guards.
+
+- **`forecast-builder.ts` period formatting:** Removed 3 private `formatPeriodSeconds` closures that used decimal rounding (`Math.round(num * 10) / 10`). Replaced with import of the canonical `formatPeriodSeconds` from `lib/services/forecast/format-utils.ts`, which delegates to `formatSwellPeriod` (integer rounding). Updated the stale integration test expectation (`"13.1s"` → `"13s"`).
+
+- **Missed formatter migrations:** Migrated 5 files that were not updated in the initial refactor: `components/buoy/tides-display.tsx` (2 inline tide heights → `formatTideHeight`), `components/intel/conditions-intel-card.tsx` (tide height `toFixed(1)` → `formatTideHeight`), `components/beach-detail/tabs/forecast-tab.tsx` (dynamic tide height → `formatTideHeight`), `components/ui/check-in-display.tsx` (raw `wind_speed` → `formatWindSpeed`), `components/journal/journal-view.tsx` (`Math.round(mph)` → `formatWindSpeed`).
+
+- **`forecast-digest-service.ts` wind formatting:** Replaced 6 inline `${Math.round(windSpeed)} mph` template literals in natural-language reason strings with `formatWindSpeed(windSpeed)`.
+
+- **`coast-pulse-formatter.ts` double-rounding fix:** Removed outer `Math.round()` from `formatWindSpeed(Math.round(conditions.wind_speed * 1.151))` — `formatWindSpeed` already rounds internally.
+
+- **`surf-data.ts` doc comment:** Updated `formatWaveHeight` JSDoc to accurately describe its implementation (uses `Math.round` and `SET_WAVE_VARIANCE` directly; no delegation to `formatWaveHeightRangeString`).
+
+- **Tide height formatting:** Migrated all inline tide height display to `formatTideHeight()` from `@/lib/formatters/surf-data`. Replaced `.toFixed(1) + "ft"` patterns and the manual `Math.round(x * 10) / 10}ft` equivalent across `components/forecast/tide-hourly-table.tsx` (3 occurrences), `components/forecast/tide-chart-recharts.tsx` (Now-line label), `components/forecast/tide-chart/TideTooltip.tsx`, `components/forecast/tide-next-extreme.tsx` (4 occurrences across card, compact, and row variants), `components/intent/seven-day-tide-table.tsx` (3 occurrences), `components/intent/beach-tide-cards.tsx`, and `components/ui/tide-timing.tsx`. Chart Y-axis `tickFormatter` and diagnostic `.toFixed(2)` usages intentionally preserved.
+
+- **Swell period formatting:** Migrated all inline swell period display to `formatSwellPeriod()` from `@/lib/formatters/surf-data`. Replaced `{day.period.toFixed(0)}s` in `components/forecast/horizon-strip.tsx`, `{event.period.toFixed(0)}s` in `components/forecast/swell-event-card.tsx`, the inline `` `${num}s` `` template in the `formatPeriod` helper in `components/ui/wave-period-display.tsx`, and the final return in `lib/services/forecast/format-utils.ts` `formatPeriodSeconds` (validation logic preserved, delegation added).
+
+- **Wave height formatting:** Migrated all inline wave height display formatting to `formatWaveHeight()` from `@/lib/formatters/surf-data`. Affected files: `components/landing-page/surf-spot-card.tsx` (removed `Math.round(waveHeight)}ft`), `components/map/sidebar-beach-card.tsx` (replaced local `formatCompactWaveHeight` body), `components/forecast/best-right-now.tsx` (removed template literal), `components/forecast/adjusted-forecast-display.tsx` (all raw/adjusted wave display strings), `lib/utils/surf-call-logic.ts` (too-small wave height fallback string).
+
+- **Water temperature formatting:** Migrated all inline water temperature display to `formatWaterTemp()` from `@/lib/formatters/surf-data`. Replaced `Math.round(tempF)}°F` and `${tempF}°F` patterns in `lib/utils/coast-pulse-formatter.ts` (fallback buoy message path, via aliased import `formatWaterTempSimple`), `lib/services/forecast/forecast-builder.ts` (IOOS and NDBC priority paths, and `estimateWaterTemperature`). Removed duplicate local `formatWaterTemp` implementation from `lib/utils/wetsuit-utils.ts`, replacing it with a re-export from `@/lib/formatters/surf-data`. Migrated `{forecastData.water_temp}°F` in `components/session-forms/ConditionsSection.tsx` and `formatConditionValue(checkIn.water_temp, "°F")` in `components/ui/check-in-display.tsx`.
+
+- **Wind speed formatting:** Migrated all inline wind speed display to `formatWindSpeed()` from `@/lib/formatters/surf-data`. In `lib/utils/coast-pulse-formatter.ts`, replaced the knot-based `${conditions.wind_speed}kt` display in `formatIntelMessage` with `formatWindSpeed(Math.round(conditions.wind_speed * 1.151))` (knots-to-mph conversion), and replaced `${Math.round(windSpeed)}mph` patterns in `formatForecastConditions` (onshore, cross-shore, and fallback branches). In `lib/analyzers/wind-analyzer.ts`, replaced all six `${wind.speed} mph` template literals in `analyzeWindConditions` with `formatWindSpeed(wind.speed)`.
+
+### Removed
+
+- **Landing page:** Removed "Best conditions right now" card grid section — ticker remains.
+- **Dead code:** Deleted `actions/forecast/get-best-conditions-today.ts` — consumed only by the now-deleted `BestConditionsSection` component, zero live references remaining.
+
+### Fixed
+
+- **Tide height display (`surf-call-logic`, `spot-surf-report`):** Added `tideHeight` field (formatted as e.g. `"2.3ft"`) to `TideData`, `SurfCallResult`, and all `getWindowTide` return paths. `spot-surf-report.tsx` now renders `"Rising 2.3ft"` when next-tide-event data is unavailable but a current height reading exists, instead of just `"Rising"`. All 85 existing `surf-call-logic` tests continue to pass with no changes to test expectations.
+
+- **Embed chart (wind bars):** Wind histogram bars now span the full chart width instead of being compressed to the left ~1/6. Switched visible range sync from logical (index-based) to time-based, so charts with different data densities (smoothed wave vs raw wind) share the same time window. Added an invisible anchor series with dense time points to the wind chart so the crosshair snaps to fine-grained positions instead of nearest hourly bar.
+
+- **cam-resolve security hardening:** Added `redirect: "manual"` to both the primary page fetch and the HDRelay config fetch to prevent SSRF via open redirects; both return 502 if a redirect response is received. Added domain validation requiring HDRelay `servers.hls` to be a `*.hdrelay.com` hostname before constructing the HLS URL. Added a 64 KB size guard on the HDRelay config body (read as text, then `JSON.parse`). Extracted `HDRELAY_CONFIG_BASE` constant and reformatted `ALLOWED_RESOLVE_HOSTS` as multi-line. Made `HDRELAY_PLAYER_RE` case-insensitive for UUID hex digits (`[0-9a-fA-F-]`). Added explanatory comment on `kind: "hdontap"` reuse in `cam-embed.ts`. Test suite updated to use `text()` mock on HDRelay config responses and covers all new security paths.
+
+- **Ocean Beach Pier camera (HDRelay):** Added HDRelay provider support so the OB Hotel webcam at `obhotel.com` resolves to its HLS stream. `buildCamEmbed` now detects `obhotel.com` and returns `hdontap` kind (reusing the same resolution UI flow). `HDRELAY_PLAYER_RE` regex added to `cam-constants.ts` to extract the player ID from page HTML. `/api/cam-resolve` allowlists `obhotel.com`, skips the `/embed/` pathname rewrite for non-HDOnTap hosts, and falls back to a two-step HDRelay resolution (scrape player ID → fetch `manage.hdrelay.com/player/{id}` config → construct HLS URL from `servers.hls` + `camera` fields) when no HDOnTap stream URL is found in the page.
+
+- **Embed chart (data-transform):** Hoisted `windowStartMs` and exported `LOOKBACK_HOURS = 6` constant in `data-transform.ts` so the lookback boundary is defined once and reusable in tests. Updated JSDoc to reflect `[now - 6h, now + timeRangeHours]` window. Fixed `"excludes forecasts older than 6h lookback"` test (was using a 1h-past timestamp that now falls inside the lookback window; moved to 7h past) and added `"includes forecasts within 6h lookback window"` boundary test.
+- **Embed chart:** Surf Terminal embed charts now show 6 hours of historical data before the "Now" marker instead of starting blank.
+- **Cardiff Reef camera:** Added `portal.hdontap.com` support to cam-embed and cam-resolve pipeline so portal-hosted HDOnTap streams resolve correctly. Added unit test coverage for `portal.hdontap.com` in `cam-embed.test.ts` (buildCamEmbed returns `hdontap` kind) and `cam-resolve.test.ts` (allowlist passes, no `/embed/` suffix appended).
+- **Dashboard skill:** Clarified Vercel Analytics API calls in `dashboard.md` — the 6 queries use `overview` + `timeseries` (with 4 `groupBy` variants), not separate endpoint names like `/path` or `/referrer` that don't exist.
+- **Service role leak:** Landing page components (`BestConditionsSection`, `LandingConditionsTicker`) were importing `getTopBeachesRightNow` directly, pulling `createSupabaseServiceRoleClient` into the client bundle. Switched to `getTopBeachesNow` server action.
+- **Embed impressions:** `/api/embed-impressions` now accepts all four widget types (`tides`, `conditions`, `surf-terminal`, `ticker`) — was rejecting the two new types added by the DB migration.
+- **E2E tests:** Removed duplicate `test.describe` block in `location-pages.spec.ts`.
+
+### Changed
+
+- **Surf Terminal embed:** Chart x-axis now displays beach local time instead of UTC. Added `utcToLocalChartTimestamp` / `localChartTimestampToUtc` helpers in `data-transform.ts` that encode local wall-clock time as fake-UTC seconds (the format lightweight-charts expects). The "Now" marker and click handler both use the same conversion so forecast lookups remain accurate.
+- **Surf Terminal embed:** Chart lines (wave height, tide, ML-corrected height, swell period) are now smooth curves rendered via cosine interpolation (`smoothSeries`). Wind histogram bars are intentionally excluded from smoothing.
+
+- **Map Navigation:** Fixed mobile map beach card "View Details" being a dead link when `get_nearby_beaches` RPC didn't return `slug`/`city`/`state`. Applied missing DB migration and switched all beach URL generation from `getBeachUrlSafe` to `getBeachHrefSafe` for graceful fallback across map card, marker clicks, sidebar nav, hub map, nearby chips, and beach cards.
+- **ML Deployment:** Fixed Fly.io model deployment silently failing because GraphQL `setSecrets` doesn't override machine-level env vars. Replaced with Machines REST API (`POST /machines/{id}`) that directly updates machine config. Created shared `lib/services/fly-deploy.ts` utility used by both retrain and promote-candidate cron routes.
+- **ML Deployment (promote-candidate):** Standardized to use `createServiceRoleClient()`, `validateCronRequest()`, and static imports — was using raw `createClient` and inline auth checks inconsistent with codebase patterns.
+- **ML Deployment (fly-deploy):** Added defensive validation for Fly API responses, terminal machine state filtering, error logging in catch blocks, and nullish coalescing for timeout defaults.
+
+### Added
+
+- `ConditionsTicker` auto-scroll: replaced static horizontal scroll with a dual-track CSS marquee using a new `animate-ticker-scroll` utility (30s `waveFlow` loop). Hover pauses animation via `group-hover:[animation-play-state:paused]`. `prefers-reduced-motion` users see a scrollable static track instead (`ticker-static-track` / `ticker-animated-track` CSS classes in `globals.css`).
+- `ConditionsTicker` repositioned on beach detail page: moved above the surf report slot (just below `BeachHeroCompact`) so conditions are visible at the top of the page without scrolling; spacing updated from `mb-6` to `mb-4`.
+- `ConditionsTicker` in-app component (`components/conditions/conditions-ticker.tsx`): reusable at-a-glance conditions strip showing waves, swell, wind, water temp, and tide with Lucide icons, dark/light theme support, loading skeleton, and ARIA labels
+- `ConditionsData` shared type (`types/conditions.ts`) and `forecastToConditionsData` mapper (`lib/mappers/conditions-mappers.ts`) for converting `EnhancedForecastEntity` to ticker-compatible shape; embed widgets re-export aliases for backward compat
+- `buildConditionsCards` pure function (`lib/utils/conditions-card-builder.ts`) extracted from embed ticker — returns data objects instead of JSX for testability
+- Home screen conditions ticker for home beach (dark theme, `useDataFetcher` pattern)
+- Landing page conditions ticker showing top-scored beach conditions (light theme)
+- 45 tests across 6 suites covering card builder, ticker component, and all three integration points
+
+### Removed
+
+- Dead code cleanup: deleted `TodaysForecast`, `FallbackForecastDisplay`, and `ConditionsSnapshot` components plus their test files (5 files, zero real imports)
+
+### Changed
+
+- Rebuilt mobile map to AllTrails-style bottom sheet pattern: selected beach card now renders inside the Vaul drawer (same DOM tree = reliable mobile taps), marker taps snap sheet to 40% showing detail card, map canvas taps deselect, X button on card deselects; removed `createPortal` approach and debug coordinate popup; desktop sidebar + auto-navigation unchanged
+- Test suite hardening: removed global console suppression, added eslint-plugin-jest/playwright, deployed error detection to 67 E2E specs, eliminated .catch(() => false) patterns, replaced waitForTimeout with semantic waits
+- Fixed 13 failing test suites (63 tests) exposed by test hardening: migrated console mock conflicts to `expectConsoleErrors()`, updated stale selectors ("Sign Up" → "Get Started", SEO templates), fixed Supabase mock chains (`.lte()` → `.lt()`), added `.then()` for fire-and-forget mock patterns
+- Extracted `resolveForecastTime` and `localDateTimeToUTC` to shared `lib/utils/forecast-time-resolver.ts`; `toForecastForScoring()` now accepts optional `beachTz` parameter for timezone-aware forecast time resolution
+- **Forecast Timezone Fix:** Fixed `prepareForecasts()` and `toForecastForScoring()` treating `forecast_time` (local time) as UTC — introduced timezone-aware heuristic that detects legacy local-as-UTC encoding and converts correctly
+
+### Added
+
+- Scrolling surf ticker embed widget at `/embed/ticker/[slug]`: horizontal stock-ticker–style strip showing waves, swell, wind, water temp, and tide data; CSS keyframe scroll with hover-pause, `prefers-reduced-motion` static fallback, light/dark theme, and `utm_campaign=ticker` attribution link
+- 3-way intel voting system: `intel_votes` table with `helpful`/`off`/`confirmed` types, cached counters on `intel_posts`, trigger-maintained counts, trust-weighted report auto-hide, and time-decayed ranking RPC (`rank_score`)
+- `IntelVoteButtons` component (`components/intel/intel-vote-buttons.tsx`): shared 3-button voting row (Helpful / Off / Confirmed) with optimistic toggle logic and `getVoteConfidenceBadge` confidence badge
+- `ReportDialog` component (`components/intel/report-dialog.tsx`): structured report dialog with radio-group reason selection (spam, harassment, dangerous, false_info, other) and optional details field
+- `POST/DELETE /api/intel/[id]/vote` API routes for casting, changing, and removing votes
+- `voteOnIntelPost` / `removeIntelVote` server actions with XP awards on first vote
+- 131 new tests: 72 unit (confidence badges, Zod schemas, server actions), 19 integration (API route), 40 E2E (vote/confirm/report contract tests)
+
+### Changed
+
+- Removed `as any` cast in `intel-tab-simple.tsx` optimistic vote update — `IntelPostWithUser` already declares all spread fields as optional so the object literal satisfies the type without a cast
+- Removed `(supabase as any)` casts in `app/api/intel/[id]/report/route.ts` — `intel_reports` is now present in `types/database.generated.ts` so direct typed access works
+- Added post-ID guard in `intel_votes` realtime subscription handler: vote events for posts outside the current feed are silently skipped, reducing unnecessary refetches (`postsRef` pattern avoids re-subscribing)
+- Documented the check-then-insert pattern in `intel-vote-actions.ts` with a comment explaining why it is safe: the UNIQUE constraint provides a data-integrity safety net and the UI `isVoting` guard prevents double-clicks
+- Replaced all `(supabase as any)` casts in intel voting API routes with a typed `fromIntelVotes` helper (`lib/supabase/intel-votes-query.ts`) that isolates the single `as any` escape hatch at the `.from()` call boundary, with a `TODO: remove after type regen` comment
+- Replaced all `(post as any).field` casts in `intel-feed.tsx`, `beach-intel-section.tsx`, and `intel-post-modal.tsx` with direct `post.field` access — `IntelPostWithUser` already declared `user_vote_type`, `helpful_count`, `off_count`, and `confirmed_count` as optional fields
+- Updated `intel-confirm.test.ts` mock chains to match the refactored confirm route (no longer returns `confirmation_id`, uses `confirmed_count` from unified `selectIntelVoteCounts` helper)
+- Updated `intel-visibility.test.ts` vote mock to include `vote_type: "confirmed"` so `user_confirmed` propagates correctly through the votes map
+
+### Fixed
+
+- `voteOnIntelPost` / `removeIntelVote`: removed `setTimeout(100ms)` delays that waited for DB triggers — UI optimistic updates make the delay unnecessary latency
+- `voteOnIntelPost` / `removeIntelVote`: added UUID validation via `uuidSchema` before any auth or DB calls, returning `"Invalid intel post ID"` for malformed input
+- `voteOnIntelPost` / `removeIntelVote`: refactored to use `withAuthenticatedAction` wrapper from `lib/server-action-utils.ts` (removes manual `supabase.auth.getUser()` calls)
+- `voteOnIntelPost`: XP is now only awarded on first votes with type `"helpful"` or `"confirmed"` — `"off"` votes no longer trigger XP credits
+- `confirmIntelPost` / `removeIntelPostConfirmation`: replaced `result.data!` non-null assertions with `result.data?.confirmed_count ?? 0` optional chaining
+
+- `IntelVoteButtons`: added `aria-label` attributes to all three vote buttons with toggle-aware text ("Mark as helpful" / "Remove helpful vote", etc.) for screen reader accessibility
+- `getVoteConfidenceBadge` (`lib/constants/intel.ts`): removed unreachable duplicate `if (total === 0)` branch — merged into single terminal return
+- `ReportDialog`: empty catch block now logs via `console.error` for debuggability; toast message preserved
+- `get_nearby_intel_posts` RPC (`20260218120200_update_intel_ranking_rpc.sql`): clamped `rank_score` numerator to `GREATEST(0, ...)` so heavily-downvoted posts never score below zero-engagement posts
+- `update_intel_vote_counts` trigger (`20260218120000_add_intel_voting_schema.sql`): added `SECURITY DEFINER` comment explaining why the trigger owner context is required to bypass RLS for counter updates on non-owned posts
+- `POST /api/intel`: enriched response now includes `user_vote_type: null`, `helpful_count: 0`, `off_count: 0`, `confirmed_count: 0` so newly created posts have the same shape as GET results
+
+### Changed
+
+- `IntelFeed` / `IntelFeedCard`: replaced single confirm button with `IntelVoteButtons` + kebab dropdown (Report); prop renamed `onConfirm` → `onVote` with new `IntelVoteType | null` signature
+- `IntelPostModal`: replaced confirm button + confirmations count with `IntelVoteButtons`; added Report kebab menu; prop renamed `onConfirm` → `onVote`
+- `BeachIntelSection` / `IntelPostCard`: migrated from `confirmIntelPost` / `removeIntelPostConfirmation` to `voteOnIntelPost` / `removeIntelVote`; updated optimistic state to include `user_vote_type`, `helpful_count`, `off_count`, `confirmed_count`
+- `IntelTabSimple`: migrated confirm handler to vote handler using `voteOnIntelPost` / `removeIntelVote`
+- `IntelMap`: migrated confirm handler to vote handler
+- `CoastPulse`: hardcoded report reason changed from freeform string to structured `"spam"` enum value matching `IntelReportSchemaV2`
+
+- `FooterSection`: removed dead `FooterLink` wrapper (external branch was unreachable — all `FOOTER_LINKS` entries are internal routes); replaced usages with `Link` directly; removed `"use client"` directive, making the component a server component
+- `BeachBreadcrumb`: replaced trailing-space-prone template literal className with `cn()` utility
+- Breadcrumbs: beach detail pages now show `Home › State › City › Beach` (USA) / `Home › City › Beach` (international) instead of `← Back to Map`
+- Breadcrumbs: city browse pages now show `Home › United States › State › City` instead of `← Back to Map`
+- Breadcrumbs: city browse standard and editorial layouts now derive country/state labels and URLs from `params.country` instead of hardcoding "United States" and `/beaches/usa`; Mexico pages now render "Mexico" with correct `/beaches/mexico/...` paths; breadcrumb separator `<span>` elements now carry `aria-hidden="true"`
+- Footer: extracted shared `FOOTER_LINKS` to `lib/constants/footer-links.ts`, removed 4 dead `#` links and 1 duplicate from landing footer
+- Follow-up refactoring pass after dead code cleanup: removed dead `getViolationStatistics` function from `lib/monitoring/rate-limit-telemetry.ts` (was module-private and never called); stripped stale commented-out code blocks (deferred Sentry/analytics TODOs) from the same file; updated `docs/API_MIDDLEWARE.md`, `docs/API_MIDDLEWARE_REFERENCE.md`, `docs/REFACTORING_PROGRESS.md`, and `docs/DESIGN_PRINCIPLES.md` to remove references to deleted exports (`withAuthAndRateLimit`, `withFullProtection`, `ENHANCED_ANIMATIONS`)
+
+### Removed
+
+- Dead code cleanup: deleted 11 unused shadcn/ui component wrappers (`context-menu`, `hover-card`, `menubar`, `navigation-menu`, `resizable`, `input-otp`, `pagination`, `particle-background`, `toggle-group`, `carousel`, `kpi-tile`), 6 dead library/component files (`use-home-data`, `daily-best-window-email`, `heads-up-alert-email`, `ForecastQuickEmail`, `board-matching`, `landing-page-server`), and 23 dead scripts from `scripts/`
+- Removed 10 unused npm dependencies: `@radix-ui/react-context-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-menubar`, `@radix-ui/react-navigation-menu`, `@radix-ui/react-toggle-group`, `react-resizable-panels`, `input-otp`, `embla-carousel-react`, `@capacitor/status-bar`, `@resvg/resvg-js`
+- Dead export cleanup: removed unused `export` keywords and deleted entirely dead exports across 18 files — `requireAdminOrThrow`, `isAdminFromCookie`, `clearViolationTracking`, `logRateLimitSuccess`, `getRateLimitMetrics`, `shouldBlockRequest`, `getBlockedBotPatterns`, `getAllowedBotPatterns`, `generateCitySummary`, `generateCityFAQ`, `withAuthAndRateLimit`, `withFullProtection`, `ENHANCED_ANIMATIONS`, `QUIVER_MOTION`, `PHASE2_ANIMATIONS`, `IOOS_REGIONAL_SERVERS`, `MILESTONE_ORDER`, `VALIDATION_MESSAGES`, `BOARD_WAVE_MATCHING`; demoted to module-private: `getAllCitiesWithBeaches`, `requireAdmin`, `getViolationStatistics`, `HUB_REGIONS`, `ENHANCED_SHARD_SCHEDULES`, `SLUG_TO_STATE`, `VALID_STATE_SLUGS`, `REGIONAL_DATA`, `logger`; migrated `getBeachAccuracy`/`getSessionForecastSnapshots` callers to canonical `getBeachForecastAccuracy`/`getBeachSessionSnapshots` and removed aliases; removed `metersToFeet` alias in favor of `metersToFeetString`
+
+### Added
+
+- `BreadcrumbList` JSON-LD structured data on city browse pages for SERP breadcrumb display
+- "More Surf Tools" cross-link section on `/cams` hub (forecast, beaches, best-time-to-surf)
+- Footer links to `/for-businesses` and `/for-surf-schools` (previously zero inbound links)
+- Intent page conversion upgrade: CTA repositioned above map with intent-specific copy, new data-driven "Today's Plan" module replacing static focus pills, interactive `MiniLogTeaser` session preview, shareable `SmartChecklist` with copy/share buttons, and `getIntentForecastSummary()` server action powering forecast data for longboard, least-crowded, dawn-patrol, sunset, and water-temp intent pages
+- Auth-gated `TodaysIntentPlan`: converted to client component; logged-out users see best-window times locked/blurred with a signup CTA that opens `UnifiedAuthModal`; after login, component auto-scrolls back to `#todays-plan` via sessionStorage flag; tracks `plan_unlock_click` event per intent
+
+### Fixed
+
+- Removed VideoObject JSON-LD schema from `/cams` listing pages to fix Google Search Console "not on a watch page" warnings — these are category pages, not dedicated video watch pages
 - Increased CDIP staleness threshold from 1.5h to 4h -- the hourly CDIP cron doesn't reliably update every beach every cycle, causing 11 CDIP beaches (including Blacks, Oceanside Pier, PB Point) to show empty forecast states
 
 ### Removed

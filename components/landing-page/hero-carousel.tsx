@@ -182,7 +182,7 @@ export function HeroCarousel({
       {/* Ocean-blue brand arc shapes - AllTrails swoosh style */}
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute -top-20 -right-20 w-[400px] h-[400px] z-[6] opacity-30"
+        className="pointer-events-none absolute -top-20 -right-20 w-[400px] h-[400px] z-[6] opacity-30 hidden md:block"
         viewBox="0 0 400 400"
         fill="none"
       >
@@ -202,7 +202,7 @@ export function HeroCarousel({
       </svg>
       <svg
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-16 -left-16 w-[300px] h-[300px] z-[6] opacity-25"
+        className="pointer-events-none absolute -bottom-16 -left-16 w-[300px] h-[300px] z-[6] opacity-25 hidden md:block"
         viewBox="0 0 300 300"
         fill="none"
       >

@@ -17,6 +17,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getTopBeachesNow } from "@/actions/forecast/get-top-beaches-now";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
 import { getScoreColorClasses } from "@/lib/utils/score-color-utils";
+import { formatWaveHeight } from "@/lib/formatters/surf-data";
 import { ForecastSectionContainer } from "./forecast-section-container";
 
 function BestRightNowSkeleton() {
@@ -93,7 +94,7 @@ export function BestRightNow({ userLat, userLon }: BestRightNowProps = {}) {
       <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
         {data.map((beach, index) => {
           const scoreColors = getScoreColorClasses(beach.score);
-          const waveDisplay = `${Math.round(beach.waveHeight)}ft`;
+          const waveDisplay = formatWaveHeight(beach.waveHeight);
 
           const content = (
             <div className="flex items-center gap-3 px-4 py-3">

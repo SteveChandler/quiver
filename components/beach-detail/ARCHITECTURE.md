@@ -13,8 +13,7 @@ components/beach-detail/
 ├── beach-quick-actions.tsx   # Plan/Log session buttons + favorite
 ├── cams-section.tsx          # Live camera feed (iframe, HLS, or video)
 ├── hls-video-player.tsx      # HLS video playback via hls.js / native
-├── todays-forecast.tsx       # Today's forecast with calibration
-├── detailed-swell-modal.tsx  # Detailed swell/forecast modal dialog
+├── (deleted: todays-forecast.tsx — superseded by ConditionsTicker)
 ├── recent-sessions-section.tsx # Community sessions display
 └── ...                       # Additional components for tabs and features
 ```
@@ -40,7 +39,6 @@ BeachDetailPage
 │   └── HLSVideoPlayer (dynamic import, SSR disabled)
 ├── TodaysForecast (forecast data)
 ├── RecentSessionsSection (social content)
-└── DetailedSwellModal (detailed view)
 ```
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
@@ -115,17 +113,6 @@ BeachDetailPage
   - Forecast calibration integration
   - Wave height, wind, water temp display
   - Fallback for missing data
-
-### **DetailedSwellModal**
-
-- **Purpose**: Modal with comprehensive swell information
-- **Props**: `forecast, isOpen, onClose, selectedDate`
-- **Features**:
-  - Full-screen modal on mobile
-  - Gradient header design
-  - Accordion-based detailed swell data
-  - Swell 1, Swell 2, and Wind Wave sections
-  - Color-coded information sections
 
 ## 🔄 **DATA INTEGRATION**
 

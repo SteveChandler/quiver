@@ -283,8 +283,7 @@ function Providers({ children }) {
 - **`beach-quick-actions.tsx`** - Fast action buttons (plan, log, favorite)
 - **`cams-section.tsx`** - Live camera feed with multi-format support (iframe, HLS, video)
 - **`hls-video-player.tsx`** - HLS stream playback via hls.js (Chrome/Firefox) or native (Safari)
-- **`detailed-swell-modal.tsx`** - Advanced swell analysis modal
-- **`todays-forecast.tsx`** - Current day forecast display
+- **`conditions-ticker.tsx`** (`components/conditions/`) - Reusable at-a-glance conditions strip (waves, swell, wind, water temp, tide)
 
 #### Architecture
 

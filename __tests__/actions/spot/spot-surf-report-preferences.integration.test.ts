@@ -151,13 +151,11 @@ describe("Spot Surf Report Preferences Integration", () => {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
             gte: jest.fn(() => ({
-              lte: jest.fn(() => ({
+              lt: jest.fn(() => ({
                 order: jest.fn(() => ({
-                  order: jest.fn(() => ({
-                    limit: jest.fn(async () => ({
-                      data: mockForecasts,
-                      error: null,
-                    })),
+                  limit: jest.fn(async () => ({
+                    data: mockForecasts,
+                    error: null,
                   })),
                 })),
               })),

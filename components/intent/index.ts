@@ -12,3 +12,6 @@ export { TideHeroSection } from "./tide-hero-section";
 export { TideFullChart } from "./tide-full-chart";
 export { SevenDayTideTable } from "./seven-day-tide-table";
 export { BeachTideCards } from "./beach-tide-cards";
+export { SmartChecklist } from "./smart-checklist";
+export { TodaysIntentPlan } from "./todays-intent-plan";
+export { MiniLogTeaser } from "./mini-log-teaser";

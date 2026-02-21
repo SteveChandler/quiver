@@ -22,13 +22,13 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-jest.mock("@/lib/services/ioos-service", () => ({
+jest.mock("@/lib/services/ioos", () => ({
   IOOSService: jest.fn(),
 }));
 
 import { createSuccessResponse } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { IOOSService } from "@/lib/services/ioos-service";
+import { IOOSService } from "@/lib/services/ioos";
 
 // Helper to create chainable query mock
 const createChainMock = (finalResult: any) => {

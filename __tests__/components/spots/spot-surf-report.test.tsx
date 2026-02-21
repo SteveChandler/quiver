@@ -2,19 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { SpotSurfReport } from "@/components/spots/spot-surf-report";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 
-jest.mock("next/link", () => {
-  return function MockLink({ children, href, ...props }: any) {
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    );
-  };
-});
-
-const mockUseAuth = jest.fn();
-jest.mock("@/context/auth-context", () => ({
-  useAuth: () => mockUseAuth(),
+jest.mock("@/components/ui/public-content-gate", () => ({
+  PublicContentGate: ({ children, source }: any) => (
+    <div data-testid="public-content-gate" data-source={source}>
+      {children}
+    </div>
+  ),
 }));
 
 function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
@@ -31,6 +24,7 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
     windType: "offshore",
     tideDescription: "Rising",
     tidePhase: "rising",
+    tideHeight: null,
     nextTideType: "high",
     nextTideAt: "2025-01-15T14:30:00Z",
     whySentence: "Clean conditions with light offshore winds.",
@@ -45,13 +39,8 @@ function makeReport(overrides: Partial<SurfCallResult> = {}): SurfCallResult {
 }
 
 describe("SpotSurfReport", () => {
-  beforeEach(() => {
-    mockUseAuth.mockReturnValue({ user: null });
-  });
-
-  describe("Auth-aware sign-in link", () => {
-    it("shows sign-in link when not authenticated", () => {
-      mockUseAuth.mockReturnValue({ user: null });
+  describe("PublicContentGate integration", () => {
+    it("wraps conditions in PublicContentGate with correct source prop", () => {
       render(
         <SpotSurfReport
           report={makeReport()}
@@ -59,23 +48,50 @@ describe("SpotSurfReport", () => {
         />
       );
 
-      const link = screen.getByText("Sign in for your call (board + level)");
-      expect(link).toBeInTheDocument();
-      expect(link.closest("a")).toHaveAttribute("href", "/auth/sign-in");
+      const gate = screen.getByTestId("public-content-gate");
+      expect(gate).toBeInTheDocument();
+      expect(gate).toHaveAttribute("data-source", "surf-call-conditions");
     });
 
-    it("hides sign-in link when authenticated", () => {
-      mockUseAuth.mockReturnValue({ user: { id: "user-1" } });
+    it("does not render PublicContentGate when no conditions data exists", () => {
       render(
         <SpotSurfReport
-          report={makeReport()}
-          spotName="Blacks Beach"
+          report={makeReport({
+            verdict: "NO",
+            bestWindowStart: null,
+            bestWindowEnd: null,
+            waveHeight: null,
+            windSpeed: null,
+            windDescription: "Unknown",
+            tidePhase: null,
+            whySentence: "",
+          })}
+          spotName="Test"
         />
       );
 
-      expect(
-        screen.queryByText("Sign in for your call (board + level)")
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId("public-content-gate")).not.toBeInTheDocument();
+    });
+
+    it("renders PublicContentGate when only whySentence is present", () => {
+      render(
+        <SpotSurfReport
+          report={makeReport({
+            verdict: "NO",
+            bestWindowStart: null,
+            bestWindowEnd: null,
+            waveHeight: null,
+            windSpeed: null,
+            windDescription: "Unknown",
+            tidePhase: null,
+            whySentence: "Conditions are poor today.",
+          })}
+          spotName="Test"
+        />
+      );
+
+      expect(screen.getByTestId("public-content-gate")).toBeInTheDocument();
+      expect(screen.getByText("Conditions are poor today.")).toBeInTheDocument();
     });
   });
 
@@ -293,6 +309,7 @@ describe("SpotSurfReport", () => {
             windSpeed: null,
             windDescription: "Unknown",
             tidePhase: null,
+            whySentence: "",
           })}
           spotName="Test"
         />

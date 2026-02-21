@@ -97,7 +97,7 @@ describe("toggleSessionLike → author XP crediting", () => {
     const res = await toggleSessionLike(sessionId);
     // Debug on failure
     if (!res?.success) {
-      // eslint-disable-next-line no-console
+       
       console.error('toggleSessionLike failure:', res);
     }
     expect(res.success).toBe(true);

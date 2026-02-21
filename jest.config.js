@@ -52,7 +52,6 @@ const customJestConfig = {
   // Handle dynamic imports and async code better
   preset: undefined,
   // Coverage configuration
-  collectCoverage: true,
   coverageProvider: "v8",
   coverageDirectory: "coverage",
   coverageReporters: ["text", "lcov", "json", "html"],
@@ -81,6 +80,14 @@ const customJestConfig = {
     "<rootDir>/__tests__/setup/",
     "<rootDir>/test-utils/",
   ],
+  coverageThreshold: {
+    global: {
+      lines: 54,
+      statements: 54,
+      functions: 61,
+      branches: 72,
+    },
+  },
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

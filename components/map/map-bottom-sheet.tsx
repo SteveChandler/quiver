@@ -3,11 +3,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { SidebarBeachCard } from "@/components/map/sidebar-beach-card";
+import { SelectedBeachCard } from "@/components/map/selected-beach-card";
 import { useBeachListState } from "@/hooks/use-beach-list-state";
 import type { Beach } from "@/types/database";
 
 const SNAP_POINTS: number[] = [0.1, 0.4, 0.9];
 const PEEK_SNAP = SNAP_POINTS[0];
+const DETAIL_SNAP = SNAP_POINTS[1];
 
 export interface MapBottomSheetProps {
   beaches: Beach[];
@@ -15,6 +17,9 @@ export interface MapBottomSheetProps {
   selectedBeach: Beach | null;
   userLocation: { lat: number; lon: number } | null;
   onBeachSelect: (beach: Beach) => void;
+  getDistanceFromUser: (beachLat: number, beachLng: number) => string;
+  onDeselectBeach: () => void;
+  onDismissAttempt?: () => void;
 }
 
 /**
@@ -29,73 +34,122 @@ export function MapBottomSheet({
   selectedBeach,
   userLocation,
   onBeachSelect,
+  getDistanceFromUser,
+  onDeselectBeach,
+  onDismissAttempt,
 }: MapBottomSheetProps) {
-  const [activeSnapPoint, setActiveSnapPoint] = useState<
+  const [activeSnapPoint, setActiveSnapPointRaw] = useState<
     number | string | null
   >(PEEK_SNAP);
+
+  // Guard against Vaul dismissing the drawer to null or below the peek snap
+  const setActiveSnapPoint = useCallback(
+    (value: number | string | null) => {
+      if (value === null || (typeof value === "number" && value < PEEK_SNAP)) {
+        setActiveSnapPointRaw(PEEK_SNAP);
+        onDismissAttempt?.();
+      } else {
+        setActiveSnapPointRaw(value);
+      }
+    },
+    [onDismissAttempt]
+  );
   const { setCardRef, distanceMap } = useBeachListState(
     beaches,
     selectedBeach,
     userLocation
   );
 
-  // Auto-snap to peek when a beach is selected externally (e.g. marker tap)
+  // Snap to detail (40%) when a beach is selected, peek (10%) when deselected
   useEffect(() => {
     if (selectedBeach) {
+      setActiveSnapPoint(DETAIL_SNAP);
+    } else {
       setActiveSnapPoint(PEEK_SNAP);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBeach?.id]);
 
-  // When a beach card is tapped, select it and snap back to peek
+  // When a beach card is tapped, select it (useEffect handles snap to detail)
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       onBeachSelect(beach);
-      setActiveSnapPoint(PEEK_SNAP);
     },
     [onBeachSelect]
   );
 
-  // Only allow scrolling when the drawer is at the largest snap point
-  const isExpanded = activeSnapPoint === SNAP_POINTS[2];
+  // Vaul (via Radix Dialog) sets pointer-events: none on <body> when the
+  // drawer is open, which kills all touch/click events on the map page.
+  // Since this drawer is non-modal and always open, force-reset it.
+  // Uses MutationObserver to catch async re-applications by Vaul/Radix.
+  useEffect(() => {
+    document.body.style.pointerEvents = "";
+    const observer = new MutationObserver(() => {
+      if (document.body.style.pointerEvents !== "") {
+        document.body.style.pointerEvents = "";
+      }
+    });
+    observer.observe(document.body, { attributeFilter: ["style"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Allow scrolling at detail (40%) and full (90%) snap points
+  const isScrollable =
+    activeSnapPoint === SNAP_POINTS[1] || activeSnapPoint === SNAP_POINTS[2];
 
   return (
     <DrawerPrimitive.Root
       open={true}
       modal={false}
+      handleOnly={true}
       snapPoints={SNAP_POINTS}
       activeSnapPoint={activeSnapPoint}
       setActiveSnapPoint={setActiveSnapPoint}
       dismissible={false}
       shouldScaleBackground={false}
     >
-      <DrawerPrimitive.Portal>
-        <DrawerPrimitive.Content
-          className="fixed inset-x-0 bottom-0 z-40 flex h-auto flex-col rounded-t-xl border-t bg-background shadow-lg"
-          style={{
-            // Prevent content from exceeding 90% of viewport
-            maxHeight: "90dvh",
-          }}
+      <DrawerPrimitive.Content
+          className="fixed inset-x-0 bottom-0 z-40 flex min-h-[90dvh] flex-col rounded-t-xl border-t bg-background shadow-lg"
         >
-          {/* Drag handle */}
-          <div className="mx-auto mt-3 mb-1 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
+          {/* Drag handle — must be DrawerPrimitive.Handle when handleOnly is set */}
+          <div
+            data-testid="drawer-handle-area"
+            className="flex justify-center py-4 cursor-grab active:cursor-grabbing"
+          >
+            <DrawerPrimitive.Handle className="!mx-auto !h-1.5 !w-10 !shrink-0 !rounded-full !bg-muted-foreground/30 !border-none !shadow-none !p-0" />
+          </div>
 
           {/* Header */}
           <div className="px-4 pb-2 pt-1">
             <DrawerPrimitive.Title className="text-base font-semibold leading-tight">
-              Surf Spots
+              {selectedBeach ? selectedBeach.name : "Surf Spots"}
             </DrawerPrimitive.Title>
             <p className="text-xs text-muted-foreground">
-              {beaches.length} {beaches.length === 1 ? "spot" : "spots"} in view
+              {selectedBeach
+                ? "Tap card to view details"
+                : `${beaches.length} ${beaches.length === 1 ? "spot" : "spots"} in view`}
             </p>
           </div>
+
+          {/* Selected beach detail card — inside the drawer for reliable mobile taps */}
+          {selectedBeach && (
+            <div className="border-b overflow-hidden px-4 py-3" data-vaul-no-drag>
+              <SelectedBeachCard
+                selectedBeach={selectedBeach}
+                getDistanceFromUser={getDistanceFromUser}
+                userLocation={userLocation}
+                onClose={onDeselectBeach}
+              />
+            </div>
+          )}
 
           {/* Scrollable list - only scrollable when fully expanded */}
           <div
             className="flex-1 overflow-y-auto px-2 pb-safe"
-            data-vaul-no-drag={isExpanded ? "" : undefined}
+            data-testid="drawer-scroll-container"
+            data-vaul-no-drag={isScrollable ? "" : undefined}
             style={{
-              overflowY: isExpanded ? "auto" : "hidden",
+              overflowY: isScrollable ? "auto" : "hidden",
             }}
           >
             {beaches.length === 0 ? (
@@ -124,7 +178,6 @@ export function MapBottomSheet({
             )}
           </div>
         </DrawerPrimitive.Content>
-      </DrawerPrimitive.Portal>
     </DrawerPrimitive.Root>
   );
 }

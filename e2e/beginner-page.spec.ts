@@ -18,12 +18,20 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 const PAGE_LOAD_TIMEOUT = 15000;
 
 test.describe("Beginner page - San Diego", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'San Diego' });
   });
 
   test("should render hero with H1 and beginner count", async ({ page }) => {

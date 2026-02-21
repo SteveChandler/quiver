@@ -199,6 +199,35 @@ const shouldExpireFast = (tag: IntelPostTag) => {
   return INTEL_CONFIG.FAST_EXPIRY_TAGS.includes(tag);
 };
 
+/**
+ * Returns a confidence badge based on community vote counts.
+ * Used by IntelVoteButtons and intel card surfaces.
+ */
+export const getVoteConfidenceBadge = (post: {
+  helpful_count?: number;
+  off_count?: number;
+  confirmed_count?: number;
+}): { label: string; color: string } => {
+  const helpful_count = post.helpful_count ?? 0;
+  const off_count = post.off_count ?? 0;
+  const confirmed_count = post.confirmed_count ?? 0;
+  const total = helpful_count + off_count + confirmed_count;
+
+  if (confirmed_count >= 3) {
+    return { label: "Confirmed by surfers", color: "text-green-600" };
+  }
+  if (off_count >= 3 && off_count > helpful_count + confirmed_count) {
+    return { label: "Community disagrees", color: "text-red-500" };
+  }
+  if (helpful_count >= 2 && helpful_count > off_count) {
+    return { label: "Trending", color: "text-blue-500" };
+  }
+  if (confirmed_count >= 1) {
+    return { label: "Trending", color: "text-blue-500" };
+  }
+  return { label: "Needs votes", color: "text-gray-400" };
+};
+
 export const getExpiryDate = (tag: IntelPostTag) => {
   const days = shouldExpireFast(tag)
     ? INTEL_CONFIG.FAST_EXPIRY_DAYS

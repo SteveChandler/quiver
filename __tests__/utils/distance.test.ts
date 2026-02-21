@@ -1,4 +1,4 @@
-import { formatMiles, milesBetween } from "@/utils/distance";
+import { formatMiles, milesBetween } from "@/lib/utils/distance-utils";
 
 describe("formatMiles", () => {
   it("returns an em dash when value is not a finite number", () => {

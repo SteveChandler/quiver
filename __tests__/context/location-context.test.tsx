@@ -713,12 +713,7 @@ describe("LocationContext", () => {
       });
     });
 
-    it.skip("should handle SSR environment (no document)", () => {
-      // This test is challenging in JSDOM environment
-      // The getCookieValue function checks `typeof document === "undefined"`
-      // In real SSR environments (Next.js server components), this works correctly
-      // Skipping in JSDOM since it always provides a document object
-    });
+    test.todo("should handle SSR environment (no document) - JSDOM always provides document, requires real SSR environment to test");
   });
 
   describe("Component integration", () => {

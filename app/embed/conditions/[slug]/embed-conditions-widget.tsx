@@ -2,22 +2,13 @@
 
 import { useEmbedImpression } from "@/hooks/use-embed-impression";
 
-export interface ConditionData {
-  waveHeight?: string | null;
-  wavePeriod?: string | null;
-  waveDirection?: string | null;
-  windSpeed?: string | null;
-  windDirection?: string | null;
-  waterTemp?: string | null;
-  tideStatus?: string | null;
-  tideHeight?: string | null;
-}
+import type { ConditionsData } from "@/types/conditions";
 
 interface EmbedConditionsWidgetProps {
   beachName: string;
   beachUrl: string;
   slug: string;
-  conditions: ConditionData;
+  conditions: ConditionsData;
   theme: "light" | "dark";
 }
 

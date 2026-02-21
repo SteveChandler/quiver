@@ -15,7 +15,8 @@ import {
   BeachMetadata,
   EnhancedForecastEntity,
   OptimalWindow,
-} from '@/lib/services/magic-hour-finder';
+} from '@/lib/services/magic-hour';
+import { formatWindSpeed } from '@/lib/formatters/surf-data';
 
 // ============================================================================
 // Type Definitions
@@ -319,26 +320,26 @@ export function checkWindGate(
 
   if (windQuality.quality === 'perfect') {
     quality = 'perfect offshore winds';
-    reason = `Wind is offshore at ${Math.round(windSpeed)} mph, creating clean conditions`;
+    reason = `Wind is offshore at ${formatWindSpeed(windSpeed)}, creating clean conditions`;
   } else if (windQuality.quality === 'acceptable') {
     quality = 'good offshore winds';
-    reason = `Wind is offshore at ${Math.round(windSpeed)} mph, conditions are clean`;
+    reason = `Wind is offshore at ${formatWindSpeed(windSpeed)}, conditions are clean`;
   } else if (windQuality.quality === 'cross') {
     if (windSpeed <= 5) {
       quality = 'light cross-shore';
-      reason = `Cross-shore winds at ${Math.round(windSpeed)} mph, but light enough to be rideable`;
+      reason = `Cross-shore winds at ${formatWindSpeed(windSpeed)}, but light enough to be rideable`;
     } else {
       quality = 'cross-shore winds';
-      reason = `Cross-shore winds at ${Math.round(windSpeed)} mph may affect conditions`;
+      reason = `Cross-shore winds at ${formatWindSpeed(windSpeed)} may affect conditions`;
     }
   } else {
     // onshore
     if (windSpeed <= 5) {
       quality = 'light onshore';
-      reason = `Onshore winds at ${Math.round(windSpeed)} mph, but light enough to manage`;
+      reason = `Onshore winds at ${formatWindSpeed(windSpeed)}, but light enough to manage`;
     } else {
       quality = 'onshore winds';
-      reason = `Onshore winds at ${Math.round(windSpeed)} mph will create choppy conditions`;
+      reason = `Onshore winds at ${formatWindSpeed(windSpeed)} will create choppy conditions`;
     }
   }
 

@@ -79,8 +79,8 @@ jest.mock("@/lib/services/forecast/confidence-scorer", () => ({
 }));
 
 // Mock WaveWatch and CO-OPS dependencies
-jest.mock("@/lib/services/noaa-coops-service");
-jest.mock("@/lib/services/cdip-service");
+jest.mock("@/lib/services/noaa-coops");
+jest.mock("@/lib/services/cdip");
 
 describe("EnhancedForecastService", () => {
   const beach = {

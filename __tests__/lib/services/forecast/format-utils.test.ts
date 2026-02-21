@@ -2,7 +2,7 @@ import {
   formatPeriodSeconds,
   formatWaveFeet,
   formatFeet,
-  metersToFeet,
+  metersToFeetString,
   extractWindSpeed,
 } from "@/lib/services/forecast/format-utils";
 
@@ -16,11 +16,13 @@ describe("formatPeriodSeconds", () => {
   });
 
   it("formats valid number with s suffix", () => {
-    expect(formatPeriodSeconds(12.5)).toBe("12.5s");
+    // formatPeriodSeconds delegates to formatSwellPeriod which rounds: round(12.5)=13
+    expect(formatPeriodSeconds(12.5)).toBe("13s");
   });
 
   it("parses string input", () => {
-    expect(formatPeriodSeconds("14.2")).toBe("14.2s");
+    // formatSwellPeriod rounds: round(14.2)=14
+    expect(formatPeriodSeconds("14.2")).toBe("14s");
   });
 
   it("rejects periods below 4s as invalid", () => {
@@ -69,13 +71,13 @@ describe("formatFeet", () => {
   });
 });
 
-describe("metersToFeet", () => {
+describe("metersToFeetString", () => {
   it("converts meters to feet string", () => {
-    expect(metersToFeet(1)).toBe("3.3 ft");
+    expect(metersToFeetString(1)).toBe("3.3 ft");
   });
 
   it("handles sub-foot values with decimal", () => {
-    expect(metersToFeet(0.2)).toBe("0.7 ft");
+    expect(metersToFeetString(0.2)).toBe("0.7 ft");
   });
 });
 

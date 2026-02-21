@@ -16,13 +16,13 @@ import {
 
 /** Type for intel posts list API response */
 interface IntelPostsResponse {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   posts: any[];
 }
 
 /** Type for intel post create API response */
 interface IntelPostCreateResponse {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   post: any;
 }
 

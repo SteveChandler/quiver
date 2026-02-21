@@ -1,248 +1,96 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { creditAuthorWithXP } from "@/lib/gamification";
 import type { ActionResult } from "@/lib/action-utils";
 import type { ConfirmationData } from "./intel-types";
+import { voteOnIntelPost, removeIntelVote } from "./intel-vote-actions";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { uuidSchema } from "@/lib/validation/schemas";
 
 /**
- * Confirm an intel post
+ * Confirm an intel post (backward-compat wrapper).
+ * Delegates to the 3-way voting system with vote_type='confirmed'.
+ *
+ * Note: `confirmation_id` returns the intel post ID rather than a
+ * separate confirmation record ID. This is a known semantic change
+ * from the migration away from the dedicated `intel_confirmations`
+ * table to the unified `intel_votes` system. Callers should treat
+ * the value as opaque and not rely on it pointing to a specific row
+ * in any table.
  */
 export async function confirmIntelPost(
   intelPostId: string
 ): Promise<ActionResult<ConfirmationData>> {
-  try {
-    const supabase = await createSupabaseServerClient();
+  const result = await voteOnIntelPost(intelPostId, "confirmed");
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-      };
-    }
-
-    // Check if intel post exists and is active
-    const { data: intelPost, error: postError } = await supabase
-      .from("intel_posts")
-      .select("id, user_id, is_active, expires_at")
-      .eq("id", intelPostId)
-      .single();
-
-    if (postError || !intelPost) {
-      return {
-        success: false,
-        error: "Intel post not found",
-      };
-    }
-
-    if (!intelPost.is_active) {
-      return {
-        success: false,
-        error: "Intel post is no longer active",
-      };
-    }
-
-    // Check if post has expired
-    if (intelPost.expires_at && new Date(intelPost.expires_at) < new Date()) {
-      return {
-        success: false,
-        error: "Intel post has expired",
-      };
-    }
-
-    // Prevent users from confirming their own posts
-    if (intelPost.user_id === user.id) {
-      return {
-        success: false,
-        error: "You cannot confirm your own intel post",
-      };
-    }
-
-    // Check if user has already confirmed this post
-    const { data: existingConfirmation, error: checkError } = await supabase
-      .from("intel_post_confirmations")
-      .select("id")
-      .eq("intel_post_id", intelPostId)
-      .eq("user_id", user.id)
-      .single();
-
-    if (checkError && checkError.code !== "PGRST116") {
-      // PGRST116 = no rows found
-      console.error("Error checking existing confirmation:", checkError);
-      return {
-        success: false,
-        error: "Failed to check confirmation status",
-      };
-    }
-
-    if (existingConfirmation) {
-      return {
-        success: false,
-        error: "You have already confirmed this intel post",
-      };
-    }
-
-    // Create confirmation
-    const { data: confirmation, error: confirmError } = await supabase
-      .from("intel_post_confirmations")
-      .insert({
-        intel_post_id: intelPostId,
-        user_id: user.id,
-      })
-      .select()
-      .single();
-
-    if (confirmError) {
-      console.error("Error creating confirmation:", confirmError);
-      return {
-        success: false,
-        error: "Failed to confirm intel post",
-      };
-    }
-
-    // Get updated confirmations count - add a small delay to ensure trigger has executed
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const { data: updatedPost, error: updateError } = await supabase
-      .from("intel_posts")
-      .select("confirmations_count")
-      .eq("id", intelPostId)
-      .single();
-
-    if (updateError) {
-      console.warn("Could not fetch updated confirmations count:", updateError);
-    }
-
-    // Credit the intel author with XP (async, don't block the response)
-    if (intelPost.user_id) {
-      creditAuthorWithXP(intelPost.user_id, 'intel_post', intelPostId).catch(err =>
-        console.error("Failed to credit intel author XP:", err)
-      );
-
-      // Fire-and-forget milestone check for the post author (intel_confirmed_5x)
-      import("@/lib/services/personalization-milestone-service")
-        .then(({ checkAndRecordMilestones }) => checkAndRecordMilestones(intelPost.user_id))
-        .catch(() => {});
-    }
-
-    // Revalidate the home page to refresh the intel feed
-    revalidatePath("/");
-
-    return {
-      success: true,
-      data: {
-        confirmed: true,
-        confirmations_count: updatedPost?.confirmations_count || 1, // Fallback to at least 1 since we just added a confirmation
-        confirmation_id: confirmation.id,
-      },
-    };
-  } catch (error) {
-    console.error("Error in confirmIntelPost:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to confirm intel post",
-    };
+  if (!result.success) {
+    return { success: false, error: result.error };
   }
+
+  return {
+    success: true,
+    data: {
+      confirmed: true,
+      confirmations_count: result.data?.confirmed_count ?? 0,
+      /** @see confirmIntelPost JSDoc — returns the post ID, not a confirmation row ID */
+      confirmation_id: intelPostId,
+    },
+  };
 }
 
 /**
- * Remove confirmation from an intel post
+ * Remove confirmation from an intel post (backward-compat wrapper).
+ *
+ * Only removes the user's vote if its type is `confirmed`. If the user
+ * has a different vote type (helpful, off) it is left intact because
+ * removing a non-confirmation vote through this function would be a
+ * semantic error — the caller intended to un-confirm, not un-vote.
  */
 export async function removeIntelPostConfirmation(
   intelPostId: string
 ): Promise<ActionResult<ConfirmationData>> {
-  try {
-    const supabase = await createSupabaseServerClient();
+  const uuidResult = uuidSchema.safeParse(intelPostId);
+  if (!uuidResult.success) return { success: false, error: "Invalid intel post ID" };
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-      };
-    }
-
-    // Check if intel post exists
-    const { data: intelPost, error: postError } = await supabase
-      .from("intel_posts")
-      .select("id")
-      .eq("id", intelPostId)
-      .single();
-
-    if (postError || !intelPost) {
-      return {
-        success: false,
-        error: "Intel post not found",
-      };
-    }
-
-    // Find and delete the user's confirmation
-    const { data: deletedConfirmation, error: deleteError } = await supabase
-      .from("intel_post_confirmations")
-      .delete()
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Check the user's current vote type before removing
+    const { data: existingVote, error: checkError } = await supabase
+      .from("intel_votes")
+      .select("id, vote_type")
       .eq("intel_post_id", intelPostId)
       .eq("user_id", user.id)
-      .select()
-      .single();
+      .maybeSingle();
 
-    if (deleteError) {
-      if (deleteError.code === "PGRST116") {
-        // No rows found
-        return {
-          success: false,
-          error: "You have not confirmed this intel post",
-        };
-      }
-      console.error("Error deleting confirmation:", deleteError);
+    if (checkError) {
+      console.error("Error checking existing vote:", checkError);
+      throw new Error("Failed to check vote status");
+    }
+
+    // Only remove if the vote is a confirmation; otherwise leave it as-is
+    if (!existingVote || existingVote.vote_type !== "confirmed") {
+      const { data: currentPost } = await supabase
+        .from("intel_posts")
+        .select("confirmed_count")
+        .eq("id", intelPostId)
+        .single();
+
       return {
-        success: false,
-        error: "Failed to remove confirmation",
+        confirmed: false,
+        confirmations_count: currentPost?.confirmed_count ?? 0,
+        confirmation_id: intelPostId,
       };
     }
 
-    // Get updated confirmations count - add a small delay to ensure trigger has executed
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Delegate to removeIntelVote for the actual deletion
+    const result = await removeIntelVote(intelPostId);
 
-    const { data: updatedPost, error: updateError } = await supabase
-      .from("intel_posts")
-      .select("confirmations_count")
-      .eq("id", intelPostId)
-      .single();
-
-    if (updateError) {
-      console.warn("Could not fetch updated confirmations count:", updateError);
+    if (!result.success) {
+      throw new Error(result.error || "Failed to remove confirmation");
     }
 
-    // Revalidate the home page to refresh the intel feed
-    revalidatePath("/");
-
     return {
-      success: true,
-      data: {
-        confirmed: false,
-        confirmations_count: updatedPost?.confirmations_count || 0,
-        confirmation_id: deletedConfirmation.id,
-      },
+      confirmed: false,
+      confirmations_count: result.data?.confirmed_count ?? 0,
+      confirmation_id: intelPostId,
     };
-  } catch (error) {
-    console.error("Error in removeIntelPostConfirmation:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to remove intel post confirmation",
-    };
-  }
+  });
 }

@@ -70,7 +70,7 @@ jest.mock("@/lib/services/ndbc-service", () => ({
 
 // Mock CDIP service — singleton fetcher delegated to a ref
 const cdipMocks = { fetchBuoyData: jest.fn() };
-jest.mock("@/lib/services/cdip-service", () => ({
+jest.mock("@/lib/services/cdip", () => ({
   CDIPService: jest.fn().mockImplementation(() => ({
     fetchBuoyData: (...args: any[]) => cdipMocks.fetchBuoyData(...args),
   })),
@@ -84,7 +84,7 @@ const coopsMocks = {
   getTideStatusAtTime: jest.fn().mockReturnValue("Rising"),
   getNextTide: jest.fn(),
 };
-jest.mock("@/lib/services/noaa-coops-service", () => ({
+jest.mock("@/lib/services/noaa-coops", () => ({
   NOAACOOPSService: jest.fn().mockImplementation(() => ({
     getStationForLocation: (...args: any[]) =>
       coopsMocks.getStationForLocation(...args),

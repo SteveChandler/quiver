@@ -72,6 +72,30 @@ describe('POST /api/embed-impressions', () => {
     });
   });
 
+  it('returns 204 for valid surf-terminal impression', async () => {
+    const request = makeRequest({ widgetType: 'surf-terminal', beachSlug: 'blacks' });
+    const response = await POST(request);
+
+    expect(response.status).toBe(204);
+    expect(mockInsert).toHaveBeenCalledWith({
+      widget_type: 'surf-terminal',
+      beach_slug: 'blacks',
+      referrer_domain: null,
+    });
+  });
+
+  it('returns 204 for valid ticker impression', async () => {
+    const request = makeRequest({ widgetType: 'ticker', beachSlug: 'trestles' });
+    const response = await POST(request);
+
+    expect(response.status).toBe(204);
+    expect(mockInsert).toHaveBeenCalledWith({
+      widget_type: 'ticker',
+      beach_slug: 'trestles',
+      referrer_domain: null,
+    });
+  });
+
   it('includes security headers on 204 response', async () => {
     const request = makeRequest({ widgetType: 'tides', beachSlug: 'swamis' });
     const response = await POST(request);

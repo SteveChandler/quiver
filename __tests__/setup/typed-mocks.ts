@@ -277,6 +277,8 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     signup_context: null,
     signup_location: null,
     timezone: null,
+    // Trust score for intel voting
+    trust_score: 0.4,
     ...restOverrides,
   };
 }
@@ -336,6 +338,7 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     wave_period: "12s",
     wind_speed: "5-10mph",
     wind_direction: "NW",
+    wind_direction_deg: null,
     weather_condition: "sunny",
     confidence_score: 0.8,
     created_at: new Date().toISOString(),
@@ -394,6 +397,9 @@ export function createMockIntelPost(
     surf_conditions: null,
     emoji_rating: null,
     report_count: 0,
+    helpful_count: 0,
+    off_count: 0,
+    confirmed_count: 0,
     ...overrides,
   };
 }

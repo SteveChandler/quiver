@@ -196,7 +196,12 @@ export function tideAt(
         nextEvent = {
           type: phase as "HIGH" | "LOW",
           height: tides[i].tide_height_m * METERS_TO_FEET,
-          time: format(new Date(tides[i].ts), "HH:mm"),
+          time: new Intl.DateTimeFormat("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+            timeZone: timezone,
+          }).format(new Date(tides[i].ts)),
         };
         break;
       }

@@ -31,15 +31,18 @@ describe('Unified Scoring Integration', () => {
   } as BeachWithThresholds;
 
   /**
-   * Helper to create a partial EnhancedForecastEntity for testing
+   * Helper to create a partial EnhancedForecastEntity for testing.
+   *
+   * Automatically syncs `forecast_at` with `forecast_date` + `forecast_time`
+   * so that tests overriding `forecast_time` get a matching timestamp.
+   * Tests that explicitly set `forecast_at` keep their value.
    */
   function createForecast(
     overrides: Partial<EnhancedForecastEntity>
   ): EnhancedForecastEntity {
-    return {
+    const defaults = {
       id: 'test-forecast',
       beach_id: 'ob-pier',
-      forecast_at: '2026-01-14T07:00:00Z',
       forecast_date: '2026-01-14',
       forecast_time: '07:00:00',
       wave_height: '3.0',
@@ -56,7 +59,16 @@ describe('Unified Scoring Integration', () => {
       data_source: 'NOAA_NWS',
       created_at: '2026-01-14T00:00:00Z',
       updated_at: '2026-01-14T00:00:00Z',
-      ...overrides,
+    };
+    const merged = { ...defaults, ...overrides };
+    // Sync forecast_at with forecast_date + forecast_time (treat as UTC for test simplicity).
+    // Explicit forecast_at overrides take precedence.
+    const forecast_at =
+      overrides.forecast_at ??
+      `${merged.forecast_date}T${merged.forecast_time}Z`;
+    return {
+      ...merged,
+      forecast_at,
     } as EnhancedForecastEntity;
   }
 
@@ -300,7 +312,7 @@ describe('Unified Scoring Integration', () => {
       ];
 
       // Step 1: Transform entities to scoring format
-      const forecasts = entities.map(toForecastForScoring);
+      const forecasts = entities.map((e) => toForecastForScoring(e));
 
       // Verify transformation worked
       expect(forecasts).toHaveLength(4);

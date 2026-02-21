@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { TidePoint } from "../tide-chart-recharts";
 import { toDate } from "./tide-chart-helpers";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 
 export const TideTooltip: React.FC<{
   active?: boolean;
@@ -28,7 +29,7 @@ export const TideTooltip: React.FC<{
         {day} • {time}
       </div>
       <div className="text-sm font-semibold text-slate-900">
-        {p.h.toFixed(1)} {unit}
+        {formatTideHeight(p.h)}
       </div>
       {p.isHigh && (
         <div className="text-[11px] text-emerald-600">High tide</div>

@@ -27,11 +27,12 @@ function formatBreakType(breakType: string | undefined): string {
 function formatSkillLevel(skillLevel: string | undefined): string {
   if (!skillLevel) return "All Levels";
 
-  // Convert from database format to display format
+  // Normalize underscores to spaces, lowercase, then title-case each word
   return skillLevel
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("-");
+    .trim()
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function QuickStats({

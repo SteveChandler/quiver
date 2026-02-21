@@ -3,7 +3,7 @@
  */
 
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
-import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
+import { NOAACOOPSService } from "@/lib/services/noaa-coops";
 
 // Mock dependencies
 jest.mock("@/lib/supabase/server", () => ({
@@ -18,14 +18,14 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-jest.mock("@/lib/services/noaa-wavewatch-service", () => ({
+jest.mock("@/lib/services/noaa-wavewatch", () => ({
   NOAAWaveWatchService: jest.fn().mockImplementation(() => ({
     fetchWaveWatchForecast: jest.fn().mockResolvedValue(null),
     getWaveDirectionText: jest.fn().mockReturnValue("SW"),
   })),
 }));
 
-jest.mock("@/lib/services/cdip-service", () => ({
+jest.mock("@/lib/services/cdip", () => ({
   CDIPService: jest.fn().mockImplementation(() => ({
     getNearestStation: jest.fn().mockResolvedValue(null),
     fetchBuoyData: jest.fn().mockResolvedValue(null),

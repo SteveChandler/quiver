@@ -4,6 +4,8 @@
  * Temperature ranges based on common surfing industry standards
  */
 
+export { formatWaterTemp } from "@/lib/formatters/surf-data";
+
 export interface WetsuitRecommendation {
   thickness: string;
   description: string;
@@ -112,9 +114,3 @@ export function parseWaterTempF(raw: string | null | undefined): number | null {
   return parsed;
 }
 
-/**
- * Format temperature for display
- */
-export function formatWaterTemp(tempF: number): string {
-  return `${Math.round(tempF)}°F`;
-}

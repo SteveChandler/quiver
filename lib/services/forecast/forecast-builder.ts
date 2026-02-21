@@ -11,7 +11,10 @@
 import { calculateConfidenceScore } from "./confidence-scorer";
 import { toFaceHeightFeet } from "@/lib/utils/wave-height-formatter";
 import { cardinalToDegrees } from "./forecast-transformer";
+import { formatWaterTemp } from "@/lib/formatters/surf-data";
+import { formatPeriodSeconds } from "./format-utils";
 import { getNormalizedDateString, getNormalizedTimeString, getNormalizedForecastAt } from "./datetime-utils";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
 import {
   FORECAST_CONSTANTS,
@@ -94,7 +97,7 @@ export class ForecastBuilder {
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
-      const tideInfo = this.getTideInfo(tideData, forecastTime);
+      const tideInfo = this.getTideInfo(tideData, forecastTime, beach.timezone);
       const weatherPoint = this.getWeatherDataForTime(weatherData, forecastTime);
       const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
 
@@ -366,7 +369,7 @@ export class ForecastBuilder {
     return closest;
   }
 
-  private getTideInfo(tideData: COOPSForecast | null, targetTime: Date): ResolvedTideInfo {
+  private getTideInfo(tideData: COOPSForecast | null, targetTime: Date, beachTimezone?: string | null): ResolvedTideInfo {
     const defaultTideInfo = {
       status: "Unknown",
       currentHeight: "2.5 ft",
@@ -389,7 +392,7 @@ export class ForecastBuilder {
         ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
-            timeZone: "UTC",
+            timeZone: beachTimezone || DEFAULT_TIMEZONE,
           })
         : "Unknown",
       nextTideAt: nextTide ? new Date(nextTide.time * 1000).toISOString() : null,
@@ -471,14 +474,6 @@ export class ForecastBuilder {
     buoyData: NDBCBuoyRow | null,
     useCDIPData: boolean
   ): string | null {
-    const formatPeriodSeconds = (value: number | string | null | undefined): string | null => {
-      if (value == null) return null;
-      const num = typeof value === "string" ? parseFloat(value) : value;
-      if (!isFinite(num)) return null;
-      if (num < 4 || num > 25) return null;
-      const rounded = Math.round(num * 10) / 10;
-      return `${rounded}s`;
-    };
 
     if (useCDIPData && cdipPoint?.peakWavePeriod != null)
       return formatPeriodSeconds(cdipPoint.peakWavePeriod);
@@ -523,14 +518,6 @@ export class ForecastBuilder {
   }
 
   private getSwell1Period(cdipPoint: CDIPDataPoint | null, wavePoint: WaveWatchData | null, useCDIPData: boolean): string | null {
-    const formatPeriodSeconds = (value: number | string | null | undefined): string | null => {
-      if (value == null) return null;
-      const num = typeof value === "string" ? parseFloat(value) : value;
-      if (!isFinite(num)) return null;
-      if (num < 4 || num > 25) return null;
-      const rounded = Math.round(num * 10) / 10;
-      return `${rounded}s`;
-    };
 
     if (useCDIPData && cdipPoint?.swellPeriod != null)
       return formatPeriodSeconds(cdipPoint.swellPeriod);
@@ -557,11 +544,7 @@ export class ForecastBuilder {
 
   private getSwell2Period(wavePoint: WaveWatchData | null): string | null {
     if (wavePoint?.swell_2_period == null) return null;
-    const num = wavePoint.swell_2_period;
-    if (!isFinite(num)) return null;
-    if (num < 4 || num > 25) return null;
-    const rounded = Math.round(num * 10) / 10;
-    return `${rounded}s`;
+    return formatPeriodSeconds(wavePoint.swell_2_period);
   }
 
   private getSwell2Direction(wavePoint: WaveWatchData | null): string | null {
@@ -611,13 +594,13 @@ export class ForecastBuilder {
   ): string | null {
     // Priority 1: IOOS observed water temperature (most geographically accurate)
     if (ioosWaterTempC != null && isFinite(ioosWaterTempC)) {
-      const tempF = Math.round((ioosWaterTempC * 9) / 5 + 32);
-      return `${tempF}°F`;
+      const tempF = (ioosWaterTempC * 9) / 5 + 32;
+      return formatWaterTemp(tempF);
     }
 
     // Priority 2: NDBC buoy water temperature
     if (buoyData?.water_temperature != null && isFinite(buoyData.water_temperature)) {
-      return `${Math.round((buoyData.water_temperature * 9) / 5 + 32)}°F`;
+      return formatWaterTemp((buoyData.water_temperature * 9) / 5 + 32);
     }
 
     // Priority 3: Latitude-based estimation
@@ -692,8 +675,8 @@ export class ForecastBuilder {
     // Seasonal adjustment - water temp peaks around Aug-Sep (lags air by 1-2 months)
     const seasonalAdjustment = seasonalAmplitude * Math.sin(((month - 2) * Math.PI) / 6);
 
-    const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
-    return `${estimatedTemp}°F`;
+    const estimatedTemp = baseTemp + seasonalAdjustment;
+    return formatWaterTemp(estimatedTemp);
   }
 
   private estimateAirTemperature(lat: number, date: Date): string {

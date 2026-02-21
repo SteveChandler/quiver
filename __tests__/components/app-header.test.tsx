@@ -1599,7 +1599,7 @@ describe("AppHeader", () => {
       it("has rounded-full pill shape class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen.getByRole("button", { name: /sign up/i });
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("rounded-full");
@@ -1608,7 +1608,7 @@ describe("AppHeader", () => {
       it("has shadow-sm class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen.getByRole("button", { name: /sign up/i });
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("shadow-sm");
@@ -1617,16 +1617,16 @@ describe("AppHeader", () => {
       it("has active:scale-98 press state class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen.getByRole("button", { name: /sign up/i });
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
-        expect(signUpButton?.className).toContain("active:scale-98");
+        expect(signUpButton?.className).toContain("active:scale-[0.98]");
       });
 
       it("has font-semibold class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen.getByRole("button", { name: /sign up/i });
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("font-semibold");
@@ -1635,7 +1635,7 @@ describe("AppHeader", () => {
       it("has transition-all duration-200 classes", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen.getByRole("button", { name: /sign up/i });
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("transition-all");
@@ -1788,7 +1788,7 @@ describe("AppHeader", () => {
 
         render(<AppHeader />);
 
-        const signUpButton = screen.getByRole("button", { name: /sign up/i });
+        const signUpButton = screen.getByRole("button", { name: /get started/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("focus-visible:ring-2");

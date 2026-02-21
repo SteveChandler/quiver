@@ -74,7 +74,7 @@ describe('Intel Actions XP Wiring', () => {
       authWrapper: async (fn: any) => fn({ id: 'user-1' }, mockSupabase),
     });
     if (!res.success) {
-      // eslint-disable-next-line no-console
+       
       console.error('createIntelPost failed:', res);
     }
     expect(res.success).toBe(true);

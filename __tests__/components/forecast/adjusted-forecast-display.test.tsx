@@ -57,9 +57,12 @@ describe("AdjustedForecastDisplay", () => {
       />
     );
 
-    // Raw forecast: 6ft, adjusted should be lower due to positive delta
-    expect(screen.getByText("6ft")).toBeInTheDocument(); // Raw value (crossed out)
-    expect(screen.getByText("5.5ft")).toBeInTheDocument(); // Adjusted value
+    // Raw forecast: 6ft, adjusted should be lower due to positive delta.
+    // formatWaveHeight now returns ranges:
+    // rawWaveHeight=6:      low=6, high=round(6*1.5)=9   -> "6-9ft" (crossed out)
+    // adjustedWaveHeight=5.5: low=round(5.5)=6, high=round(5.5*1.5)=round(8.25)=8 -> "6-8ft"
+    expect(screen.getByText("6-9ft")).toBeInTheDocument(); // Raw value (crossed out)
+    expect(screen.getByText("6-8ft")).toBeInTheDocument(); // Adjusted value
   });
 
   it("shows adjusted wind speed based on historical data", () => {

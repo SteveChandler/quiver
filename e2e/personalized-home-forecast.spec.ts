@@ -3,6 +3,8 @@ import {
   waitForPageLoad,
   ensureAuthenticated,
 } from './utils/test-helpers';
+import { isVisibleSafe } from './utils/strict-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Home Screen Surf Recommendations Tests
@@ -162,7 +164,10 @@ function discoveryFixture() {
 }
 
 test.describe('Home Screen Surf Recommendations', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await page.addInitScript(removeSurfDiscoveryCacheInitScript);
 
     await page.route("**/api/surf/discover**", async (route) => {
@@ -179,6 +184,10 @@ test.describe('Home Screen Surf Recommendations', () => {
     // Navigate to home page
     await page.goto('/');
     await waitForPageLoad(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Home Screen Surf Recommendations' });
   });
 
   test("renders hero recommendation with beach name and score", async ({
@@ -281,11 +290,12 @@ test.describe('Home Screen Surf Recommendations', () => {
     // Should display at least one spot card (Windansea from fixture)
     // Note: The fixture has 2 recommendations, hero uses first, carousel gets the rest
     const spotButtons = topSpotsRegion.getByRole('button').filter({ hasText: /score|out of 10/i });
-    const hasSpots = await spotButtons.first().isVisible({ timeout: 5_000 }).catch(() => false);
+    /* Spot cards depend on fixture data and carousel rendering */
+    const hasSpots = await isVisibleSafe(spotButtons.first(), { timeout: 5_000 });
 
     // Either spot cards are visible or there's a message about spots
     const noSpotsMessage = topSpotsRegion.getByText(/no spots|check back/i);
-    const hasNoSpotsMessage = await noSpotsMessage.isVisible().catch(() => false);
+    const hasNoSpotsMessage = await isVisibleSafe(noSpotsMessage);
 
     expect(hasSpots || hasNoSpotsMessage || true).toBe(true);
   });

@@ -15,6 +15,7 @@ import {
   safeSetItem,
   safeRemoveItem,
 } from "@/lib/utils/safe-storage";
+import { isNativeApp } from "@/lib/mobile/platform";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
@@ -110,13 +111,36 @@ export async function initiateOAuthFlow(
       sessionStorage.setItem("pending_signup_metadata", JSON.stringify(metadata));
     }
 
+    const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(returnTo)}`;
+
+    if (isNativeApp()) {
+      // Native (Capacitor): get the OAuth URL without redirecting the WebView,
+      // then open it in the system browser (Chrome Custom Tabs / SFSafariViewController).
+      // This avoids Google's `disallowed_useragent` error for embedded WebViews.
+      const { data, error: oauthError } = await sb.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+
+      if (oauthError || !data?.url) {
+        console.error("[auth-utils] Native OAuth error:", oauthError);
+        clearAuthRedirect();
+        sessionStorage.removeItem("pending_signup_metadata");
+        return {
+          error: "Unable to sign in with Google. Please try another method.",
+        };
+      }
+
+      // Dynamic import to avoid bundling Capacitor Browser plugin for web builds
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url: data.url });
+      return {};
+    }
+
+    // Web: standard redirect flow (unchanged)
     const { error: oauthError } = await sb.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(
-          returnTo
-        )}`,
-      },
+      options: { redirectTo },
     });
 
     if (oauthError) {

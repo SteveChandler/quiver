@@ -86,16 +86,6 @@ export function generateCityRichContent(input: CityContentInput): {
   return { summary: richSummary, faqs: richFaqs };
 }
 
-/** @deprecated Use generateCityContent() instead for efficiency. */
-export function generateCitySummary(input: CityContentInput): string {
-  return generateCityContent(input).summary;
-}
-
-/** @deprecated Use generateCityContent() instead for efficiency. */
-export function generateCityFAQ(input: CityContentInput): FAQItem[] {
-  return generateCityContent(input).faqs;
-}
-
 // ---------------------------------------------------------------------------
 // Internal builders
 // ---------------------------------------------------------------------------

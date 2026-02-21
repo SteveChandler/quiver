@@ -5,7 +5,7 @@ import {
   validateCronRequest,
 } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { IOOSService } from "@/lib/services/ioos-service";
+import { IOOSService } from "@/lib/services/ioos";
 import {
   IOOS_STATION_FILTERS,
   IOOS_SYNC_CONFIG,
@@ -15,7 +15,7 @@ import {
 } from "@/lib/constants/ioos-config";
 import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
 import { IOOSStation, IOOSObservation, PRIORITY_NETWORKS } from "@/types/ioos";
-import { ParsedObservation } from "@/lib/services/ioos-service";
+import { ParsedObservation } from "@/lib/services/ioos";
 
 export const revalidate = 0;
 export const runtime = "nodejs";

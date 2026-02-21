@@ -12,8 +12,20 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe("Hub Region Guides", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Hub Region Guides' });
+  });
+
   test.describe("Southern California Surf Guide", () => {
     const GUIDE_URL = "/guides/surfing-southern-california";
 
@@ -35,7 +47,7 @@ test.describe("Hub Region Guides", () => {
     test("displays region statistics", async ({ page }) => {
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // Wait for hydration
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
       await page.waitForTimeout(1000);
 
       // Stats cards should be visible (use first() to avoid strict mode issues)
@@ -59,9 +71,10 @@ test.describe("Hub Region Guides", () => {
       let hasError = false;
 
       for (let i = 0; i < 10; i++) {
-        hasCanvas = await mapCanvas.isVisible().catch(() => false);
-        hasError = await mapError.isVisible().catch(() => false);
+        hasCanvas = await isVisibleSafe(mapCanvas);
+        hasError = await isVisibleSafe(mapError);
         if (hasCanvas || hasError) break;
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- polling interval for Mapbox initialization
         await page.waitForTimeout(1000);
       }
 
@@ -81,7 +94,7 @@ test.describe("Hub Region Guides", () => {
     test("category links are present and navigable", async ({ page }) => {
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // Wait for page to hydrate
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
       await page.waitForTimeout(1000);
 
       // Browse by Category section
@@ -107,7 +120,7 @@ test.describe("Hub Region Guides", () => {
     test("back navigation link works", async ({ page }) => {
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // Wait for page to hydrate
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
       await page.waitForTimeout(1000);
 
       // Back link should be present
@@ -119,7 +132,7 @@ test.describe("Hub Region Guides", () => {
     test("about section displays region information", async ({ page }) => {
       await page.goto(GUIDE_URL, { timeout: 20000, waitUntil: "domcontentloaded" });
 
-      // Wait for scroll reveal animations
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for ScrollReveal animations
       await page.waitForTimeout(1500);
 
       // About section heading
@@ -162,7 +175,7 @@ test.describe("Hub Region Guides", () => {
         waitUntil: "domcontentloaded",
       });
 
-      // Wait for hydration
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for React hydration
       await page.waitForTimeout(1000);
 
       // Back link should be focusable
@@ -225,7 +238,7 @@ test.describe("Hub Region Guides", () => {
         waitUntil: "domcontentloaded",
       });
 
-      // Wait for page to fully render
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for structured data scripts to render
       await page.waitForTimeout(500);
 
       // Check for FAQ schema in page source
@@ -249,7 +262,7 @@ test.describe("Hub Region Guides", () => {
         waitUntil: "domcontentloaded",
       });
 
-      // Wait for page to fully render
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for structured data scripts to render
       await page.waitForTimeout(500);
 
       // Check for breadcrumb schema in page source

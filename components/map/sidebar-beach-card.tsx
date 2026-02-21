@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { cn } from "@/lib/utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { formatWaveHeight } from "@/lib/formatters/surf-data";
 import type { Beach } from "@/types/database";
 
 export interface SidebarBeachCardProps {
@@ -31,11 +32,7 @@ function getConditionBarColor(waveHeight?: number): string {
  */
 function formatCompactWaveHeight(waveHeight?: number): string | null {
   if (waveHeight == null) return null;
-  // Show one decimal only when it's not a whole number
-  const display = Number.isInteger(waveHeight)
-    ? `${waveHeight}`
-    : `${waveHeight.toFixed(1)}`;
-  return `${display} ft`;
+  return formatWaveHeight(waveHeight);
 }
 
 const SidebarBeachCardComponent = function SidebarBeachCard({
@@ -74,6 +71,7 @@ const SidebarBeachCardComponent = function SidebarBeachCard({
         {/* Beach info (left) */}
         <div className="min-w-0 flex-1">
           <p
+            title={beach.name}
             className={cn(
               "truncate text-sm font-semibold leading-tight",
               isSelected && "text-primary"
@@ -81,7 +79,7 @@ const SidebarBeachCardComponent = function SidebarBeachCard({
           >
             {beach.name}
           </p>
-          <p className="truncate text-xs text-muted-foreground mt-0.5">
+          <p title={locationText} className="truncate text-xs text-muted-foreground mt-0.5">
             {locationText}
           </p>
         </div>

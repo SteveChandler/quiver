@@ -218,7 +218,7 @@ export const LOCATION_PAGE_SELECTORS = {
   rankingBadge: '[data-testid="ranking-badge"]',
   locationMap: '[data-testid="location-map"]',
   mapMarker: '[data-testid="map-marker"]',
-  breadcrumb: '[data-testid="breadcrumb"]',
+  breadcrumb: 'nav[aria-label="breadcrumb"]',
   breadcrumbSegment: '[data-testid="breadcrumb-segment"]',
   emptyState: '[data-testid="empty-state"]',
 } as const;

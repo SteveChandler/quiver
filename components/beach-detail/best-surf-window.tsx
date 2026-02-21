@@ -666,13 +666,6 @@ export function BestSurfWindow({
           </div>
         )}
 
-        {/* Next tide info */}
-        {intel.next_tide_type && intel.next_tide_time && (
-          <p className="text-xs text-muted-foreground text-center">
-            Next {intel.next_tide_type}: {intel.next_tide_height_ft?.toFixed(1)}
-            ft @ {intel.next_tide_time}
-          </p>
-        )}
       </CardContent>
     </Card>
   );

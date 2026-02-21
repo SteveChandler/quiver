@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 test.describe("State root pages (DB-gated)", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'State root pages (DB-gated)' });
+  });
+
   test("should load a supported state root page", async ({ page }) => {
     const response = await page.goto("/ca");
     expect(response?.status()).toBe(200);

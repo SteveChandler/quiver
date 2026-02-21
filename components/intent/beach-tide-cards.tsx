@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Waves, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 import type { BeachTidePreference } from "@/actions/forecast/intent-forecast-actions";
 
 interface BeachTideCardsProps {
@@ -94,8 +95,8 @@ export function BeachTideCards({
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                 {hasRange && (
                   <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-blue-800 font-medium">
-                    {beach.preferredTideMin!.toFixed(1)}&ndash;
-                    {beach.preferredTideMax!.toFixed(1)} ft
+                    {formatTideHeight(beach.preferredTideMin!)}&ndash;
+                    {formatTideHeight(beach.preferredTideMax!)}
                   </span>
                 )}
                 {beach.preferredDirection && (

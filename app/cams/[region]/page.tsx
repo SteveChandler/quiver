@@ -11,7 +11,6 @@ import {
 } from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { CamSchema } from "@/components/seo/cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
@@ -93,8 +92,6 @@ export default async function CamsRegionPage({ params }: PageProps) {
           },
         ]}
       />
-      <CamSchema beaches={regionBeaches} />
-
       {/* Visible breadcrumbs */}
       <div className="px-4 pt-6 md:pt-8">
         <div className="mx-auto max-w-6xl">

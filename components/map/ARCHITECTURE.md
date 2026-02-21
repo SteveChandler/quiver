@@ -483,22 +483,16 @@ const handleMoveEnd = useCallback(
   - Map/List view toggle
   - Search clearing functionality
 
-### **NearbyBeachScroll** (Preview Interface)
-
-- **Purpose**: Horizontal scrollable beach previews
-- **Features**:
-  - Beach selection preview
-  - Distance display
-  - Forecast preview integration
-  - Responsive design
-
 ### **SelectedBeachCard** (Detail Preview)
 
-- **Purpose**: Detailed view of selected beach
+- **Purpose**: Quick-view card for the currently selected beach
+- **Rendering context**: On mobile, renders **inside `MapBottomSheet`** (above the scrollable list). On desktop, the sidebar handles selection display.
+- **Props**: `selectedBeach`, `getDistanceFromUser`, `userLocation`, `onClose?`
 - **Features**:
-  - Comprehensive beach information
+  - Tappable card that navigates to the beach detail page via `router.push`
+  - `onClose` callback (X button) deselects without navigating; uses `stopPropagation` to prevent the outer link handler from firing
   - Distance and rating display
-  - Action buttons for navigation
+  - Inline forecast preview via `useForecastPreview`
 
 ### **MapSidebar** (Desktop Viewport List)
 
@@ -545,46 +539,57 @@ const MapSidebar = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect
 
 ### **MapBottomSheet** (Mobile Viewport List)
 
-- **Purpose**: Mobile bottom sheet (Vaul Drawer) showing beaches in viewport
-- **Props**: Same as MapSidebar
+- **Purpose**: AllTrails-style mobile bottom sheet using Vaul Drawer with three snap points
+- **Props**: `beaches`, `waveHeightMap`, `selectedBeach`, `userLocation`, `onBeachSelect`, `getDistanceFromUser`, `onDeselectBeach`
 - **Features**:
-  - Responsive drawer interface (mobile/tablet)
-  - Same beach filtering logic as sidebar
-  - Shared state for expanded cards
-  - Touch-optimized interactions
-  - Handles same as desktop sidebar
+  - Three snap points: **10% peek** (default), **40% detail** (on selection), **90% full** (scrollable list)
+  - Embeds `SelectedBeachCard` above the scrollable beach list when a beach is selected
+  - Auto-snaps to detail (40%) on selection, peek (10%) on deselection
+  - `onDeselectBeach` prop wired to `SelectedBeachCard`'s `onClose` and map-tap deselection
+  - Always visible and non-modal (`modal={false}`) so the map stays interactive
+  - Scrolling only enabled at the 90% snap point (`data-vaul-no-drag`)
+  - Shared state via `useBeachListState` hook (card refs, distance map)
 
 **Implementation:**
 
 ```typescript
-const MapBottomSheet = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect }) => {
-  const visibleBeaches = useMemo(
-    () => filterBeachesByViewport(beaches, bounds),
-    [beaches, bounds]
-  );
+const SNAP_POINTS = [0.1, 0.4, 0.9]; // peek, detail, full
 
-  const { expandedBeachId, setExpandedBeachId } = useBeachListState();
+function MapBottomSheet({ beaches, selectedBeach, onDeselectBeach, ... }) {
+  const [activeSnapPoint, setActiveSnapPoint] = useState(SNAP_POINTS[0]);
+
+  // Snap to detail on selection, peek on deselection
+  useEffect(() => {
+    setActiveSnapPoint(selectedBeach ? SNAP_POINTS[1] : SNAP_POINTS[0]);
+  }, [selectedBeach?.id]);
 
   return (
-    <Drawer open={isOpen} onOpenChange={setIsOpen}>
-      <DrawerContent className="max-h-[60vh]">
-        <div className="overflow-y-auto">
-          {visibleBeaches.map((beach) => (
-            <SidebarBeachCard
-              key={beach.id}
-              beach={beach}
-              waveHeight={waveHeights.get(beach.id)}
-              isSelected={selectedBeach?.id === beach.id}
-              isExpanded={expandedBeachId === beach.id}
-              onSelect={() => onBeachSelect(beach)}
-              onToggle={() => setExpandedBeachId(beach.id)}
+    <DrawerPrimitive.Root open modal={false} snapPoints={SNAP_POINTS} ...>
+      <DrawerPrimitive.Portal>
+        <DrawerPrimitive.Content>
+          <DrawerPrimitive.Handle />
+          <DrawerPrimitive.Title>
+            {selectedBeach ? selectedBeach.name : "Surf Spots"}
+          </DrawerPrimitive.Title>
+
+          {/* Selected beach card above list */}
+          {selectedBeach && (
+            <SelectedBeachCard
+              selectedBeach={selectedBeach}
+              onClose={onDeselectBeach}
+              ...
             />
-          ))}
-        </div>
-      </DrawerContent>
-    </Drawer>
+          )}
+
+          {/* Scrollable beach list */}
+          <div style={{ overflowY: isExpanded ? "auto" : "hidden" }}>
+            {beaches.map(beach => <SidebarBeachCard ... />)}
+          </div>
+        </DrawerPrimitive.Content>
+      </DrawerPrimitive.Portal>
+    </DrawerPrimitive.Root>
   );
-};
+}
 ```
 
 ### **SidebarBeachCard** (Compact Beach Card)

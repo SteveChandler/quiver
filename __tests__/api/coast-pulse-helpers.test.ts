@@ -17,7 +17,8 @@ describe("formatIntelMessage", () => {
       },
       description: "Great session",
     });
-    expect(result).toBe("🔥 · 4ft · 8kt NW · light");
+    // wind_speed=8 knots -> Math.round(8*1.151)=Math.round(9.208)=9 -> formatWindSpeed(9)="9 mph"
+    expect(result).toBe("🔥 · 4ft · 9 mph NW · light");
   });
 
   it("formats partial data (no wind/crowd)", () => {
@@ -174,7 +175,8 @@ describe("Coast Pulse Intel Integration", () => {
     };
 
     const message = formatIntelMessage(mockPost);
-    expect(message).toBe("🔥 · 4ft · 8kt NW · light");
+    // wind_speed=8 knots -> Math.round(8*1.151)=9 -> formatWindSpeed(9)="9 mph"
+    expect(message).toBe("🔥 · 4ft · 9 mph NW · light");
 
     const sourceName = formatIntelSourceName("Steve", "La Jolla Shores");
     expect(sourceName).toBe("Steve @ La Jolla Shores");
@@ -220,8 +222,9 @@ describe("formatForecastConditions", () => {
       tide_status: "Falling",
     };
     // W-facing beach: offshore wind comes from E (90°), W wind (270°) is onshore
+    // formatWindSpeed adds a space: "12 mph"
     const result = formatForecastConditions(forecast, 90);
-    expect(result).toBe("4ft, @ 10s, W, 12mph onshore, Falling");
+    expect(result).toBe("4ft, @ 10s, W, 12 mph onshore, Falling");
   });
 
   it("shows calm when wind is light", () => {
@@ -263,9 +266,9 @@ describe("formatForecastConditions", () => {
       wind_speed: "8 mph",
       wind_direction: "NW",
     };
-    // No windOffshoreDeg provided
+    // No windOffshoreDeg provided; formatWindSpeed adds a space: "8 mph"
     const result = formatForecastConditions(forecast);
-    expect(result).toBe("4ft, @ 11s, 8mph NW");
+    expect(result).toBe("4ft, @ 11s, 8 mph NW");
   });
 
   it("handles cardinal wind directions", () => {
@@ -287,8 +290,9 @@ describe("formatForecastConditions", () => {
       wind_direction: "S", // 180°
       tide_status: "Low",
     };
-    // Beach offshore direction is 90° (E), so S wind is cross-shore
+    // Beach offshore direction is 90° (E), so S wind is cross-shore.
+    // formatWindSpeed adds a space: "12 mph"
     const result = formatForecastConditions(forecast, 90);
-    expect(result).toBe("3ft, @ 10s, 12mph cross, Low");
+    expect(result).toBe("3ft, @ 10s, 12 mph cross, Low");
   });
 });

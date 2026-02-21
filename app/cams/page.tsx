@@ -6,7 +6,6 @@ import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { CAM_REGIONS } from "@/lib/data/cam-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { CamSchema } from "@/components/seo/cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
 import { OceanBackground } from "@/components/ui/ocean-background";
@@ -71,8 +70,6 @@ export default async function CamsHubPage() {
           { name: "Live Surf Cams", url: `${baseUrl}/cams` },
         ]}
       />
-      <CamSchema beaches={beaches} />
-
       {/* Visible breadcrumbs */}
       <div className="px-4 pt-6 md:pt-8">
         <div className="mx-auto max-w-6xl">
@@ -147,6 +144,27 @@ export default async function CamsHubPage() {
       <div className="px-4 pb-16">
         <div className="mx-auto max-w-6xl">
           <CamGrid beaches={beaches} groupByRegion />
+        </div>
+      </div>
+
+      {/* More Surf Tools */}
+      <div className="px-4 pb-12">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="mb-4 font-roboto text-xl font-semibold text-gray-900">
+            More Surf Tools
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[
+              { href: "/forecast", title: "7-Day Forecast", desc: "Regional surf forecasts with swell and wind analysis" },
+              { href: "/beaches/usa", title: "Browse All Beaches", desc: "Find surf spots by state and city" },
+              { href: "/best-time-to-surf", title: "Best Time to Surf", desc: "Month-by-month surf season guides" },
+            ].map((card) => (
+              <Link key={card.href} href={card.href} className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group">
+                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{card.title}</h3>
+                <p className="text-sm text-gray-600">{card.desc}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 

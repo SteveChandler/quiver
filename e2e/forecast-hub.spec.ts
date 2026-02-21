@@ -15,6 +15,7 @@ import {
   type ErrorCapture,
 } from "./utils/error-detection";
 import { TIMEOUTS } from "./fixtures/test-data";
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe("Forecast Hub Landing Page", () => {
   let errorCapture: ErrorCapture;
@@ -86,8 +87,8 @@ test.describe("Forecast Hub Landing Page", () => {
     const localForecast = page.getByText(/Your Local Forecast/i);
     const bestConditions = page.getByText(/Best Conditions Today/i);
 
-    const localVisible = await localForecast.isVisible().catch(() => false);
-    const globalVisible = await bestConditions.isVisible().catch(() => false);
+    const localVisible = await isVisibleSafe(localForecast);
+    const globalVisible = await isVisibleSafe(bestConditions);
 
     if (localVisible || globalVisible) {
       // Should have a link to a forecast region

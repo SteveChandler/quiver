@@ -266,11 +266,17 @@ describe("BestRightNow", () => {
 
       render(<BestRightNow />);
 
-      // Wave heights: 6.5 -> 7ft, 4.2 -> 4ft, 5.8 -> 6ft, 3.1 -> 3ft, 2.9 -> 3ft
-      expect(screen.getByText("7ft")).toBeInTheDocument();
-      expect(screen.getByText("4ft")).toBeInTheDocument();
-      expect(screen.getByText("6ft")).toBeInTheDocument();
-      expect(screen.getAllByText("3ft")).toHaveLength(2);
+      // Wave heights formatted as ranges by formatWaveHeight:
+      // 6.5 -> low=7, high=round(6.5*1.5)=round(9.75)=10 -> "7-10ft"
+      // 4.2 -> low=4, high=round(4.2*1.5)=round(6.3)=6  -> "4-6ft"
+      // 5.8 -> low=6, high=round(5.8*1.5)=round(8.7)=9  -> "6-9ft"
+      // 3.1 -> low=3, high=round(3.1*1.5)=round(4.65)=5 -> "3-5ft"
+      // 2.9 -> low=3, high=round(2.9*1.5)=round(4.35)=4 -> "3-4ft"
+      expect(screen.getByText("7-10ft")).toBeInTheDocument();
+      expect(screen.getByText("4-6ft")).toBeInTheDocument();
+      expect(screen.getByText("6-9ft")).toBeInTheDocument();
+      expect(screen.getByText("3-5ft")).toBeInTheDocument();
+      expect(screen.getByText("3-4ft")).toBeInTheDocument();
     });
 
     it("renders wave icons", () => {
@@ -616,7 +622,7 @@ describe("BestRightNow", () => {
       });
     });
 
-    it("handles wave height of 0.4 rounding to 0ft", () => {
+    it("handles wave height of 0.4 rendering as range", () => {
       const lowWaveBeach: TopBeachEntry = {
         beachId: "beach-6",
         beachName: "Flat Beach",
@@ -640,10 +646,11 @@ describe("BestRightNow", () => {
 
       render(<BestRightNow />);
 
-      expect(screen.getByText("0ft")).toBeInTheDocument();
+      // 0.4 > 0 so not "Flat"; low=round(0.4)=0, high=round(0.4*1.5)=round(0.6)=1 -> "0-1ft"
+      expect(screen.getByText("0-1ft")).toBeInTheDocument();
     });
 
-    it("handles wave height of 10.7 rounding to 11ft", () => {
+    it("handles wave height of 10.7 rendering as range", () => {
       const bigWaveBeach: TopBeachEntry = {
         beachId: "beach-7",
         beachName: "Big Wave Beach",
@@ -667,7 +674,8 @@ describe("BestRightNow", () => {
 
       render(<BestRightNow />);
 
-      expect(screen.getByText("11ft")).toBeInTheDocument();
+      // low=round(10.7)=11, high=round(10.7*1.5)=round(16.05)=16 -> "11-16ft"
+      expect(screen.getByText("11-16ft")).toBeInTheDocument();
     });
   });
 

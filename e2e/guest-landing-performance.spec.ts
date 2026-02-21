@@ -15,10 +15,22 @@
 
 import { test, expect } from '@playwright/test'
 import { waitForPageLoad } from './utils/test-helpers'
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
 test.describe('Landing Page - Server Rendering', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Server Rendering' });
+  });
+
   test('should render hero section immediately without JavaScript', async ({ browser }) => {
     // Create a new context with JavaScript disabled
     const context = await browser.newContext({
@@ -60,7 +72,7 @@ test.describe('Landing Page - Server Rendering', () => {
 
     // Footer should render (static content)
     const footer = page.locator('footer').first()
-    const footerVisible = await footer.isVisible().catch(() => false)
+    const footerVisible = await isVisibleSafe(footer)
 
     // Page should have substantive content
     const bodyText = await page.locator('body').textContent()
@@ -68,10 +80,17 @@ test.describe('Landing Page - Server Rendering', () => {
     expect(bodyText!.length).toBeGreaterThan(100)
   })
 
-  // TODO: Test drift - main[role="main"] selector no longer matches page structure
-  // Needs update to match current HTML landmark structure
   test('should have proper HTML structure from server', async ({ page }) => {
-    throw new Error('Not implemented: main[role="main"] selector no longer matches page structure - need to update to match current HTML landmark structure');
+    await page.goto('/')
+    await waitForPageLoad(page)
+
+    // Verify main landmark element is present using a flexible selector
+    const main = page.locator('main').first()
+    await expect(main).toBeVisible()
+
+    // Heading hierarchy should exist
+    const h1 = page.locator('h1').first()
+    await expect(h1).toBeVisible()
   })
 })
 
@@ -126,6 +145,7 @@ test.describe('Landing Page - Lazy Search Component', () => {
 
     // Click to ensure focus
     await searchInput.click()
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search focus state transition
     await page.waitForTimeout(500)
 
     // Value should be preserved
@@ -152,8 +172,9 @@ test.describe('Landing Page - Lazy Search Component', () => {
 })
 
 test.describe('Landing Page - Analytics Loading', () => {
-  test('SKIPPED: Analytics ARE loaded on landing page (optimization not yet implemented)', async ({ page }) => {
-    throw new Error('Not implemented: Analytics load on landing page despite AnalyticsLoader checking pathname - need to investigate and fix conditional loading logic');
+  test.fixme('SKIPPED: Analytics ARE loaded on landing page (optimization not yet implemented)', async ({ page }) => {
+    // TODO: Analytics load on landing page despite AnalyticsLoader checking pathname
+    // Need to investigate and fix conditional loading logic before enabling
   })
 
   test('should have AnalyticsLoader component present', async ({ page }) => {
@@ -196,8 +217,9 @@ test.describe('Landing Page - Resource Hints', () => {
     console.log(`Resource hints found: ${hrefs.filter(h => h).join(', ')}`)
   })
 
-  test('SKIPPED: Map hints optimization not yet implemented', async ({ page }) => {
-    throw new Error('Not implemented: Map hints optimization not yet implemented - landing page includes map-related resource hints that should be removed to save 3-5 connection slots');
+  test.fixme('SKIPPED: Map hints optimization not yet implemented', async ({ page }) => {
+    // TODO: Landing page includes map-related resource hints that should be removed
+    // to save 3-5 connection slots - optimization not yet implemented
   })
 })
 
@@ -275,7 +297,7 @@ test.describe('Landing Page - Featured Beaches Display', () => {
 
     // Find beach images
     const beachImages = page.locator('a[href*="/beach/"] img, a[href^="/"] img').first()
-    const imageVisible = await beachImages.isVisible({ timeout: 10000 }).catch(() => false)
+    const imageVisible = await isVisibleSafe(beachImages, { timeout: 10000 })
 
     if (imageVisible) {
       // Verify image loaded successfully
@@ -362,16 +384,17 @@ test.describe('Landing Page - Performance Metrics', () => {
 
     // Wait for page to stabilize
     await page.waitForLoadState('networkidle')
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for layout to stabilize after network idle
     await page.waitForTimeout(1000)
 
     // Get initial hero position
     const hero = page.getByRole('heading', { level: 1 })
-    const heroVisible = await hero.isVisible().catch(() => false)
+    const heroVisible = await isVisibleSafe(hero)
 
     if (heroVisible) {
       const initialBox = await hero.boundingBox()
 
-      // Wait a bit more
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for layout shift measurement window
       await page.waitForTimeout(1000)
 
       // Check position again

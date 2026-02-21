@@ -117,14 +117,28 @@ function findNextExtremes(
   }
 
   // EXISTING FALLBACK: Parse static next_tide_* fields
+  // Prefer next_tide_at (ISO timestamp) over next_tide_time (pre-formatted string)
   for (const forecast of forecasts) {
-    const dateStr = forecast.forecast_date?.includes("T")
-      ? forecast.forecast_date.split("T")[0]
-      : forecast.forecast_date;
-    const baseDate = dateStr ? new Date(dateStr) : now;
+    if (forecast.next_tide_type) {
+      let tideTime: Date | null = null;
 
-    if (forecast.next_tide_time && forecast.next_tide_type) {
-      const tideTime = parseTime(forecast.next_tide_time, baseDate);
+      // Prefer the ISO timestamp (timezone-safe)
+      if (forecast.next_tide_at) {
+        const parsed = new Date(forecast.next_tide_at);
+        if (!Number.isNaN(parsed.getTime())) {
+          tideTime = parsed;
+        }
+      }
+
+      // Fall back to parsing the pre-formatted string
+      if (!tideTime && forecast.next_tide_time) {
+        const dateStr = forecast.forecast_date?.includes("T")
+          ? forecast.forecast_date.split("T")[0]
+          : forecast.forecast_date;
+        const baseDate = dateStr ? new Date(dateStr) : now;
+        tideTime = parseTime(forecast.next_tide_time, baseDate);
+      }
+
       const tideHeight = parseHeight(forecast.next_tide_height);
 
       if (tideTime && tideTime > now && tideHeight !== null) {

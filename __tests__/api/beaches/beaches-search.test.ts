@@ -50,7 +50,7 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 describe("GET /api/beaches/search", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let GET: any;
   let cleanup: () => void;
 

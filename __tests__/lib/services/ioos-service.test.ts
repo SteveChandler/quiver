@@ -3,7 +3,7 @@
  * Tests station discovery and observation fetching from IOOS ERDDAP API
  */
 
-import { IOOSService } from "@/lib/services/ioos-service";
+import { IOOSService } from "@/lib/services/ioos";
 
 // Mock fetch to avoid real API calls
 global.fetch = jest.fn();

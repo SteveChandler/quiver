@@ -74,6 +74,17 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hdontap", pageUrl: href };
     }
 
+    // HDOnTap portal embeds (private/customer streams)
+    if (u.hostname === "portal.hdontap.com") {
+      return { kind: "hdontap", pageUrl: href };
+    }
+
+    // OB Hotel webcam (HDRelay-powered) — resolve to HLS stream server-side.
+    // Reuses "hdontap" kind since the cam-resolve pipeline handles both providers.
+    if (u.hostname === "www.obhotel.com" || u.hostname === "obhotel.com") {
+      return { kind: "hdontap", pageUrl: href };
+    }
+
     // Default iframe attempt (may be blocked)
     return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {

@@ -9,6 +9,7 @@ import {
   type CoastalRegion,
 } from "@/lib/constants/coastal-regions";
 import { EARTH_RADIUS_KM } from "@/lib/utils/geo-utils";
+import { formatWaterTemp as formatWaterTempSimple, formatWindSpeed } from "@/lib/formatters/surf-data";
 
 /**
  * Get size assessment label from wave height
@@ -348,7 +349,7 @@ export function formatBuoyMessage(data: BuoyData): string {
   if (waterTempF != null && region) {
     parts.push(formatWaterTemp(waterTempF, region, month));
   } else if (waterTempF != null) {
-    parts.push(`Water ${Math.round(waterTempF)}°F`);
+    parts.push(`Water ${formatWaterTempSimple(waterTempF)}`);
   }
 
   return parts.join(". ").replace(/\.\./g, ".").replace(/\. \./g, ".");
@@ -404,7 +405,7 @@ export function formatIntelMessage(post: {
   // 3. Wind conditions
   if (conditions?.wind_speed != null) {
     const dir = conditions.wind_direction || "";
-    parts.push(`${conditions.wind_speed}kt ${dir}`.trim());
+    parts.push(`${formatWindSpeed(conditions.wind_speed * 1.151)} ${dir}`.trim());
     hasStructuredData = true;
   }
 
@@ -592,13 +593,13 @@ export function formatForecastConditions(forecast: any, windOffshoreDeg?: number
       if (isOffshore) {
         windDesc = windSpeed < 10 ? "light offshore" : "offshore";
       } else if (isOnshore) {
-        windDesc = windSpeed < 10 ? "light onshore" : `${Math.round(windSpeed)}mph onshore`;
+        windDesc = windSpeed < 10 ? "light onshore" : `${formatWindSpeed(windSpeed)} onshore`;
       } else {
-        windDesc = windSpeed < 10 ? "light cross" : `${Math.round(windSpeed)}mph cross`;
+        windDesc = windSpeed < 10 ? "light cross" : `${formatWindSpeed(windSpeed)} cross`;
       }
     } else {
       const windCardinal = windDirDeg != null ? ` ${degreesToCardinal(windDirDeg)}` : "";
-      windDesc = `${Math.round(windSpeed)}mph${windCardinal}`;
+      windDesc = `${formatWindSpeed(windSpeed)}${windCardinal}`;
     }
 
     parts.push(windDesc);

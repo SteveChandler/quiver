@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { formatTimeInBeachTimezone } from "@/lib/utils/date-utils";
 import { Clock, ArrowUp, ArrowDown, Timer } from "lucide-react";
+import { formatTideHeight } from "@/lib/formatters/surf-data";
 
 interface TideTimingProps {
   nextTideTime: string;
@@ -264,7 +265,7 @@ export function TideSchedule({
                 )}
                 <span className="font-medium">{isHigh ? "High" : "Low"}</span>
                 <span className="text-muted-foreground">
-                  {Math.round(tide.height * 10) / 10}ft
+                  {formatTideHeight(tide.height)}
                 </span>
               </div>
               <div className="flex items-center gap-2">

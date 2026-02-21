@@ -38,6 +38,7 @@ import {
   WIND_DIRECTIONS,
   FORECAST_ACCURACY_OPTIONS,
 } from "./shared";
+import { formatWaterTemp } from "@/lib/formatters/surf-data";
 
 // Tide status options for the dropdown
 const tideStatusOptions = [
@@ -305,7 +306,7 @@ export function ConditionsSection({
               {Number.isFinite(forecastData.water_temp) && (
                 <div className="flex items-center gap-2">
                   <Thermometer className="h-4 w-4 text-blue-600" />
-                  <span>{forecastData.water_temp}°F water</span>
+                  <span>{formatWaterTemp(forecastData.water_temp as number)} water</span>
                 </div>
               )}
               {forecastData.tide_height !== null && (

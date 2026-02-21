@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { IOOSService, buildVariableMap } from "@/lib/services/ioos-service";
+import { IOOSService, buildVariableMap } from "@/lib/services/ioos";
 import { CanonicalVar } from "@/lib/constants/ioos-config";
 
 describe("buildVariableMap", () => {
@@ -82,10 +82,11 @@ describe("IOOSService.fetchStationVariables", () => {
 
 describe("buildDynamicObservationUrl", () => {
   // Import dynamically to avoid circular imports
-  let buildDynamicObservationUrl: typeof import("@/lib/services/ioos-service").buildDynamicObservationUrl;
+  let buildDynamicObservationUrl: typeof import("@/lib/services/ioos").buildDynamicObservationUrl;
 
   beforeAll(async () => {
-    const module = await import("@/lib/services/ioos-service");
+    // eslint-disable-next-line @next/next/no-assign-module-variable -- dynamic import binding, not reassigning global `module`
+    const module = await import("@/lib/services/ioos");
     buildDynamicObservationUrl = module.buildDynamicObservationUrl;
   });
 
@@ -130,10 +131,11 @@ describe("buildDynamicObservationUrl", () => {
 });
 
 describe("parseObservationRow", () => {
-  let parseObservationRow: typeof import("@/lib/services/ioos-service").parseObservationRow;
+  let parseObservationRow: typeof import("@/lib/services/ioos").parseObservationRow;
 
   beforeAll(async () => {
-    const module = await import("@/lib/services/ioos-service");
+    // eslint-disable-next-line @next/next/no-assign-module-variable -- dynamic import binding, not reassigning global `module`
+    const module = await import("@/lib/services/ioos");
     parseObservationRow = module.parseObservationRow;
   });
 

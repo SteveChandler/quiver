@@ -57,7 +57,7 @@ describe("Migration: Optimize accuracy functions", () => {
         fnStart
       );
       const fnBody = migrationSQL.slice(fnStart, fnEnd);
-      expect(fnBody).toMatch(/GREATEST\(0,.*LEAST/s);
+      expect(fnBody).toMatch(/GREATEST\(0,[\s\S]*LEAST/);
     });
 
     test("should remain IMMUTABLE SECURITY DEFINER", () => {

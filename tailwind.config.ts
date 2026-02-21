@@ -218,6 +218,7 @@ const config: Config = {
         "pulse-glow": "pulseGlow 2s ease-in-out infinite",
         "pulse-glow-blue": "pulseGlowBlue 2s ease-in-out infinite",
         "wave-flow": "waveFlow 8s linear infinite",
+        "ticker-scroll": "waveFlow 30s linear infinite",
         "count-up": "countUp 0.5s ease-out forwards",
         "sparkline-draw": "sparklineDraw 0.8s ease-out forwards",
         "reveal-up": "revealUp 0.5s ease-out forwards",

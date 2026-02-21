@@ -9,6 +9,7 @@ import {
   type EmailType,
   type EmailLogEntry,
 } from "@/lib/services/email-logging-service";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 // Mock Supabase client
 const mockInsert = jest.fn();
@@ -17,16 +18,6 @@ const mockSupabase = {
     insert: mockInsert,
   })),
 };
-
-// Mock console to avoid noise in tests
-const originalConsole = { ...console };
-beforeAll(() => {
-  console.error = jest.fn();
-});
-
-afterAll(() => {
-  console.error = originalConsole.error;
-});
 
 describe("EmailLoggingService", () => {
   beforeEach(() => {
@@ -153,10 +144,7 @@ describe("EmailLoggingService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe(dbError);
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining("[test-email]"),
-        dbError
-      );
+      expectConsoleErrors([/\[test-email\]/]);
     });
 
     it("should include context tag in error messages", async () => {
@@ -172,10 +160,7 @@ describe("EmailLoggingService", () => {
         emailType: "welcome",
       });
 
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining("[custom-context]"),
-        expect.any(Error)
-      );
+      expectConsoleErrors([/\[custom-context\]/]);
     });
   });
 
@@ -272,10 +257,7 @@ describe("EmailLoggingService", () => {
       const logger = createEmailLogger(mockSupabase as any, "[factory-tag]");
       await logger.logDelivery({ userId: "user-1", emailType: "welcome" });
 
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining("[factory-tag]"),
-        expect.any(Error)
-      );
+      expectConsoleErrors([/\[factory-tag\]/]);
     });
   });
 

@@ -2,7 +2,7 @@ import type { Beach } from "@/types/database";
 import { formatWaveHeight } from "@/lib/utils/wave-height-formatter";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 
 /**
  * Dependencies injected into createWaveHeightBadge so that the function
@@ -23,6 +23,8 @@ export interface MarkerBuilderDeps {
   onLocationClick?: (beach: Beach) => void;
   /** Router for navigation after click */
   router: { push: (url: string) => void };
+  /** Whether to auto-navigate to beach page after marker click */
+  autoNavigate: boolean;
 }
 
 /**
@@ -145,10 +147,12 @@ export function createWaveHeightBadge(
       }
 
       // Animate selection and navigate after slight delay using hierarchical URL
-      setTimeout(() => {
-        const beachUrl = getBeachUrlSafe(location);
-        if (beachUrl) deps.router.push(beachUrl);
-      }, 400);
+      if (deps.autoNavigate) {
+        setTimeout(() => {
+          const beachUrl = getBeachHrefSafe(location);
+          if (beachUrl) deps.router.push(beachUrl);
+        }, 400);
+      }
     });
 
     // Prevent any dragging or selection on the badge
@@ -157,6 +161,11 @@ export function createWaveHeightBadge(
     });
     badge.addEventListener("dragstart", (e) => {
       e.preventDefault();
+    });
+    // Prevent touchend from bubbling to Mapbox map container,
+    // which would fire map.on("click") and deselect the beach
+    badge.addEventListener("touchend", (e) => {
+      e.stopPropagation();
     });
 
     // Append badge to wrapper

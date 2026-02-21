@@ -6,6 +6,7 @@
  */
 
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
+import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
 /**
  * Format wave period in seconds with validation
@@ -19,8 +20,7 @@ export function formatPeriodSeconds(
   if (!isFinite(num)) return null;
   // Reject obviously bad readings per product spec (<4s or >25s)
   if (num < 4 || num > 25) return null;
-  const rounded = Math.round(num * 10) / 10;
-  return `${rounded}s`;
+  return formatSwellPeriod(num);
 }
 
 /**
@@ -59,11 +59,6 @@ export function metersToFeetString(meters: number): string {
   const rounded = Math.round(feet * 10) / 10;
   return `${rounded} ft`;
 }
-
-/**
- * @deprecated Use metersToFeetString for clarity
- */
-export const metersToFeet = metersToFeetString;
 
 /**
  * Extract numeric wind speed from string like "15 mph"

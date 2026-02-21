@@ -111,13 +111,11 @@ describe("spot-surf-report-actions", () => {
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
               gte: jest.fn(() => ({
-                lte: jest.fn(() => ({
+                lt: jest.fn(() => ({
                   order: jest.fn(() => ({
-                    order: jest.fn(() => ({
-                      limit: jest.fn(async () => ({
-                        data: mockForecasts,
-                        error: null,
-                      })),
+                    limit: jest.fn(async () => ({
+                      data: mockForecasts,
+                      error: null,
                     })),
                   })),
                 })),
@@ -194,6 +192,7 @@ describe("spot-surf-report-actions", () => {
       const tomorrowForecasts = [
         {
           ...mockForecasts[0],
+          forecast_at: "2024-01-16T14:00Z",
           forecast_date: "2024-01-16",
         },
       ];
@@ -202,13 +201,11 @@ describe("spot-surf-report-actions", () => {
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
               gte: jest.fn(() => ({
-                lte: jest.fn(() => ({
+                lt: jest.fn(() => ({
                   order: jest.fn(() => ({
-                    order: jest.fn(() => ({
-                      limit: jest.fn(async () => ({
-                        data: tomorrowForecasts,
-                        error: null,
-                      })),
+                    limit: jest.fn(async () => ({
+                      data: tomorrowForecasts,
+                      error: null,
                     })),
                   })),
                 })),
@@ -283,13 +280,11 @@ describe("spot-surf-report-actions", () => {
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
               gte: jest.fn(() => ({
-                lte: jest.fn(() => ({
+                lt: jest.fn(() => ({
                   order: jest.fn(() => ({
-                    order: jest.fn(() => ({
-                      limit: jest.fn(async () => ({
-                        data: mockForecasts,
-                        error: null,
-                      })),
+                    limit: jest.fn(async () => ({
+                      data: mockForecasts,
+                      error: null,
                     })),
                   })),
                 })),
@@ -353,13 +348,11 @@ describe("spot-surf-report-actions", () => {
           select: jest.fn(() => ({
             eq: jest.fn(() => ({
               gte: jest.fn(() => ({
-                lte: jest.fn(() => ({
+                lt: jest.fn(() => ({
                   order: jest.fn(() => ({
-                    order: jest.fn(() => ({
-                      limit: jest.fn(async () => ({
-                        data: mockForecasts,
-                        error: null,
-                      })),
+                    limit: jest.fn(async () => ({
+                      data: mockForecasts,
+                      error: null,
                     })),
                   })),
                 })),

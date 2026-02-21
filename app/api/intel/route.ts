@@ -267,6 +267,7 @@ export const POST = withAuth(
     let writeClient = supabase;
     try {
       if (
+        process.env.NODE_ENV !== "production" &&
         (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
           (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
       ) {

@@ -11,6 +11,7 @@ import type { Beach } from '@/types/database';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeTrendTags, type TrendTag } from '@/lib/scoring';
+import { formatTideHeight, formatWaveHeight } from '@/lib/formatters/surf-data';
 
 // ============================================================================
 // Types
@@ -31,6 +32,7 @@ export interface SurfCallResult {
   windType: string | null;
   tideDescription: string | null;
   tidePhase: string | null;
+  tideHeight: string | null;
   nextTideType: string | null;
   nextTideAt: string | null;
   whySentence: string;
@@ -202,6 +204,7 @@ interface TideData {
   phase: string | null;
   nextType: string | null;
   nextAt: string | null;
+  height: string | null;
 }
 
 /**
@@ -213,7 +216,7 @@ function getWindowTide(
   windowStartMs: number
 ): TideData {
   if (windowForecasts.length === 0) {
-    return { description: 'Unknown', phase: null, nextType: null, nextAt: null };
+    return { description: 'Unknown', phase: null, nextType: null, nextAt: null, height: null };
   }
 
   // Find first forecast with next_tide_at >= windowStart
@@ -231,7 +234,7 @@ function getWindowTide(
   }
 
   if (!tideForecast) {
-    return { description: 'Unknown', phase: null, nextType: null, nextAt: null };
+    return { description: 'Unknown', phase: null, nextType: null, nextAt: null, height: null };
   }
 
   const status = tideForecast.tide_status;
@@ -255,7 +258,15 @@ function getWindowTide(
     desc = `${capitalize(phase)} → ${capitalize(nextType)}`;
   }
 
-  return { description: desc, phase, nextType: nextType || null, nextAt: nextAt || null };
+  // Format tide height for display
+  const tideHeightValue = tideForecast.tide_height != null
+    ? parseFloat(String(tideForecast.tide_height))
+    : null;
+  const height = tideHeightValue != null && isFinite(tideHeightValue)
+    ? formatTideHeight(tideHeightValue)
+    : null;
+
+  return { description: desc, phase, nextType: nextType || null, nextAt: nextAt || null, height };
 }
 
 /**
@@ -407,6 +418,7 @@ export function computeSurfCall(
     windType: null,
     tideDescription: null,
     tidePhase: null,
+    tideHeight: null,
     nextTideType: null,
     nextTideAt: null,
     whySentence: '',
@@ -436,7 +448,7 @@ export function computeSurfCall(
   if (maxWave < minRideable) {
     return {
       ...baseResult,
-      waveHeight: maxWave > 0 ? `${maxWave} ft` : null,
+      waveHeight: maxWave > 0 ? formatWaveHeight(maxWave) : null,
       whySentence: 'Waves too small for this spot.',
     };
   }
@@ -490,6 +502,7 @@ export function computeSurfCall(
       windType: wind.type,
       tideDescription: tide.description,
       tidePhase: tide.phase,
+      tideHeight: tide.height,
       nextTideType: tide.nextType,
       nextTideAt: tide.nextAt,
       forecastConfidence,
@@ -519,6 +532,7 @@ export function computeSurfCall(
     windType: wind.type,
     tideDescription: tide.description,
     tidePhase: tide.phase,
+    tideHeight: tide.height,
     nextTideType: tide.nextType,
     nextTideAt: tide.nextAt,
     whySentence,

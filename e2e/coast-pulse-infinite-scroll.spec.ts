@@ -7,6 +7,7 @@ import {
   gotoWithErrorCheck,
   ErrorCapture,
 } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 /**
  * Coast Pulse Infinite Scroll Tests
@@ -33,15 +34,15 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       const coastPulse = page.locator('[data-testid="coast-pulse-section"]');
       await expect(coastPulse).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      // Wait for data to load (either timeline with items or empty state)
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for timeline data to load
       await page.waitForTimeout(3000);
 
       // Check if either timeline or empty state is shown
       const timeline = coastPulse.locator('[role="list"]');
       const emptyState = coastPulse.locator('text=No nearby data available');
 
-      const timelineVisible = await timeline.isVisible().catch(() => false);
-      const emptyStateVisible = await emptyState.isVisible().catch(() => false);
+      const timelineVisible = await isVisibleSafe(timeline);
+      const emptyStateVisible = await isVisibleSafe(emptyState);
 
       // One of them should be visible (data loaded or empty state)
       expect(timelineVisible || emptyStateVisible).toBe(true);
@@ -61,11 +62,12 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       // Look for skeleton or pulsing animation during load
       // This is a fast check - skeleton may already be replaced by content
       const skeleton = coastPulse.locator('.animate-pulse');
-      const isSkeletonVisible = await skeleton.isVisible().catch(() => false);
+      const isSkeletonVisible = await isVisibleSafe(skeleton);
 
       // Either skeleton was visible briefly or content loaded quickly
-      // Both are acceptable behaviors
-      expect(true).toBe(true);
+      // Both are acceptable behaviors - verify the section is present either way
+      const coastPulseSection = page.locator('[data-testid="coast-pulse-section"]');
+      await expect(coastPulseSection).toBeVisible();
     });
   });
 
@@ -106,20 +108,20 @@ test.describe('Coast Pulse Infinite Scroll', () => {
         }
       });
 
-      // Wait for potential load more
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for infinite scroll load more
       await page.waitForTimeout(2000);
 
       // Check if loading indicator appeared or items increased
       // Note: In production, this depends on having enough intel posts
       const loadingIndicator = coastPulse.locator('.animate-bounce');
-      const isLoadingVisible = await loadingIndicator.isVisible().catch(() => false);
+      const isLoadingVisible = await isVisibleSafe(loadingIndicator);
 
       const newItems = timeline.locator('> div').filter({ has: page.locator('.relative') });
       const newCount = await newItems.count();
 
       // Either loading indicator appeared, or items increased, or we've reached the end
       const endMessage = coastPulse.getByText("You've reached the beginning");
-      const isEndMessageVisible = await endMessage.isVisible().catch(() => false);
+      const isEndMessageVisible = await isVisibleSafe(endMessage);
 
       // At least one of these should be true
       const validState = isLoadingVisible || newCount >= initialCount || isEndMessageVisible;
@@ -146,11 +148,12 @@ test.describe('Coast Pulse Infinite Scroll', () => {
           // Also scroll the window
           window.scrollTo(0, document.body.scrollHeight);
         });
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for scroll-triggered content load
         await page.waitForTimeout(500);
 
         // Check if we've reached the end
         const endMessage = coastPulse.getByText("You've reached the beginning");
-        if (await endMessage.isVisible().catch(() => false)) {
+        if (await isVisibleSafe(endMessage)) {
           // Found end message - test passes
           await expect(endMessage).toBeVisible();
           return;
@@ -159,7 +162,8 @@ test.describe('Coast Pulse Infinite Scroll', () => {
 
       // If we didn't find end message after scrolling, that's also okay
       // (might have many intel posts or real-time data only)
-      expect(true).toBe(true);
+      // Verify the timeline is still visible after scrolling (no crash/blank screen)
+      await expect(timeline).toBeVisible();
     });
 
     test('should not show loading indicator when hasMore is false', async ({ page }) => {
@@ -175,6 +179,7 @@ test.describe('Coast Pulse Infinite Scroll', () => {
         await page.evaluate(() => {
           window.scrollTo(0, document.body.scrollHeight);
         });
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for scroll-triggered content load
         await page.waitForTimeout(500);
       }
 
@@ -182,7 +187,7 @@ test.describe('Coast Pulse Infinite Scroll', () => {
       const endMessage = coastPulse.getByText("You've reached the beginning");
       const loadingIndicator = coastPulse.locator('.animate-bounce');
 
-      if (await endMessage.isVisible().catch(() => false)) {
+      if (await isVisibleSafe(endMessage)) {
         // End message is visible, loading indicator should NOT be visible
         await expect(loadingIndicator).toBeHidden();
       }
@@ -244,16 +249,17 @@ test.describe('Coast Pulse Infinite Scroll', () => {
         window.scrollTo(0, document.body.scrollHeight);
       });
 
-      // Wait briefly for potential loading state
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for loading state indicator
       await page.waitForTimeout(500);
 
       // Either loading indicator appears or we've already loaded everything
       // Both are valid states
       const loadingDots = coastPulse.locator('.animate-bounce');
-      const isLoadingVisible = await loadingDots.first().isVisible().catch(() => false);
+      /* Loading dots appear briefly during fetch - genuinely transient */
+      const isLoadingVisible = await isVisibleSafe(loadingDots.first());
 
-      // Test passes regardless - we're verifying no errors occur
-      expect(true).toBe(true);
+      // Verify the coast pulse section remained stable during scroll
+      await expect(coastPulse).toBeVisible();
     });
   });
 
@@ -377,11 +383,12 @@ test.describe('Coast Pulse Infinite Scroll - Mobile', () => {
       });
     });
 
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for smooth scroll to complete
     await page.waitForTimeout(1000);
 
-    // Verify no errors occurred during scroll
-    // (Error detection in afterEach will catch any issues)
-    expect(true).toBe(true);
+    // Verify page remained stable during touch scroll
+    // (Error detection in afterEach will catch any JS errors)
+    await expect(coastPulse).toBeVisible();
   });
 
   test('should display loading states correctly on mobile @mobile @p1', async ({ page }) => {
@@ -400,11 +407,12 @@ test.describe('Coast Pulse Infinite Scroll - Mobile', () => {
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
       });
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for scroll-triggered content load
       await page.waitForTimeout(500);
     }
 
     // If end message is visible, verify it's readable
-    if (await endMessage.isVisible().catch(() => false)) {
+    if (await isVisibleSafe(endMessage)) {
       const styles = await endMessage.evaluate((el) => {
         const computed = window.getComputedStyle(el);
         return {

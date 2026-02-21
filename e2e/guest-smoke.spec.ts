@@ -17,6 +17,7 @@ import {
 } from './utils/error-detection';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -69,10 +70,10 @@ test.describe('Guest Smoke: Critical Pages', () => {
         '[data-testid="spot-overview"], [data-testid="forecast"], [class*="forecast"], [class*="surf-report"]'
       )
       .first();
-    const hasForecast = await forecastArea.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasForecast = await isVisibleSafe(forecastArea, { timeout: 5000 });
 
     const waveInfo = page.getByText(/ft|swell|wave/i).first();
-    const hasWaveInfo = await waveInfo.isVisible().catch(() => false);
+    const hasWaveInfo = await isVisibleSafe(waveInfo);
 
     expect(hasForecast || hasWaveInfo).toBe(true);
 

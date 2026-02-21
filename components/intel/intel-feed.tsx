@@ -58,13 +58,17 @@ export function IntelFeed({
   selectedTag = "all",
   className = "",
 }: IntelFeedProps) {
-  const [selectedPost, setSelectedPost] = useState<IntelPostWithUser | null>(
-    null
-  );
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Derive the modal post from the current posts array so optimistic updates
+  // (confirmations_count, user_has_confirmed) are reflected while the modal is open.
+  const selectedPost = selectedPostId
+    ? posts.find((p) => p.id === selectedPostId) ?? null
+    : null;
+
   const handlePostClick = (post: IntelPostWithUser) => {
-    setSelectedPost(post);
+    setSelectedPostId(post.id);
     setModalOpen(true);
     onPostClick?.(post);
   };
@@ -149,7 +153,7 @@ export function IntelFeed({
           isOpen={modalOpen}
           onClose={() => {
             setModalOpen(false);
-            setSelectedPost(null);
+            setSelectedPostId(null);
           }}
           onConfirm={handleConfirm}
           onPlanSession={handlePlanSession}

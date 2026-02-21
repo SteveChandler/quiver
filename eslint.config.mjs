@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import globals from "globals";
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import tseslint from "typescript-eslint";
+import jestPlugin from "eslint-plugin-jest";
+import playwrightPlugin from "eslint-plugin-playwright";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,12 +18,10 @@ export default tseslint.config(
       "android/**",
       "ios/**",
       "app/.well-known/**",
-      "__tests__/**",
       "__mocks__/**",
       "coverage/**",
       "dist/**",
       "docs/**",
-      "e2e/**",
       "node_modules/**",
       "playwright-report/**",
       "public/**",
@@ -100,6 +100,7 @@ export default tseslint.config(
       ],
     },
   },
+  // Test file overrides (shared by Jest and Playwright)
   {
     files: [
       "**/__tests__/**/*.{ts,tsx,js,jsx}",
@@ -111,5 +112,37 @@ export default tseslint.config(
       "@next/next/no-img-element": "off",
       "react/display-name": "off",
     },
-  }
+  },
+  // Jest-specific rules for unit/integration tests
+  {
+    files: ["__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}"],
+    plugins: { jest: jestPlugin },
+    languageOptions: {
+      globals: globals.jest,
+    },
+    rules: {
+      "jest/no-disabled-tests": "error",
+      "jest/no-conditional-expect": "warn",        // 260 pre-existing — fix in batches
+      "jest/expect-expect": "warn",
+      "jest/no-standalone-expect": "error",
+      "jest/no-restricted-matchers": ["warn", {     // 464 pre-existing — fix in batches
+        "toBeDefined": "Use a more specific assertion (toEqual, toMatchObject, etc.)",
+        "toBeTruthy": "Use a more specific assertion — objects are always truthy",
+      }],
+      "jest/valid-expect": "error",
+      "jest/no-identical-title": "error",
+    },
+  },
+  // Playwright-specific rules for E2E tests
+  {
+    files: ["e2e/**/*.{ts,tsx}", "e2e/**/*.spec.{ts,tsx}"],
+    plugins: { playwright: playwrightPlugin },
+    rules: {
+      "playwright/no-wait-for-timeout": "warn",    // 40 pre-existing — fix in batches
+      "playwright/no-conditional-in-test": "warn",
+      "playwright/expect-expect": "warn",
+      "playwright/no-skipped-test": "warn",         // 12 pre-existing — fix in batches
+      "playwright/no-raw-locators": "off",
+    },
+  },
 );

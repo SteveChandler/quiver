@@ -13,10 +13,21 @@
 
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('Beach Page SEO & OG Meta Tags', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Beach Page SEO & OG Meta Tags' });
+  });
+
   test.describe('Beach Detail Page (/beach/[slug])', () => {
     test('should have correct title format', async ({ page }) => {
       await page.goto(`${BASE_URL}/beach/${TEST_BEACHES.blacks.slug}`);

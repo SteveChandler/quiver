@@ -27,6 +27,7 @@ import type {
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { createContextLogger } from '@/lib/logger';
+import { resolveForecastTime, localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 
 const log = createContextLogger('WindowSelector');
 
@@ -57,6 +58,7 @@ import { scoreWindowWithEngine } from './window-scorer';
 // ============================================================================
 // Helper Functions
 // ============================================================================
+// resolveForecastTime and localDateTimeToUTC imported from lib/utils/forecast-time-resolver.ts
 
 /**
  * Score all forecasts and filter out past times.
@@ -70,9 +72,9 @@ function prepareForecasts(
 ): ScoredForecast[] {
   return forecasts
     .map((forecast) => {
-      // forecast_at is already a UTC ISO 8601 timestamp — parse directly.
-      // No timezone conversion needed (fixes prior double-conversion via fromZonedTime).
-      const forecastTime = new Date(forecast.forecast_at);
+      // Interpret forecast_date + forecast_time as LOCAL time in the beach timezone.
+      // This avoids UTC boundary bugs where forecast_time stores local hours.
+      const forecastTime = resolveForecastTime(forecast, beachTz);
       const score = scoreWindowWithEngine(forecast, beach);
 
       // Check if forecast is for today (in beach timezone)

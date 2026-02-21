@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import {
   withAuth,
+  withRateLimit,
   createSuccessResponse,
   validateUuidParam,
   createValidationError,
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
  * POST /api/intel/[id]/report
  * Report an intel post for review
  */
-export const POST = withAuth(
+export const POST = withRateLimit(withAuth(
   async (request: NextRequest, { params, user, supabase }: AuthenticatedContext) => {
     // Validate UUID parameter
     const uuidResult = validateUuidParam(params.id, "intel");
@@ -41,12 +42,20 @@ export const POST = withAuth(
     // Check if intel post exists and is active
     const { data: intelPost, error: postError } = await supabase
       .from("intel_posts")
-      .select("id, user_id, is_active")
+      .select("id, user_id, is_active, expires_at")
       .eq("id", intelPostId)
       .single();
 
     if (postError || !intelPost) {
       return createNotFoundError("Intel post");
+    }
+
+    if (!intelPost.is_active) {
+      return createValidationError("This post is no longer visible");
+    }
+
+    if (intelPost.expires_at && new Date(intelPost.expires_at) < new Date()) {
+      return createValidationError("Intel post has expired");
     }
 
     // Prevent users from reporting their own posts
@@ -94,4 +103,4 @@ export const POST = withAuth(
     });
   },
   { errorMessage: "Failed to report intel post" }
-);
+), "authenticated-default");

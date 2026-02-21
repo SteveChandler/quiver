@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
-import { HDONTAP_HLS_RE } from "@/lib/media/cam-constants";
+import { HDONTAP_HLS_RE, HDRELAY_PLAYER_RE } from "@/lib/media/cam-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +19,16 @@ export const dynamic = "force-dynamic";
 
 const REQUEST_TIMEOUT = 10_000;
 const MAX_HTML_SIZE = 512 * 1024; // 512 KB — HDOnTap pages are ~50-100 KB
+const HDRELAY_CONFIG_BASE = "https://manage.hdrelay.com/player";
 
 /** Hostnames we're willing to scrape for stream URLs */
-const ALLOWED_RESOLVE_HOSTS = ["hdontap.com", "www.hdontap.com"];
+const ALLOWED_RESOLVE_HOSTS = [
+  "hdontap.com",
+  "www.hdontap.com",
+  "portal.hdontap.com",
+  "www.obhotel.com",
+  "obhotel.com",
+];
 
 async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get("url");
@@ -45,7 +52,11 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   }
 
   // Ensure we fetch the /embed/ version (lighter HTML)
-  parsed.pathname = parsed.pathname.replace(/\/?$/, "/embed/");
+  // Only rewrite pathname for standard HDOnTap /stream/ URLs
+  const isHdontap = parsed.hostname === "hdontap.com" || parsed.hostname === "www.hdontap.com";
+  if (isHdontap) {
+    parsed.pathname = parsed.pathname.replace(/\/?$/, "/embed/");
+  }
   const embedUrl = parsed.toString();
 
   const controller = new AbortController();
@@ -58,9 +69,17 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
       },
       signal: controller.signal,
+      redirect: "manual",
     });
 
     clearTimeout(timeoutId);
+
+    if (res.status >= 300 && res.status < 400) {
+      return NextResponse.json(
+        { error: "Redirects not followed" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      );
+    }
 
     if (!res.ok) {
       console.warn("[cam-resolve] Upstream error:", {
@@ -89,34 +108,105 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
       String.fromCharCode(parseInt(hex, 16))
     );
 
-    const match = unescaped.match(HDONTAP_HLS_RE);
-    if (!match) {
-      console.warn("[cam-resolve] No HLS URL found in page:", embedUrl);
+    // Strategy 1: Look for HDOnTap HLS URL directly in page HTML
+    const hdontapMatch = unescaped.match(HDONTAP_HLS_RE);
+    if (hdontapMatch) {
+      const hlsUrl = hdontapMatch[0];
+      try {
+        new URL(hlsUrl);
+      } catch {
+        console.warn("[cam-resolve] Extracted malformed HLS URL:", hlsUrl);
+        return NextResponse.json({ error: "Invalid stream URL extracted" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+      }
       return NextResponse.json(
-        { error: "No stream found" },
-        { status: 404, headers: DEFAULT_SECURITY_HEADERS }
+        { hlsUrl },
+        {
+          headers: {
+            ...DEFAULT_SECURITY_HEADERS,
+            "Cache-Control": "public, max-age=120, stale-while-revalidate=60",
+          },
+        }
       );
     }
 
-    const hlsUrl = match[0];
+    // Strategy 2: Look for HDRelay player initialization
+    const hdrelayMatch = unescaped.match(HDRELAY_PLAYER_RE);
+    if (hdrelayMatch) {
+      const playerId = hdrelayMatch[1];
+      try {
+        const configRes = await fetch(
+          `${HDRELAY_CONFIG_BASE}/${playerId}`,
+          {
+            headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+            redirect: "manual",
+          }
+        );
 
-    // Validate extracted URL is well-formed
-    try {
-      new URL(hlsUrl);
-    } catch {
-      console.warn("[cam-resolve] Extracted malformed HLS URL:", hlsUrl);
-      return NextResponse.json({ error: "Invalid stream URL extracted" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+        if (configRes.status >= 300 && configRes.status < 400) {
+          return NextResponse.json(
+            { error: "Redirects not followed" },
+            { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+          );
+        }
+
+        if (!configRes.ok) {
+          console.warn("[cam-resolve] HDRelay config fetch failed:", configRes.status);
+          return NextResponse.json({ error: "HDRelay config unavailable" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+        }
+
+        const configText = await configRes.text();
+        if (configText.length > 64 * 1024) {
+          return NextResponse.json({ error: "HDRelay config too large" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+        }
+        const config = JSON.parse(configText);
+        const cameraId = config?.camera?.id;
+        const hlsServer = config?.server?.hls?.replace(/^\/\//, "https://");
+        if (!cameraId || !hlsServer) {
+          console.warn("[cam-resolve] HDRelay config missing camera/server:", { playerId });
+          return NextResponse.json({ error: "HDRelay config incomplete" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+        }
+
+        // Validate HLS server is a trusted HDRelay domain
+        try {
+          const serverUrl = new URL(hlsServer.startsWith("http") ? hlsServer : `https://${hlsServer}`);
+          if (!serverUrl.hostname.endsWith(".hdrelay.com")) {
+            console.warn("[cam-resolve] Untrusted HDRelay HLS server:", serverUrl.hostname);
+            return NextResponse.json({ error: "Untrusted stream server" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+          }
+        } catch {
+          console.warn("[cam-resolve] Invalid HDRelay HLS server URL:", hlsServer);
+          return NextResponse.json({ error: "Invalid stream server" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+        }
+
+        const hlsUrl = `${hlsServer}/camera/${cameraId}/relay/playlist.m3u8`;
+        try {
+          new URL(hlsUrl);
+        } catch {
+          console.warn("[cam-resolve] HDRelay constructed malformed HLS URL:", hlsUrl);
+          return NextResponse.json({ error: "Invalid stream URL" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+        }
+        return NextResponse.json(
+          { hlsUrl },
+          {
+            headers: {
+              ...DEFAULT_SECURITY_HEADERS,
+              // HDRelay HLS URLs don't have signed expiry — cache longer
+              "Cache-Control": "public, max-age=300, stale-while-revalidate=120",
+            },
+          }
+        );
+      } catch (err) {
+        console.warn("[cam-resolve] HDRelay resolution failed:", err instanceof Error ? err.message : String(err));
+        return NextResponse.json({ error: "HDRelay resolution failed" }, { status: 502, headers: DEFAULT_SECURITY_HEADERS });
+      }
     }
 
+    // No strategy matched
+    console.warn("[cam-resolve] No HLS URL found in page:", embedUrl);
     return NextResponse.json(
-      { hlsUrl },
-      {
-        headers: {
-          ...DEFAULT_SECURITY_HEADERS,
-          // Signed URLs expire — cache briefly
-          "Cache-Control": "public, max-age=120, stale-while-revalidate=60",
-        },
-      }
+      { error: "No stream found" },
+      { status: 404, headers: DEFAULT_SECURITY_HEADERS }
     );
   } catch (error) {
     clearTimeout(timeoutId);

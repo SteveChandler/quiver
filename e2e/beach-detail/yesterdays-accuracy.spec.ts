@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS, TIMEOUTS } from '../fixtures/test-data';
 import { navigateToBeach } from '../utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
+import { isVisibleSafe } from '../utils/strict-helpers';
 
 /**
  * Yesterday's Accuracy Card - E2E Tests
@@ -15,6 +17,16 @@ import { navigateToBeach } from '../utils/test-helpers';
  */
 
 test.describe("Yesterday's Accuracy Card", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: "Yesterday's Accuracy Card" });
+  });
+
   test('should show accuracy card on Forecast tab for observable beach when data available', async ({ page }) => {
     // Blacks Beach is an observable beach (near CDIP/Scripps station)
     await navigateToBeach(page, TEST_BEACHES.blacks);
@@ -36,18 +48,12 @@ test.describe("Yesterday's Accuracy Card", () => {
     // If visible, verify its content structure.
     const card = page.getByTestId('yesterdays-accuracy-card');
 
-    // Wait for accuracy data to load (async fetch on mount).
-    // Race: card appears OR additional wait time — avoids hardcoded timeout.
-    await Promise.race([
-      card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
-      page.waitForTimeout(3000),
-    ]);
-
-    const isVisible = await card.isVisible().catch(() => false);
+    // Wait for accuracy data to load - card may not appear if data unavailable
+    const isVisible = await isVisibleSafe(card, { timeout: 5000 });
 
     if (isVisible) {
       // Verify card contains expected elements
-      await expect(card.getByText(/Yesterday['’]s Accuracy/i)).toBeVisible();
+      await expect(card.getByText(/Yesterday[‘’]s Accuracy/i)).toBeVisible();
       await expect(card.getByText(/Predicted/i)).toBeVisible();
       await expect(card.getByText(/Actual/i)).toBeVisible();
       await expect(card.getByText(/Accuracy/i)).toBeVisible();
@@ -76,12 +82,8 @@ test.describe("Yesterday's Accuracy Card", () => {
 
     const card = page.getByTestId('yesterdays-accuracy-card');
 
-    await Promise.race([
-      card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
-      page.waitForTimeout(3000),
-    ]);
-
-    const isVisible = await card.isVisible().catch(() => false);
+    // Wait for accuracy data to load - card may not appear if data unavailable
+    const isVisible = await isVisibleSafe(card, { timeout: 5000 });
 
     if (isVisible) {
       // Should show values in feet (e.g., "3.2 ft")
@@ -110,12 +112,8 @@ test.describe("Yesterday's Accuracy Card", () => {
     // Card should render cleanly on mobile if data is available
     const card = page.getByTestId('yesterdays-accuracy-card');
 
-    await Promise.race([
-      card.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
-      page.waitForTimeout(3000),
-    ]);
-
-    const isVisible = await card.isVisible().catch(() => false);
+    // Wait for accuracy data to load - card may not appear if data unavailable
+    const isVisible = await isVisibleSafe(card, { timeout: 5000 });
 
     if (isVisible) {
       // On mobile, card should still be fully visible (not clipped)

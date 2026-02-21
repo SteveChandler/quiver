@@ -399,14 +399,14 @@ export async function POST(request: NextRequest) {
         invitationsSent++;
 
         // Track invite send in user_events for growth metrics
-        supabase.from("user_events").insert({
+        void supabase.from("user_events").insert({
           user_id: user.id,
           event_type: "social_invite_send",
           metadata: {
             session_id: sessionId,
             invitee_count: 1,
           },
-        }).then(() => {}).catch(() => {});
+        }).then(() => {}, () => {});
 
         // Track XP for each friend invited
         trackInviteXP(newInvitation.id);
@@ -906,14 +906,14 @@ export async function PATCH(request: NextRequest) {
     });
 
     // Track invite response in user_events for growth metrics
-    supabase.from("user_events").insert({
+    void supabase.from("user_events").insert({
       user_id: user.id,
       event_type: "social_invite_respond",
       metadata: {
         invitation_id: invitationId,
         action: invitationResponse,
       },
-    }).then(() => {}).catch(() => {});
+    }).then(() => {}, () => {});
 
     // Send notification to session creator about the response
     try {

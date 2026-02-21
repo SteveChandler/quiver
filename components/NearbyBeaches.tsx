@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { BeachCard } from "@/components/beach-card";
 import { useNearbyBeaches } from "@/hooks/useNearbyBeaches";
 import { useSelectedBeach } from "@/state/selectedBeach";
-import { formatMiles, milesBetween } from "@/utils/distance";
+import { formatMiles, milesBetween } from "@/lib/utils/distance-utils";
 
 interface NearbyBeachesProps {
   limit?: number;

@@ -95,18 +95,3 @@ export const PERSONALIZATION_MILESTONES: Record<MilestoneKey, MilestoneDefinitio
   },
 } as const;
 
-/**
- * Ordered list of milestone keys representing the ideal progression.
- * Useful for progress indicators and sequential unlock displays.
- */
-export const MILESTONE_ORDER: readonly MilestoneKey[] = [
-  "first_session_logged",
-  "first_intel_posted",
-  "wave_range_learned",
-  "wind_pref_learned",
-  "time_slot_detected",
-  "home_turf_established",
-  "intel_confirmed_5x",
-  "local_authority",
-  "fully_personalized",
-] as const;

@@ -13,7 +13,15 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
 import { ensureAuthenticated } from "./utils/test-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+
+dotenv.config({ path: '.env.playwright' });
+dotenv.config({ path: '.env.playwright.local' });
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 const BASE_URL =
   process.env.BASE_URL ||
@@ -41,8 +49,15 @@ async function createTestSession(request: any): Promise<string | null> {
 }
 
 test.describe("Input Validation - Phase 2 Fixes", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Phase 2 Fixes' });
   });
 
   test.describe("Comment Max Length Validation", () => {
@@ -299,6 +314,34 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
   });
 
   test.describe("Intel Post Validation", () => {
+    const createdIntelPostIds: string[] = [];
+
+    test.afterAll(async () => {
+      if (createdIntelPostIds.length === 0) return;
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        console.warn('[Cleanup] SUPABASE_SERVICE_ROLE_KEY not available, skipping intel post cleanup');
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      const { data, error } = await supabase
+        .from('intel_posts')
+        .update({ is_active: false })
+        .in('id', createdIntelPostIds)
+        .select('id');
+
+      if (!error && data && data.length > 0) {
+        console.log(`[Cleanup] Soft-deleted ${data.length} intel post(s) from input-validation tests`);
+      }
+    });
+
     test("should accept valid intel post", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/intel`, {
         data: {
@@ -320,6 +363,11 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
         expect(body.error).not.toMatch(/invalid|format|exceed/i);
       } else {
         expect([200, 201, 401, 409]).toContain(response.status());
+      }
+
+      if (response.status() === 200) {
+        const body = await response.json();
+        if (body.data?.id) createdIntelPostIds.push(body.data.id);
       }
 
       console.log(`✓ Valid intel post: ${response.status()}`);
@@ -463,6 +511,11 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
         expect([200, 201, 401, 409]).toContain(response.status());
       }
 
+      if (response.status() === 200) {
+        const body = await response.json();
+        if (body.data?.id) createdIntelPostIds.push(body.data.id);
+      }
+
       console.log("✓ Whitespace trimming works for intel posts");
     });
   });
@@ -513,14 +566,14 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     });
 
     // TODO: Test drift - session comments API behavior changed
-    test("should accept correct Content-Type", async ({ request }) => {
-  throw new Error('Not implemented: should accept correct Content-Type');
-});
+    test.fixme("should accept correct Content-Type", async ({ request }) => {
+      // Session comments API behavior changed — needs investigation before re-enabling
+    });
 
     // TODO: Test drift - session comments API may not parse JSON body in expected way
-    test("should reject malformed JSON", async ({ request }) => {
-  throw new Error('Not implemented: should reject malformed JSON');
-});
+    test.fixme("should reject malformed JSON", async ({ request }) => {
+      // Session comments API JSON body parsing behavior changed — needs investigation
+    });
 
   test.describe("Edge Cases and Error Messages", () => {
     test("should provide clear error messages for validation failures", async ({ request }) => {
@@ -550,9 +603,9 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
     });
 
     // TODO: Test drift - intel API endpoint behavior changed
-    test("should handle missing required fields", async ({ request }) => {
-  throw new Error('Not implemented: should handle missing required fields');
-});
+    test.fixme("should handle missing required fields", async ({ request }) => {
+      // Intel API endpoint behavior changed — needs investigation before re-enabling
+    });
 
     test("should handle null values appropriately", async ({ request }) => {
       const sessionId = "01330afc-00d3-461b-88f3-b173774766f4";

@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
  * Fire-and-forget analytics tracking with single-fire protection.
  */
 export function useEmbedImpression(
-  widgetType: "conditions" | "tides",
+  widgetType: "conditions" | "tides" | "surf-terminal" | "ticker",
   slug: string
 ): void {
   const hasTracked = useRef(false);

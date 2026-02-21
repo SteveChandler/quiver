@@ -12,10 +12,19 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad, ensureAuthenticated } from './utils/test-helpers';
 import { createClient } from '@supabase/supabase-js';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe('Implicit Preference Privacy Controls', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Implicit Preference Privacy' });
   });
 
   /**
@@ -27,11 +36,12 @@ test.describe('Implicit Preference Privacy Controls', () => {
 
     // Click on Preferences tab if it exists
     const preferencesTab = page.getByRole('tab', { name: /preferences/i });
-    const tabExists = await preferencesTab.isVisible().catch(() => false);
+    const tabExists = await isVisibleSafe(preferencesTab);
 
     if (tabExists) {
       await preferencesTab.click();
-      await page.waitForTimeout(500); // Wait for tab transition
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
+      await page.waitForTimeout(500);
     }
   }
 
@@ -76,9 +86,10 @@ test.describe('Implicit Preference Privacy Controls', () => {
 
     // Navigate back to preferences tab if needed
     const preferencesTab = page.getByRole('tab', { name: /preferences/i });
-    const tabExists = await preferencesTab.isVisible().catch(() => false);
+    const tabExists = await isVisibleSafe(preferencesTab);
     if (tabExists) {
       await preferencesTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
       await page.waitForTimeout(500);
     }
 
@@ -103,6 +114,7 @@ test.describe('Implicit Preference Privacy Controls', () => {
     const currentState = await trackingToggle.getAttribute('data-state');
     if (currentState === 'checked') {
       await trackingToggle.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for toggle state transition
       await page.waitForTimeout(300);
     }
 
@@ -122,9 +134,10 @@ test.describe('Implicit Preference Privacy Controls', () => {
     await waitForPageLoad(page);
 
     const preferencesTab = page.getByRole('tab', { name: /preferences/i });
-    const tabExists = await preferencesTab.isVisible().catch(() => false);
+    const tabExists = await isVisibleSafe(preferencesTab);
     if (tabExists) {
       await preferencesTab.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
       await page.waitForTimeout(500);
     }
 
@@ -148,6 +161,7 @@ test.describe('Implicit Preference Privacy Controls', () => {
     const currentState = await trackingToggle.getAttribute('data-state');
     if (currentState === 'checked') {
       await trackingToggle.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for toggle state transition
       await page.waitForTimeout(500);
     }
 
@@ -156,7 +170,7 @@ test.describe('Implicit Preference Privacy Controls', () => {
     await saveButton.click();
     await expect(page.getByText(/preferences updated/i)).toBeVisible({ timeout: 5000 });
 
-    // Wait a moment for UI to update
+    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for UI state update after save
     await page.waitForTimeout(500);
 
     // Look for clear browsing data button
@@ -185,6 +199,7 @@ test.describe('Implicit Preference Privacy Controls', () => {
     const currentState = await trackingToggle.getAttribute('data-state');
     if (currentState !== 'checked') {
       await trackingToggle.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for toggle state transition
       await page.waitForTimeout(300);
     }
 
@@ -192,7 +207,7 @@ test.describe('Implicit Preference Privacy Controls', () => {
     const clearButton = page.getByRole('button', { name: /clear browsing data/i });
 
     // Button should not be visible when tracking is enabled
-    const isVisible = await clearButton.isVisible().catch(() => false);
+    const isVisible = await isVisibleSafe(clearButton);
     expect(isVisible).toBe(false);
   });
 
@@ -246,8 +261,8 @@ test.describe('Implicit Preference Privacy Controls', () => {
     );
 
     // Privacy section should exist (heading might be h3, not semantically a "heading" role)
-    const headingExists = await privacyHeading.isVisible().catch(() => false);
-    const h3Heading = await page.locator('h3:has-text("Privacy")').isVisible().catch(() => false);
+    const headingExists = await isVisibleSafe(privacyHeading);
+    const h3Heading = await isVisibleSafe(page.locator('h3:has-text("Privacy")'));
 
     expect(headingExists || h3Heading).toBe(true);
 
@@ -257,7 +272,7 @@ test.describe('Implicit Preference Privacy Controls', () => {
       has: page.locator('path, circle')
     }).first();
 
-    const iconExists = await shieldIcon.isVisible().catch(() => false);
+    const iconExists = await isVisibleSafe(shieldIcon);
     // Icon existence is good but not critical if CSS changes
     if (!iconExists) {
       console.log('Note: Shield icon not found, but Privacy section exists');

@@ -68,7 +68,7 @@ export function completeCronCheckIn(
  * Schedules for the 4-shard enhanced forecast sync configuration.
  * Must match vercel.json entries.
  */
-export const ENHANCED_SHARD_SCHEDULES: Record<number, string> = {
+const ENHANCED_SHARD_SCHEDULES: Record<number, string> = {
   0: "0 */2 * * *",
   1: "30 */2 * * *",
   2: "0 1-23/2 * * *",

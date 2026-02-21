@@ -167,6 +167,14 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Conditions ticker: animated vs reduced-motion fallback */
+  .ticker-static-track { display: none; }
+  .ticker-animated-track { display: flex; }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-animated-track { display: none !important; }
+    .ticker-static-track { display: flex !important; }
+  }
 }
 
 /* iOS WebView - Prevent keyboard accessory bar crashes */

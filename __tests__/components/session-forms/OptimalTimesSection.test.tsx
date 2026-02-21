@@ -9,7 +9,7 @@ import { OptimalTimesSection } from "@/components/session-forms/OptimalTimesSect
 describe("OptimalTimesSection", () => {
   const baseFormState = {
     selectedBeach: "Pacific Beach",
-    selectedBeachId: "",
+    selectedBeachId: "beach-123",
     selectedDate: "2024-01-17",
     selectedTime: "16:42",
   } as any;
@@ -20,7 +20,7 @@ describe("OptimalTimesSection", () => {
     (fetch as unknown as jest.Mock).mockReset();
   });
 
-  test.skip("fetches with beachName when beachId is missing and includes selectedTime", async () => {
+  test("fetches with beachId and includes selectedTime", async () => {
     (fetch as unknown as jest.Mock).mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -65,7 +65,7 @@ describe("OptimalTimesSection", () => {
 
     const url = (fetch as unknown as jest.Mock).mock.calls[0][0] as string;
     expect(url).toContain("/api/session-planner/optimal-times");
-    expect(url).toContain("beachName=Pacific%20Beach");
+    expect(url).toContain("beachId=beach-123");
     expect(url).toContain("selectedTime=16%3A42");
 
     // UI label shows context-aware header
@@ -74,7 +74,7 @@ describe("OptimalTimesSection", () => {
     ).toBeInTheDocument();
   });
 
-  test.skip("shows a loading placeholder anchored to selected time", async () => {
+  test("shows a loading placeholder anchored to selected time", async () => {
     // Keep fetch unresolved briefly to see loading UI
     (fetch as unknown as jest.Mock).mockImplementation(
       () => new Promise(() => {})
@@ -87,8 +87,8 @@ describe("OptimalTimesSection", () => {
       />
     );
 
-    // Placeholder list should render quickly with an item carrying data-start/end
-    // Relax loading expectation: presence of "Optimal Times" when unresolved
-    expect(await screen.findByText(/Optimal Times/i)).toBeInTheDocument();
+    // Loading state shows "Best for Your Session Time" header and "Loading Forecast" badge
+    expect(await screen.findByText(/Best for Your Session Time/i)).toBeInTheDocument();
+    expect(screen.getByText(/Loading Forecast/i)).toBeInTheDocument();
   });
 });

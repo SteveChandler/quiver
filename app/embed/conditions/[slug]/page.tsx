@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-server-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { EmbedConditionsWidget, type ConditionData } from "./embed-conditions-widget";
+import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
+import type { ConditionsData } from "@/types/conditions";
+import { EmbedConditionsWidget } from "./embed-conditions-widget";
 
 export const revalidate = 300; // 5-minute ISR caching
 
@@ -22,7 +24,7 @@ export default async function EmbedConditionsPage({
   if (!beach) return notFound();
 
   // Fetch current forecast
-  let currentConditions: ConditionData = {};
+  let currentConditions: ConditionsData = {};
   try {
     const result = await getFreshForecastFromCache(beach.id, 2);
     if (result?.forecasts?.length) {
@@ -35,16 +37,7 @@ export default async function EmbedConditionsPage({
       });
       const closest = sorted[0];
       if (closest) {
-        currentConditions = {
-          waveHeight: closest.wave_height ?? null,
-          wavePeriod: closest.wave_period ?? null,
-          waveDirection: closest.wave_direction ?? null,
-          windSpeed: closest.wind_speed ?? null,
-          windDirection: closest.wind_direction ?? null,
-          waterTemp: closest.water_temp ?? null,
-          tideStatus: closest.tide_status ?? null,
-          tideHeight: closest.tide_height ?? null,
-        };
+        currentConditions = forecastToConditionsData(closest);
       }
     }
   } catch {

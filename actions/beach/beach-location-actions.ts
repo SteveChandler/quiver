@@ -117,7 +117,7 @@ export interface CityWithBeachCount {
  *
  * @param minBeaches - Minimum number of beaches required (default: 1)
  */
-export async function getAllCitiesWithBeaches(minBeaches: number = 1) {
+async function getAllCitiesWithBeaches(minBeaches: number = 1) {
   try {
     const supabase = await createSupabaseServerClient();
 

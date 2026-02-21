@@ -369,23 +369,10 @@ export function withRateLimit(
   options: WithRateLimitOptions
 ): RouteHandler;
 
-// Convenience composites
+// Convenience composite
 export function withBotBlockingAndRateLimit(
   handler: RouteHandler,
   options: WithRateLimitOptions | RateLimitKey // backward compatible
-): RouteHandler;
-
-export function withAuthAndRateLimit(
-  handler: AuthenticatedHandler | OptionalAuthHandler,
-  options: {
-    auth: { required: boolean; errorMessage?: string };
-    rateLimit: WithRateLimitOptions;
-  }
-): RouteHandler;
-
-export function withFullProtection(
-  handler: AuthenticatedHandler | OptionalAuthHandler,
-  options: ProtectionOptions
 ): RouteHandler;
 
 // Unified wrapper
@@ -875,7 +862,7 @@ lib/middleware/
 |   +-- auth-wrapper.ts       # withAuth, createApiHandler (includes params resolution)
 |   +-- error-handler.ts      # withErrorHandler
 |   +-- rate-limit-wrapper.ts # withRateLimit, withBotBlockingAndRateLimit
-|   +-- protection-wrappers.ts # withProtection, withFullProtection, withAuthAndRateLimit
+|   +-- protection-wrappers.ts # withProtection
 |   +-- validation-helpers.ts # validateUuidParam, validateRequiredParams
 |   +-- ownership-helpers.ts  # requireOwnership
 |   +-- response-utils.ts     # Re-exports from api-utils

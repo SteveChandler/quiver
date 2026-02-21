@@ -206,7 +206,7 @@ describe("Device Token API - POST /api/devices/upsert", () => {
 
       // Verify timestamp is a valid ISO string
       const callArgs = mockUpsert.mock.calls[0][0];
-      expect(() => new Date(callArgs.updated_at)).not.toThrow();
+      expect(new Date(callArgs.updated_at).getTime()).not.toBeNaN();
     });
   });
 

@@ -141,6 +141,37 @@ export const IntelReportSchema = z.object({
 export type IntelReportInput = z.infer<typeof IntelReportSchema>;
 
 // ============================================================================
+// Intel Voting
+// ============================================================================
+
+export const IntelVoteSchema = z.object({
+  vote_type: z.enum(['helpful', 'off', 'confirmed'], {
+    message: 'Invalid vote type',
+  }),
+});
+
+export type IntelVoteInput = z.infer<typeof IntelVoteSchema>;
+
+// ============================================================================
+// Intel Reporting V2 (structured reasons)
+// ============================================================================
+
+export const INTEL_REPORT_REASONS = ['spam', 'harassment', 'dangerous', 'false_info', 'other'] as const;
+export type IntelReportReason = typeof INTEL_REPORT_REASONS[number];
+
+export const IntelReportSchemaV2 = z.object({
+  reason: z.enum(INTEL_REPORT_REASONS, {
+    message: 'Please select a report reason',
+  }),
+  details: z.string()
+    .max(500, 'Details cannot exceed 500 characters')
+    .trim()
+    .optional(),
+});
+
+export type IntelReportV2Input = z.infer<typeof IntelReportSchemaV2>;
+
+// ============================================================================
 // Beach Search
 // ============================================================================
 

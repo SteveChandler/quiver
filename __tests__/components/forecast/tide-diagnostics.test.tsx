@@ -140,8 +140,9 @@ describe("TideNextExtreme", () => {
 
     expect(screen.getByText(/High Tide/i)).toBeInTheDocument();
     expect(screen.getByText(/Low Tide/i)).toBeInTheDocument();
-    expect(screen.getByText("5.2")).toBeInTheDocument();
-    expect(screen.getByText("0.8")).toBeInTheDocument();
+    // formatTideHeight now returns combined strings like "5.2ft" and "0.8ft"
+    expect(screen.getByText("5.2ft")).toBeInTheDocument();
+    expect(screen.getByText("0.8ft")).toBeInTheDocument();
   });
 
   it("orders cards by soonest tide first (low before high when low is sooner)", () => {

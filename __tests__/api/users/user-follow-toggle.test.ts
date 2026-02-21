@@ -31,9 +31,9 @@ jest.mock("next/cache", () => ({
 }));
 
 // Import after mocks are set up
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { POST, GET } = require("@/app/api/users/[id]/follow/toggle/route");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { toggleUserFollow } = require("@/actions/social-actions");
 
 describe("POST /api/users/[id]/follow/toggle", () => {

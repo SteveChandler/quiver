@@ -38,6 +38,7 @@ import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ZeroState } from "@/components/ui/zero-state";
 import { ShareSheet } from "@/components/share";
+import { formatWindSpeed } from "@/lib/formatters/surf-data";
 import { buildSessionShareUrl } from "@/lib/share/build-share-card-url";
 import type {
   SessionWithDetails,
@@ -527,7 +528,7 @@ export function JournalView({ className }: JournalViewProps) {
               const mphRaw = shareSession.wind_speed_mph;
               const mph =
                 typeof mphRaw === "number" ? mphRaw : mphRaw ? Number(mphRaw) : NaN;
-              return Number.isFinite(mph) ? `${Math.round(mph)} mph` : undefined;
+              return Number.isFinite(mph) ? formatWindSpeed(mph) : undefined;
             })(),
             tagline:
               typeof (shareSession as { description?: unknown }).description === "string"

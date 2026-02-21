@@ -22,7 +22,7 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 // Import after mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { GET } = require("@/app/api/users/[id]/sessions/route");
 
 describe("/api/users/[id]/sessions", () => {

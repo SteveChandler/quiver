@@ -11,7 +11,7 @@ import {
 import type {
   BeachMetadata,
   EnhancedForecastEntity,
-} from '@/lib/services/magic-hour-finder';
+} from '@/lib/services/magic-hour';
 
 describe('Forecast Digest Service', () => {
   describe('checkSkillGate', () => {

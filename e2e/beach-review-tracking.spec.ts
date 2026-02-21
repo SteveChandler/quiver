@@ -1,6 +1,7 @@
 import { test, expect, Page, Request } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach, ensureAuthenticated } from './utils/test-helpers';
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
  * Beach Review Tracking E2E Tests
@@ -49,6 +50,16 @@ async function captureTrackingEvents(page: Page): Promise<TrackingEvent[]> {
 }
 
 test.describe('Beach Review Tracking', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Beach Review Tracking' });
+  });
+
   test.describe('Overview Tab CTA', () => {
     test('should show review CTA for authenticated users', async ({ page }) => {
       await ensureAuthenticated(page);
@@ -79,7 +90,7 @@ test.describe('Beach Review Tracking', () => {
       // Wait for dialog to appear
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
-      // Wait for tracking event to be sent
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for async tracking event to fire
       await page.waitForTimeout(1500);
 
       // Verify tracking event was captured
@@ -103,7 +114,7 @@ test.describe('Beach Review Tracking', () => {
       await reviewsTab.click();
       await expect(reviewsTab).toHaveAttribute('data-state', 'active');
 
-      // Wait for reviews content to load
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for reviews content to load
       await page.waitForTimeout(2000);
 
       // Find and click write review button in reviews section
@@ -114,7 +125,7 @@ test.describe('Beach Review Tracking', () => {
       // Wait for dialog to appear
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
-      // Wait for tracking event to be sent
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for async tracking event to fire
       await page.waitForTimeout(1500);
 
       // Verify tracking event was captured with reviews_tab source
@@ -146,7 +157,7 @@ test.describe('Beach Review Tracking', () => {
       const submitButton = page.getByRole('button', { name: /post review/i });
       await submitButton.click();
 
-      // Wait for validation error tracking
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation error tracking event
       await page.waitForTimeout(1500);
 
       // Verify validation error was tracked
@@ -181,7 +192,7 @@ test.describe('Beach Review Tracking', () => {
       const submitButton = page.getByRole('button', { name: /post review/i });
       await submitButton.click();
 
-      // Wait for validation error tracking
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for validation error tracking event
       await page.waitForTimeout(1500);
 
       // Verify validation error was tracked
@@ -208,14 +219,14 @@ test.describe('Beach Review Tracking', () => {
       // Start filling the form
       await page.getByPlaceholder(/summarize your experience/i).fill('Partial Review');
 
-      // Wait a bit to accumulate duration
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- accumulating duration for abandon tracking
       await page.waitForTimeout(2000);
 
       // Click cancel button
       const cancelButton = page.getByRole('button', { name: /cancel/i });
       await cancelButton.click();
 
-      // Wait for abandon tracking
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for abandon tracking event to fire
       await page.waitForTimeout(1500);
 
       // Verify abandon event was tracked
@@ -269,6 +280,16 @@ test.describe('Beach Review Tracking', () => {
 });
 
 test.describe('Review Form UI', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Review Form UI' });
+  });
+
   test('should display all rating categories', async ({ page }) => {
     await ensureAuthenticated(page);
     await navigateToBeach(page, TEST_BEACHES.blacks);

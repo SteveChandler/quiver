@@ -7,7 +7,7 @@ import { LocationPermissionBanner } from "@/components/ui/location-permission-ba
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 
 // NearbyBeach uses lat/lon from the API response, mapped from Beach table fields
 interface NearbyBeach {
@@ -104,7 +104,7 @@ export function NearbyBeachChips({
       }
 
       // Navigate to beach detail page
-      const beachUrl = getBeachUrlSafe({
+      const beachUrl = getBeachHrefSafe({
         id: b.id,
         slug: b.slug,
         city: b.city,

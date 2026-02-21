@@ -43,6 +43,8 @@ import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
 import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
 import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery";
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
+import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
+import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
 import {
   BeachTabs,
@@ -422,6 +424,16 @@ function BeachDetailContent({
           currentForecast={currentForecast}
           className="mb-6"
         />
+
+        {/* At-a-Glance Conditions Ticker */}
+        {currentForecast && (
+          <ConditionsTicker
+            data={forecastToConditionsData(currentForecast)}
+            theme="light"
+            beachName={beach.name}
+            className="mb-4"
+          />
+        )}
 
         {/* Surf Call Card (server-rendered slot) */}
         {surfReportSlot}

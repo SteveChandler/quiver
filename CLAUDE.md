@@ -225,9 +225,12 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 - Test across mobile AND desktop breakpoints
 - Write/adjust tests when adding behavior: unit, integration, component, and E2E for critical flows
 
-**NEVER do these in tests:**
-- Expect 500 errors - they mask bugs. Use proper status codes (400, 401, 403, 404, 405)
-- Use `test.skip()` in E2E - this hides coverage gaps. Throw informative errors instead
+**E2E required patterns:**
+- All browser specs use `setupErrorDetection(page)` in `beforeEach` and `assertNoErrors(page, errorCapture)` in `afterEach` (see `e2e/utils/error-detection.ts`)
+- Use proper HTTP status codes in assertions (400, 401, 403, 404, 405) — 500 indicates a bug, not expected behavior
+- Throw informative errors for unimplemented features instead of `test.skip()` — e.g., `throw new Error('Not implemented: <reason>')`
+- Use `isVisibleSafe()` from `e2e/utils/strict-helpers.ts` for environment-dependent visibility checks
+- Annotate every `waitForTimeout` with `// eslint-disable-next-line playwright/no-wait-for-timeout -- <reason>`
 
 ---
 

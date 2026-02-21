@@ -21,9 +21,9 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // Import after mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { GET: getBadgeDefinitions } = require("@/app/api/gamification/badge-definitions/route");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { GET: getUserBadges, POST, PUT, PATCH, DELETE } = require("@/app/api/gamification/user-badges/route");
 
 describe("GET /api/gamification/badge-definitions", () => {

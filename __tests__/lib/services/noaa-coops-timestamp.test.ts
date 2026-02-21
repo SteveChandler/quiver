@@ -5,7 +5,7 @@
  * We request `time_zone=gmt` and parse timestamps explicitly as UTC.
  */
 
-import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
+import { NOAACOOPSService } from "@/lib/services/noaa-coops";
 
 // Mock fetch to avoid real API calls
 global.fetch = jest.fn();

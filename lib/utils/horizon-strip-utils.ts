@@ -167,7 +167,8 @@ function groupForecastsByDate(
  */
 function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
-  beach: BeachWithThresholds
+  beach: BeachWithThresholds,
+  beachTz?: string
 ): { forecast: EnhancedForecastEntity; score: number } | null {
   if (dayForecasts.length === 0) return null;
 
@@ -175,7 +176,7 @@ function findBestForecast(
   let bestScore = 0;
 
   for (const forecast of dayForecasts) {
-    const forecastForScoring = toForecastForScoring(forecast);
+    const forecastForScoring = toForecastForScoring(forecast, beachTz);
     const result = scoreConditions(forecastForScoring, beach);
 
     if (result.total > bestScore) {
@@ -303,7 +304,7 @@ export function aggregateDayForecasts(
     const dayForecasts = forecastsByDate.get(dateStr) || [];
 
     // Find best forecast for scoring
-    const bestResult = findBestForecast(dayForecasts, beachWithThresholds);
+    const bestResult = findBestForecast(dayForecasts, beachWithThresholds, timezone);
 
     if (!bestResult) continue;
 

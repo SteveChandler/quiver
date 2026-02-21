@@ -164,9 +164,9 @@ export function BeachIntelSection({
         return;
       }
 
-      // Find the current post to get its current count
-      const currentPost = posts.find((post) => post.id === postId);
-      if (!currentPost) {
+      // Find the raw post from intelData to avoid stale closure over `posts`.
+      const rawPost = (intelData?.posts || []).find((p) => p.id === postId);
+      if (!rawPost) {
         toast.error("Post not found");
         return;
       }
@@ -174,11 +174,15 @@ export function BeachIntelSection({
       // Set loading state
       setConfirmingPosts((prev) => new Set(prev).add(postId));
 
+      // Use the current optimistic state if it exists (prevents stale counts
+      // when rapid confirms arrive before the first one settles).
+      const currentState = optimisticUpdates[postId] ?? rawPost;
+
       // Apply optimistic update immediately
       const optimisticConfirmed = !isCurrentlyConfirmed;
       const optimisticCount = isCurrentlyConfirmed
-        ? Math.max(0, currentPost.confirmations_count - 1)
-        : currentPost.confirmations_count + 1;
+        ? Math.max(0, currentState.confirmations_count - 1)
+        : currentState.confirmations_count + 1;
 
       setOptimisticUpdates((prev) => ({
         ...prev,
@@ -195,11 +199,12 @@ export function BeachIntelSection({
           : await confirmIntelPost(postId);
 
         if (result.success) {
-          toast.success(
-            isCurrentlyConfirmed
-              ? "Vote removed"
-              : "Thanks for confirming this intel!"
-          );
+          // Only show "Vote removed" when the user actually had a previous confirmation
+          if (isCurrentlyConfirmed) {
+            toast.success("Vote removed");
+          } else {
+            toast.success("Thanks for confirming this intel!");
+          }
 
           // Clear optimistic update and refetch to get server state
           setOptimisticUpdates((prev) => {
@@ -235,7 +240,7 @@ export function BeachIntelSection({
         });
       }
     },
-    [user, posts, refetch]
+    [user, intelData?.posts, optimisticUpdates, refetch]
   );
 
   const handlePostCreated = useCallback(

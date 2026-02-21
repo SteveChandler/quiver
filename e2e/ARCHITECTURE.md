@@ -49,13 +49,22 @@ e2e/
 │   └── personas.ts        # Persona type definitions (6 NPC personalities)
 │
 ├── utils/                  # Helper utilities
+│   ├── api-request-helpers.ts  # Isolated API request contexts for rate limit safety
 │   ├── auth-helpers.ts    # Authentication verification helpers
-│   ├── profile-helpers.ts # Profile management utilities
-│   ├── test-helpers.ts    # General test utilities
+│   ├── beach-photo-helpers.ts  # Beach photo testing utilities
+│   ├── email-token-helpers.ts  # Email token generation for preference tests
+│   ├── error-detection.ts # Console/network/visible error detection (used in ALL browser specs)
 │   ├── location-helpers.ts # Location testing utilities
 │   ├── persona-auth.ts    # Multi-user authentication for personas
 │   ├── persona-content-generators.ts  # Persona-style content generation
-│   └── persona-helpers.ts # High-level persona test helpers
+│   ├── persona-helpers.ts # High-level persona test helpers
+│   ├── personalization-helpers.ts # Personalization data availability checks
+│   ├── profile-helpers.ts # Profile management utilities
+│   ├── profile-preferences-helpers.ts # Profile preference form helpers
+│   ├── session-test-data.ts # Session test data fixtures
+│   ├── strict-helpers.ts  # isVisibleSafe / expectVisible strict assertion helpers
+│   ├── test-data-cleanup.ts # Soft-delete cleanup for dev environment test data
+│   └── test-helpers.ts    # General test utilities (waitForPageLoad, navigateToBeach)
 │
 ├── personas/               # Per-persona test specs
 │   ├── rookie.spec.ts
@@ -429,6 +438,63 @@ import { waitForPageLoad } from "./utils/test-helpers";
 // Wait for page to fully load
 await waitForPageLoad(page);
 ```
+
+### Error Detection Helpers
+
+**Location:** `e2e/utils/error-detection.ts`
+
+Every browser-based spec file uses error detection to catch console errors, network failures, and visible error UI. This is **mandatory** for all new browser specs.
+
+```typescript
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+
+test.describe('Feature Tests', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Feature Tests' });
+  });
+
+  test('should work without errors', async ({ page }) => {
+    // Test implementation — errors are caught automatically in afterEach
+  });
+});
+```
+
+**What it catches:**
+- **Console errors** — `console.error` and uncaught exceptions (filtered for noise like React hydration warnings, Mapbox CORS, service workers)
+- **Network errors** — HTTP 4xx/5xx responses (filtered for known graceful degradation APIs, rate limiting, analytics)
+- **Visible errors** — Error UI elements on the page (`[role="alert"]`, `data-testid="error"`, Next.js error overlay, error toasts)
+
+**Additional utilities:**
+- `gotoWithErrorCheck(page, capture, url)` — Navigate and assert no errors after load
+- `clickWithErrorCheck(page, capture, selector, description)` — Click and assert no errors after action
+- `waitForPageLoadWithErrorCheck(page, capture)` — Wait for full load and assert no errors
+
+**Note:** API-only spec files (those using `APIRequestContext` / `request` instead of `page`) do not need error detection since there is no browser page to inspect.
+
+### Strict Helpers
+
+**Location:** `e2e/utils/strict-helpers.ts`
+
+Provides safer visibility checking than raw `.isVisible().catch(() => false)`:
+
+```typescript
+import { isVisibleSafe } from './utils/strict-helpers';
+import { expectVisible } from './utils/strict-helpers';
+
+// Safe check — returns boolean, doesn't fail the test
+const visible = await isVisibleSafe(page.locator('[data-testid="card"]'));
+
+// Strict check — fails the test if not visible
+await expectVisible(page.locator('[data-testid="card"]'), { timeout: 5000 });
+```
+
+Use `isVisibleSafe` for genuinely environment-dependent features (feature flags, auth-gated content). Use `expectVisible` when the element should always be present.
 
 ### Persona Helpers
 
@@ -1015,7 +1081,29 @@ test("should work on desktop", async ({ page }) => {
 });
 ```
 
-### 8. Verify Data Integrity
+### 8. Annotate All `waitForTimeout` Usage
+
+Playwright's `no-wait-for-timeout` lint rule discourages `waitForTimeout`. When it is genuinely needed (debounce, animation, Mapbox init, error collection windows), annotate with an eslint-disable comment explaining **why**:
+
+```typescript
+// eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for search input debounce
+await page.waitForTimeout(1000);
+```
+
+**When to use alternatives instead:**
+- After navigation → `await page.waitForLoadState('load')`
+- Before assertion → `await expect(element).toBeVisible({ timeout: 5000 })`
+- For element appearance → `await element.waitFor({ state: 'visible' })`
+
+**Legitimate uses (always annotate):**
+- Debounce delays (search inputs, filter changes)
+- Animation/transition completion (wizard steps, tab switches, scroll)
+- Mapbox GL initialization (3000ms typical)
+- Error collection windows (waiting for console errors to accumulate)
+- Form submission API calls
+- Promise.race fallbacks for optional data
+
+### 9. Verify Data Integrity
 
 When testing features that depend on database state:
 
@@ -1195,17 +1283,21 @@ Profile helper functions execute client-side code. If they fail:
 When adding new tests:
 
 1. **Follow existing patterns** - Use established fixtures and helpers
-2. **Add fixtures** - Create reusable test data in `e2e/fixtures/`
-3. **Create helpers** - Add utilities to `e2e/utils/` for common operations
-4. **Document patterns** - Update this ARCHITECTURE.md with new patterns
-5. **Test accessibility** - Include keyboard navigation and ARIA tests
-6. **Handle edge cases** - Test error states and graceful degradation
-7. **Use meaningful names** - Clear test and variable names
-8. **Add comments** - Explain complex test logic
+2. **Add error detection** - All browser specs must use `setupErrorDetection` / `assertNoErrors`
+3. **Add fixtures** - Create reusable test data in `e2e/fixtures/`
+4. **Create helpers** - Add utilities to `e2e/utils/` for common operations
+5. **Annotate `waitForTimeout`** - Every use needs an `eslint-disable` comment with a reason
+6. **Document patterns** - Update this ARCHITECTURE.md with new patterns
+7. **Test accessibility** - Include keyboard navigation and ARIA tests
+8. **Handle edge cases** - Test error states and graceful degradation
+9. **Use meaningful names** - Clear test and variable names
+10. **Add comments** - Explain complex test logic
 
 ### Pull Request Checklist
 
 - [ ] Tests pass locally
+- [ ] Error detection added to all new browser spec files
+- [ ] All `waitForTimeout` uses annotated with eslint-disable + reason
 - [ ] New fixtures added to `e2e/fixtures/`
 - [ ] Helper utilities created for reusable logic
 - [ ] Documentation updated (this file, PERSONAS.md, and/or README.md)
@@ -1674,4 +1766,4 @@ UPDATE intel_posts SET is_active = true WHERE id = 'uuid-here';
 
 ---
 
-**Last Updated**: February 1, 2026
+**Last Updated**: February 19, 2026

@@ -40,7 +40,7 @@ The SEO Metadata Realignment successfully repositions Quiver from "Community & S
 | `app/api/og/cams/route.tsx` | "No Paywall • No Sign-up" badge | Removed badge entirely | ✅ |
 | `components/seo/structured-data.tsx` | "Surf Community App" | "Surf App" | ✅ |
 | `components/seo/faq-schema.tsx` | "surf community platform" | "ML-powered surf forecast platform" | ✅ |
-| `components/seo/cam-schema.tsx` | "no subscription required" | "Watch real-time wave conditions" | ✅ |
+| `components/seo/cam-schema.tsx` | "no subscription required" | "Watch real-time wave conditions" | ✅ (component deleted 2026-02-17 — VideoObject schema removed from listing pages to fix GSC "not on a watch page" warnings) |
 
 ---
 
@@ -354,7 +354,7 @@ npm test __tests__/lib/services/surf-discovery-time-slot-capping.test.ts
 9. `app/beaches/[country]/[state]/[city]/city-page-metadata.ts` — City metadata
 10. `components/seo/structured-data.tsx` — Home structured data
 11. `components/seo/faq-schema.tsx` — FAQ schema
-12. `components/seo/cam-schema.tsx` — Cam VideoObject schema
+12. ~~`components/seo/cam-schema.tsx` — Cam VideoObject schema~~ (deleted 2026-02-17)
 13. `app/api/og/cams/route.tsx` — OG image generation
 14. `components/cams/cams-share-button.tsx` — Share button title
 15. `components/beach-detail/best-surf-window.tsx` — Share URL (line 758)

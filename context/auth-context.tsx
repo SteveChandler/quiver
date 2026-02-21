@@ -401,12 +401,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // For Capacitor native apps - handle app resume from background
     // This is critical for Android/iOS where the app may be suspended for hours
     let appStateListener: { remove: () => Promise<void> } | null = null;
+    let appUrlOpenListener: { remove: () => Promise<void> } | null = null;
     if (
       typeof window !== "undefined" &&
       (window as any).Capacitor?.isNativePlatform?.()
     ) {
       import("@capacitor/app").then(({ App }) => {
         if (!mounted) return; // Component unmounted during import
+
+        // Handle app resume from background
         App.addListener("appStateChange", async ({ isActive }) => {
           if (isActive && !initializingRef.current && mounted) {
             try {
@@ -445,6 +448,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             listener.remove();
           }
         });
+
+        // Handle deep link callback from OAuth system browser flow.
+        // When the system browser completes Google OAuth, the OS intercepts
+        // the /auth/callback URL (via App Links / Universal Links) and
+        // routes it back to the app as an appUrlOpen event.
+        App.addListener("appUrlOpen", async ({ url }) => {
+          if (!mounted) return;
+          try {
+            const callbackUrl = new URL(url);
+            if (callbackUrl.pathname !== "/auth/callback") return;
+
+            const code = callbackUrl.searchParams.get("code");
+            if (!code) return;
+
+            console.log("[AuthContext] Received OAuth callback deep link");
+
+            const { error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              if (process.env.NODE_ENV === "development") {
+                console.error(
+                  "AuthContext: Error exchanging OAuth code:",
+                  error
+                );
+              }
+              return;
+            }
+
+            // Close the system browser that was opened for OAuth
+            try {
+              const { Browser } = await import("@capacitor/browser");
+              await Browser.close();
+            } catch {
+              // Browser.close() may fail if already closed — safe to ignore
+            }
+
+            // Navigate to the intended redirect path
+            const redirect = callbackUrl.searchParams.get("redirect") || "/";
+            window.location.href = redirect;
+          } catch (error) {
+            if (process.env.NODE_ENV === "development") {
+              console.error(
+                "AuthContext: Exception handling OAuth deep link:",
+                error
+              );
+            }
+          }
+        }).then((listener) => {
+          if (mounted) {
+            appUrlOpenListener = listener;
+          } else {
+            listener.remove();
+          }
+        });
       });
     }
 
@@ -463,6 +519,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (appStateListener) {
         appStateListener.remove();
+      }
+      if (appUrlOpenListener) {
+        appUrlOpenListener.remove();
       }
       initializingRef.current = false;
     };

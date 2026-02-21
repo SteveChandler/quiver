@@ -33,6 +33,7 @@ import { TopSpotsCarousel } from "./top-spots-carousel";
 import { TimeSlotSelector } from "./time-slot-selector";
 import { BottomNav } from "./bottom-nav";
 import { ForecastOutlookCard } from "./forecast-outlook-card";
+import { HomeConditionsTicker } from "./home-conditions-ticker";
 
 // Dynamic imports for below-fold components to reduce initial bundle size
 const CoastPulse = dynamic(
@@ -441,6 +442,13 @@ export function HomeScreen() {
           )}
         </motion.div>
 
+        {/* Conditions Ticker - full width for edge-to-edge scroll */}
+        {profile && homeBeach?.id && (
+          <section className="w-full">
+            <HomeConditionsTicker beachId={homeBeach.id} beachName={homeBeach.name} />
+          </section>
+        )}
+
         {/* Content below gradient */}
         <div className="pt-6 space-y-6 xs:space-y-8">
           {/* 5. Top Spots Carousel - full width for edge-to-edge scroll */}
@@ -460,7 +468,7 @@ export function HomeScreen() {
             </section>
           )}
 
-          {/* 5b. Personalization Progress Card */}
+          {/* Personalization Progress Card */}
           {profile && (
             <section className="centered-container px-4 sm:px-0">
               <PersonalizationProgress status={personalizationStatus} />

@@ -86,6 +86,24 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns hdontap kind with pageUrl for portal.hdontap.com embed URLs", () => {
+    const result = buildCamEmbed(
+      "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST"
+    );
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://portal.hdontap.com/s/embed?stream=cardiffreef_hs-CUST",
+    });
+  });
+
+  it("returns hdontap kind for obhotel.com webcam pages", () => {
+    const result = buildCamEmbed("https://www.obhotel.com/Webcam-Oceanbeach.php");
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
+    });
+  });
+
   // --- Protocol validation ---
   it("rejects javascript: URIs", () => {
     expect(buildCamEmbed("javascript:alert(1)")).toEqual({ kind: "none" });

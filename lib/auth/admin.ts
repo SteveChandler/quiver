@@ -54,7 +54,7 @@ export function isAdmin(user: AdminUser | null): boolean {
   );
 }
 
-export async function requireAdmin(): Promise<
+async function requireAdmin(): Promise<
   { user: AdminUser; error?: never } | { user?: never; error: string }
 > {
   const user = await getCurrentUser();
@@ -92,23 +92,6 @@ export async function authenticateAdmin(): Promise<
 }
 
 /**
- * Require admin access or throw an error
- * Use this in server actions where you want exceptions instead of result objects
- */
-export async function requireAdminOrThrow(): Promise<AdminUser> {
-  const result = await requireAdmin();
-
-  if ("error" in result) {
-    if (result.error === "Authentication required") {
-      throw new UnauthorizedError(result.error);
-    }
-    throw new ForbiddenError(result.error);
-  }
-
-  return result.user;
-}
-
-/**
  * TypeScript assertion function to narrow user type to AdminUser
  * Throws if user is null or not an admin
  */
@@ -122,16 +105,3 @@ export function assertIsAdmin(user: AdminUser | null): asserts user is AdminUser
   }
 }
 
-/**
- * Check if the current user is an admin from cookie/session
- * Useful for middleware checks without database queries
- */
-export async function isAdminFromCookie(): Promise<boolean> {
-  try {
-    const user = await getCurrentUser();
-    return isAdmin(user);
-  } catch (error) {
-    console.error("Error checking admin from cookie:", error);
-    return false;
-  }
-}

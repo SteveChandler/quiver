@@ -8,7 +8,7 @@ import {
   type MagicHourResult,
   type BeachMetadata,
   type WeightConfig,
-} from "@/lib/services/magic-hour-finder";
+} from "@/lib/services/magic-hour";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // ============================================================================

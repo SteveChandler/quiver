@@ -6,7 +6,7 @@
  */
 
 import Link from "next/link";
-import { ChevronLeft, MapPin, Star } from "lucide-react";
+import { MapPin, Star } from "lucide-react";
 import type { CityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { CityMapView } from "@/components/city/city-map-view";
@@ -16,9 +16,12 @@ import { AboutAccordion } from "@/components/city/about-accordion";
 import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
 import { PlanningChecklist } from "@/components/city/planning-checklist";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import type { LocationStats, BeachWithMetrics } from "@/types/location";
 import { resolveIslandDisplayName } from "./city-page-utils";
 import type { LocationPageParams } from "./city-page-utils";
+import { SITE_ORIGIN } from "./city-page-utils";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
@@ -43,6 +46,13 @@ export function EditorialLayout({
 }: EditorialLayoutProps) {
   const surfSpots = transformBeachesToSurfSpots(beaches);
   const topSpot = beaches[0];
+  const isUsa = params.country === "usa";
+  const countryName = isUsa ? "United States" : "Mexico";
+  const countryUrl = `/beaches/${params.country}`;
+  const stateName = isUsa
+    ? getUsStateDisplayNameFromSlug(params.state)
+    : params.state.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const stateUrl = `/beaches/${params.country}/${params.state}`;
 
   return (
     <>
@@ -55,6 +65,12 @@ export function EditorialLayout({
         items={itemListItems}
         name={`Surf Spots in ${displayCityName}`}
       />
+      <BreadcrumbStructuredData items={[
+        { name: "Quiver", url: `${SITE_ORIGIN}/` },
+        { name: countryName, url: `${SITE_ORIGIN}${countryUrl}` },
+        { name: stateName, url: `${SITE_ORIGIN}${stateUrl}` },
+        { name: displayCityName, url: `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}` },
+      ]} />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
@@ -63,13 +79,26 @@ export function EditorialLayout({
           className="flex items-center gap-1 text-sm mb-6"
         >
           <Link
-            href="/map"
-            className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
+            href="/"
+            className="text-ocean-blue hover:underline"
           >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Map
+            Home
           </Link>
-          <span className="text-gray-400 mx-2">›</span>
+          <span aria-hidden="true" className="text-gray-400 mx-2">›</span>
+          <Link
+            href={countryUrl}
+            className="text-ocean-blue hover:underline"
+          >
+            {countryName}
+          </Link>
+          <span aria-hidden="true" className="text-gray-400 mx-2">›</span>
+          <Link
+            href={stateUrl}
+            className="text-ocean-blue hover:underline"
+          >
+            {stateName}
+          </Link>
+          <span aria-hidden="true" className="text-gray-400 mx-2">›</span>
           <span className="text-gray-900 font-medium">
             {displayCityName}
           </span>

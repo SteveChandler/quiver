@@ -95,16 +95,6 @@ describe("MapContent", () => {
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
 
-  it("should render interactive map with proper props", () => {
-    render(<MapContent {...defaultProps} />);
-
-    const interactiveMap = screen.getByTestId("interactive-map");
-    expect(interactiveMap).toBeInTheDocument();
-
-    // The onBeachSelect callback should be available to the InteractiveMap
-    expect(typeof defaultProps.onBeachSelect).toBe("function");
-  });
-
   it("should show beach count overlay", () => {
     render(<MapContent {...defaultProps} />);
 
@@ -250,52 +240,72 @@ describe("MapContent", () => {
     ).toBeInTheDocument();
   });
 
-  it("should use correct map center based on selected beach", () => {
-    const selectedBeach = mockBeaches[0] as any;
-    render(<MapContent {...defaultProps} selectedBeach={selectedBeach} />);
+  // Bug 2: Map minHeight overflows mobile viewport
+  describe("Bug 2: Map container min-height responsive", () => {
+    it("should NOT have standalone min-h-[400px] class on map container", () => {
+      render(<MapContent {...defaultProps} />);
+      const mapContainer = screen.getByTestId("map-container");
+      // Split classes and check none is exactly "min-h-[400px]" (sm:min-h-[400px] is fine)
+      const classes = mapContainer.className.split(/\s+/);
+      expect(classes).not.toContain("min-h-[400px]");
+    });
 
-    // The map should be rendered with the selected beach coordinates
-    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+    it("should have responsive min-h-[200px] sm:min-h-[400px] classes on map container", () => {
+      render(<MapContent {...defaultProps} />);
+      const mapContainer = screen.getByTestId("map-container");
+      const classes = mapContainer.className.split(/\s+/);
+      expect(classes).toContain("min-h-[200px]");
+      expect(classes).toContain("sm:min-h-[400px]");
+    });
   });
 
-  it("should use search result coordinates when searching", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        searchQuery="Ocean"
-        filteredBeaches={[mockBeaches[0]] as any}
-      />
-    );
+  // Bug 9: Beach count overlay too wide on mobile
+  describe("Bug 9: Beach count overlay responsive width", () => {
+    it("should NOT have standalone max-w-xs class on overlay", () => {
+      render(<MapContent {...defaultProps} />);
+      const overlay = screen.getByTestId("map-overlay");
+      // Split classes and check none is exactly "max-w-xs" (sm:max-w-xs is fine)
+      const classes = overlay.className.split(/\s+/);
+      expect(classes).not.toContain("max-w-xs");
+    });
 
-    // The map should be rendered with the search result coordinates
-    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+    it("should have responsive max-w-[55vw] sm:max-w-xs classes on overlay", () => {
+      render(<MapContent {...defaultProps} />);
+      const overlay = screen.getByTestId("map-overlay");
+      const classes = overlay.className.split(/\s+/);
+      expect(classes).toContain("max-w-[55vw]");
+      expect(classes).toContain("sm:max-w-xs");
+    });
   });
 
-  it("should fall back to user location coordinates", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        selectedBeach={null}
-        filteredBeaches={[]}
-        searchQuery=""
-      />
-    );
+  // Bug 13: Recovery button for drawer dismissal
+  describe("Bug 13: Show Beaches recovery button", () => {
+    it("should render Show Beaches button when onShowBeaches is provided", () => {
+      const onShowBeaches = jest.fn();
+      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
+      const button = screen.getByRole("button", { name: "Show beach list" });
+      expect(button).toBeInTheDocument();
+    });
 
-    // The map should be rendered with user location coordinates
-    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
-  });
+    it("should call onShowBeaches when button is clicked", () => {
+      const onShowBeaches = jest.fn();
+      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
+      const button = screen.getByRole("button", { name: "Show beach list" });
+      fireEvent.click(button);
+      expect(onShowBeaches).toHaveBeenCalledTimes(1);
+    });
 
-  it("should use default San Diego coordinates as fallback", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        userLocation={null}
-        selectedBeach={null}
-        filteredBeaches={[]}
-      />
-    );
+    it("should NOT render Show Beaches button when onShowBeaches is not provided", () => {
+      render(<MapContent {...defaultProps} />);
+      const button = screen.queryByRole("button", { name: "Show beach list" });
+      expect(button).not.toBeInTheDocument();
+    });
 
-    // The map should be rendered with default Ocean Beach coordinates
-    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+    it("should have md:hidden class to only show on mobile", () => {
+      const onShowBeaches = jest.fn();
+      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
+      const button = screen.getByRole("button", { name: "Show beach list" });
+      expect(button.className).toContain("md:hidden");
+    });
   });
 });

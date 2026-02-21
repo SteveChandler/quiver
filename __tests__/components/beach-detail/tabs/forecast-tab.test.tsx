@@ -12,12 +12,6 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 jest.mock("@/components/beach-detail/best-surf-window", () => ({
   BestSurfWindow: (props: any) => <div data-testid="best-surf-window" />,
 }));
-jest.mock("@/components/forecast/forecast-table", () => ({
-  SimplifiedForecastTable: (props: any) => <div data-testid="forecast-table" />,
-}));
-jest.mock("@/components/forecast/tide-chart-enhanced", () => ({
-  TideChartEnhanced: (props: any) => <div data-testid="tide-chart" />,
-}));
 jest.mock("@/components/forecast/horizon-strip", () => ({
   HorizonStrip: (props: any) => (
     <div
@@ -81,9 +75,6 @@ jest.mock("@/lib/utils/timezone-utils", () => ({
   getLocalDateString: jest.fn(() => "2026-02-10"),
   getLocalHour: jest.fn((date: Date) => date.getUTCHours()),
 }));
-jest.mock("@/lib/utils/tide-diagnostics-generator", () => ({
-  generateTideDiagnosticsFromForecasts: jest.fn(() => null),
-}));
 jest.mock("@/lib/utils/horizon-strip-utils", () => ({
   aggregateDayForecasts: jest.fn(() => []),
 }));
@@ -112,20 +103,6 @@ jest.mock("@/components/ui/tabs", () => ({
       {children}
     </button>
   ),
-}));
-
-// Mock UI components
-jest.mock("@/components/ui/button", () => ({
-  Button: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
-}));
-jest.mock("@/components/ui/collapsible", () => ({
-  Collapsible: ({ children }: any) => <div>{children}</div>,
-  CollapsibleContent: ({ children }: any) => <div>{children}</div>,
-  CollapsibleTrigger: ({ children, asChild }: any) => <div>{children}</div>,
 }));
 
 // Import mocked dependencies
@@ -275,13 +252,6 @@ describe("ForecastTab", () => {
       expect(screen.getByTestId("best-surf-window")).toBeInTheDocument();
     });
 
-    it("renders 5-Day Outlook section when forecasts exist", () => {
-      render(<ForecastTab {...defaultProps} />);
-
-      expect(screen.getByText("5-Day Outlook")).toBeInTheDocument();
-      expect(screen.getByText("Quick glance forecast")).toBeInTheDocument();
-    });
-
     it("displays current tide information", () => {
       render(<ForecastTab {...defaultProps} />);
 
@@ -293,7 +263,6 @@ describe("ForecastTab", () => {
       render(<ForecastTab {...defaultProps} />);
 
       expect(screen.getByText("Wind")).toBeInTheDocument();
-      // Wind speed "8" and direction "NW" appear in multiple places (hero card + 5-day outlook)
       expect(screen.getAllByText("8").length).toBeGreaterThan(0);
       expect(screen.getAllByText("NW").length).toBeGreaterThan(0);
     });
@@ -304,6 +273,7 @@ describe("ForecastTab", () => {
       expect(screen.getByText("Swell")).toBeInTheDocument();
       expect(screen.getByText("4.5 ft")).toBeInTheDocument();
     });
+
   });
 
   describe("HorizonStrip Rendering", () => {
@@ -457,10 +427,16 @@ describe("ForecastTab", () => {
   });
 
   describe("Tides Tab", () => {
-    it("renders TideChartEnhanced in Tides tab", () => {
+    it("renders surf-terminal iframe in Tides tab", () => {
       render(<ForecastTab {...defaultProps} defaultSubTab="tides" />);
 
-      expect(screen.getByTestId("tide-chart")).toBeInTheDocument();
+      const iframe = screen.getByTitle("Test Beach Surf Terminal");
+      expect(iframe).toBeInTheDocument();
+      expect(iframe).toHaveAttribute(
+        "src",
+        "/embed/surf-terminal/test-beach?theme=light&range=3d"
+      );
+      expect(iframe).toHaveAttribute("loading", "lazy");
     });
 
     it("renders TideConditionsCard in Tides tab", () => {
@@ -489,11 +465,10 @@ describe("ForecastTab", () => {
       expect(screen.queryByTestId("horizon-strip")).not.toBeInTheDocument();
     });
 
-    it("does not render 5-Day Outlook section when forecasts is empty", () => {
+    it("does not render N-Day Outlook heading when forecasts is empty", () => {
       render(<ForecastTab {...defaultProps} forecasts={[]} />);
 
-      expect(screen.queryByText("5-Day Outlook")).not.toBeInTheDocument();
-      expect(screen.queryByText("3-Day Outlook")).not.toBeInTheDocument();
+      expect(screen.queryByText(/\d+-Day Outlook/)).not.toBeInTheDocument();
     });
 
     it("does not render Current Conditions when currentForecast is null", () => {
@@ -572,23 +547,5 @@ describe("ForecastTab", () => {
     });
   });
 
-  describe("Forecast Table", () => {
-    it("renders SimplifiedForecastTable in collapsible section", () => {
-      render(<ForecastTab {...defaultProps} />);
-
-      expect(screen.getByTestId("forecast-table")).toBeInTheDocument();
-    });
-
-    it("shows correct label in collapsible trigger for authenticated mode", () => {
-      render(<ForecastTab {...defaultProps} publicMode={false} />);
-
-      expect(screen.getByText("View Detailed 5-Day Forecast")).toBeInTheDocument();
-    });
-
-    it("shows correct label in collapsible trigger for public mode", () => {
-      render(<ForecastTab {...defaultProps} publicMode={true} />);
-
-      expect(screen.getByText("View Detailed 3-Day Forecast")).toBeInTheDocument();
-    });
-  });
 });
+

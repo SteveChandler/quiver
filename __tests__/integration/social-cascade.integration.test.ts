@@ -28,7 +28,7 @@ const shouldRunIntegration =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 // Restore real fetch for database tests
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const undici = require("undici");
 // @ts-ignore
 global.fetch = undici.fetch;
@@ -40,7 +40,7 @@ global.Request = undici.Request;
 global.Response = undici.Response;
 
 // IMPORTANT: require supabase-js after installing a real fetch
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
 
 (shouldRunIntegration ? describe : describe.skip)(

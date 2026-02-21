@@ -679,41 +679,6 @@ describe("BestSurfWindow", () => {
     });
   });
 
-  describe("Next tide information", () => {
-    it("should display next tide information when available", () => {
-      mockUseDataFetcher.mockReturnValue({
-        data: mockIntel,
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      render(<BestSurfWindow {...defaultProps} />);
-
-      // Look for next tide text pattern
-      expect(screen.getByText(/Next High/i)).toBeInTheDocument();
-    });
-
-    it("should handle missing next tide data", () => {
-      mockUseDataFetcher.mockReturnValue({
-        data: {
-          ...mockIntel,
-          next_tide_type: null,
-          next_tide_time: null,
-          next_tide_height_ft: null,
-        },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
-
-      render(<BestSurfWindow {...defaultProps} />);
-
-      // Should not crash and next tide should not be displayed
-      expect(screen.queryByText(/Next High:/i)).not.toBeInTheDocument();
-    });
-  });
-
   describe("Timezone handling", () => {
     it("should use beach timezone for calculations", () => {
       mockUseDataFetcher.mockReturnValue({

@@ -3,12 +3,6 @@
  *
  * Provides logging and monitoring for rate limit violations.
  * Helps detect attacks, tune limits, and understand usage patterns.
- *
- * Future enhancements:
- * - Sentry integration for alerting
- * - Metrics aggregation
- * - Automated threat detection
- * - Dashboard integration
  */
 
 import { RateLimiterConfig } from "@/types/forecast";
@@ -94,37 +88,6 @@ export function logRateLimitViolation(
     ...(path && { path }),
   });
 
-  // TODO: Send to Sentry for alerting on production
-  // This will help detect patterns of abuse and DDoS attempts
-  /*
-  if (process.env.NODE_ENV === 'production' && typeof Sentry !== 'undefined') {
-    Sentry.captureMessage('Rate limit exceeded', {
-      level: 'warning',
-      tags: {
-        endpoint: violation.endpoint,
-        identifier: violation.identifier,
-      },
-      extra: {
-        config: violation.config,
-        userAgent: violation.userAgent,
-        path: violation.path,
-      },
-    });
-  }
-  */
-
-  // TODO: Send to analytics for dashboarding
-  // Track patterns: which endpoints get abused most, time of day, etc.
-  /*
-  if (typeof window !== 'undefined' && window.analytics) {
-    window.analytics.track('Rate Limit Violation', {
-      endpoint: violation.endpoint,
-      identifier: violation.identifier,
-      timestamp: violation.timestamp,
-    });
-  }
-  */
-
   // Detect potential attacks - multiple violations in short time
   detectPotentialAttack(endpoint, identifier);
 }
@@ -171,10 +134,6 @@ function detectPotentialAttack(endpoint: RateLimitKey, identifier: string): void
           timestamp: new Date().toISOString(),
         });
 
-        // TODO: Send critical alert to Sentry
-        // TODO: Consider auto-blocking this identifier
-        // TODO: Notify team via Slack/PagerDuty
-
         // Reset counter to avoid spam
         recentViolations.delete(key);
       }
@@ -205,86 +164,4 @@ function cleanupOldViolations(): void {
       recentViolations.delete(key);
     }
   }
-}
-
-/**
- * Get rate limit violation statistics
- *
- * Useful for monitoring dashboards and analytics
- *
- * @returns Statistics about recent violations
- */
-export function getViolationStatistics(): {
-  totalTracked: number;
-  potentialAttacks: number;
-} {
-  let potentialAttacks = 0;
-
-  for (const data of recentViolations.values()) {
-    if (data.count >= 5) {
-      potentialAttacks++;
-    }
-  }
-
-  return {
-    totalTracked: recentViolations.size,
-    potentialAttacks,
-  };
-}
-
-/**
- * Clear violation tracking data
- *
- * Useful for testing and manual resets
- */
-export function clearViolationTracking(): void {
-  recentViolations.clear();
-}
-
-/**
- * Log successful rate limit check (optional, for debugging)
- *
- * @param endpoint - Endpoint accessed
- * @param identifier - Client identifier
- * @param remaining - Remaining requests allowed
- */
-export function logRateLimitSuccess(
-  endpoint: RateLimitKey,
-  identifier: string,
-  remaining: number
-): void {
-  // Only log in development for debugging
-  if (process.env.NODE_ENV === "development") {
-    console.debug("[RATE_LIMIT_SUCCESS]", {
-      endpoint,
-      identifier: maskIdentifier(identifier),
-      remaining,
-      timestamp: new Date().toISOString(),
-    });
-  }
-}
-
-/**
- * Get rate limit metrics for monitoring
- *
- * Returns aggregated metrics for dashboards
- */
-export function getRateLimitMetrics(): {
-  violations: {
-    total: number;
-    byEndpoint: Record<string, number>;
-    potentialAttacks: number;
-  };
-} {
-  const stats = getViolationStatistics();
-
-  // TODO: Aggregate by endpoint
-  // For now, return basic stats
-  return {
-    violations: {
-      total: stats.totalTracked,
-      byEndpoint: {}, // TODO: Implement aggregation
-      potentialAttacks: stats.potentialAttacks,
-    },
-  };
 }

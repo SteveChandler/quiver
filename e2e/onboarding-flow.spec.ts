@@ -13,10 +13,19 @@
 import { test, expect } from "@playwright/test";
 import { TIMEOUTS } from "./fixtures/test-data";
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
+import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe("Onboarding - close + view full forecast", () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
     await ensureAuthenticated(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'close + view full forecast' });
   });
 
   test("close button dismisses, and completion CTA routes to forecast tab", async ({
@@ -79,7 +88,7 @@ test.describe("Onboarding - close + view full forecast", () => {
     // Home screen content should be present - check for new UI elements
     // The home page now uses a time slot filter instead of tabs
     const timeSlotFilter = page.getByRole('radiogroup', { name: /time slot filter/i });
-    const hasTimeSlotFilter = await timeSlotFilter.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+    const hasTimeSlotFilter = await isVisibleSafe(timeSlotFilter, { timeout: TIMEOUTS.medium });
 
     if (hasTimeSlotFilter) {
       // New UI with time slot filter
@@ -87,7 +96,7 @@ test.describe("Onboarding - close + view full forecast", () => {
     } else {
       // Fallback: check for any home page content (greeting, recommendation, or error state)
       const greeting = page.getByRole('heading', { level: 1 }).first();
-      const hasGreeting = await greeting.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+      const hasGreeting = await isVisibleSafe(greeting, { timeout: TIMEOUTS.medium });
 
       // At minimum, the home page should have loaded with some content
       expect(hasGreeting).toBe(true);

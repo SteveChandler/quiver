@@ -148,6 +148,8 @@ export async function assertNoErrors(
     checkNetwork?: boolean;
     checkVisible?: boolean;
     context?: string;
+    /** HTTP status codes to ignore in network error checks (e.g., [400] for negative tests) */
+    allowedStatuses?: number[];
   } = {}
 ): Promise<void> {
   const {
@@ -155,6 +157,7 @@ export async function assertNoErrors(
     checkNetwork = true,
     checkVisible = true,
     context = 'Page',
+    allowedStatuses = [],
   } = options;
 
   const problems: string[] = [];
@@ -178,6 +181,7 @@ export async function assertNoErrors(
   const filteredNetworkErrors = capture.networkErrors.filter((err) => {
     if (isIgnorableNetworkError(err.url, err.status)) return false;
     if (isPlaceholderImageProxyFailure(err.url, err.status)) return false;
+    if (allowedStatuses.includes(err.status)) return false;
     return true;
   });
 
@@ -326,11 +330,11 @@ function isIgnorableConsoleError(text: string): boolean {
     // Image loading (handled gracefully)
     'Image optimization',
 
-    // Generic resource loading failures that match filtered network errors
-    // (Browser logs both network error and console error for same issue)
-    // 400s and 500s on non-critical APIs are already filtered by isIgnorableNetworkError
-    // The console error doesn't include URL, so we filter it here.
-    // Critical errors will still be caught by visible error checks on the page.
+    // De-duplicate: Chrome logs a generic "Failed to load resource: ..." console
+    // error for every 4xx/5xx, but WITHOUT the URL. The actual status+URL is
+    // already captured by the networkErrors array (via the 'response' listener).
+    // We suppress the console duplicate here so it doesn't double-report.
+    // The 500 IS still caught as a network error and WILL fail the test.
     'Failed to load resource: the server responded with a status of 400',
     'Failed to load resource: the server responded with a status of 500',
 
@@ -384,7 +388,7 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
 
   // Analytics/tracking API errors - background operations that don't affect user experience
   // These should never block tests as they're non-essential functionality
-  if (url.includes('/api/events')) {
+  if (url.includes('/api/events') || url.includes('/api/embed-impressions')) {
     return true;
   }
 

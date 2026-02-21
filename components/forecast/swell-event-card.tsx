@@ -18,6 +18,7 @@ import { getWaveSizeLabel } from "@/lib/utils/wave-formatters";
 import { formatWaveHeightRangeString } from "@/lib/utils/wave-height-formatter";
 import { SwellWaveChart } from "./swell-wave-chart";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { formatSwellPeriod } from "@/lib/formatters/surf-data";
 
 // ============================================================================
 // Types
@@ -431,7 +432,7 @@ export function SwellEventCard({
             Period
           </p>
           <p className={cn("font-bold text-lg", styles.text)}>
-            {event.period.toFixed(0)}s
+            {formatSwellPeriod(event.period)}
           </p>
         </div>
 

@@ -64,56 +64,47 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     });
   });
 
-  describe("Back to Map Link", () => {
-    it("should render link to /map", () => {
+  describe("Home Link", () => {
+    it("should render link to /", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
-      const link = screen.getByRole("link", { name: /back to map/i });
-      expect(link).toHaveAttribute("href", "/map");
+      const link = screen.getByRole("link", { name: /home/i });
+      expect(link).toHaveAttribute("href", "/");
     });
 
     it("should use ocean-blue color", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
-      const link = screen.getByRole("link", { name: /back to map/i });
+      const link = screen.getByRole("link", { name: /home/i });
       expect(link).toHaveClass("text-ocean-blue");
     });
 
     it("should have hover:underline styling", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
-      const link = screen.getByRole("link", { name: /back to map/i });
+      const link = screen.getByRole("link", { name: /home/i });
       expect(link).toHaveClass("hover:underline");
     });
 
-    it("should display full text on desktop (sm:inline)", () => {
+    it("should display 'Home' as the link text", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
-      const fullText = screen.getByText("Back to Map");
-      expect(fullText).toHaveClass("hidden");
-      expect(fullText).toHaveClass("sm:inline");
+      const link = screen.getByRole("link", { name: /home/i });
+      expect(link).toHaveTextContent("Home");
     });
 
-    it("should display abbreviated text on mobile (sm:hidden)", () => {
-      render(<BeachBreadcrumb beach={mockBeach} />);
-      const shortText = screen.getByText("Map", { selector: ".sm\\:hidden" });
-      expect(shortText).toHaveClass("sm:hidden");
-    });
-
-    it("should include ChevronLeft icon", () => {
+    it("should NOT include ChevronLeft icon", () => {
       const { container } = render(<BeachBreadcrumb beach={mockBeach} />);
       const chevron = container.querySelector(".lucide-chevron-left");
-      expect(chevron).toBeInTheDocument();
-      expect(chevron).toHaveClass("h-4");
-      expect(chevron).toHaveClass("w-4");
+      expect(chevron).not.toBeInTheDocument();
     });
   });
 
   describe("Separators - Phase 4 Spec", () => {
-    it("should use › character instead of ChevronRight icon", () => {
+    it("should use › character for separators (USA beach has 3 separators)", () => {
       const { container } = render(<BeachBreadcrumb beach={mockBeach} />);
 
-      // Should have 2 › separators
+      // USA beaches with state: Home › State › City › Beach = 3 separators
       const separators = Array.from(container.querySelectorAll("span")).filter(
         (span) => span.textContent === "›"
       );
-      expect(separators).toHaveLength(2);
+      expect(separators).toHaveLength(3);
     });
 
     it("should apply gray-400 color to separators", () => {
@@ -148,9 +139,9 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
     it("should NOT use ChevronRight icon for separators", () => {
       const { container } = render(<BeachBreadcrumb beach={mockBeach} />);
-      // Only one chevron should exist (the ChevronLeft for back button)
+      // No chevron icons should exist — both left and right replaced by › text
       const chevrons = container.querySelectorAll('[class*="lucide-chevron"]');
-      expect(chevrons.length).toBe(1); // Only ChevronLeft, no ChevronRight
+      expect(chevrons.length).toBe(0);
     });
   });
 
@@ -196,7 +187,6 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     it("should render location as clickable link when city and state are available", () => {
       render(<BeachBreadcrumb beach={beachWithLocationData} />);
 
-      // Look for a link that is NOT the "Back to Map" link
       const links = screen.getAllByRole("link");
       const locationLink = links.find(
         (link) =>
@@ -238,9 +228,14 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       render(<BeachBreadcrumb beach={beachWithoutCity} />);
 
-      // Should only have the "Back to Map" link, no location page link
+      // Should have Home link and State link, but no city-level location page link
       const links = screen.getAllByRole("link");
-      expect(links).toHaveLength(1);
+      const cityLink = links.find(
+        (link) =>
+          link.getAttribute("href")?.includes("/ca/") &&
+          link.getAttribute("href") !== "/beaches/usa/ca"
+      );
+      expect(cityLink).toBeUndefined();
     });
 
     it("should render location as non-clickable text when state is missing", () => {
@@ -251,7 +246,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
       render(<BeachBreadcrumb beach={beachWithoutState} />);
 
-      // Should only have the "Back to Map" link, no location page link
+      // Should only have the Home link; no state or city page links
       const links = screen.getAllByRole("link");
       expect(links).toHaveLength(1);
     });
@@ -393,15 +388,35 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
       const nav = container.querySelector("nav");
       const textContent = nav?.textContent || "";
 
-      // Check order: Back to Map › Location › Beach Name
-      expect(textContent).toMatch(/Map.*›.*San Francisco, CA.*›.*Ocean Beach/);
+      // Check order: Home › State › City › Beach Name
+      expect(textContent).toMatch(
+        /Home.*›.*California.*›.*San Francisco, CA.*›.*Ocean Beach/
+      );
     });
 
-    it("should have exactly 2 separator characters", () => {
+    it("should have exactly 3 separator characters for USA beaches with state", () => {
       const { container } = render(<BeachBreadcrumb beach={mockBeach} />);
       const separators = Array.from(container.querySelectorAll("span")).filter(
         (span) => span.textContent === "›"
       );
+      expect(separators).toHaveLength(3);
+    });
+
+    it("should have exactly 2 separator characters for international beaches", () => {
+      const internationalBeach: Beach = {
+        ...mockBeach,
+        city: "Ensenada",
+        state: "Baja California",
+        country: "Mexico",
+      };
+
+      const { container } = render(
+        <BeachBreadcrumb beach={internationalBeach} />
+      );
+      const separators = Array.from(container.querySelectorAll("span")).filter(
+        (span) => span.textContent === "›"
+      );
+      // International: Home › City › Beach = 2 separators (no state breadcrumb)
       expect(separators).toHaveLength(2);
     });
   });
@@ -426,7 +441,7 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     it("should have accessible link text", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
       const links = screen.getAllByRole("link");
-      // Should have at least the "Back to Map" link, and possibly location link
+      // Should have at least the Home link, and possibly state/location links
       expect(links.length).toBeGreaterThanOrEqual(1);
       links.forEach((link) => {
         expect(link).toHaveAccessibleName();
@@ -455,12 +470,9 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
   });
 
   describe("Responsive Behavior", () => {
-    it("should show both full and abbreviated link text", () => {
+    it("should show 'Home' as the first breadcrumb link text", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
-      expect(screen.getByText("Back to Map")).toBeInTheDocument();
-      expect(
-        screen.getByText("Map", { selector: ".sm\\:hidden" })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /home/i })).toBeInTheDocument();
     });
 
     it("should handle very long beach names with truncation", () => {
