@@ -13,8 +13,15 @@
  */
 
 import { test, expect } from "@playwright/test";
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
 import { ensureAuthenticated } from "./utils/test-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+
+dotenv.config({ path: '.env.playwright' });
+dotenv.config({ path: '.env.playwright.local' });
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 const BASE_URL =
   process.env.BASE_URL ||
@@ -307,6 +314,34 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
   });
 
   test.describe("Intel Post Validation", () => {
+    const createdIntelPostIds: string[] = [];
+
+    test.afterAll(async () => {
+      if (createdIntelPostIds.length === 0) return;
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        console.warn('[Cleanup] SUPABASE_SERVICE_ROLE_KEY not available, skipping intel post cleanup');
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      const { data, error } = await supabase
+        .from('intel_posts')
+        .update({ is_active: false })
+        .in('id', createdIntelPostIds)
+        .select('id');
+
+      if (!error && data && data.length > 0) {
+        console.log(`[Cleanup] Soft-deleted ${data.length} intel post(s) from input-validation tests`);
+      }
+    });
+
     test("should accept valid intel post", async ({ request }) => {
       const response = await request.post(`${BASE_URL}/api/intel`, {
         data: {
@@ -328,6 +363,11 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
         expect(body.error).not.toMatch(/invalid|format|exceed/i);
       } else {
         expect([200, 201, 401, 409]).toContain(response.status());
+      }
+
+      if (response.status() === 200) {
+        const body = await response.json();
+        if (body.data?.id) createdIntelPostIds.push(body.data.id);
       }
 
       console.log(`✓ Valid intel post: ${response.status()}`);
@@ -469,6 +509,11 @@ test.describe("Input Validation - Phase 2 Fixes", () => {
         expect(body.error).not.toMatch(/whitespace/i);
       } else {
         expect([200, 201, 401, 409]).toContain(response.status());
+      }
+
+      if (response.status() === 200) {
+        const body = await response.json();
+        if (body.data?.id) createdIntelPostIds.push(body.data.id);
       }
 
       console.log("✓ Whitespace trimming works for intel posts");

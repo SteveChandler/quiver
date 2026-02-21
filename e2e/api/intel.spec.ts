@@ -12,6 +12,13 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.playwright' });
+dotenv.config({ path: '.env.playwright.local' });
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const INTEL_ENDPOINT = `${BASE_URL}/api/intel`;
@@ -335,6 +342,34 @@ test.describe('Intel API Contract', () => {
   });
 
   test.describe('POST /api/intel', () => {
+    const createdIntelPostIds: string[] = [];
+
+    test.afterAll(async () => {
+      if (createdIntelPostIds.length === 0) return;
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        console.warn('[Cleanup] SUPABASE_SERVICE_ROLE_KEY not available, skipping intel post cleanup');
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      const { data, error } = await supabase
+        .from('intel_posts')
+        .update({ is_active: false })
+        .in('id', createdIntelPostIds)
+        .select('id');
+
+      if (!error && data && data.length > 0) {
+        console.log(`[Cleanup] Soft-deleted ${data.length} intel post(s) from intel API tests`);
+      }
+    });
+
     test.describe('Authentication Requirements', () => {
       test('should require authentication', async ({ playwright }) => {
         const unauthContext = await playwright.request.newContext({
@@ -481,6 +516,10 @@ test.describe('Intel API Contract', () => {
 
         const json = await response.json();
 
+        if (response.status() === 200 && json.data?.id) {
+          createdIntelPostIds.push(json.data.id);
+        }
+
         expect(json).toHaveProperty('success');
         expect(json).toHaveProperty('timestamp');
       });
@@ -498,6 +537,8 @@ test.describe('Intel API Contract', () => {
 
         if (response.status() === 200) {
           const json = await response.json();
+
+          if (json.data?.id) createdIntelPostIds.push(json.data.id);
 
           expect(json.success).toBe(true);
           expect(json.data).toHaveProperty('id');
@@ -519,6 +560,8 @@ test.describe('Intel API Contract', () => {
 
         if (response.status() === 200) {
           const json = await response.json();
+
+          if (json.data?.id) createdIntelPostIds.push(json.data.id);
 
           expect(json.success).toBe(true);
           expect(json.data).toHaveProperty('beach_id');
@@ -554,6 +597,11 @@ test.describe('Intel API Contract', () => {
           },
         });
 
+        if (response.status() === 200) {
+          const json = await response.json();
+          if (json.data?.id) createdIntelPostIds.push(json.data.id);
+        }
+
         const headers = response.headers();
         expect(headers['x-content-type-options']).toBe('nosniff');
         expect(headers['x-frame-options']).toBe('DENY');
@@ -573,6 +621,11 @@ test.describe('Intel API Contract', () => {
           },
         });
         const duration = Date.now() - startTime;
+
+        if (response.status() === 200) {
+          const json = await response.json();
+          if (json.data?.id) createdIntelPostIds.push(json.data.id);
+        }
 
         console.log(`[Intel POST] Response time: ${duration}ms`);
 
