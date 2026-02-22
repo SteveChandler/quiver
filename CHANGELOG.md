@@ -253,6 +253,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated 8 scoring and utility files to use `forecast_at` timestamptz column instead of legacy `forecast_date` + `forecast_time` columns, eliminating timezone double-conversion bug that caused 8-hour shift in tide data
   - `forecast-snapshot-utils.ts`: Updated Supabase query to use `forecast_at` range filter (`.gte()` + `.lt()`) and `.order('forecast_at')`, with timestamp-based closest-forecast matching
 
+### Fixed
+
+- **ML Pipeline Stability** - Adaptive validation gates with named constants (min 30 samples per bucket, 0.10m degradation limit, 0.5m bias limit). Exponential decay sample weighting replaces binary step function. Shadow scoring pipeline: candidate models run in parallel for 24h before promotion. Auto-rollback with 7-day cooldown prevents oscillation. 502 retry logic for Fly.io cold starts. Training diagnostics logged as structured JSON. New `/ping` health endpoint with `min_machines_running=1` to prevent timeouts.
+- **Android Capacitor Auth Redirect** - Native app users with expired session cookies are now redirected to `/auth/sign-in` instead of landing on the marketing home page. New `NativeAuthGuard` component handles cold start, app resume, and mid-session expiry scenarios. Web users unaffected.
+- **Auth Utils LocalStorage Safety** - Refactored all `localStorage` calls in `lib/auth/auth-utils.ts` to use safe storage wrappers (`safeGetItem`, `safeSetItem`, `safeRemoveItem`) from `lib/utils/safe-storage.ts`. Prevents crashes in restricted environments (Safari private mode, SSR, disabled cookies) for globally mounted components like `NativeAuthGuard`.
+
+### Changed
+
+- **Live Cam in Hero Area** - Beach pages with a camera now show the live cam player in the hero slot (replacing the photo gallery), making it immediately visible on page load. Photos remain in the Overview tab gallery. Cam card links from `/cams` now navigate to the beach page directly instead of the non-existent `?tab=cams`. Eliminated duplicate `/api/beaches/{id}/sources` fetch by passing sources as a prop to `CamsSection`.
+
 ### Added
 
 - **Yesterday's Accuracy Card** -- Trust signal on Forecast tab showing predicted vs actual wave heights from IOOS buoy observations:
