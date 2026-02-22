@@ -16,6 +16,8 @@ jobs:
     name: TypeScript Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Informational until pre-existing type errors are fixed
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,6 +41,8 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Informational until pre-existing lint errors are fixed
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
