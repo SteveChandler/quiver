@@ -16,12 +16,14 @@ import {
   safeRemoveItem,
 } from "@/lib/utils/safe-storage";
 import { isNativeApp } from "@/lib/mobile/platform";
+import { ensureSocialLoginReady } from "@/lib/mobile/social-login";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
 const REDIRECT_ATTEMPTS_KEY = "redirectAttempts";
 const MAX_REDIRECT_ATTEMPTS = 3;
 const REDIRECT_URL_PARAM = "redirectTo";
+const PENDING_SIGNUP_METADATA_KEY = "pending_signup_metadata";
 
 /** Minimum password length for validation (stricter than Supabase's 6-char minimum) */
 export const MIN_PASSWORD_LENGTH = 8;
@@ -108,36 +110,59 @@ export async function initiateOAuthFlow(
 
     // Stash signup metadata for post-OAuth processing (if provided)
     if (metadata && Object.keys(metadata).length > 0) {
-      sessionStorage.setItem("pending_signup_metadata", JSON.stringify(metadata));
+      sessionStorage.setItem(PENDING_SIGNUP_METADATA_KEY, JSON.stringify(metadata));
     }
 
     if (isNativeApp()) {
-      // Native (Capacitor): use a custom URL scheme so the OS reliably intercepts
-      // the redirect back to the app. Universal Links / App Links are unreliable
-      // for HTTP 302 redirects within SFSafariViewController / Chrome Custom Tabs.
-      const nativeRedirectTo = `quiversurf://auth/callback?redirect=${encodeURIComponent(returnTo)}`;
+      // Native (Capacitor): use native Google Sign-In via the OS-level account
+      // picker (Google Play Services on Android, Google Sign-In SDK on iOS).
+      // This bypasses Chrome Custom Tabs entirely, avoiding the Chromium bug
+      // where 302 redirects to custom URL schemes are silently dropped.
+      try {
+        // Wait for SocialLogin.initialize() (started in auth-context.tsx on mount)
+        await ensureSocialLoginReady();
 
-      // Get the OAuth URL without redirecting the WebView,
-      // then open it in the system browser (Chrome Custom Tabs / SFSafariViewController).
-      // This avoids Google's `disallowed_useragent` error for embedded WebViews.
-      const { data, error: oauthError } = await sb.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: nativeRedirectTo, skipBrowserRedirect: true },
-      });
+        const { SocialLogin } = await import("@capgo/capacitor-social-login");
+        const result = await SocialLogin.login({
+          provider: "google",
+          options: { scopes: ["email", "profile"] },
+        });
 
-      if (oauthError || !data?.url) {
-        console.error("[auth-utils] Native OAuth error:", oauthError);
+        const googleResult = result.result;
+        // GoogleLoginResponse is a discriminated union: online (has idToken) vs offline
+        const idToken =
+          googleResult && "idToken" in googleResult
+            ? googleResult.idToken
+            : null;
+        if (!idToken) {
+          clearAuthRedirect();
+          sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
+          return { error: "Google sign-in was cancelled or failed." };
+        }
+
+        const { error: tokenError } = await sb.auth.signInWithIdToken({
+          provider: "google",
+          token: idToken,
+        });
+
+        if (tokenError) {
+          console.error("[auth-utils] Native signInWithIdToken error:", tokenError);
+          clearAuthRedirect();
+          sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
+          return {
+            error: "Unable to sign in with Google. Please try another method.",
+          };
+        }
+
+        return {};
+      } catch (nativeError) {
+        console.error("[auth-utils] Native Google Sign-In exception:", nativeError);
         clearAuthRedirect();
-        sessionStorage.removeItem("pending_signup_metadata");
+        sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
         return {
-          error: "Unable to sign in with Google. Please try another method.",
+          error: "Google sign-in failed. Please try another method.",
         };
       }
-
-      // Dynamic import to avoid bundling Capacitor Browser plugin for web builds
-      const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url: data.url });
-      return {};
     }
 
     // Web: standard redirect flow (unchanged)
@@ -150,7 +175,7 @@ export async function initiateOAuthFlow(
     if (oauthError) {
       console.error("[auth-utils] OAuth error:", oauthError);
       clearAuthRedirect();
-      sessionStorage.removeItem("pending_signup_metadata");
+      sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
       return {
         error: "Unable to sign in with Google. Please try another method.",
       };
@@ -161,7 +186,7 @@ export async function initiateOAuthFlow(
   } catch (error) {
     console.error("[auth-utils] OAuth exception:", error);
     clearAuthRedirect();
-    sessionStorage.removeItem("pending_signup_metadata");
+    sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
     return {
       error: "An unexpected error occurred during sign in.",
     };

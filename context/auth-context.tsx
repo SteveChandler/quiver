@@ -398,14 +398,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.addEventListener("visibilitychange", handleVisibilityChange);
     }
 
-    // For Capacitor native apps - handle app resume from background
-    // This is critical for Android/iOS where the app may be suspended for hours
+    // For Capacitor native apps - handle app resume and initialize plugins
     let appStateListener: { remove: () => Promise<void> } | null = null;
-    let appUrlOpenListener: { remove: () => Promise<void> } | null = null;
     if (
       typeof window !== "undefined" &&
       (window as any).Capacitor?.isNativePlatform?.()
     ) {
+      // Initialize native Google Sign-In plugin (must complete before login calls).
+      // Uses a shared promise so auth-utils.ts can await readiness.
+      const webClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      if (webClientId) {
+        import("@/lib/mobile/social-login")
+          .then(({ initializeSocialLogin }) => {
+            if (!mounted) return;
+            return initializeSocialLogin(webClientId);
+          })
+          .catch((err) => {
+            if (process.env.NODE_ENV === "development") {
+              console.error("AuthContext: Failed to initialize SocialLogin:", err);
+            }
+            Sentry.captureException(err, {
+              tags: { context: "social_login_init" },
+            });
+          });
+      } else {
+        console.warn(
+          "AuthContext: NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID not set, native Google Sign-In will not work"
+        );
+      }
+
       import("@capacitor/app").then(({ App }) => {
         if (!mounted) return; // Component unmounted during import
 
@@ -444,69 +465,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (mounted) {
             appStateListener = listener;
           } else {
-            // Clean up if component unmounted during listener setup
-            listener.remove();
-          }
-        });
-
-        // Handle deep link callback from OAuth system browser flow.
-        // When the system browser completes Google OAuth, the OS intercepts
-        // the quiversurf:// custom scheme URL and routes it back to the app
-        // as an appUrlOpen event. HTTPS App Links / Universal Links are kept
-        // as a fallback but are unreliable for 302 redirects in Custom Tabs.
-        App.addListener("appUrlOpen", async ({ url }) => {
-          if (!mounted) return;
-          try {
-            const callbackUrl = new URL(url);
-            // Custom scheme: quiversurf://auth/callback -> host="auth", pathname="/callback"
-            // HTTPS:         https://www.quiversurf.app/auth/callback -> pathname="/auth/callback"
-            const isCustomSchemeCallback =
-              callbackUrl.protocol === "quiversurf:" &&
-              callbackUrl.host === "auth" &&
-              callbackUrl.pathname === "/callback";
-            const isHttpsCallback = callbackUrl.pathname === "/auth/callback";
-            if (!isCustomSchemeCallback && !isHttpsCallback) return;
-
-            const code = callbackUrl.searchParams.get("code");
-            if (!code) return;
-
-            console.log("[AuthContext] Received OAuth callback deep link");
-
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) {
-              if (process.env.NODE_ENV === "development") {
-                console.error(
-                  "AuthContext: Error exchanging OAuth code:",
-                  error
-                );
-              }
-              return;
-            }
-
-            // Close the system browser that was opened for OAuth
-            try {
-              const { Browser } = await import("@capacitor/browser");
-              await Browser.close();
-            } catch {
-              // Browser.close() may fail if already closed — safe to ignore
-            }
-
-            // Navigate to the intended redirect path (validate to prevent open redirects)
-            const rawRedirect = callbackUrl.searchParams.get("redirect") || "/";
-            const redirect = rawRedirect.startsWith("/") ? rawRedirect : "/";
-            window.location.href = redirect;
-          } catch (error) {
-            if (process.env.NODE_ENV === "development") {
-              console.error(
-                "AuthContext: Exception handling OAuth deep link:",
-                error
-              );
-            }
-          }
-        }).then((listener) => {
-          if (mounted) {
-            appUrlOpenListener = listener;
-          } else {
             listener.remove();
           }
         });
@@ -528,9 +486,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (appStateListener) {
         appStateListener.remove();
-      }
-      if (appUrlOpenListener) {
-        appUrlOpenListener.remove();
       }
       initializingRef.current = false;
     };
