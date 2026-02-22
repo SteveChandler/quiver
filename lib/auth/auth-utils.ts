@@ -111,15 +111,18 @@ export async function initiateOAuthFlow(
       sessionStorage.setItem("pending_signup_metadata", JSON.stringify(metadata));
     }
 
-    const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(returnTo)}`;
-
     if (isNativeApp()) {
-      // Native (Capacitor): get the OAuth URL without redirecting the WebView,
+      // Native (Capacitor): use a custom URL scheme so the OS reliably intercepts
+      // the redirect back to the app. Universal Links / App Links are unreliable
+      // for HTTP 302 redirects within SFSafariViewController / Chrome Custom Tabs.
+      const nativeRedirectTo = `quiversurf://auth/callback?redirect=${encodeURIComponent(returnTo)}`;
+
+      // Get the OAuth URL without redirecting the WebView,
       // then open it in the system browser (Chrome Custom Tabs / SFSafariViewController).
       // This avoids Google's `disallowed_useragent` error for embedded WebViews.
       const { data, error: oauthError } = await sb.auth.signInWithOAuth({
         provider,
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: { redirectTo: nativeRedirectTo, skipBrowserRedirect: true },
       });
 
       if (oauthError || !data?.url) {
@@ -138,6 +141,7 @@ export async function initiateOAuthFlow(
     }
 
     // Web: standard redirect flow (unchanged)
+    const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(returnTo)}`;
     const { error: oauthError } = await sb.auth.signInWithOAuth({
       provider,
       options: { redirectTo },

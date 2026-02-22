@@ -451,13 +451,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Handle deep link callback from OAuth system browser flow.
         // When the system browser completes Google OAuth, the OS intercepts
-        // the /auth/callback URL (via App Links / Universal Links) and
-        // routes it back to the app as an appUrlOpen event.
+        // the quiversurf:// custom scheme URL and routes it back to the app
+        // as an appUrlOpen event. HTTPS App Links / Universal Links are kept
+        // as a fallback but are unreliable for 302 redirects in Custom Tabs.
         App.addListener("appUrlOpen", async ({ url }) => {
           if (!mounted) return;
           try {
             const callbackUrl = new URL(url);
-            if (callbackUrl.pathname !== "/auth/callback") return;
+            // Custom scheme: quiversurf://auth/callback -> host="auth", pathname="/callback"
+            // HTTPS:         https://www.quiversurf.app/auth/callback -> pathname="/auth/callback"
+            const isCustomSchemeCallback =
+              callbackUrl.protocol === "quiversurf:" &&
+              callbackUrl.host === "auth" &&
+              callbackUrl.pathname === "/callback";
+            const isHttpsCallback = callbackUrl.pathname === "/auth/callback";
+            if (!isCustomSchemeCallback && !isHttpsCallback) return;
 
             const code = callbackUrl.searchParams.get("code");
             if (!code) return;
@@ -483,8 +491,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // Browser.close() may fail if already closed — safe to ignore
             }
 
-            // Navigate to the intended redirect path
-            const redirect = callbackUrl.searchParams.get("redirect") || "/";
+            // Navigate to the intended redirect path (validate to prevent open redirects)
+            const rawRedirect = callbackUrl.searchParams.get("redirect") || "/";
+            const redirect = rawRedirect.startsWith("/") ? rawRedirect : "/";
             window.location.href = redirect;
           } catch (error) {
             if (process.env.NODE_ENV === "development") {
