@@ -159,6 +159,13 @@ See `/docs/COORDINATE_CONVENTIONS.md` for the full guide.
 
 ---
 
+## Git Workflow
+
+**One-way flow:** `feature/* → main → prod`. Never merge prod back into main.
+See `docs/GIT_WORKFLOW.md` for the full branching strategy, hotfix process, and CI gate details.
+
+---
+
 ## Architecture Documentation
 
 **49 `ARCHITECTURE.md` files exist.** Always read the relevant one before editing a directory.
