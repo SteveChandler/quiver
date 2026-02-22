@@ -111,7 +111,6 @@ export function SurfHighlightsSection() {
       console.error("Error fetching beaches:", error);
       return [];
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- coordsKey is the stable serialization of coordinates
   }, [coordsKey]);
 
   const { data: surfSpots, loading, refetch } = useDataFetcher(fetchBeaches);

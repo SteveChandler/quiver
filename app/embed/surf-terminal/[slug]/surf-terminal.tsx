@@ -491,7 +491,6 @@ export function SurfTerminal({
     waveChartRef.current?.timeScale().fitContent();
     windChartRef.current?.timeScale().fitContent();
     swellChartRef.current?.timeScale().fitContent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartData, legendState]);
 
   // --- Legend toggle helper ---

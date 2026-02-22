@@ -59,6 +59,7 @@ export function ChunkErrorHandler() {
 
       // sessionStorage.setItem is synchronous — safe to reload immediately after
       setReloadCount(count + 1);
+      // eslint-disable-next-line no-restricted-properties -- only way to recover from chunk load errors
       window.location.reload();
     }
 

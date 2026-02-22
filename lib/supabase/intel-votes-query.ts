@@ -55,7 +55,6 @@ type TypedSupabase = SupabaseClient<Database>;
  *   .maybeSingle();
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: remove after type regen
 export function fromIntelVotes(client: TypedSupabase): any {
   return (client as any).from("intel_votes");
 }
@@ -70,7 +69,6 @@ export async function selectIntelVoteCounts(
   client: TypedSupabase,
   intelPostId: string
 ): Promise<{ helpful_count: number; off_count: number; confirmed_count: number }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: remove after type regen
   const { data, error } = await (client as any)
     .from("intel_posts")
     .select("helpful_count, off_count, confirmed_count")

@@ -61,10 +61,7 @@ function EmbedSnippet({
 export function EmbedCodeButton({ beachSlug, beachName }: EmbedCodeModalProps) {
   if (!beachSlug) return null;
 
-  const siteUrl =
-    typeof window !== "undefined" && window.location.origin
-      ? window.location.origin
-      : "https://www.quiversurf.app";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
   // Escape quotes in beach name to prevent XSS in iframe title attribute
   const escapedBeachName = beachName.replace(/"/g, "&quot;");

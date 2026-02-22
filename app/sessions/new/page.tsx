@@ -52,9 +52,10 @@ function NewSessionPageContent({
     quick,
   });
 
+  const { feedbackResolvedRef, feedbackResolved } = submission;
   useEffect(() => {
-    submission.feedbackResolvedRef.current = submission.feedbackResolved;
-  }, [submission.feedbackResolved]);
+    feedbackResolvedRef.current = feedbackResolved;
+  }, [feedbackResolvedRef, feedbackResolved]);
 
   // Handle cancellation
   const handleCancel = () => {

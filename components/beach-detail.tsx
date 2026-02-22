@@ -329,6 +329,10 @@ function BeachDetailContent({
     window.open(url, "_blank", "noopener");
   }, [destinationCoordinates]);
 
+  const handleAuthRequired = useCallback(() => {
+    setAuthModalOpen(true);
+  }, []);
+
   // PERFORMANCE OPTIMIZATION: Progressive rendering
   // Show hero section immediately with beach data, load tab content progressively
   // Only show full page loader if we don't have beach data yet
@@ -382,10 +386,6 @@ function BeachDetailContent({
     setSessionPlanningMode("log");
     setSessionPlanningOpen(true);
   };
-
-  const handleAuthRequired = useCallback(() => {
-    setAuthModalOpen(true);
-  }, []);
 
   const tabActions = (
     <>

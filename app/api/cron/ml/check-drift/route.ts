@@ -113,7 +113,6 @@ interface RollbackResult {
   current_model?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkAutoRollback(
   supabase: any
 ): Promise<RollbackResult> {

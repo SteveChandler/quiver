@@ -41,7 +41,7 @@ export function LevelAndTimeStep() {
       {/* Section A - Experience Level */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">What's your experience level?</h2>
+          <h2 className="text-2xl font-bold text-foreground">What&apos;s your experience level?</h2>
           <p className="text-muted-foreground mt-1">
             This helps us personalize your surf forecasts
           </p>
@@ -82,7 +82,7 @@ export function LevelAndTimeStep() {
         <div>
           <h2 className="text-2xl font-bold text-foreground">When do you surf?</h2>
           <p className="text-muted-foreground mt-1">
-            We'll highlight the best times for you
+            We&apos;ll highlight the best times for you
           </p>
         </div>
 

@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CI lint/type errors:** Fixed 13 pre-existing lint errors and 1 TypeScript error to enable strict prod-gate CI checks (removed `continue-on-error` from typecheck and lint jobs)
+
 - **`get_yesterday_accuracy` sentinel filter:** Changed `AND p.observed_m IS NOT NULL` to `AND p.observed_m > 0` in the SQL function so that sentinel values (`-1.00`, used to mark ongoing/unmatched predictions) are excluded from accuracy calculations. Previously, beaches with many sentinels (e.g. Upper Trestles had 165 sentinels vs 40 valid obs) would report negative `avg_observed_m` and inflated error metrics. Migration: `20260222120000_fix_yesterday_accuracy_sentinel_filter.sql`.
 
 - **ML pipeline sentinel filtering (6 locations):** Changed `observed_m IS NOT NULL` to `observed_m > 0` across the entire ML pipeline to exclude sentinel values (`-1`). `get_ml_weekly_metrics()` had inflated `with_ground_truth` counts and deflated `pct_improved`; `check_ml_drift()` included sentinels in previous-week AVG; `check-drift/route.ts` and `promote-candidate/route.ts` included sentinels in improvement calculations; `ml-stats.ts` produced NaN from sentinel rows; `validate_model.sql` had same count inflation. Migration: `20260222130000_fix_sentinel_filtering_ml_functions.sql`.
