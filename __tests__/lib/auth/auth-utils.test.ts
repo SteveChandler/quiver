@@ -334,7 +334,7 @@ describe("auth-utils", () => {
       expect(result.error).toBeUndefined();
       expect(mockSocialLoginLogin).toHaveBeenCalledWith({
         provider: "google",
-        options: { scopes: ["email", "profile"] },
+        options: {},
       });
       expect(mockSupabaseClient.auth.signInWithIdToken).toHaveBeenCalledWith({
         provider: "google",
