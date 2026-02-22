@@ -7,7 +7,7 @@
 SELECT
   model_version,
   COUNT(*) as total_predictions,
-  COUNT(observed_m) as with_observations,
+  COUNT(*) FILTER (WHERE observed_m > 0) as with_observations,
   MIN(predicted_at) as earliest,
   MAX(predicted_at) as latest
 FROM ml_predictions_log
@@ -74,12 +74,12 @@ WHERE p.id = bm.prediction_id;
 SELECT
   model_version,
   COUNT(*) as predictions,
-  COUNT(observed_m) as with_ground_truth,
+  COUNT(*) FILTER (WHERE observed_m > 0) as with_ground_truth,
   ROUND(AVG(raw_error_m)::numeric, 3) as avg_raw_error_m,
   ROUND(AVG(corrected_error_m)::numeric, 3) as avg_corrected_error_m,
   ROUND(AVG(raw_error_m - corrected_error_m)::numeric, 3) as avg_improvement_m,
   ROUND(100.0 * COUNT(*) FILTER (WHERE corrected_error_m < raw_error_m) /
-        NULLIF(COUNT(observed_m), 0), 1) as pct_improved
+        NULLIF(COUNT(*) FILTER (WHERE observed_m > 0), 0), 1) as pct_improved
 FROM ml_predictions_log
 WHERE predicted_at > now() - interval '7 days'
 GROUP BY model_version
@@ -92,15 +92,15 @@ SELECT
   b.name as beach_name,
   p.model_version,
   COUNT(*) as predictions,
-  COUNT(p.observed_m) as matched,
+  COUNT(*) FILTER (WHERE p.observed_m > 0) as matched,
   ROUND(AVG(p.raw_error_m)::numeric, 2) as raw_err_m,
   ROUND(AVG(p.corrected_error_m)::numeric, 2) as corr_err_m,
   ROUND(AVG(p.raw_error_m - p.corrected_error_m)::numeric, 2) as improvement_m
 FROM ml_predictions_log p
 JOIN beaches b ON b.id = p.beach_id
 WHERE p.predicted_at > now() - interval '7 days'
-  AND p.observed_m IS NOT NULL
+  AND p.observed_m > 0
 GROUP BY b.name, p.model_version
-HAVING COUNT(p.observed_m) >= 5
+HAVING COUNT(*) FILTER (WHERE p.observed_m > 0) >= 5
 ORDER BY COUNT(*) DESC
 LIMIT 10;

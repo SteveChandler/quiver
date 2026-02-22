@@ -96,7 +96,7 @@ export async function GET(request: Request) {
       .from('ml_predictions_log')
       .select('raw_error_m, corrected_error_m, candidate_corrected_m, observed_m')
       .eq('candidate_model_version', candidate.version)
-      .not('observed_m', 'is', null)
+      .gt('observed_m', 0)
       .not('candidate_corrected_m', 'is', null)
       .not('raw_error_m', 'is', null)
       .not('corrected_error_m', 'is', null)
