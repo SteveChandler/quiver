@@ -13,7 +13,13 @@ import {
 } from '@/lib/domains/scoring';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import { trackFallback } from '@/lib/monitoring/fallback-tracker';
 import { createBeach as createBeachFixture, createForecast as createForecastFixture } from '../__fixtures__';
+
+jest.mock('@/lib/monitoring/fallback-tracker', () => ({
+  trackFallback: jest.fn(),
+}));
+const mockTrackFallback = trackFallback as jest.MockedFunction<typeof trackFallback>;
 
 // Type-safe wrappers using the improved fixture typing
 function createBeach(overrides: Partial<Beach> = {}): Beach {
@@ -455,6 +461,85 @@ describe('Discovery Adapter', () => {
 
       const result = compositeToDetailedScore(skipComposite);
       expect(result.matchQuality).toBe('fair');
+    });
+
+    it('should NOT trackFallback for missing subscores on skip results', () => {
+      mockTrackFallback.mockClear();
+
+      const skipComposite = {
+        total: 0,
+        subscores: new Map([['baseConditions', 10]]), // windQuality + tideFit missing
+        matchQuality: 'skip' as const,
+        reasons: [],
+        warnings: ['Flat conditions'],
+        skipReason: 'Wave height below minimum',
+        confidence: 50,
+      };
+
+      compositeToDetailedScore(skipComposite);
+
+      // No subscore fallback calls should fire for skip results
+      const subscoreCalls = mockTrackFallback.mock.calls.filter(
+        ([arg]) => typeof arg === 'object' && 'field' in arg && arg.field.startsWith('subscore_')
+      );
+      expect(subscoreCalls).toHaveLength(0);
+    });
+
+    it('should trackFallback for missing subscores on non-skip results', () => {
+      mockTrackFallback.mockClear();
+
+      const nonSkipComposite = {
+        total: 60,
+        subscores: new Map([
+          ['baseConditions', 70],
+          ['windQuality', 80],
+          // tideFit missing — should trigger fallback
+        ]),
+        matchQuality: 'good' as const,
+        reasons: ['Decent waves'],
+        warnings: [],
+        skipReason: null,
+        confidence: 70,
+      };
+
+      compositeToDetailedScore(nonSkipComposite);
+
+      const subscoreCalls = mockTrackFallback.mock.calls.filter(
+        ([arg]) => typeof arg === 'object' && 'field' in arg && arg.field.startsWith('subscore_')
+      );
+      expect(subscoreCalls).toHaveLength(1);
+      expect(subscoreCalls[0][0]).toEqual({
+        domain: 'discovery',
+        field: 'subscore_tideFit',
+        fallbackValue: 50,
+      });
+    });
+
+    it('should NOT trackFallback when matchQuality is skip but all subscores present (low total, no early exit)', () => {
+      mockTrackFallback.mockClear();
+
+      // Edge case: all scorers ran but weighted total fell below 40,
+      // so matchQuality is 'skip' while skipReason is null.
+      const lowScoreComposite = {
+        total: 30,
+        subscores: new Map([
+          ['baseConditions', 20],
+          ['windQuality', 25],
+          ['tideFit', 15],
+        ]),
+        matchQuality: 'skip' as const,
+        reasons: [],
+        warnings: [],
+        skipReason: null,
+        confidence: 60,
+      };
+
+      compositeToDetailedScore(lowScoreComposite);
+
+      const subscoreCalls = mockTrackFallback.mock.calls.filter(
+        ([arg]) => typeof arg === 'object' && 'field' in arg && arg.field.startsWith('subscore_')
+      );
+      expect(subscoreCalls).toHaveLength(0);
     });
   });
 });

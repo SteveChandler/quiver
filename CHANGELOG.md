@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Discovery scoring false alarms:** Suppressed 3.7k false `subscore_tideFit -> 50` Sentry errors from discovery scoring skip results where subscores are intentionally absent for scorers that did not run
+
 - **Google OAuth on mobile (Capacitor):** Fixed `Error 403: disallowed_useragent` by opening OAuth in the system browser (Chrome Custom Tabs / SFSafariViewController) instead of the WebView. Deep links route the `/auth/callback` back to the app for session exchange. Added `@capacitor/browser` plugin, Android App Links intent-filters, and iOS Associated Domains entitlements.
 
 ### Changed
