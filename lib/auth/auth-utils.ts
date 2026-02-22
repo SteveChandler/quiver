@@ -17,6 +17,7 @@ import {
 } from "@/lib/utils/safe-storage";
 import { isNativeApp } from "@/lib/mobile/platform";
 import { ensureSocialLoginReady } from "@/lib/mobile/social-login";
+import * as Sentry from "@sentry/nextjs";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
@@ -125,7 +126,7 @@ export async function initiateOAuthFlow(
         const { SocialLogin } = await import("@capgo/capacitor-social-login");
         const result = await SocialLogin.login({
           provider: "google",
-          options: { scopes: ["email", "profile"] },
+          options: {},
         });
 
         const googleResult = result.result;
@@ -157,6 +158,9 @@ export async function initiateOAuthFlow(
         return {};
       } catch (nativeError) {
         console.error("[auth-utils] Native Google Sign-In exception:", nativeError);
+        Sentry.captureException(nativeError, {
+          tags: { context: "native_google_signin" },
+        });
         clearAuthRedirect();
         sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
         return {
