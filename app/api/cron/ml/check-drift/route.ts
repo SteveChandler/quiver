@@ -113,7 +113,6 @@ interface RollbackResult {
   current_model?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function checkAutoRollback(
   supabase: any
 ): Promise<RollbackResult> {
@@ -152,7 +151,7 @@ async function checkAutoRollback(
       .from('ml_predictions_log')
       .select('raw_error_m, corrected_error_m')
       .eq('model_version', currentModel.version)
-      .not('observed_m', 'is', null)
+      .gt('observed_m', 0)
       .not('raw_error_m', 'is', null)
       .not('corrected_error_m', 'is', null)
       .gte('predicted_at', twentyFourHoursAgo)
@@ -188,7 +187,7 @@ async function checkAutoRollback(
       .from('ml_predictions_log')
       .select('raw_error_m, corrected_error_m')
       .eq('model_version', currentModel.version)
-      .not('observed_m', 'is', null)
+      .gt('observed_m', 0)
       .not('raw_error_m', 'is', null)
       .not('corrected_error_m', 'is', null)
       .gte('predicted_at', fortyEightHoursAgo)

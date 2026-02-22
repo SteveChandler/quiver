@@ -345,10 +345,10 @@ export async function fetchRegionalForecast(
         waveHeight: waveHeight || null,
         windDirection: forecast?.wind_direction || null,
         windOffshoreDeg,
-        windSpeed: forecast?.wind_speed ?? null,
+        windSpeed: forecast?.wind_speed != null ? parseFloat(String(forecast.wind_speed)) : null,
         conditions: describeConditionsBriefly(
           waveHeight,
-          forecast?.wind_speed ?? null,
+          forecast?.wind_speed != null ? parseFloat(String(forecast.wind_speed)) : null,
           forecast?.wind_direction || null,
           windOffshoreDeg
         ),

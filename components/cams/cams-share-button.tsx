@@ -8,6 +8,7 @@ export function CamsShareButton() {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
+    // eslint-disable-next-line no-restricted-properties -- needs full URL with protocol for Web Share API
     const shareUrl = new URL(window.location.href);
     shareUrl.searchParams.set("utm_source", "quiver");
     shareUrl.searchParams.set("utm_medium", "share");

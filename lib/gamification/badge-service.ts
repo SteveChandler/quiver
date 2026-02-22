@@ -26,7 +26,6 @@ import {
  * The generic parameters match the shape returned by an untyped
  * SupabaseClient's `.from(table).select(...)` call.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseCountQuery = PostgrestFilterBuilder<any, any, any, any, any>;
 
 /**

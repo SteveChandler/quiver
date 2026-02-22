@@ -206,7 +206,7 @@ async function queryCandidateStatus(): Promise<{
     }
 
     const version = data[0].candidate_model_version;
-    const withObs = data.filter(d => d.observed_m != null);
+    const withObs = data.filter(d => d.observed_m != null && d.observed_m > 0);
     let candidateAvgError: number | null = null;
     if (withObs.length > 0) {
       const totalError = withObs.reduce((sum, d) => sum + Math.abs(d.candidate_corrected_m - d.observed_m), 0);

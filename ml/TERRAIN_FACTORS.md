@@ -77,7 +77,7 @@ const { data: trainingData } = await supabase
       wind_exposure_factors
     )
   `)
-  .not('observed_m', 'is', null)
+  .gt('observed_m', 0)
 ```
 
 The terrain factors are then included in the training payload sent to the ML service.

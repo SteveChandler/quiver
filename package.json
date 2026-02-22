@@ -111,6 +111,8 @@
     "mobile:build:ios:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync ios && cap open ios",
     "mobile:build:android": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync android && cap open android",
     "mobile:build:android:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync android && cap open android",
+    "mobile:release:ios": "bash scripts/release-ios.sh",
+    "mobile:release:android": "bash scripts/release-android.sh",
     "mobile:assets": "capacitor-assets generate --config mobile/capacitor-assets.config.ts",
     "terrain:analyze": "tsx scripts/terrain-analysis.ts",
     "terrain:validate": "tsx scripts/terrain/validate-golden-beaches.ts"
@@ -124,6 +126,7 @@
     "@capacitor/ios": "^8.0.0",
     "@capacitor/push-notifications": "^8.0.0",
     "@capacitor/share": "^8.0.0",
+    "@capgo/capacitor-social-login": "^8.3.5",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "1.2.2",

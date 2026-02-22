@@ -500,7 +500,6 @@ SELECT
         NULLIF(COUNT(observed_m) FILTER (WHERE observed_m > 0), 0), 1) as pct_improved
 FROM ml_predictions_log
 WHERE predicted_at > NOW() - INTERVAL '7 days'
-  AND observed_m IS NOT NULL
   AND observed_m > 0
 GROUP BY model_version;
 ```

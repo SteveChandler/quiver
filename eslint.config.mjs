@@ -29,6 +29,7 @@ export default tseslint.config(
       "supabase/**",
       "test-results/**",
       "e2e/.auth/**",
+      "types/database.generated.ts",
     ],
   },
   ...nextCoreWebVitals,

@@ -117,7 +117,7 @@ export default async function StateRootPage(props: StateRootPageProps) {
         {beaches.length === 0 ? (
           <div className="mt-4 rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-gray-700">
             <p className="font-medium">
-              We're expanding coverage in {stateName}.
+              We&apos;re expanding coverage in {stateName}.
             </p>
             <p className="mt-1 text-sm text-gray-600">
               Explore the surf map to find nearby spots and save favorites.

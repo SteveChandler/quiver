@@ -93,27 +93,20 @@ test.describe('Service Health: Beach Data Rendering @smoke', () => {
     });
     await page.waitForLoadState('load', { timeout: 15000 });
 
-    const waveHeightText = page.getByText(/\d+\s*ft/i).first();
-    const hasWaveHeight = await isVisibleSafe(waveHeightText, { timeout: 10000 });
+    // Wait for conditions ticker or stats grid (actual testids on the beach detail page)
+    const ticker = page.locator('[data-testid="ticker-content"]');
+    const statsGrid = page.locator('[data-testid="beach-stats-grid"]');
+    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
+    const hasStats = await isVisibleSafe(statsGrid, { timeout: 5000 });
 
-    const surfCallText = page.getByText(/flat|poor|fair|good|epic/i).first();
-    const hasSurfCall = await isVisibleSafe(surfCallText, { timeout: 10000 });
+    expect(hasTicker || hasStats).toBe(true);
 
-    expect(hasWaveHeight || hasSurfCall).toBe(true);
-
-    if (hasWaveHeight) {
-      const text = await waveHeightText.textContent();
-      console.log(`[Beach Page] Found wave height data: ${text}`);
+    if (hasTicker) {
+      const text = await ticker.textContent();
+      console.log(`[Beach Page] Found conditions ticker: ${text}`);
       test.info().annotations.push({
         type: 'wave-data',
-        description: `Wave height: ${text}`,
-      });
-    } else if (hasSurfCall) {
-      const text = await surfCallText.textContent();
-      console.log(`[Beach Page] Found surf call: ${text}`);
-      test.info().annotations.push({
-        type: 'wave-data',
-        description: `Surf call: ${text}`,
+        description: `Ticker: ${text}`,
       });
     }
   });

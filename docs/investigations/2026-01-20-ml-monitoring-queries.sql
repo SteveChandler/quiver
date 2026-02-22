@@ -2,6 +2,10 @@
 -- Project: Quiver Surfing Application
 -- Date: 2026-01-20
 --
+-- NOTE: These queries predate sentinel values (observed_m = -1). If re-running,
+-- replace `COUNT(observed_m)` with `COUNT(*) FILTER (WHERE observed_m > 0)` and
+-- `observed_m IS NOT NULL` with `observed_m > 0` to exclude sentinels.
+--
 -- These queries help monitor ML model performance and detect regressions early.
 -- Run daily or integrate into monitoring dashboards.
 
