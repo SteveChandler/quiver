@@ -180,16 +180,20 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should display metric cards (Tide, Wind, Swell)', async ({ page }) => {
-      // Check for Next Tide card
-      const tideLabel = page.getByText(/next tide/i).first();
+      // Scope all locators to the active "Today" tabpanel to avoid matching
+      // hidden elements in the ConditionsTicker's CSS-hidden static track.
+      const todayPanel = page.getByRole('tabpanel', { name: /today/i });
+
+      // Check for Next Tide card (in the secondary conditions grid)
+      const tideLabel = todayPanel.getByText(/next tide/i).first();
       await expect(tideLabel).toBeVisible({ timeout: TIMEOUTS.short });
 
-      // Check for Wind card
-      const windLabel = page.getByText(/^wind$/i).first();
+      // Check for Wind card (label in the metric card header)
+      const windLabel = todayPanel.getByText(/^wind$/i).first();
       await expect(windLabel).toBeVisible({ timeout: TIMEOUTS.short });
 
-      // Check for Swell card
-      const swellLabel = page.getByText(/^swell$/i).first();
+      // Check for Swell card (label in the metric card header)
+      const swellLabel = todayPanel.getByText(/^swell$/i).first();
       await expect(swellLabel).toBeVisible({ timeout: TIMEOUTS.short });
     });
 
@@ -218,8 +222,10 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should display swell information', async ({ page }) => {
-      // Swell should show height
-      const swellHeight = page.locator('text=/\\d+(\\.\\d+)?\\s*ft/i').first();
+      // Scope to the "Today" tabpanel to avoid matching hidden ConditionsTicker
+      // elements (ticker-static-track is CSS display:none but still in the DOM).
+      const todayPanel = page.getByRole('tabpanel', { name: /today/i });
+      const swellHeight = todayPanel.locator('text=/\\d+(\\.\\d+)?\\s*ft/i').first();
       await expect(swellHeight).toBeVisible({ timeout: TIMEOUTS.short });
     });
 
@@ -275,8 +281,13 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should display tide-related text or labels', async ({ page }) => {
-      // Look for tide-related content (High, Low, or tide times)
-      const tideText = page.locator('text=/tide|high|low|am|pm/i').first();
+      // Wait for the Tides tabpanel to become active, then scope the locator
+      // to avoid matching hidden elements (ConditionsTicker static track, inactive
+      // tabpanels, etc.) that are in the DOM but CSS-hidden.
+      const tidesPanel = page.getByRole('tabpanel', { name: /tides/i });
+      await expect(tidesPanel).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      const tideText = tidesPanel.locator('text=/tide|high|low|am|pm/i').first();
       await expect(tideText).toBeVisible({ timeout: TIMEOUTS.short });
     });
 

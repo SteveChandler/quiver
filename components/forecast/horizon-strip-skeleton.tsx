@@ -16,7 +16,7 @@ export function HorizonStripSkeleton({ count = 7 }: HorizonStripSkeletonProps) {
     <div
       className={cn(
         "flex gap-2 overflow-hidden pb-2",
-        "-mx-4 px-4 sm:-mx-6 sm:px-6"
+        "-mx-6 px-6"
       )}
       role="status"
       aria-label="Loading forecast days"
@@ -25,7 +25,7 @@ export function HorizonStripSkeleton({ count = 7 }: HorizonStripSkeletonProps) {
         <div
           key={index}
           className={cn(
-            "flex-shrink-0 sm:flex-1 sm:min-w-0 w-[72px] sm:w-auto h-[88px] rounded-xl",
+            "flex-shrink-0 sm:flex-1 sm:min-w-0 w-[88px] sm:w-auto h-[88px] rounded-xl",
             "bg-slate-100 border-2 border-slate-200",
             "flex flex-col items-center justify-between p-2",
             "animate-pulse"
@@ -46,7 +46,7 @@ export function HorizonStripSkeleton({ count = 7 }: HorizonStripSkeletonProps) {
       ))}
 
       {/* Right spacer for mobile scroll */}
-      <div className="shrink-0 w-1 sm:hidden" aria-hidden="true" />
+      <div className="shrink-0 w-3 sm:hidden" aria-hidden="true" />
 
       <span className="sr-only">Loading forecast days...</span>
     </div>
