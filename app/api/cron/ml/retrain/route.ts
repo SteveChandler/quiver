@@ -810,12 +810,61 @@ async function deployToFly(
     // =======================================================================
     // STEP 4: Poll Health Endpoint for New Model Version
     // =======================================================================
-    // In candidate mode, skip health check polling since we only set
-    // CANDIDATE_VERSION/CANDIDATE_PATH - the primary model version won't change.
-    // The ML service will start shadow scoring on restart.
     if (mode === 'candidate') {
+      console.log('[deployToFly] Step 4: Polling health endpoint for candidate model...');
+
+      const healthCheckStartTime = Date.now();
+      let healthCheckSuccess = false;
+      let lastHealthError = '';
+
+      while (Date.now() - healthCheckStartTime < HEALTH_CHECK_TIMEOUT) {
+        if (Date.now() - deploymentStartTime > DEPLOYMENT_TIMEOUT) {
+          return {
+            success: false,
+            error: `Candidate deployment timed out after ${DEPLOYMENT_TIMEOUT / 1000} seconds`,
+          };
+        }
+
+        try {
+          const healthResponse = await fetch(HEALTH_URL, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(5000),
+          });
+
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json();
+            console.log('[deployToFly] Candidate health check:', healthData);
+
+            if (healthData.candidate_loaded && healthData.candidate_version === modelVersion) {
+              healthCheckSuccess = true;
+              console.log(`[deployToFly] Health check confirmed candidate loaded: ${modelVersion}`);
+              break;
+            } else {
+              lastHealthError = `candidate_loaded=${healthData.candidate_loaded}, candidate_version=${healthData.candidate_version}`;
+              console.log(`[deployToFly] ${lastHealthError}, retrying...`);
+            }
+          } else {
+            lastHealthError = `Health check returned ${healthResponse.status}`;
+            console.log(`[deployToFly] ${lastHealthError}, retrying...`);
+          }
+        } catch (error) {
+          lastHealthError = error instanceof Error ? error.message : 'Unknown error';
+          console.log(`[deployToFly] ${lastHealthError}, retrying...`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, HEALTH_CHECK_INTERVAL));
+      }
+
+      if (!healthCheckSuccess) {
+        return {
+          success: false,
+          error: `Failed to confirm candidate model after ${HEALTH_CHECK_TIMEOUT / 1000}s: ${lastHealthError}`,
+        };
+      }
+
       const deploymentDuration = ((Date.now() - deploymentStartTime) / 1000).toFixed(1);
-      console.log(`[deployToFly] Candidate secrets set successfully in ${deploymentDuration}s (skipping health check)`);
+      console.log(`[deployToFly] Candidate deployment verified in ${deploymentDuration}s`);
       return { success: true };
     }
 

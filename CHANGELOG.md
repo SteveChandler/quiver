@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Shadow scoring candidate health check:** Fixed `deployToFly()` in the retrain cron route to poll the health endpoint for `candidate_loaded === true` and `candidate_version` match when deploying in candidate mode, instead of returning `{ success: true }` immediately. Shadow scoring candidates were being set as secrets on Fly.io but never verified as loaded, causing them to accumulate 0 shadow predictions and fail promotion after 48h.
+
 - **Tide "Unknown" status on home screen:** Deduplicated `tide_forecasts` rows by hour in `fetchCachedTides()` — multiple cron runs were inserting 3 rows per hour at different seconds, creating plateaus that broke `TideExtremaDetector` extrema detection and caused `getTideStatusAtTime()` to return "Unknown" instead of "Rising"/"Falling"
 
 ### Changed
