@@ -136,8 +136,12 @@ export async function initiateOAuthFlow(
             ? googleResult.idToken
             : null;
 
-        // Log JWT claims for debugging auth issues
-        if (idToken && typeof idToken === "string") {
+        // Log JWT claims for debugging auth issues (dev only — contains PII)
+        if (
+          process.env.NODE_ENV === "development" &&
+          idToken &&
+          typeof idToken === "string"
+        ) {
           try {
             const parts = idToken.split(".");
             if (parts.length === 3) {
@@ -162,7 +166,7 @@ export async function initiateOAuthFlow(
         }
 
         // Extract accessToken if available (returned by native Google Sign-In)
-        const accessTokenStr =
+        const rawToken =
           googleResult &&
           "accessToken" in googleResult &&
           googleResult.accessToken &&
@@ -170,6 +174,8 @@ export async function initiateOAuthFlow(
           "token" in googleResult.accessToken
             ? (googleResult.accessToken as { token: string }).token
             : undefined;
+        const accessTokenStr =
+          typeof rawToken === "string" ? rawToken : undefined;
 
         const { error: tokenError } = await sb.auth.signInWithIdToken({
           provider: "google",

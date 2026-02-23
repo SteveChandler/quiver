@@ -26,10 +26,12 @@ export function initializeSocialLogin(
     },
   };
 
-  console.log(
-    "[SocialLogin] Initializing with options:",
-    JSON.stringify(options)
-  );
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      "[SocialLogin] Initializing with options:",
+      JSON.stringify(options)
+    );
+  }
 
   initPromise = import("@capgo/capacitor-social-login")
     .then(({ SocialLogin }) => SocialLogin.initialize(options))
@@ -61,9 +63,11 @@ export async function ensureSocialLoginReady(): Promise<void> {
   const iosClientId = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
   if (webClientId) {
-    console.log(
-      "[SocialLogin] Retrying initialization from ensureSocialLoginReady"
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "[SocialLogin] Retrying initialization from ensureSocialLoginReady"
+      );
+    }
     await initializeSocialLogin(webClientId, iosClientId);
   } else {
     console.warn(
