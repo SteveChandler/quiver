@@ -169,7 +169,7 @@ export async function initiateOAuthFlow(
         clearAuthRedirect();
         sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
         return {
-          error: "Google sign-in failed. Please try another method.",
+          error: `Google sign-in failed: ${errorMessage}`,
         };
       }
     }
