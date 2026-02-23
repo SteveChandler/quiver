@@ -84,7 +84,6 @@ export function useDataFetcher<T>(
 
     prevSkipRef.current = skip;
     prevFetchFnRef.current = fetchFn;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData, immediate, skip, fetchFn]);
 
   const retry = useCallback(() => {
