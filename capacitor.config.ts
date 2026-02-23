@@ -8,7 +8,6 @@ const config: CapacitorConfig = {
     androidScheme: "https",
     url: "https://dev.quiversurf.app",
     cleartext: false,
-    allowNavigation: ['*']
   },
   plugins: {
     SplashScreen: {

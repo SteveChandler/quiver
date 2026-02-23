@@ -135,15 +135,46 @@ export async function initiateOAuthFlow(
           googleResult && "idToken" in googleResult
             ? googleResult.idToken
             : null;
+
+        // Log JWT claims for debugging auth issues
+        if (idToken && typeof idToken === "string") {
+          try {
+            const parts = idToken.split(".");
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]));
+              console.log("[auth-utils] ID token claims:", {
+                aud: payload.aud,
+                iss: payload.iss,
+                sub: payload.sub,
+                exp: payload.exp,
+                azp: payload.azp,
+              });
+            }
+          } catch (e) {
+            console.error("[auth-utils] Failed to decode idToken:", e);
+          }
+        }
+
         if (!idToken) {
           clearAuthRedirect();
           sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
           return { error: "Google sign-in was cancelled or failed." };
         }
 
+        // Extract accessToken if available (returned by native Google Sign-In)
+        const accessTokenStr =
+          googleResult &&
+          "accessToken" in googleResult &&
+          googleResult.accessToken &&
+          typeof googleResult.accessToken === "object" &&
+          "token" in googleResult.accessToken
+            ? (googleResult.accessToken as { token: string }).token
+            : undefined;
+
         const { error: tokenError } = await sb.auth.signInWithIdToken({
           provider: "google",
           token: idToken,
+          ...(accessTokenStr ? { access_token: accessTokenStr } : {}),
         });
 
         if (tokenError) {

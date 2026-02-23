@@ -18,18 +18,30 @@ export function initializeSocialLogin(
 ): Promise<void> {
   if (initPromise) return initPromise;
 
-  initPromise = import("@capgo/capacitor-social-login").then(
-    ({ SocialLogin }) =>
-      SocialLogin.initialize({
-        google: {
-          webClientId,
-          ...(iosClientId && {
-            iOSClientId: iosClientId,
-            iOSServerClientId: webClientId,
-          }),
-        },
-      })
+  const options = {
+    google: {
+      webClientId,
+      iOSClientId: iosClientId || webClientId,
+      iOSServerClientId: webClientId,
+    },
+  };
+
+  console.log(
+    "[SocialLogin] Initializing with options:",
+    JSON.stringify(options)
   );
+
+  initPromise = import("@capgo/capacitor-social-login")
+    .then(({ SocialLogin }) => SocialLogin.initialize(options))
+    .catch((err) => {
+      // Reset initPromise so retries are possible via ensureSocialLoginReady
+      console.error(
+        "[SocialLogin] Initialize failed, resetting for retry:",
+        err
+      );
+      initPromise = null;
+      throw err;
+    });
 
   return initPromise;
 }
@@ -41,5 +53,21 @@ export function initializeSocialLogin(
 export async function ensureSocialLoginReady(): Promise<void> {
   if (initPromise) {
     await initPromise;
+    return;
+  }
+
+  // Fallback: initPromise is null (either never called OR was reset after failure)
+  const webClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const iosClientId = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+
+  if (webClientId) {
+    console.log(
+      "[SocialLogin] Retrying initialization from ensureSocialLoginReady"
+    );
+    await initializeSocialLogin(webClientId, iosClientId);
+  } else {
+    console.warn(
+      "ensureSocialLoginReady: NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing"
+    );
   }
 }

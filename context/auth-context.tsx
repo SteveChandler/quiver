@@ -417,7 +417,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Initialize native Google Sign-In plugin (must complete before login calls).
       // Uses a shared promise so auth-utils.ts can await readiness.
       const webClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-      const iosClientId = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+      const iosClientId =
+        process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID || webClientId;
+      console.log("[AuthContext] Native app detected. Google client IDs:", {
+        webClientId: webClientId
+          ? `${webClientId.substring(0, 10)}...`
+          : "MISSING",
+        iosClientId: iosClientId
+          ? `${iosClientId.substring(0, 10)}...`
+          : "MISSING",
+      });
       if (webClientId) {
         import("@/lib/mobile/social-login")
           .then(({ initializeSocialLogin }) => {
