@@ -157,16 +157,22 @@ firebase appdistribution:distribute android/app/build/outputs/apk/debug/app-debu
 ### 3.6 Quick Reference Commands
 
 ```bash
-# Build and distribute in one flow
+# Automated release script (builds + syncs + creates AAB)
+yarn mobile:release:android
+
+# Build and distribute via Firebase in one flow
 yarn build && \
-yarn mobile:sync:prod && \
+npx cap sync android && \
 cd android && \
 ./gradlew assembleDebug && \
-firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk \
+cd .. && \
+firebase appdistribution:distribute android/app/build/outputs/apk/debug/app-debug.apk \
   --app 1:230741354184:android:51b22556e66b39db3c67fd \
-  --groups "internal-team" \
+  --groups "android" \
   --release-notes "$(git log -1 --pretty=%B)"
 ```
+
+**Note:** Firebase App Distribution requires APKs, not AABs. Use `assembleDebug` for Firebase distribution and `bundleRelease` for Google Play.
 
 ---
 
@@ -540,16 +546,22 @@ adb start-server
 ### Build Commands
 
 ```bash
+# Automated release (build + sync + AAB)
+yarn mobile:release:android
+
 # Development
 yarn dev                           # Start Next.js dev server
 
-# Build APK (Debug)
-yarn build && yarn mobile:sync:prod && cd android && ./gradlew assembleDebug
+# Build APK (Debug) - for Firebase distribution
+yarn build && npx cap sync android && cd android && ./gradlew assembleDebug
 
 # Build APK (Release)
-yarn build && yarn mobile:sync:prod && cd android && ./gradlew assembleRelease
+yarn build && npx cap sync android && cd android && ./gradlew assembleRelease
 
 # Build AAB for Play Store
+yarn build && npx cap sync android && cd android && ./gradlew bundleRelease
+
+# Build with production Capacitor config (points to www.quiversurf.app)
 yarn build && yarn mobile:sync:prod && cd android && ./gradlew bundleRelease
 
 # Open in Android Studio
@@ -562,10 +574,10 @@ npx cap open android
 # Login
 firebase login
 
-# Upload debug APK
+# Upload debug APK to "android" tester group
 firebase appdistribution:distribute android/app/build/outputs/apk/debug/app-debug.apk \
   --app 1:230741354184:android:51b22556e66b39db3c67fd \
-  --groups "internal-team" \
+  --groups "android" \
   --release-notes "Description of changes"
 ```
 
@@ -621,5 +633,5 @@ Before releasing:
 
 ---
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 **Created by:** Quiver Development Team
