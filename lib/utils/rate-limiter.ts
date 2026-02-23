@@ -282,7 +282,7 @@ export const NOAARateLimiter = createRateLimiterSingleton("NOAA", {
 });
 
 // Utility function to wait for rate limit reset
-export async function waitForRateLimit(
+async function waitForRateLimit(
   rateLimiter: RateLimiter | RateLimiterSingleton
 ): Promise<void> {
   if (rateLimiter.canMakeRequest()) {

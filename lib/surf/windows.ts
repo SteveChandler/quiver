@@ -115,7 +115,7 @@ function capitalize<T extends string>(s: T): Capitalize<T> {
 }
 
 // Range-driven top windows picker (non-overlapping top 3 by meanScore)
-export function topWindowsInRange(
+function topWindowsInRange(
   beach: BeachMeta,
   marineHours: HourlyMarine[],
   tideHours: HourlyTide[],
@@ -172,7 +172,7 @@ export function topWindowsInRange(
   return picks;
 }
 
-export function windowBlurbDetailed(w: any) {
+function windowBlurbDetailed(w: any) {
   const h = (d: Date) =>
     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   const board = boardCall(w.avgHsFt, w.beach.break_type);

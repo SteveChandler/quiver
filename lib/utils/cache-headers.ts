@@ -40,7 +40,7 @@ export const CacheDuration = {
 /**
  * Generate Cache-Control header string from duration preset or custom values
  */
-export function generateCacheControl(
+function generateCacheControl(
   duration: typeof CacheDuration[keyof typeof CacheDuration] | {
     maxAge: number;
     sMaxAge?: number;

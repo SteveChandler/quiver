@@ -32,7 +32,7 @@ export function isoZulu(d: Date): string {
  * @param x - Value to convert
  * @returns Number or null if conversion fails
  */
-export function toNumber(x: unknown): number | null {
+function toNumber(x: unknown): number | null {
   if (x === null || x === undefined) return null;
   const n = Number(x);
   return Number.isFinite(n) ? n : null;

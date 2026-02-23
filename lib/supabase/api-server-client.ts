@@ -47,7 +47,7 @@ export async function createAPIServerClient() {
  *   return response;
  * }
  */
-export function createAPIServerClientWithResponse(
+function createAPIServerClientWithResponse(
   request: NextRequest,
   response: NextResponse
 ) {
@@ -120,7 +120,7 @@ export async function getAuthenticatedAPIClient() {
  * Validate environment variables for API routes
  * Call this at the top of API routes to ensure proper configuration
  */
-export function validateSupabaseConfig(): { valid: boolean; error?: string } {
+function validateSupabaseConfig(): { valid: boolean; error?: string } {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     return { valid: false, error: "NEXT_PUBLIC_SUPABASE_URL is required" };
   }

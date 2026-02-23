@@ -43,7 +43,7 @@ import { isSwellInWindow, checkWindOffshore, isTideInRange } from "./condition-c
  * );
  * // { peakTime: Date('2025-01-07T10:24:00'), windowStart: '9:54 AM', windowEnd: '10:54 AM' }
  */
-export function calculateOptimalWindow(
+function calculateOptimalWindow(
   slotA: ForecastSlot,
   slotB: ForecastSlot,
   beach: BeachMetadata
@@ -93,7 +93,7 @@ export function calculateOptimalWindow(
  *
  * @internal
  */
-export function buildWindowResult(
+function buildWindowResult(
   peakTime: Date,
   slotA: ForecastSlot,
   slotB: ForecastSlot,

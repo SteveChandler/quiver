@@ -71,7 +71,7 @@ export function getLocalDateString(
  * We cannot derive timezone from coordinates in the browser without shipping
  * heavy boundary data or calling an external API, so we return a safe default.
  */
-export function getTimezoneFromCoords(_lat: number, _lon: number): string {
+function getTimezoneFromCoords(_lat: number, _lon: number): string {
   return DEFAULT_TIMEZONE;
 }
 

@@ -29,7 +29,7 @@ export interface CoastPulseSummary {
 /**
  * Calculate confidence score based on data freshness and source credibility
  */
-export function calculateConfidence(items: CoastPulseSummaryItem[]): number {
+function calculateConfidence(items: CoastPulseSummaryItem[]): number {
   if (items.length === 0) return 0;
 
   const now = Date.now();

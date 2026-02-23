@@ -123,29 +123,29 @@ describe("condition-tier-utils", () => {
     describe("tomorrow (isTomorrow = true)", () => {
       it("builds headline with default tomorrow prefix", () => {
         const result = buildHeadlineText("Big Jetty", "great", true);
-        expect(result.prefix).toBe("Tomorrow at ");
+        expect(result.prefix).toBe("Skip today \u2014 tomorrow at ");
         expect(result.beachPart).toBe("Big Jetty");
       });
 
       it("builds headline with dawn-patrol time slot", () => {
         const result = buildHeadlineText("Big Jetty", "great", true, "dawn-patrol");
-        expect(result.prefix).toBe("Tomorrow's dawn patrol at ");
+        expect(result.prefix).toBe("Skip today \u2014 tomorrow's dawn patrol at ");
       });
 
       it("builds headline with lunch-session time slot", () => {
         const result = buildHeadlineText("Big Jetty", "great", true, "lunch-session");
-        expect(result.prefix).toBe("Tomorrow midday at ");
+        expect(result.prefix).toBe("Skip today \u2014 tomorrow midday at ");
       });
 
       it("builds headline with afternoon time slot", () => {
         const result = buildHeadlineText("Big Jetty", "great", true, "afternoon");
-        expect(result.prefix).toBe("Tomorrow afternoon at ");
+        expect(result.prefix).toBe("Skip today \u2014 tomorrow afternoon at ");
       });
 
       it("builds fair tier headline for tomorrow", () => {
         const result = buildHeadlineText("Big Jetty", "fair", true);
-        expect(result.prefix).toBe("Tomorrow at ");
-        expect(result.connector).toBe("— conditions are fair at");
+        expect(result.prefix).toBe("Skip today \u2014 tomorrow at ");
+        expect(result.connector).toBe("\u2014 conditions are fair at");
       });
     });
   });

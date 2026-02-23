@@ -116,7 +116,7 @@ export function matchToMetroArea(ipLocation: IPLocationData): MetroMatch {
  * @param maxDistanceMiles - Maximum distance to consider (default 100 miles)
  * @returns MetroMatch if within range, null otherwise
  */
-export function findNearestMetro(
+function findNearestMetro(
   coords: { lat: number; lon: number },
   maxDistanceMiles: number = 100
 ): MetroMatch | null {

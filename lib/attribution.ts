@@ -21,7 +21,7 @@ const COOKIE_EXPIRY_DAYS = 90;
 const COOKIE_OPTIONS = "path=/; SameSite=Lax; Secure";
 
 // UTM parameter names
-export const UTM_PARAMS = [
+const UTM_PARAMS = [
   "utm_source",
   "utm_medium",
   "utm_campaign",
@@ -88,7 +88,7 @@ export function hasUTMParams(urlOrSearch: string | URL | URLSearchParams): boole
 /**
  * Get cookie value by name (client-side)
  */
-export function getCookie(name: string): string | null {
+function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
 
   const cookieName = name.startsWith(COOKIE_PREFIX) ? name : `${COOKIE_PREFIX}${name}`;
@@ -107,7 +107,7 @@ export function getCookie(name: string): string | null {
 /**
  * Set cookie with expiry (client-side)
  */
-export function setCookie(name: string, value: string, days: number = COOKIE_EXPIRY_DAYS): void {
+function setCookie(name: string, value: string, days: number = COOKIE_EXPIRY_DAYS): void {
   if (typeof document === "undefined") return;
 
   const cookieName = name.startsWith(COOKIE_PREFIX) ? name : `${COOKIE_PREFIX}${name}`;
@@ -137,7 +137,7 @@ export function getAttributionFromCookies(): AttributionData {
  * Save attribution data to cookies (client-side)
  * Uses first-touch model - only saves if not already set
  */
-export function saveAttributionToCookies(
+function saveAttributionToCookies(
   data: Partial<AttributionData>,
   options: { overwrite?: boolean; days?: number } = {}
 ): void {

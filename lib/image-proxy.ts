@@ -16,7 +16,7 @@ const EXTERNAL_IMAGE_PATTERNS = [
 /**
  * Checks if a URL should be proxied through our image proxy API
  */
-export function shouldProxyImage(url: string): boolean {
+function shouldProxyImage(url: string): boolean {
   if (!url) return false;
   return EXTERNAL_IMAGE_PATTERNS.some((pattern) => url.includes(pattern));
 }

@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
 import { LocationProvider } from "@/context/location-context";
-import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
@@ -114,10 +113,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
 
-  // Note: We keep ReactQuery + SelectedBeachProvider mounted even on "/"
+  // Note: We keep SelectedBeachProvider mounted even on "/"
   // so back/forward navigation doesn't destroy client caches and force refetches.
-  // We still keep the landing UI path lightweight by controlling *what renders*,
-  // not by unmounting the caching providers.
 
   return (
     <>
@@ -143,16 +140,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
 
-            <ReactQueryProvider>
-              <SelectedBeachProvider>
-                {!isLandingPage ? (
-                  <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
-                ) : (
-                  /* Landing Page Optimized Path */
-                  <LandingPageContent>{children}</LandingPageContent>
-                )}
-              </SelectedBeachProvider>
-            </ReactQueryProvider>
+            <SelectedBeachProvider>
+              {!isLandingPage ? (
+                <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
+              ) : (
+                /* Landing Page Optimized Path */
+                <LandingPageContent>{children}</LandingPageContent>
+              )}
+            </SelectedBeachProvider>
           </ProfileProvider>
         </AuthProvider>
       </LocationProvider>

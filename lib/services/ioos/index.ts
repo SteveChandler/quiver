@@ -25,7 +25,6 @@ export type { ParsedObservation, CacheEntry, StationVariablesResult } from "./ty
 // Export data parsing utilities
 export {
   isoZulu,
-  toNumber,
   buildVariableMap,
   parseObservationRow,
   parseObservationArray,
@@ -37,7 +36,7 @@ export {
 export { buildDynamicObservationUrl, buildObservationUrl, buildStationInfoUrl, buildAllDatasetsUrl } from "./url-builder";
 
 // Export API client utilities (for advanced usage)
-export { fetchERDDAP, fetchAllDatasets, fetchObservation, fetchStationInfo, isUnrecognizedVariableError } from "./api-client";
+export { fetchAllDatasets, fetchObservation, fetchStationInfo, isUnrecognizedVariableError } from "./api-client";
 
 // Export cache class (for advanced usage)
 export { ObservationCache } from "./cache";

@@ -16,35 +16,5 @@
 // Re-export main orchestrator functions
 export {
   discoverSurfSpots,
-  scoreBeachForDiscovery,
   getBatchSunTimes,
 } from './discovery/surf-discovery-orchestrator';
-
-// Re-export window selector functions
-export {
-  selectBestWindow,
-  scoreForecastWindow,
-  capEndTimeToTimeSlot,
-} from './discovery/window-selector';
-
-// Re-export response formatter functions
-export {
-  enrichWithPhotos,
-  generateDiscoverySummary,
-  getRecommendationLabel,
-  buildDiscoveryMessage,
-} from './discovery/response-formatter';
-
-// Re-export candidate pool builder
-export {
-  buildCandidatePool,
-  type CandidatePoolOptions,
-  type CandidatePoolResult,
-} from './discovery/candidate-pool-builder';
-
-// Re-export forecast batch fetcher
-export {
-  batchFetchForecasts,
-  type ForecastBatchOptions,
-  type ForecastBatchResult,
-} from './discovery/forecast-batch-fetcher';

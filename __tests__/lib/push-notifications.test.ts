@@ -13,7 +13,6 @@ const mockMessaging = {
 
 jest.mock("@/lib/services/firebase-admin", () => ({
   getFirebaseAdminMessaging: jest.fn(() => mockMessaging),
-  isFirebaseInitialized: jest.fn(() => true),
 }));
 
 // Mock Supabase service role client

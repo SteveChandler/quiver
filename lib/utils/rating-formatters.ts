@@ -140,6 +140,6 @@ export function formatDiscoveryScore(score: number): string {
  * formatDiscoveryScoreWithSuffix(85)
  * // Returns: "8.5/10"
  */
-export function formatDiscoveryScoreWithSuffix(score: number): string {
+function formatDiscoveryScoreWithSuffix(score: number): string {
   return `${formatDiscoveryScore(score)}/10`;
 }

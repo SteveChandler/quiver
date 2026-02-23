@@ -13,7 +13,7 @@ jest.mock("@/lib/server-action-utils", () => {
   const eq = jest.fn(() => ({ select }));
   const update = jest.fn((payload: any) => {
     // expose last payload for assertions
-    // @ts-ignore
+    // @ts-expect-error
     global.__lastUpdatePayload = payload;
     return { eq } as any;
   });
@@ -30,7 +30,7 @@ jest.mock("@/lib/server-action-utils", () => {
 describe("updateProfile instagram field handling", () => {
   it("passes instagram field directly to database", async () => {
     // Clear global payload
-    // @ts-ignore
+    // @ts-expect-error
     global.__lastUpdatePayload = undefined;
 
     const result = await updateProfile({ instagram: "newhandle" } as any);
@@ -40,7 +40,7 @@ describe("updateProfile instagram field handling", () => {
     expect(data.instagram).toBe("newhandle");
 
     // Assert that DB payload used 'instagram' field directly
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload).toBeTruthy();
     expect(payload.instagram).toBe("newhandle");

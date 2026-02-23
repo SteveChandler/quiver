@@ -26,7 +26,7 @@ export const EMAIL_COLORS = {
 export const EMAIL_FONT_FAMILY =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
-export const EMAIL_BUTTON_STYLE = `
+const EMAIL_BUTTON_STYLE = `
   display: inline-block;
   padding: 12px 24px;
   margin: 8px 4px;
@@ -40,7 +40,7 @@ export const EMAIL_BUTTON_STYLE = `
 /**
  * Button style variant with smaller padding for welcome email grids.
  */
-export const EMAIL_BUTTON_STYLE_COMPACT = `
+const EMAIL_BUTTON_STYLE_COMPACT = `
   display: inline-block;
   padding: 12px 20px;
   margin: 4px;
@@ -54,7 +54,7 @@ export const EMAIL_BUTTON_STYLE_COMPACT = `
 /**
  * Chip/tag style for condition labels.
  */
-export const EMAIL_CHIP_STYLE = `
+const EMAIL_CHIP_STYLE = `
   display: inline-block;
   padding: 6px 12px;
   margin: 2px;

@@ -361,7 +361,6 @@ For detailed component specifications, data flow, and integration patterns, see 
 - **`tide-chart-recharts.tsx`** - Professional tide visualization
 - **`forecast-feedback-form.tsx`** - User accuracy feedback system
 - **`session-forecast-comparison.tsx`** - Forecast vs actual comparison
-- **`adjusted-forecast-display.tsx`** - Location-adjusted forecasts
 
 #### Architecture Features
 

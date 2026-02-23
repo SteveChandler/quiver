@@ -548,7 +548,7 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
 /**
  * Get all sessions for the community tab
  */
-export async function getAllSessions(limit = 20) {
+async function getAllSessions(limit = 20) {
   return withAuthenticatedAction(async (user, supabase) => {
 
   // Get sessions with all related data using the correct schema

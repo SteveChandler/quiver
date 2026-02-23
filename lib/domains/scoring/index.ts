@@ -22,7 +22,6 @@ export { ScoringEngine, createScoringEngine, scoreWithPlugins } from './scoring-
 // Scorers
 export {
   baseConditionsScorer,
-  createBaseConditionsScorer,
   swellAlignmentScorer,
   swellInterferenceScorer,
   windQualityScorer,

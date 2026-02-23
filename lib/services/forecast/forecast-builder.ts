@@ -23,6 +23,7 @@ import {
   type EnhancedForecastWithRawData,
   type CDIPBuoyData,
 } from "@/types/forecast";
+import type { TideStatus } from "@/lib/services/noaa-coops/types";
 import type {
   WaveWatchForecast,
   WaveWatchData,
@@ -39,7 +40,7 @@ import type {
  */
 export interface DataSourceServices {
   getWaveDirectionText: (degrees: number) => string;
-  getTideStatusAtTime: (tides: COOPSTideData[], time: Date) => string;
+  getTideStatusAtTime: (tides: COOPSTideData[], time: Date) => TideStatus;
   getTideHeightAtTime: (tides: COOPSTideData[], time: Date) => number | null;
   getNextTideFromTime: (tides: COOPSTideData[], time: Date) => COOPSTideData | null;
   getDataQualityScore: (data: CDIPBuoyData) => number;

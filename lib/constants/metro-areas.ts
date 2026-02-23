@@ -108,7 +108,7 @@ export { METRO_AREAS };
 /**
  * Get all metro areas as an array
  */
-export function getAllMetroAreas(): MetroAreaConfig[] {
+function getAllMetroAreas(): MetroAreaConfig[] {
   return Object.values(METRO_AREAS);
 }
 

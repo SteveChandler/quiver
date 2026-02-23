@@ -511,7 +511,7 @@ export type CoastalStateSuffix = typeof COASTAL_STATE_SUFFIXES[number];
  *
  * @see app/beaches/[country]/[state]/[city]/page.tsx
  */
-export const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
+const VALID_COUNTRY_SLUGS = new Set(["usa", "mexico"]);
 
 /**
  * Validate if a slug represents a valid country in the routing system.

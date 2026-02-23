@@ -98,7 +98,7 @@ export const TIER_COLOR_HEX: Record<ConditionTier, string> = {
 /**
  * Get a unified className string for a tier card
  */
-export function getTierCardClassName(tier: ConditionTier, isSelected: boolean): string {
+function getTierCardClassName(tier: ConditionTier, isSelected: boolean): string {
   const colors = TIER_COLORS[tier];
   const baseClasses = `${colors.bg} ${colors.border} ${colors.text}`;
   const selectedClasses = isSelected

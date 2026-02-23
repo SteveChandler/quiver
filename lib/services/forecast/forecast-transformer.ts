@@ -80,25 +80,3 @@ export function cardinalToDegrees(dir: string | number | null | undefined): numb
   return directionMap[upper] ?? null;
 }
 
-/**
- * ForecastTransformer class
- * 
- * Provides methods for transforming and normalizing forecast data
- * from various sources into a unified format.
- */
-export class ForecastTransformer {
-  /**
-   * Convert cardinal direction to degrees
-   */
-  cardinalToDegrees(dir: string | number | null | undefined): number | null {
-    return cardinalToDegrees(dir);
-  }
-
-  // Additional transformation methods will be added as extraction continues
-  // - transformWaveData()
-  // - transformTideData()
-  // - transformWeatherData()
-  // - normalizeUnits()
-  // - validateAndSanitize()
-}
-

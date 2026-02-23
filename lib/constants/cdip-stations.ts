@@ -266,7 +266,7 @@ export function getStationConfig(stationId: string): CDIPStationConfig | null {
   return CDIP_STATIONS[stationId] || null;
 }
 
-export function getStationCoverageRadius(stationId: string): number {
+function getStationCoverageRadius(stationId: string): number {
   return (
     STATION_COVERAGE_RADIUS[
       stationId as keyof typeof STATION_COVERAGE_RADIUS

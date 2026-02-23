@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Intel Post Tag enum for validation
  */
-export const intelPostTagSchema = z.enum([
+const intelPostTagSchema = z.enum([
   "parking",
   "hazard",
   "crowd",

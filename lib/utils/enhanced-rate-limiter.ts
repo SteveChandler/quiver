@@ -417,7 +417,7 @@ export class EnhancedRateLimiter {
  * @param config - Rate limiter configuration
  * @returns EnhancedRateLimiter instance
  */
-export function createEnhancedRateLimiter(
+function createEnhancedRateLimiter(
   name: string,
   config: RateLimiterConfig
 ): EnhancedRateLimiter {
@@ -454,7 +454,7 @@ export function getCachedRateLimiter(
  *
  * Useful for testing and cleanup
  */
-export function clearRateLimiterCache(): void {
+function clearRateLimiterCache(): void {
   for (const limiter of rateLimiterCache.values()) {
     limiter.destroy();
   }

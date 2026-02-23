@@ -342,6 +342,30 @@ describe("auth-utils", () => {
       });
     });
 
+    it("should pass access_token to signInWithIdToken when present", async () => {
+      mockSocialLoginLogin.mockResolvedValue({
+        provider: "google",
+        result: {
+          idToken: "mock-id-token",
+          accessToken: { token: "mock-access-token" },
+          profile: { email: "test@example.com", name: "Test" },
+          responseType: "online",
+        },
+      });
+      mockSupabaseClient.auth.signInWithIdToken = jest
+        .fn()
+        .mockResolvedValue({ error: null });
+
+      const result = await initiateOAuthFlow("google", "/beach/123");
+
+      expect(result.error).toBeUndefined();
+      expect(mockSupabaseClient.auth.signInWithIdToken).toHaveBeenCalledWith({
+        provider: "google",
+        token: "mock-id-token",
+        access_token: "mock-access-token",
+      });
+    });
+
     it("should handle user cancellation (no idToken)", async () => {
       mockSocialLoginLogin.mockResolvedValue({
         provider: "google",
@@ -394,7 +418,7 @@ describe("auth-utils", () => {
       const result = await initiateOAuthFlow("google", "/beach/123");
 
       expect(result.error).toBe(
-        "Google sign-in failed. Please try another method."
+        "Google sign-in failed: Plugin not available"
       );
       expect(removeItemSpy).toHaveBeenCalledWith(
         AUTH_CONSTANTS.REDIRECT_STORAGE_KEY

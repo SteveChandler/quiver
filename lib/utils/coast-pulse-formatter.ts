@@ -358,7 +358,7 @@ export function formatBuoyMessage(data: BuoyData): string {
 /**
  * Truncate text to max length
  */
-export function truncateText(text: string, maxLength: number): string {
+function truncateText(text: string, maxLength: number): string {
   if (!text) return "";
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 3) + "...";

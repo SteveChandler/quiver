@@ -27,7 +27,6 @@ export {
   CDIP_API_CONFIG,
   DATA_QUALITY_THRESHOLDS,
   getStationConfig,
-  getStationCoverageRadius,
   USER_AGENT,
   DEFAULT_MAX_DISTANCE_KM,
   MAX_CONCURRENT_REQUESTS,
@@ -39,7 +38,6 @@ export {
   transformToCDIPBuoyData,
   transformERDDAPToDataResponse,
   calculateDataQualityScore,
-  isValidDataPoint,
   normalizeStationIdForErddap,
 } from "./data-parser";
 export { CDIPCache } from "./cache";

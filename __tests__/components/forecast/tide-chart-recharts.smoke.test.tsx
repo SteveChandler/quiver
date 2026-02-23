@@ -5,7 +5,6 @@ import { TideChart } from "@/components/forecast/tide-chart-recharts";
 // Recharts and responsive container often need a DOM size; JSDOM lacks layout.
 // Provide a basic mock for getBoundingClientRect to avoid zero-size issues.
 beforeAll(() => {
-  // @ts-ignore
   Element.prototype.getBoundingClientRect = function () {
     return {
       width: 800,

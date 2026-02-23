@@ -58,7 +58,7 @@ export function getConfidenceInfo(score: number | null): ConfidenceInfo {
   };
 }
 
-export const FRESHNESS_THRESHOLDS_MS = {
+const FRESHNESS_THRESHOLDS_MS = {
   CURRENT: 3 * 60 * 60 * 1000, // 3h
   STALE: 12 * 60 * 60 * 1000, // 12h
   OUTDATED: 24 * 60 * 60 * 1000, // 24h

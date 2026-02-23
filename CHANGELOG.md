@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Data fetching consolidation:** Migrated `use-sun-times`, `use-beach-detail-data`, and `useNearbyBeaches` hooks from SWR/React Query to the standard `useDataFetcher` pattern
+- **Package rename:** Changed package.json name from `my-v0-project` to `quiver`
+- **TypeScript strictness:** Replaced ~60 `@ts-ignore` directives with `@ts-expect-error` (or removed where unnecessary)
+- **Build strictness:** Removed `ignoreBuildErrors: true` from `next.config.mjs` — TypeScript errors now block builds
+- **useDataFetcher refetch on param change:** Hook now re-fetches when `fetchFn` identity changes, matching React Query/SWR behavior for parameter-driven refetches
+
+### Added
+
+- **Unit test coverage for migrated hooks:** New TDD test suites for `use-sun-times` (6 tests), `use-beach-detail-data` (11 tests), `useNearbyBeaches` (6 tests)
+- **Jest CI gate:** Added unit test step with coverage thresholds to `prod-gate.yml` workflow
+- **Migration squash strategy:** Documented 374-migration squash recommendation in `supabase/ARCHITECTURE.md`
+
+### Removed
+
+- **SWR dependency:** Removed `swr` package (no longer used by any hook)
+- **React Query dependency:** Removed `@tanstack/react-query` package and `ReactQueryProvider` component
+- **Root directory cleanup:** Deleted 93 PNG screenshots, 13 orphaned report markdown files, and miscellaneous debris (`console-errors-full.txt`, `capacitor.config.ts.bak`, `beach_bias_model_v1.json`); moved utility scripts to `scripts/`
+- **Dead code sweep:** Removed unused `AdjustedForecastDisplay` component and its test (408 lines)
+- **Dead scripts:** Removed unused standalone scripts (`ml-stats.ts`, `validate-cameras.ts`)
+- **Dead dependencies:** Removed `@capacitor/browser`, `@types/pg`, and `pg` from package.json
+- **Dead exports:** Removed ~120 unused exported functions, constants, and re-exports across actions, lib, hooks, and services — reducing public API surface without changing runtime behavior
+
 ### Added
 
 - **Git workflow documentation:** Created `docs/GIT_WORKFLOW.md` formalizing the two-branch model (`main` → `prod`), feature branch conventions, hotfix process, and branch hygiene rules
@@ -14,6 +38,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stale branch cleanup:** Deleted ~29 abandoned remote branches, reducing remote branch count to just `main` and `prod`
 
 ### Fixed
+
+- **Shadow scoring candidate health check:** Fixed `deployToFly()` in the retrain cron route to poll the health endpoint for `candidate_loaded === true` and `candidate_version` match when deploying in candidate mode, instead of returning `{ success: true }` immediately. Shadow scoring candidates were being set as secrets on Fly.io but never verified as loaded, causing them to accumulate 0 shadow predictions and fail promotion after 48h.
+
+- **Tide "Unknown" status on home screen:** Deduplicated `tide_forecasts` rows by hour in `fetchCachedTides()` — multiple cron runs were inserting 3 rows per hour at different seconds, creating plateaus that broke `TideExtremaDetector` extrema detection and caused `getTideStatusAtTime()` to return "Unknown" instead of "Rising"/"Falling"
+
+- **Tide "Unknown" in conditions ticker:** Frontend now filters "Unknown" from tide status display — shows just the height when available (e.g., "0.6 ft" instead of "Unknown 0.6 ft"), or omits the tide card entirely when neither status nor height is meaningful
+
+### Changed
+
+- **"Tomorrow" headline wording:** Updated `buildHeadlineText()` prefixes from "Tomorrow at..." to "Skip today — tomorrow at..." to give context about why today isn't the recommendation
+
+### Fixed
+
+- **E2E forecast-tabs test selectors:** Fixed 3 failing Playwright tests (`should display metric cards`, `should display swell information`, `should display tide-related text`) by scoping text locators to the active tabpanel. The tests were calling `.first()` on page-wide text searches and matching elements inside `ConditionsTicker`'s CSS-hidden `ticker-static-track` (rendered as `display: none`) before reaching the visible forecast cards.
 
 - **CI lint/type errors:** Fixed 13 pre-existing lint errors and 1 TypeScript error to enable strict prod-gate CI checks (removed `continue-on-error` from typecheck and lint jobs)
 

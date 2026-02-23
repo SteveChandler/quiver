@@ -153,7 +153,7 @@ export default function SessionPhotoGallery({
           } else {
             const newIndex = Math.min(
               lightbox.currentIndex,
-              updatedPhotos.length - 1
+              updatedPhotos.length - 1,
             );
             setLightbox((prev) => ({ ...prev, currentIndex: newIndex }));
           }
@@ -186,7 +186,7 @@ export default function SessionPhotoGallery({
 
       if (result.success) {
         const updatedPhotos = photos.map((p) =>
-          p.id === photoId ? { ...p, caption: captionText } : p
+          p.id === photoId ? { ...p, caption: captionText } : p,
         );
         setPhotos(updatedPhotos);
         onPhotosChange?.(updatedPhotos);
@@ -224,7 +224,9 @@ export default function SessionPhotoGallery({
 
       if (result.success) {
         const uploaded = result.data?.uploaded ?? selectedFiles.length;
-        toast.success(`Photos uploaded: ${uploaded} of ${selectedFiles.length}`);
+        toast.success(
+          `Photos uploaded: ${uploaded} of ${selectedFiles.length}`,
+        );
 
         // Refresh photos
         const photosResult = await getSessionPhotosAction(sessionId);
@@ -418,7 +420,7 @@ export default function SessionPhotoGallery({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={getTransformedUrl(photo.public_url, 'galleryPreview')}
+                src={getTransformedUrl(photo.public_url, "galleryPreview")}
                 alt={photo.caption || `Session photo ${index + 1}`}
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 loading="lazy"
@@ -479,14 +481,18 @@ export default function SessionPhotoGallery({
 
       {/* Lightbox Modal */}
       <Dialog open={lightbox.isOpen} onOpenChange={closeLightbox}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
+        <DialogContent
+          aria-describedby={undefined}
+          className="max-w-4xl w-full p-0 overflow-hidden"
+        >
+          <DialogTitle className="sr-only">Photo Gallery</DialogTitle>
           {currentPhoto && (
             <div className="relative">
               {/* Image */}
               <div className="relative bg-black">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={getTransformedUrl(currentPhoto.public_url, 'fullWidth')}
+                  src={getTransformedUrl(currentPhoto.public_url, "fullWidth")}
                   alt={currentPhoto.caption || "Session photo"}
                   className="w-full max-h-[70vh] object-contain"
                 />

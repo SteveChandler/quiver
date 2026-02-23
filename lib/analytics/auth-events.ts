@@ -183,22 +183,6 @@ export function trackAuthWallDismissed() {
 }
 
 /**
- * Track when the auth modal reappears after user activity
- * @param params.source - Where the modal reappearance was triggered from
- * @param params.dismissal_count - Optional count of how many times dismissed
- */
-export function trackAuthModalReappeared(params: {
-  source: string;
-  dismissal_count?: number;
-}) {
-  track("auth_modal_reappeared", {
-    source: params.source,
-    dismissal_count: params.dismissal_count,
-    timestamp: Date.now(),
-  });
-}
-
-/**
  * Utility function to categorize auth errors for analytics
  * @param error - The error object or message
  * @returns A categorized error type string

@@ -87,7 +87,7 @@ export function parseTimeToHour(timeStr: string): number | null {
 /**
  * Convert hour float to HH:MM string
  */
-export function toTimeString(hourFloat: number): string {
+function toTimeString(hourFloat: number): string {
   const h = Math.floor(hourFloat) % 24;
   const m = Math.round((hourFloat - Math.floor(hourFloat)) * 60);
   const hh = String((h + 24) % 24).padStart(2, "0");

@@ -6,7 +6,7 @@ import {
   type BeachOption,
 } from "@/components/embed-promo/embed-promo-page";
 
-export const revalidate = 3600; // ISR: 1 hour
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Free Surf Conditions Widget for Coastal Businesses",

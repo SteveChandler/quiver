@@ -1107,6 +1107,15 @@ SELECT cron.schedule(
 **Documentation**: See [ML Operations Runbook](/docs/guides/ML_OPERATIONS_RUNBOOK.md) and [ML README](/ml/README.md) for training data requirements.
 
 
+## Migration Squash Strategy
+
+The project currently has 374+ migration files in `supabase/migrations/`. While this doesn't cause runtime issues, it increases `supabase db reset` times and makes migration history harder to audit.
+
+**Recommendation:** At the next major version boundary, squash all pre-2026 migrations into a single baseline migration. This should be coordinated with:
+- A fresh `pg_dump` of the production schema
+- Verification that `supabase db reset` produces an identical schema
+- Updating any CI/CD scripts that reference specific migration versions
+
 ## Future Migration Strategy
 
 ### **Planned Enhancements**

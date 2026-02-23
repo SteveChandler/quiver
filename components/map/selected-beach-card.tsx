@@ -134,7 +134,6 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
         className="block"
         style={{ touchAction: "manipulation" }}
         aria-label={`View details for ${selectedBeach.name}`}
-        data-vaul-no-drag
       >
         {card}
       </Link>

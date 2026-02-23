@@ -38,7 +38,7 @@ export function getInitials(fullName: string | undefined | null): string {
  * @param avatarUrl - The avatar URL to validate
  * @returns true if the avatar URL should be persisted, false otherwise
  */
-export function shouldIncludeAvatar(avatarUrl: string | undefined | null): boolean {
+function shouldIncludeAvatar(avatarUrl: string | undefined | null): boolean {
   if (!avatarUrl) {
     return false;
   }
@@ -79,7 +79,7 @@ export function prepareAvatarPayload(
  * @param defaultPath - Default path to redirect to (default: "/profile")
  * @returns The URL to redirect to, or null if callback will handle navigation
  */
-export function getRedirectUrl(
+function getRedirectUrl(
   hasCallback: boolean,
   defaultPath: string = "/profile"
 ): string | null {

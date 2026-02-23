@@ -1,6 +1,7 @@
 "use client";
 
-import useSWR from "swr";
+import { useCallback } from "react";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
 interface SunTimesData {
   sunrise_utc: string | null;
@@ -11,15 +12,8 @@ interface UseSunTimesResult {
   sunrise: Date | null;
   sunset: Date | null;
   isLoading: boolean;
-  error: Error | null;
+  error: string | null;
 }
-
-// Simple fetcher for sun times
-const fetcher = async (url: string): Promise<SunTimesData> => {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-};
 
 /**
  * Hook to fetch sunrise and sunset times for a beach on a given date
@@ -30,20 +24,20 @@ export function useSunTimes(
   beachId: string | null | undefined,
   date: string | null | undefined
 ): UseSunTimesResult {
-  const { data, error, isLoading } = useSWR<SunTimesData>(
-    beachId && date ? `/api/beaches/${beachId}/sun-times?date=${date}` : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      dedupingInterval: 300000, // 5 min - sun times don't change
-      errorRetryCount: 1,
-    }
-  );
+  const fetchSunTimes = useCallback(async (): Promise<SunTimesData> => {
+    const res = await fetch(`/api/beaches/${beachId}/sun-times?date=${date}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }, [beachId, date]);
+
+  const { data, loading, error } = useDataFetcher<SunTimesData>(fetchSunTimes, {
+    skip: !beachId || !date,
+  });
 
   return {
     sunrise: data?.sunrise_utc ? new Date(data.sunrise_utc) : null,
     sunset: data?.sunset_utc ? new Date(data.sunset_utc) : null,
-    isLoading,
-    error: error || null,
+    isLoading: loading,
+    error,
   };
 }

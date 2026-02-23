@@ -217,13 +217,13 @@ export function HorizonStrip({
           "snap-x snap-mandatory scrollbar-hide",
           "-webkit-overflow-scrolling-touch",
           // Full bleed on mobile, contained on desktop
-          "-mx-4 px-4 sm:-mx-6 sm:px-6"
+          "-mx-6 px-6"
         )}
         role="listbox"
         aria-label="Forecast days - select a day to view details"
       >
         {days.map((day) => (
-          <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[72px] sm:flex-1 sm:min-w-0">
+          <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
             <DayCard
               day={day}
               isSelected={day.fullDate === selectedDate}
@@ -233,7 +233,7 @@ export function HorizonStrip({
         ))}
 
         {/* Right spacer for mobile scroll */}
-        <div className="shrink-0 w-1 sm:hidden" aria-hidden="true" />
+        <div className="shrink-0 w-3 sm:hidden" aria-hidden="true" />
       </div>
 
       {/* Right fade indicator (mobile only) */}

@@ -58,7 +58,6 @@ export {
   requireOwnership,
 
   // Rate limiting
-  getClientIdentifier,
   withRateLimit,
   withBotBlockingAndRateLimit,
 
@@ -75,10 +74,4 @@ export {
   methodNotAllowed,
   isValidUuid,
   validateOrError,
-  createCachedResponse,
-  checkNotModified,
-  CacheDuration,
-
-  // Bot blocking re-export
-  withBotBlocking,
 } from "./api-wrappers/index";

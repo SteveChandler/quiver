@@ -374,25 +374,6 @@ interface ComparisonMetric {
 - **Compact Mode**: Space-efficient single forecast display
 - **Interactive Features**: Expandable details and user controls
 
-#### **`adjusted-forecast-display.tsx`** - Location-Calibrated Forecasts
-
-```typescript
-interface AdjustedForecastDisplayProps {
-  rawForecast: Forecast;
-  beachAccuracy?: BeachForecastAccuracy | null;
-  className?: string;
-  showComparison?: boolean;
-  compact?: boolean;
-}
-```
-
-**Adjustment Features:**
-
-- **Location Calibration**: Beach-specific forecast adjustments
-- **Historical Tuning**: Past accuracy-based corrections
-- **Comparison Display**: Raw vs. adjusted forecast presentation
-- **Confidence Adaptation**: Adjusted confidence scoring
-
 #### **`forecast-preview-with-transparency.tsx`** - Quick Preview Cards
 
 ```typescript

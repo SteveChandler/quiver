@@ -12,8 +12,3 @@ export type {
   DatabaseCoordinates,
 } from './coordinates';
 
-export {
-  isCoordinates,
-  isCoordinatesVerbose,
-  isLegacyLngLatFormat,
-} from './coordinates';

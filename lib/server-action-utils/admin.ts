@@ -22,7 +22,7 @@ import type { ServerActionResponse } from "@/lib/server-action-utils";
  * );
  * ```
  */
-export function withAdminAction<TArgs extends any[], TResult>(
+function withAdminAction<TArgs extends any[], TResult>(
   action: (
     ...args: [...TArgs, { supabaseAdmin: ReturnType<typeof createSupabaseServiceRoleClient> }]
   ) => Promise<TResult>

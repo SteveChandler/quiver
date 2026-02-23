@@ -565,7 +565,7 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
   }
 }
 
-export async function getBeachForecastCoverage(beachId: string): Promise<number> {
+async function getBeachForecastCoverage(beachId: string): Promise<number> {
   const supabase = createSupabaseServiceRoleClient();
   
   const today = new Date().toISOString().split('T')[0];

@@ -57,7 +57,7 @@ export function RichContentRenderer({
  * Flatten a RichContent array back to a plain string.
  * Useful for JSON-LD structured data and other contexts that need plain text.
  */
-export function richContentToString(content: RichContent): string {
+function richContentToString(content: RichContent): string {
   return content.map((s) => s.text).join("");
 }
 
@@ -66,7 +66,7 @@ export function richContentToString(content: RichContent): string {
  * Returns the resulting RichContent segments. If `name` is not found,
  * returns a single text segment.
  */
-export function linkFirstMention(
+function linkFirstMention(
   text: string,
   name: string,
   href: string

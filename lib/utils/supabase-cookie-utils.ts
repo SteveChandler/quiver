@@ -12,7 +12,7 @@
  * Regex pattern to detect Supabase auth token cookies.
  * Matches: sb-<projectRef>-auth-token.<chunkNumber>
  */
-export const SUPABASE_AUTH_COOKIE_PATTERN = /(?:^|;\s*)sb-[^=]+-auth-token\./;
+const SUPABASE_AUTH_COOKIE_PATTERN = /(?:^|;\s*)sb-[^=]+-auth-token\./;
 
 /**
  * Check if Supabase auth cookie exists in browser cookies.

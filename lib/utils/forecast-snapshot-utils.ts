@@ -341,7 +341,7 @@ export async function createForecastSnapshotForSession(
  * @param sessions - Array of session objects with id, beach_id, arrival_time, user_id
  * @returns Array of results for each session
  */
-export async function batchCreateForecastSnapshots(
+async function batchCreateForecastSnapshots(
   sessions: Array<{
     id: string;
     beach_id: string;

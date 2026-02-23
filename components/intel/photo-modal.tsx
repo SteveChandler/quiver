@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { X } from "lucide-react";
 import Image from "next/image";
 import { getTransformedUrl } from "@/lib/utils/image-utils";
@@ -25,7 +25,11 @@ export function PhotoModal({
 }: PhotoModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-full h-[90vh] p-0 bg-black/95 border-none">
+      <DialogContent
+        aria-describedby={undefined}
+        className="max-w-4xl w-full h-[90vh] p-0 bg-black/95 border-none"
+      >
+        <DialogTitle className="sr-only">Photo Viewer</DialogTitle>
         {/* Close Button */}
         <button
           onClick={() => onOpenChange(false)}
@@ -37,7 +41,7 @@ export function PhotoModal({
         {/* Image - using Supabase image transformations for optimized delivery */}
         <div className="relative w-full h-full flex items-center justify-center">
           <Image
-            src={getTransformedUrl(photoUrl, 'fullWidth')}
+            src={getTransformedUrl(photoUrl, "fullWidth")}
             alt={caption || "Intel photo"}
             fill
             className="object-contain"
@@ -51,9 +55,7 @@ export function PhotoModal({
             {authorName && (
               <p className="text-sm text-gray-300 mb-1">@{authorName}</p>
             )}
-            {caption && (
-              <p className="text-white">{caption}</p>
-            )}
+            {caption && <p className="text-white">{caption}</p>}
           </div>
         )}
       </DialogContent>

@@ -25,13 +25,9 @@ const shouldRunIntegration =
 // Restore real fetch for database tests (jest.setup.js mocks fetch)
  
 const undici = require("undici");
-// @ts-ignore
 global.fetch = undici.fetch;
-// @ts-ignore
 global.Headers = undici.Headers;
-// @ts-ignore
 global.Request = undici.Request;
-// @ts-ignore
 global.Response = undici.Response;
 
 // Import supabase-js after restoring real fetch

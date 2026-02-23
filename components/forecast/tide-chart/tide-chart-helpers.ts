@@ -12,10 +12,10 @@ export const toDate = (t: TidePoint["t"]) => (t instanceof Date ? t : new Date(t
 export const defaultDayFmt = (d: Date) =>
   d.toLocaleDateString(undefined, { weekday: "short" });
 
-export const metersToFeet = (m?: number | null) =>
+const metersToFeet = (m?: number | null) =>
   typeof m === "number" && Number.isFinite(m) ? m * 3.28084 : undefined;
 
-export const parseHeight = (value?: string | null) => {
+const parseHeight = (value?: string | null) => {
   if (!value) return undefined;
   const match = /-?\d+(?:\.\d+)?/.exec(value);
   return match ? Number.parseFloat(match[0]) : undefined;

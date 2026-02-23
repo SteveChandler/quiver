@@ -24,7 +24,7 @@ export interface PostingWindow {
  * Default posting windows by personality type
  * Times are in local timezone (Pacific Time for California)
  */
-export const POSTING_WINDOWS: Record<PersonalityType, PostingWindow> = {
+const POSTING_WINDOWS: Record<PersonalityType, PostingWindow> = {
   local: {
     primary: [5, 8], // Dawn patrol: 5am-8am
     secondary: [16, 19], // After work: 4pm-7pm
@@ -105,7 +105,7 @@ export function shouldPostAtTime(
 /**
  * Legacy compatibility: Should post now with probability
  */
-export function shouldPostNow(
+function shouldPostNow(
   personality: PersonalityType,
   activityLevel: ActivityLevel,
   date: Date = new Date()
@@ -159,7 +159,7 @@ export function describeTimeOfDay(hour: number): string {
 /**
  * Format clock time for display
  */
-export function formatClockTime(date: Date): string {
+function formatClockTime(date: Date): string {
   return date
     .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     .replace(/\s/g, '');

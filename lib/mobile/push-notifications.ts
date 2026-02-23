@@ -149,7 +149,7 @@ export function setupPushNotificationListeners() {
 /**
  * Unregister device token (e.g., on logout)
  */
-export async function unregisterPushNotifications() {
+async function unregisterPushNotifications() {
   if (!Capacitor.isNativePlatform()) {
     return;
   }
@@ -171,7 +171,7 @@ export async function unregisterPushNotifications() {
 /**
  * Check current notification permission status
  */
-export async function checkNotificationPermissions(): Promise<{
+async function checkNotificationPermissions(): Promise<{
   granted: boolean;
   status: string;
 }> {

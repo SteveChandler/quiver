@@ -239,7 +239,7 @@ export function hydrateTemplate(
 /**
  * Extract variable names from a template
  */
-export function extractVariables(template: string): string[] {
+function extractVariables(template: string): string[] {
   const matches = template.match(/\{\{(\w+)\}\}/g) || [];
   return matches.map((match) => match.replace(/[{}]/g, ''));
 }

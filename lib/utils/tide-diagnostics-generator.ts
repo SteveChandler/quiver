@@ -353,4 +353,3 @@ export function generateTideDiagnosticsFromForecasts(
   } as TideDiagnostics;
 }
 
-export default generateTideDiagnosticsFromForecasts;

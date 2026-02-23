@@ -32,7 +32,7 @@ function isFirebaseConfigured(): boolean {
 // Initialize Firebase app (singleton)
 let app: FirebaseApp | null = null;
 
-export function getFirebaseApp(): FirebaseApp | null {
+function getFirebaseApp(): FirebaseApp | null {
   // Skip on server-side
   if (typeof window === "undefined") {
     return null;
@@ -108,7 +108,3 @@ export function getFirebaseMessaging(): Messaging | null {
     return null;
   }
 }
-
-// Export for testing
-export { isFirebaseConfigured };
-

@@ -36,10 +36,7 @@ export { XP_ACTION_MAP, LEVEL_THRESHOLDS, getBadgeChecks } from "./constants";
 // Re-export level utilities for advanced usage
 export {
   calculateLevel,
-  getLevelThreshold,
-  getNextLevelThreshold,
   calculateLevelProgress,
-  getAllLevelThresholds,
 } from "./level-service";
 
 // Re-export XP utilities for advanced usage
@@ -47,7 +44,6 @@ export { getXPForAction, initializeUserXP } from "./xp-service";
 
 // Re-export badge utilities for advanced usage
 export {
-  getUserStatsForBadges,
   evaluateBadgeUnlocks,
 } from "./badge-service";
 

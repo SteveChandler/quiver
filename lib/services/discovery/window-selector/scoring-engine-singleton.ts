@@ -32,6 +32,6 @@ export function getScoringEngine(): ScoringEngine {
  * Reset the singleton scoring engine instance.
  * Used in tests to ensure isolation between test suites.
  */
-export function resetScoringEngine(): void {
+function resetScoringEngine(): void {
   _scoringEngine = null;
 }

@@ -7,7 +7,7 @@ import { nullsLast } from "@/lib/utils/nullable-display-utils";
  * Selects the best beach candidate from a list using deterministic sorting.
  * Prefers: coordinates > review_count > created_at > id
  */
-export function selectBestCandidate(candidates: Beach[]): Beach | null {
+function selectBestCandidate(candidates: Beach[]): Beach | null {
   if (candidates.length === 0) return null;
   return [...candidates].sort((a, b) => {
     const aHasCoords = Number(Boolean(a.lat && a.lon));

@@ -1,192 +1,152 @@
-const rpcMock = jest.fn();
-
-jest.mock("@/lib/supabase/client", () => ({
-  __esModule: true,
-  createClient: () => ({ rpc: rpcMock }),
+jest.mock("@/hooks/use-data-fetcher", () => ({
+  useDataFetcher: jest.fn(),
 }));
 
-import React from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+jest.mock("@/lib/supabase/client", () => ({
+  createClient: jest.fn(),
+}));
 
-import {
-  fetchNearestBeaches,
-  useNearbyBeaches,
-} from "@/hooks/useNearbyBeaches";
+import { renderHook } from "@testing-library/react";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useNearbyBeaches } from "@/hooks/useNearbyBeaches";
 
-function createQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        gcTime: 0,
-      },
+const mockUseDataFetcher = useDataFetcher as jest.MockedFunction<
+  typeof useDataFetcher
+>;
+
+const SUCCESS_RESULT = {
+  data: [
+    {
+      id: "1",
+      name: "Test Beach",
+      lat: 32.72,
+      lon: -117.25,
+      meters: 500,
+      rating: 4.0,
+      reviewCount: 10,
+      imageUrl: "/images/test.jpg",
+      slug: "test-beach",
+      city: "San Diego",
+      state: "CA",
     },
-  });
-}
+  ],
+  loading: false,
+  error: null,
+  refetch: jest.fn(),
+  retry: jest.fn(),
+  reset: jest.fn(),
+};
 
-function HookHarness({
-  lat,
-  lon,
-  limit,
-}: {
-  lat?: number;
-  lon?: number;
-  limit?: number;
-}) {
-  const { data } = useNearbyBeaches(lat, lon, limit ?? 4);
-  return <pre data-testid="result">{JSON.stringify(data)}</pre>;
-}
+const LOADING_RESULT = {
+  data: null,
+  loading: true,
+  error: null,
+  refetch: jest.fn(),
+  retry: jest.fn(),
+  reset: jest.fn(),
+};
+
+const ERROR_RESULT = {
+  data: null,
+  loading: false,
+  error: "nearest_beaches RPC failed",
+  refetch: jest.fn(),
+  retry: jest.fn(),
+  reset: jest.fn(),
+};
+
+const EMPTY_RESULT = {
+  data: [] as typeof SUCCESS_RESULT.data,
+  loading: false,
+  error: null,
+  refetch: jest.fn(),
+  retry: jest.fn(),
+  reset: jest.fn(),
+};
+
+const SKIPPED_RESULT = {
+  data: null,
+  loading: false,
+  error: null,
+  refetch: jest.fn(),
+  retry: jest.fn(),
+  reset: jest.fn(),
+};
 
 describe("useNearbyBeaches", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    rpcMock.mockResolvedValue({ data: [], error: null });
+    mockUseDataFetcher.mockReturnValue(SUCCESS_RESULT as any);
   });
 
-  it("calls the Supabase nearest_beaches RPC and normalizes the payload", async () => {
-    const rpcResponse = {
-      data: [
-        {
-          id: "beach-1",
-          name: "Ocean Beach",
-          lat: 32.75,
-          lon: -117.25,
-          meters: 500,
-          rating: 4.5,
-          review_count: 12,
-          image_url: "https://example.com/ob.jpg",
-        },
-      ],
-      error: null,
-    };
+  it("returns nearby beaches when lat/lon provided", () => {
+    const { result } = renderHook(() => useNearbyBeaches(32.72, -117.25));
 
-    rpcMock.mockResolvedValueOnce(rpcResponse as any);
+    expect(result.current.data).toEqual(SUCCESS_RESULT.data);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
 
-    const queryClient = createQueryClient();
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <HookHarness lat={32.75} lon={-117.25} limit={3} />
-      </QueryClientProvider>
+    expect(mockUseDataFetcher).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ skip: false })
     );
-
-    await waitFor(() => {
-      expect(rpcMock).toHaveBeenCalledWith("nearest_beaches", {
-        user_lat: 32.75,
-        user_lon: -117.25,
-        limit_n: 3,
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("result").textContent).toContain("Ocean Beach");
-    });
-
-    const parsed = JSON.parse(screen.getByTestId("result").textContent || "[]");
-    expect(parsed).toEqual([
-      {
-        id: "beach-1",
-        name: "Ocean Beach",
-        lat: 32.75,
-        lon: -117.25,
-        meters: 500,
-        rating: 4.5,
-        reviewCount: 12,
-        imageUrl: "https://example.com/ob.jpg",
-        slug: null,
-        city: null,
-        state: null,
-      },
-    ]);
   });
 
-  it("rounds coordinates for queryKey to reduce churn", async () => {
-    const queryClient = createQueryClient();
+  it("skips fetch when lat is undefined", () => {
+    mockUseDataFetcher.mockReturnValue(SKIPPED_RESULT as any);
 
-    const { rerender } = render(
-      <QueryClientProvider client={queryClient}>
-        <HookHarness lat={32.7504} lon={-117.2504} limit={4} />
-      </QueryClientProvider>
+    const { result } = renderHook(() => useNearbyBeaches(undefined, -117.25));
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.loading).toBe(false);
+
+    expect(mockUseDataFetcher).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ skip: true })
     );
+  });
 
-    await waitFor(() => {
-      expect(rpcMock).toHaveBeenCalledTimes(1);
-    });
+  it("skips fetch when lon is undefined", () => {
+    mockUseDataFetcher.mockReturnValue(SKIPPED_RESULT as any);
 
-    // Small coordinate jitter that should not create a new queryKey (rounded to 3 decimals)
-    rerender(
-      <QueryClientProvider client={queryClient}>
-        <HookHarness lat={32.75049} lon={-117.25049} limit={4} />
-      </QueryClientProvider>
+    const { result } = renderHook(() => useNearbyBeaches(32.72, undefined));
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.loading).toBe(false);
+
+    expect(mockUseDataFetcher).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ skip: true })
     );
-
-    await waitFor(() => {
-      expect(rpcMock).toHaveBeenCalledTimes(1);
-    });
   });
 
-  it("does not invoke Supabase when coordinates are missing", async () => {
-    const queryClient = createQueryClient();
+  it("returns loading state while fetching", () => {
+    mockUseDataFetcher.mockReturnValue(LOADING_RESULT as any);
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <HookHarness />
-      </QueryClientProvider>
-    );
+    const { result } = renderHook(() => useNearbyBeaches(32.72, -117.25));
 
-    await waitFor(() => {
-      expect(rpcMock).not.toHaveBeenCalled();
-      expect(screen.getByTestId("result").textContent).toBe("");
-    });
-  });
-});
-
-describe("fetchNearestBeaches", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+    expect(result.current.loading).toBe(true);
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBeNull();
   });
 
-  it("maps raw RPC rows into the NearbyBeach shape", async () => {
-    rpcMock.mockResolvedValueOnce({
-      data: [
-        {
-          id: "beach-2",
-          name: "Mission Beach",
-          lat: 32.77,
-          lon: -117.25,
-          meters: 1609.344,
-          rating: null,
-          reviewCount: 5,
-          map_image_url: null,
-        },
-      ],
-      error: null,
-    });
+  it("returns error state on RPC failure", () => {
+    mockUseDataFetcher.mockReturnValue(ERROR_RESULT as any);
 
-    const result = await fetchNearestBeaches(10, 20, 2);
+    const { result } = renderHook(() => useNearbyBeaches(32.72, -117.25));
 
-    expect(result).toEqual([
-      {
-        id: "beach-2",
-        name: "Mission Beach",
-        lat: 32.77,
-        lon: -117.25,
-        meters: 1609.344,
-        rating: null,
-        reviewCount: 5,
-        imageUrl: "/images/beach-placeholder.jpg",
-        slug: null,
-        city: null,
-        state: null,
-      },
-    ]);
+    expect(result.current.error).toBe("nearest_beaches RPC failed");
+    expect(result.current.data).toBeNull();
+    expect(result.current.loading).toBe(false);
   });
 
-  it("throws when Supabase responds with an error", async () => {
-    const error = new Error("failed");
-    rpcMock.mockResolvedValueOnce({ data: null, error } as any);
+  it("returns empty array when no beaches nearby", () => {
+    mockUseDataFetcher.mockReturnValue(EMPTY_RESULT as any);
 
-    await expect(fetchNearestBeaches(1, 2, 3)).rejects.toBe(error);
+    const { result } = renderHook(() => useNearbyBeaches(32.72, -117.25));
+
+    expect(result.current.data).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
   });
 });

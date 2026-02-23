@@ -178,7 +178,7 @@ export function getLocalHour(time: Date, beachTz: string): number | null {
  * @param beachTz - IANA timezone string
  * @returns True if the time is within the slot's range
  */
-export function isWithinTimeSlot(
+function isWithinTimeSlot(
   time: Date,
   timeSlot: TimeSlot | undefined,
   sunrises: Date[],

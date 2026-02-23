@@ -47,10 +47,6 @@ export function getNativePlatform(): NativePlatform {
   return "web";
 }
 
-export function canUseCapacitorPlugin(): boolean {
-  return isNativeApp();
-}
-
 /**
  * Detect current platform for analytics and feature detection
  * Simple UA-based detection for tracking purposes

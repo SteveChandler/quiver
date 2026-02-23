@@ -18,7 +18,7 @@ import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
-export const revalidate = 86400; // 24 hours
+export const dynamic = "force-dynamic";
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"

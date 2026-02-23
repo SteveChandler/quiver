@@ -31,13 +31,9 @@ const shouldRunSecurity =
 // need a real fetch implementation for Supabase admin/anon calls.
  
 const undici = require("undici");
-// @ts-ignore
 global.fetch = undici.fetch;
-// @ts-ignore
 global.Headers = undici.Headers;
-// @ts-ignore
 global.Request = undici.Request;
-// @ts-ignore
 global.Response = undici.Response;
 
 (shouldRunSecurity ? describe : describe.skip)(

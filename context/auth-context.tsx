@@ -15,6 +15,7 @@ import {
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { z } from "zod";
+import { isNativeApp } from "@/lib/mobile/platform";
 import * as Sentry from "@sentry/nextjs";
 import {
   safeGetItem,
@@ -28,27 +29,38 @@ import { AUTH_INIT_TIMEOUT_MS } from "@/lib/constants/ui";
  * This ensures nested objects have proper structure and prevents
  * arbitrary data injection into user metadata.
  */
-const signupMetadataSchema = z.object({
-  signup_context: z.object({
-    source: z.string().optional(),
-    referrer: z.string().optional(),
-    campaign: z.string().optional(),
-    landing_page: z.string().optional(),
-  }).strict().optional(),
-  location_data: z.object({
-    latitude: z.number(),
-    longitude: z.number(),
-    accuracy_m: z.number().optional(),
-    city: z.string().optional(),
-    region: z.string().optional(),
-  }).strict().optional(),
-  legal_consent: z.object({
-    terms_accepted: z.boolean(),
-    privacy_accepted: z.boolean(),
-    timestamp: z.string(),
-    version: z.string().optional(),
-  }).strict().optional(),
-}).strict();
+const signupMetadataSchema = z
+  .object({
+    signup_context: z
+      .object({
+        source: z.string().optional(),
+        referrer: z.string().optional(),
+        campaign: z.string().optional(),
+        landing_page: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    location_data: z
+      .object({
+        latitude: z.number(),
+        longitude: z.number(),
+        accuracy_m: z.number().optional(),
+        city: z.string().optional(),
+        region: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    legal_consent: z
+      .object({
+        terms_accepted: z.boolean(),
+        privacy_accepted: z.boolean(),
+        timestamp: z.string(),
+        version: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 
 /**
  * AuthContext provides authentication state and methods throughout the application.
@@ -74,7 +86,7 @@ type AuthContextType = {
     email: string,
     password: string,
     fullName?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -120,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setupUserAccount(newSession.user.id);
       }
     },
-    [setupUserAccount]
+    [setupUserAccount],
   );
 
   // Simplified session refresh function
@@ -215,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (storedPath) {
                 console.log(
                   "[AuthContext] Clearing redirect path (already on page):",
-                  storedPath
+                  storedPath,
                 );
                 safeRemoveItem("auth_redirect_path");
               }
@@ -226,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // Handle pending signup metadata from OAuth flow
               // Only apply if this is a fresh signup (created within last 60 seconds)
               const pendingMetadata = sessionStorage.getItem(
-                "pending_signup_metadata"
+                "pending_signup_metadata",
               );
               if (pendingMetadata && session.user.created_at) {
                 const createdAt = new Date(session.user.created_at).getTime();
@@ -244,7 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       if (process.env.NODE_ENV === "development") {
                         console.warn(
                           "[AuthContext] Invalid signup metadata structure:",
-                          parseResult.error.flatten()
+                          parseResult.error.flatten(),
                         );
                       }
                       // Skip updating with invalid metadata
@@ -265,7 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         if (error && process.env.NODE_ENV === "development") {
                           console.error(
                             "[AuthContext] Failed to update user metadata:",
-                            error
+                            error,
                           );
                         }
                       });
@@ -273,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     if (process.env.NODE_ENV === "development") {
                       console.error(
                         "[AuthContext] Error parsing pending signup metadata:",
-                        e
+                        e,
                       );
                     }
                   }
@@ -288,7 +300,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const createdAt = new Date(session.user.created_at).getTime();
                 const isNewUser = Date.now() - createdAt < 60_000;
                 const welcomeEmailKey = `welcome_email_sent_${session.user.id}`;
-                const alreadyTriggered = sessionStorage.getItem(welcomeEmailKey);
+                const alreadyTriggered =
+                  sessionStorage.getItem(welcomeEmailKey);
 
                 if (isNewUser && !alreadyTriggered) {
                   // Mark as triggered immediately to prevent duplicates
@@ -302,7 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     if (process.env.NODE_ENV === "development") {
                       console.error(
                         "[AuthContext] Failed to trigger welcome email:",
-                        err
+                        err,
                       );
                     }
                     // Track in Sentry for production monitoring
@@ -320,7 +333,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             updateAuthState(session);
-          }
+          },
         );
 
         subscription = authSubscription;
@@ -329,7 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (process.env.NODE_ENV === "development") {
             console.error(
               "AuthContext: Exception during initialization:",
-              error
+              error,
             );
           }
           clearTimeout(timeoutId);
@@ -374,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (process.env.NODE_ENV === "development") {
               console.error(
                 "AuthContext: Error refreshing session on visibility change:",
-                error
+                error,
               );
             }
             return; // Don't update state on error - leave current state intact
@@ -387,7 +400,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (process.env.NODE_ENV === "development") {
             console.error(
               "AuthContext: Exception refreshing session on visibility change:",
-              error
+              error,
             );
           }
         }
@@ -400,22 +413,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // For Capacitor native apps - handle app resume and initialize plugins
     let appStateListener: { remove: () => Promise<void> } | null = null;
-    if (
-      typeof window !== "undefined" &&
-      (window as any).Capacitor?.isNativePlatform?.()
-    ) {
+    if (isNativeApp()) {
       // Initialize native Google Sign-In plugin (must complete before login calls).
       // Uses a shared promise so auth-utils.ts can await readiness.
       const webClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const iosClientId =
+        process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID || webClientId;
+      if (process.env.NODE_ENV === "development") {
+        console.log("[AuthContext] Native app detected. Google client IDs:", {
+          webClientId: webClientId
+            ? `${webClientId.substring(0, 10)}...`
+            : "MISSING",
+          iosClientId: iosClientId
+            ? `${iosClientId.substring(0, 10)}...`
+            : "MISSING",
+        });
+      }
       if (webClientId) {
         import("@/lib/mobile/social-login")
           .then(({ initializeSocialLogin }) => {
             if (!mounted) return;
-            return initializeSocialLogin(webClientId);
+            return initializeSocialLogin(webClientId, iosClientId);
           })
           .catch((err) => {
             if (process.env.NODE_ENV === "development") {
-              console.error("AuthContext: Failed to initialize SocialLogin:", err);
+              console.error(
+                "AuthContext: Failed to initialize SocialLogin:",
+                err,
+              );
             }
             Sentry.captureException(err, {
               tags: { context: "social_login_init" },
@@ -423,7 +448,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
       } else {
         console.warn(
-          "AuthContext: NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID not set, native Google Sign-In will not work"
+          "AuthContext: NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID not set, native Google Sign-In will not work",
         );
       }
 
@@ -443,7 +468,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (process.env.NODE_ENV === "development") {
                   console.error(
                     "AuthContext: Error refreshing session on app resume:",
-                    error
+                    error,
                   );
                 }
                 return;
@@ -456,7 +481,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (process.env.NODE_ENV === "development") {
                 console.error(
                   "AuthContext: Exception refreshing session on app resume:",
-                  error
+                  error,
                 );
               }
             }
@@ -482,7 +507,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("quiver:auth-expired", handleAuthExpired);
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
       }
       if (appStateListener) {
         appStateListener.remove();
@@ -495,7 +523,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     fullName?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> => {
     setIsLoading(true);
     try {

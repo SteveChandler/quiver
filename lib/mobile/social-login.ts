@@ -12,15 +12,40 @@ let initPromise: Promise<void> | null = null;
  * Start SocialLogin initialization. Safe to call multiple times — only the
  * first call creates the promise; subsequent calls return the same one.
  */
-export function initializeSocialLogin(webClientId: string): Promise<void> {
+export function initializeSocialLogin(
+  webClientId: string,
+  iosClientId?: string
+): Promise<void> {
   if (initPromise) return initPromise;
 
-  initPromise = import("@capgo/capacitor-social-login").then(
-    ({ SocialLogin }) =>
-      SocialLogin.initialize({
-        google: { webClientId },
-      })
-  );
+  const options = {
+    google: {
+      webClientId,
+      iOSClientId: iosClientId || webClientId,
+      iOSServerClientId: webClientId,
+    },
+  };
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(
+      "[SocialLogin] Initializing with options:",
+      JSON.stringify(options)
+    );
+  }
+
+  initPromise = import("@capgo/capacitor-social-login")
+    .then(({ SocialLogin }) => SocialLogin.initialize(options))
+    .catch((err) => {
+      // Reset initPromise so retries are possible via ensureSocialLoginReady
+      if (process.env.NODE_ENV === "development") {
+        console.error(
+          "[SocialLogin] Initialize failed, resetting for retry:",
+          err
+        );
+      }
+      initPromise = null;
+      throw err;
+    });
 
   return initPromise;
 }
@@ -32,5 +57,23 @@ export function initializeSocialLogin(webClientId: string): Promise<void> {
 export async function ensureSocialLoginReady(): Promise<void> {
   if (initPromise) {
     await initPromise;
+    return;
+  }
+
+  // Fallback: initPromise is null (either never called OR was reset after failure)
+  const webClientId = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const iosClientId = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+
+  if (webClientId) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "[SocialLogin] Retrying initialization from ensureSocialLoginReady"
+      );
+    }
+    await initializeSocialLogin(webClientId, iosClientId);
+  } else {
+    console.warn(
+      "ensureSocialLoginReady: NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing"
+    );
   }
 }

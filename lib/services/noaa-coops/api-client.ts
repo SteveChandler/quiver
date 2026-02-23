@@ -67,7 +67,7 @@ export function buildPredictionsUrl(
 /**
  * Build the CO-OPS API URL for water level
  */
-export function buildWaterLevelUrl(stationId: string): string {
+function buildWaterLevelUrl(stationId: string): string {
   const url = new URL(COOPS_BASE_URL);
   url.searchParams.set("application", "quiver-surf-app");
   url.searchParams.set("station", stationId);
@@ -83,7 +83,7 @@ export function buildWaterLevelUrl(stationId: string): string {
 /**
  * Build the station metadata URL
  */
-export function buildStationInfoUrl(stationId: string): string {
+function buildStationInfoUrl(stationId: string): string {
   return `${COOPS_METADATA_URL}/${stationId}.json`;
 }
 
@@ -110,7 +110,7 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal | undefined {
  * @param options - Optional logging configuration
  * @returns Array of tide data or fallback data on error
  */
-export async function fetchTidePredictions(
+async function fetchTidePredictions(
   stationId: string,
   beginDate: string,
   endDate: string,
@@ -182,7 +182,7 @@ export async function fetchTidePredictions(
  * @param stationId - CO-OPS station ID
  * @returns Current water level in feet, or null on error
  */
-export async function fetchCurrentWaterLevel(
+async function fetchCurrentWaterLevel(
   stationId: string
 ): Promise<number | null> {
   try {
@@ -223,7 +223,7 @@ export async function fetchCurrentWaterLevel(
  * @param stationId - CO-OPS station ID
  * @returns Station info or null on error
  */
-export async function fetchStationInfo(
+async function fetchStationInfo(
   stationId: string
 ): Promise<StationInfo | null> {
   try {

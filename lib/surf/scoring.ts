@@ -342,7 +342,7 @@ const { HOUR_MS, SCAN_STEP_MS, SNAP_MS, MAX_SHIFT_MS, MIN_DURATION_MS } = REFINE
  * @param alpha - Interpolation factor (clamped to [0,1])
  * @returns Interpolated value
  */
-export function lerp(from: number, to: number, alpha: number): number {
+function lerp(from: number, to: number, alpha: number): number {
   const clampedAlpha = Math.min(1, Math.max(0, alpha));
   return from + clampedAlpha * (to - from);
 }

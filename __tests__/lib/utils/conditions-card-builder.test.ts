@@ -150,6 +150,28 @@ describe("buildConditionsCards", () => {
     });
   });
 
+  describe("tide Unknown status handling", () => {
+    it("shows only height when tideStatus is Unknown but tideHeight exists", () => {
+      const cards = buildConditionsCards({
+        tideStatus: "Unknown",
+        tideHeight: "0.6 ft",
+      });
+      expect(cards).toHaveLength(1);
+      expect(cards[0]).toEqual({
+        id: "tide",
+        label: "Tide",
+        value: "0.6 ft",
+        iconType: "tide",
+        tideRising: false,
+      });
+    });
+
+    it("omits tide card entirely when tideStatus is Unknown and no tideHeight", () => {
+      const cards = buildConditionsCards({ tideStatus: "Unknown" });
+      expect(cards).toHaveLength(0);
+    });
+  });
+
   it("does not skip value '0'", () => {
     const cards = buildConditionsCards({
       waveHeight: "0",

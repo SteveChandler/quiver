@@ -106,7 +106,7 @@ export interface SessionWindow {
  * // Returns: ~90 (offshore, light wind, long period, mid-tide, morning)
  * ```
  */
-export function scoreForecast(forecast: ForecastData, beachAspect: number): number {
+function scoreForecast(forecast: ForecastData, beachAspect: number): number {
   let score = 0;
   
   // Wind scoring (most important factor)
@@ -148,7 +148,7 @@ export function scoreForecast(forecast: ForecastData, beachAspect: number): numb
  * @param scoredForecasts - Array of forecasts with scores
  * @returns Best scoring forecast or null
  */
-export function findBestForecast(scoredForecasts: ScoredForecast[]): ScoredForecast | null {
+function findBestForecast(scoredForecasts: ScoredForecast[]): ScoredForecast | null {
   if (scoredForecasts.length === 0) {
     return null;
   }
@@ -177,7 +177,7 @@ export function findBestForecast(scoredForecasts: ScoredForecast[]): ScoredForec
  * @param scoredForecasts - Forecasts with scores
  * @returns Extended window times (start and end)
  */
-export function extendWindow(
+function extendWindow(
   bestForecast: ForecastData,
   allForecasts: ForecastData[],
   scoredForecasts: ScoredForecast[]
@@ -230,7 +230,7 @@ export function extendWindow(
  * @param beachAspect - Beach aspect in degrees
  * @returns Description and conditions text
  */
-export function buildWindowDescription(
+function buildWindowDescription(
   forecast: ForecastData,
   score: number,
   beachAspect: number

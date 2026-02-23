@@ -465,7 +465,7 @@ export class NOAACOOPSService {
     }
   }
 
-  getTideStatusAtTime(tides: TideData[], targetTime: Date): string {
+  getTideStatusAtTime(tides: TideData[], targetTime: Date): TideStatus {
     const targetTimestamp = targetTime.getTime() / 1000;
 
     // Find the closest past and future tides

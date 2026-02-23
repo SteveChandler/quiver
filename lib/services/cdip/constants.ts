@@ -11,7 +11,6 @@ export {
   CDIP_API_CONFIG,
   DATA_QUALITY_THRESHOLDS,
   getStationConfig,
-  getStationCoverageRadius,
 } from "@/lib/constants/cdip-stations";
 
 /**

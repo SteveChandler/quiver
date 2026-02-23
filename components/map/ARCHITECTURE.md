@@ -16,7 +16,7 @@ components/map/
 ├── map-cluster-renderer.ts   # createClusterMapMarker — cluster marker creation + click-to-expand
 ├── cluster-marker.tsx        # createClusterMarkerElement — cluster marker DOM element factory
 ├── map-sidebar.tsx           # Desktop sidebar with viewport-filtered beach list
-├── map-bottom-sheet.tsx      # Mobile bottom sheet (Vaul Drawer) with beach list
+├── map-bottom-sheet.tsx      # Mobile bottom sheet (custom touch gestures) with beach list
 ├── sidebar-beach-card.tsx    # Compact beach card for sidebar/bottom sheet
 ├── map-display.tsx            # Static map with wave height overlays
 ├── beach-list.tsx            # Searchable beach list with reviews
@@ -539,16 +539,31 @@ const MapSidebar = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect
 
 ### **MapBottomSheet** (Mobile Viewport List)
 
-- **Purpose**: AllTrails-style mobile bottom sheet using Vaul Drawer with three snap points
+- **Purpose**: AllTrails-style mobile bottom sheet with three snap points, custom touch gestures
 - **Props**: `beaches`, `waveHeightMap`, `selectedBeach`, `userLocation`, `onBeachSelect`, `getDistanceFromUser`, `onDeselectBeach`
+- **Implementation**: Custom touch-based bottom sheet (replaced Vaul Drawer for Android WebView compatibility)
+- **Gesture hook**: `useBottomSheetGesture` (`hooks/use-bottom-sheet-gesture.ts`)
 - **Features**:
   - Three snap points: **10% peek** (default), **40% detail** (on selection), **90% full** (scrollable list)
   - Embeds `SelectedBeachCard` above the scrollable beach list when a beach is selected
   - Auto-snaps to detail (40%) on selection, peek (10%) on deselection
   - `onDeselectBeach` prop wired to `SelectedBeachCard`'s `onClose` and map-tap deselection
-  - Always visible and non-modal (`modal={false}`) so the map stays interactive
-  - Scrolling only enabled at the 90% snap point (`data-vaul-no-drag`)
+  - Always visible and non-modal so the map stays interactive
+  - Scrolling enabled at detail (40%) and full (90%) snap points
   - Shared state via `useBeachListState` hook (card refs, distance map)
+
+**Why custom instead of Vaul:**
+- Vaul uses CSS `dvh` units (unsupported in Android WebView)
+- Vaul's `setPointerCapture` is unreliable in Capacitor
+- Vaul's `requestAnimationFrame`-based snap transitions race with WebView layout
+- Custom implementation uses `touchstart`/`touchmove`/`touchend` events + direct DOM `transform` updates for reliable 60fps
+
+**Why `vh` instead of `dvh`:**
+- `dvh` (dynamic viewport height) is not supported in Android WebView
+- `vh` is universally supported and sufficient since the sheet uses `window.innerHeight` for snap-point math
+- The `useBottomSheetGesture` hook recalculates on `resize` events (keyboard show/hide, orientation changes)
+
+**Note:** `components/ui/drawer.tsx` (standard modal Vaul drawer used elsewhere in the app) is unaffected — `vaul` remains in `package.json`.
 
 **Implementation:**
 
@@ -556,38 +571,33 @@ const MapSidebar = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect
 const SNAP_POINTS = [0.1, 0.4, 0.9]; // peek, detail, full
 
 function MapBottomSheet({ beaches, selectedBeach, onDeselectBeach, ... }) {
-  const [activeSnapPoint, setActiveSnapPoint] = useState(SNAP_POINTS[0]);
+  const [activeSnapIndex, setActiveSnapIndex] = useState(PEEK_INDEX);
+  const handleRef = useRef<HTMLDivElement>(null);
+
+  const { sheetRef } = useBottomSheetGesture({
+    snapPoints: SNAP_POINTS,
+    activeSnapIndex,
+    onSnapChange: setActiveSnapIndex,
+    handleRef,
+  });
 
   // Snap to detail on selection, peek on deselection
   useEffect(() => {
-    setActiveSnapPoint(selectedBeach ? SNAP_POINTS[1] : SNAP_POINTS[0]);
+    setActiveSnapIndex(selectedBeach ? DETAIL_INDEX : PEEK_INDEX);
   }, [selectedBeach?.id]);
 
   return (
-    <DrawerPrimitive.Root open modal={false} snapPoints={SNAP_POINTS} ...>
-      <DrawerPrimitive.Portal>
-        <DrawerPrimitive.Content>
-          <DrawerPrimitive.Handle />
-          <DrawerPrimitive.Title>
-            {selectedBeach ? selectedBeach.name : "Surf Spots"}
-          </DrawerPrimitive.Title>
+    <div ref={sheetRef} className="fixed inset-x-0 bottom-0 z-40 h-[90vh] ...">
+      <div ref={handleRef} style={{ touchAction: "none" }}>
+        {/* Handle bar + header — entire area is draggable */}
+      </div>
 
-          {/* Selected beach card above list */}
-          {selectedBeach && (
-            <SelectedBeachCard
-              selectedBeach={selectedBeach}
-              onClose={onDeselectBeach}
-              ...
-            />
-          )}
+      {selectedBeach && <SelectedBeachCard ... />}
 
-          {/* Scrollable beach list */}
-          <div style={{ overflowY: isExpanded ? "auto" : "hidden" }}>
-            {beaches.map(beach => <SidebarBeachCard ... />)}
-          </div>
-        </DrawerPrimitive.Content>
-      </DrawerPrimitive.Portal>
-    </DrawerPrimitive.Root>
+      <div style={{ overflowY: isScrollable ? "auto" : "hidden", overscrollBehavior: "none" }}>
+        {beaches.map(beach => <SidebarBeachCard ... />)}
+      </div>
+    </div>
   );
 }
 ```
@@ -1059,7 +1069,7 @@ const announceSelection = (beachName: string) => {
 
 ---
 
-**Last Updated**: January 18, 2026
+**Last Updated**: February 23, 2026
 **Status**: Production-ready with **beach marker clustering**, **Phase 2 motion enhancements**, real-time wave data, and comprehensive search
 **Motion Features**: Beach marker interactions, forecast popups, staggered animations, location selection excitement
 **Clustering**: Supercluster integration with useBeachClustering hook and ClusterMarker component

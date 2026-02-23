@@ -12,6 +12,11 @@ export interface TideExtreme {
 }
 
 /**
+ * Tide phase status returned by getTideStatusAtTime
+ */
+export type TideStatus = "Rising" | "Falling" | "Unknown";
+
+/**
  * Processed tide data with parsed values
  */
 export interface TideData {

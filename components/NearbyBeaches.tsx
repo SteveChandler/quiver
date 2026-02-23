@@ -15,7 +15,7 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
   const lat = selectedBeach?.lat ?? selectedBeach?.latitude ?? undefined;
   const lon = selectedBeach?.lon ?? selectedBeach?.longitude ?? undefined;
 
-  const { data: beaches, isLoading } = useNearbyBeaches(lat, lon, limit);
+  const { data: beaches, loading: isLoading } = useNearbyBeaches(lat, lon, limit);
 
   const origin = useMemo(() => {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {

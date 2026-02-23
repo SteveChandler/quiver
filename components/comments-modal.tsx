@@ -24,7 +24,7 @@ export function CommentsModal({
 }: CommentsModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent aria-describedby={undefined} className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Comments - {beachName}</DialogTitle>
         </DialogHeader>

@@ -4,7 +4,7 @@
  * Individual scorers that contribute to the composite score.
  */
 
-export { baseConditionsScorer, createBaseConditionsScorer } from './base-conditions-scorer';
+export { baseConditionsScorer } from './base-conditions-scorer';
 export { swellAlignmentScorer } from './swell-alignment-scorer';
 export { swellInterferenceScorer } from './swell-interference-scorer';
 export { windQualityScorer } from './wind-quality-scorer';

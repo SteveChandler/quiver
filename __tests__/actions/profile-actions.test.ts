@@ -20,7 +20,7 @@ jest.mock("@/lib/server-action-utils", () => {
   const eq = jest.fn(() => ({ select }));
   const update = jest.fn((payload: any) => {
     // expose last payload for assertions
-    // @ts-ignore
+    // @ts-expect-error
     global.__lastUpdatePayload = payload;
     return { eq } as any;
   });
@@ -37,7 +37,7 @@ jest.mock("@/lib/server-action-utils", () => {
 describe("updateProfile avatar_url validation", () => {
   beforeEach(() => {
     // Clear global payload before each test
-    // @ts-ignore
+    // @ts-expect-error
     global.__lastUpdatePayload = undefined;
   });
 
@@ -53,7 +53,7 @@ describe("updateProfile avatar_url validation", () => {
     expect(result.success).toBe(true);
     
     // And the payload should not include avatar_url field (it's omitted)
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload.avatar_url).toBe(undefined);
   });
@@ -68,7 +68,7 @@ describe("updateProfile avatar_url validation", () => {
     
     expect(result.success).toBe(true);
     
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload.avatar_url).toBe("https://example.com/avatar.jpg");
   });
@@ -83,7 +83,7 @@ describe("updateProfile avatar_url validation", () => {
     
     expect(result.success).toBe(true);
     
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload.avatar_url).toBe(null);
   });
@@ -98,7 +98,7 @@ describe("updateProfile avatar_url validation", () => {
     
     expect(result.success).toBe(true);
     
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload.avatar_url).toBe(undefined);
   });
@@ -113,7 +113,7 @@ describe("updateProfile avatar_url validation", () => {
     
     expect(result.success).toBe(true);
     
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload.avatar_url).toBe(undefined);
   });
@@ -121,7 +121,7 @@ describe("updateProfile avatar_url validation", () => {
 
 describe("updateProfile empty string handling", () => {
   beforeEach(() => {
-    // @ts-ignore
+    // @ts-expect-error
     global.__lastUpdatePayload = undefined;
   });
 
@@ -137,7 +137,7 @@ describe("updateProfile empty string handling", () => {
     expect(result.success).toBe(true);
     
     // And the payload should not include avatar_url field
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     expect(payload.avatar_url).toBe(undefined);
   });
@@ -155,7 +155,7 @@ describe("updateProfile empty string handling", () => {
     
     expect(result.success).toBe(true);
     
-    // @ts-ignore
+    // @ts-expect-error
     const payload = global.__lastUpdatePayload;
     
     // avatar_url should be omitted when empty
