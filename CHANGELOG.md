@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Tide "Unknown" status on home screen:** Deduplicated `tide_forecasts` rows by hour in `fetchCachedTides()` — multiple cron runs were inserting 3 rows per hour at different seconds, creating plateaus that broke `TideExtremaDetector` extrema detection and caused `getTideStatusAtTime()` to return "Unknown" instead of "Rising"/"Falling"
+
+### Changed
+
+- **"Tomorrow" headline wording:** Updated `buildHeadlineText()` prefixes from "Tomorrow at..." to "Skip today — tomorrow at..." to give context about why today isn't the recommendation
+
+### Fixed
+
+- **E2E forecast-tabs test selectors:** Fixed 3 failing Playwright tests (`should display metric cards`, `should display swell information`, `should display tide-related text`) by scoping text locators to the active tabpanel. The tests were calling `.first()` on page-wide text searches and matching elements inside `ConditionsTicker`'s CSS-hidden `ticker-static-track` (rendered as `display: none`) before reaching the visible forecast cards.
+
 - **CI lint/type errors:** Fixed 13 pre-existing lint errors and 1 TypeScript error to enable strict prod-gate CI checks (removed `continue-on-error` from typecheck and lint jobs)
 
 - **`get_yesterday_accuracy` sentinel filter:** Changed `AND p.observed_m IS NOT NULL` to `AND p.observed_m > 0` in the SQL function so that sentinel values (`-1.00`, used to mark ongoing/unmatched predictions) are excluded from accuracy calculations. Previously, beaches with many sentinels (e.g. Upper Trestles had 165 sentinels vs 40 valid obs) would report negative `avg_observed_m` and inflated error metrics. Migration: `20260222120000_fix_yesterday_accuracy_sentinel_filter.sql`.

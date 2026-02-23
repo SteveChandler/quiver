@@ -219,9 +219,20 @@ export class NOAACOOPSService {
         return null;
       }
 
+      // Deduplicate rows that share the same hour (multiple cron runs
+      // can insert rows at :17, :22, :50 seconds within the same hour).
+      // Duplicates cause plateaus that break extrema detection.
+      const dedupedRows = this.deduplicateByHour(rows);
+
+      if (this.isVerbose() && dedupedRows.length < rows.length) {
+        log.debug(
+          `Deduplicated tide rows for beach ${beachId}: ${rows.length} → ${dedupedRows.length}`
+        );
+      }
+
       // Use TideExtremaDetector to extract high/low points from hourly data
       const detector = new TideExtremaDetector();
-      const samples: TideSample[] = rows.map((row) => ({
+      const samples: TideSample[] = dedupedRows.map((row) => ({
         ts: row.ts,
         tide_height_m: row.tide_height_m,
       }));
@@ -243,7 +254,7 @@ export class NOAACOOPSService {
       }
 
       if (this.isVerbose()) {
-        log.debug(`Found ${tides.length} tide extremes from ${rows.length} hourly points for beach ${beachId}`);
+        log.debug(`Found ${tides.length} tide extremes from ${dedupedRows.length} hourly points for beach ${beachId}`);
       }
 
       /**
@@ -413,6 +424,26 @@ export class NOAACOOPSService {
     };
 
     return { forecast, diagnostics };
+  }
+
+  /**
+   * Deduplicate tide forecast rows by hour.
+   * Multiple cron runs can insert rows at different seconds within the same
+   * hour (e.g., :17, :22, :50). Keeping only the first row per hour prevents
+   * plateaus that confuse the TideExtremaDetector.
+   */
+  private deduplicateByHour(
+    rows: { ts: string; tide_height_m: number; tide_phase: string | null; source: string | null }[]
+  ): typeof rows {
+    const seen = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      // "2026-02-23T00" — truncate to hour
+      const hourKey = row.ts.substring(0, 13);
+      if (!seen.has(hourKey)) {
+        seen.set(hourKey, row);
+      }
+    }
+    return Array.from(seen.values());
   }
 
   /**

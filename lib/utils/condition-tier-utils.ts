@@ -124,16 +124,16 @@ export function buildHeadlineText(
   if (isTomorrow) {
     switch (timeSlot) {
       case "dawn-patrol":
-        prefix = "Tomorrow's dawn patrol at ";
+        prefix = "Skip today \u2014 tomorrow's dawn patrol at ";
         break;
       case "lunch-session":
-        prefix = "Tomorrow midday at ";
+        prefix = "Skip today \u2014 tomorrow midday at ";
         break;
       case "afternoon":
-        prefix = "Tomorrow afternoon at ";
+        prefix = "Skip today \u2014 tomorrow afternoon at ";
         break;
       default:
-        prefix = "Tomorrow at ";
+        prefix = "Skip today \u2014 tomorrow at ";
     }
   }
 

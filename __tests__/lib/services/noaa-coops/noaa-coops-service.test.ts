@@ -242,6 +242,96 @@ describe('NOAACOOPSService', () => {
       });
     });
 
+    describe('Duplicate row deduplication', () => {
+      it('should detect extrema correctly when rows are duplicated 3x per hour', async () => {
+        const now = new Date();
+        // Simulate 3 cron-run duplicates per hour (at :17, :22, :50 seconds)
+        const makeTriple = (hourOffset: number, height: number) => {
+          const base = new Date(now.getTime() + hourOffset * 3600000);
+          return [
+            { ts: new Date(base.getTime() + 17000).toISOString(), tide_height_m: height, tide_phase: null, source: 'noaa' },
+            { ts: new Date(base.getTime() + 22000).toISOString(), tide_height_m: height, tide_phase: null, source: 'noaa' },
+            { ts: new Date(base.getTime() + 50000).toISOString(), tide_height_m: height, tide_phase: null, source: 'noaa' },
+          ];
+        };
+
+        const rows = [
+          ...makeTriple(0, 0.5),
+          ...makeTriple(1, 1.0),
+          ...makeTriple(2, 1.5),  // high
+          ...makeTriple(3, 1.2),
+          ...makeTriple(4, 0.8),
+          ...makeTriple(5, 0.3),  // low
+          ...makeTriple(6, 0.6),
+          ...makeTriple(7, 1.1),
+        ];
+
+        const mockBuilder = createMockQueryBuilder(rows);
+        mockSupabase.mockResolvedValue({
+          from: jest.fn().mockReturnValue(mockBuilder),
+        });
+
+        const result = await service.fetchCachedTides(beachId);
+
+        expect(result).not.toBeNull();
+        const highs = result?.tides.filter(t => t.type === 'high') ?? [];
+        const lows = result?.tides.filter(t => t.type === 'low') ?? [];
+
+        expect(highs.length).toBeGreaterThanOrEqual(1);
+        expect(lows.length).toBeGreaterThanOrEqual(1);
+
+        // High at 1.5m → ~4.9 ft
+        const mainHigh = highs.find(h => Math.abs(h.height - 4.9) < 0.2);
+        expect(mainHigh).toBeDefined();
+      });
+
+      it('should produce same extrema from deduplicated rows as from single rows', async () => {
+        const now = new Date();
+        const heights = [0.5, 1.0, 1.5, 1.2, 0.8, 0.3, 0.6, 1.1];
+
+        // Single row per hour
+        const singleRows = heights.map((h, i) => ({
+          ts: new Date(now.getTime() + i * 3600000).toISOString(),
+          tide_height_m: h,
+          tide_phase: null,
+          source: 'noaa',
+        }));
+
+        const mockBuilder1 = createMockQueryBuilder(singleRows);
+        mockSupabase.mockResolvedValue({
+          from: jest.fn().mockReturnValue(mockBuilder1),
+        });
+
+        const singleResult = await service.fetchCachedTides(beachId);
+
+        // Triple rows per hour
+        const tripleRows = heights.flatMap((h, i) => {
+          const base = new Date(now.getTime() + i * 3600000);
+          return [
+            { ts: new Date(base.getTime() + 17000).toISOString(), tide_height_m: h, tide_phase: null, source: 'noaa' },
+            { ts: new Date(base.getTime() + 22000).toISOString(), tide_height_m: h, tide_phase: null, source: 'noaa' },
+            { ts: new Date(base.getTime() + 50000).toISOString(), tide_height_m: h, tide_phase: null, source: 'noaa' },
+          ];
+        });
+
+        const mockBuilder2 = createMockQueryBuilder(tripleRows);
+        mockSupabase.mockResolvedValue({
+          from: jest.fn().mockReturnValue(mockBuilder2),
+        });
+
+        const tripleResult = await service.fetchCachedTides(beachId);
+
+        expect(singleResult).not.toBeNull();
+        expect(tripleResult).not.toBeNull();
+        expect(tripleResult!.tides.length).toBe(singleResult!.tides.length);
+
+        // Same extrema types in same order
+        const singleTypes = singleResult!.tides.map(t => t.type);
+        const tripleTypes = tripleResult!.tides.map(t => t.type);
+        expect(tripleTypes).toEqual(singleTypes);
+      });
+    });
+
     describe('Plateau handling (no false positives)', () => {
       it('should not detect extrema for consecutive equal heights', async () => {
         const now = new Date();
