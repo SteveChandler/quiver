@@ -14,7 +14,6 @@ jest.mock("@/components/beach-card", () => ({
 }));
 
 import React, { useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 
 import { NearbyBeaches } from "@/components/NearbyBeaches";
@@ -23,17 +22,6 @@ import {
   useSelectedBeach,
 } from "@/state/selectedBeach";
 import type { SelectedBeach as SelectedBeachState } from "@/state/selectedBeach";
-
-function createQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        gcTime: 0,
-      },
-    },
-  });
-}
 
 interface SelectedBeachInitializerProps {
   children: React.ReactNode;
@@ -108,11 +96,8 @@ describe("NearbyBeaches component", () => {
       error: null,
     });
 
-    const queryClient = createQueryClient();
-
     render(
-      <QueryClientProvider client={queryClient}>
-        <SelectedBeachProvider>
+      <SelectedBeachProvider>
           <SelectedBeachInitializer
             initialBeach={{
               id: "selected",
@@ -124,7 +109,6 @@ describe("NearbyBeaches component", () => {
             <NearbyBeaches limit={4} />
           </SelectedBeachInitializer>
         </SelectedBeachProvider>
-      </QueryClientProvider>
     );
 
     await waitFor(() => {
@@ -194,27 +178,24 @@ describe("NearbyBeaches component", () => {
         error: null,
       });
 
-    const queryClient = createQueryClient();
     let updateSelected: ((beach: SelectedBeachState | null) => void) | null = null;
 
     render(
-      <QueryClientProvider client={queryClient}>
-        <SelectedBeachProvider>
-          <SelectedBeachInitializer
-            initialBeach={{
-              id: "selected",
-              name: "Selected Beach",
-              lat: 32.71,
-              lon: -117.16,
-            }}
-            onReady={(setter) => {
-              updateSelected = setter;
-            }}
-          >
-            <NearbyBeaches limit={4} />
-          </SelectedBeachInitializer>
-        </SelectedBeachProvider>
-      </QueryClientProvider>
+      <SelectedBeachProvider>
+        <SelectedBeachInitializer
+          initialBeach={{
+            id: "selected",
+            name: "Selected Beach",
+            lat: 32.71,
+            lon: -117.16,
+          }}
+          onReady={(setter) => {
+            updateSelected = setter;
+          }}
+        >
+          <NearbyBeaches limit={4} />
+        </SelectedBeachInitializer>
+      </SelectedBeachProvider>
     );
 
     await waitFor(() => {
@@ -239,14 +220,10 @@ describe("NearbyBeaches component", () => {
   });
 
   it("returns null when no beach is selected", () => {
-    const queryClient = createQueryClient();
-
     const { container } = render(
-      <QueryClientProvider client={queryClient}>
-        <SelectedBeachProvider>
-          <NearbyBeaches limit={4} />
-        </SelectedBeachProvider>
-      </QueryClientProvider>
+      <SelectedBeachProvider>
+        <NearbyBeaches limit={4} />
+      </SelectedBeachProvider>
     );
 
     expect(container).toBeEmptyDOMElement();

@@ -4,7 +4,6 @@ import { TideChart } from "@/components/forecast/tide-chart-recharts";
 
 // Ensure Recharts picks up a non-zero container size under JSDOM
 beforeAll(() => {
-  // @ts-ignore
   Element.prototype.getBoundingClientRect = function () {
     return {
       width: 800,

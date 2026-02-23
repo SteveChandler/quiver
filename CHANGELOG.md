@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Data fetching consolidation:** Migrated `use-sun-times`, `use-beach-detail-data`, and `useNearbyBeaches` hooks from SWR/React Query to the standard `useDataFetcher` pattern
+- **Package rename:** Changed package.json name from `my-v0-project` to `quiver`
+- **TypeScript strictness:** Replaced ~60 `@ts-ignore` directives with `@ts-expect-error` (or removed where unnecessary)
+- **Build strictness:** Removed `ignoreBuildErrors: true` from `next.config.mjs` — TypeScript errors now block builds
+- **useDataFetcher refetch on param change:** Hook now re-fetches when `fetchFn` identity changes, matching React Query/SWR behavior for parameter-driven refetches
+
+### Added
+
+- **Unit test coverage for migrated hooks:** New TDD test suites for `use-sun-times` (6 tests), `use-beach-detail-data` (11 tests), `useNearbyBeaches` (6 tests)
+- **Jest CI gate:** Added unit test step with coverage thresholds to `prod-gate.yml` workflow
+- **Migration squash strategy:** Documented 374-migration squash recommendation in `supabase/ARCHITECTURE.md`
+
 ### Removed
 
+- **SWR dependency:** Removed `swr` package (no longer used by any hook)
+- **React Query dependency:** Removed `@tanstack/react-query` package and `ReactQueryProvider` component
+- **Root directory cleanup:** Deleted 93 PNG screenshots, 13 orphaned report markdown files, and miscellaneous debris (`console-errors-full.txt`, `capacitor.config.ts.bak`, `beach_bias_model_v1.json`); moved utility scripts to `scripts/`
 - **Dead code sweep:** Removed unused `AdjustedForecastDisplay` component and its test (408 lines)
 - **Dead scripts:** Removed unused standalone scripts (`ml-stats.ts`, `validate-cameras.ts`)
 - **Dead dependencies:** Removed `@capacitor/browser`, `@types/pg`, and `pg` from package.json

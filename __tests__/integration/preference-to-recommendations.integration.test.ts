@@ -30,13 +30,9 @@ const shouldRunIntegration =
 // Restore real fetch for database tests
  
 const undici = require("undici");
-// @ts-ignore
 global.fetch = undici.fetch;
-// @ts-ignore
 global.Headers = undici.Headers;
-// @ts-ignore
 global.Request = undici.Request;
-// @ts-ignore
 global.Response = undici.Response;
 
 // IMPORTANT: require supabase-js after installing a real fetch

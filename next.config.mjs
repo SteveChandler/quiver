@@ -87,10 +87,6 @@ const nextConfig = {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV,
   },
 
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
   // Enable compression for better performance
   compress: true,
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { createClient } from "@/lib/supabase/client";
 
 type NearbyBeachRow = {
@@ -77,11 +78,11 @@ export function useNearbyBeaches(
   const roundedLat = enabled ? Math.round((sourceLat as number) * 1000) / 1000 : undefined;
   const roundedLon = enabled ? Math.round((sourceLon as number) * 1000) / 1000 : undefined;
 
-  return useQuery<NearbyBeach[]>({
-    queryKey: ["nearby-beaches", roundedLat, roundedLon, limit],
-    queryFn: () => fetchNearestBeaches(roundedLat!, roundedLon!, limit),
-    enabled,
-    staleTime: 60 * 1000, // 1 minute: avoids refetch on back/forward and quick tab switches
-    gcTime: 10 * 60 * 1000,
+  const fetchNearby = useCallback(async () => {
+    return fetchNearestBeaches(roundedLat!, roundedLon!, limit);
+  }, [roundedLat, roundedLon, limit]);
+
+  return useDataFetcher<NearbyBeach[]>(fetchNearby, {
+    skip: !enabled,
   });
 }

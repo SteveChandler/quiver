@@ -65,21 +65,27 @@ export function useDataFetcher<T>(
     }
   }, []); // Empty dependency array since we use refs
 
-  // Track previous skip value to trigger fetch when skip becomes false
+  // Track previous skip and fetchFn to detect changes
   const prevSkipRef = useRef(skip);
+  const prevFetchFnRef = useRef(fetchFn);
 
   useEffect(() => {
     const wasSkipped = prevSkipRef.current;
-    const isCurrentlySkipped = skip;
+    const fetchFnChanged = prevFetchFnRef.current !== fetchFn;
 
-    // Trigger fetch when immediate is true and not skipped,
-    // or when skip changes from true to false
-    if ((immediate && !skip) || (wasSkipped && !isCurrentlySkipped)) {
+    // Trigger fetch when:
+    // 1. immediate is true and not skipped (initial mount or re-run)
+    // 2. skip changes from true to false
+    // 3. fetchFn identity changes while not skipped (callers use useCallback
+    //    with deps, so a new identity signals changed parameters)
+    if ((immediate && !skip) || (wasSkipped && !skip) || (!skip && fetchFnChanged)) {
       fetchData();
     }
 
     prevSkipRef.current = skip;
-  }, [fetchData, immediate, skip]);
+    prevFetchFnRef.current = fetchFn;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData, immediate, skip, fetchFn]);
 
   const retry = useCallback(() => {
     fetchData();
