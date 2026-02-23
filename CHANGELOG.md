@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Dead code sweep:** Removed unused `AdjustedForecastDisplay` component and its test (408 lines)
+- **Dead scripts:** Removed unused standalone scripts (`ml-stats.ts`, `validate-cameras.ts`)
+- **Dead dependencies:** Removed `@capacitor/browser`, `@types/pg`, and `pg` from package.json
+- **Dead exports:** Removed ~120 unused exported functions, constants, and re-exports across actions, lib, hooks, and services — reducing public API surface without changing runtime behavior
+
 ### Added
 
 - **Git workflow documentation:** Created `docs/GIT_WORKFLOW.md` formalizing the two-branch model (`main` → `prod`), feature branch conventions, hotfix process, and branch hygiene rules

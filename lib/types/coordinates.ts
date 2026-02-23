@@ -193,7 +193,7 @@ export function normalizeCoordinates(
 /**
  * Convenience helper to convert `{ lat, lon }` into `{ latitude, longitude }`.
  */
-export function toCoordinatesVerbose(coords: Coordinates): CoordinatesVerbose {
+function toCoordinatesVerbose(coords: Coordinates): CoordinatesVerbose {
   return { latitude: coords.lat, longitude: coords.lon };
 }
 
@@ -209,7 +209,7 @@ export function toCoordinatesVerbose(coords: Coordinates): CoordinatesVerbose {
  * }
  * ```
  */
-export function isCoordinates(obj: unknown): obj is Coordinates {
+function isCoordinates(obj: unknown): obj is Coordinates {
   return (
     typeof obj === 'object' &&
     obj !== null &&
@@ -232,7 +232,7 @@ export function isCoordinates(obj: unknown): obj is Coordinates {
  * }
  * ```
  */
-export function isCoordinatesVerbose(obj: unknown): obj is CoordinatesVerbose {
+function isCoordinatesVerbose(obj: unknown): obj is CoordinatesVerbose {
   return (
     typeof obj === 'object' &&
     obj !== null &&
@@ -256,7 +256,7 @@ export function isCoordinatesVerbose(obj: unknown): obj is CoordinatesVerbose {
  * }
  * ```
  */
-export function isLegacyLngLatFormat(obj: unknown): obj is { lat: number; lng: number } {
+function isLegacyLngLatFormat(obj: unknown): obj is { lat: number; lng: number } {
   return (
     typeof obj === 'object' &&
     obj !== null &&

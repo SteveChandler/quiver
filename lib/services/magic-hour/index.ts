@@ -14,7 +14,7 @@
  */
 
 // Main entry point
-export { findMagicHour, convertToSlots, parseWindDirection, nullResult } from "./magic-hour-finder";
+export { findMagicHour } from "./magic-hour-finder";
 
 // Types
 export type {
@@ -55,8 +55,6 @@ export {
 
 // Interpolation
 export {
-  calculateOptimalWindow,
-  buildWindowResult,
   formatTime,
 } from "./interpolation";
 

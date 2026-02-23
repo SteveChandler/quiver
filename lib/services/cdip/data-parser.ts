@@ -94,7 +94,7 @@ export function transformERDDAPToDataResponse(
  * @param direction - Wave direction in degrees
  * @returns true if valid, false otherwise
  */
-export function isValidDataPoint(
+function isValidDataPoint(
   timestamp: string,
   waveHeight: number,
   period: number,

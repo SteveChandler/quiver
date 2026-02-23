@@ -114,7 +114,7 @@ export function findMagicHour(
 /**
  * Converts EnhancedForecastEntity array to ForecastSlot array.
  */
-export function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlot[] {
+function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlot[] {
   const slots: ForecastSlot[] = [];
   for (const f of forecasts) {
     try {
@@ -141,14 +141,14 @@ export function convertToSlots(forecasts: EnhancedForecastEntity[]): ForecastSlo
 /**
  * Parses cardinal direction to degrees.
  */
-export function parseWindDirection(dir: string): number {
+function parseWindDirection(dir: string): number {
   return DIRECTION_MAP[dir.toUpperCase()] ?? 0;
 }
 
 /**
  * Returns null result when no Magic Hour is found.
  */
-export function nullResult(): MagicHourResult {
+function nullResult(): MagicHourResult {
   return {
     found: false,
     peakTime: null,

@@ -50,7 +50,7 @@ export function metersToFeet(
  * @param meters - Height in meters (must be a valid number)
  * @returns Height in feet (no rounding applied)
  */
-export function metersToFeetStrict(meters: number): number {
+function metersToFeetStrict(meters: number): number {
   return meters * METERS_TO_FEET;
 }
 

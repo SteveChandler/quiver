@@ -334,7 +334,7 @@ export const baseConditionsScorer: ScorerPlugin = {
 /**
  * Create a base conditions scorer with custom configuration.
  */
-export function createBaseConditionsScorer(
+function createBaseConditionsScorer(
   customConfig?: Partial<WaveHeightConfig>
 ): ScorerPlugin {
   const config = { ...DEFAULT_WAVE_CONFIG, ...customConfig };

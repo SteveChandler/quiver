@@ -39,7 +39,7 @@ export interface ERDDAPInfoResponse {
  * @returns Parsed JSON response
  * @throws Error if request fails or times out
  */
-export async function fetchERDDAP<T = ERDDAPTableResponse>(
+async function fetchERDDAP<T = ERDDAPTableResponse>(
   url: string,
   config: IOOSServiceConfig = IOOS_API_CONFIG
 ): Promise<T> {

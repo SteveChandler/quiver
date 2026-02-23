@@ -9,7 +9,6 @@ export {
   fetchEligibleNPCs,
   selectNPCsForCurrentHour,
   getBeachesForNPC,
-  selectBeachForPost,
 } from './npc-selection';
 export * from './template-hydration';
 export * from './forecast-formatter';

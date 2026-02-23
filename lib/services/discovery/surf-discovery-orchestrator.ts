@@ -253,7 +253,7 @@ function getDiscoveryScoringEngine() {
  * Score beach for discovery with detailed sub-score breakdown.
  * Uses the domain-driven pluggable scoring engine.
  */
-export async function scoreBeachForDiscovery(args: {
+async function scoreBeachForDiscovery(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
   userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;

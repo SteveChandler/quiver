@@ -54,7 +54,7 @@ export function displayPercent(val: number | null | undefined): string {
  * displayCount(1, { singular: "review", plural: "reviews" }) // "1 review"
  * displayCount(null, { singular: "review", plural: "reviews" }) // null
  */
-export function displayCount(
+function displayCount(
   val: number | null | undefined,
   opts: {
     singular: string;

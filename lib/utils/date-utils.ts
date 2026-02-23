@@ -268,7 +268,7 @@ export function formatBestAtLabel(
 /**
  * Month names in order (1-indexed: January = 1, December = 12)
  */
-export const MONTH_NAMES = [
+const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
@@ -284,7 +284,7 @@ export const MONTH_NAMES = [
  * monthNumberToName(12) // "December"
  * monthNumberToName(99) // "Month 99"
  */
-export function monthNumberToName(month: number): string {
+function monthNumberToName(month: number): string {
   return MONTH_NAMES[month - 1] ?? `Month ${month}`;
 }
 

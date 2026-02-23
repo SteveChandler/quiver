@@ -3,7 +3,7 @@
  */
 
 // Critical resource preloading for homepage
-export function preloadCriticalResources() {
+function preloadCriticalResources() {
   if (typeof window === "undefined") return () => {};
 
   // Note: logo preloads removed to prevent unused preload warnings on non-landing pages
@@ -33,7 +33,7 @@ const DEBUG_PERF = process.env.NEXT_PUBLIC_DEBUG_PERF === "true";
 let vitalsInitialized = false;
 
 // Core Web Vitals tracking
-export function trackWebVitals() {
+function trackWebVitals() {
   if (typeof window === "undefined") return () => {};
   if (vitalsInitialized) return () => {};
 
@@ -81,7 +81,7 @@ export function trackWebVitals() {
 }
 
 // Memory usage monitoring
-export function monitorMemoryUsage() {
+function monitorMemoryUsage() {
   if (
     typeof window === "undefined" ||
     !("performance" in window) ||

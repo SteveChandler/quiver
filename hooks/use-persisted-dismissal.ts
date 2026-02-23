@@ -187,4 +187,3 @@ export function usePersistedDismissal(
   };
 }
 
-export default usePersistedDismissal;

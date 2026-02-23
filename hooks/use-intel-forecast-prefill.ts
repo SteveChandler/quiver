@@ -66,7 +66,7 @@ const VALID_WIND_DIRECTIONS = new Set<string>([
 /**
  * Map a raw wind direction string to our WindDirection enum
  */
-export function mapWindDirection(direction: string | undefined | null): WindDirection | undefined {
+function mapWindDirection(direction: string | undefined | null): WindDirection | undefined {
   if (!direction) return undefined;
   const mapped = WIND_DIRECTION_MAP[direction] || direction.toUpperCase();
   return VALID_WIND_DIRECTIONS.has(mapped) ? (mapped as WindDirection) : undefined;

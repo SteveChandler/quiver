@@ -77,7 +77,6 @@ export {
   createScoringEngine,
   scoreWithPlugins,
   baseConditionsScorer,
-  createBaseConditionsScorer,
   swellAlignmentScorer,
   swellInterferenceScorer,
   windQualityScorer,

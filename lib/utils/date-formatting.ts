@@ -29,7 +29,7 @@ export function formatDateInTimezone(date: Date, timezone: string): string {
  * @param timezone - IANA timezone identifier
  * @returns Date object representing today in the specified timezone
  */
-export function getTodayInTimezone(timezone: string): Date {
+function getTodayInTimezone(timezone: string): Date {
   const nowInTz = new Date().toLocaleString('en-US', { timeZone: timezone });
   return new Date(nowInTz);
 }

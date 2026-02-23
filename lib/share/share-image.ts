@@ -325,14 +325,14 @@ export async function shareImage(
  * Checks if sharing is supported on the current platform
  * (Always returns true since we have download fallback)
  */
-export function isShareSupported(): boolean {
+function isShareSupported(): boolean {
   return true;
 }
 
 /**
  * Checks if native share sheet is available
  */
-export function isNativeShareAvailable(): boolean {
+function isNativeShareAvailable(): boolean {
   if (isNativeApp()) return true;
   if (typeof navigator === "undefined") return false;
   return typeof navigator.share === "function" && typeof navigator.canShare === "function";

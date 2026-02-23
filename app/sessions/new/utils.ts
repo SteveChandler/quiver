@@ -19,7 +19,7 @@ export function formatShareDate(raw: unknown): string | undefined {
 /**
  * Combine date and time strings into PostgreSQL timestamp format
  */
-export function combineDateAndTime(
+function combineDateAndTime(
   date?: string,
   time?: string
 ): string | undefined {
@@ -48,7 +48,7 @@ export function combineDateAndTime(
 /**
  * Parse duration string (e.g., "2h30m") into minutes
  */
-export function parseDuration(duration: string): number | undefined {
+function parseDuration(duration: string): number | undefined {
   if (!duration) return undefined;
 
   const hourMatch = duration.match(/(\d+)h/);

@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 // Utility function to convert forecast date and time from UTC to local time.
 // Accepts either a single forecast_at ISO string or legacy forecast_date + forecast_time.
-export function formatForecastTime(
+function formatForecastTime(
   forecastDateOrAt: string,
   forecastTime?: string
 ): string {

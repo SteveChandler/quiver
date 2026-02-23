@@ -72,19 +72,19 @@ export function formatWindDescription(speedKts: number, direction: string): stri
   return intensity + ' ' + direction.toUpperCase() + ' winds';
 }
 
-export function formatTideState(heightFt: number, isRising: boolean): string {
+function formatTideState(heightFt: number, isRising: boolean): string {
   const level = heightFt < 1 ? 'low' : heightFt < 3 ? 'mid' : 'high';
   return (isRising ? 'incoming' : 'dropping') + ' ' + level + '-tide';
 }
 
-export function formatWaterTemp(tempF: number): string {
+function formatWaterTemp(tempF: number): string {
   const rounded = Math.round(tempF);
   if (rounded <= 58) return rounded + '°F (bring rubber)';
   if (rounded <= 64) return rounded + '°F';
   return rounded + '°F (comfortable)';
 }
 
-export function formatCrowdSentence(level: number): string {
+function formatCrowdSentence(level: number): string {
   if (level <= 1) return 'Lineup is basically empty.';
   if (level === 2) return 'Crowd is light with plenty of space.';
   if (level === 3) return 'Crowd is manageable, respectful vibe.';

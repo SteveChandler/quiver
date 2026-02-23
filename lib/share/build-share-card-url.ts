@@ -63,7 +63,7 @@ export interface SessionShareParams {
  * buildWaveShareUrl({ size: "3-5ft", desc: "Clean and glassy" })
  * // => "https://quiversurf.app/api/og/wave?size=3-5ft&desc=Clean%20and%20glassy"
  */
-export function buildWaveShareUrl(params: WaveShareParams): string {
+function buildWaveShareUrl(params: WaveShareParams): string {
   const baseUrl = getBaseUrl();
   const searchParams = new URLSearchParams();
 

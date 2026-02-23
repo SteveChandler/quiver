@@ -6,7 +6,7 @@
  * @param beachName Optional beach name for specific positioning logic
  * @returns Tuple of [longitude, latitude] for Mapbox (lng, lat order)
  */
-export function getOptimalMarkerPosition(
+function getOptimalMarkerPosition(
   lat: number,
   lng: number,
   beachName?: string
@@ -96,7 +96,7 @@ export function hasViewportChanged(
  * @param precision Number of decimal places (default 3 ≈ 100m precision)
  * @returns Formatted cache key string
  */
-export function createLocationCacheKey(
+function createLocationCacheKey(
   prefix: string,
   latitude: number,
   longitude: number,

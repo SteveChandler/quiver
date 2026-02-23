@@ -183,7 +183,7 @@ export async function getBeachesForNPC(
  * Pick a random beach for an NPC's home vs secondary preference
  * 70% home beaches, 25% secondary, 5% random adventure
  */
-export function selectBeachForPost(
+function selectBeachForPost(
   homeBeaches: Array<{ id: string; name: string }>,
   secondaryBeaches: Array<{ id: string; name: string }>,
   allBeaches: Array<{ id: string; name: string }>

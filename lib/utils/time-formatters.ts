@@ -41,7 +41,7 @@ export function formatTimeAgo(timestamp: Date): string {
  * @example
  * formatTimeAgoExtended(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)) // "3 days ago"
  */
-export function formatTimeAgoExtended(timestamp: Date): string {
+function formatTimeAgoExtended(timestamp: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - timestamp.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -72,7 +72,7 @@ export function formatTimeAgoExtended(timestamp: Date): string {
  * formatDuration(90) // "1h 30m"
  * formatDuration(45) // "45m"
  */
-export function formatDuration(minutes: number): string {
+function formatDuration(minutes: number): string {
   if (minutes < 60) {
     return `${minutes}m`;
   }
@@ -174,7 +174,7 @@ export function formatTimeWindowCompact(start: Date, end: Date, timezone: string
  * @example
  * formatTimeWindow(new Date("2024-01-01T07:00"), new Date("2024-01-01T10:00")) // "7-10am"
  */
-export function formatTimeWindow(start: Date, end: Date): string {
+function formatTimeWindow(start: Date, end: Date): string {
   const formatHour = (date: Date): string => {
     const hour = date.getHours();
     const period = hour >= 12 ? "pm" : "am";
@@ -210,7 +210,7 @@ export function formatTimeWindow(start: Date, end: Date): string {
  * @example
  * formatFullDate(new Date("2025-02-08")) // "Saturday, Feb 8"
  */
-export function formatFullDate(date: Date): string {
+function formatFullDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
     weekday: "long",
     month: "short",

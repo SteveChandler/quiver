@@ -9,8 +9,6 @@ import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 const mockGetToken = jest.fn<any>();
 const mockOnMessage = jest.fn<any>();
 const mockGetMessaging = jest.fn<any>();
-const mockGetFirebaseApp = jest.fn<any>();
-
 jest.mock("firebase/messaging", () => ({
   getToken: mockGetToken,
   onMessage: mockOnMessage,
@@ -18,7 +16,6 @@ jest.mock("firebase/messaging", () => ({
 }));
 
 jest.mock("@/lib/firebase/config", () => ({
-  getFirebaseApp: mockGetFirebaseApp,
   getFirebaseMessaging: jest.fn(() => mockGetMessaging()),
 }));
 
@@ -79,7 +76,6 @@ beforeEach(() => {
   // Reset mocks
   mockNotification.permission = "default";
   mockNotification.requestPermission.mockResolvedValue("granted");
-  mockGetFirebaseApp.mockReturnValue({});
   mockGetMessaging.mockReturnValue({});
   mockServiceWorker.getRegistrations.mockResolvedValue([]);
   mockServiceWorker.register.mockResolvedValue({

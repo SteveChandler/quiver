@@ -34,7 +34,7 @@ export function calculateLevel(totalXP: number): LevelInfo {
  * @param level - The level number
  * @returns The level threshold or undefined if not found
  */
-export function getLevelThreshold(level: number): LevelThreshold | undefined {
+function getLevelThreshold(level: number): LevelThreshold | undefined {
   return LEVEL_THRESHOLDS.find((t) => t.level === level);
 }
 
@@ -44,7 +44,7 @@ export function getLevelThreshold(level: number): LevelThreshold | undefined {
  * @param currentLevel - The current level number
  * @returns The next level threshold or undefined if at max level
  */
-export function getNextLevelThreshold(
+function getNextLevelThreshold(
   currentLevel: number
 ): LevelThreshold | undefined {
   const currentIndex = LEVEL_THRESHOLDS.findIndex(
@@ -95,11 +95,3 @@ export function calculateLevelProgress(
   };
 }
 
-/**
- * Get all level thresholds
- *
- * @returns Array of all level thresholds
- */
-export function getAllLevelThresholds(): readonly LevelThreshold[] {
-  return LEVEL_THRESHOLDS;
-}

@@ -39,7 +39,7 @@ const KNOWN_CARDINALS = new Set(Object.keys(CARDINAL_DIRECTIONS));
  * @param dir - Cardinal direction string (e.g., "N", "NE", "SSW")
  * @returns Direction in degrees (0-360), defaults to 0 for unknown directions
  */
-export function parseWaveDirection(dir: string): number {
+function parseWaveDirection(dir: string): number {
   // Defensive: ensure we have a string before calling .toUpperCase()
   if (typeof dir !== 'string' || !dir) {
     return 0;

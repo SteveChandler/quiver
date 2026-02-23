@@ -237,7 +237,7 @@ export function getStateSurfProfile(stateSlug: string): StateSurfProfile | null 
 /**
  * Get the best month entry for a state.
  */
-export function getBestMonth(stateSlug: string): MonthlyData | null {
+function getBestMonth(stateSlug: string): MonthlyData | null {
   const profile = getStateSurfProfile(stateSlug);
   if (!profile) return null;
   return profile.monthly.reduce((best, entry) =>

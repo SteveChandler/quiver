@@ -21,7 +21,7 @@
  * isCountySlug('orange-county') // true
  * isCountySlug('san-diego') // false
  */
-export function isCountySlug(slug: string | null | undefined): boolean {
+function isCountySlug(slug: string | null | undefined): boolean {
   if (!slug) return false;
   return slug.endsWith("-county");
 }

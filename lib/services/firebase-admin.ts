@@ -56,14 +56,6 @@ export function getFirebaseAdminMessaging(): admin.messaging.Messaging | null {
   return admin.apps.length > 0 ? admin.messaging() : null;
 }
 
-// Check if Firebase is properly initialized (messaging available)
-export function isFirebaseInitialized(): boolean {
-  return getFirebaseAdminMessaging() !== null;
-}
-
-
-
-
 
 
 

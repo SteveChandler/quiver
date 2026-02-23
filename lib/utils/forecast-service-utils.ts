@@ -41,7 +41,7 @@ function getEnhancedForecastService(): EnhancedForecastService {
  * // Returns true if more than 4 hours have passed
  * ```
  */
-export function isDataStale(
+function isDataStale(
   updatedAt: string | Date,
   dataSource?: string | null
 ): boolean {

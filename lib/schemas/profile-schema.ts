@@ -80,7 +80,7 @@ export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 /**
  * Subset schema for basic profile information only (used in onboarding)
  */
-export const basicProfileSchema = profileFormSchema.pick({
+const basicProfileSchema = profileFormSchema.pick({
   full_name: true,
   bio: true,
   location: true,

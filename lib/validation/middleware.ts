@@ -6,7 +6,7 @@ import { createValidationError } from '@/lib/api-utils';
  * @param request - The Next.js request object
  * @returns NextResponse with error or null if valid
  */
-export function validateContentType(request: NextRequest): NextResponse | null {
+function validateContentType(request: NextRequest): NextResponse | null {
   const contentType = request.headers.get('content-type');
 
   if (!contentType?.includes('application/json')) {
@@ -53,7 +53,7 @@ export async function parseAndValidateJson<T = unknown>(
  * @param schema - Object mapping param names to type converters
  * @returns Validated and typed parameters
  */
-export function validateQueryParams<T extends Record<string, any>>(
+function validateQueryParams<T extends Record<string, any>>(
   searchParams: URLSearchParams,
   schema: {
     [K in keyof T]: {

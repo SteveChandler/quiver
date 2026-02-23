@@ -5,7 +5,7 @@ import { z } from 'zod';
 // ============================================================================
 
 export const uuidSchema = z.string().uuid('Invalid UUID format');
-export const emailSchema = z.string().email('Invalid email address');
+const emailSchema = z.string().email('Invalid email address');
 export const urlSchema = z.string().url('Invalid URL').optional();
 
 // ============================================================================

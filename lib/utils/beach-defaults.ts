@@ -30,7 +30,7 @@ export type BeachInput = Partial<Beach> & Pick<Beach, "id" | "name">;
  *
  * @returns Object containing default values for all nullable Beach fields
  */
-export function getBeachDefaults(): Omit<
+function getBeachDefaults(): Omit<
   Beach,
   "id" | "name" | "created_at" | "is_private" | "cdip_eligible" | "terrain_enabled"
 > {

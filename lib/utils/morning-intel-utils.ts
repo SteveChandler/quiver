@@ -52,7 +52,6 @@ export {
 export {
   analyzeConditions,
   getConservativeRecommendation,
-  analyzeTideConditions,
 } from "@/lib/analyzers/conditions-analyzer";
 
 // Re-export session window scoring functions for backward compatibility

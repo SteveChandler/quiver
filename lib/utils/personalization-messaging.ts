@@ -124,7 +124,7 @@ export function getPersonalizationExplanation(
  * // "Matched to your wave and break preferences"
  * ```
  */
-export function getPersonalizationSourceLabel(
+function getPersonalizationSourceLabel(
   breakdown: PersonalizationBreakdown,
   beachName?: string
 ): string {
@@ -163,7 +163,7 @@ export function getPersonalizationSourceLabel(
  * // { title: "Learning Your Style", description: "...", stage: "learning" }
  * ```
  */
-export function getPersonalizationProgress(
+function getPersonalizationProgress(
   status: PersonalizationStage
 ): ProgressCardContent {
   switch (status) {

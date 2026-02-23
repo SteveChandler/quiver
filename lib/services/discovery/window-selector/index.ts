@@ -30,7 +30,7 @@ export {
 } from './constants';
 
 // Re-export direction utilities
-export { parseWaveDirection, getDirectionDegrees } from './direction-utils';
+export { getDirectionDegrees } from './direction-utils';
 
 // Re-export time slot utilities
 export {
@@ -39,7 +39,6 @@ export {
   getDawnPatrolRange,
   capEndTimeToTimeSlot,
   getLocalHour,
-  isWithinTimeSlot,
 } from './time-slot-utils';
 
 // Re-export tide boundary calculator
@@ -55,7 +54,7 @@ export { applySubHourRefinement } from './window-refiner';
 export { scoreForecastWindow, scoreWindowWithEngine } from './window-scorer';
 
 // Re-export scoring engine singleton
-export { getScoringEngine, resetScoringEngine } from './scoring-engine-singleton';
+export { getScoringEngine } from './scoring-engine-singleton';
 
 // Re-export main algorithm
 export { selectBestWindow } from './window-selector-core';

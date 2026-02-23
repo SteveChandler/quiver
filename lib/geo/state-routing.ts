@@ -28,7 +28,7 @@ export function normalizeState(raw: string): string {
   return (raw || "").trim().toLowerCase();
 }
 
-export function toDbState(state: string): string {
+function toDbState(state: string): string {
   return normalizeState(state).toUpperCase();
 }
 

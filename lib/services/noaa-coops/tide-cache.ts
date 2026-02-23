@@ -155,9 +155,3 @@ export class TideCache {
   }
 }
 
-/**
- * Create a new TideCache instance with default options
- */
-export function createTideCache(options?: TideCacheOptions): TideCache {
-  return new TideCache(options);
-}

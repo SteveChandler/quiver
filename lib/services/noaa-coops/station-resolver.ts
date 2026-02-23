@@ -97,7 +97,7 @@ export function getStationForLocation(
  * @param lng - Longitude
  * @returns Matching region or null
  */
-export function findRegionByCoordinates(
+function findRegionByCoordinates(
   lat: number,
   lng: number
 ): RegionBounds | null {
@@ -125,7 +125,7 @@ export function findRegionByCoordinates(
  * @param lng - Longitude
  * @returns Object with stationId and distance in degrees
  */
-export function findNearestStation(
+function findNearestStation(
   lat: number,
   lng: number
 ): { stationId: string; distance: number } {
@@ -147,25 +147,3 @@ export function findNearestStation(
   return { stationId: nearestStation, distance: nearestDistance };
 }
 
-/**
- * Check if a beach name has a direct station mapping
- *
- * @param beachName - Name of the beach
- * @returns true if a direct mapping exists
- */
-export function hasDirectStationMapping(beachName: string): boolean {
-  const normalizedName = beachName.toLowerCase().replace(/\s+/g, "-");
-  return normalizedName in COOPS_STATIONS;
-}
-
-/**
- * Get the station ID for a normalized beach name (direct lookup only)
- *
- * @param normalizedName - Normalized beach name (lowercase, hyphenated)
- * @returns Station ID or undefined
- */
-export function getStationByNormalizedName(
-  normalizedName: string
-): string | undefined {
-  return COOPS_STATIONS[normalizedName];
-}

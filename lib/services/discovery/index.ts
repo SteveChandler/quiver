@@ -9,7 +9,6 @@
 // Orchestrator (main entry point)
 export {
   discoverSurfSpots,
-  scoreBeachForDiscovery,
   getBatchSunTimes,
 } from './surf-discovery-orchestrator';
 
@@ -34,7 +33,6 @@ export {
   capEndTimeToTimeSlot,
   scoreForecastWindow,
   scoreWindowWithEngine,
-  resetScoringEngine,
   type WindowSelectorOptions,
 } from './window-selector';
 

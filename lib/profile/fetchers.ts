@@ -36,7 +36,7 @@ export async function getProfileWithHomeBeachById(userId: string, client?: any) 
   return { profile: result, homeBeachName: result.home_beach?.name ?? null };
 }
 
-export function toProfileDTO(profile: ProfileWithHomeBeach, homeBeachName: string | null): ProfileDTO {
+function toProfileDTO(profile: ProfileWithHomeBeach, homeBeachName: string | null): ProfileDTO {
   return {
     id: profile.id,
     full_name: profile.full_name ?? null,

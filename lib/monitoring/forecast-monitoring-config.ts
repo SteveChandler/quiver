@@ -93,7 +93,7 @@ export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical';
 /**
  * Data source types for tracking
  */
-export const DATA_SOURCES = {
+const DATA_SOURCES = {
   CDIP: 'CDIP',
   NOAA_NWS: 'NOAA_NWS',
   IOOS: 'IOOS',

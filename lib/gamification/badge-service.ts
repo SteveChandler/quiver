@@ -71,7 +71,7 @@ async function safeCount(
  * @param supabase - Supabase client
  * @returns User stats for badge evaluation
  */
-export async function getUserStatsForBadges(
+async function getUserStatsForBadges(
   userId: string,
   supabase: SupabaseClient
 ): Promise<UserBadgeStats> {

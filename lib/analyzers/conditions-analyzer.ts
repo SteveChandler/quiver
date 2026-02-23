@@ -55,7 +55,7 @@ export type {
  * // Returns: { status: 'optimal', emoji: '✅', message: '3.5 ft - within optimal range...' }
  * ```
  */
-export function analyzeTideConditions(
+function analyzeTideConditions(
   tideHeight: number,
   beach: BeachPreferences
 ): ConditionEvaluation {

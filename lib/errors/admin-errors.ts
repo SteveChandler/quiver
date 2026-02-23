@@ -37,7 +37,7 @@ export class ForbiddenError extends Error {
 /**
  * Get the appropriate error based on authentication status
  */
-export function createAuthError(isAuthenticated: boolean): UnauthorizedError | ForbiddenError {
+function createAuthError(isAuthenticated: boolean): UnauthorizedError | ForbiddenError {
   if (!isAuthenticated) {
     return new UnauthorizedError();
   }

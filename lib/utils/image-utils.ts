@@ -354,7 +354,7 @@ export function getProxiedImageUrl(url: string | null | undefined): string {
  * //   'https://xyz.supabase.co/storage/v1/object/public/photo.jpg'
  * // ]
  */
-export function getProxiedImageUrls(urls: (string | null | undefined)[]): string[] {
+function getProxiedImageUrls(urls: (string | null | undefined)[]): string[] {
   return urls.map(getProxiedImageUrl).filter(url => url !== '');
 }
 
