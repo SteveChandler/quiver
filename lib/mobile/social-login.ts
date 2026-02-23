@@ -12,13 +12,22 @@ let initPromise: Promise<void> | null = null;
  * Start SocialLogin initialization. Safe to call multiple times — only the
  * first call creates the promise; subsequent calls return the same one.
  */
-export function initializeSocialLogin(webClientId: string): Promise<void> {
+export function initializeSocialLogin(
+  webClientId: string,
+  iosClientId?: string
+): Promise<void> {
   if (initPromise) return initPromise;
 
   initPromise = import("@capgo/capacitor-social-login").then(
     ({ SocialLogin }) =>
       SocialLogin.initialize({
-        google: { webClientId },
+        google: {
+          webClientId,
+          ...(iosClientId && {
+            iOSClientId: iosClientId,
+            iOSServerClientId: webClientId,
+          }),
+        },
       })
   );
 
