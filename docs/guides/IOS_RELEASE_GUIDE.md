@@ -783,6 +783,39 @@ Before submitting, verify:
 
 ---
 
-**Last Updated:** October 17, 2025  
-**Created by:** Quiver Development Team  
+## Quick Reference
+
+### Build Commands
+
+```bash
+# Automated release (build + sync + archive + export + Firebase distribute)
+yarn mobile:release:ios
+
+# Manual steps
+yarn build && npx cap sync ios
+xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -archivePath ios/build/App.xcarchive archive
+xcodebuild -exportArchive -archivePath ios/build/App.xcarchive -exportOptionsPlist ios/ExportOptions.plist -exportPath ios/build/export
+```
+
+### Firebase App Distribution
+
+```bash
+# Upload IPA to "testers" group
+firebase appdistribution:distribute ios/build/export/App.ipa \
+  --app 1:230741354184:ios:44c5a4342c1fc5d53c67fd \
+  --groups "testers" \
+  --release-notes "Description of changes"
+```
+
+### Output Locations
+
+| Build Type | Location |
+|------------|----------|
+| Archive | `ios/build/App.xcarchive` |
+| IPA | `ios/build/export/App.ipa` |
+
+---
+
+**Last Updated:** February 2026
+**Created by:** Quiver Development Team
 **For questions:** Create issue in repo or contact team
