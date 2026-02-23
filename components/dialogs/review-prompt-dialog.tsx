@@ -42,6 +42,7 @@ export function ReviewPromptDialog({
   return (
     <Dialog open={open}>
       <DialogContent
+        aria-describedby={undefined}
         className="max-w-2xl max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}

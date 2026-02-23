@@ -71,7 +71,7 @@ export function FollowersModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent aria-describedby={undefined} className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {type === "followers" ? "Followers" : "Following"}

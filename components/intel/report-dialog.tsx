@@ -67,7 +67,7 @@ export function ReportDialog({ postId, isOpen, onClose }: ReportDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent aria-describedby={undefined} className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Report Intel Post</DialogTitle>
         </DialogHeader>

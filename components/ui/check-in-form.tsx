@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   IntelPostForm,
   IntelPostFormBeforeSubmitContext,
@@ -17,7 +17,7 @@ interface CheckInDialogProps {
 
 async function handleCheckInSubmit(
   beachId: string,
-  context: IntelPostFormBeforeSubmitContext
+  context: IntelPostFormBeforeSubmitContext,
 ) {
   const { values } = context;
 
@@ -48,7 +48,11 @@ export function CheckInDialog({
       open={isOpen}
       onOpenChange={(open) => (!open ? onClose() : undefined)}
     >
-      <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent
+        aria-describedby={undefined}
+        className="max-w-md w-full max-h-[90vh] overflow-y-auto p-0"
+      >
+        <DialogTitle className="sr-only">Check In</DialogTitle>
         <IntelPostForm
           isOpen
           onClose={onClose}

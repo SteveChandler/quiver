@@ -32,6 +32,7 @@ export function ForecastFeedbackFlow({
   return (
     <Dialog open={open}>
       <DialogContent
+        aria-describedby={undefined}
         className="max-w-xl"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
