@@ -5,7 +5,7 @@
  * and detecting tide phases.
  */
 
-import type { TideData } from "./types";
+import type { TideData, TideStatus } from "./types";
 
 /**
  * CO-OPS returns timestamps like "YYYY-MM-DD HH:mm" (no timezone suffix).
@@ -38,7 +38,7 @@ export function parseCOOPSTimestampToUnixSecondsUTC(
 export function getTideStatusAtTime(
   tides: TideData[],
   targetTime: Date
-): string {
+): TideStatus {
   if (!tides || tides.length === 0) return "Unknown";
 
   const targetTimestamp = targetTime.getTime() / 1000;
@@ -67,14 +67,21 @@ export function getTideStatusAtTime(
   }
 
   if (prevTide && nextTide) {
-    if (prevTide.type === "high" && nextTide.type === "low") {
-      return "Falling";
-    } else if (prevTide.type === "low" && nextTide.type === "high") {
-      return "Rising";
+    if (prevTide.type === "high" && nextTide.type === "low") return "Falling";
+    if (prevTide.type === "low" && nextTide.type === "high") return "Rising";
+
+    // Same-type adjacency: boundary extrema artifact.
+    // An implicit opposite extreme exists between them — use midpoint.
+    const midpoint = (prevTide.time + nextTide.time) / 2;
+    if (prevTide.type === "high") {
+      // Both high → implicit low between. First half: Falling, second half: Rising
+      return targetTimestamp <= midpoint ? "Falling" : "Rising";
     }
+    // Both low → implicit high between. First half: Rising, second half: Falling
+    return targetTimestamp <= midpoint ? "Rising" : "Falling";
   }
 
-  return "Unknown";
+  return "Unknown"; // Only reached if no extrema at all
 }
 
 /**

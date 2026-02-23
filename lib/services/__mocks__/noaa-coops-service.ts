@@ -6,7 +6,7 @@
 export class NOAACOOPSService {
   fetchCOOPSData = jest.fn().mockResolvedValue({ tides: [] });
   getStationForLocation = jest.fn().mockReturnValue("9410170");
-  getTideStatusAtTime = jest.fn().mockReturnValue("rising");
+  getTideStatusAtTime = jest.fn().mockReturnValue("Rising");
   getTideHeightAtTime = jest.fn().mockReturnValue(3.5);
   getNextTideFromTime = jest.fn().mockReturnValue({ 
     type: "HIGH", 

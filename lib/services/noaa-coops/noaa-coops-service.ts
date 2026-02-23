@@ -19,7 +19,7 @@ import {
   getVerificationStatus,
 } from "@/types/tide-diagnostics";
 
-import type { TideData, COOPSForecast } from "./types";
+import type { TideData, TideStatus, COOPSForecast } from "./types";
 import { TideCache } from "./tide-cache";
 import { getStationForLocation as resolveStation } from "./station-resolver";
 import { COOPS_STATIONS } from "./constants/station-mappings";
@@ -142,7 +142,7 @@ export class NOAACOOPSService {
   /**
    * Get tide status for a specific time
    */
-  getTideStatusAtTime(tides: TideData[], targetTime: Date): string {
+  getTideStatusAtTime(tides: TideData[], targetTime: Date): TideStatus {
     return analyzeTideStatus(tides, targetTime);
   }
 

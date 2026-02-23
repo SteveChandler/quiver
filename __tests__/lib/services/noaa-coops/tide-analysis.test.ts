@@ -166,8 +166,8 @@ describe('tide-analysis', () => {
       // Tide status between identical points should still work
       const midpoint = new Date(1706005000 * 1000);
       const status = getTideStatusAtTime(plateauTides, midpoint);
-      // When heights are equal, the implementation should handle gracefully
-      expect(status).toBeDefined();
+      // With same-type adjacency fix, status should always be Rising or Falling
+      expect(['Rising', 'Falling']).toContain(status);
     });
 
     it('should handle interpolation with equal heights correctly', () => {
@@ -180,6 +180,63 @@ describe('tide-analysis', () => {
       const midpoint = new Date(1706007200 * 1000);
       const height = getTideHeightAtTime(plateauTides, midpoint);
       expect(height).toBeCloseTo(3.0, 1);
+    });
+  });
+
+  describe('Same-type adjacency (boundary extrema artifact)', () => {
+    // When TideExtremaDetector produces two consecutive highs or lows,
+    // an implicit opposite extreme exists between them. The midpoint
+    // approach correctly splits the interval.
+
+    const bothHigh: TideData[] = [
+      { time: 1706000000, height: 5.5, type: 'high', name: 'High' },
+      { time: 1706020000, height: 6.0, type: 'high', name: 'High' },
+    ];
+    const midpointTime = (1706000000 + 1706020000) / 2; // 1706010000
+
+    const bothLow: TideData[] = [
+      { time: 1706000000, height: -0.5, type: 'low', name: 'Low' },
+      { time: 1706020000, height: 0.2, type: 'low', name: 'Low' },
+    ];
+
+    it('both HIGH: first half returns Falling', () => {
+      const firstHalf = new Date((midpointTime - 1000) * 1000);
+      expect(getTideStatusAtTime(bothHigh, firstHalf)).toBe('Falling');
+    });
+
+    it('both HIGH: second half returns Rising', () => {
+      const secondHalf = new Date((midpointTime + 1000) * 1000);
+      expect(getTideStatusAtTime(bothHigh, secondHalf)).toBe('Rising');
+    });
+
+    it('both LOW: first half returns Rising', () => {
+      const firstHalf = new Date((midpointTime - 1000) * 1000);
+      expect(getTideStatusAtTime(bothLow, firstHalf)).toBe('Rising');
+    });
+
+    it('both LOW: second half returns Falling', () => {
+      const secondHalf = new Date((midpointTime + 1000) * 1000);
+      expect(getTideStatusAtTime(bothLow, secondHalf)).toBe('Falling');
+    });
+
+    it('midpoint boundary returns the approaching phase', () => {
+      const atMidpoint = new Date(midpointTime * 1000);
+      // At midpoint with both HIGH: still in "Falling" phase (<=)
+      expect(getTideStatusAtTime(bothHigh, atMidpoint)).toBe('Falling');
+      // At midpoint with both LOW: still in "Rising" phase (<=)
+      expect(getTideStatusAtTime(bothLow, atMidpoint)).toBe('Rising');
+    });
+
+    it('same-type adjacency never returns Unknown', () => {
+      const testTimes = [
+        new Date((midpointTime - 5000) * 1000),
+        new Date(midpointTime * 1000),
+        new Date((midpointTime + 5000) * 1000),
+      ];
+      for (const t of testTimes) {
+        expect(getTideStatusAtTime(bothHigh, t)).not.toBe('Unknown');
+        expect(getTideStatusAtTime(bothLow, t)).not.toBe('Unknown');
+      }
     });
   });
 
