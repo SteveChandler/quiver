@@ -248,7 +248,7 @@ export async function GET(request: Request) {
   }
 
   // Also log for monitoring
-  const { error: logError } = await supabase.from('ml_predictions_log').insert(
+  const { error: logError } = await supabase.from('ml_predictions_log').upsert(
     corrections.map((c: any) => ({
       beach_id: c.beach_id,
       predicted_at: c.forecast_ts,
@@ -256,7 +256,8 @@ export async function GET(request: Request) {
       corrected_forecast_m: c.corrected_height_m,
       bias_applied_m: c.bias_applied_m,
       model_version: c.model_version,
-    }))
+    })),
+    { onConflict: 'beach_id,predicted_at', ignoreDuplicates: true }
   );
 
   if (logError) {
