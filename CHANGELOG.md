@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Tide "Unknown" status on home screen:** Deduplicated `tide_forecasts` rows by hour in `fetchCachedTides()` — multiple cron runs were inserting 3 rows per hour at different seconds, creating plateaus that broke `TideExtremaDetector` extrema detection and caused `getTideStatusAtTime()` to return "Unknown" instead of "Rising"/"Falling"
 
+- **Tide "Unknown" in conditions ticker:** Frontend now filters "Unknown" from tide status display — shows just the height when available (e.g., "0.6 ft" instead of "Unknown 0.6 ft"), or omits the tide card entirely when neither status nor height is meaningful
+
 ### Changed
 
 - **"Tomorrow" headline wording:** Updated `buildHeadlineText()` prefixes from "Tomorrow at..." to "Skip today — tomorrow at..." to give context about why today isn't the recommendation

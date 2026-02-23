@@ -57,7 +57,7 @@ describe("ForecastBuilder", () => {
   beforeEach(() => {
     builder = new ForecastBuilder({
       getWaveDirectionText: (deg: number) => "SW",
-      getTideStatusAtTime: () => "rising",
+      getTideStatusAtTime: () => "Rising",
       getTideHeightAtTime: () => 3.5,
       getNextTideFromTime: () => ({
         time: Math.floor(Date.now() / 1000) + 7200,

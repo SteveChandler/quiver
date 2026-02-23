@@ -60,20 +60,30 @@ export function buildConditionsCards(data: ConditionsData): ConditionsCard[] {
   }
 
   if (data.tideStatus != null && data.tideStatus !== "") {
-    const tideValue = data.tideHeight
-      ? `${data.tideStatus} ${data.tideHeight}`
-      : data.tideStatus;
-    const isRising =
-      data.tideStatus.toLowerCase().includes("rising") ||
-      data.tideStatus.toLowerCase().includes("incoming") ||
-      data.tideStatus.toLowerCase().includes("flood");
-    cards.push({
-      id: "tide",
-      label: "Tide",
-      value: tideValue,
-      iconType: "tide",
-      tideRising: isRising,
-    });
+    const isUnknown = data.tideStatus === "Unknown";
+
+    // Skip tide card entirely when status is unknown and there's no height
+    if (!isUnknown || data.tideHeight) {
+      const tideValue = isUnknown
+        ? data.tideHeight!
+        : data.tideHeight
+          ? `${data.tideStatus} ${data.tideHeight}`
+          : data.tideStatus;
+
+      const isRising =
+        !isUnknown &&
+        (data.tideStatus.toLowerCase().includes("rising") ||
+          data.tideStatus.toLowerCase().includes("incoming") ||
+          data.tideStatus.toLowerCase().includes("flood"));
+
+      cards.push({
+        id: "tide",
+        label: "Tide",
+        value: tideValue,
+        iconType: "tide",
+        tideRising: isRising,
+      });
+    }
   }
 
   return cards;
