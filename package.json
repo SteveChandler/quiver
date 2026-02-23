@@ -9,6 +9,7 @@
     "npm": "please-use-yarn"
   },
   "scripts": {
+    "postinstall": "patch-package",
     "fonts:fetch": "node scripts/fetch-fonts.mjs",
     "clean:next": "node scripts/clean-next.mjs",
     "dev": "node scripts/dev.mjs",
@@ -232,6 +233,7 @@
     "knip": "^5.36.6",
     "lighthouse": "^12.2.1",
     "node-fetch": "^3.3.2",
+    "patch-package": "^8.0.1",
     "pg": "^8.18.0",
     "playwright": "^1.54.2",
     "postcss": "^8",

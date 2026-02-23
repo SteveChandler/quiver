@@ -337,7 +337,7 @@ async function handleRetrain(request: Request) {
           recency_weight_days: 14,
           holdout_days: 2,
           max_bias_pct: 0.75,
-          bias_floor_m: 0.5,
+          bias_floor_m: 0.2,
         },
       };
 

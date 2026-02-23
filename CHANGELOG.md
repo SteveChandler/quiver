@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Google OAuth on mobile (Capacitor):** Replaced browser-based OAuth (broken by Chrome Custom Tabs blocking 302 redirects to custom URL schemes) with native Google Sign-In via `@capgo/capacitor-social-login`. The app now uses the OS-level Google account picker and `signInWithIdToken` — no browser, no redirect, no deep linking needed for OAuth.
 
+- **Android Google Sign-In fails after account selection:** The `@capgo/capacitor-social-login` plugin's `GoogleProvider.java` rejected the entire login when the Authorization API (access token step) failed, even though only the idToken is needed. Applied a `patch-package` patch to fall back to idToken-only when the access token step fails or returns null. Also added raw error message to Sentry extras for native sign-in diagnostics. Note: the patch (`patches/@capgo+capacitor-social-login+8.3.5.patch`) must be re-evaluated when upgrading the plugin.
+
 ### Changed
 
 - **Landing page hero polish:** conditions ticker now says "Current conditions nearby" instead of showing a random beach name, hero title uses `text-balance` for even word wrapping, removed em dash from subtitle, and aligned search bar icon/text positioning between placeholder and loaded cmdk states

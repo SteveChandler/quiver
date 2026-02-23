@@ -157,14 +157,19 @@ export async function initiateOAuthFlow(
 
         return {};
       } catch (nativeError) {
+        const errorMessage =
+          nativeError instanceof Error
+            ? nativeError.message
+            : String(nativeError);
         console.error("[auth-utils] Native Google Sign-In exception:", nativeError);
         Sentry.captureException(nativeError, {
           tags: { context: "native_google_signin" },
+          extra: { errorMessage },
         });
         clearAuthRedirect();
         sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
         return {
-          error: "Google sign-in failed. Please try another method.",
+          error: `Google sign-in failed: ${errorMessage}`,
         };
       }
     }

@@ -167,7 +167,7 @@ class TrainingConfig(BaseModel):
     holdout_days: int = Field(default=2, description="Number of days to hold out for validation")
     min_holdout_samples: int = Field(default=MIN_HOLDOUT_SAMPLES, description="Minimum holdout samples required for valid training")
     max_bias_pct: float = Field(default=0.75, description="Maximum bias as percentage of raw forecast")
-    bias_floor_m: float = Field(default=0.5, description="Minimum absolute bias allowed")
+    bias_floor_m: float = Field(default=0.2, description="Minimum absolute bias allowed")
 
 class TrainRequest(BaseModel):
     """Request payload for model training."""
@@ -695,10 +695,19 @@ async def train_model(request: TrainRequest):
         predicted_bias = model_trained.predict(X_holdout)
         raw_forecast = df_holdout['forecast_height_m'].values
 
-        # v3 guardrails: 75% max (was 50%), 0.5m floor (was 0.3m)
+        # v3 guardrails: 75% max (was 50%), 0.2m floor (was 0.5m)
         max_bias = np.maximum(np.abs(raw_forecast) * request.config.max_bias_pct, request.config.bias_floor_m)
         clipped_bias = np.clip(predicted_bias, -max_bias, max_bias)
         clipped_bias = np.clip(clipped_bias, -1.5, 1.5)
+        # Small-wave safety: don't more than double sub-0.5m forecasts
+        small_mask = np.abs(raw_forecast) < 0.5
+        if small_mask.any():
+            small_cap = np.abs(raw_forecast)
+            clipped_bias = np.where(
+                small_mask,
+                np.clip(clipped_bias, -small_cap, small_cap),
+                clipped_bias
+            )
         # No-correction zone
         clipped_bias[np.abs(clipped_bias) < 0.03] = 0.0
         corrected = raw_forecast + clipped_bias
