@@ -238,8 +238,15 @@ function getWindowTide(
   }
 
   const status = tideForecast.tide_status;
-  const nextType = tideForecast.next_tide_type || null;
-  const nextAt = tideForecast.next_tide_at || null;
+  const rawNextAt = tideForecast.next_tide_at || null;
+  const rawNextAtMs = rawNextAt ? new Date(rawNextAt).getTime() : null;
+
+  // Only show "→ Low/High @ time" if the tide event is still in the future.
+  // The next_tide_at on a forecast row is relative to that forecast hour, so
+  // it can be in the past by the time the user views the surf call.
+  const isFutureTide = rawNextAtMs != null && rawNextAtMs > Date.now();
+  const nextType = isFutureTide ? (tideForecast.next_tide_type || null) : null;
+  const nextAt = isFutureTide ? rawNextAt : null;
 
   // Normalize phase
   let phase: string | null = null;

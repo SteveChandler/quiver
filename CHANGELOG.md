@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Jest CI gate:** Added unit test step with coverage thresholds to `prod-gate.yml` workflow
 - **Migration squash strategy:** Documented 374-migration squash recommendation in `supabase/ARCHITECTURE.md`
 
+### Fixed
+
+- **Tide status showing past events:** Surf Call card no longer shows stale "→ Low @ 8:00 AM" when the tide event has already passed; displays phase-only (e.g., "Falling") instead
+
 ### Removed
 
 - **SWR dependency:** Removed `swr` package (no longer used by any hook)
