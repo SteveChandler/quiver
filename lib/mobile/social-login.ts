@@ -37,10 +37,12 @@ export function initializeSocialLogin(
     .then(({ SocialLogin }) => SocialLogin.initialize(options))
     .catch((err) => {
       // Reset initPromise so retries are possible via ensureSocialLoginReady
-      console.error(
-        "[SocialLogin] Initialize failed, resetting for retry:",
-        err
-      );
+      if (process.env.NODE_ENV === "development") {
+        console.error(
+          "[SocialLogin] Initialize failed, resetting for retry:",
+          err
+        );
+      }
       initPromise = null;
       throw err;
     });
