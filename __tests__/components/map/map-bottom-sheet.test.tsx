@@ -1,40 +1,13 @@
-import { render, screen, act } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 
-// Capture the setActiveSnapPoint handler passed to Drawer Root
-// eslint-disable-next-line react-hooks/globals -- test-scoped variable for mock capture
-let capturedSetActiveSnapPoint: ((val: number | string | null) => void) | null =
-  null;
-
-// Mock vaul Drawer primitives as passthrough divs
-jest.mock("vaul", () => {
-  const Root = ({ children, setActiveSnapPoint, activeSnapPoint }: any) => {
-    capturedSetActiveSnapPoint = setActiveSnapPoint; // eslint-disable-line react-hooks/globals -- test mock capture
-    return (
-      <div data-testid="drawer-root" data-snap={String(activeSnapPoint)}>
-        {children}
-      </div>
-    );
-  };
-  const Portal = ({ children }: any) => <div>{children}</div>;
-  const Content = ({ children, ...props }: any) => (
-    <div data-testid="drawer-content" {...props}>
-      {children}
-    </div>
-  );
-  const Handle = (props: any) => <div data-testid="drawer-handle" {...props} />;
-  const Title = ({ children, ...props }: any) => <h2 {...props}>{children}</h2>;
-
-  return {
-    Drawer: Object.assign(Root, {
-      Root,
-      Portal,
-      Content,
-      Handle,
-      Title,
-    }),
-  };
-});
+// Mock the custom gesture hook — returns a ref and static state
+jest.mock("@/hooks/use-bottom-sheet-gesture", () => ({
+  useBottomSheetGesture: () => {
+    const sheetRef = { current: null };
+    return { sheetRef, isDragging: false };
+  },
+}));
 
 jest.mock("@/components/map/sidebar-beach-card", () => ({
   SidebarBeachCard: ({ beach }: any) => (
@@ -67,6 +40,15 @@ const defaultProps = {
   getDistanceFromUser: jest.fn(() => ""),
   onDeselectBeach: jest.fn(),
 };
+
+// Set window.innerHeight for snap math
+beforeAll(() => {
+  Object.defineProperty(window, "innerHeight", {
+    writable: true,
+    configurable: true,
+    value: 800,
+  });
+});
 
 describe("MapBottomSheet", () => {
   it("renders beach list with correct count", () => {
@@ -116,31 +98,7 @@ describe("MapBottomSheet", () => {
     expect(screen.queryByRole("heading", { name: "Surf Spots" })).not.toBeInTheDocument();
   });
 
-  // Bug 1: pointer-events useEffect restores body pointer-events on mount
-  it("restores body pointer-events to empty string on mount", () => {
-    document.body.style.pointerEvents = "none"; // Simulate Vaul's side effect
-    render(
-      <MapBottomSheet {...defaultProps} beaches={[makeBeach("b1", "Blacks")]} selectedBeach={null} />
-    );
-    expect(document.body.style.pointerEvents).toBe("");
-  });
-
-  it("body pointer-events stays cleared after rerenders", () => {
-    const beaches = [makeBeach("b1", "Blacks")];
-    document.body.style.pointerEvents = "none";
-    const { rerender } = render(
-      <MapBottomSheet {...defaultProps} beaches={beaches} selectedBeach={null} />
-    );
-    expect(document.body.style.pointerEvents).toBe("");
-    // After rerender, should still be cleared
-    rerender(
-      <MapBottomSheet {...defaultProps} beaches={beaches} selectedBeach={null} />
-    );
-    expect(document.body.style.pointerEvents).toBe("");
-  });
-
-  // Bug 3: content should be scrollable at detail snap (40%), not just full (90%)
-  it("scroll container is scrollable at detail snap (40%)", () => {
+  it("scroll container is scrollable at detail snap (when beach selected)", () => {
     const beach = makeBeach("b1", "Blacks");
     render(
       <MapBottomSheet {...defaultProps} beaches={[beach]} selectedBeach={beach} />
@@ -149,7 +107,7 @@ describe("MapBottomSheet", () => {
     expect(scrollContainer).toHaveStyle({ overflowY: "auto" });
   });
 
-  it("scroll container is NOT scrollable at peek snap (10%)", () => {
+  it("scroll container is NOT scrollable at peek snap (no selection)", () => {
     render(
       <MapBottomSheet {...defaultProps} beaches={[makeBeach("b1", "Blacks")]} selectedBeach={null} />
     );
@@ -157,7 +115,6 @@ describe("MapBottomSheet", () => {
     expect(scrollContainer).toHaveStyle({ overflowY: "hidden" });
   });
 
-  // Bug 5: drawer handle area should have adequate touch target
   it("renders a padded handle area for easier touch interaction", () => {
     render(
       <MapBottomSheet
@@ -172,99 +129,52 @@ describe("MapBottomSheet", () => {
     expect(handleArea.className).toContain("py-4");
   });
 
-  // Bug 1: MutationObserver clears pointer-events if re-applied
-  it("clears pointer-events when re-applied asynchronously", async () => {
+  it("handle area has touch-action: none for gesture handling", () => {
     render(
-      <MapBottomSheet {...defaultProps} beaches={[makeBeach("b1", "Blacks")]} selectedBeach={null} />
+      <MapBottomSheet
+        {...defaultProps}
+        beaches={[makeBeach("b1", "Blacks")]}
+        selectedBeach={null}
+      />
     );
-    // Simulate Vaul/Radix re-applying pointer-events after async operation
-    document.body.style.pointerEvents = "none";
-    // MutationObserver fires as a microtask in jsdom — flush it
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(document.body.style.pointerEvents).toBe("");
+
+    const handleArea = screen.getByTestId("drawer-handle-area");
+    expect(handleArea.style.touchAction).toBe("none");
   });
 
-  // Bug 13 guard: snap point handler should prevent null / below-peek values
-  describe("snap point guard", () => {
-    const PEEK_SNAP = 0.1;
+  it("sheet uses vh units instead of dvh for Android compatibility", () => {
+    render(
+      <MapBottomSheet
+        {...defaultProps}
+        beaches={[makeBeach("b1", "Blacks")]}
+        selectedBeach={null}
+      />
+    );
 
-    it("resets to peek snap when snap point is set to null", () => {
-      const beaches = [makeBeach("b1", "Blacks")];
-      render(
-        <MapBottomSheet
-          {...defaultProps}
-          beaches={beaches}
-          selectedBeach={null}
-        />
-      );
+    const sheet = screen.getByTestId("bottom-sheet");
+    expect(sheet.className).toContain("h-[90vh]");
+    expect(sheet.className).not.toContain("dvh");
+  });
 
-      expect(capturedSetActiveSnapPoint).toBeDefined();
+  it("shows empty state when no beaches", () => {
+    render(
+      <MapBottomSheet {...defaultProps} beaches={[]} selectedBeach={null} />
+    );
 
-      // Simulate Vaul setting snap to null (dismissal)
-      act(() => {
-        capturedSetActiveSnapPoint!(null);
-      });
+    expect(
+      screen.getByText("No beaches in this area. Zoom out or pan to find surf spots.")
+    ).toBeInTheDocument();
+  });
 
-      // The snap point should be guarded back to PEEK_SNAP, not null
-      const root = screen.getByTestId("drawer-root");
-      expect(root.getAttribute("data-snap")).toBe(String(PEEK_SNAP));
-    });
+  it("singular 'spot' text for single beach", () => {
+    render(
+      <MapBottomSheet
+        {...defaultProps}
+        beaches={[makeBeach("b1", "Blacks")]}
+        selectedBeach={null}
+      />
+    );
 
-    it("resets to peek snap when snap point goes to 0", () => {
-      const beaches = [makeBeach("b1", "Blacks")];
-      render(
-        <MapBottomSheet
-          {...defaultProps}
-          beaches={beaches}
-          selectedBeach={null}
-        />
-      );
-
-      act(() => {
-        capturedSetActiveSnapPoint!(0);
-      });
-
-      // The snap point should be guarded back to PEEK_SNAP, not 0
-      const root = screen.getByTestId("drawer-root");
-      expect(root.getAttribute("data-snap")).toBe(String(PEEK_SNAP));
-    });
-
-    it("calls onDismissAttempt when snap guard catches a dismiss", () => {
-      const onDismissAttempt = jest.fn();
-      const beaches = [makeBeach("b1", "Blacks")];
-      render(
-        <MapBottomSheet
-          {...defaultProps}
-          beaches={beaches}
-          selectedBeach={null}
-          onDismissAttempt={onDismissAttempt}
-        />
-      );
-
-      act(() => {
-        capturedSetActiveSnapPoint!(null);
-      });
-
-      expect(onDismissAttempt).toHaveBeenCalledTimes(1);
-    });
-
-    it("does not call onDismissAttempt for valid snap points", () => {
-      const onDismissAttempt = jest.fn();
-      const beaches = [makeBeach("b1", "Blacks")];
-      render(
-        <MapBottomSheet
-          {...defaultProps}
-          beaches={beaches}
-          selectedBeach={null}
-          onDismissAttempt={onDismissAttempt}
-        />
-      );
-
-      act(() => {
-        capturedSetActiveSnapPoint!(0.4);
-      });
-
-      expect(onDismissAttempt).not.toHaveBeenCalled();
-    });
+    expect(screen.getByText("1 spot in view")).toBeInTheDocument();
   });
 });
