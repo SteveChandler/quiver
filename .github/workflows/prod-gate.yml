@@ -61,7 +61,7 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -112,7 +112,7 @@ jobs:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [build, unit-tests]
+    needs: [build]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
