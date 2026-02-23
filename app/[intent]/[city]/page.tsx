@@ -60,9 +60,7 @@ import {
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 
-// ISR: revalidate intent pages every hour. These are public pages with no
-// per-user data, so Next.js can cache the rendered HTML at the edge.
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.

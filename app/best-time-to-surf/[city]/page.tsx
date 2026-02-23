@@ -34,7 +34,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-definitions";
 
-export const revalidate = 86400; // 24 hours — monthly data changes infrequently
+export const dynamic = "force-dynamic";
 
 // Constants
 const currentYear = new Date().getFullYear();
