@@ -1,6 +1,6 @@
-import { test, expect, Page, Request } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
-import { waitForPageLoad, navigateToBeach, ensureAuthenticated } from './utils/test-helpers';
+import { navigateToBeach, ensureAuthenticated } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 
 /**
@@ -29,24 +29,53 @@ interface TrackingEvent {
   };
 }
 
-async function captureTrackingEvents(page: Page): Promise<TrackingEvent[]> {
-  const events: TrackingEvent[] = [];
-
-  // Intercept API calls to /api/events
-  await page.route('**/api/events', async (route, request) => {
-    if (request.method() === 'POST') {
-      try {
-        const postData = request.postDataJSON();
-        events.push(postData as TrackingEvent);
-      } catch {
-        // Ignore parse errors
+/**
+ * Inject a fetch interceptor to capture tracking events at the JS level.
+ * Playwright cannot intercept fetch requests with keepalive: true (used by
+ * useTrackEvent), so we monkey-patch fetch in the browser context instead.
+ *
+ * IMPORTANT: Must be called BEFORE navigation so addInitScript runs before
+ * the Next.js bundle initializes. The bundle captures `fetch` at module init
+ * time — a runtime `page.evaluate` patch will be bypassed by React code.
+ *
+ * Also sets a __trackingReady flag when the first tracking event fires,
+ * which proves that auth context has resolved (useTrackEvent drops events
+ * when user?.id is null). Use waitForTrackingReady() after navigation.
+ */
+async function setupTrackingCapture(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as any).__capturedTrackingEvents = [];
+    (window as any).__trackingReady = false;
+    const originalFetch = window.fetch;
+    window.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
+      if (typeof input === 'string' && input.includes('/api/events') && init?.method === 'POST') {
+        try {
+          const body = JSON.parse(init.body as string);
+          (window as any).__capturedTrackingEvents.push(body);
+          (window as any).__trackingReady = true;
+        } catch { /* ignore parse errors */ }
       }
-    }
-    // Continue with the request
-    await route.continue();
+      return originalFetch.call(this, input, init!);
+    };
   });
+}
 
-  return events;
+/** Read captured tracking events from the browser context */
+async function getCapturedEvents(page: Page): Promise<TrackingEvent[]> {
+  return page.evaluate(() => (window as any).__capturedTrackingEvents || []);
+}
+
+/**
+ * Wait for auth context to resolve and tracking to become operational.
+ * The beach_view tracking event fires on every page load once useTrackEvent
+ * has a valid user.id. When our fetch interceptor captures it, we know both
+ * auth and tracking are working — safe to proceed with test interactions.
+ */
+async function waitForTrackingReady(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => (window as any).__trackingReady === true,
+    { timeout: 15000 }
+  );
 }
 
 test.describe('Beach Review Tracking', () => {
@@ -77,10 +106,13 @@ test.describe('Beach Review Tracking', () => {
     test('should track review_form_open when CTA is clicked', async ({ page }) => {
       await ensureAuthenticated(page);
 
-      // Set up event capture before navigation
-      const events = await captureTrackingEvents(page);
+      // Inject fetch interceptor before navigation (captures keepalive requests)
+      await setupTrackingCapture(page);
 
       await navigateToBeach(page, TEST_BEACHES.blacks);
+      await waitForTrackingReady(page);
+      // Clear events from page load (beach_view) so we only capture test interactions
+      await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
       // Click the review CTA in overview tab
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
@@ -94,6 +126,7 @@ test.describe('Beach Review Tracking', () => {
       await page.waitForTimeout(1500);
 
       // Verify tracking event was captured
+      const events = await getCapturedEvents(page);
       const openEvent = events.find(e => e.eventType === 'review_form_open');
       expect(openEvent).toBeDefined();
       expect(openEvent?.metadata?.source).toBe('overview_cta');
@@ -104,10 +137,13 @@ test.describe('Beach Review Tracking', () => {
     test('should track review_form_open from reviews tab', async ({ page }) => {
       await ensureAuthenticated(page);
 
-      // Set up event capture before navigation
-      const events = await captureTrackingEvents(page);
+      // Inject fetch interceptor before navigation (captures keepalive requests)
+      await setupTrackingCapture(page);
 
       await navigateToBeach(page, TEST_BEACHES.blacks);
+      await waitForTrackingReady(page);
+      // Clear events from page load (beach_view) so we only capture test interactions
+      await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
       // Click on Reviews tab
       const reviewsTab = page.getByRole('tab', { name: /reviews/i });
@@ -129,6 +165,7 @@ test.describe('Beach Review Tracking', () => {
       await page.waitForTimeout(1500);
 
       // Verify tracking event was captured with reviews_tab source
+      const events = await getCapturedEvents(page);
       const openEvent = events.find(e => e.eventType === 'review_form_open');
       expect(openEvent).toBeDefined();
       expect(openEvent?.metadata?.source).toBe('reviews_tab');
@@ -139,13 +176,17 @@ test.describe('Beach Review Tracking', () => {
     test('should track validation error for missing ratings', async ({ page }) => {
       await ensureAuthenticated(page);
 
-      // Set up event capture before navigation
-      const events = await captureTrackingEvents(page);
+      // Inject fetch interceptor before navigation (captures keepalive requests)
+      await setupTrackingCapture(page);
 
       await navigateToBeach(page, TEST_BEACHES.blacks);
+      await waitForTrackingReady(page);
+      // Clear events from page load (beach_view) so we only capture test interactions
+      await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
+      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
       await reviewCTA.click();
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
@@ -161,6 +202,7 @@ test.describe('Beach Review Tracking', () => {
       await page.waitForTimeout(1500);
 
       // Verify validation error was tracked
+      const events = await getCapturedEvents(page);
       const validationEvent = events.find(e => e.eventType === 'review_validation_error');
       expect(validationEvent).toBeDefined();
       expect(validationEvent?.metadata?.error_type).toBe('missing_ratings');
@@ -169,13 +211,17 @@ test.describe('Beach Review Tracking', () => {
     test('should track validation error for missing content', async ({ page }) => {
       await ensureAuthenticated(page);
 
-      // Set up event capture before navigation
-      const events = await captureTrackingEvents(page);
+      // Inject fetch interceptor before navigation (captures keepalive requests)
+      await setupTrackingCapture(page);
 
       await navigateToBeach(page, TEST_BEACHES.blacks);
+      await waitForTrackingReady(page);
+      // Clear events from page load (beach_view) so we only capture test interactions
+      await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
+      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
       await reviewCTA.click();
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
@@ -196,6 +242,7 @@ test.describe('Beach Review Tracking', () => {
       await page.waitForTimeout(1500);
 
       // Verify validation error was tracked
+      const events = await getCapturedEvents(page);
       const validationEvent = events.find(e => e.eventType === 'review_validation_error');
       expect(validationEvent).toBeDefined();
       expect(validationEvent?.metadata?.error_type).toBe('missing_content');
@@ -206,13 +253,17 @@ test.describe('Beach Review Tracking', () => {
     test('should track review_form_abandon when cancel is clicked', async ({ page }) => {
       await ensureAuthenticated(page);
 
-      // Set up event capture before navigation
-      const events = await captureTrackingEvents(page);
+      // Inject fetch interceptor before navigation (captures keepalive requests)
+      await setupTrackingCapture(page);
 
       await navigateToBeach(page, TEST_BEACHES.blacks);
+      await waitForTrackingReady(page);
+      // Clear events from page load (beach_view) so we only capture test interactions
+      await page.evaluate(() => { (window as any).__capturedTrackingEvents = []; });
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
+      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
       await reviewCTA.click();
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
@@ -230,6 +281,7 @@ test.describe('Beach Review Tracking', () => {
       await page.waitForTimeout(1500);
 
       // Verify abandon event was tracked
+      const events = await getCapturedEvents(page);
       const abandonEvent = events.find(e => e.eventType === 'review_form_abandon');
       expect(abandonEvent).toBeDefined();
       expect(abandonEvent?.metadata?.source).toBe('overview_cta');
@@ -299,12 +351,14 @@ test.describe('Review Form UI', () => {
     await reviewCTA.click();
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
 
-    // Verify all rating categories are present
-    await expect(page.getByText('Overall Experience')).toBeVisible();
-    await expect(page.getByText('Wave Quality')).toBeVisible();
-    await expect(page.getByText('Crowd Level')).toBeVisible();
-    await expect(page.getByText('Parking')).toBeVisible();
-    await expect(page.getByText('Accessibility')).toBeVisible();
+    // Verify all rating categories are present (scoped to dialog to avoid
+    // matching amenity badges like "Parking" on the Overview tab behind the dialog)
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Overall Experience')).toBeVisible();
+    await expect(dialog.getByText('Wave Quality')).toBeVisible();
+    await expect(dialog.getByText('Crowd Level')).toBeVisible();
+    await expect(dialog.getByText('Parking')).toBeVisible();
+    await expect(dialog.getByText('Accessibility')).toBeVisible();
   });
 
   test('should allow selecting star ratings', async ({ page }) => {

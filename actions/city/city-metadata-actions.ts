@@ -4,9 +4,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { withServerAction, ServerActionResponse } from "@/lib/server-action-utils";
 import { resolveCityFromSlug } from "@/lib/seo/city-slug-utils";
 
-// CityMetadata is defined in @/types/location; re-export for backward compatibility
-import type { CityMetadata } from "@/types/location";
-export type { CityMetadata } from "@/types/location";
+// CityMetadata and BeachEditorialItem are defined in @/types/location; re-export for backward compatibility
+import type { CityMetadata, BeachEditorialItem } from "@/types/location";
+export type { CityMetadata, BeachEditorialItem } from "@/types/location";
 
 /**
  * Result from find_cities_by_pattern RPC function.
@@ -246,4 +246,83 @@ export async function findCityBySlug(
     }
     return metadataResult.data;
   });
+}
+
+/**
+ * Fetch rich editorial data for all public beaches in a city.
+ * Used by intent pages to surface SEO-rich content without modifying
+ * the lightweight CityMetadata used by other callers.
+ *
+ * Returns an empty array on error so callers can render gracefully.
+ *
+ * @param cityName - Full city name as stored in the database (e.g., "Santa Cruz")
+ * @param state - Two-letter state code (e.g., "CA")
+ */
+export async function getCityBeachEditorialData(
+  cityName: string,
+  state: string
+): Promise<BeachEditorialItem[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const normalizedState = state.toUpperCase();
+
+    // The generated database.ts types do not yet include all editorial columns,
+    // so we cast through unknown to avoid GenericStringError inference.
+    // This matches the approach used in beginner-actions.ts for the same reason.
+    const { data: rawBeaches, error } = await supabase
+      .from("beaches")
+      .select(
+        "id, name, slug, break_type, average_rating, review_count, description, " +
+        "crowd_level, crowd_tips, wave_tips, best_conditions_prose, access_tips, " +
+        "parking_tips, best_months, hazards, aspect_deg, skill_level, " +
+        "preferred_tide_direction, preferred_tide_ft_min, preferred_tide_ft_max"
+      )
+      .ilike("city", cityName)
+      .eq("state", normalizedState)
+      .or("is_private.is.null,is_private.eq.false")
+      .order("name");
+
+    if (error) {
+      console.error("[getCityBeachEditorialData] Query error:", error.message);
+      return [];
+    }
+
+    const beaches = rawBeaches as unknown as Record<string, any>[] | null;
+
+    if (!beaches || beaches.length === 0) {
+      return [];
+    }
+
+    return beaches.map((b: Record<string, any>) => {
+      const item: BeachEditorialItem = {
+        id: b.id,
+        name: b.name,
+        slug: b.slug ?? "",
+      };
+
+      if (b.break_type != null) item.breakType = b.break_type;
+      if (b.average_rating != null) item.averageRating = Number(b.average_rating);
+      if (b.review_count != null) item.reviewCount = b.review_count;
+      if (b.description != null) item.description = b.description;
+      if (b.crowd_level != null) item.crowdLevel = String(b.crowd_level);
+      if (b.crowd_tips != null) item.crowdTips = b.crowd_tips;
+      if (b.wave_tips != null) item.waveTips = b.wave_tips;
+      if (b.best_conditions_prose != null) item.bestConditionsProse = b.best_conditions_prose;
+      if (b.access_tips != null) item.accessTips = b.access_tips;
+      if (b.parking_tips != null) item.parkingTips = b.parking_tips;
+      // best_months and hazards are text arrays in the database; preserve null explicitly
+      item.bestMonths = Array.isArray(b.best_months) ? (b.best_months as string[]) : null;
+      item.hazards = Array.isArray(b.hazards) ? (b.hazards as string[]) : null;
+      if (b.aspect_deg != null) item.aspectDeg = b.aspect_deg;
+      if (b.skill_level != null) item.skillLevel = b.skill_level;
+      if (b.preferred_tide_direction != null) item.preferredTideDirection = b.preferred_tide_direction;
+      if (b.preferred_tide_ft_min != null) item.preferredTideFtMin = Number(b.preferred_tide_ft_min);
+      if (b.preferred_tide_ft_max != null) item.preferredTideFtMax = Number(b.preferred_tide_ft_max);
+
+      return item;
+    });
+  } catch (error) {
+    console.error("[getCityBeachEditorialData] Unexpected error:", error);
+    return [];
+  }
 }

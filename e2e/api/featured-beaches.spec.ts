@@ -214,6 +214,7 @@ test.describe('Featured Beaches API Contract', () => {
         'average_rating',
         'review_count',
         'skill_level',
+        'score',
       ];
 
       beaches.forEach((beach: any) => {

@@ -9,12 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Data layer: `BeachEditorialItem` type and `getCityBeachEditorialData` action** — Adds a new exported interface (`types/location.ts`) and server action (`actions/city/city-metadata-actions.ts`) that fetches 20 editorial columns (`break_type`, `description`, `crowd_level/tips`, `wave_tips`, `best_conditions_prose`, `access_tips`, `parking_tips`, `best_months`, `hazards`, `aspect_deg`, `skill_level`, `preferred_tide_direction/ft_min/ft_max`) for all public beaches in a city. Kept separate from `CityMetadata` so existing callers are unaffected.
 - **Sitemap: 15 new 2-beach city markets in intent pages** — Lowered threshold from 3 to 2 beaches with an editorial quality guard (description + at least one of crowd_tips/wave_tips/best_conditions_prose on both beaches). Adds Carmel-by-the-Sea, Del Mar, Goleta, Kill Devil Hills, Kailua-Kona, Luquillo, Melbourne Beach, Montauk, Narragansett, Pacifica, Pupukea, Queens, Scarborough, Seaside, Venice to all intent routes (`app/sitemap.ts`, `actions/beach/beach-location-actions.ts`, DB migration)
 - **Sitemap: ~20 new best-time-to-surf city pages** — Lowered `getCitiesWithBestMonthsData` threshold from 3 to 2 beaches with best_months data. Adds Del Mar, Encinitas, Goleta, Haleiwa, Hermosa Beach, Kailua-Kona, Kill Devil Hills, La Push, Luquillo, Manhattan Beach, Melbourne Beach, Montauk, Narragansett, Pacifica, Pupukea, Queens, San Onofre, Scarborough, Venice (`actions/city/best-time-actions.ts`)
 - **Sitemap: Aguadilla, Isabela, Hermosa Beach, Santa Cruz now gain beginner/longboard intent routes** — Expanded `has_beginner` in RPC and beginner beach queries to include `lower-intermediate` skill level. Updated `categorizeSkillLevel()` for consistency with page metadata noindex guard (`actions/city/city-metadata-actions.ts`, `actions/beginner/beginner-actions.ts`, DB migration)
 
 ### Fixed
 
+- **Review tracking from Overview CTA:** Fixed `handleWriteReview` callback being passed directly as `onClick`, causing React's MouseEvent to overwrite the default `overview_cta` source parameter — zero `overview_cta` tracking events were ever recorded in production (`components/beach-detail.tsx`)
+- **Rate limits too strict in dev:** `surf-discovery` and `surf-insights` rate limit keys used hardcoded production values; added `IS_PRODUCTION` ternary for dev flexibility matching other keys (`lib/api/rate-limit-config.ts`)
+- **E2E: Beach detail forecast selectors:** Updated stale test selectors for refactored forecast tab with sub-tabs (Today/Tides/Conditions) (`e2e/beach-detail.spec.ts`)
+- **E2E: Review tracking event capture:** Replaced `page.route` with `addInitScript` fetch monkey-patch to capture `keepalive: true` tracking events that Playwright cannot intercept natively (`e2e/beach-review-tracking.spec.ts`)
+- **E2E: Board recommendations negative waveHeight:** Updated test expectation from 200 to 400 for negative wave heights now that API validates input (`e2e/api/board-recommendations.spec.ts`)
+- **E2E: Featured beaches schema:** Added `score` to expected fields allowlist (`e2e/api/featured-beaches.spec.ts`)
+- **E2E: Home page score format:** Updated regex from `\d+\.\d+/10` to `\d+(\.\d+)?/10` to match integer scores like "8/10" (`e2e/home.spec.ts`)
 - **Discovery today-first window selection:** Discovery orchestrator now tries today's forecasts before falling back to all forecasts (today + tomorrow), preventing "Skip today — tomorrow at X is good" recommendations when today has a viable surf window (`lib/services/discovery/surf-discovery-orchestrator.ts`)
 
 ### Changed

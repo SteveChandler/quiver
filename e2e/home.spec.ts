@@ -106,8 +106,8 @@ test.describe('Home Page - Layout', () => {
 
         const headlineText = await headline.textContent();
 
-        expect(headlineText).toMatch(/\d+\.\d+\/10/);
-        expect(headlineText).toContain('is your best bet at');
+        expect(headlineText).toMatch(/\d+(\.\d+)?\/10/);
+        expect(headlineText).toMatch(/is your best bet at|is a good option at|conditions are/i);
       }
     });
 

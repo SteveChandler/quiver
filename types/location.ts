@@ -191,6 +191,36 @@ export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
 };
 
 /**
+ * Per-beach editorial data for intent pages.
+ * Returned by getCityBeachEditorialData — separate from CityMetadata
+ * so existing getCityMetadata callers are unaffected.
+ */
+export interface BeachEditorialItem {
+  id: string;
+  name: string;
+  slug: string;
+  breakType?: string;
+  averageRating?: number;
+  reviewCount?: number;
+  description?: string;
+  crowdLevel?: string;
+  crowdTips?: string;
+  waveTips?: string;
+  bestConditionsProse?: string;
+  accessTips?: string;
+  parkingTips?: string;
+  /** Array of best month names, e.g. ["December","January","February"] */
+  bestMonths?: string[] | null;
+  /** Array of hazard descriptions, e.g. ["Rip currents","Shore break"] */
+  hazards?: string[] | null;
+  aspectDeg?: number;
+  skillLevel?: string;
+  preferredTideDirection?: string;
+  preferredTideFtMin?: number;
+  preferredTideFtMax?: number;
+}
+
+/**
  * Metadata for a city's surf beaches.
  * Used by intent pages, SEO templates, and city-level data fetching.
  */

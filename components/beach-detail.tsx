@@ -488,7 +488,7 @@ function BeachDetailContent({
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab beach={beach as any} onWriteReview={handleWriteReview} />
+              <OverviewTab beach={beach as any} onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)} />
             </Suspense>
             {publicMode && (
               <div className="mt-8">

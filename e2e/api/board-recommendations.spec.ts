@@ -131,17 +131,15 @@ test.describe("Board Recommendations API Contract", () => {
       });
 
       test("should handle negative waveHeight gracefully", async () => {
-        // Note: API currently accepts negative values without error
-        // This test documents current behavior
         const response = await api.get(
           `${GEAR_SUGGESTIONS_ENDPOINT}?waveHeight=-3&windSpeed=5`
         );
 
-        // API returns 200 even with negative values
-        expect(response.status()).toBe(200);
+        // API validates input and rejects negative wave heights
+        expect(response.status()).toBe(400);
 
         const json = await response.json();
-        expect(json.success).toBe(true);
+        expect(json.success).toBe(false);
       });
     });
 
