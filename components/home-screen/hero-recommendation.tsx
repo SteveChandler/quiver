@@ -240,11 +240,11 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   return (
     <div className="space-y-4 px-4 sm:px-1" data-testid="hero-recommendation">
       {/* Main headline */}
-      <h1 className="text-2xl xs:text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
+      <h1 className="text-2xl xs:text-3xl sm:text-4xl font-roboto font-bold tracking-tight text-white leading-tight">
         {headline.prefix}
         <button
           onClick={() => onViewBeach(beach.id)}
-          className="hover:text-accent-orange focus-visible:text-accent-orange focus-visible:outline-none focus-visible:underline transition-colors text-left min-h-[44px] inline"
+          className="hover:text-ocean-blue focus-visible:text-ocean-blue focus-visible:outline-none focus-visible:underline transition-colors text-left min-h-[44px] inline"
           aria-label={`View details for ${beach.name}`}
         >
           {headline.beachPart}

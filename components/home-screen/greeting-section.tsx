@@ -70,7 +70,7 @@ export function GreetingSection({
       animate={reducedMotion ? { opacity: 1, y: 0 } : HOME_HEADER_MOTION.entryItem.animate}
       transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.entryItem.transition}
     >
-      <h1 className="text-base xs:text-lg sm:text-xl font-normal text-white/80 leading-tight">
+      <h1 className="text-base xs:text-lg sm:text-xl font-roboto font-normal text-white/80 leading-tight">
         {greeting}
       </h1>
     </motion.div>

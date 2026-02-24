@@ -89,7 +89,7 @@ export function BottomNav() {
                 "w-full h-full min-h-[44px]",
                 "text-xs font-medium transition-colors",
                 active
-                  ? "text-accent-orange"
+                  ? "text-ocean-blue"
                   : "text-gray-500 hover:text-gray-700 active:text-gray-900"
               )}
               aria-current={active ? "page" : undefined}
@@ -97,7 +97,7 @@ export function BottomNav() {
               <item.icon
                 className={cn(
                   "h-6 w-6 mb-1",
-                  active ? "text-accent-orange" : "text-gray-400"
+                  active ? "text-ocean-blue" : "text-gray-400"
                 )}
               />
               <span>{item.label}</span>

@@ -49,7 +49,7 @@ const HomeScreenDynamic = dynamic(
  * - SSR beach section remains for SEO crawlers and no-JS fallback
  * - `authenticated` body class is managed globally by AuthBodyClassManager
  *
- * Note: PopularBeachesSection and FooterSection are rendered in the server shell
+ * Note: PopularBeachesSection and SiteFooter are rendered in the server shell
  * to ensure beach links are always in the HTML for SEO purposes.
  */
 export function AuthAwareLandingWrapper() {

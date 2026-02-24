@@ -20,7 +20,6 @@ const config: Config = {
       },
       colors: {
         "ocean-blue": "#0077B6",
-        "ocean-blue-dark": "#006699", // Hover state for ocean-blue
         "sunset-orange": "#FF7F11",
         "sandy-beige": "#F5F5DC",
         "dark-grey": "#333333",
@@ -49,7 +48,7 @@ const config: Config = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
-          orange: "#f97316", // Primary accent for home screen
+          orange: "#f97316", // Secondary accent — warm highlights, badges
         },
         header: {
           start: "#0f172a", // Dark gradient start (slate-900)

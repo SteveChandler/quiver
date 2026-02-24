@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Brand alignment:** Unified visual language across landing page and authenticated app — ocean-blue is now the primary action color everywhere, orange demoted to secondary accent
+- **Primary actions ocean-blue:** Home screen CTA buttons use ocean-blue gradient instead of orange (`primary-actions.tsx`)
+- **Bottom nav active state:** Changed from orange to ocean-blue (`bottom-nav.tsx`)
+- **Font consistency:** Added `font-roboto` to greeting and hero headings for consistent typography
+- **CSS primary variable:** Aligned `--primary` and `--ring` CSS variables with ocean-blue (#0077B6)
+- **Ocean-blue hover states:** Replaced `ocean-blue-dark` token with `ocean-blue/90` opacity modifier in beach-actions and product-tour
+- **Style guide expanded:** Added font family rules, logo usage, naming conventions, landing/app alignment, and updated brand color documentation
+
+### Removed
+
+- **Duplicate footer component:** Deleted `components/landing-page/footer-section.tsx` and consolidated into `components/shared/site-footer.tsx` via `showBrandSection` and `showSocialLinks` props
+- **Orphaned assets:** Deleted `public/logo-word (2).png`; optimized `logoQuiver.png` from 2.6MB to 96KB
+- **Unused color token:** Removed `ocean-blue-dark` from Tailwind config (replaced by opacity modifier)
+
 ### Fixed
 
+- **Broken email CTA links:** Fixed "Check Full Forecast" links 404ing in forecast-digest and reengagement emails by using `buildBeachUrl()` for correct hierarchical URLs (`/{state}/{city}/{beachSlug}` instead of `/beaches/{slug}`). Fixed "Log Your Session" links in reengagement and conditions-alert emails to pre-fill the beach via `beach` and `beachName` URL params.
 - **Infinite render loop in onboarding HomeBeachStep:** Fixed "Maximum update depth exceeded" error caused by three concurrent `useDataFetcher` instances cascading state updates. `useDataFetcher` now bails out of the loading state setter when already loading (same-reference return), and `HomeBeachStep` replaces the popular-beaches `useDataFetcher` instance with a plain `useState` + `useEffect` fetch, reducing the component from 3 to 2 hook instances. Updated E2E onboarding spec: heading text assertions, scoped selectors for strict mode compliance, and soft-navigation-aware completion assertion.
 
 ### Changed

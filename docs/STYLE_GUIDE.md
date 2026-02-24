@@ -94,7 +94,44 @@ Font families loaded via CSS variables: Inter (default sans), Roboto, Open Sans.
 
 ---
 
-## 5. Spacing Rules
+## 5. Font Family Rules
+
+Three font families are loaded via Google Fonts and configured as CSS variables:
+
+| Font | Tailwind Class | Usage |
+|------|---------------|-------|
+| **Inter** | `font-sans` (default) | Body text, navigation, UI elements, form inputs |
+| **Roboto** | `font-roboto` | All headings (h1-h4), CTAs, brand-prominent text |
+| **Open Sans** | `font-open-sans` | Descriptive body copy on content-heavy pages (landing, about, features) |
+
+**Rule:** App pages must use `font-roboto` on headings. Many components default to Inter -- always add `font-roboto` to `text-xl font-semibold`, `text-2xl font-bold`, and similar heading patterns.
+
+**Local font copies** exist in `public/fonts/` but are used exclusively by Satori for OG image rendering (see `scripts/fetch-fonts.mjs`). Web pages load fonts via Google Fonts CDN.
+
+---
+
+## 6. Logo Usage
+
+- **Primary logo:** `public/logoQuiver.png` (optimized PNG, <100KB)
+- **No SVG version exists** -- flagged as future work
+- **Canonical name in product UI:** "Quiver"
+- **Canonical name in copyright/marketing:** "Quiver Surf"
+
+---
+
+## 7. Naming Conventions
+
+| Context | Name |
+|---------|------|
+| Product UI | Quiver |
+| Copyright / Marketing | Quiver Surf |
+| Legal entity | Quiver Surf Technologies |
+| SEO alternate name | Quiver Surf App |
+| App Store | Quiver: Surf Forecast & Crew |
+
+---
+
+## 8. Spacing Rules
 
 Use Tailwind `gap-*` and `space-*` utilities consistently.
 
@@ -112,7 +149,7 @@ Use Tailwind `gap-*` and `space-*` utilities consistently.
 
 ---
 
-## 6. Component Patterns
+## 9. Component Patterns
 
 ### Buttons
 
@@ -170,20 +207,49 @@ Props: `icon` (Lucide), `title`, `description`, `action?`, `secondaryAction?`, `
 
 ---
 
-## 7. Brand Colors (reference)
+## 10. Brand Colors
 
-These are decorative / brand-identity colors, not status colors.
+Ocean-blue is the **primary action color** across both the landing page and authenticated app. Orange is a **secondary accent** for warm highlights and badges.
 
-| Token           | Hex       | Use for                        |
-|-----------------|-----------|--------------------------------|
-| `ocean-blue`    | `#0077B6` | Links, brand accents           |
-| `sunset-orange` | `#FF7F11` | Warm highlights, badges        |
-| `sandy-beige`   | `#F5F5DC` | Subtle card backgrounds        |
-| `dark-grey`     | `#333333` | High-contrast text             |
+| Token | Hex | Role |
+|-------|-----|------|
+| `ocean-blue` | `#0077B6` | **Primary action color** -- CTAs, links, active states, buttons |
+| `sunset-orange` | `#FF7F11` | Secondary accent -- warm highlights, badges, decorative emphasis |
+| `sandy-beige` | `#F5F5DC` | Decorative -- beach-detail gradient background (1 usage, keep) |
+| `dark-grey` | `#333333` | High-contrast text |
+
+### Hover states
+
+Use Tailwind opacity modifiers instead of separate dark tokens:
+- `hover:bg-ocean-blue/90` for blue button hovers
+- `hover:text-ocean-blue/80` for link hovers
+
+### CSS custom property
+
+`--primary` in `globals.css` is set to `199 100% 36%` (matches `#0077B6`). All `bg-primary` / `text-primary` usages from shadcn/ui inherit ocean-blue automatically.
+
+### Do / Don't
+
+- **Do** use `ocean-blue` for all primary actions and CTAs (both landing and app)
+- **Do** use `sunset-orange` / `accent.orange` for secondary accents, badges, and warm decorative elements
+- **Don't** use orange as the primary CTA color (it's secondary)
+- **Don't** create new `-dark` color tokens -- use `/90`, `/80` opacity modifiers instead
 
 ---
 
-## 8. Motion
+## 11. Landing & App Visual Alignment
+
+The landing page and authenticated app share the same visual language:
+
+- **Same font hierarchy:** Roboto for headings, Inter for body, Open Sans for long-form content
+- **Same primary color:** Ocean-blue for all CTAs and action buttons
+- **Gradients encouraged** in both contexts for visual depth
+- **Same shadow scale** (see Shadow Scale section)
+- **Same footer component** (`SiteFooter`) with optional brand section for landing
+
+---
+
+## 12. Motion
 
 Standard durations from `lib/constants/animations.ts`:
 
@@ -208,3 +274,10 @@ Respect `prefers-reduced-motion` -- all motion is disabled globally in `globals.
 | `text-success`, `bg-warning/10` | `text-green-600`, `bg-yellow-100` for status |
 | `z-overlay`, `z-toast` | `z-[999]` |
 | `shadow` / `shadow-md` | `shadow-[0_4px_12px_rgba(0,0,0,0.1)]` |
+
+---
+
+## Asset Notes
+
+- `public/fonts/` directories (Inter, Roboto, OpenSans, Montserrat, NotoSans) are used by `scripts/fetch-fonts.mjs` for Satori OG image rendering. Do not delete.
+- Fonts for web pages are loaded via Google Fonts CDN (configured in layout.tsx).

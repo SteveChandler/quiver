@@ -8,7 +8,6 @@ function preloadCriticalResources() {
 
   // Note: logo preloads removed to prevent unused preload warnings on non-landing pages
   // - logoQuiver.png: loaded via Next.js Image with priority on landing page
-  // - logo-word (2).png: 39KB PNG loads fast enough without preload optimization
   //
   // If landing-page-specific preload is needed in the future, make this function
   // accept an opts param: preloadCriticalResources({ isLandingPage: true })
