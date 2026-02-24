@@ -71,20 +71,29 @@ export function useDataFetcher<T>(
   // Track previous skip and fetchFn to detect changes
   const prevSkipRef = useRef(skip);
   const prevFetchFnRef = useRef(fetchFn);
+  const hasRunInitialRef = useRef(false);
 
   useEffect(() => {
     const wasSkipped = prevSkipRef.current;
     const fetchFnChanged = prevFetchFnRef.current !== fetchFn;
 
     // Trigger fetch when:
-    // 1. immediate is true and not skipped (initial mount or re-run)
-    // 2. skip changes from true to false
+    // 1. immediate is true, not skipped, and initial fetch hasn't run yet
+    // 2. skip transitions from true to false (enables a previously disabled fetch)
     // 3. fetchFn identity changes while not skipped (callers use useCallback
     //    with deps, so a new identity signals changed parameters)
-    if ((immediate && !skip) || (wasSkipped && !skip) || (!skip && fetchFnChanged)) {
+    const shouldFetch =
+      (!hasRunInitialRef.current && immediate && !skip) ||
+      (wasSkipped && !skip) ||
+      (!skip && fetchFnChanged);
+
+    if (shouldFetch) {
       fetchData();
     }
 
+    if (!skip) {
+      hasRunInitialRef.current = true;
+    }
     prevSkipRef.current = skip;
     prevFetchFnRef.current = fetchFn;
   }, [fetchData, immediate, skip, fetchFn]);
