@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SEO: Fallback titles for beach detail pages (no live forecast):** Changed generic "Surf Report & Forecast | City, ST" format to break-type + value-proposition pattern — "Bolsa Chica — Beach Break | Crowds, Wind & Tide Intel" — giving each beach a unique, CTR-optimised title even before wave-height data loads. Falls back to "{Beach} | Crowds, Wind & Tide Intel" when break type is unavailable (`lib/seo/meta.ts`)
+- **SEO: Intent page city-not-found fallback title now includes city name:** Slug is parsed via `parseLocationFromSlug` so Google sees "Beginner Spots in Nags Head | Quiver" instead of the generic "Beginner Spots | Quiver" (`app/[intent]/[city]/page.tsx`)
+
 - **Review tracking from Overview CTA:** Fixed `handleWriteReview` callback being passed directly as `onClick`, causing React's MouseEvent to overwrite the default `overview_cta` source parameter — zero `overview_cta` tracking events were ever recorded in production (`components/beach-detail.tsx`)
 - **Rate limits too strict in dev:** `surf-discovery` and `surf-insights` rate limit keys used hardcoded production values; added `IS_PRODUCTION` ternary for dev flexibility matching other keys (`lib/api/rate-limit-config.ts`)
 - **E2E: Beach detail forecast selectors:** Updated stale test selectors for refactored forecast tab with sub-tabs (Today/Tides/Conditions) (`e2e/beach-detail.spec.ts`)
