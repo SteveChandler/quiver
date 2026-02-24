@@ -192,23 +192,25 @@ export function buildDynamicBeachMetadata({
       title = truncateTitleForSEO(shortTitle);
     }
   } else {
-    // Include break type for identity signal when available
-    if (beach.break_type && locationContext) {
+    // No live forecast data — use break type + value proposition as identity signal.
+    // Format: "{Beach} — {Break Type} | Crowds, Wind & Tide Intel"
+    // Omit break type when unavailable: "{Beach} | Crowds, Wind & Tide Intel"
+    const VALUE_PROP = "Crowds, Wind & Tide Intel";
+    if (beach.break_type) {
       const breakLabel = capitalizeBreakType(beach.break_type);
-      const fullTitle = `${beach.name} — ${breakLabel} in ${locationContext} | Surf Report`;
+      const fullTitle = `${beach.name} — ${breakLabel} | ${VALUE_PROP}`;
       if (fullTitle.length <= MAX_TITLE_LENGTH) {
         title = fullTitle;
       } else {
-        const shortTitle = `${beach.name} Surf Report | ${locationContext}`;
+        const shortTitle = `${beach.name} — ${breakLabel} | Intel`;
         title = truncateTitleForSEO(shortTitle);
       }
     } else {
-      const fullTitle = `${beach.name} Surf Report & Forecast | ${locationContext || "Surf Conditions"}`;
+      const fullTitle = `${beach.name} | ${VALUE_PROP}`;
       if (fullTitle.length <= MAX_TITLE_LENGTH) {
         title = fullTitle;
       } else {
-        const shortTitle = `${beach.name} Surf Report | ${locationContext || "Forecast"}`;
-        title = truncateTitleForSEO(shortTitle);
+        title = truncateTitleForSEO(`${beach.name} | Crowd & Surf Intel`);
       }
     }
   }
