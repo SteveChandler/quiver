@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **E2E: Featured beaches schema:** Added `score` to expected fields allowlist (`e2e/api/featured-beaches.spec.ts`)
 - **E2E: Home page score format:** Updated regex from `\d+\.\d+/10` to `\d+(\.\d+)?/10` to match integer scores like "8/10" (`e2e/home.spec.ts`)
 - **Discovery today-first window selection:** Discovery orchestrator now tries today's forecasts before falling back to all forecasts (today + tomorrow), preventing "Skip today — tomorrow at X is good" recommendations when today has a viable surf window (`lib/services/discovery/surf-discovery-orchestrator.ts`)
+- **Overview CTA review tracking never fires:** `handleWriteReview` was passed directly as an `onClick` handler, causing React to pass the MouseEvent as the `source` argument instead of `'overview_cta'`. This silently broke all tracking events (form open, validation errors, abandon) when opening the review form from the Overview tab. Wrapped the callback to pass the correct source string (`components/beach-detail.tsx`)
 
 ### Changed
 
