@@ -33,6 +33,15 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
   getUserSurfPreferences: jest.fn(),
 }));
 
+jest.mock("@/lib/domains/scoring/discovery-adapter", () => ({
+  calculatePreferenceAdjustment: jest.fn(() => ({ adjustment: 0, reason: null, warning: null })),
+  checkSkillCeiling: jest.fn(() => ({ penalty: 0, warning: null })),
+}));
+
+jest.mock("@/lib/domains/user-preferences", () => ({
+  parseSkillLevel: jest.fn(() => null),
+}));
+
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "America/Los_Angeles"),
 }));
@@ -126,12 +135,26 @@ describe("Spot Surf Report Preferences Integration", () => {
         auth: {
           getUser: jest.fn().mockRejectedValue(authError),
         },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
       });
     } else {
       (createSupabaseServerClient as jest.Mock).mockReturnValue({
         auth: {
           getUser: jest.fn().mockResolvedValue({ data: { user } }),
         },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
       });
     }
 
@@ -170,6 +193,7 @@ describe("Spot Surf Report Preferences Integration", () => {
       start: new Date("2024-01-15T22:00:00Z"),
       end: new Date("2024-01-16T01:00:00Z"),
       score: 80,
+      waveHeight: "4",
       peakTime: new Date("2024-01-15T23:00:00Z"),
     });
   }

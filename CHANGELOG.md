@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Discovery today-first window selection:** Discovery orchestrator now tries today's forecasts before falling back to all forecasts (today + tomorrow), preventing "Skip today — tomorrow at X is good" recommendations when today has a viable surf window (`lib/services/discovery/surf-discovery-orchestrator.ts`)
+
 ### Changed
+
+- **Preference-aware surf call verdicts:** Beach detail YES/NO verdict now factors in the user's `preferred_wave_size` and `experience_level` from their profile. `applyPreferenceAdjustments` adjusts the best window's score before `computeSurfCall` runs, so a medium-wave surfer no longer sees "YES" on a 2ft day (`actions/spot/spot-surf-report-actions.ts`)
 
 - **Brand alignment:** Unified visual language across landing page and authenticated app — ocean-blue is now the primary action color everywhere, orange demoted to secondary accent
 - **Primary actions ocean-blue:** Home screen CTA buttons use ocean-blue gradient instead of orange (`primary-actions.tsx`)

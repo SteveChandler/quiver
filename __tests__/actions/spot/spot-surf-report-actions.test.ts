@@ -19,6 +19,15 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
   getUserSurfPreferences: jest.fn(),
 }));
 
+jest.mock("@/lib/domains/scoring/discovery-adapter", () => ({
+  calculatePreferenceAdjustment: jest.fn(() => ({ adjustment: 0, reason: null, warning: null })),
+  checkSkillCeiling: jest.fn(() => ({ penalty: 0, warning: null })),
+}));
+
+jest.mock("@/lib/domains/user-preferences", () => ({
+  parseSkillLevel: jest.fn(() => null),
+}));
+
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "America/Los_Angeles"),
 }));
@@ -90,6 +99,13 @@ describe("spot-surf-report-actions", () => {
         auth: {
           getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
         },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
       });
       (getUserSurfPreferences as jest.Mock).mockResolvedValue(null);
 
@@ -130,6 +146,7 @@ describe("spot-surf-report-actions", () => {
         start: new Date("2024-01-15T22:00:00Z"),
         end: new Date("2024-01-16T01:00:00Z"), // Capped at sunset
         score: 80,
+        waveHeight: "4",
         peakTime: new Date("2024-01-15T23:00:00Z"),
       });
 
@@ -173,6 +190,13 @@ describe("spot-surf-report-actions", () => {
         auth: {
           getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
         },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
       });
       (getUserSurfPreferences as jest.Mock).mockResolvedValue(null);
 
@@ -246,6 +270,13 @@ describe("spot-surf-report-actions", () => {
         auth: {
           getUser: jest.fn().mockResolvedValue({ data: { user: { id: mockUserId } } }),
         },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
       });
 
       // Setup mock user preferences (user prefers 3-6 ft waves)
@@ -299,6 +330,7 @@ describe("spot-surf-report-actions", () => {
         start: new Date("2024-01-15T22:00:00Z"),
         end: new Date("2024-01-16T01:00:00Z"),
         score: 80,
+        waveHeight: "4",
         peakTime: new Date("2024-01-15T23:00:00Z"),
       });
 
@@ -328,6 +360,13 @@ describe("spot-surf-report-actions", () => {
         auth: {
           getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
         },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
       });
 
       // Setup mock sun times cache
@@ -367,6 +406,7 @@ describe("spot-surf-report-actions", () => {
         start: new Date("2024-01-15T22:00:00Z"),
         end: new Date("2024-01-16T01:00:00Z"),
         score: 80,
+        waveHeight: "4",
         peakTime: new Date("2024-01-15T23:00:00Z"),
       });
 
