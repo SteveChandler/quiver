@@ -41,16 +41,20 @@ const STATE_NAMES: Record<string, string> = {
 
 /**
  * Categorize a skill level string into beginner, intermediate, or advanced.
- * - Beginner: includes "beginner" or "longboard" in the string
+ * - Beginner: includes "beginner", "longboard", or equals "lower-intermediate"
  * - Advanced: includes "advanced" or "expert" in the string
  * - Intermediate: everything else (including null)
+ *
+ * NOTE: "lower-intermediate" is treated as beginner because it represents the most
+ * accessible conditions beyond strict beginner level — suitable for /beginner and
+ * /longboard intent pages. This matches the RPC get_cities_with_beach_skills logic.
  */
 function categorizeSkillLevel(
   skillLevel: string | null
 ): "beginner" | "intermediate" | "advanced" {
   if (!skillLevel) return "intermediate";
   const lower = skillLevel.toLowerCase();
-  if (lower.includes("beginner") || lower.includes("longboard")) return "beginner";
+  if (lower.includes("beginner") || lower.includes("longboard") || lower === "lower-intermediate") return "beginner";
   if (lower.includes("advanced") || lower.includes("expert")) return "advanced";
   return "intermediate";
 }

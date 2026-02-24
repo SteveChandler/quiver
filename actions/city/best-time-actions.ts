@@ -202,6 +202,7 @@ export async function getCitiesWithBestMonthsData(): Promise<
       }
     }
 
-    return Array.from(cityMap.values()).filter((c) => c.beachCount >= 3);
+    // Require at least 2 beaches with best_months data for meaningful monthly aggregation
+    return Array.from(cityMap.values()).filter((c) => c.beachCount >= 2);
   });
 }

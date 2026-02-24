@@ -226,7 +226,10 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
  *
  * IMPORTANT: Filters out:
  * 1. Skill-based intent pages (beginner, longboard) for cities without matching beaches
- * 2. Cities with fewer than 3 beaches (thin content)
+ * 2. Cities with fewer than 2 beaches (thin content)
+ * 3. Cities with exactly 2 beaches that lack editorial quality content
+ *    (editorial quality = description + at least one of crowd_tips/wave_tips/best_conditions_prose
+ *     on both beaches). Cities with 3+ beaches are included without this extra guard.
  *
  * This prevents empty or thin intent pages from being included in the sitemap.
  */
@@ -269,8 +272,13 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) continue;
 
-        // Filter out cities with fewer than 3 beaches (thin content)
-        if (cityRecord.beachCount < 3) continue;
+        // Filter out cities with fewer than 2 beaches (thin content)
+        if (cityRecord.beachCount < 2) continue;
+
+        // For cities with exactly 2 beaches, require editorial quality content
+        // (description + at least one editorial field on both beaches).
+        // Cities with 3+ beaches have sufficient content depth without this check.
+        if (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent) continue;
 
         for (const intent of intents) {
           // Filter skill-based intents to cities with matching beaches.
@@ -398,7 +406,8 @@ function getCamRoutes(): MetadataRoute.Sitemap {
 
 /**
  * Best-time-to-surf city pages.
- * Only includes cities with >= 3 beaches that have best_months data.
+ * Only includes cities with >= 2 beaches that have best_months data.
+ * The threshold was lowered from 3 to 2 to expand coverage to smaller high-quality markets.
  */
 async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
   const bestTimeDate = "2026-02-12";
