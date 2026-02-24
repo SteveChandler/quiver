@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SEO: Collision-aware city slugs in beach detail intent backlinks (Task 4 Phase 1D):** `RelatedGuidesSection` now uses `buildCitySlug(beach.city, stateSlug, COLLISION_CITY_MAP)` instead of the bare `slugifyAscii(beach.city)` call, ensuring collision cities like Newport, OR generate `/tide/newport-or` (not the ambiguous `/tide/newport`) and Long Beach, CA generates `/tide/long-beach-ca`. Previously these links would land on incorrect or non-existent intent pages for the ~3 collision cities in the database (`components/beach-detail/related-guides-section.tsx`)
+
 - **SEO: Fallback titles for beach detail pages (no live forecast):** Changed generic "Surf Report & Forecast | City, ST" format to break-type + value-proposition pattern — "Bolsa Chica — Beach Break | Crowds, Wind & Tide Intel" — giving each beach a unique, CTR-optimised title even before wave-height data loads. Falls back to "{Beach} | Crowds, Wind & Tide Intel" when break type is unavailable (`lib/seo/meta.ts`)
 - **SEO: Intent page city-not-found fallback title now includes city name:** Slug is parsed via `parseLocationFromSlug` so Google sees "Beginner Spots in Nags Head | Quiver" instead of the generic "Beginner Spots | Quiver" (`app/[intent]/[city]/page.tsx`)
 
