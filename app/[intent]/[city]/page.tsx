@@ -11,7 +11,7 @@ import {
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { FAQSchema } from "@/components/seo/faq-schema";
+import { FAQSection } from "@/components/seo/faq-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
@@ -21,7 +21,7 @@ import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { StateMapView } from "@/components/state/state-map-view";
-import { findCityBySlug, getCityMetadata, type CityMetadata } from "@/actions/city/city-metadata-actions";
+import { findCityBySlug, getCityMetadata, getCityBeachEditorialData, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
 import { buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
@@ -34,6 +34,7 @@ import {
   TodaysIntentPlan,
   SmartChecklist,
   MiniLogTeaser,
+  BeachEditorialSection,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
@@ -381,14 +382,6 @@ export default async function IntentPage(props: IntentPageParams) {
             { name: intentDefinition.label, url: `${baseUrl}/${params.intent}/${params.city}` },
           ]}
         />
-        <FAQSchema
-          items={generateIntentFAQ(
-            params.intent as SurfIntentSlug,
-            stateName,
-            beaches.slice(0, 3).map((b) => b.name),
-            params.city
-          )}
-        />
         <ItemListSchema
           items={beaches.map((b, i) => ({
             name: b.name,
@@ -467,6 +460,17 @@ export default async function IntentPage(props: IntentPageParams) {
               />
             </>
           )}
+
+          {/* Visible FAQ section (includes JSON-LD structured data) */}
+          <FAQSection
+            items={generateIntentFAQ(
+              params.intent as SurfIntentSlug,
+              stateName,
+              beaches.slice(0, 3).map((b) => b.name),
+              params.city
+            )}
+            locationName={stateName}
+          />
         </div>
       </div>
     );
@@ -562,8 +566,8 @@ export default async function IntentPage(props: IntentPageParams) {
   // Generate content from templates
   const pageContent = buildIntentPageContent(params.intent as SurfIntentSlug, cityMetadata);
 
-  // Parallelize data fetching: beaches + intent-specific data run concurrently
-  const [beachesResult, intentData, bestTimeToSurfUrl] = await Promise.all([
+  // Parallelize data fetching: beaches + intent-specific data + editorial run concurrently
+  const [beachesResult, intentData, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
     getBeachesByIntentAndCity(
       params.intent,
       cityMetadata.cityName,
@@ -575,6 +579,7 @@ export default async function IntentPage(props: IntentPageParams) {
         ? getCityWaterTempHistory(cityMetadata.cityName, cityMetadata.state)
         : Promise.resolve(null),
     getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
+    getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
   ]);
 
   // Extract intent-specific data from Promise.all result
@@ -646,14 +651,7 @@ export default async function IntentPage(props: IntentPageParams) {
           },
         ]}
       />
-      <FAQSchema
-        items={generateIntentFAQ(
-          params.intent as SurfIntentSlug,
-          cityMetadata.cityName,
-          spots.slice(0, 3).map((s) => s.name),
-          cityMetadata.state.toLowerCase()
-        )}
-      />
+      {/* FAQ JSON-LD in <head>; visible FAQ section rendered further down */}
       <ItemListSchema
         items={beachesResult.data!.map((b, i) => ({
           name: b.name,
@@ -743,6 +741,17 @@ export default async function IntentPage(props: IntentPageParams) {
             focusPoints={definition.focusPoints}
           />
 
+          {/* Beach Editorial Section — intent-specific local tips */}
+          {editorialBeaches.length > 0 && (
+            <BeachEditorialSection
+              beaches={editorialBeaches}
+              intentSlug={params.intent as SurfIntentSlug}
+              cityName={cityMetadata.cityName}
+              stateSlug={cityMetadata.state.toLowerCase()}
+              citySlug={params.city}
+            />
+          )}
+
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Mini Log Teaser */}
             <MiniLogTeaser
@@ -772,6 +781,17 @@ export default async function IntentPage(props: IntentPageParams) {
             </aside>
           </div>
         </div>
+
+        {/* Visible FAQ section (includes JSON-LD structured data) */}
+        <FAQSection
+          items={generateIntentFAQ(
+            params.intent as SurfIntentSlug,
+            cityMetadata.cityName,
+            spots.slice(0, 3).map((s) => s.name),
+            cityMetadata.state.toLowerCase()
+          )}
+          locationName={cityMetadata.cityName}
+        />
       </div>
 
       {/* Bottom CTA Section */}
