@@ -36,11 +36,12 @@ import {
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
+import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
-import { selectBestWindow } from './window-selector';
+import { selectBestWindow, getLocalDateStr } from './window-selector';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
@@ -463,7 +464,22 @@ async function discoverSurfSpotsInner(
 
   const beachesWithNoWindow: string[] = [];
   for (const { beach, forecasts } of beachForecasts) {
-    const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+    // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
+    const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+    const todayStr = getLocalDateStr(new Date(), beachTz);
+    const todayForecasts = forecasts.filter(f =>
+      getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
+    );
+
+    let bestWindow = todayForecasts.length > 0
+      ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
+      : null;
+
+    // Fall back to all forecasts (includes tomorrow) only if today has no viable window
+    if (!bestWindow) {
+      bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+    }
+
     if (!bestWindow) {
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);

@@ -207,6 +207,7 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 3. Create rollback migrations for destructive changes
 4. Test locally first: `supabase db reset`
 5. Document schema changes in migration comments
+6. When recreating views (`DROP VIEW` + `CREATE VIEW`), carry forward `WITH (security_invoker = true)` if the view previously had it — this option is silently lost on `DROP`
 
 **Before applying to prod:**
 1. Fresh `pg_dump` backup within 24 hours
@@ -281,6 +282,7 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 - Don't use `lng` in new code (use `lon`)
 - Don't use `forecast_date` + `forecast_time` in new queries (use `forecast_at`)
 - Don't reference `sessions.profile_id` (dropped Feb 2026 -- use `user_id`)
+- Don't `DROP VIEW` + `CREATE VIEW` without carrying forward `WITH (security_invoker = true)`
 
 ---
 
