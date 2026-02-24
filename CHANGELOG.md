@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Sitemap: 15 new 2-beach city markets in intent pages** — Lowered threshold from 3 to 2 beaches with an editorial quality guard (description + at least one of crowd_tips/wave_tips/best_conditions_prose on both beaches). Adds Carmel-by-the-Sea, Del Mar, Goleta, Kill Devil Hills, Kailua-Kona, Luquillo, Melbourne Beach, Montauk, Narragansett, Pacifica, Pupukea, Queens, Scarborough, Seaside, Venice to all intent routes (`app/sitemap.ts`, `actions/beach/beach-location-actions.ts`, DB migration)
+- **Sitemap: ~20 new best-time-to-surf city pages** — Lowered `getCitiesWithBestMonthsData` threshold from 3 to 2 beaches with best_months data. Adds Del Mar, Encinitas, Goleta, Haleiwa, Hermosa Beach, Kailua-Kona, Kill Devil Hills, La Push, Luquillo, Manhattan Beach, Melbourne Beach, Montauk, Narragansett, Pacifica, Pupukea, Queens, San Onofre, Scarborough, Venice (`actions/city/best-time-actions.ts`)
+- **Sitemap: Aguadilla, Isabela, Hermosa Beach, Santa Cruz now gain beginner/longboard intent routes** — Expanded `has_beginner` in RPC and beginner beach queries to include `lower-intermediate` skill level. Updated `categorizeSkillLevel()` for consistency with page metadata noindex guard (`actions/city/city-metadata-actions.ts`, `actions/beginner/beginner-actions.ts`, DB migration)
+
 ### Fixed
 
 - **Discovery today-first window selection:** Discovery orchestrator now tries today's forecasts before falling back to all forecasts (today + tomorrow), preventing "Skip today — tomorrow at X is good" recommendations when today has a viable surf window (`lib/services/discovery/surf-discovery-orchestrator.ts`)
