@@ -30,9 +30,9 @@ export function PayoffStep() {
     searchParams?.get('debugOnboarding') === '1' &&
     process.env.NODE_ENV !== 'production';
 
-  // Fallback to forecast preview if no intel
+  // Fallback to forecast preview if no intel (skip in debug mode to keep test flow fast)
   const { forecastPreview, loading: forecastLoading } = useForecastPreview({
-    enabled: !intel && !intelLoading && !!data.homeBeachId,
+    enabled: !isDebugOnboarding && !intel && !intelLoading && !!data.homeBeachId,
     beachId: data.homeBeachId,
   });
 

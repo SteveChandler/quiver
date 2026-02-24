@@ -37,7 +37,10 @@ export function useDataFetcher<T>(
   });
 
   const fetchData = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setState((prev) => {
+      if (prev.loading && prev.error === null) return prev;
+      return { ...prev, loading: true, error: null };
+    });
 
     try {
       const result = await fetchFnRef.current();

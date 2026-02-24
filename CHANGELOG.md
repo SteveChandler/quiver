@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Infinite render loop in onboarding HomeBeachStep:** Fixed "Maximum update depth exceeded" error caused by three concurrent `useDataFetcher` instances cascading state updates. `useDataFetcher` now bails out of the loading state setter when already loading (same-reference return), and `HomeBeachStep` replaces the popular-beaches `useDataFetcher` instance with a plain `useState` + `useEffect` fetch, reducing the component from 3 to 2 hook instances. Updated E2E onboarding spec: heading text assertions, scoped selectors for strict mode compliance, and soft-navigation-aware completion assertion.
+
 ### Changed
 
 - **Data fetching consolidation:** Migrated `use-sun-times`, `use-beach-detail-data`, and `useNearbyBeaches` hooks from SWR/React Query to the standard `useDataFetcher` pattern
