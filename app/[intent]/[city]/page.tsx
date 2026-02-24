@@ -218,11 +218,28 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
     const stateName = getUsStateDisplayNameFromSlug(params.city);
     const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
-    return buildPageMetadata({
+
+    const metadata = buildPageMetadata({
       title: `${definition.label} Spots in ${stateName}`,
       description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`,
       path: `/${params.intent}/${params.city}`,
     });
+
+    // noindex empty state-level pages (thin content) as defense in depth.
+    // Fail-open: if the DB call fails, allow indexing (sitemap already excludes these).
+    if (BEGINNER_INTENTS.has(params.intent)) {
+      try {
+        const beachesResult = await getBeachesByIntentAndState(params.intent, params.city);
+        const hasBeaches = beachesResult.success && beachesResult.data && beachesResult.data.length > 0;
+        if (!hasBeaches) {
+          return { ...metadata, robots: { index: false, follow: true } };
+        }
+      } catch {
+        // Fail-open: allow indexing if DB is unreachable
+      }
+    }
+
+    return metadata;
   }
 
   // If this is a legacy state/city URL, we redirect in the page render.
