@@ -172,3 +172,6 @@ __pycache__/
 
 # Android debug build artifacts
 quiver/android/debug/
+
+# Content pipeline output (crawl cache, staging, reports)
+tools/content-pipeline/output/
