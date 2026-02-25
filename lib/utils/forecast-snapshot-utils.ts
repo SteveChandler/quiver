@@ -258,7 +258,7 @@ export async function createForecastSnapshotForSession(
 
       if (timeDiff < minTimeDiff) {
         minTimeDiff = timeDiff;
-        closestForecast = forecast;
+        closestForecast = forecast as unknown as EnhancedForecast;
       }
     }
 
@@ -299,9 +299,9 @@ export async function createForecastSnapshotForSession(
         session_id: sessionId,
         user_id: sessionUserId!,
         beach_id: beachId,
-        forecast_snapshot: forecastSnapshot,
-        actual_conditions: actualConditions,
-        forecast_vs_actual: forecastVsActual,
+        forecast_snapshot: forecastSnapshot as any,
+        actual_conditions: actualConditions as any,
+        forecast_vs_actual: forecastVsActual as any,
         forecast_confidence_score: closestForecast.confidence_score || null,
         data_source: closestForecast.data_source || null,
         session_date: arrivalDateStr,

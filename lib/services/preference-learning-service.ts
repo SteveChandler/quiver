@@ -106,7 +106,7 @@ export async function computeUserPreferences(
 
     // 2. Filter to highly-rated sessions (rating >= 3)
     const goodSessions = snapshots.filter((snapshot) => {
-      const rating = snapshot.actual_conditions?.rating;
+      const rating = (snapshot.actual_conditions as Record<string, any>)?.rating;
       return rating !== null && rating !== undefined && rating >= 3;
     });
 
@@ -119,23 +119,23 @@ export async function computeUserPreferences(
 
     // 3. Extract arrays of values
     const waveHeights = goodSessions
-      .map((s) => s.forecast_snapshot?.wave_height)
+      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wave_height)
       .filter((v): v is number => v !== null && v !== undefined);
 
     const wavePeriods = goodSessions
-      .map((s) => s.forecast_snapshot?.wave_period)
+      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wave_period)
       .filter((v): v is number => v !== null && v !== undefined);
 
     const windSpeeds = goodSessions
-      .map((s) => s.forecast_snapshot?.wind_speed)
+      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wind_speed)
       .filter((v): v is number => v !== null && v !== undefined);
 
     const windDirections = goodSessions
-      .map((s) => s.forecast_snapshot?.wind_direction)
+      .map((s) => (s.forecast_snapshot as Record<string, any>)?.wind_direction)
       .filter((v): v is number => v !== null && v !== undefined);
 
     const tideStatuses = goodSessions
-      .map((s) => s.forecast_snapshot?.tide_status)
+      .map((s) => (s.forecast_snapshot as Record<string, any>)?.tide_status)
       .filter((v): v is string => v !== null && v !== undefined && v !== '');
 
     // 4. Compute statistics

@@ -30,12 +30,13 @@ async function popularBeachesHandler(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
 
     // Try RPC function first (most accurate popularity ranking)
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
+    // TODO: RPC function missing from DB types
+    const { data: rpcData, error: rpcError } = await (supabase.rpc as any)(
       "get_popular_beaches",
       { p_limit: limit }
     );
 
-    if (!rpcError && rpcData && rpcData.length > 0) {
+    if (!rpcError && rpcData && (rpcData as any[]).length > 0) {
       return await createCachedResponse(rpcData, CacheDuration.SHORT);
     }
 

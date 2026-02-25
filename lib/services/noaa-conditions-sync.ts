@@ -46,7 +46,7 @@ export class NOAAConditionsSync {
       // Get all active buoys from database
       const { data: buoys, error } = await this.supabase
         .from("buoys")
-        .select("buoy_uuid, kind, active")
+        .select("buoy_uuid, active")
         .eq("active", true);
 
       if (error) {

@@ -19,7 +19,7 @@ export async function generateMetadata(
 
     if (result.success && result.data) {
       const user = result.data;
-      const userName = user.full_name || user.username || "Surfer";
+      const userName = user.full_name || "Surfer";
       const sessionCount = user.session_count || 0;
       const location = user.location ? ` from ${user.location}` : "";
 

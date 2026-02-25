@@ -88,7 +88,7 @@ export async function getNearbyBeaches(
     // Success with spatial function
     return {
       success: true,
-      data: nearbyBeaches as Beach[],
+      data: nearbyBeaches as unknown as Beach[],
       fallbackUsed: false,
     };
   } catch (error) {
@@ -142,8 +142,8 @@ async function getAllCitiesWithBeaches(minBeaches: number = 1) {
         existing.beachCount++;
       } else {
         cityMap.set(key, {
-          city: beach.city,
-          state: beach.state,
+          city: beach.city ?? "",
+          state: beach.state ?? "",
           country: beach.country || "USA",
           beachCount: 1,
         });
@@ -281,8 +281,8 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
         if (isQualityBeach) existing.editorialCount++;
       } else {
         cityMap.set(key, {
-          city: beach.city,
-          state: beach.state,
+          city: beach.city ?? "",
+          state: beach.state ?? "",
           country: beach.country || "USA",
           beachCount: 1,
           hasBeginnerBeaches: isBeginner,

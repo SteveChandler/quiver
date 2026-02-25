@@ -232,10 +232,12 @@ export class NOAACOOPSService {
 
       // Use TideExtremaDetector to extract high/low points from hourly data
       const detector = new TideExtremaDetector();
-      const samples: TideSample[] = dedupedRows.map((row) => ({
-        ts: row.ts,
-        tide_height_m: row.tide_height_m,
-      }));
+      const samples: TideSample[] = dedupedRows
+        .filter((row): row is typeof row & { tide_height_m: number } => row.tide_height_m !== null)
+        .map((row) => ({
+          ts: row.ts,
+          tide_height_m: row.tide_height_m,
+        }));
       const extrema = detector.detectExtrema(samples);
 
       // Convert to TideData format
@@ -433,7 +435,7 @@ export class NOAACOOPSService {
    * plateaus that confuse the TideExtremaDetector.
    */
   private deduplicateByHour(
-    rows: { ts: string; tide_height_m: number; tide_phase: string | null; source: string | null }[]
+    rows: { ts: string; tide_height_m: number | null; tide_phase: string | null; source: string | null }[]
   ): typeof rows {
     const seen = new Map<string, (typeof rows)[number]>();
     for (const row of rows) {

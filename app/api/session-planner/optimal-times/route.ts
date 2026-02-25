@@ -188,7 +188,7 @@ async function optimalTimesHandler(request: NextRequest) {
         weather_condition: 'Unknown'
       }));
 
-      const optimalTimes = analyzeOptimalTimes(enhancedFromBasic, selectedTime, isToday ? currentTimeHour : null);
+      const optimalTimes = analyzeOptimalTimes(enhancedFromBasic as any, selectedTime, isToday ? currentTimeHour : null);
 
       return createSuccessResponse({
         beachId,
@@ -200,7 +200,7 @@ async function optimalTimesHandler(request: NextRequest) {
     }
 
     // Analyze the forecast data to find optimal times
-    const optimalTimes = analyzeOptimalTimes(forecasts, selectedTime, isToday ? currentTimeHour : null);
+    const optimalTimes = analyzeOptimalTimes(forecasts as any, selectedTime, isToday ? currentTimeHour : null);
 
     const response: OptimalTimesResponse = {
       beachId,

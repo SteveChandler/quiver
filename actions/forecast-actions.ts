@@ -9,6 +9,7 @@ import { resolveConfidence } from "@/lib/monitoring/fallback-helpers";
 import { extractForecastDate as extractForecastDateFromAt } from "@/lib/utils/forecast-at-adapter";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { ForecastTimeInfo } from "@/lib/utils/current-forecast-utils";
 
 // Metadata interface for forecast transparency
 export interface ForecastMetadata {
@@ -52,7 +53,7 @@ export async function getBeachForecasts(beachId: string) {
     const supabase = await createSupabaseServiceRoleClient();
 
     const today = new Date().toISOString().split("T")[0];
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("forecasts")
       .select("*")
       .eq("beach_id", beachId)
@@ -80,7 +81,7 @@ export async function getLatestBeachForecast(beachId: string) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("forecasts")
       .select("*")
       .eq("beach_id", beachId)
@@ -224,7 +225,7 @@ export async function getBeachForecastPreview(beachId: string) {
     const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
 
     // Get today's and tomorrow's forecasts from enhanced_forecasts table (to handle forward-looking logic)
-    const { data: enhancedForecasts, error: enhancedError } = await supabase
+    const { data: enhancedForecasts, error: enhancedError } = await (supabase as any)
       .from("enhanced_forecasts")
       .select(
         "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
@@ -240,7 +241,7 @@ export async function getBeachForecastPreview(beachId: string) {
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
       // Use time-aware selection to get the most appropriate forecast
-      const currentForecast = getCurrentForecast(enhancedForecasts);
+      const currentForecast = getCurrentForecast(enhancedForecasts as any[]);
 
       if (currentForecast) {
         return {
@@ -267,7 +268,7 @@ export async function getBeachForecastPreview(beachId: string) {
     }
 
     // Fallback to basic forecasts table with time-aware selection
-    const { data: basicForecasts, error: basicError } = await supabase
+    const { data: basicForecasts, error: basicError } = await (supabase as any)
       .from("forecasts")
       .select(
         "forecast_at, forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition"
@@ -285,14 +286,16 @@ export async function getBeachForecastPreview(beachId: string) {
       const currentForecast = getCurrentForecast(basicForecasts);
 
       if (currentForecast) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const f = currentForecast as any;
         return {
           success: true,
           data: {
             type: "basic",
-            wave_height: currentForecast.wave_height,
-            wind_speed: currentForecast.wind_speed,
-            wind_direction: currentForecast.wind_direction,
-            weather_condition: currentForecast.weather_condition,
+            wave_height: f.wave_height,
+            wind_speed: f.wind_speed,
+            wind_direction: f.wind_direction,
+            weather_condition: f.weather_condition,
             confidence_score: null,
           },
         };
@@ -434,7 +437,7 @@ export async function getForecastForToday(beachId: string) {
     console.log("🔄 Trying fallback to basic forecasts table...");
 
     const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
-    const { data: basicForecasts, error: basicError } = await supabase
+    const { data: basicForecasts, error: basicError } = await (supabase as any)
       .from("forecasts")
       .select("*")
       .eq("beach_id", beachId)
@@ -492,7 +495,7 @@ export async function getForecastForToday(beachId: string) {
       }
 
       if (regenForecasts && regenForecasts.length > 0) {
-        const currentForecast = getCurrentForecast(regenForecasts);
+        const currentForecast = getCurrentForecast(regenForecasts as any[]);
         if (currentForecast) {
           console.log(
             `✅ Home page forecast after generation: ${currentForecast.forecast_date} ${currentForecast.forecast_time}`

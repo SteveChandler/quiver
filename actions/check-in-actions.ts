@@ -112,7 +112,7 @@ async function fetchCheckInWithUser(
   supabase: Awaited<ReturnType<typeof createAPIServerClient>>,
   id: string
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("check_ins")
     .select(
       `
@@ -179,7 +179,7 @@ export const submitCheckIn = makeAuthenticatedAction(
         forecast_accuracy: data.forecast_accuracy_rating,
       };
 
-      const { data: report, error } = await supabase
+      const { data: report, error } = await (supabase as any)
         .from("condition_reports")
         .insert(insertPayload)
         .select()
@@ -195,7 +195,7 @@ export const submitCheckIn = makeAuthenticatedAction(
         );
 
         const legacyPayload = buildLegacyCheckInPayload(user.id, beachId, data);
-        const { data: legacyCheckIn, error: legacyError } = await supabase
+        const { data: legacyCheckIn, error: legacyError } = await (supabase as any)
           .from("check_ins")
           .insert(legacyPayload)
           .select()
@@ -303,7 +303,7 @@ export const updateCheckIn = makeAuthenticatedAction(
   ) => {
 
     // Update check-in (RLS ensures user can only update their own)
-    const { data: checkIn, error } = await supabase
+    const { data: checkIn, error } = await (supabase as any)
       .from("check_ins")
       .update(data)
       .eq("id", checkInId)
@@ -331,7 +331,7 @@ export const deleteCheckIn = makeAuthenticatedAction(
   async (user, supabase, checkInId: string) => {
 
     // Delete check-in (RLS ensures user can only delete their own)
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("check_ins")
       .delete()
       .eq("id", checkInId)
@@ -356,7 +356,7 @@ export async function getUserCheckIns(
 ): Promise<CheckIn[]> {
   const supabase = await createAPIServerClient();
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("check_ins")
     .select(
       `
@@ -389,7 +389,7 @@ export async function getBeachCheckIns(
 ): Promise<CheckInWithUser[]> {
   const supabase = await createAPIServerClient();
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("check_ins")
     .select(
       `
@@ -410,7 +410,7 @@ export async function getBeachCheckIns(
   }
 
   // Transform data to match CheckInWithUser type
-  return (data || []).map((item) => ({
+  return (data || []).map((item: any) => ({
     ...item,
     user: {
       username: item.profiles?.username || null,

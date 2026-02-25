@@ -75,7 +75,7 @@ interface EligibleUser {
   email: string;
   display_name: string | null;
   home_beach_id: string;
-  skill_level: string | null;
+  experience_level: string | null;
   wave_min_ft: number | null;
   wave_max_ft: number | null;
   max_wind_mph: number | null;
@@ -411,7 +411,7 @@ export async function GET(request: Request) {
         email,
         display_name,
         home_beach_id,
-        skill_level,
+        experience_level,
         is_mock,
         notif_email_enabled,
         notif_forecast_alerts,
@@ -516,7 +516,7 @@ export async function GET(request: Request) {
         const matchResult = evaluateDigestMatch(
           forecasts,
           beachMetadata,
-          user.skill_level,
+          user.experience_level,
           userPrefs
         );
 

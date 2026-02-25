@@ -483,7 +483,7 @@ export class IOOSService {
         return [];
       }
 
-      return data || [];
+      return (data || []) as unknown as IOOSStation[];
     } catch (error) {
       console.error("Error in findNearbyStations:", error);
       return [];

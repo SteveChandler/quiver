@@ -64,7 +64,7 @@ export default function StorageUsageWidget({
       const result = await getStorageStatsAction();
 
       if (result.success) {
-        setStats(result.data);
+        setStats(result.data ?? null);
       } else {
         setError(result.error || "Failed to load storage stats");
       }

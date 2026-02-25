@@ -16,6 +16,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MilestoneKey } from "@/lib/constants/personalization-milestones";
+import type { Json } from "@/types/database.generated";
 
 /**
  * Shape of a newly recorded milestone returned to the caller.
@@ -320,7 +321,7 @@ export async function checkAndRecordMilestones(
       newMilestones.map((m) => ({
         user_id: userId,
         milestone_key: m.key,
-        metadata: m.metadata,
+        metadata: m.metadata as Json,
       }))
     );
 

@@ -493,7 +493,8 @@ export async function updateBeachAccuracy(
     // This would typically be restricted to admin users
     // For now, we'll allow authenticated users to trigger updates
 
-    const { error } = await supabase.rpc("update_beach_forecast_accuracy", {
+    // TODO: RPC function missing from DB types
+    const { error } = await (supabase.rpc as any)("update_beach_forecast_accuracy", {
       target_beach_id: beachId,
     });
 
@@ -512,7 +513,8 @@ export async function updateAllBeachAccuracy(): Promise<
   ServerActionResponse<{ message: string }>
 > {
   return withAuthenticatedAction(async (user, supabase) => {
-    const { error } = await supabase.rpc("update_beach_forecast_accuracy");
+    // TODO: RPC function missing from DB types
+    const { error } = await (supabase.rpc as any)("update_beach_forecast_accuracy");
 
     if (error) {
       throw new Error(`Failed to update all beach accuracy: ${error.message}`);
@@ -591,11 +593,13 @@ export async function getUserForecastAccuracySummary(): Promise<
 
     // Calculate accuracy metrics
     const accuracyScores = snapshots.map((snapshot) => {
+      const forecastSnapshot = snapshot.forecast_snapshot as Record<string, any>;
+      const actualConditions = snapshot.actual_conditions as Record<string, any>;
       const forecastHeight = parseFloat(
-        snapshot.forecast_snapshot?.wave_height || "0"
+        forecastSnapshot?.wave_height || "0"
       );
       const actualHeight = parseFloat(
-        snapshot.actual_conditions?.wave_height || "0"
+        actualConditions?.wave_height || "0"
       );
       const heightDelta = Math.abs(forecastHeight - actualHeight);
 
@@ -623,7 +627,7 @@ export async function getUserForecastAccuracySummary(): Promise<
       if (!acc[beachName]) {
         acc[beachName] = { sessions: [], accuracy: 0 };
       }
-      acc[beachName].sessions.push(snapshot);
+      acc[beachName].sessions.push(snapshot as any);
       return acc;
     }, {});
 

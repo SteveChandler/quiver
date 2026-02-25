@@ -42,7 +42,7 @@ export async function getNearbyIntelPosts(
         center_lat: lat,
         center_lng: lon,
         radius_miles: radius,
-        tag_filter: tag === "all" ? null : tag,
+        tag_filter: tag === "all" ? undefined : tag,
         limit_count: limit,
       }
     );
@@ -167,7 +167,7 @@ export async function getPublicIntelPosts(
         center_lat: lat,
         center_lng: lon,
         radius_miles: radius,
-        tag_filter: tag === "all" ? null : tag,
+        tag_filter: tag === "all" ? undefined : tag,
         limit_count: limit,
       }
     );

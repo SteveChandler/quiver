@@ -383,7 +383,7 @@ export async function getUserStats(userId: string) {
     let mostVisitedBeachCount = 0;
 
     try {
-      const { data: beachData, error: beachError } = await supabase.rpc(
+      const { data: beachData, error: beachError } = await (supabase as any).rpc(
         "get_most_visited_beach",
         { user_id: userId }
       );
@@ -432,7 +432,6 @@ export async function getUserMetadata(userId: string) {
         `
         id,
         full_name,
-        username,
         location,
         created_at
       `

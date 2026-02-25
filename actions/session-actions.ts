@@ -193,7 +193,7 @@ export async function getUserSessions(userId: string, limit?: number) {
 
       const { data, error } = await query;
       if (error) throw error;
-      const sessions = (data || []) as SessionWithDetails[];
+      const sessions = (data || []) as unknown as SessionWithDetails[];
       return await addFeaturedPhotoToSessions(supabase, sessions);
     } catch (e) {
       // Enhanced fallback: manually resolve beach relationships when joins fail
@@ -226,7 +226,7 @@ export async function getUserSessions(userId: string, limit?: number) {
           }
           
           // Try to fetch user data if user_id exists
-          let user = { full_name: "Anonymous Surfer", avatar_url: null };
+          let user: { full_name: string | null; avatar_url: string | null } = { full_name: "Anonymous Surfer", avatar_url: null };
           if (session.user_id) {
             try {
               const { data: userData } = await supabase
@@ -241,7 +241,7 @@ export async function getUserSessions(userId: string, limit?: number) {
               // User fetch failed, continue with default
             }
           }
-          
+
           return {
             ...session,
             session_date: session.arrival_time ?? null,
@@ -598,7 +598,7 @@ async function getAllSessions(limit = 20) {
         }
         
         // Try to fetch user data if user_id exists
-        let user = { full_name: "Anonymous Surfer", avatar_url: null };
+        let user: { full_name: string | null; avatar_url: string | null } = { full_name: "Anonymous Surfer", avatar_url: null };
         if (session.user_id) {
           try {
             const { data: userData } = await supabase
@@ -629,7 +629,7 @@ async function getAllSessions(limit = 20) {
     );
   }
 
-  const hydratedSessions = (sessions || []) as SessionWithDetails[];
+  const hydratedSessions = (sessions || []) as unknown as SessionWithDetails[];
   return await addFeaturedPhotoToSessions(supabase, hydratedSessions);
   });
 }
@@ -699,9 +699,8 @@ export async function updatePlannedSessionToCompleted(
       .update({
         status: "completed",
         ...completedData,
-        board_snapshot: boardSnapshot,
-        updated_at: new Date().toISOString(),
-      })
+        board_snapshot: boardSnapshot as any,
+      } as any)
       .eq("id", sessionId)
       .select()
       .single();

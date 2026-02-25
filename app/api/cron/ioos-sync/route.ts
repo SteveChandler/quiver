@@ -229,7 +229,8 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
     if (stationsToUpsert.length > 0) {
       const { error: upsertError } = await supabase
         .from("ioos_stations")
-        .upsert(stationsToUpsert, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert(stationsToUpsert as any, {
           onConflict: "station_id",
           ignoreDuplicates: false,
         });
@@ -270,7 +271,8 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
         );
       } else {
         // Increment miss counter for stations NOT found
-        const { error: incrementError } = await supabase.rpc(
+        // TODO: RPC function missing from DB types
+        const { error: incrementError } = await (supabase as any).rpc(
           "increment_station_discovery_misses",
           { seen_ids: seenIds }
         );
@@ -478,7 +480,8 @@ async function syncObservations(
       if (observationsToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from("ioos_observations")
-          .upsert(observationsToInsert, {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .upsert(observationsToInsert as any, {
             onConflict: "station_id,observed_at",
             ignoreDuplicates: true,
           });
@@ -567,7 +570,8 @@ async function syncObservations(
     }
 
     // Refresh observable_beaches materialized view so ML health metrics stay current
-    const { error: refreshError } = await supabase.rpc("refresh_observable_beaches");
+    // TODO: RPC function missing from DB types
+    const { error: refreshError } = await (supabase as any).rpc("refresh_observable_beaches");
     if (refreshError) {
       result.errors.push(`Failed to refresh observable_beaches: ${refreshError.message}`);
     } else {

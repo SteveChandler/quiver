@@ -4,7 +4,6 @@ import { NOAAConditionsSync } from "./noaa-conditions-sync";
 interface InactiveBuoy {
   buoy_uuid: string;
   buoy_name: string;
-  kind: string;
   coordinates: string;
   failure_count: number;
   last_successful_update: string | null;
@@ -53,7 +52,6 @@ export class InactiveBuoyCleanup {
           `
           buoy_uuid,
           buoy_name,
-          kind,
           coordinates,
           updated_at,
           air_temperature,
@@ -122,8 +120,7 @@ export class InactiveBuoyCleanup {
           inactiveBuoys.push({
             buoy_uuid: buoy.buoy_uuid,
             buoy_name: buoy.buoy_name || "Unknown",
-            kind: buoy.kind || "buoy",
-            coordinates: buoy.coordinates || "",
+            coordinates: buoy.coordinates ? String(buoy.coordinates) : "",
             failure_count: failureCount,
             last_successful_update: hasAnyData ? buoy.updated_at || null : null,
             last_attempted_update: new Date().toISOString(),

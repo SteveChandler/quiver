@@ -126,7 +126,7 @@ export async function getCityMetadata(
       advancedCount,
       beaches: beaches.map((b) => ({
         name: b.name,
-        slug: b.slug,
+        slug: b.slug ?? "",
         skillLevel: b.skill_level,
       })),
       centerLat,
@@ -151,7 +151,7 @@ export async function findCitiesMatchingPattern(
     // Call RPC without state filter to get all matching cities
     const { data: matches, error } = await supabase.rpc("find_cities_by_pattern", {
       search_pattern: cityPattern,
-      state_filter: null,
+      state_filter: undefined,
     });
 
     if (error) {
@@ -191,7 +191,7 @@ export async function findCityBySlug(
     //   - "cardiff by the sea" matching "Cardiff-by-the-Sea" (hyphen normalization)
     const { data: matches, error } = await supabase.rpc("find_cities_by_pattern", {
       search_pattern: cityPattern,
-      state_filter: stateFilter,
+      state_filter: stateFilter ?? undefined,
     });
 
     if (error) {

@@ -85,7 +85,7 @@ export async function getCityEditorialContent(
   if (!data) return null;
 
   // Parse JSONB fields if they're returned as strings
-  const result = data as CityEditorialContent;
+  const result = data as unknown as CityEditorialContent;
 
   // Defensive fallback: avoid blank city labels in UI/SEO if DB row has empty city_name
   const normalizedCityName = (() => {

@@ -79,7 +79,7 @@ async function mergeMLCorrections(
       const hours = ts.getUTCHours().toString().padStart(2, "0");
       const key = `${date}|${hours}:00`;
       correctionMap.set(key, {
-        corrected_height_m: c.corrected_height_m,
+        corrected_height_m: c.corrected_height_m ?? 0,
         model_version: c.model_version,
       });
     });
