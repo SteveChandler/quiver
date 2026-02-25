@@ -614,6 +614,77 @@ export const bulkHardDeleteBeachPhotos = withAdminActionAndUser(
 );
 
 /**
+ * Bulk approve multiple beach photos
+ */
+export const bulkApproveBeachPhotos = withAdminActionAndUser(
+  async (photoIds: string[], { user, supabaseAdmin }: AdminContext) => {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as Array<{ id: string; error: string }>,
+    };
+
+    for (const photoId of photoIds) {
+      try {
+        // Get photo details for audit log
+        const { data: photo } = await supabaseAdmin
+          .from("beach_photos")
+          .select("title, source, beach_id, deleted_at, beaches(name)")
+          .eq("id", photoId)
+          .single();
+
+        if (!photo) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: "Photo not found" });
+          continue;
+        }
+
+        if (photo.deleted_at) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: "Photo is deleted" });
+          continue;
+        }
+
+        // Approve the photo
+        const { error: dbError } = await supabaseAdmin
+          .from("beach_photos")
+          .update({ approved: true })
+          .eq("id", photoId);
+
+        if (dbError) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: dbError.message });
+          continue;
+        }
+
+        // Log the action
+        await recordAdminEvent(user.id, "photo", "approve", {
+          entityId: photoId,
+          description: "Bulk approved beach photo",
+          payloadSummary: {
+            title: photo.title,
+            source: photo.source,
+            beach_id: photo.beach_id,
+            beach_name: (photo as any)?.beaches?.name,
+            bulk_operation: true,
+          },
+        });
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({
+          id: photoId,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    }
+
+    return results;
+  }
+);
+
+/**
  * Toggle approval status for a beach photo
  */
 export const toggleBeachPhotoApproval = withAdminActionAndUser(

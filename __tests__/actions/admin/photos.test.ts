@@ -242,6 +242,130 @@ describe("admin photos actions", () => {
     );
   });
 
+  test("bulkApproveBeachPhotos approves photos and tracks failures", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const { recordAdminEvent } = await import("@/lib/logging/admin-audit");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchMissing = createThenableQuery<any>({ data: null, error: null });
+    const fetchOk = createThenableQuery<any>({
+      data: { title: "T", source: "S", beach_id: "b1", deleted_at: null, beaches: { name: "B" } },
+      error: null,
+    });
+    const updateOk = createThenableQuery<any>({ data: null, error: null });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: jest
+        .fn()
+        .mockImplementationOnce(() => fetchMissing)
+        .mockImplementationOnce(() => fetchOk)
+        .mockImplementationOnce(() => updateOk),
+    });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos(["p-missing", "p-ok"]);
+
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual(
+      expect.objectContaining({
+        success: 1,
+        failed: 1,
+        errors: [{ id: "p-missing", error: "Photo not found" }],
+      })
+    );
+    expect(recordAdminEvent).toHaveBeenCalledWith(
+      "admin-1",
+      "photo",
+      "approve",
+      expect.objectContaining({
+        entityId: "p-ok",
+        payloadSummary: expect.objectContaining({ bulk_operation: true }),
+      })
+    );
+  });
+
+  test("bulkApproveBeachPhotos skips deleted photos", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchDeleted = createThenableQuery<any>({
+      data: { title: "T", source: "S", beach_id: "b1", deleted_at: "2025-01-01T00:00:00Z", beaches: { name: "B" } },
+      error: null,
+    });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: jest.fn().mockImplementationOnce(() => fetchDeleted),
+    });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos(["p-deleted"]);
+
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual(
+      expect.objectContaining({
+        success: 0,
+        failed: 1,
+        errors: [{ id: "p-deleted", error: "Photo is deleted" }],
+      })
+    );
+  });
+
+  test("bulkApproveBeachPhotos tracks DB update errors", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchOk = createThenableQuery<any>({
+      data: { title: "T", source: "S", beach_id: "b1", deleted_at: null, beaches: { name: "B" } },
+      error: null,
+    });
+    const updateFail = createThenableQuery<any>({
+      data: null,
+      error: { message: "DB constraint violation" },
+    });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: jest
+        .fn()
+        .mockImplementationOnce(() => fetchOk)
+        .mockImplementationOnce(() => updateFail),
+    });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos(["p-fail"]);
+
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual(
+      expect.objectContaining({
+        success: 0,
+        failed: 1,
+        errors: [{ id: "p-fail", error: "DB constraint violation" }],
+      })
+    );
+  });
+
+  test("bulkApproveBeachPhotos returns empty results for empty array", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: jest.fn(),
+    });
+
+    const { bulkApproveBeachPhotos } = await import("@/actions/admin/photos");
+    const res = await bulkApproveBeachPhotos([]);
+
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual({ success: 0, failed: 0, errors: [] });
+  });
+
   test("getPhotoStats returns counts with nulls handled as 0", async () => {
     const { getCurrentUser } = await import("@/lib/auth/admin");
     const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
