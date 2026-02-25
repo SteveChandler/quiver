@@ -21,7 +21,14 @@ lib/services/
 ├── personalization-milestone-service.ts      # User milestone detection and recording
 ├── personalized-scoring-service.ts           # User preference scoring
 ├── preference-learning-service.ts            # User preference learning (explicit)
-└── surf-discovery-service.ts                 # Beach discovery and recommendations
+├── surf-discovery-service.ts                 # Beach discovery and recommendations
+├── ccc/                                          # CCC Coastal Commission amenity sync
+│   ├── ccc-sync-service.ts                      # API client, normalization, Haversine matching
+│   └── index.ts                                  # Barrel exports
+├── water-quality/                                # EPA/USGS water quality monitoring
+│   ├── water-quality-sync-service.ts            # WQP station/sample sync, EPA evaluation
+│   ├── water-quality-alerts-service.ts          # Push notifications for status changes
+│   └── index.ts                                  # Barrel exports
 ```
 
 **Note:** `personalized-home-forecast-service.ts` was deprecated in November 2025 and replaced by `surf-discovery-service.ts`. See `CHANGELOG.md` for details.
@@ -51,6 +58,9 @@ ExternalServices
 │   ├── Buoy Station Synchronization
 │   ├── Inactive Buoy Cleanup
 │   └── Conditions Data Sync
+├── External Data Sync Services
+│   ├── CCC Coastal Commission (Amenity data)
+│   └── Water Quality Portal (EPA bacteria monitoring)
 └── Caching and Optimization
     ├── Response Caching
     ├── Rate Limiting

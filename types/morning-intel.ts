@@ -114,6 +114,11 @@ export interface MorningIntelSurfConditionsPayloadV2 {
     windOffshoreDegUsed?: number | null;
     windOffshoreDegSource?: "db" | "computed_from_aspect" | "db_overridden_with_aspect";
   };
+  /** Water quality status at generation time — absent on older posts */
+  waterQuality?: {
+    status: "good" | "advisory" | "closure" | "unknown";
+    latestSampleDate: string | null;
+  };
 }
 
 export interface MorningIntelData {
@@ -156,6 +161,7 @@ export interface MorningIntelData {
       swell: boolean;
     };
     beach?: MorningIntelSurfConditionsPayloadV2["beach"];
+    waterQuality?: MorningIntelSurfConditionsPayloadV2["waterQuality"];
   };
 }
 

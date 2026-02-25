@@ -10,6 +10,8 @@ import type { Beach } from "@/types/database";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 
 interface BeachDetailClientProps {
   beach: Beach;
@@ -20,6 +22,8 @@ interface BeachDetailClientProps {
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
   defaultSubTab?: "today" | "tides" | "conditions";
+  amenities?: BeachAmenities | null;
+  waterQuality?: WaterQuality | null;
 }
 
 export function BeachDetailClient({
@@ -31,6 +35,8 @@ export function BeachDetailClient({
   surfCallIsTomorrow,
   defaultTab,
   defaultSubTab,
+  amenities,
+  waterQuality,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const { track } = useTrackEvent();
@@ -94,6 +100,8 @@ export function BeachDetailClient({
         surfCallIsTomorrow={surfCallIsTomorrow}
         defaultTab={defaultTab}
         defaultSubTab={defaultSubTab}
+        amenities={amenities}
+        waterQuality={waterQuality}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

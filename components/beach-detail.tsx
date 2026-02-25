@@ -37,6 +37,8 @@ import { FullPageLoader } from "@/components/ui/loading-states";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
@@ -104,6 +106,8 @@ interface BeachDetailProps {
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
   defaultSubTab?: "today" | "tides" | "conditions";
+  amenities?: BeachAmenities | null;
+  waterQuality?: WaterQuality | null;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -128,6 +132,8 @@ function BeachDetailContent({
   surfCallIsTomorrow,
   defaultTab,
   defaultSubTab,
+  amenities,
+  waterQuality,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -488,7 +494,7 @@ function BeachDetailContent({
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab beach={beach as any} onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)} />
+              <OverviewTab beach={beach as any} amenities={amenities} waterQuality={waterQuality} onWriteReview={() => handleWriteReview(REVIEW_TRACKING_SOURCES.OVERVIEW_CTA)} />
             </Suspense>
             {publicMode && (
               <div className="mt-8">

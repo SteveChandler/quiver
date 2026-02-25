@@ -167,15 +167,16 @@ function humanizeFactorName(factor: "swell" | "wind" | "tide"): string {
 
 /**
  * Get conservative daily recommendation based on conditions
- * 
+ *
  * Conservative strategy:
  * - Worth it: All factors optimal
  * - Maybe: No poor factors but at least one acceptable
- * - Skip: Any poor factor
- * 
+ * - Skip: Any poor factor OR water quality closure
+ *
  * @param conditions - Conditions analysis from analyzeConditions()
+ * @param waterQuality - Optional water quality status (backward-compatible)
  * @returns Recommendation summary with decision, label, and reasons
- * 
+ *
  * @example
  * ```typescript
  * const recommendation = getConservativeRecommendation(conditions);
@@ -184,8 +185,18 @@ function humanizeFactorName(factor: "swell" | "wind" | "tide"): string {
  * ```
  */
 export function getConservativeRecommendation(
-  conditions: ConditionsAnalysis
+  conditions: ConditionsAnalysis,
+  waterQuality?: { status: string }
 ): MorningIntelRecommendationSummary {
+  // Water quality closure is an immediate skip — override all other factors
+  if (waterQuality?.status === 'closure') {
+    return {
+      decision: "skip",
+      label: "Skip",
+      reasons: ["water quality closure"],
+    };
+  }
+
   const statuses: Array<{ key: "swell" | "wind" | "tide"; status: ConditionEvaluation["status"] }> = [
     { key: "swell", status: conditions.swell.status },
     { key: "wind", status: conditions.wind.status },
@@ -202,6 +213,15 @@ export function getConservativeRecommendation(
       decision: "skip",
       label: "Skip",
       reasons: poor,
+    };
+  }
+
+  // Water quality advisory nudges toward 'maybe' even when conditions look optimal
+  if (waterQuality?.status === 'advisory') {
+    return {
+      decision: "maybe",
+      label: "Maybe",
+      reasons: acceptable.length > 0 ? acceptable : ["water quality advisory"],
     };
   }
 

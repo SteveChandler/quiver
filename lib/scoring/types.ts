@@ -68,6 +68,8 @@ export interface ConditionScore {
   warnings: string[];
   /** Natural language summary */
   message: string;
+  /** Water quality warning if advisory or closure */
+  waterQualityWarning?: string;
 }
 
 /**

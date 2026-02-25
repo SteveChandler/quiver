@@ -296,18 +296,42 @@ function buildMessage(
 }
 
 /**
+ * Options for scoreConditions()
+ */
+export interface ScoreConditionsOptions {
+  /** Water quality status for the beach */
+  waterQuality?: { status: 'good' | 'advisory' | 'closure' | 'unknown' };
+}
+
+/**
  * Main scoring function
  *
  * Scores surf conditions based on forecast data and beach characteristics.
  *
  * @param forecast - The forecast data to score
  * @param beach - The beach with its configuration thresholds
+ * @param options - Optional overrides (e.g. water quality status)
  * @returns ConditionScore with total, subscores, quality, and message
  */
 export function scoreConditions(
   forecast: ForecastForScoring,
-  beach: BeachWithThresholds
+  beach: BeachWithThresholds,
+  options?: ScoreConditionsOptions
 ): ConditionScore {
+  // Water quality closure overrides all scoring — site is unsafe
+  if (options?.waterQuality?.status === 'closure') {
+    return {
+      total: 0,
+      subscores: { waveHeightFit: 0, periodEnergy: 0, windAlignment: 0, tideFit: 0 },
+      matchQuality: 'skip',
+      recommendationLabel: 'Skip',
+      reasons: [],
+      warnings: ['Water quality closure — health advisory active'],
+      message: 'Skip — Water quality closure, health advisory active',
+      waterQualityWarning: 'Water quality closure — health advisory active',
+    };
+  }
+
   // Check skip conditions first
   const skipCheck = checkSkipConditions(forecast, beach);
 
@@ -364,7 +388,7 @@ export function scoreConditions(
   // Build message
   const message = buildMessage(matchQuality, recommendationLabel, reasons, warnings, null);
 
-  return {
+  const result: ConditionScore = {
     total: normalizedTotal,
     subscores,
     matchQuality,
@@ -373,4 +397,13 @@ export function scoreConditions(
     warnings,
     message,
   };
+
+  // Inject advisory warning without overriding the score
+  if (options?.waterQuality?.status === 'advisory') {
+    const advisoryMsg = 'Water quality advisory — elevated bacteria levels';
+    result.warnings.push(advisoryMsg);
+    result.waterQualityWarning = advisoryMsg;
+  }
+
+  return result;
 }

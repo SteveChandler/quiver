@@ -4,6 +4,9 @@
 
 BEGIN;
 
+-- Must drop first because return type changed (added has_editorial column)
+DROP FUNCTION IF EXISTS get_cities_with_beach_skills(int);
+
 CREATE OR REPLACE FUNCTION get_cities_with_beach_skills(min_beaches int DEFAULT 1)
 RETURNS TABLE (
   city text,

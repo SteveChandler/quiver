@@ -3,14 +3,17 @@
 import { useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Waves, Anchor, AlertTriangle, Images } from "lucide-react";
+import { MapPin, AlertTriangle, Images } from "lucide-react";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { withServerAction } from "@/lib/server-action-utils";
 import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
 import { WaveTipsCard } from "@/components/beach-detail/wave-tips-card";
+import { AmenitiesBadges } from "@/components/beach-detail/amenities-badges";
+import { WaterQualityBadge } from "@/components/beach-detail/water-quality-badge";
+import { deriveAmenitiesFromFeatures } from "@/lib/utils/amenity-fallback-utils";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 
 interface BestPhoto {
   id: string;
@@ -32,9 +35,11 @@ async function getBestBeachPhotos(
 
 interface SpotOverviewProps {
   beach: Beach;
+  amenities?: BeachAmenities | null;
+  waterQuality?: WaterQuality | null;
 }
 
-export function SpotOverview({ beach }: SpotOverviewProps) {
+export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewProps) {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchPhotos = useCallback(async () => {
@@ -158,21 +163,17 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
       {/* Wave Tips */}
       <WaveTipsCard tips={beach.wave_tips} />
 
-      <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
-        <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">
-          <CardTitle className="flex items-center gap-2 text-lg font-roboto text-gray-800">
-            <Waves className="h-5 w-5 text-blue-600" /> Amenities
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {/* Placeholder badges - can be driven by structured fields later */}
-            <Badge variant="secondary">Parking</Badge>
-            <Badge variant="secondary">Restrooms</Badge>
-            <Badge variant="secondary">Showers</Badge>
-          </div>
-        </CardContent>
-      </Card>
+      <WaterQualityBadge waterQuality={waterQuality ?? null} beachState={beach.state} />
+
+      <AmenitiesBadges
+        amenities={
+          amenities ??
+          deriveAmenitiesFromFeatures(
+            (beach as any).features ?? null,
+            (beach as any).amenities ?? null
+          )
+        }
+      />
 
       <Card className="overflow-hidden rounded-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg">
         <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-b border-blue-100/50">

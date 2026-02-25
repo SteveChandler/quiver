@@ -456,6 +456,19 @@ async function discoverSurfSpotsInner(
     uniqueDates
   );
 
+  // Batch-fetch water quality for all candidate beaches (avoids N+1)
+  const supabase = createSupabaseServiceRoleClient();
+  const candidateBeachIds = Array.from(allBeachIds);
+  const { data: wqRows } = await supabase
+    .from('beach_water_quality')
+    .select('beach_id, status')
+    .in('beach_id', candidateBeachIds);
+
+  const wqMap = new Map<string, string>();
+  for (const row of wqRows ?? []) {
+    wqMap.set(row.beach_id, row.status);
+  }
+
   // 3. Score each beach with detailed breakdown
   const scored: SurfDiscoveryRecommendation[] = [];
 
@@ -693,6 +706,6 @@ export async function discoverSurfSpots(
   } catch (error) {
     const duration = Date.now() - startTime;
     log.error(`Discovery failed after ${duration}ms for user ${userId}:`, error);
-    throw error;
+    return emptyResponse(maxResults);
   }
 }
