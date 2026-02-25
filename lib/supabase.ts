@@ -164,8 +164,14 @@ export const createServerClient = async () => {
   });
 };
 
-// Create a server client with service role for admin operations
+// Singleton: service-role clients are stateless (no user session, persistSession: false,
+// autoRefreshToken: false) — safe to reuse across requests. PostgREST query builders
+// are independent per .from() call. This prevents ~400 never-disposed clients per E2E run.
+let _serviceRoleClient: ReturnType<typeof createClient> | null = null;
+
 export const createServiceRoleClient = () => {
+  if (_serviceRoleClient) return _serviceRoleClient;
+
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
@@ -179,7 +185,7 @@ export const createServiceRoleClient = () => {
   }
 
   const noStoreFetch = createNoStoreFetch(globalThis.fetch);
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  _serviceRoleClient = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -189,4 +195,6 @@ export const createServiceRoleClient = () => {
       fetch: noStoreFetch as any,
     },
   });
+
+  return _serviceRoleClient;
 };

@@ -511,6 +511,18 @@ async function discoverSurfSpotsInner(
       distanceMiles,
     });
 
+    // Apply water quality override after scoring
+    const wqStatus = wqMap.get(beach.id);
+    if (wqStatus === 'closure') {
+      // Score to 0 and demote to 'fair' (lowest non-skip tier) so the beach
+      // sorts last but still surfaces with a clear health warning.
+      detailedScore.total = 0;
+      detailedScore.matchQuality = 'fair';
+      detailedScore.warnings = ['Water quality closure — health advisory active'];
+    } else if (wqStatus === 'advisory') {
+      detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+    }
+
     scored.push({
       beach,
       window: bestWindow,
