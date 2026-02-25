@@ -16,6 +16,9 @@ import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -65,6 +68,29 @@ export default async function BeachDetailBySlugPage(
     // Enrich nearby beaches with live conditions and photos
     const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
+    // Fetch amenity and water quality data (gracefully degrade when tables don't exist yet)
+    let amenities: BeachAmenities | null = null;
+    let waterQuality: WaterQuality | null = null;
+    try {
+      const supabase = await createSupabaseServerClient();
+      const [amenitiesResult, waterQualityResult] = await Promise.all([
+        supabase
+          .from("mv_beach_amenities")
+          .select("*")
+          .eq("beach_id", beach.id)
+          .maybeSingle(),
+        supabase
+          .from("beach_water_quality")
+          .select("*")
+          .eq("beach_id", beach.id)
+          .maybeSingle(),
+      ]);
+      amenities = amenitiesResult.data as BeachAmenities | null;
+      waterQuality = waterQualityResult.data as WaterQuality | null;
+    } catch {
+      // Gracefully degrade if tables don't exist yet
+    }
+
     return (
       <>
         {/* Structured Data: Place/Beach */}
@@ -78,6 +104,7 @@ export default async function BeachDetailBySlugPage(
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}
+          amenities={amenities}
         />
 
         {/* Breadcrumb Structured Data for SEO */}
@@ -97,6 +124,8 @@ export default async function BeachDetailBySlugPage(
           beach={beach}
           slug={params.slug}
           beachTimezone={beachTimezone}
+          amenities={amenities}
+          waterQuality={waterQuality}
         />
 
         {/* Signup CTA for anonymous visitors */}
@@ -176,13 +205,23 @@ export async function generateMetadata(
       ? { wave_height: forecastResult.data.wave_height }
       : null;
 
+    // Extract first sentence of beach description for meta tags
+    const descriptionExcerpt = beach.description
+      ? (beach.description.split(/\.(\s|$)/)[0] + ".").trim() || null
+      : null;
+
     const { title, description } = buildDynamicBeachMetadata({
       beach: {
         name: beach.name,
         city: beach.city,
         state: beach.state,
-        break_type: (beach as any).break_type,
-        skill_level: (beach as any).skill_level,
+        break_type: beach.break_type,
+        skill_level: beach.skill_level,
+        description_excerpt: descriptionExcerpt,
+        wave_tips: beach.wave_tips,
+        crowd_level: beach.crowd_level,
+        average_rating: beach.average_rating,
+        review_count: beach.review_count,
       },
       forecast,
     });

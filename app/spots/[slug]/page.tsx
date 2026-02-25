@@ -62,12 +62,22 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
   }
 
   // Use CTR-optimized dynamic metadata (same as hierarchical pages)
+  // SpotPageData uses camelCase (breakType, skillLevel) and lacks wave_tips,
+  // crowd_level, average_rating, review_count — those fields yield undefined (safe fallthrough)
   const { title, description } = buildDynamicBeachMetadata({
     beach: {
       name: spot.name,
       city: spot.city,
       state: spot.state || regionName,
+      break_type: spot.breakType ?? null,
       skill_level: spot.skillLevel || null,
+      description_excerpt: spot.description
+        ? (spot.description.split(/\.(\s|$)/)[0] + ".").trim() || null
+        : null,
+      wave_tips: (spot as any).wave_tips ?? null,
+      crowd_level: (spot as any).crowd_level ?? null,
+      average_rating: (spot as any).average_rating ?? null,
+      review_count: (spot as any).review_count ?? null,
     },
     forecast: forecastData,
   });

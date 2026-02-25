@@ -353,7 +353,9 @@ describe("SEO Meta Builder", () => {
           forecast: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Surf Report");
+        // City is used as trailing signal in tier-3 when available; "Surf Report" is
+        // the last-resort fallback for beaches with no city, break_type, or crowd signal.
+        expect(result.title).toContain("San Diego");
       });
 
       it("should use fallback title when wave_height is null", () => {

@@ -53,36 +53,125 @@ export async function generateMetadata(props: LocationPageProps) {
 
     const expandedState = expandStateForMeta(location.state || params.state);
 
-    // Build improved title with beach names for non-metro cities
+    // Inline helpers for aggregating break types and skill range from beach data
+    function aggregateBreakTypes(
+      beaches: Array<{ break_type?: string | null }>
+    ): string | null {
+      const capitalize = (s: string) =>
+        s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+      const unique = [
+        ...new Set(
+          beaches
+            .map((b) => b.break_type)
+            .filter((t): t is string => t != null && t.trim() !== "")
+        ),
+      ].map(capitalize);
+      if (unique.length === 0) return null;
+      if (unique.length === 1) return unique[0];
+      if (unique.length === 2) return `${unique[0]} & ${unique[1]}`;
+      return `${unique.slice(0, -1).join(", ")} & ${unique[unique.length - 1]}`;
+    }
+
+    function getSkillRange(
+      beaches: Array<{ skill_level?: string | null }>
+    ): string | null {
+      const order = ["beginner", "intermediate", "advanced", "expert"];
+      const capitalize = (s: string) =>
+        s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+      const present = beaches
+        .map((b) => b.skill_level?.toLowerCase().trim())
+        .filter((s): s is string => s != null && order.includes(s));
+      if (present.length === 0) return null;
+      const indices = present.map((s) => order.indexOf(s));
+      const lowestIdx = Math.min(...indices);
+      const highestIdx = Math.max(...indices);
+      if (lowestIdx === highestIdx) return capitalize(order[lowestIdx]);
+      return `${capitalize(order[lowestIdx])} to ${capitalize(order[highestIdx])}`;
+    }
+
+    const breakTypes = aggregateBreakTypes(response.data.beaches);
+    const skillRange = getSkillRange(response.data.beaches);
+    const n = stats.totalBeaches;
+
+    // Build title with 3-tier fallback for non-metro cities
     let title: string;
     if (metroConfig?.pageTitle) {
       title = metroConfig.pageTitle;
     } else {
-      const top2Names = response.data.beaches
-        .slice(0, 2)
-        .map((b: { name: string }) => b.name);
-      if (top2Names.length >= 2) {
-        title = truncateTitleForSEO(
-          `${displayCityName}, ${expandedState} Surf: ${stats.totalBeaches} Breaks Including ${top2Names[0]} & ${top2Names[1]}`
-        );
+      const fallback = `Best Surf Beaches in ${displayCityName}, ${expandedState}`;
+      // Tier 1: count + break types
+      if (breakTypes !== null) {
+        const tier1 = `${displayCityName}, ${expandedState}: ${n} Surf Breaks | ${breakTypes}`;
+        if (tier1.length <= 60) {
+          title = tier1;
+        } else if (skillRange !== null) {
+          // Tier 2: count + skill range
+          const tier2 = `${displayCityName}, ${expandedState}: ${n} Breaks, ${skillRange}`;
+          title = tier2.length <= 60 ? tier2 : truncateTitleForSEO(tier2);
+        } else {
+          title = fallback;
+        }
+      } else if (skillRange !== null) {
+        // Tier 2: count + skill range (no break types available)
+        const tier2 = `${displayCityName}, ${expandedState}: ${n} Breaks, ${skillRange}`;
+        title = tier2.length <= 60 ? tier2 : truncateTitleForSEO(tier2);
       } else {
-        title = `Best Surf Beaches in ${displayCityName}, ${expandedState}`;
+        title = fallback;
       }
     }
 
-    const topBeachNames = response.data.beaches
+    // Build description progressively for non-metro cities
+    const topBeaches = response.data.beaches
       .slice(0, 3)
-      .map((b: { name: string }) => b.name)
-      .join(", ");
+      .map((b: { name: string }) => b.name);
 
-    const ratingSnippet =
-      stats.totalReviews >= 5
-        ? ` Rated ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`
-        : "";
+    let description: string;
+    if (metroConfig?.description) {
+      const ratingSnippet =
+        stats.totalReviews >= 5
+          ? ` Rated ${stats.averageRating.toFixed(1)}/5.`
+          : "";
+      description = `${metroConfig.description}${ratingSnippet || ` ${n} surf spots with forecasts, tides & crowd intel.`}`;
+    } else {
+      // Core sentence varies by what data is available
+      const breakNoun = n === 1 ? "break" : "breaks";
+      let core: string;
+      if (skillRange !== null && breakTypes !== null) {
+        core = `${n} surf ${breakNoun} in ${displayCityName} from ${skillRange.toLowerCase()} ${breakTypes.toLowerCase()} ${breakNoun}.`;
+      } else if (skillRange !== null) {
+        core = `${n} surf ${breakNoun} in ${displayCityName} from ${skillRange.toLowerCase()}.`;
+      } else if (breakTypes !== null) {
+        core = `${n} ${breakTypes.toLowerCase()} ${breakNoun} in ${displayCityName}.`;
+      } else {
+        core = `${n} surf ${breakNoun} in ${displayCityName}.`;
+      }
 
-    const description = metroConfig?.description
-      ? `${metroConfig.description}${ratingSnippet || ` ${stats.totalBeaches} surf spots with forecasts, tides & crowd intel.`}`
-      : `${stats.totalBeaches} surf spots in ${displayCityName}: ${topBeachNames} and more.${ratingSnippet} Forecasts, tide charts, crowd levels & best surf windows.`;
+      // Append beach names
+      const namesWithMore =
+        topBeaches.length > 0
+          ? ` ${topBeaches.join(", ")} and more.`
+          : "";
+      const suffix = " Live forecasts & crowd intel.";
+      const ratingSnippet =
+        stats.totalReviews >= 5
+          ? ` Rated ${stats.averageRating.toFixed(1)}/5.`
+          : "";
+
+      const full = `${core}${namesWithMore}${ratingSnippet}${suffix}`;
+
+      if (full.length <= 160) {
+        description = full;
+      } else {
+        // Drop rating first
+        const withoutRating = `${core}${namesWithMore}${suffix}`;
+        if (withoutRating.length <= 160) {
+          description = withoutRating;
+        } else {
+          // Drop "and more" from beach names
+          description = `${core}${suffix}`;
+        }
+      }
+    }
 
     const isUsa = params.country.toLowerCase() === "usa";
     const canonicalPath =

@@ -21,6 +21,8 @@ import {
 } from "@/lib/utils/beach-url-utils";
 import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { ReviewSchema } from "@/components/seo/review-schema";
@@ -30,6 +32,7 @@ import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -102,8 +105,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Fetch surf report, nearby beaches, reviews, and best time to surf URL in parallel
-    const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl] = await Promise.all([
+    // Fetch surf report, nearby beaches, reviews, best time to surf URL, amenities, and water quality in parallel
+    const [surfReportResult, nearbyResult, reviewsResult, bestTimeToSurfUrl, amenitiesResult, waterQualityResult] = await Promise.all([
       getSpotSurfReport(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
@@ -112,6 +115,34 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       beach.city && beach.state
         ? getBestTimeToSurfUrl(cityToSlug(beach.city), beach.city, beach.state)
         : Promise.resolve(undefined),
+      (async () => {
+        try {
+          const supabase = await createSupabaseServerClient();
+          const { data } = await supabase
+            .from("mv_beach_amenities")
+            .select("*")
+            .eq("beach_id", beach.id)
+            .maybeSingle();
+          return data as BeachAmenities | null;
+        } catch {
+          // Gracefully degrade if the materialized view doesn't exist yet
+          return null;
+        }
+      })(),
+      (async () => {
+        try {
+          const supabase = await createSupabaseServerClient();
+          const { data } = await supabase
+            .from("beach_water_quality")
+            .select("*")
+            .eq("beach_id", beach.id)
+            .maybeSingle();
+          return data as WaterQuality | null;
+        } catch {
+          // Gracefully degrade if the table doesn't exist yet
+          return null;
+        }
+      })(),
     ]);
 
     const surfCallReport = surfReportResult?.report || null;
@@ -172,6 +203,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}
+          amenities={amenitiesResult}
         />
 
         {/* Breadcrumb Structured Data for SEO */}
@@ -239,6 +271,8 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           surfReportSlot={<SpotSurfReportStream beach={beach} />}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
+          amenities={amenitiesResult}
+          waterQuality={waterQualityResult}
         />
 
         <StickySignupBar
@@ -346,6 +380,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
           break_type: beach.break_type,
           skill_level: beach.skill_level,
           description_excerpt: descriptionExcerpt,
+          wave_tips: beach.wave_tips,
+          crowd_level: beach.crowd_level,
+          average_rating: beach.average_rating,
+          review_count: beach.review_count,
         },
         forecast: forecastData,
       });
