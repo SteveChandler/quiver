@@ -54,7 +54,7 @@ export function BeachAlertCta({ beachId, beachName }: BeachAlertCtaProps) {
     }
     // enableAlerts is stable via useCallback; including it satisfies the linter
     // without causing extra re-runs since its identity only changes when beachId does.
-  }, [user, pendingAction, beachId, enableAlerts]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional: only re-run when user/pendingAction/beachId change
+  }, [user, pendingAction, beachId, enableAlerts]);
 
   function handleClick() {
     if (!user) {

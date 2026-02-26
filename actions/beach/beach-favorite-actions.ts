@@ -129,6 +129,15 @@ export const removeFavoriteBeach = makeAuthenticatedAction(
 // Errors are thrown and caught by the makeAuthenticatedAction wrapper.
 export const enableFavoriteAlerts = makeAuthenticatedAction(
   async (user, supabase, beachId: string) => {
+    // Validate UUID format
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        beachId
+      )
+    ) {
+      throw new Error("Invalid beach ID");
+    }
+
     // Step 1: check whether the beach is already in favorites
     const { data: existing, error: checkError } = await supabase
       .from("favorite_beaches")
@@ -141,7 +150,7 @@ export const enableFavoriteAlerts = makeAuthenticatedAction(
 
     const wasAlreadyFavorited = Boolean(existing);
 
-    // Step 2: if not yet favorited, insert it with the next rank
+    // Step 2: if not yet favorited, upsert with next rank (atomic, handles race)
     if (!existing) {
       const { data: maxRankRows } = await supabase
         .from("favorite_beaches")
@@ -154,25 +163,29 @@ export const enableFavoriteAlerts = makeAuthenticatedAction(
           .reduce((max: number, cur: number) => (cur > max ? cur : max), 0) +
         1;
 
-      const { error: insertError } = await supabase
+      const { error: upsertError } = await supabase
         .from("favorite_beaches")
-        .insert({
-          user_id: user.id,
-          beach_id: beachId,
-          rank: nextRank,
-        });
+        .upsert(
+          {
+            user_id: user.id,
+            beach_id: beachId,
+            rank: nextRank,
+            alerts_enabled: true,
+          },
+          { onConflict: "user_id,beach_id" }
+        );
 
-      if (insertError) throw insertError;
+      if (upsertError) throw upsertError;
+    } else {
+      // Step 3: already favorited — just enable alerts
+      const { error: updateError } = await supabase
+        .from("favorite_beaches")
+        .update({ alerts_enabled: true })
+        .eq("user_id", user.id)
+        .eq("beach_id", beachId);
+
+      if (updateError) throw updateError;
     }
-
-    // Step 3: enable alerts on the favorite row
-    const { error: updateError } = await supabase
-      .from("favorite_beaches")
-      .update({ alerts_enabled: true })
-      .eq("user_id", user.id)
-      .eq("beach_id", beachId);
-
-    if (updateError) throw updateError;
 
     revalidatePath("/profile");
     revalidatePath("/");

@@ -21,6 +21,7 @@ function makeSupabaseFake(options: {
   favoritesRows?: any[];
 }) {
   const insertCalls: any[] = [];
+  const upsertCalls: Array<{ payload: any; options: any }> = [];
   const deleteEqCalls: Array<{ col: string; val: any }> = [];
   const updateCalls: Array<{ payload: any; eqCalls: Array<{ col: string; val: any }> }> = [];
   const selectIdChain = {
@@ -60,6 +61,10 @@ function makeSupabaseFake(options: {
         insertCalls.push(payload);
         return Promise.resolve({ error: options.insertShouldFail ? new Error('insert fail') : null });
       }),
+      upsert: jest.fn((payload: any, upsertOptions: any) => {
+        upsertCalls.push({ payload, options: upsertOptions });
+        return Promise.resolve({ error: options.insertShouldFail ? new Error('upsert fail') : null });
+      }),
       delete: jest.fn(() => ({
         eq: jest.fn((col: string, val: any) => {
           deleteEqCalls.push({ col, val });
@@ -98,7 +103,7 @@ function makeSupabaseFake(options: {
     },
   } as any;
 
-  return { supabase, insertCalls, deleteEqCalls, updateCalls, from };
+  return { supabase, insertCalls, upsertCalls, deleteEqCalls, updateCalls, from };
 }
 
 describe('beach-favorite-actions', () => {
@@ -166,67 +171,65 @@ describe('beach-favorite-actions', () => {
   });
 
   describe('enableFavoriteAlerts', () => {
-    it('inserts favorite then enables alerts when beach is not yet favorited', async () => {
-      const { supabase, insertCalls, updateCalls } = makeSupabaseFake({
+    it('upserts favorite with alerts_enabled when beach is not yet favorited', async () => {
+      const { supabase, upsertCalls, updateCalls } = makeSupabaseFake({
         authUserId: 'u1',
         existingFavoriteId: null,
         ranks: [2],
       });
       mockCreate.mockResolvedValue(supabase);
 
-      const res = await enableFavoriteAlerts('beach-1');
+      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
 
-      // makeAuthenticatedAction wraps return value: { success: true, data: { ... } }
       expect(res.success).toBe(true);
       expect(res.data).toMatchObject({ alerts_enabled: true, was_already_favorited: false });
 
-      // Should have inserted the new favorite row
-      expect(insertCalls).toHaveLength(1);
-      expect(insertCalls[0]).toMatchObject({ user_id: 'u1', beach_id: 'beach-1', rank: 3 });
+      // Should have used upsert (atomic, handles race conditions)
+      expect(upsertCalls).toHaveLength(1);
+      expect(upsertCalls[0].payload).toMatchObject({
+        user_id: 'u1',
+        beach_id: 'a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4',
+        rank: 3,
+        alerts_enabled: true,
+      });
+      expect(upsertCalls[0].options).toEqual({ onConflict: 'user_id,beach_id' });
 
-      // Should have updated alerts_enabled = true on the row
-      expect(updateCalls).toHaveLength(1);
-      expect(updateCalls[0].payload).toEqual({ alerts_enabled: true });
-      expect(updateCalls[0].eqCalls).toEqual([
-        { col: 'user_id', val: 'u1' },
-        { col: 'beach_id', val: 'beach-1' },
-      ]);
+      // Should NOT have called update separately (upsert handles it)
+      expect(updateCalls).toHaveLength(0);
     });
 
-    it('skips insert and only enables alerts when beach is already favorited', async () => {
-      const { supabase, insertCalls, updateCalls } = makeSupabaseFake({
+    it('skips upsert and only updates alerts when beach is already favorited', async () => {
+      const { supabase, upsertCalls, updateCalls } = makeSupabaseFake({
         authUserId: 'u1',
         existingFavoriteId: 'fav-42',
         ranks: [1],
       });
       mockCreate.mockResolvedValue(supabase);
 
-      const res = await enableFavoriteAlerts('beach-2');
+      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
 
       expect(res.success).toBe(true);
       expect(res.data).toMatchObject({ alerts_enabled: true, was_already_favorited: true });
 
-      // No insert should have happened
-      expect(insertCalls).toHaveLength(0);
+      // No upsert should have happened
+      expect(upsertCalls).toHaveLength(0);
 
-      // Should still update alerts_enabled = true
+      // Should update alerts_enabled = true
       expect(updateCalls).toHaveLength(1);
       expect(updateCalls[0].payload).toEqual({ alerts_enabled: true });
     });
 
     it('is idempotent when alerts are already enabled (returns success)', async () => {
-      // alerts_enabled = true already on the DB row; the update is a no-op but should not error
       const { supabase, updateCalls } = makeSupabaseFake({
         authUserId: 'u1',
         existingFavoriteId: 'fav-99',
       });
       mockCreate.mockResolvedValue(supabase);
 
-      const res = await enableFavoriteAlerts('beach-3');
+      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
 
       expect(res.success).toBe(true);
       expect(res.data).toMatchObject({ alerts_enabled: true });
-      // Update was still called to set alerts_enabled = true (DB accepts no-op)
       expect(updateCalls).toHaveLength(1);
     });
 
@@ -238,15 +241,14 @@ describe('beach-favorite-actions', () => {
       });
       mockCreate.mockResolvedValue(supabase);
 
-      // makeAuthenticatedAction catches thrown errors and returns { success: false, error }
-      const res = await enableFavoriteAlerts('beach-4');
+      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
 
       expect(res.success).toBe(false);
       expect(res.error).toBeDefined();
       expect(typeof res.error).toBe('string');
     });
 
-    it('returns success: false with error message when insert fails', async () => {
+    it('returns success: false with error message when upsert fails', async () => {
       const { supabase } = makeSupabaseFake({
         authUserId: 'u1',
         existingFavoriteId: null,
@@ -255,21 +257,30 @@ describe('beach-favorite-actions', () => {
       });
       mockCreate.mockResolvedValue(supabase);
 
-      const res = await enableFavoriteAlerts('beach-5');
+      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
 
       expect(res.success).toBe(false);
       expect(res.error).toBeDefined();
     });
 
     it('returns success: false when user is not authenticated', async () => {
-      // authUserId: undefined causes auth.getUser to return user: null
       const { supabase } = makeSupabaseFake({ authUserId: undefined });
       mockCreate.mockResolvedValue(supabase);
 
-      const res = await enableFavoriteAlerts('beach-6');
+      const res = await enableFavoriteAlerts('a0a0a0a0-b1b1-c2c2-d3d3-e4e4e4e4e4e4');
 
       expect(res.success).toBe(false);
       expect(res.error).toMatch(/not authenticated/i);
+    });
+
+    it('rejects invalid (non-UUID) beachId', async () => {
+      const { supabase } = makeSupabaseFake({ authUserId: 'u1' });
+      mockCreate.mockResolvedValue(supabase);
+
+      const res = await enableFavoriteAlerts('not-a-uuid');
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/invalid beach id/i);
     });
   });
 });
