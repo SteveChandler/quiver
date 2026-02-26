@@ -42,7 +42,6 @@ export interface UserPreferencesData {
  * @returns Combined view of learned preferences from sessions and onboarding data
  */
 export async function getUserLearnedPreferences() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return withAuthenticatedAction<UserPreferencesData>(async (user, supabase: any) => {
     // Fetch learned preferences from user_surf_preferences table
     const { data: learnedPrefs, error: prefsError } = await supabase

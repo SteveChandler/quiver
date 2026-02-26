@@ -229,7 +229,6 @@ async function syncStations(maxStations: number): Promise<StationSyncResult> {
     if (stationsToUpsert.length > 0) {
       const { error: upsertError } = await supabase
         .from("ioos_stations")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .upsert(stationsToUpsert as any, {
           onConflict: "station_id",
           ignoreDuplicates: false,
@@ -480,7 +479,6 @@ async function syncObservations(
       if (observationsToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from("ioos_observations")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .upsert(observationsToInsert as any, {
             onConflict: "station_id,observed_at",
             ignoreDuplicates: true,

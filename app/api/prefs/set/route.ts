@@ -84,7 +84,6 @@ export async function GET(request: NextRequest) {
   const supabase = createSupabaseServiceRoleClient();
   const { error } = await supabase
     .from('user_email_prefs')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .upsert(updates as any, { onConflict: 'user_id' });
 
   if (error) {

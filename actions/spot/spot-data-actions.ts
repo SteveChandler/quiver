@@ -109,7 +109,6 @@ export async function getSpotDataBySlug(
 export async function getSpotFeaturedPhoto(
   beachId: string
 ): Promise<SpotFeaturedPhoto | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return withDatabaseOperation<SpotFeaturedPhoto | null>(async (supabase: any) => {
     // Query the beach_photos_featured view
     const { data, error } = await supabase

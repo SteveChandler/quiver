@@ -69,6 +69,8 @@ const PersonalizationProgress = dynamic(
 import { buildQuickLogUrl } from "./first-session-cta";
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
+const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
+
 export function HomeScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -159,7 +161,6 @@ export function HomeScreen() {
     lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 
   // Determine coast pulse coordinates (fallback chain: GPS > homeBeach > San Diego)
-  const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
   const coastPulseCoords = useMemo(() =>
     geoSource === "browser" &&
     !usingDefaultLocation &&

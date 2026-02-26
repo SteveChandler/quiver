@@ -102,7 +102,6 @@ export async function recordAdminEvent(
 
     // Insert into database
     // Note: This table is created in Workstream A migrations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabaseAdmin as any).from("admin_audit_log").insert(entry);
 
     if (error) {

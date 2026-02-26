@@ -286,7 +286,6 @@ export async function getBeachForecastPreview(beachId: string) {
       const currentForecast = getCurrentForecast(basicForecasts);
 
       if (currentForecast) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const f = currentForecast as any;
         return {
           success: true,

@@ -123,7 +123,6 @@ export function SessionForm({
           // Prefill form with planned session data
           if (result) {
             // Check if result is wrapped in success/data structure
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sessionData = (result as any).data || result as any;
 
             updateField(

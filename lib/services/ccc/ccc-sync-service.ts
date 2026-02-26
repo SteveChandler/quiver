@@ -306,7 +306,6 @@ export async function upsertCCCLocations(
 
     const { error } = await supabase
       .from("ccc_access_locations")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(batch as any, {
         onConflict: "ccc_id",
         ignoreDuplicates: false,
