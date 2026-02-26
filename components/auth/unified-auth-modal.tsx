@@ -19,6 +19,7 @@ import {
   initiateOAuthFlow,
   sendMagicLink,
   validateEmail,
+  validateEmailDomain,
   validatePassword,
   getAuthRedirect,
   setAuthRedirect,
@@ -139,6 +140,10 @@ export function UnifiedAuthModal({
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [emailSuggestion, setEmailSuggestion] = useState<{
+    suggestion: string;
+    suggestedEmail: string;
+  } | null>(null);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -248,6 +253,27 @@ export function UnifiedAuthModal({
     }
   }, [view]);
 
+  // Check for typo domain suggestions when email changes (debounced to avoid
+  // flashing suggestions while the user is mid-typing, e.g. "gmail.co" → "gmail.com")
+  useEffect(() => {
+    if (!email || !validateEmail(email)) {
+      setEmailSuggestion(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const domainCheck = validateEmailDomain(email);
+      if (domainCheck.suggestion && domainCheck.suggestedEmail) {
+        setEmailSuggestion({
+          suggestion: domainCheck.suggestion,
+          suggestedEmail: domainCheck.suggestedEmail,
+        });
+      } else {
+        setEmailSuggestion(null);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [email]);
+
   // Get return path
   const getReturnPath = (): string => {
     if (returnTo) return returnTo;
@@ -265,6 +291,7 @@ export function UnifiedAuthModal({
       setPassword("");
       setDisplayName("");
       setTermsAccepted(false);
+      setEmailSuggestion(null);
       setError(null);
       setLoading(false);
     }
@@ -470,6 +497,11 @@ export function UnifiedAuthModal({
             onTermsAcceptedChange={setTermsAccepted}
             onSubmit={handleEmailPassword}
             onBack={handleBack}
+            emailSuggestion={emailSuggestion}
+            onAcceptSuggestion={(correctedEmail: string) => {
+              setEmail(correctedEmail);
+              setEmailSuggestion(null);
+            }}
           />
         );
 
@@ -482,6 +514,11 @@ export function UnifiedAuthModal({
             onEmailChange={setEmail}
             onSubmit={handleMagicLink}
             onBack={handleBack}
+            emailSuggestion={emailSuggestion}
+            onAcceptSuggestion={(correctedEmail: string) => {
+              setEmail(correctedEmail);
+              setEmailSuggestion(null);
+            }}
           />
         );
 

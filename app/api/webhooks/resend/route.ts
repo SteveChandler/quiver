@@ -36,6 +36,11 @@ interface ResendWebhookPayload {
   data: {
     email_id: string;
     created_at: string;
+    to: string[];
+    bounce?: {
+      type: "hard" | "soft" | "undetermined";
+      message?: string;
+    };
     [key: string]: unknown;
   };
 }
@@ -129,6 +134,39 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       console.log(
         `${CONTEXT_TAG} Updated ${column} for ${resendMessageId}`
       );
+
+      // Auto-suppress on hard bounce
+      if (
+        payload.type === "email.bounced" &&
+        payload.data.bounce?.type === "hard" &&
+        payload.data.to?.length > 0
+      ) {
+        for (const email of payload.data.to) {
+          // Table not yet in generated types — safe to query via service role
+          const { error: suppressError } = await supabase
+            // @ts-expect-error email_suppression_list not yet in generated DB types
+            .from("email_suppression_list")
+            .upsert(
+              {
+                email: email.toLowerCase(),
+                reason: "hard_bounce",
+                notes: `Auto-suppressed from Resend bounce event ${resendMessageId} — ${(payload.data.bounce.message || "no details").slice(0, 500)}`,
+              },
+              { onConflict: "email" }
+            );
+
+          if (suppressError) {
+            console.error(
+              `${CONTEXT_TAG} Failed to suppress bounced email ${email}:`,
+              suppressError
+            );
+          } else {
+            console.log(
+              `${CONTEXT_TAG} Auto-suppressed hard-bounced email: ${email}`
+            );
+          }
+        }
+      }
     }
 
     return NextResponse.json({ received: true, processed: true });

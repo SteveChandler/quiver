@@ -323,6 +323,82 @@ export function validateEmail(email: string): boolean {
 }
 
 /**
+ * Common email domain typos mapped to their correct domains.
+ * Used by validateEmailDomain to suggest corrections during signup/login.
+ */
+export const TYPO_DOMAINS: Readonly<Record<string, string>> = {
+  "gmail.co": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmail.cm": "gmail.com",
+  "gmail.cmo": "gmail.com",
+  "gamil.com": "gmail.com",
+  "gmal.com": "gmail.com",
+  "gmai.com": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gnail.com": "gmail.com",
+  "hotmail.co": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "hotmial.com": "hotmail.com",
+  "yahoo.co": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+  "yaho.com": "yahoo.com",
+  "outlook.co": "outlook.com",
+  "outlook.con": "outlook.com",
+  "icloud.co": "icloud.com",
+  "icloud.con": "icloud.com",
+  "icloud.cm": "icloud.com",
+  "aol.co": "aol.com",
+  "protonmail.co": "protonmail.com",
+  "protonmail.con": "protonmail.com",
+} as const;
+
+export interface EmailDomainValidation {
+  valid: boolean;
+  /** Human-readable suggestion, e.g. "Did you mean gmail.com?" */
+  suggestion?: string;
+  /** The full corrected email address */
+  suggestedEmail?: string;
+}
+
+/**
+ * Validate an email's domain against known typo domains and basic TLD checks.
+ * Returns a suggestion when the domain looks like a common misspelling.
+ * The email is still marked as "valid" for typo matches (the user might
+ * genuinely own that domain), but callers should surface the suggestion.
+ */
+export function validateEmailDomain(email: string): EmailDomainValidation {
+  if (!email || !email.includes("@")) {
+    return { valid: false };
+  }
+
+  const atIndex = email.lastIndexOf("@");
+  const localPart = email.slice(0, atIndex);
+  const domain = email.slice(atIndex + 1);
+  if (!domain) return { valid: false };
+
+  const lowerDomain = domain.toLowerCase();
+
+  // Check against typo domains
+  const correction = TYPO_DOMAINS[lowerDomain];
+  if (correction) {
+    const suggestedEmail = `${localPart}@${correction}`;
+    return {
+      valid: true, // Still technically valid, just suspicious
+      suggestion: `Did you mean ${correction}?`,
+      suggestedEmail,
+    };
+  }
+
+  // Check TLD is at least 2 chars
+  const tld = lowerDomain.split(".").pop();
+  if (!tld || tld.length < 2) {
+    return { valid: false };
+  }
+
+  return { valid: true };
+}
+
+/**
  * Check if a user account exists for the given email
  * Note: This is a client-side check and may not be 100% accurate
  * @param email - Email address to check

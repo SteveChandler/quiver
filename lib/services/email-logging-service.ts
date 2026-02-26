@@ -93,6 +93,108 @@ export class EmailLoggingService {
   }
 
   /**
+   * Filter out suppressed emails from a list of user IDs.
+   * Returns only user IDs whose email is NOT in the suppression list.
+   * Non-blocking: returns all IDs on error (fail-open to avoid blocking sends).
+   */
+  async filterSuppressed(userIds: string[]): Promise<string[]> {
+    if (userIds.length === 0) return [];
+
+    try {
+      // Step 1: Get emails for these specific users (chunked to avoid URL length limits)
+      const CHUNK_SIZE = 200;
+      const allProfiles: { id: string; email: string | null }[] = [];
+
+      for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+        const chunk = userIds.slice(i, i + CHUNK_SIZE);
+        const { data: profiles, error: profilesError } = await this.supabase
+          .from("profiles")
+          .select("id, email")
+          .in("id", chunk);
+
+        if (profilesError || !profiles) {
+          console.error(
+            `${this.contextTag} Failed to fetch profiles for suppression check:`,
+            profilesError
+          );
+          return userIds;
+        }
+        allProfiles.push(...profiles);
+      }
+
+      // Step 2: Collect unique non-null emails to check against suppression list
+      const emailToUserIds = new Map<string, string[]>();
+      for (const p of allProfiles) {
+        if (p.email) {
+          const lower = p.email.toLowerCase();
+          const ids = emailToUserIds.get(lower) || [];
+          ids.push(p.id);
+          emailToUserIds.set(lower, ids);
+        }
+      }
+
+      const emailsToCheck = Array.from(emailToUserIds.keys());
+      if (emailsToCheck.length === 0) {
+        return userIds;
+      }
+
+      // Step 3: Check only these specific emails against the suppression list
+      const suppressedEmails = new Set<string>();
+      for (let i = 0; i < emailsToCheck.length; i += CHUNK_SIZE) {
+        const chunk = emailsToCheck.slice(i, i + CHUNK_SIZE);
+        const { data: suppressed, error } = await this.supabase
+          .from("email_suppression_list")
+          .select("email")
+          .in("email", chunk);
+
+        if (error) {
+          console.error(
+            `${this.contextTag} Failed to check suppression list:`,
+            error
+          );
+          // Fail open — send to all rather than block
+          return userIds;
+        }
+
+        if (suppressed) {
+          for (const s of suppressed) {
+            suppressedEmails.add((s as { email: string }).email.toLowerCase());
+          }
+        }
+      }
+
+      if (suppressedEmails.size === 0) {
+        return userIds;
+      }
+
+      // Step 4: Filter out suppressed user IDs
+      const suppressedUserIds = new Set<string>();
+      for (const email of suppressedEmails) {
+        const ids = emailToUserIds.get(email);
+        if (ids) {
+          for (const id of ids) {
+            suppressedUserIds.add(id);
+          }
+        }
+      }
+
+      const filtered = userIds.filter((id) => !suppressedUserIds.has(id));
+
+      console.log(
+        `${this.contextTag} Filtered out ${suppressedUserIds.size} suppressed email(s)`
+      );
+
+      return filtered;
+    } catch (err) {
+      console.error(
+        `${this.contextTag} Unexpected error in filterSuppressed:`,
+        err
+      );
+      return userIds;
+    }
+  }
+
+  /**
    * Log multiple email deliveries in a batch.
    * Useful for future optimization when processing many emails.
    */
