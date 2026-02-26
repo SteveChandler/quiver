@@ -15,6 +15,7 @@ import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadg
 import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
 import { FavoriteButton } from "@/components/favorite-button";
 import { useAuth } from "@/context/auth-context";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 
 interface BeachCardProps {
   id?: string;
@@ -74,6 +75,7 @@ const BeachCardComponent = function BeachCard({
 }: BeachCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [sessionAuthModalOpen, setSessionAuthModalOpen] = useState(false);
   const { user } = useAuth();
 
   // Generate beach URL (hierarchical if slug/city/state available, otherwise fallback to ID)
@@ -261,6 +263,38 @@ const BeachCardComponent = function BeachCard({
               )}
             </div>
           </div>
+
+          {/* Session CTA - subtle link to encourage session logging */}
+          {user ? (
+            <Link
+              href={`/sessions/new?beach=${id}`}
+              className="block mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline text-center"
+            >
+              Log a session here
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSessionAuthModalOpen(true)}
+              className="block w-full mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline text-center cursor-pointer"
+            >
+              Log a session here
+            </button>
+          )}
+
+          {/* Auth modal for session CTA (guests only) */}
+          {!user && (
+            <UnifiedAuthModal
+              isOpen={sessionAuthModalOpen}
+              onClose={() => setSessionAuthModalOpen(false)}
+              mode="signup"
+              source="session-log-cta"
+              contextMessage={{
+                title: "Track Your Sessions",
+                description: `Track your sessions at ${name} and get personalized recommendations`,
+              }}
+            />
+          )}
 
           {/* Expandable Forecast Preview */}
           <AnimatePresence>

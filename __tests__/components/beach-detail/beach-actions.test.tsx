@@ -32,6 +32,14 @@ jest.mock('@/components/home/HomeBeachBanner', () => ({
   ),
 }));
 
+// Mock UnifiedAuthModal to avoid auth dependencies
+jest.mock('@/components/auth/unified-auth-modal', () => ({
+  UnifiedAuthModal: (props: any) =>
+    props.isOpen ? (
+      <div data-testid="auth-modal" data-source={props.source} />
+    ) : null,
+}));
+
 // Mock window.open
 const mockOpen = jest.fn();
 global.window.open = mockOpen;
@@ -548,7 +556,7 @@ describe('BeachActions', () => {
   });
 
   describe('Public Mode Auth Gating', () => {
-    test('in publicMode, clicking Log Session calls onAuthRequired instead of onLogSession', () => {
+    test('in publicMode, clicking "Track Your Sessions" calls onAuthRequired instead of onLogSession', () => {
       const mockAuthRequired = jest.fn();
       render(
         <BeachActions
@@ -559,14 +567,15 @@ describe('BeachActions', () => {
         />
       );
 
-      const logBtn = screen.getByRole('button', { name: /log session/i });
+      // In public mode the label changes to "Track Your Sessions"
+      const logBtn = screen.getByRole('button', { name: /track your sessions/i });
       fireEvent.click(logBtn);
 
       expect(mockAuthRequired).toHaveBeenCalledTimes(1);
       expect(mockOnLogSession).not.toHaveBeenCalled();
     });
 
-    test('in publicMode, clicking Plan Session calls onAuthRequired instead of onPlanSession', () => {
+    test('in publicMode, clicking "Plan a Session" calls onAuthRequired instead of onPlanSession', () => {
       const mockAuthRequired = jest.fn();
       render(
         <BeachActions
@@ -577,7 +586,8 @@ describe('BeachActions', () => {
         />
       );
 
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
+      // In public mode the label changes to "Plan a Session"
+      const planBtn = screen.getByRole('button', { name: /plan a session/i });
       fireEvent.click(planBtn);
 
       expect(mockAuthRequired).toHaveBeenCalledTimes(1);
