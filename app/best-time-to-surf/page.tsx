@@ -17,6 +17,7 @@ import { getStateSurfProfile, getAvailableStateProfiles } from "@/lib/data/month
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,11 @@ export default async function BestTimeToSurfHubPage() {
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
           { name: "Best Time to Surf", url: `${SITE_ORIGIN}/best-time-to-surf` },
         ]}
+      />
+      {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
+      <WebPageSchema
+        name={`Best Time to Surf in the US (${currentYear}) | Month-by-Month Guide`}
+        url={`${SITE_ORIGIN}/best-time-to-surf`}
       />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">

@@ -5,7 +5,11 @@ import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
-import { handleSeoRedirect } from "@/lib/middleware/seo-redirect-handler";
+import {
+  handleSeoRedirect,
+  lookupBeachBySlug,
+  buildCanonicalBeachUrl,
+} from "@/lib/middleware/seo-redirect-handler";
 import {
   parseUTMParams,
   parseAttributionFromRequestCookies,
@@ -43,6 +47,38 @@ function log(message: string, data?: any) {
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  /**
+   * Legacy /spots/{slug} → canonical URL redirect (HTTP 301)
+   *
+   * The spots page component uses permanentRedirect() which Next.js App Router
+   * emits as HTTP 308. Intercepting here in middleware allows us to issue the
+   * correct HTTP 301 for maximum crawler compatibility.
+   *
+   * The DB lookup reuses the same lookupBeachBySlug helper used by handleSeoRedirect,
+   * so we stay within the established middleware DB access pattern (fetch + short timeout).
+   * Only redirects when the beach has complete location data (city + state in DB).
+   * If lookup fails or beach lacks location data, the request passes through to the
+   * spots page which renders the non-redirect path.
+   */
+  const spotsMatch = pathname.match(/^\/spots\/([^/]+?)\/?$/);
+  if (spotsMatch && spotsMatch[1]) {
+    const spotSlug = spotsMatch[1];
+    try {
+      const beach = await lookupBeachBySlug(spotSlug);
+      if (beach) {
+        const canonicalUrl = buildCanonicalBeachUrl(beach);
+        if (canonicalUrl && canonicalUrl !== `/spots/${spotSlug}`) {
+          // Preserve query parameters (tabs, UTM params, etc.)
+          const redirectUrl = request.nextUrl.clone();
+          redirectUrl.pathname = canonicalUrl;
+          return NextResponse.redirect(redirectUrl, { status: 301 });
+        }
+      }
+    } catch {
+      // Fail open: if DB lookup fails, let the spots page handle the request
+    }
+  }
 
   /**
    * Handle 4-segment state URLs that would incorrectly match the international route

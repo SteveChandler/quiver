@@ -339,11 +339,14 @@ export function buildStateUrl(state: string | null | undefined): string {
 }
 
 /**
- * Return a US state-root URL path (e.g. "/ca") when the input maps to a valid
- * 2-letter US state slug. Returns null for non-US / international states.
+ * Return a US state listing URL path (e.g. "/beaches/usa/ca") when the input
+ * maps to a valid 2-letter US state slug. Returns null for non-US / international states.
  *
  * This is useful for schema generation and internal navigation where we only
  * want crawlable state-root routes for valid US states.
+ *
+ * Previously returned "/{stateSlug}" (e.g. "/ca") which pointed to non-existent
+ * routes. The canonical state listing pages live at "/beaches/usa/{stateSlug}".
  */
 export function getUsStateRootPathOrNull(
   state: string | null | undefined
@@ -351,7 +354,7 @@ export function getUsStateRootPathOrNull(
   const stateSlug = stateToSlug(state);
   if (!stateSlug) return null;
   if (!isValidStateSlug(stateSlug)) return null;
-  return `/${stateSlug}`;
+  return `/beaches/usa/${stateSlug}`;
 }
 
 /**

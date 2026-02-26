@@ -351,11 +351,11 @@ describe("Beach URL Utils", () => {
   });
 
   describe("getUsStateRootPathOrNull", () => {
-    it("should return a state-root path for valid US states", () => {
-      expect(getUsStateRootPathOrNull("CA")).toBe("/ca");
-      expect(getUsStateRootPathOrNull("California")).toBe("/ca");
-      expect(getUsStateRootPathOrNull("NJ")).toBe("/nj");
-      expect(getUsStateRootPathOrNull("New Jersey")).toBe("/nj");
+    it("should return a state listing URL path for valid US states", () => {
+      expect(getUsStateRootPathOrNull("CA")).toBe("/beaches/usa/ca");
+      expect(getUsStateRootPathOrNull("California")).toBe("/beaches/usa/ca");
+      expect(getUsStateRootPathOrNull("NJ")).toBe("/beaches/usa/nj");
+      expect(getUsStateRootPathOrNull("New Jersey")).toBe("/beaches/usa/nj");
     });
 
     it("should return null for international or non-US states", () => {

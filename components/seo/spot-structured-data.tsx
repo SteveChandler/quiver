@@ -6,6 +6,8 @@ interface SpotStructuredDataProps {
   spot: SurfSpot;
   cityName?: string;
   citySlug?: string;
+  /** Two-letter lowercase state slug (e.g. "ca"). Defaults to "ca" for legacy spots route. */
+  stateSlug?: string;
   baseUrl: string;
 }
 
@@ -13,21 +15,32 @@ export function SpotStructuredData({
   spot,
   cityName,
   citySlug,
+  stateSlug,
   baseUrl,
 }: SpotStructuredDataProps) {
   const safeBase = baseUrl.replace(/\/$/, "");
 
+  // Build hierarchical URL when city/state data available, else fall back to /spots/
+  const beachUrl = citySlug && stateSlug
+    ? `${safeBase}/${stateSlug}/${citySlug}/${spot.slug}`
+    : `${safeBase}/spots/${spot.slug}`;
+  const cityUrl = citySlug && stateSlug
+    ? `${safeBase}/beaches/usa/${stateSlug}/${citySlug}`
+    : citySlug
+      ? `${safeBase}/ca/${citySlug}`
+      : undefined;
+
   const breadcrumbs = [
     { name: "Quiver", url: `${safeBase}/` },
-    cityName && citySlug
+    cityName && cityUrl
       ? {
           name: `${cityName} Surf`,
-          url: `${safeBase}/ca/${citySlug}`,
+          url: cityUrl,
         }
       : undefined,
     {
       name: `${spot.name} Surf Report`,
-      url: `${safeBase}/spots/${spot.slug}`,
+      url: beachUrl,
     },
   ].filter(Boolean) as Array<{ name: string; url: string }>;
 

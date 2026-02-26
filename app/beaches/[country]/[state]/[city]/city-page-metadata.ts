@@ -95,8 +95,17 @@ export async function generateMetadata(props: LocationPageProps) {
 
     // Build title with 3-tier fallback for non-metro cities
     let title: string;
-    if (metroConfig?.pageTitle) {
-      title = metroConfig.pageTitle;
+    if (metroConfig) {
+      // For metro areas, prefer an enriched title with beach count and break types
+      // which gives Google more indexable keywords and a more descriptive snippet.
+      if (breakTypes !== null) {
+        const metroTier1 = `${n} ${metroConfig.displayName} Surf Spots: ${breakTypes}`;
+        title = metroTier1.length <= 60 ? metroTier1 : truncateTitleForSEO(metroTier1);
+      } else if (metroConfig.pageTitle) {
+        title = metroConfig.pageTitle;
+      } else {
+        title = `Best Surf Beaches in ${metroConfig.displayName}`;
+      }
     } else {
       const fallback = `Best Surf Beaches in ${displayCityName}, ${expandedState}`;
       // Tier 1: count + break types
@@ -125,13 +134,27 @@ export async function generateMetadata(props: LocationPageProps) {
       .slice(0, 3)
       .map((b: { name: string }) => b.name);
 
+    const MAX_DESC_LENGTH = 160;
     let description: string;
     if (metroConfig?.description) {
       const ratingSnippet =
         stats.totalReviews >= 5
           ? ` Rated ${stats.averageRating.toFixed(1)}/5.`
           : "";
-      description = `${metroConfig.description}${ratingSnippet || ` ${n} surf spots with forecasts, tides & crowd intel.`}`;
+      const suffix = ratingSnippet || ` ${n} surf spots with forecasts, tides & crowd intel.`;
+      const full = `${metroConfig.description}${suffix}`;
+      if (full.length <= MAX_DESC_LENGTH) {
+        description = full;
+      } else if (metroConfig.description.length <= MAX_DESC_LENGTH) {
+        description = metroConfig.description;
+      } else {
+        // Trim the metro description itself to fit within 160 chars
+        const trimmed = metroConfig.description.slice(0, MAX_DESC_LENGTH - 1);
+        const lastSpace = trimmed.lastIndexOf(" ");
+        description = lastSpace > MAX_DESC_LENGTH * 0.6
+          ? trimmed.slice(0, lastSpace) + "."
+          : trimmed + ".";
+      }
     } else {
       // Core sentence varies by what data is available
       const breakNoun = n === 1 ? "break" : "breaks";

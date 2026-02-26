@@ -313,7 +313,7 @@ export async function getBeginnerBeachesWithEditorial(
       .from("beaches")
       .select(
         `
-        id, name, slug, average_rating, review_count, skill_level, break_type,
+        id, name, slug, city, state, average_rating, review_count, skill_level, break_type,
         beach_editorial_content!left ( content_type, content )
       `
       )
@@ -379,6 +379,8 @@ export async function getBeginnerBeachesWithEditorial(
         id: beach.id,
         name: beach.name,
         slug: beach.slug ?? "",
+        city: beach.city ?? null,
+        state: beach.state ?? null,
         rating: beach.average_rating ?? 0,
         reviewCount: beach.review_count ?? 0,
         skillLevel: beach.skill_level ?? "beginner",

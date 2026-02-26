@@ -139,8 +139,8 @@ function getIntentTemplates(
     tide: {
       title: truncateTitleForSEO(
         tideData?.nextTideType && tideData?.nextTideTime
-          ? `${cityName} Tide Chart Today: Next ${tideData.nextTideType} ${tideData.nextTideTime} | ${totalBeaches} Spots`
-          : `${cityName} Tide Charts Today | ${totalBeaches} Surf Spot Guides`
+          ? `${cityName} Tide Chart Today: Next ${tideData.nextTideType} ${tideData.nextTideTime}`
+          : `${cityName} Tide Charts Today | ${totalBeaches} Surf Spots`
       ),
       heading: `Tide conditions for ${cityName} surf spots`,
       intro: tideIntro,

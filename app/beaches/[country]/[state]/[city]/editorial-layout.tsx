@@ -22,6 +22,7 @@ import type { LocationStats, BeachWithMetrics } from "@/types/location";
 import { resolveIslandDisplayName } from "./city-page-utils";
 import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
@@ -71,6 +72,11 @@ export function EditorialLayout({
         { name: stateName, url: `${SITE_ORIGIN}${stateUrl}` },
         { name: displayCityName, url: `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}` },
       ]} />
+      {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
+      <WebPageSchema
+        name={`Best Surf Beaches in ${displayCityName}`}
+        url={`${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}`}
+      />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}

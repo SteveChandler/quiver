@@ -33,6 +33,7 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -251,16 +252,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         />
 
         {/* WebPage structured data with dateModified for freshness signal */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebPage",
-              name: `${beach.name} Surf Report & Forecast`,
-              dateModified: new Date().toISOString(),
-            }),
-          }}
+        <WebPageSchema
+          name={`${beach.name} Surf Report & Forecast`}
+          url={`${baseUrl}${buildBeachUrl(beach)}`}
         />
 
         {/* Client detail component with auth tracking */}
@@ -323,11 +317,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 
   // Skip metadata generation for invalid state slugs (intent slugs)
   if (!isValidStateSlug(stateParam)) {
-    return buildPageMetadata({
-      title: "Page Not Found",
-      description: "This page could not be found.",
-      path: `/${stateParam}/${params.city}/${beachSlug}`,
-    });
+    return {
+      title: "Page Not Found | Quiver",
+      robots: { index: false, follow: false },
+    };
   }
 
   try {
@@ -338,76 +331,83 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       beaches: candidatesResult.success ? candidatesResult.data ?? [] : [],
     });
 
-    if (beach) {
-      // Build path safely - use fallback if beach data is incomplete
-      let path: string;
-      try {
-        path = buildBeachUrl(beach);
-      } catch (urlError) {
-        console.warn(
-          "[GenericBeachDetailPage] Error building beach URL for metadata:",
-          {
-            beachSlug,
-            error:
-              urlError instanceof Error ? urlError.message : "Unknown error",
-          }
-        );
-        path = `/beach/${beachSlug}`;
-      }
-
-      // Fetch forecast data for dynamic SEO (lightweight preview endpoint)
-      let forecastData: { wave_height?: string | null } | null = null;
-      try {
-        const forecastResult = await getBeachForecastPreview(beach.id);
-        if (forecastResult.success && forecastResult.data) {
-          forecastData = { wave_height: forecastResult.data.wave_height };
-        }
-      } catch {
-        // Gracefully degrade to static metadata on forecast fetch failure
-      }
-
-      // Extract first sentence of beach description for meta tags
-      const descriptionExcerpt = beach.description
-        ? beach.description.split(/\.(\s|$)/)[0] + "."
-        : null;
-
-      // Build CTR-optimized title and description
-      const { title, description } = buildDynamicBeachMetadata({
-        beach: {
-          name: beach.name,
-          city: beach.city,
-          state: beach.state,
-          break_type: beach.break_type,
-          skill_level: beach.skill_level,
-          description_excerpt: descriptionExcerpt,
-          wave_tips: beach.wave_tips,
-          crowd_level: beach.crowd_level,
-          average_rating: beach.average_rating,
-          review_count: beach.review_count,
-        },
-        forecast: forecastData,
-      });
-
-      return buildPageMetadata({
-        title,
-        description,
-        path,
-        image: `/api/og/beach?slug=${beachSlug}`,
-        keywords: [
-          `${beach.name} surf report`,
-          `${beach.name} surf forecast`,
-          `${beach.name} surf`,
-          `best time to surf ${beach.name}`,
-          `${beach.name} tide chart`,
-          beach.city ? `surf report ${beach.city}` : "",
-          beach.city ? `surf forecast ${beach.city}` : "",
-          "surf report",
-          "surf forecast",
-          "surf conditions today",
-          "wave height today",
-        ].filter(Boolean),
-      });
+    // Beach not found — return noindex metadata immediately so no canonical or
+    // indexable metadata is emitted before notFound() renders the 404 page.
+    if (!beach) {
+      return {
+        title: "Page Not Found | Quiver",
+        robots: { index: false, follow: false },
+      };
     }
+
+    // Build path safely - use fallback if beach data is incomplete
+    let path: string;
+    try {
+      path = buildBeachUrl(beach);
+    } catch (urlError) {
+      console.warn(
+        "[GenericBeachDetailPage] Error building beach URL for metadata:",
+        {
+          beachSlug,
+          error:
+            urlError instanceof Error ? urlError.message : "Unknown error",
+        }
+      );
+      path = `/beach/${beachSlug}`;
+    }
+
+    // Fetch forecast data for dynamic SEO (lightweight preview endpoint)
+    let forecastData: { wave_height?: string | null } | null = null;
+    try {
+      const forecastResult = await getBeachForecastPreview(beach.id);
+      if (forecastResult.success && forecastResult.data) {
+        forecastData = { wave_height: forecastResult.data.wave_height };
+      }
+    } catch {
+      // Gracefully degrade to static metadata on forecast fetch failure
+    }
+
+    // Extract first sentence of beach description for meta tags
+    const descriptionExcerpt = beach.description
+      ? beach.description.split(/\.(\s|$)/)[0] + "."
+      : null;
+
+    // Build CTR-optimized title and description
+    const { title, description } = buildDynamicBeachMetadata({
+      beach: {
+        name: beach.name,
+        city: beach.city,
+        state: beach.state,
+        break_type: beach.break_type,
+        skill_level: beach.skill_level,
+        description_excerpt: descriptionExcerpt,
+        wave_tips: beach.wave_tips,
+        crowd_level: beach.crowd_level,
+        average_rating: beach.average_rating,
+        review_count: beach.review_count,
+      },
+      forecast: forecastData,
+    });
+
+    return buildPageMetadata({
+      title,
+      description,
+      path,
+      image: `/api/og/beach?slug=${beachSlug}`,
+      keywords: [
+        `${beach.name} surf report`,
+        `${beach.name} surf forecast`,
+        `${beach.name} surf`,
+        `best time to surf ${beach.name}`,
+        `${beach.name} tide chart`,
+        beach.city ? `surf report ${beach.city}` : "",
+        beach.city ? `surf forecast ${beach.city}` : "",
+        "surf report",
+        "surf forecast",
+        "surf conditions today",
+        "wave height today",
+      ].filter(Boolean),
+    });
   } catch (error) {
     console.error("[GenericBeachDetailPage] Error generating metadata:", {
       params,
@@ -416,11 +416,12 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     });
   }
 
-  return buildPageMetadata({
-    title: `Beach - Surf Forecast & Conditions`,
-    description: `Conditions, intel, photos, and community tips for this beach.`,
-    path: `/beach/${beachSlug}`,
-  });
+  // Error fallback: couldn't resolve beach data — suppress indexing to avoid
+  // emitting a canonical URL to a page that may not render correctly.
+  return {
+    title: "Page Not Found | Quiver",
+    robots: { index: false, follow: false },
+  };
 }
 
 // NOTE: generateStaticParams removed - this page uses force-dynamic due to cookie access.

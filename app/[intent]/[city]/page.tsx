@@ -61,6 +61,7 @@ import {
 } from "@/actions/beginner/beginner-actions";
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -225,6 +226,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       title: `${definition.label} Spots in ${stateName}`,
       description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`,
       path: `/${params.intent}/${params.city}`,
+      image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(stateName)}`,
     });
 
     // noindex empty state-level pages (thin content) as defense in depth.
@@ -339,6 +341,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     description: pageContent.metaDescription,
     path: `/${params.intent}/${canonicalCitySlug}`,
     keywords,
+    image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(cityMetadata.cityName)}`,
   });
 
   // Prevent indexing of empty-state pages (thin content)
@@ -395,18 +398,10 @@ export default async function IntentPage(props: IntentPageParams) {
           name={`${intentDefinition.label} Spots in ${stateName}`}
         />
         {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebPage",
-              name: `${intentDefinition.label} Surf Spots in ${stateName}`,
-              description: `Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`,
-              url: statePageUrl,
-              dateModified: new Date().toISOString(),
-            }),
-          }}
+        <WebPageSchema
+          name={`${intentDefinition.label} Surf Spots in ${stateName}`}
+          url={statePageUrl}
+          description={`Find the best ${intentDefinition.label.toLowerCase()} surf spots across ${stateName}. ML-powered conditions, crowd data & surf windows — updated hourly.`}
         />
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <header className="mb-8">
@@ -518,21 +513,57 @@ export default async function IntentPage(props: IntentPageParams) {
 
     const { badge: conditionsBadge, rightNow: rightNowConditions } = conditionsData;
 
+    const safeBaseUrl = baseUrl.replace(/\/$/, "");
+    const pageUrl = `${safeBaseUrl}/beginner/${params.city}`;
+
+    // Build Place schema with city geo coordinates for crawlers
+    const beginnerPlaceSchema = buildLocationPlaceStructuredData({
+      city: cityMetadata.cityName,
+      state: cityMetadata.stateName,
+      topBeaches: beaches.map((b) => ({
+        name: b.name,
+        url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+      })),
+      centerLat: cityMetadata.centerLat,
+      centerLon: cityMetadata.centerLon,
+    });
+
     return (
-      <BeginnerPageContent
-        cityName={cityMetadata.cityName}
-        citySlug={params.city}
-        stateSlug={stateSlugLower}
-        stateName={cityMetadata.stateName}
-        regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
-        conditionsBadge={conditionsBadge}
-        rightNowConditions={rightNowConditions}
-        beaches={beaches}
-        cityEditorial={cityEditorial}
-        totalBeaches={beaches.length}
-        baseUrl={baseUrl}
-        bestTimeToSurfUrl={bestTimeToSurfUrl}
-      />
+      <>
+        {/* Place JSON-LD — exposes geo data to crawlers (Mapbox canvas is not crawlable) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(beginnerPlaceSchema) }}
+        />
+        {/* ItemList JSON-LD for Google carousel SERP features */}
+        <ItemListSchema
+          items={beaches.map((b, i) => ({
+            name: b.name,
+            url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+            position: i + 1,
+          }))}
+          name={`Beginner Surf Spots in ${cityMetadata.cityName}`}
+        />
+        {/* WebPage JSON-LD with dateModified for freshness signal */}
+        <WebPageSchema
+          name={`Beginner Surf Spots in ${cityMetadata.cityName}`}
+          url={pageUrl}
+        />
+        <BeginnerPageContent
+          cityName={cityMetadata.cityName}
+          citySlug={params.city}
+          stateSlug={stateSlugLower}
+          stateName={cityMetadata.stateName}
+          regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+          conditionsBadge={conditionsBadge}
+          rightNowConditions={rightNowConditions}
+          beaches={beaches}
+          cityEditorial={cityEditorial}
+          totalBeaches={beaches.length}
+          baseUrl={baseUrl}
+          bestTimeToSurfUrl={bestTimeToSurfUrl}
+        />
+      </>
     );
   }
 
@@ -550,11 +581,10 @@ export default async function IntentPage(props: IntentPageParams) {
 
     // If expanded data unavailable, fall through to generic intent flow
     if (expandedTideData) {
-      const tideBeachesWithMetrics: BeachWithMetrics[] = (
-        tideBeachesResult.success && tideBeachesResult.data
-          ? tideBeachesResult.data
-          : []
-      ).map((beach) => ({
+      const tideBeaches = tideBeachesResult.success && tideBeachesResult.data
+        ? tideBeachesResult.data
+        : [];
+      const tideBeachesWithMetrics: BeachWithMetrics[] = tideBeaches.map((beach) => ({
         ...beach,
         compositeScore: 0,
         recentIntelCount: 0,
@@ -562,20 +592,62 @@ export default async function IntentPage(props: IntentPageParams) {
       }));
       const tideSpots: SurfSpot[] = transformBeachesToSurfSpots(tideBeachesWithMetrics);
 
+      const safeBaseUrl = baseUrl.replace(/\/$/, "");
+      const tidePageUrl = `${safeBaseUrl}/tide/${params.city}`;
+
+      // Build Place schema with city geo coordinates for crawlers
+      const tidePlaceSchema = buildLocationPlaceStructuredData({
+        city: cityMetadata.cityName,
+        state: cityMetadata.stateName,
+        topBeaches: tideBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+        })),
+        centerLat: cityMetadata.centerLat,
+        centerLon: cityMetadata.centerLon,
+        beachGeoData: tideBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+          lat: b.lat ?? null,
+          lon: b.lon ?? null,
+        })),
+      });
+
       return (
-        <TidePageContent
-          cityName={cityMetadata.cityName}
-          citySlug={params.city}
-          stateSlug={stateSlugLower}
-          stateName={cityMetadata.stateName}
-          regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
-          pageContent={tidePageContent}
-          tideData={expandedTideData}
-          spots={tideSpots}
-          updatedAt="Refreshed hourly"
-          baseUrl={baseUrl}
-          bestTimeToSurfUrl={bestTimeToSurfUrl}
-        />
+        <>
+          {/* Place JSON-LD — exposes geo data to crawlers */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(tidePlaceSchema) }}
+          />
+          {/* ItemList JSON-LD for Google carousel SERP features */}
+          <ItemListSchema
+            items={tideBeaches.map((b, i) => ({
+              name: b.name,
+              url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+              position: i + 1,
+            }))}
+            name={`Tide Conditions for ${cityMetadata.cityName} Surf Spots`}
+          />
+          {/* WebPage JSON-LD with dateModified for freshness signal */}
+          <WebPageSchema
+            name={tidePageContent.title}
+            url={tidePageUrl}
+          />
+          <TidePageContent
+            cityName={cityMetadata.cityName}
+            citySlug={params.city}
+            stateSlug={stateSlugLower}
+            stateName={cityMetadata.stateName}
+            regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+            pageContent={tidePageContent}
+            tideData={expandedTideData}
+            spots={tideSpots}
+            updatedAt="Refreshed hourly"
+            baseUrl={baseUrl}
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
+          />
+        </>
       );
     }
     // Fall through to generic intent flow if expanded data unavailable
@@ -715,18 +787,10 @@ export default async function IntentPage(props: IntentPageParams) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(placeSchema) }}
       />
       {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            name: pageContent.title,
-            description: pageContent.metaDescription,
-            url: pageUrl,
-            dateModified: new Date().toISOString(),
-          }),
-        }}
+      <WebPageSchema
+        name={pageContent.title}
+        url={pageUrl}
+        description={pageContent.metaDescription}
       />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}

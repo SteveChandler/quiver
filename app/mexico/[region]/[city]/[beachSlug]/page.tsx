@@ -17,6 +17,7 @@ import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 import { regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -153,16 +154,9 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
         <FAQSchema items={generateBeachFAQ(beach)} />
 
         {/* WebPage structured data with dateModified for freshness signal */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebPage",
-              name: `${beach.name} Surf Report & Forecast`,
-              dateModified: new Date().toISOString(),
-            }),
-          }}
+        <WebPageSchema
+          name={`${beach.name} Surf Report & Forecast`}
+          url={`${baseUrl}${beachPath}`}
         />
 
         {/* Client detail component with auth tracking */}

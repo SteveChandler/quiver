@@ -75,6 +75,8 @@ export interface BeginnerBeachWithEditorial {
   id: string;
   name: string;
   slug: string;
+  city: string | null;
+  state: string | null;
   rating: number;
   reviewCount: number;
   skillLevel: string;

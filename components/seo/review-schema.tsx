@@ -1,6 +1,15 @@
 /**
  * Review Schema Component
- * Provides structured data for beach reviews to enhance SEO with review rich snippets.
+ *
+ * NOTE: AggregateRating and individual Review markup have been intentionally
+ * removed. Google does NOT support review rich snippets for Place or
+ * TouristAttraction types — emitting them triggers Search Console "Review
+ * snippets" errors. See:
+ * https://developers.google.com/search/docs/appearance/structured-data/review-snippet
+ *
+ * This component is retained as a no-op so existing imports don't break.
+ * The BeachPageStructuredData in structured-data.tsx documents the same
+ * rationale (lines 150-155).
  */
 
 export interface ReviewSchemaItem {
@@ -18,59 +27,7 @@ interface ReviewSchemaProps {
   reviewCount?: number;
 }
 
-export function ReviewSchema({
-  beachName,
-  beachUrl,
-  reviews,
-  aggregateRating,
-  reviewCount,
-}: ReviewSchemaProps) {
-  if (reviews.length === 0) return null;
-
-  const structuredData: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": ["Place", "TouristAttraction"],
-    name: beachName,
-    url: beachUrl,
-  };
-
-  if (aggregateRating && reviewCount && reviewCount > 0) {
-    structuredData.aggregateRating = {
-      "@type": "AggregateRating",
-      ratingValue: aggregateRating.toFixed(1),
-      bestRating: "5",
-      worstRating: "1",
-      reviewCount,
-    };
-  }
-
-  // Filter reviews to only include valid ratings (1-5 range) and limit to top 5
-  const validReviews = reviews
-    .filter((r) => r.reviewRating >= 1 && r.reviewRating <= 5)
-    .slice(0, 5);
-
-  structuredData.review = validReviews.map((r) => ({
-    "@type": "Review",
-    author: {
-      "@type": "Person",
-      name: r.author,
-    },
-    datePublished: r.datePublished,
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: r.reviewRating,
-      bestRating: "5",
-      worstRating: "1",
-    },
-    ...(r.reviewBody ? { reviewBody: r.reviewBody } : {}),
-  }));
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
-      }}
-    />
-  );
+export function ReviewSchema(_props: ReviewSchemaProps) {
+  // Intentionally renders nothing. See module-level comment.
+  return null;
 }

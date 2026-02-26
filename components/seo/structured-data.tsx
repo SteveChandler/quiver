@@ -1,5 +1,3 @@
-"use client";
-
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { AMENITY_DISPLAY_MAP } from "@/types/amenities";
 import type { AmenityKey } from "@/types/amenities";
@@ -156,5 +154,14 @@ export function BeachPageStructuredData({
     amenityFeature: amenityFeatures,
   };
 
-  return <StructuredData type="organization" customData={beachData} />;
+  // Only emit the beach Place data — Organization is already in the root layout
+  // via buildRootStructuredDataGraph() in app/layout.tsx.
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(beachData),
+      }}
+    />
+  );
 }

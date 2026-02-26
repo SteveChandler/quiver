@@ -12,6 +12,7 @@ import { FAQSchema } from "@/components/seo/faq-schema";
 import { getBeachesByState } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 import { HubRegionClient } from "./hub-region-client";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -48,6 +49,7 @@ export async function generateMetadata(
       "surf forecast",
       "surf conditions",
     ],
+    image: `/api/og/guide?title=${encodeURIComponent(region.title)}&region=${encodeURIComponent(region.name)}`,
   });
 }
 
@@ -159,6 +161,11 @@ export default async function HubRegionPage(
         ]}
       />
       <FAQSchema items={generateHubFAQ(region, stats.total)} />
+      {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
+      <WebPageSchema
+        name={region.title}
+        url={`${baseUrl}/guides/surfing-${region.slug}`}
+      />
       <HubRegionClient region={region} beaches={allBeaches} stats={stats} />
     </>
   );
