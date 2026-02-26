@@ -1,4 +1,21 @@
-import { normalizeTideSchedule } from "@/components/forecast/tide-chart-recharts";
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import { normalizeTideSchedule, TideChart } from "@/components/forecast/tide-chart-recharts";
+
+// Recharts and responsive container often need a DOM size; JSDOM lacks layout.
+// Provide a basic mock for getBoundingClientRect to avoid zero-size issues.
+beforeAll(() => {
+  Element.prototype.getBoundingClientRect = function () {
+    return {
+      width: 800,
+      height: 300,
+      top: 0,
+      left: 0,
+      bottom: 300,
+      right: 800,
+    } as DOMRect;
+  };
+});
 
 describe("TideChart data priority", () => {
   it("prefers tide_schedule over forecast fields when available", () => {
@@ -174,5 +191,13 @@ describe("normalizeTideSchedule", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].h).toBe(4.2);
+  });
+});
+
+describe("TideChart (smoke)", () => {
+  it("renders card and title with empty data without throwing", () => {
+    render(<TideChart data={[]} forecasts={[]} hourly={[]} events={[]} />);
+    expect(screen.getByText("Tide Forecast")).toBeInTheDocument();
+    expect(screen.getByText("No tide data available")).toBeInTheDocument();
   });
 });

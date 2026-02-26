@@ -96,6 +96,7 @@ jest.mock("@/components/ui/public-content-gate", () => ({
 
 // Mock the enhanced forecast component with transparency
 import { BeachesEnhancedForecastWithTransparency } from "@/components/forecast/beaches-enhanced-forecast-with-transparency";
+import { ForecastDisplayWithTransparency } from "@/components/forecast/forecast-display-with-transparency";
 
 describe("BeachesEnhancedForecastWithTransparency", () => {
   beforeAll(() => {
@@ -490,5 +491,21 @@ describe("BeachesEnhancedForecastWithTransparency", () => {
       expect(screen.getByTestId("tide-chart")).toBeInTheDocument();
       expect(screen.getByTestId("forecast-table")).toBeInTheDocument();
     });
+  });
+});
+
+describe("ForecastDisplayWithTransparency (smoke)", () => {
+  it("renders empty state without throwing when no forecasts", () => {
+    render(
+      <ForecastDisplayWithTransparency
+        forecasts={[]}
+        beach={null}
+        loading={false}
+        error={null}
+      />
+    );
+
+    expect(screen.getByText("10-Day Surf Forecast")).toBeInTheDocument();
+    expect(screen.getByText("No forecast data available")).toBeInTheDocument();
   });
 });
