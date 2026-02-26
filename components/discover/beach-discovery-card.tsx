@@ -20,8 +20,10 @@ import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
 import { track } from "@/lib/analytics";
 import { FavoriteButton } from "@/components/favorite-button";
+import { useAuth } from "@/context/auth-context";
 
 
 interface BeachDiscoveryCardProps {
@@ -55,6 +57,8 @@ export function BeachDiscoveryCard({
     distanceMiles,
     forecast,
   } = recommendation;
+
+  const { user } = useAuth();
 
   // Fetch personalized score for this beach
   const personalization = useBeachPersonalization({
@@ -131,14 +135,16 @@ export function BeachDiscoveryCard({
               <Badge className={matchQualityColors[matchQuality]}>
                 {matchQuality.charAt(0).toUpperCase() + matchQuality.slice(1)}
               </Badge>
-              {personalization?.data?.personalized && (
+              {user && personalization?.data?.personalized ? (
                 <PersonalizedBadge
                   personalized={personalization.data.personalized}
                   score={personalization.data.score}
                   breakdown={personalization.data.breakdown}
                   size="sm"
                 />
-              )}
+              ) : !user ? (
+                <MatchScoreTeaser beachId={beach.id} beachName={beach.name} />
+              ) : null}
               <FavoriteButton
                 beachId={beach.id}
                 beachName={beach.name}

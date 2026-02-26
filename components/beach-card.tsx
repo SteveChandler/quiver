@@ -12,7 +12,9 @@ import { ForecastPreview } from "@/components/ui/forecast-preview";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { formatRatingSimple } from "@/lib/utils/rating-formatters";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { MatchScoreTeaser } from "@/components/recommendations/match-score-teaser";
 import { FavoriteButton } from "@/components/favorite-button";
+import { useAuth } from "@/context/auth-context";
 
 interface BeachCardProps {
   id?: string;
@@ -72,6 +74,7 @@ const BeachCardComponent = function BeachCard({
 }: BeachCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { user } = useAuth();
 
   // Generate beach URL (hierarchical if slug/city/state available, otherwise fallback to ID)
   const beachUrl = getBeachHrefSafe({ id, slug, city, state });
@@ -143,8 +146,8 @@ const BeachCardComponent = function BeachCard({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-          {/* Personalized Score Badge */}
-          {personalized && personalizedScore && (
+          {/* Personalization badge area */}
+          {user && personalized && personalizedScore ? (
             <div className="absolute top-2 left-2 z-10">
               <PersonalizedBadge
                 personalized={personalized}
@@ -166,7 +169,11 @@ const BeachCardComponent = function BeachCard({
                 className="shadow-md backdrop-blur-sm bg-white/95"
               />
             </div>
-          )}
+          ) : !user && id ? (
+            <div className="absolute top-2 left-2 z-10">
+              <MatchScoreTeaser beachId={id} beachName={name} />
+            </div>
+          ) : null}
 
           {/* Favorite Button - top-right, opposite corner from PersonalizedBadge */}
           {id && (

@@ -4,6 +4,7 @@ import { Navigation, Plus, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/favorite-button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
+import { BeachAlertCta } from "./beach-alert-cta";
 import type { Beach } from "@/types/database";
 
 interface BeachActionsProps {
@@ -72,6 +73,9 @@ export function BeachActions({
           Plan Session
         </Button>
       </div>
+
+      {/* Get Alerts CTA */}
+      <BeachAlertCta beachId={beach.id} beachName={beach.name} />
 
       {/* Mobile-only Directions & Home Beach Row */}
       <div className="flex flex-wrap items-center gap-3 md:hidden">

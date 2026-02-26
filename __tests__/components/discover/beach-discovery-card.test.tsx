@@ -16,6 +16,11 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
+// Mock auth context - default to authenticated user since personalization tests assume auth
+jest.mock("@/context/auth-context", () => ({
+  useAuth: jest.fn().mockReturnValue({ user: { id: "test-user" } }),
+}));
+
 // Mock the personalization hook
 jest.mock("@/hooks/use-beach-personalization", () => ({
   useBeachPersonalization: jest.fn(),
