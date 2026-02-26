@@ -124,6 +124,66 @@ export const removeFavoriteBeach = makeAuthenticatedAction(
   }
 );
 
+// Favorite a beach (if not already) and enable alerts on it.
+// Idempotent: calling twice leaves the row in the same alerts_enabled = true state.
+// Errors are thrown and caught by the makeAuthenticatedAction wrapper.
+export const enableFavoriteAlerts = makeAuthenticatedAction(
+  async (user, supabase, beachId: string) => {
+    // Step 1: check whether the beach is already in favorites
+    const { data: existing, error: checkError } = await supabase
+      .from("favorite_beaches")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("beach_id", beachId)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    const wasAlreadyFavorited = Boolean(existing);
+
+    // Step 2: if not yet favorited, insert it with the next rank
+    if (!existing) {
+      const { data: maxRankRows } = await supabase
+        .from("favorite_beaches")
+        .select("rank")
+        .eq("user_id", user.id);
+
+      const nextRank =
+        (maxRankRows || [])
+          .map((r: any) => r.rank || 0)
+          .reduce((max: number, cur: number) => (cur > max ? cur : max), 0) +
+        1;
+
+      const { error: insertError } = await supabase
+        .from("favorite_beaches")
+        .insert({
+          user_id: user.id,
+          beach_id: beachId,
+          rank: nextRank,
+        });
+
+      if (insertError) throw insertError;
+    }
+
+    // Step 3: enable alerts on the favorite row
+    const { error: updateError } = await supabase
+      .from("favorite_beaches")
+      .update({ alerts_enabled: true })
+      .eq("user_id", user.id)
+      .eq("beach_id", beachId);
+
+    if (updateError) throw updateError;
+
+    revalidatePath("/profile");
+    revalidatePath("/");
+
+    return {
+      alerts_enabled: true,
+      was_already_favorited: wasAlreadyFavorited,
+    };
+  }
+);
+
 // Reorder favorites (assign ranks 1..N in provided order)
 export const reorderFavoriteBeaches = makeAuthenticatedAction(
   async (user, supabase, beachIdsInOrder: string[]) => {

@@ -3,6 +3,7 @@ import {
   addFavoriteBeach,
   removeFavoriteBeach,
   getFavoriteBeaches,
+  enableFavoriteAlerts,
 } from '@/actions/beach/beach-favorite-actions';
 
 jest.mock('@/lib/supabase/server');
@@ -15,11 +16,13 @@ function makeSupabaseFake(options: {
   ranks?: number[];
   insertShouldFail?: boolean;
   deleteShouldFail?: boolean;
+  updateShouldFail?: boolean;
   authUserId?: string;
   favoritesRows?: any[];
 }) {
   const insertCalls: any[] = [];
   const deleteEqCalls: Array<{ col: string; val: any }> = [];
+  const updateCalls: Array<{ payload: any; eqCalls: Array<{ col: string; val: any }> }> = [];
   const selectIdChain = {
     eq: jest.fn((col1: string, _val1: any) => ({
       eq: jest.fn((_col2: string, _val2: any) => ({
@@ -68,6 +71,21 @@ function makeSupabaseFake(options: {
           };
         }),
       })),
+      update: jest.fn((payload: any) => {
+        const eqCalls: Array<{ col: string; val: any }> = [];
+        updateCalls.push({ payload, eqCalls });
+        return {
+          eq: jest.fn((col: string, val: any) => {
+            eqCalls.push({ col, val });
+            return {
+              eq: jest.fn((col2: string, val2: any) => {
+                eqCalls.push({ col: col2, val: val2 });
+                return Promise.resolve({ error: options.updateShouldFail ? new Error('update fail') : null });
+              }),
+            };
+          }),
+        };
+      }),
     } as any;
   });
 
@@ -80,7 +98,7 @@ function makeSupabaseFake(options: {
     },
   } as any;
 
-  return { supabase, insertCalls, deleteEqCalls, from };
+  return { supabase, insertCalls, deleteEqCalls, updateCalls, from };
 }
 
 describe('beach-favorite-actions', () => {
@@ -145,5 +163,113 @@ describe('beach-favorite-actions', () => {
     const res = await getFavoriteBeaches('u1');
     expect(res.success).toBe(true);
     expect(res.data).toEqual([beach2, beach1]);
+  });
+
+  describe('enableFavoriteAlerts', () => {
+    it('inserts favorite then enables alerts when beach is not yet favorited', async () => {
+      const { supabase, insertCalls, updateCalls } = makeSupabaseFake({
+        authUserId: 'u1',
+        existingFavoriteId: null,
+        ranks: [2],
+      });
+      mockCreate.mockResolvedValue(supabase);
+
+      const res = await enableFavoriteAlerts('beach-1');
+
+      // makeAuthenticatedAction wraps return value: { success: true, data: { ... } }
+      expect(res.success).toBe(true);
+      expect(res.data).toMatchObject({ alerts_enabled: true, was_already_favorited: false });
+
+      // Should have inserted the new favorite row
+      expect(insertCalls).toHaveLength(1);
+      expect(insertCalls[0]).toMatchObject({ user_id: 'u1', beach_id: 'beach-1', rank: 3 });
+
+      // Should have updated alerts_enabled = true on the row
+      expect(updateCalls).toHaveLength(1);
+      expect(updateCalls[0].payload).toEqual({ alerts_enabled: true });
+      expect(updateCalls[0].eqCalls).toEqual([
+        { col: 'user_id', val: 'u1' },
+        { col: 'beach_id', val: 'beach-1' },
+      ]);
+    });
+
+    it('skips insert and only enables alerts when beach is already favorited', async () => {
+      const { supabase, insertCalls, updateCalls } = makeSupabaseFake({
+        authUserId: 'u1',
+        existingFavoriteId: 'fav-42',
+        ranks: [1],
+      });
+      mockCreate.mockResolvedValue(supabase);
+
+      const res = await enableFavoriteAlerts('beach-2');
+
+      expect(res.success).toBe(true);
+      expect(res.data).toMatchObject({ alerts_enabled: true, was_already_favorited: true });
+
+      // No insert should have happened
+      expect(insertCalls).toHaveLength(0);
+
+      // Should still update alerts_enabled = true
+      expect(updateCalls).toHaveLength(1);
+      expect(updateCalls[0].payload).toEqual({ alerts_enabled: true });
+    });
+
+    it('is idempotent when alerts are already enabled (returns success)', async () => {
+      // alerts_enabled = true already on the DB row; the update is a no-op but should not error
+      const { supabase, updateCalls } = makeSupabaseFake({
+        authUserId: 'u1',
+        existingFavoriteId: 'fav-99',
+      });
+      mockCreate.mockResolvedValue(supabase);
+
+      const res = await enableFavoriteAlerts('beach-3');
+
+      expect(res.success).toBe(true);
+      expect(res.data).toMatchObject({ alerts_enabled: true });
+      // Update was still called to set alerts_enabled = true (DB accepts no-op)
+      expect(updateCalls).toHaveLength(1);
+    });
+
+    it('returns success: false with error message when update fails', async () => {
+      const { supabase } = makeSupabaseFake({
+        authUserId: 'u1',
+        existingFavoriteId: 'fav-1',
+        updateShouldFail: true,
+      });
+      mockCreate.mockResolvedValue(supabase);
+
+      // makeAuthenticatedAction catches thrown errors and returns { success: false, error }
+      const res = await enableFavoriteAlerts('beach-4');
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeDefined();
+      expect(typeof res.error).toBe('string');
+    });
+
+    it('returns success: false with error message when insert fails', async () => {
+      const { supabase } = makeSupabaseFake({
+        authUserId: 'u1',
+        existingFavoriteId: null,
+        ranks: [],
+        insertShouldFail: true,
+      });
+      mockCreate.mockResolvedValue(supabase);
+
+      const res = await enableFavoriteAlerts('beach-5');
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeDefined();
+    });
+
+    it('returns success: false when user is not authenticated', async () => {
+      // authUserId: undefined causes auth.getUser to return user: null
+      const { supabase } = makeSupabaseFake({ authUserId: undefined });
+      mockCreate.mockResolvedValue(supabase);
+
+      const res = await enableFavoriteAlerts('beach-6');
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/not authenticated/i);
+    });
   });
 });
