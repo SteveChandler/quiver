@@ -38,6 +38,8 @@ import { EmbedCodeButton } from "@/components/beach-detail/embed-code-modal";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { useAuth } from "@/context/auth-context";
+import { PersonalizedForecastTeaser } from "@/components/beach-detail/personalized-forecast-teaser";
 
 const ConditionsOverview = dynamic(
   () =>
@@ -70,6 +72,7 @@ export function ForecastTab({
   publicMode = false,
   yesterdayAccuracy,
 }: ForecastTabProps) {
+  const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
@@ -278,6 +281,15 @@ export function ForecastTab({
   return (
     <DataErrorBoundary dataType="forecast" componentName="ForecastTab">
     <div className="space-y-6 py-6">
+      {/* Personalized forecast teaser for non-authenticated users */}
+      {!user && (
+        <PersonalizedForecastTeaser
+          beachId={beach.id}
+          beachName={beach.name}
+          className="mx-4 sm:mx-6"
+        />
+      )}
+
       {/* 12-Day Horizon Strip */}
       {forecasts.length > 0 && (
         <section className="space-y-2">
