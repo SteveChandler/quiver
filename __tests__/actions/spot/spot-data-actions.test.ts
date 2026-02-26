@@ -321,8 +321,6 @@ describe("spot-data-actions", () => {
                   image_url: "https://example.com/featured.jpg",
                   thumb_url: "https://example.com/featured-thumb.jpg",
                   attribution_html: "<p>credit</p>",
-                  title: "Featured",
-                  creator_name: "Alice",
                 },
                 error: null,
               },
@@ -339,8 +337,8 @@ describe("spot-data-actions", () => {
         imageUrl: "https://example.com/featured.jpg",
         thumbUrl: "https://example.com/featured-thumb.jpg",
         attributionHtml: "<p>credit</p>",
-        title: "Featured",
-        creatorName: "Alice",
+        title: null,
+        creatorName: null,
       });
     });
 

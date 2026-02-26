@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **12 failing test suites (45 tests) aligned with source code** — Updated test assertions and mocks across 12 files to match evolved source: `undefined` vs `null` in RPC params, `latitude`/`longitude` field names in dedupe mocks, `null` featured photo fields, missing `usePathname`/`useSearchParams` navigation mocks, `aria-label` ticker assertion, `useAuth`/`closeDialog` onboarding mocks, and `beach_water_quality`/chained `.order()` in discovery scoring mocks.
+- **Double-fetch in beach autocomplete** — Removed redundant `debouncedQuery` effect from `hooks/use-beach-autocomplete.ts`. `useDataFetcher` already auto-fetches when `fetchBeaches` identity changes, so the explicit `refetch()` call was causing duplicate requests.
 - **SEO: ReviewSchema no longer emits AggregateRating on Place type** — Google does not support review snippets for Place/TouristAttraction types; emitting them triggered Search Console errors. `components/seo/review-schema.tsx` now renders nothing (no-op), consistent with the documented rationale in `BeachPageStructuredData`.
 - **SEO: Duplicate Organization JSON-LD removed from beach pages** — `BeachPageStructuredData` in `structured-data.tsx` was emitting both the Organization schema and beach Place data; since the root layout already emits Organization via `buildRootStructuredDataGraph()`, the component now only emits the beach Place schema.
 - **SEO: `"use client"` removed from structured-data.tsx** — The component only uses `JSON.stringify` (no browser APIs), so it can be a server component for optimal crawler visibility.

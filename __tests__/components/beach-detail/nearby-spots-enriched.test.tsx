@@ -24,6 +24,8 @@ jest.mock("next/image", () => ({
 // Mock next/navigation
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
+  usePathname: jest.fn(() => "/"),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
 }));
 
 // Mock next/link

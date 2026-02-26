@@ -304,7 +304,7 @@ describe("GET /api/intel", () => {
       expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
         "get_nearby_intel_posts",
         expect.objectContaining({
-          tag_filter: null,
+          tag_filter: undefined,
         })
       );
     });

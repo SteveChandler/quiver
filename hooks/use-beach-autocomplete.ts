@@ -75,21 +75,10 @@ export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) 
     data: suggestions,
     loading,
     error,
-    refetch,
   } = useDataFetcher<Beach[]>(fetchBeaches, {
     immediate: false,
     initialData: [],
   });
-
-  // Trigger search when debounced query changes
-  useEffect(() => {
-    if (debouncedQuery.length >= minQueryLength) {
-      refetch();
-      setIsOpen(true);
-    } else {
-      setIsOpen(false);
-    }
-  }, [debouncedQuery, minQueryLength, refetch]);
 
   // Track autocomplete errors that are silently swallowed
   useEffect(() => {
