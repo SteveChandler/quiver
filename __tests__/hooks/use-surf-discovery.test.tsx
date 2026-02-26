@@ -69,6 +69,7 @@ describe("useSurfDiscovery", () => {
           windAlignment: 17,
           tideFit: 12,
           affinityBonus: 10,
+          personalizationBonus: 0,
           distancePenalty: -5,
         },
         summary: "Perfect conditions for your skill level",

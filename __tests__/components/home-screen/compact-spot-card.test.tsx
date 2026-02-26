@@ -55,6 +55,7 @@ function createMockRecommendation(
       windAlignment: 18,
       tideFit: 12,
       affinityBonus: 10,
+      personalizationBonus: 0,
       distancePenalty: -5,
     },
     summary: "Excellent conditions at Ocean Beach",

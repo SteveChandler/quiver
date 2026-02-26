@@ -67,6 +67,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       windAlignment: 15,
       tideFit: 10,
       affinityBonus: 10,
+      personalizationBonus: 0,
       distancePenalty: 0,
     },
     window: {

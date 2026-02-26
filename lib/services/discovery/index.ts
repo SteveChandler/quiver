@@ -44,3 +44,11 @@ export {
   buildDiscoveryMessage,
   FALLBACK_IMAGE_BY_NAME,
 } from './response-formatter';
+
+// Personalization Layer (batch personalization, avoids N+1 per-beach queries)
+export {
+  fetchPersonalizationContext,
+  calculatePersonalizationBonus,
+  type PersonalizationContext,
+  type PersonalizationBonusResult,
+} from './personalization-layer';

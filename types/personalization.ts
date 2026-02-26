@@ -165,6 +165,8 @@ export interface DetailedScore {
     tideFit: number;
     /** Bonus for familiar beaches (0-15 points) */
     affinityBonus: number;
+    /** Bonus from personalization engine (break type, learned/implicit prefs) */
+    personalizationBonus: number;
     /** Distance penalty for far beaches (0 to -20 points) */
     distancePenalty: number;
   };
