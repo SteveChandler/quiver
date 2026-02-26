@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Auth: `usePendingAction` hook for deferred post-auth actions** — Created `hooks/use-pending-action.ts` (and accompanying tests at `__tests__/hooks/use-pending-action.test.ts`). The hook stores a guest-initiated action (`"favorite"` or `"alert"`) in localStorage so it can be replayed automatically after an OAuth redirect completes. Reads on mount, auto-expires after 5 minutes, and uses `safeGetItem`/`safeSetItem`/`safeRemoveItem` wrappers for Safari private mode and SSR safety.
+
 - **Personalization: Batch personalization layer for homepage discovery** — Created `lib/services/discovery/personalization-layer.ts` with `fetchPersonalizationContext` (2 parallel DB queries: implicit prefs + batch affinity fetch) and pure-computation `calculatePersonalizationBonus`. Eliminates the N+1 pattern from `personalized-scoring-service.ts` (previously 4-6 queries per beach) for the homepage discovery flow. Exported from `lib/services/discovery/index.ts`.
 - **Personalization: Integrated personalization layer into surf-discovery-orchestrator** — `discoverSurfSpotsInner` now destructures `preferredBreakType` from `buildCandidatePool`, fetches `userPrefs` once then passes it to `fetchPersonalizationContext` (avoids duplicate DB round-trip), runs sun times / water quality / personalization context in a single `Promise.all`, calls `calculatePersonalizationBonus` per beach before `scoreBeachForDiscovery`, and surfaces `affinityBonus`, `personalizationBonus`, and personalization-sourced reasons in each `DetailedScore`. Debug log now includes `pers=` and `affinity=` subscore columns.
 
