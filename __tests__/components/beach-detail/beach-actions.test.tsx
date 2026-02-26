@@ -4,7 +4,7 @@
  * Validates Phase 3 specifications from the beach detail refactor:
  * - Button height (should be 48px exact, currently size="lg")
  * - Icon sizing (currently 16px, spec wants 20px)
- * - Primary button color (ocean-blue #0077B6 with ocean-blue-dark #006699 hover)
+ * - Primary button color (ocean-blue #0077B6 with ocean-blue/90 hover)
  * - Grid layout (responsive: mobile stack, desktop row)
  * - Gap spacing (12px between buttons)
  * - Button functionality (directions, session planning)
@@ -245,20 +245,20 @@ describe('BeachActions', () => {
   });
 
   describe('Button Styling - Colors (Phase 3 Compliance)', () => {
-    test('Log Session button has ocean-blue background with ocean-blue-dark hover', () => {
+    test('Log Session button has ocean-blue background with ocean-blue/90 hover', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const logBtn = screen.getByRole('button', { name: /log session/i });
-      // Phase 3 spec: #0077B6 background, #006699 hover (now using Tailwind class)
-      expect(logBtn).toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue-dark');
+      // Phase 3 spec: #0077B6 background, ocean-blue/90 hover (now using Tailwind class)
+      expect(logBtn).toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue/90');
     });
 
-    test('Plan Session button has ocean-blue background with ocean-blue-dark hover', () => {
+    test('Plan Session button has ocean-blue background with ocean-blue/90 hover', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const planBtn = screen.getByRole('button', { name: /plan session/i });
-      // Phase 3 spec: #0077B6 background, #006699 hover (now using Tailwind class)
-      expect(planBtn).toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue-dark');
+      // Phase 3 spec: #0077B6 background, ocean-blue/90 hover (now using Tailwind class)
+      expect(planBtn).toHaveClass('bg-ocean-blue', 'hover:bg-ocean-blue/90');
     });
 
     test('Get Directions button has gray-50 hover state', () => {

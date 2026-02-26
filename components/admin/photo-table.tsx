@@ -36,6 +36,7 @@ interface PhotoTableProps {
   onBulkDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk soft delete
   onHardDelete?: (photo: PhotoModerationItem) => void; // Permanent delete
   onBulkHardDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk permanent delete
+  onBulkApprove?: (photoIds: string[]) => void; // Bulk approve beach photos
   loading?: boolean;
 }
 
@@ -48,6 +49,7 @@ export function PhotoTable({
   onBulkDelete,
   onHardDelete,
   onBulkHardDelete,
+  onBulkApprove,
   loading = false,
 }: PhotoTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,6 +132,13 @@ export function PhotoTable({
     setSelectedIds(new Set());
   };
 
+  const handleBulkApprove = () => {
+    if (!onBulkApprove || selectedIds.size === 0) return;
+    const selectedIdsArray = Array.from(selectedIds);
+    onBulkApprove(selectedIdsArray);
+    setSelectedIds(new Set());
+  };
+
   const isDeleted = (photo: PhotoModerationItem) => photo.status === "deleted";
   const isBeachPhoto = (photo: PhotoModerationItem) => photo.type === "beach_photo";
 
@@ -165,7 +174,7 @@ export function PhotoTable({
       </div>
 
       {/* Bulk Action Toolbar */}
-      {selectedIds.size > 0 && (onBulkDelete || onBulkHardDelete) && (
+      {selectedIds.size > 0 && (onBulkDelete || onBulkHardDelete || onBulkApprove) && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium">
@@ -177,6 +186,12 @@ export function PhotoTable({
             </Button>
           </div>
           <div className="flex items-center gap-2">
+            {onBulkApprove && (
+              <Button variant="outline" size="sm" className="text-blue-600 border-blue-600 hover:bg-blue-50" onClick={handleBulkApprove}>
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Approve ({selectedIds.size})
+              </Button>
+            )}
             {onBulkDelete && (
               <Button variant="outline" size="sm" onClick={handleBulkDelete}>
                 <Trash2 className="h-4 w-4 mr-1" />
@@ -198,7 +213,7 @@ export function PhotoTable({
         <Table>
           <TableHeader>
             <TableRow>
-              {onBulkDelete && (
+              {(onBulkDelete || onBulkHardDelete || onBulkApprove) && (
                 <TableHead className="w-[50px]">
                   <Checkbox
                     checked={isSomeSelected ? "indeterminate" : isAllSelected}
@@ -220,7 +235,7 @@ export function PhotoTable({
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={onBulkDelete ? 8 : 7}
+                  colSpan={(onBulkDelete || onBulkHardDelete || onBulkApprove) ? 8 : 7}
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading photos...
@@ -229,7 +244,7 @@ export function PhotoTable({
             ) : filteredPhotos.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={onBulkDelete ? 8 : 7}
+                  colSpan={(onBulkDelete || onBulkHardDelete || onBulkApprove) ? 8 : 7}
                   className="text-center py-8 text-muted-foreground"
                 >
                   {searchTerm ? "No photos found matching your search" : "No photos found"}
@@ -244,7 +259,7 @@ export function PhotoTable({
                   }`}
                 >
                   {/* Checkbox */}
-                  {onBulkDelete && (
+                  {(onBulkDelete || onBulkHardDelete || onBulkApprove) && (
                     <TableCell>
                       <Checkbox
                         checked={selectedIds.has(photo.id)}

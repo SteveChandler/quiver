@@ -26,6 +26,7 @@ import {
 import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 // Force dynamic rendering - database calls use no-store fetch
 // Note: revalidate is not used with force-dynamic; caching is handled by the database layer
@@ -97,39 +98,33 @@ export default async function ForecastHubPage() {
       />
 
       {/* JSON-LD for WebPage */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            name: "Surf Forecast - 7 Day Regional Surf Conditions",
-            description:
-              "Get the surf forecast for California, Hawaii, Puerto Rico and more. 7-day outlooks with best days, swell analysis, and beach-by-beach conditions.",
-            url: `${baseUrl}/forecast`,
-            breadcrumb: {
-              "@type": "BreadcrumbList",
-              itemListElement: [
-                {
-                  "@type": "ListItem",
-                  position: 1,
-                  name: "Quiver",
-                  item: baseUrl,
-                },
-                {
-                  "@type": "ListItem",
-                  position: 2,
-                  name: "Surf Forecast",
-                  item: `${baseUrl}/forecast`,
-                },
-              ],
-            },
-            publisher: {
-              "@type": "Organization",
-              name: "Quiver Surf",
-              url: baseUrl,
-            },
-          }),
+      <WebPageSchema
+        name="Surf Forecast - 7 Day Regional Surf Conditions"
+        url={`${baseUrl}/forecast`}
+        description="Get the surf forecast for California, Hawaii, Puerto Rico and more. 7-day outlooks with best days, swell analysis, and beach-by-beach conditions."
+        additionalData={{
+          breadcrumb: {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Quiver",
+                item: baseUrl,
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Surf Forecast",
+                item: `${baseUrl}/forecast`,
+              },
+            ],
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Quiver Surf",
+            url: baseUrl,
+          },
         }}
       />
 

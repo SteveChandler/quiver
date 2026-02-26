@@ -176,13 +176,22 @@ describe("Sitemap Generation", () => {
     it("should include state-level intent routes", async () => {
       const result = await sitemap();
       const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
-      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
+      const nonSkillIntents = ["least-crowded", "tide", "water-temp", "dawn-patrol", "sunset"];
+      const skillIntents = ["beginner", "longboard"];
 
+      // Non-skill intents should exist for all states
       for (const state of usStates) {
-        for (const intent of intents) {
+        for (const intent of nonSkillIntents) {
           const route = result.find((r) => r.url === `${baseUrl}/${intent}/${state}`);
           expect(route).toBeTruthy();
         }
+      }
+
+      // Skill-based intents only for states with beginner beaches (CA from default mock)
+      for (const intent of skillIntents) {
+        expect(result.find((r) => r.url === `${baseUrl}/${intent}/ca`)).toBeTruthy();
+        // States without beginner data should be excluded
+        expect(result.find((r) => r.url === `${baseUrl}/${intent}/ga`)).toBeUndefined();
       }
     });
   });

@@ -368,7 +368,7 @@ describe("City Metadata Actions", () => {
       expect(result.data?.state).toBe("CA");
       expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
         search_pattern: "santa cruz",
-        state_filter: null,
+        state_filter: undefined,
       });
     });
 
@@ -509,7 +509,7 @@ describe("City Metadata Actions", () => {
       // RPC handles case-insensitive and accent-normalized matching
       expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
         search_pattern: "santa cruz",
-        state_filter: null,
+        state_filter: undefined,
       });
     });
 
@@ -523,7 +523,7 @@ describe("City Metadata Actions", () => {
 
       expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("find_cities_by_pattern", {
         search_pattern: "santa cruz",
-        state_filter: null,
+        state_filter: undefined,
       });
     });
 

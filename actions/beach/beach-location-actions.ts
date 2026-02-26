@@ -88,7 +88,7 @@ export async function getNearbyBeaches(
     // Success with spatial function
     return {
       success: true,
-      data: nearbyBeaches as Beach[],
+      data: nearbyBeaches as unknown as Beach[],
       fallbackUsed: false,
     };
   } catch (error) {
@@ -142,8 +142,8 @@ async function getAllCitiesWithBeaches(minBeaches: number = 1) {
         existing.beachCount++;
       } else {
         cityMap.set(key, {
-          city: beach.city,
-          state: beach.state,
+          city: beach.city ?? "",
+          state: beach.state ?? "",
           country: beach.country || "USA",
           beachCount: 1,
         });
@@ -175,6 +175,8 @@ export interface CityWithSkillCategories {
   beachCount: number;
   hasBeginnerBeaches: boolean;
   hasAdvancedBeaches: boolean;
+  /** TRUE when >= 2 beaches have description + at least one of crowd_tips/wave_tips/best_conditions_prose */
+  hasEditorialContent: boolean;
 }
 
 /**
@@ -209,6 +211,7 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       beach_count: number;
       has_beginner: boolean;
       has_advanced: boolean;
+      has_editorial: boolean;
     }) => ({
       city: row.city,
       state: row.state,
@@ -216,6 +219,7 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       beachCount: Number(row.beach_count),
       hasBeginnerBeaches: row.has_beginner,
       hasAdvancedBeaches: row.has_advanced,
+      hasEditorialContent: row.has_editorial ?? false,
     }));
 
     return {
@@ -241,7 +245,7 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
 
     const { data, error } = await supabase
       .from("beaches")
-      .select("city, state, country, skill_level")
+      .select("city, state, country, skill_level, description, crowd_tips, wave_tips, best_conditions_prose")
       .or("is_private.is.null,is_private.eq.false")
       .not("city", "is", null)
       .not("state", "is", null)
@@ -249,37 +253,56 @@ async function getAllCitiesWithBeachSkillsFallback(minBeaches: number = 1) {
 
     if (error) throw error;
 
-    // Aggregate by city/state/country with skill flags
-    const cityMap = new Map<string, CityWithSkillCategories>();
+    // Aggregate by city/state/country with skill flags and editorial quality counts
+    const cityMap = new Map<string, CityWithSkillCategories & { editorialCount: number }>();
 
     for (const beach of data || []) {
       const key = `${beach.city}|${beach.state}|${beach.country || "USA"}`;
       const existing = cityMap.get(key);
 
       const skill = (beach.skill_level || "").toLowerCase();
-      const isBeginner = skill.includes("beginner") || skill.includes("longboard");
+      // lower-intermediate is included as beginner (matches RPC logic)
+      const isBeginner =
+        skill.includes("beginner") ||
+        skill.includes("longboard") ||
+        skill === "lower-intermediate";
       const isAdvanced = skill.includes("advanced") || skill.includes("expert");
+      const hasDescription = !!(beach as any).description?.trim();
+      const hasEditorialField =
+        !!(beach as any).crowd_tips?.trim() ||
+        !!(beach as any).wave_tips?.trim() ||
+        !!(beach as any).best_conditions_prose?.trim();
+      const isQualityBeach = hasDescription && hasEditorialField;
 
       if (existing) {
         existing.beachCount++;
         if (isBeginner) existing.hasBeginnerBeaches = true;
         if (isAdvanced) existing.hasAdvancedBeaches = true;
+        if (isQualityBeach) existing.editorialCount++;
       } else {
         cityMap.set(key, {
-          city: beach.city,
-          state: beach.state,
+          city: beach.city ?? "",
+          state: beach.state ?? "",
           country: beach.country || "USA",
           beachCount: 1,
           hasBeginnerBeaches: isBeginner,
           hasAdvancedBeaches: isAdvanced,
+          hasEditorialContent: false, // computed after aggregation
+          editorialCount: isQualityBeach ? 1 : 0,
         });
       }
     }
 
-    // Filter by minimum beach count and sort
-    const cities = [...cityMap.values()]
+    // Resolve hasEditorialContent after full aggregation (requires >= 2 quality beaches)
+    for (const city of cityMap.values()) {
+      city.hasEditorialContent = city.editorialCount >= 2;
+    }
+
+    // Filter by minimum beach count and sort; strip internal editorialCount field
+    const cities: CityWithSkillCategories[] = [...cityMap.values()]
       .filter((c) => c.beachCount >= minBeaches)
-      .sort((a, b) => a.city.localeCompare(b.city));
+      .sort((a, b) => a.city.localeCompare(b.city))
+      .map(({ editorialCount: _ec, ...rest }) => rest);
 
     return {
       success: true,

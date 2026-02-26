@@ -186,7 +186,7 @@ export async function fetchForecast(lat: number, lon: number): Promise<any> {
 
     // Get forecast for the nearest beach
     const today = new Date().toISOString().split("T")[0];
-    const { data: forecasts, error: forecastsError } = await supabase
+    const { data: forecasts, error: forecastsError } = await (supabase as any)
       .from("forecasts")
       .select("*")
       .eq("beach_id", nearestBeach.id)
@@ -199,7 +199,7 @@ export async function fetchForecast(lat: number, lon: number): Promise<any> {
       console.log(
         `No current forecast data for ${nearestBeach.name}, trying latest available forecast`
       );
-      const { data: latest, error: latestErr } = await supabase
+      const { data: latest, error: latestErr } = await (supabase as any)
         .from("forecasts")
         .select("*")
         .eq("beach_id", nearestBeach.id)
@@ -233,7 +233,7 @@ export async function fetchForecast(lat: number, lon: number): Promise<any> {
         .slice(0, 5); // Only check 5 closest beaches
 
       for (const beach of nearbyBeaches) {
-        const { data: nearLatest, error: nearErr } = await supabase
+        const { data: nearLatest, error: nearErr } = await (supabase as any)
           .from("forecasts")
           .select("*")
           .eq("beach_id", beach.id)

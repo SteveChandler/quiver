@@ -597,8 +597,8 @@ async function fetchDailyIntel(
       parts.push(`${intel.surf_min_ft}-${intel.surf_max_ft}ft`);
     }
 
-    if (intel.swell_period_s != null) {
-      parts.push(`@ ${intel.swell_period_s}s`);
+    if (intel.primary_swell_period_s != null) {
+      parts.push(`@ ${intel.primary_swell_period_s}s`);
     }
 
     if (intel.wind_speed_mph != null && intel.wind_direction_text) {

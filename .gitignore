@@ -167,8 +167,12 @@ ml/models/*.json
 # ML model artifacts
 models/
 
-# Python cache
+# Python cache / build artifacts
 __pycache__/
+*.egg-info/
 
 # Android debug build artifacts
 quiver/android/debug/
+
+# Content pipeline output (crawl cache, staging, reports)
+tools/content-pipeline/output/

@@ -18,6 +18,7 @@ import {
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,11 @@ export default async function CamsHubPage() {
           { name: "Quiver", url: baseUrl },
           { name: "Live Surf Cams", url: `${baseUrl}/cams` },
         ]}
+      />
+      {/* WebPage JSON-LD with dateModified signals content freshness to Google */}
+      <WebPageSchema
+        name={`Live Surf Cams — ${camCount}+ Cameras Across ${stateCount} States`}
+        url={`${baseUrl}/cams`}
       />
       {/* Visible breadcrumbs */}
       <div className="px-4 pt-6 md:pt-8">

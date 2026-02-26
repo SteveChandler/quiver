@@ -77,6 +77,26 @@ jest.mock("@/actions/beach-review-actions", () => ({
   }),
 }));
 
+// Prevent real Supabase client creation in CI (no env vars)
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: jest.fn().mockResolvedValue({
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  }),
+  createSupabaseServiceRoleClient: jest.fn().mockReturnValue({}),
+}));
+
+jest.mock("@/lib/utils/best-time-to-surf-utils", () => ({
+  getBestTimeToSurfUrl: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({
+  enrichBeachesWithConditions: jest.fn().mockResolvedValue([]),
+}));
+
 function makeBeach(overrides: Partial<Beach>) {
   return {
     id: overrides.id ?? "beach-1",

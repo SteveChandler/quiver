@@ -61,13 +61,22 @@ export class IntelGenerationService {
   ): Promise<MorningIntelData> {
     // 1. Fetch beach preferences
     const beachPrefs = await this.fetchBeachPreferences(beachId);
-    
+
     // 2. Fetch forecast data
     const forecasts = await this.fetchForecasts(beachId, timezone);
-    
-    // 3. Analyze conditions
-    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime, timezone);
-    
+
+    // 3. Fetch water quality (optional — missing rows are handled gracefully)
+    // Cast through `any` because the typed client was constructed before beach_water_quality
+    // was added to the generated Database type and is regenerated separately.
+    const { data: wqData } = await (this.supabase as any)
+      .from("beach_water_quality")
+      .select("status, latest_sample_date")
+      .eq("beach_id", beachId)
+      .maybeSingle() as { data: { status: string; latest_sample_date: string | null } | null };
+
+    // 4. Analyze conditions
+    const intel = this.analyzeForecasts(forecasts, beachPrefs, targetTime, timezone, wqData);
+
     return intel;
   }
 
@@ -219,7 +228,8 @@ export class IntelGenerationService {
     slice: ForecastSlice,
     beachPrefs: BeachPreferences | null,
     targetTime: string,
-    timezone?: string | null
+    timezone?: string | null,
+    wqData?: { status: string; latest_sample_date: string | null } | null
   ): MorningIntelData {
     const now = new Date();
     const tz = timezone || DEFAULT_TIMEZONE;
@@ -249,7 +259,10 @@ export class IntelGenerationService {
         },
         beachPrefs
       );
-      recommendation = getConservativeRecommendation(conditions);
+      recommendation = getConservativeRecommendation(
+        conditions,
+        wqData ? { status: wqData.status } : undefined
+      );
     }
 
     let notes = "";
@@ -329,6 +342,12 @@ export class IntelGenerationService {
               aspectDeg: beachPrefs.aspectDeg ?? null,
               windOffshoreDegUsed: beachPrefs.windOffshoreDeg ?? null,
               windOffshoreDegSource: beachPrefs.windOffshoreDegSource ?? "db",
+            }
+          : undefined,
+        waterQuality: wqData
+          ? {
+              status: wqData.status as "good" | "advisory" | "closure" | "unknown",
+              latestSampleDate: wqData.latest_sample_date,
             }
           : undefined,
       },

@@ -6,6 +6,8 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus, Star } from "lucide-react";
 import type { Beach } from "@/types/database";
+import type { BeachAmenities } from "@/types/amenities";
+import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 
 interface OverviewTabProps {
   beach: Beach & {
@@ -21,6 +23,10 @@ interface OverviewTabProps {
     average_rating?: number;
     review_count?: number;
   };
+  /** Amenity data sourced from mv_beach_amenities (CCC data) */
+  amenities?: BeachAmenities | null;
+  /** Water quality data sourced from beach_water_quality table */
+  waterQuality?: WaterQuality | null;
   /** Callback to open the review form dialog */
   onWriteReview?: () => void;
 }
@@ -73,7 +79,7 @@ function OverviewReviewCTA({
   );
 }
 
-export function OverviewTab({ beach, onWriteReview }: OverviewTabProps) {
+export function OverviewTab({ beach, amenities, waterQuality, onWriteReview }: OverviewTabProps) {
   return (
     <div className="space-y-6 py-6">
       {/* Enhanced Beach Overview - Description, Tips, etc. */}
@@ -87,8 +93,8 @@ export function OverviewTab({ beach, onWriteReview }: OverviewTabProps) {
         />
       )}
 
-      {/* Spot Overview - Amenities, Hazards, Gallery */}
-      <SpotOverview beach={beach as Beach} />
+      {/* Spot Overview - Water Quality, Amenities, Hazards, Gallery */}
+      <SpotOverview beach={beach as Beach} amenities={amenities} waterQuality={waterQuality} />
     </div>
   );
 }

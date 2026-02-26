@@ -7,7 +7,7 @@ import type {
   BeginnerCityEditorial,
 } from "@/types/beginner";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { FAQSchema } from "@/components/seo/faq-schema";
+import { FAQSection } from "@/components/seo/faq-schema";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
@@ -19,7 +19,6 @@ import { SeasonalGuide } from "./SeasonalGuide";
 import { SafetyEssentials } from "./SafetyEssentials";
 import { GearAndLessons } from "./GearAndLessons";
 import { SessionGallery } from "./SessionGallery";
-import { BeginnerFAQ } from "./BeginnerFAQ";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { SectionFadeUp } from "./SectionFadeUp";
 
@@ -90,7 +89,7 @@ export function BeginnerPageContent({
           },
         ]}
       />
-      <FAQSchema items={faqItems} />
+      <FAQSection items={faqItems} locationName={cityName} />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
@@ -166,11 +165,6 @@ export function BeginnerPageContent({
           {/* Module 8: Session Gallery */}
           <SectionFadeUp>
             <SessionGallery cityName={cityName} />
-          </SectionFadeUp>
-
-          {/* Module 9: FAQ */}
-          <SectionFadeUp>
-            <BeginnerFAQ items={faqItems} />
           </SectionFadeUp>
 
           {/* Continue Exploring */}

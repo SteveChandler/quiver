@@ -109,11 +109,11 @@ export async function getSpotDataBySlug(
 export async function getSpotFeaturedPhoto(
   beachId: string
 ): Promise<SpotFeaturedPhoto | null> {
-  return withDatabaseOperation<SpotFeaturedPhoto | null>(async (supabase) => {
+  return withDatabaseOperation<SpotFeaturedPhoto | null>(async (supabase: any) => {
     // Query the beach_photos_featured view
     const { data, error } = await supabase
       .from("beach_photos_featured")
-      .select("image_url, thumb_url, attribution_html, title, creator_name")
+      .select("image_url, thumb_url, attribution_html")
       .eq("beach_id", beachId)
       .maybeSingle();
 
@@ -149,8 +149,8 @@ export async function getSpotFeaturedPhoto(
         imageUrl: data.image_url,
         thumbUrl: data.thumb_url,
         attributionHtml: data.attribution_html,
-        title: data.title,
-        creatorName: data.creator_name,
+        title: null,
+        creatorName: null,
       },
       error: null,
     };

@@ -36,11 +36,12 @@ import {
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { SET_WAVE_VARIANCE } from '@/lib/utils/wave-height-transformer';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-height-formatter';
+import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 
 // Import from other discovery modules
 import { buildCandidatePool } from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
-import { selectBestWindow } from './window-selector';
+import { selectBestWindow, getLocalDateStr } from './window-selector';
 import {
   enrichWithPhotos,
   generateDiscoverySummary,
@@ -455,6 +456,19 @@ async function discoverSurfSpotsInner(
     uniqueDates
   );
 
+  // Batch-fetch water quality for all candidate beaches (avoids N+1)
+  const supabase = createSupabaseServiceRoleClient();
+  const candidateBeachIds = Array.from(allBeachIds);
+  const { data: wqRows } = await supabase
+    .from('beach_water_quality')
+    .select('beach_id, status')
+    .in('beach_id', candidateBeachIds);
+
+  const wqMap = new Map<string, string>();
+  for (const row of wqRows ?? []) {
+    wqMap.set(row.beach_id, row.status);
+  }
+
   // 3. Score each beach with detailed breakdown
   const scored: SurfDiscoveryRecommendation[] = [];
 
@@ -463,7 +477,22 @@ async function discoverSurfSpotsInner(
 
   const beachesWithNoWindow: string[] = [];
   for (const { beach, forecasts } of beachForecasts) {
-    const bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+    // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
+    const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+    const todayStr = getLocalDateStr(new Date(), beachTz);
+    const todayForecasts = forecasts.filter(f =>
+      getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
+    );
+
+    let bestWindow = todayForecasts.length > 0
+      ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
+      : null;
+
+    // Fall back to all forecasts (includes tomorrow) only if today has no viable window
+    if (!bestWindow) {
+      bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+    }
+
     if (!bestWindow) {
       beachesWithNoWindow.push(beach.name);
       log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
@@ -494,6 +523,18 @@ async function discoverSurfSpotsInner(
       userSkillLevel,
       distanceMiles,
     });
+
+    // Apply water quality override after scoring
+    const wqStatus = wqMap.get(beach.id);
+    if (wqStatus === 'closure') {
+      // Score to 0 and demote to 'fair' (lowest non-skip tier) so the beach
+      // sorts last but still surfaces with a clear health warning.
+      detailedScore.total = 0;
+      detailedScore.matchQuality = 'fair';
+      detailedScore.warnings = ['Water quality closure — health advisory active'];
+    } else if (wqStatus === 'advisory') {
+      detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+    }
 
     scored.push({
       beach,
@@ -665,6 +706,6 @@ export async function discoverSurfSpots(
   } catch (error) {
     const duration = Date.now() - startTime;
     log.error(`Discovery failed after ${duration}ms for user ${userId}:`, error);
-    throw error;
+    return emptyResponse(maxResults);
   }
 }

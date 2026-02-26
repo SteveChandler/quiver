@@ -111,7 +111,7 @@ async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
       center_lat: coords.lat,
       center_lng: coords.lon,
       radius_miles: radius,
-      tag_filter: tag === "all" ? null : tag,
+      tag_filter: (tag === "all" || tag == null) ? undefined : tag,
       limit_count: limit,
     }
   );

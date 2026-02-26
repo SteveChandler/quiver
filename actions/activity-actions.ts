@@ -25,7 +25,8 @@ export async function getUserActivityFeed(
     }
 
     // Call the database function to get activity feed
-    const { data, error } = await supabase.rpc("get_user_activity_feed", {
+    // TODO: RPC function missing from DB types
+    const { data, error } = await (supabase.rpc as any)("get_user_activity_feed", {
       p_user_id: userId,
       p_limit: limit,
       p_offset: offset,
@@ -37,7 +38,7 @@ export async function getUserActivityFeed(
 
     return {
       success: true,
-      data: (data as ActivityFeedItem[]) || [],
+      data: (data as unknown as ActivityFeedItem[]) || [],
     };
   } catch (error) {
     console.error("Error getting user activity feed:", error);

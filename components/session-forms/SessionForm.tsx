@@ -123,7 +123,7 @@ export function SessionForm({
           // Prefill form with planned session data
           if (result) {
             // Check if result is wrapped in success/data structure
-            const sessionData = result.data || result;
+            const sessionData = (result as any).data || result as any;
 
             updateField(
               "selectedBeach",

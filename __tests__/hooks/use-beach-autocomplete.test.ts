@@ -5,30 +5,55 @@ import type { Beach } from "@/types/database";
 // Mock fetch API
 global.fetch = jest.fn();
 
-// Mock useDataFetcher
+// Mock useDataFetcher — simulates auto-fetch on fetchFn identity change
 jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: jest.fn((fetchFn, options) => {
-    const [state, setState] = require("react").useState({
+    const React = require("react");
+    const [state, setState] = React.useState({
       data: options?.initialData || null,
       loading: false,
       error: null,
     });
 
-    const refetch = require("react").useCallback(async () => {
-      setState({ data: state.data, loading: true, error: null });
+    const fetchFnRef = React.useRef(fetchFn);
+    const prevFetchFnRef = React.useRef(fetchFn);
+    const hasRunInitialRef = React.useRef(false);
+    fetchFnRef.current = fetchFn;
+
+    const doFetch = React.useCallback(async () => {
+      setState((prev: any) => ({ ...prev, loading: true, error: null }));
       try {
-        const result = await fetchFn();
+        const result = await fetchFnRef.current();
         setState({ data: result, loading: false, error: null });
       } catch (err) {
-        setState({
-          data: state.data,
+        setState((prev: any) => ({
+          data: prev.data,
           loading: false,
           error: err instanceof Error ? err.message : "Error",
-        });
+        }));
       }
-    }, [fetchFn]);
+    }, []);
 
-    return { ...state, refetch };
+    // Match real useDataFetcher: auto-fetch when fetchFn identity changes
+    React.useEffect(() => {
+      const skip = options?.skip ?? false;
+      const immediate = options?.immediate ?? true;
+      const fetchFnChanged = prevFetchFnRef.current !== fetchFn;
+      prevFetchFnRef.current = fetchFn;
+
+      const shouldFetch =
+        (!hasRunInitialRef.current && immediate && !skip) ||
+        (!skip && fetchFnChanged);
+
+      if (shouldFetch) {
+        doFetch();
+      }
+      if (!skip) {
+        hasRunInitialRef.current = true;
+      }
+    }, [fetchFn, doFetch]);
+
+    return { ...state, refetch: doFetch };
   }),
 }));
 

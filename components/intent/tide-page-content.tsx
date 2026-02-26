@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { FAQSchema } from "@/components/seo/faq-schema";
+import { FAQSection } from "@/components/seo/faq-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -73,7 +73,7 @@ export function TidePageContent({
           },
         ]}
       />
-      <FAQSchema items={faqItems} />
+      <FAQSection items={faqItems} locationName={cityName} />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}

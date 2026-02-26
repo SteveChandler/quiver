@@ -34,6 +34,7 @@ import {
   bulkSoftDeleteBeachPhotos,
   hardDeleteBeachPhoto,
   bulkHardDeleteBeachPhotos,
+  bulkApproveBeachPhotos,
   type PhotoModerationItem,
 } from "@/actions/admin/photos";
 
@@ -198,6 +199,30 @@ export default function AdminPhotosPage() {
       return;
     }
     toast.success(approved ? "Photo approved" : "Photo unapproved");
+    refetchBeach();
+  };
+
+  // Handle bulk approve beach photos
+  const handleBulkApprove = async (photoIds: string[]) => {
+    const result = await bulkApproveBeachPhotos(photoIds);
+
+    if (!result.success) {
+      toast.error(result.error || "Failed to approve photos");
+      return;
+    }
+
+    const { success, failed, errors } = result.data || { success: 0, failed: 0, errors: [] };
+
+    if (failed > 0) {
+      toast.error(
+        `Approved ${success} of ${photoIds.length} photos. ${failed} failed.${
+          errors.length > 0 ? ` First error: ${errors[0].error}` : ""
+        }`
+      );
+    } else {
+      toast.success(`Approved ${success} photo${success !== 1 ? "s" : ""}`);
+    }
+
     refetchBeach();
   };
 
@@ -422,6 +447,7 @@ export default function AdminPhotosPage() {
             onDelete={handleDeleteBeachPhoto}
             onRestore={handleRestoreBeachPhoto}
             onApprove={handleApproveBeachPhoto}
+            onBulkApprove={handleBulkApprove}
             onBulkDelete={handleBulkDelete}
             onHardDelete={handleHardDeleteBeachPhoto}
             onBulkHardDelete={handleBulkHardDelete}

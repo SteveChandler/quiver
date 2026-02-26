@@ -17,11 +17,17 @@ jest.mock("@/store/onboarding-store");
 const mockUseOnboardingStore = useOnboardingStore as unknown as jest.Mock;
 
 // Mock global fetch for HomeBeachStep
-global.fetch = jest.fn();
+global.fetch = jest.fn(() =>
+  Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+);
 
 // Mock dependencies for PayoffStep
 jest.mock("@/context/profile-context", () => ({
   useProfileContext: () => ({ updateProfile: jest.fn() }),
+}));
+
+jest.mock("@/context/auth-context", () => ({
+  useAuth: () => ({ user: { id: "test-user" } }),
 }));
 
 jest.mock("@/hooks/use-forecast-preview");
@@ -65,6 +71,8 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
   const mockPrevStep = jest.fn();
   const mockCompleteOnboarding = jest.fn();
 
+  const mockCloseDialog = jest.fn();
+
   // Default store state
   const defaultStore = {
     data: {},
@@ -72,6 +80,7 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
     nextStep: mockNextStep,
     prevStep: mockPrevStep,
     completeOnboarding: mockCompleteOnboarding,
+    closeDialog: mockCloseDialog,
   };
 
   beforeEach(() => {
@@ -99,14 +108,14 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       ).toBeInTheDocument();
     });
 
-    it("calls prevStep when back button is clicked", async () => {
+    it("calls closeDialog when skip for now button is clicked", async () => {
       const user = userEvent.setup();
       render(<HomeBeachStep />);
 
-      const backBtn = screen.getByRole("button", { name: /Back/i });
-      await user.click(backBtn);
+      const skipBtn = screen.getByRole("button", { name: /Skip for now/i });
+      await user.click(skipBtn);
 
-      expect(mockPrevStep).toHaveBeenCalled();
+      expect(mockCloseDialog).toHaveBeenCalled();
     });
 
     // Note: Search and selection tests involve complex async interactions

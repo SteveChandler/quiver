@@ -11,6 +11,12 @@ jest.mock("@/lib/auth/admin", () => ({
   authenticateAdmin: jest.fn(),
 }));
 
+// Prevent real Supabase client creation in CI (no env vars)
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: jest.fn(() => Promise.resolve({})),
+  createSupabaseServiceRoleClient: jest.fn(() => ({})),
+}));
+
 jest.mock("@/lib/services/push-notifications", () => ({
   sendPushNotification: jest.fn(),
 }));

@@ -156,9 +156,9 @@ export const RATE_LIMITS = {
    * Moderate limits for personalized recommendations
    */
   "surf-discovery": {
-    requestsPerMinute: 15,
-    requestsPerHour: 150,
-    burstLimit: 6, // Allow clicking through all 4 time slots quickly
+    requestsPerMinute: IS_PRODUCTION ? 15 : 60,
+    requestsPerHour: IS_PRODUCTION ? 150 : 600,
+    burstLimit: IS_PRODUCTION ? 6 : 30, // Allow clicking through all 4 time slots quickly
   } as RateLimiterConfig,
 
   /**
@@ -171,9 +171,9 @@ export const RATE_LIMITS = {
    * Moderate limits for personalized insights (same as surf-discovery)
    */
   "surf-insights": {
-    requestsPerMinute: 10,
-    requestsPerHour: 100,
-    burstLimit: 3,
+    requestsPerMinute: IS_PRODUCTION ? 10 : 40,
+    requestsPerHour: IS_PRODUCTION ? 100 : 400,
+    burstLimit: IS_PRODUCTION ? 3 : 15,
   } as RateLimiterConfig,
 
   /**

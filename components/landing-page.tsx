@@ -13,7 +13,7 @@ import { UpgradeSessionSection } from "./landing-page/upgrade-session-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
-import { FooterSection } from "@/components/landing-page/footer-section";
+import { SiteFooter } from "@/components/shared/site-footer";
 
 // Loading placeholder for sections
 function SectionSkeleton({ height = "h-64" }: { height?: string }) {
@@ -143,7 +143,7 @@ export default function LandingPage({ autoOpenLogin = false }: { autoOpenLogin?:
 
           {/* Footer Section */}
           <ProgressiveSection height="h-48">
-            <FooterSection />
+            <SiteFooter showBrandSection showSocialLinks />
           </ProgressiveSection>
         </div>
       </main>

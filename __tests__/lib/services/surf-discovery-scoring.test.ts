@@ -82,7 +82,11 @@ jest.mock("@/lib/supabase/server", () => {
             return {
               eq() {
                 return {
-                  order: async () => ({ data: state.favoritesData, error: null }),
+                  order() {
+                    return {
+                      order: async () => ({ data: state.favoritesData, error: null }),
+                    };
+                  },
                 };
               },
             };
@@ -109,6 +113,13 @@ jest.mock("@/lib/supabase/server", () => {
                   },
                 };
               },
+            };
+          }
+
+          // beach_water_quality table used by water quality override
+          if (table === "beach_water_quality") {
+            return {
+              in: async () => ({ data: [], error: null }),
             };
           }
 

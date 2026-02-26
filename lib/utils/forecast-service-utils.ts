@@ -191,7 +191,7 @@ export async function getFreshForecastFromCache(
     );
 
     return {
-      forecasts: result.forecasts,
+      forecasts: result.forecasts as unknown as EnhancedForecastEntity[],
       metadata: {
         cached: true,
         stale: false,
@@ -287,10 +287,12 @@ export async function getBatchFreshForecastsFromCache(
     // Build lookup map for latest metadata
     const latestMap = new Map<string, { updated_at: string; data_source: string | null }>();
     for (const row of latestData || []) {
-      latestMap.set(row.beach_id, {
-        updated_at: row.updated_at,
-        data_source: row.data_source,
-      });
+      if (row.beach_id && row.updated_at) {
+        latestMap.set(row.beach_id, {
+          updated_at: row.updated_at,
+          data_source: row.data_source,
+        });
+      }
     }
 
     // Identify fresh vs stale/missing beaches

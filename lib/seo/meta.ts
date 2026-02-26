@@ -127,10 +127,50 @@ function capitalizeBreakType(breakType: string): string {
 }
 
 /**
- * Returns "a" or "an" based on whether the next word starts with a vowel sound.
+ * Abbreviate break type for compact titles.
+ * Returns a short label without "Break" suffix for common types.
  */
-function aOrAn(nextWord: string): string {
-  return /^[aeiou]/i.test(nextWord) ? "an" : "a";
+function shortBreakType(breakType: string): string {
+  const bt = breakType.toLowerCase();
+  if (bt === "beach") return "Beach";
+  if (bt === "reef") return "Reef";
+  if (bt === "point") return "Point";
+  if (bt === "river mouth" || bt === "rivermouth") return "Rivermouth";
+  return capitalizeBreakType(breakType).replace(" Break", "");
+}
+
+/**
+ * Extracts a short wave character descriptor from wave_tips text.
+ * Returns the first keyword match (case-insensitive), or null.
+ */
+function extractWaveCharacter(waveTips: string | null | undefined): string | null {
+  if (!waveTips) return null;
+  const keywords: Array<[string, string]> = [
+    ["hollow", "Hollow"],
+    ["powerful", "Powerful"],
+    ["fast", "Fast"],
+    ["long", "Long"],
+    ["mellow", "Mellow"],
+    ["steep", "Steep"],
+    ["barreling", "Barreling"],
+    ["peeling", "Peeling"],
+  ];
+  for (const [pattern, label] of keywords) {
+    if (new RegExp(pattern, "i").test(waveTips)) return label;
+  }
+  return null;
+}
+
+/**
+ * Converts crowd_level into a concise SERP signal.
+ * "moderate" is not a differentiator — returns null.
+ */
+function formatCrowdSignal(crowdLevel: string | null | undefined): string | null {
+  if (!crowdLevel) return null;
+  const lvl = crowdLevel.toLowerCase();
+  if (lvl === "light") return "Uncrowded";
+  if (lvl === "heavy") return "Popular";
+  return null;
 }
 
 /**
@@ -141,8 +181,8 @@ function aOrAn(nextWord: string): string {
  * - No "Free" in titles or descriptions — focus on data richness
  * - Add forecast duration (7-Day) like competitors (DeepSwell, Surfline)
  * - Include break_type + skill_level for identity signal
- * - Add state abbreviation when title has room (under 60 chars)
- * - Dynamic wave height creates unique SERP snippets
+ * - Wave character extracted from wave_tips creates unique SERP snippets
+ * - Crowd signal ("Uncrowded" / "Popular") as differentiator in no-forecast titles
  * - Title length capped at 60 chars for optimal SERP display
  *
  * Competitive patterns:
@@ -161,6 +201,10 @@ export function buildDynamicBeachMetadata({
     break_type?: string | null;
     skill_level?: string | null;
     description_excerpt?: string | null;
+    wave_tips?: string | null;
+    crowd_level?: string | null;
+    average_rating?: number | null;
+    review_count?: number | null;
   };
   forecast: { wave_height?: string | null } | null;
 }): { title: string; description: string } {
@@ -171,71 +215,165 @@ export function buildDynamicBeachMetadata({
       ? `${beach.city}, ${expandedState}`
       : beach.city || expandedState || "";
 
-  // Helper: try to insert state abbreviation into title when there's room
-  function withState(base: string, suffix: string): string {
-    if (!beach.state) return `${base} | ${suffix}`;
-    const withSt = `${base} | ${beach.state} | ${suffix}`;
-    if (withSt.length <= MAX_TITLE_LENGTH) return withSt;
-    return `${base} | ${suffix}`;
-  }
+  const waveChar = extractWaveCharacter(beach.wave_tips);
+  const crowdSignal = formatCrowdSignal(beach.crowd_level);
+  // Capitalize skill_level for title use (DB stores lowercase)
+  const skill = beach.skill_level
+    ? beach.skill_level.charAt(0).toUpperCase() + beach.skill_level.slice(1).toLowerCase()
+    : null;
 
   // Build title — differentiate from Surfline with unique value signals
   let title: string;
+
   if (forecast?.wave_height) {
-    // Lead with wave height + unique signals (crowd, wind intel)
-    const base = `${beach.name} — ${forecast.wave_height} Today`;
-    const fullTitle = `${base} | Crowd & Wind Intel | ${beach.city || beach.state || "Surf"}`;
-    if (fullTitle.length <= MAX_TITLE_LENGTH) {
-      title = fullTitle;
+    // WITH forecast: 3-tier fallback
+    // Tier 1: {Beach}: {height} — {WaveChar} {BreakShort} | {City}
+    if (waveChar && beach.break_type && beach.city) {
+      const t1 = `${beach.name}: ${forecast.wave_height} — ${waveChar} ${shortBreakType(beach.break_type)} | ${beach.city}`;
+      if (t1.length <= MAX_TITLE_LENGTH) {
+        title = t1;
+      } else if (skill && beach.break_type) {
+        // Tier 2: {Beach}: {height} — {Skill} {BreakShort}
+        const t2 = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
+        title = truncateTitleForSEO(t2.length <= MAX_TITLE_LENGTH ? t2 : `${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+      } else {
+        // Tier 3: {Beach}: {height} Today | Surf Report
+        title = truncateTitleForSEO(`${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+      }
+    } else if (skill && beach.break_type) {
+      // Tier 2: {Beach}: {height} — {Skill} {BreakShort}
+      const t2 = `${beach.name}: ${forecast.wave_height} — ${skill} ${shortBreakType(beach.break_type)}`;
+      if (t2.length <= MAX_TITLE_LENGTH) {
+        title = t2;
+      } else {
+        // Tier 3
+        title = truncateTitleForSEO(`${beach.name}: ${forecast.wave_height} Today | Surf Report`);
+      }
     } else {
-      const shortTitle = withState(base, "Forecast & Conditions");
-      title = truncateTitleForSEO(shortTitle);
+      // Tier 3: {Beach}: {height} Today | Surf Report
+      title = truncateTitleForSEO(`${beach.name}: ${forecast.wave_height} Today | Surf Report`);
     }
   } else {
-    // Include break type for identity signal when available
-    if (beach.break_type && locationContext) {
-      const breakLabel = capitalizeBreakType(beach.break_type);
-      const fullTitle = `${beach.name} — ${breakLabel} in ${locationContext} | Surf Report`;
-      if (fullTitle.length <= MAX_TITLE_LENGTH) {
-        title = fullTitle;
+    // WITHOUT forecast: 3-tier fallback
+    // Tier 1: {Beach} — {Skill} {WaveChar} {BreakShort} | {City}
+    if (skill && waveChar && beach.break_type && beach.city) {
+      const t1 = `${beach.name} — ${skill} ${waveChar} ${shortBreakType(beach.break_type)} | ${beach.city}`;
+      if (t1.length <= MAX_TITLE_LENGTH) {
+        title = t1;
+      } else if (skill && beach.break_type) {
+        // Tier 2: {Beach} — {Skill} {Break} | {City} (full capitalizeBreakType)
+        const t2City = beach.city ? ` | ${beach.city}` : "";
+        const t2 = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}${t2City}`;
+        title = truncateTitleForSEO(t2.length <= MAX_TITLE_LENGTH ? t2 : buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
       } else {
-        const shortTitle = `${beach.name} Surf Report | ${locationContext}`;
-        title = truncateTitleForSEO(shortTitle);
+        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
+      }
+    } else if (skill && beach.break_type) {
+      // Tier 2: {Beach} — {Skill} {Break} | {City}
+      const t2City = beach.city ? ` | ${beach.city}` : "";
+      const t2 = `${beach.name} — ${skill} ${capitalizeBreakType(beach.break_type)}${t2City}`;
+      if (t2.length <= MAX_TITLE_LENGTH) {
+        title = t2;
+      } else {
+        title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
       }
     } else {
-      const fullTitle = `${beach.name} Surf Report & Forecast | ${locationContext || "Surf Conditions"}`;
-      if (fullTitle.length <= MAX_TITLE_LENGTH) {
-        title = fullTitle;
-      } else {
-        const shortTitle = `${beach.name} Surf Report | ${locationContext || "Forecast"}`;
-        title = truncateTitleForSEO(shortTitle);
-      }
+      // Tier 3
+      title = truncateTitleForSEO(buildNoForecastTier3(beach.name, beach.break_type, crowdSignal, beach.city));
     }
   }
 
-  // Build description highlighting unique features (crowd data, best surf windows)
-  const hasBreakInfo = beach.break_type && beach.skill_level;
+  // Build description
+  const MAX_DESC = 160;
+  const ratingSignal =
+    beach.average_rating != null &&
+    beach.average_rating >= 4.0 &&
+    beach.review_count != null &&
+    beach.review_count >= 3
+      ? `Rated ${beach.average_rating.toFixed(1)}/5.`
+      : null;
+
   let description: string;
 
   if (forecast?.wave_height) {
-    description = hasBreakInfo
-      ? `${forecast.wave_height} waves at ${beach.name}. ${beach.break_type} for ${beach.skill_level} surfers. 7-day forecast, tides, crowds & best surf windows — updated hourly.`
-      : `${forecast.wave_height} waves at ${beach.name} right now. 7-day forecast, live wind, tide chart & crowd intel — updated hourly.`;
-  } else {
-    if (beach.description_excerpt && beach.break_type && locationContext) {
-      // Rich description with excerpt — cap excerpt at 100 chars to stay within Google's ~160 char limit
-      const excerpt = beach.description_excerpt.length > 100
-        ? beach.description_excerpt.slice(0, 97) + "..."
-        : beach.description_excerpt;
-      description = `${excerpt} ${capitalizeBreakType(beach.break_type)} in ${locationContext}. Live forecast, tide chart, crowd intel & best surf windows.`;
-    } else if (hasBreakInfo) {
-      description = `${beach.name} is ${aOrAn(beach.skill_level!)} ${beach.skill_level}-level ${beach.break_type} in ${locationContext || "the area"}. 7-day forecast, tide chart, wind & best surf windows.`;
+    // WITH forecast description
+    const close = "7-day forecast, crowd intel & optimal surf windows.";
+    let mid = "";
+    if (beach.wave_tips) {
+      // First sentence of wave_tips, capped at 60 chars at word boundary
+      const firstSentence = beach.wave_tips.split(".")[0].trim();
+      let waveSentence = firstSentence;
+      if (firstSentence.length > 60) {
+        const truncated = firstSentence.slice(0, 60);
+        const lastSpace = truncated.lastIndexOf(" ");
+        waveSentence = lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated;
+      }
+      // Capitalize first character for proper sentence start in descriptions
+      if (waveSentence) {
+        waveSentence = waveSentence.charAt(0).toUpperCase() + waveSentence.slice(1);
+      }
+      mid = waveSentence ? ` ${waveSentence}.` : "";
+    } else if (beach.break_type && beach.skill_level) {
+      mid = ` ${capitalizeBreakType(beach.break_type)} for ${beach.skill_level} surfers.`;
+    }
+
+    const base = `${forecast.wave_height} at ${beach.name}.${mid}`;
+    const withRating = ratingSignal ? `${base} ${ratingSignal} ${close}` : `${base} ${close}`;
+    if (withRating.length <= MAX_DESC) {
+      description = withRating;
     } else {
-      description = `Live surf conditions at ${beach.name}${locationContext ? `, ${locationContext}` : ""}. 7-day forecast, tide chart, wind, crowd levels & best surf windows — updated hourly.`;
+      // Drop rating
+      const withoutRating = `${base} ${close}`;
+      description = withoutRating.length <= MAX_DESC ? withoutRating : withoutRating.slice(0, MAX_DESC);
+    }
+  } else {
+    // WITHOUT forecast description
+    const close = "Live forecast, tide chart & surf windows.";
+    let opener = "";
+    if (beach.description_excerpt) {
+      const raw = beach.description_excerpt;
+      opener = raw.length > 80 ? raw.slice(0, 77) + "..." : raw;
+    } else {
+      opener = `${beach.name} in ${locationContext || "the area"}.`;
+    }
+
+    const crowdPart = crowdSignal ? ` ${crowdSignal}.` : "";
+    const ratingPart = ratingSignal ? ` ${ratingSignal}` : "";
+
+    const full = `${opener}${crowdPart}${ratingPart} ${close}`;
+    if (full.length <= MAX_DESC) {
+      description = full;
+    } else {
+      // Drop rating first
+      const withoutRating = `${opener}${crowdPart} ${close}`;
+      if (withoutRating.length <= MAX_DESC) {
+        description = withoutRating;
+      } else {
+        // Drop crowd signal too
+        const withoutBoth = `${opener} ${close}`;
+        description = withoutBoth.length <= MAX_DESC ? withoutBoth : withoutBoth.slice(0, MAX_DESC);
+      }
     }
   }
 
   return { title, description };
+}
+
+/**
+ * Builds the tier-3 no-forecast title fallback.
+ * Format: "{Beach} — {Break} | {CrowdSignal or City}" or "{Beach} | {CrowdSignal or City or 'Surf Report'}"
+ */
+function buildNoForecastTier3(
+  beachName: string,
+  breakType: string | null | undefined,
+  crowdSignal: string | null,
+  city: string | null | undefined,
+): string {
+  const trailing = crowdSignal ?? city ?? "Surf Report";
+  if (breakType) {
+    return `${beachName} — ${capitalizeBreakType(breakType)} | ${trailing}`;
+  }
+  return `${beachName} | ${trailing}`;
 }
 
 /**

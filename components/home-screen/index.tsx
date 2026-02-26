@@ -69,6 +69,8 @@ const PersonalizationProgress = dynamic(
 import { buildQuickLogUrl } from "./first-session-cta";
 import type { ReminderResult } from "@/hooks/use-reminder-handler";
 
+const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
+
 export function HomeScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,8 +135,9 @@ export function HomeScreen() {
   });
 
   // Fetch profile strength for onboarding widget
+  const fetchProfileStrength = useCallback(() => getProfileStrength(), []);
   const { data: strengthResponse } = useDataFetcher(
-    () => getProfileStrength(),
+    fetchProfileStrength,
     { skip: !profile, initialData: null }
   );
   const profileStrength = strengthResponse?.data || null;
@@ -158,8 +161,7 @@ export function HomeScreen() {
     lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 
   // Determine coast pulse coordinates (fallback chain: GPS > homeBeach > San Diego)
-  const DEFAULT_LOCATION = { lat: 32.715, lon: -117.161 }; // San Diego
-  const coastPulseCoords =
+  const coastPulseCoords = useMemo(() =>
     geoSource === "browser" &&
     !usingDefaultLocation &&
     geoCoords?.lat != null &&
@@ -168,12 +170,14 @@ export function HomeScreen() {
       ? { lat: geoCoords.lat, lon: geoCoords.lon }
       : homeBeach?.lat != null && homeBeach?.lon != null
         ? { lat: homeBeach.lat, lon: homeBeach.lon }
-        : DEFAULT_LOCATION;
+        : DEFAULT_LOCATION,
+    [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon]
+  );
 
   // Determine seed location for discovery (with validation)
   // Fallback chain: browser GPS > home beach > default location (San Diego)
   // This ensures users without configured beaches still see nearby recommendations
-  const seedDiscoveryLocation =
+  const seedDiscoveryLocation = useMemo(() =>
     geoSource === "browser" &&
     !usingDefaultLocation &&
     geoCoords?.lat != null &&
@@ -184,7 +188,9 @@ export function HomeScreen() {
           homeBeach?.lon != null &&
           isValidCoordinate(homeBeach.lat, homeBeach.lon)
         ? { lat: homeBeach.lat, lon: homeBeach.lon }
-        : DEFAULT_LOCATION;
+        : DEFAULT_LOCATION,
+    [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon]
+  );
 
   // Fetch surf discovery (top recommendation + top spots)
   const {

@@ -1,6 +1,6 @@
-"use client";
-
 import { SEO_CONFIG } from "@/lib/constants/seo";
+import { AMENITY_DISPLAY_MAP } from "@/types/amenities";
+import type { AmenityKey } from "@/types/amenities";
 
 interface StructuredDataProps {
   type?: "organization" | "softwareApplication" | "website" | "all";
@@ -81,6 +81,9 @@ export function HomePageStructuredData() {
   return <StructuredData type="all" customData={homePageData} />;
 }
 
+/** Subset of BeachAmenities boolean flags accepted by BeachPageStructuredData */
+type BeachAmenitiesInput = Partial<Record<AmenityKey, boolean | null>>;
+
 export function BeachPageStructuredData({
   beachName,
   description,
@@ -91,6 +94,7 @@ export function BeachPageStructuredData({
   city,
   state,
   country,
+  amenities,
 }: {
   beachName: string;
   description: string;
@@ -101,7 +105,29 @@ export function BeachPageStructuredData({
   city?: string;
   state?: string;
   country?: string;
+  amenities?: BeachAmenitiesInput | null;
 }) {
+  // Always include the base "Surfing" feature, then append any true amenity flags.
+  const amenityFeatures: Array<{
+    "@type": "LocationFeatureSpecification";
+    name: string;
+    value: boolean;
+  }> = [
+    { "@type": "LocationFeatureSpecification", name: "Surfing", value: true },
+  ];
+
+  if (amenities) {
+    for (const key of Object.keys(AMENITY_DISPLAY_MAP) as AmenityKey[]) {
+      if (amenities[key]) {
+        amenityFeatures.push({
+          "@type": "LocationFeatureSpecification",
+          name: AMENITY_DISPLAY_MAP[key].label,
+          value: true,
+        });
+      }
+    }
+  }
+
   const beachData = {
     "@context": "https://schema.org",
     "@type": ["Place", "SportsActivityLocation"],
@@ -125,14 +151,17 @@ export function BeachPageStructuredData({
     // review policy blocks snippets when the site controls its own reviews.
     // Emitting it only triggers Search Console "Review snippets" errors.
     // See: https://developers.google.com/search/docs/appearance/structured-data/review-snippet
-    amenityFeature: [
-      {
-        "@type": "LocationFeatureSpecification",
-        name: "Surfing",
-        value: true,
-      },
-    ],
+    amenityFeature: amenityFeatures,
   };
 
-  return <StructuredData type="organization" customData={beachData} />;
+  // Only emit the beach Place data — Organization is already in the root layout
+  // via buildRootStructuredDataGraph() in app/layout.tsx.
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(beachData),
+      }}
+    />
+  );
 }

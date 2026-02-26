@@ -1,4 +1,4 @@
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -62,12 +62,22 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
   }
 
   // Use CTR-optimized dynamic metadata (same as hierarchical pages)
+  // SpotPageData uses camelCase (breakType, skillLevel) and lacks wave_tips,
+  // crowd_level, average_rating, review_count — those fields yield undefined (safe fallthrough)
   const { title, description } = buildDynamicBeachMetadata({
     beach: {
       name: spot.name,
       city: spot.city,
       state: spot.state || regionName,
+      break_type: spot.breakType ?? null,
       skill_level: spot.skillLevel || null,
+      description_excerpt: spot.description
+        ? (spot.description.split(/\.(\s|$)/)[0] + ".").trim() || null
+        : null,
+      wave_tips: (spot as any).wave_tips ?? null,
+      crowd_level: (spot as any).crowd_level ?? null,
+      average_rating: (spot as any).average_rating ?? null,
+      review_count: (spot as any).review_count ?? null,
     },
     forecast: forecastData,
   });
@@ -104,40 +114,16 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
 
 export default async function SpotPage(props: SpotPageParams) {
   const params = await props.params;
-  const searchParams = await props.searchParams;
   const { data: spot, dbHasLocation } = await getSpotDataBySlug(params.slug);
   if (!spot) {
     return notFound();
   }
 
-  // 301 Redirect to canonical URL ONLY when DB has complete location data
-  // This ensures redirect behavior matches sitemap URL generation:
-  // - Sitemap uses getBeaches() which only has DB data
-  // - If DB lacks city/state, sitemap emits /spots/{slug} and page should NOT redirect
-  // - If DB has city/state, sitemap emits hierarchical URL and page should redirect
-  // Note: dbHasLocation guarantees non-empty city and state in the DB record
-  if (dbHasLocation && spot.slug) {
-    let canonicalUrl = buildBeachUrl({
-      slug: spot.slug,
-      city: spot.city!,
-      state: spot.state!,
-    });
-
-    // Preserve query parameters on redirect (important for tabs, UTM params, etc.)
-    const queryString = new URLSearchParams();
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === "string") {
-        queryString.set(key, value);
-      } else if (Array.isArray(value)) {
-        value.forEach((v) => queryString.append(key, v));
-      }
-    }
-    if (queryString.toString()) {
-      canonicalUrl = `${canonicalUrl}?${queryString.toString()}`;
-    }
-
-    permanentRedirect(canonicalUrl);
-  }
+  // Canonical redirect is handled by middleware (HTTP 301) for beaches with complete
+  // location data in the DB. If the middleware DB lookup timed out or failed, this page
+  // renders normally at /spots/{slug} — the generateMetadata canonical still points to
+  // the hierarchical URL, so crawlers receive the correct canonical signal.
+  // See: middleware.ts — /spots/{slug} intercept block.
 
   // Get city name from spot data (database-driven)
   const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";

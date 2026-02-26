@@ -31,6 +31,7 @@ import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
 
 // Force dynamic rendering - database calls use no-store fetch
 // Note: revalidate is not used with force-dynamic; caching is handled by the database layer
@@ -200,46 +201,40 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
       />
 
       {/* JSON-LD for WebPage */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            name: region.title,
-            description: region.metaDescription,
-            url: `${baseUrl}/forecast/${region.slug}`,
-            breadcrumb: {
-              "@type": "BreadcrumbList",
-              itemListElement: [
-                {
-                  "@type": "ListItem",
-                  position: 1,
-                  name: "Quiver",
-                  item: baseUrl,
-                },
-                {
-                  "@type": "ListItem",
-                  position: 2,
-                  name: "Surf Forecast",
-                  item: `${baseUrl}/forecast`,
-                },
-                {
-                  "@type": "ListItem",
-                  position: 3,
-                  name: region.name,
-                  item: `${baseUrl}/forecast/${region.slug}`,
-                },
-              ],
-            },
-            publisher: {
-              "@type": "Organization",
-              name: "Quiver Surf",
-              url: baseUrl,
-            },
-            datePublished: today.toISOString(),
-            dateModified: today.toISOString(),
-          }),
+      <WebPageSchema
+        name={region.title}
+        url={`${baseUrl}/forecast/${region.slug}`}
+        description={region.metaDescription}
+        additionalData={{
+          breadcrumb: {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Quiver",
+                item: baseUrl,
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Surf Forecast",
+                item: `${baseUrl}/forecast`,
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: region.name,
+                item: `${baseUrl}/forecast/${region.slug}`,
+              },
+            ],
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Quiver Surf",
+            url: baseUrl,
+          },
+          datePublished: today.toISOString(),
         }}
       />
 

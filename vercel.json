@@ -115,6 +115,30 @@
     {
       "path": "/api/cron/first-session-nudge",
       "schedule": "30 */6 * * *"
+    },
+    {
+      "path": "/api/cron/ccc-sync?phase=import",
+      "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/ccc-sync?phase=match",
+      "schedule": "0 7 1 * *"
+    },
+    {
+      "path": "/api/cron/water-quality-sync?phase=stations",
+      "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/water-quality-sync?phase=samples",
+      "schedule": "0 12 * * 2,5"
+    },
+    {
+      "path": "/api/cron/water-quality-sync?phase=evaluate",
+      "schedule": "30 12 * * 2,5"
+    },
+    {
+      "path": "/api/cron/water-quality-alerts",
+      "schedule": "0 13 * * 2,5"
     }
   ]
 }

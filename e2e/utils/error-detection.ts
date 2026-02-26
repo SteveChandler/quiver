@@ -326,6 +326,7 @@ function isIgnorableConsoleError(text: string): boolean {
     'Minified React error #425',
     'Hydration failed',
     'hydrating',
+    'A tree hydrated but',
 
     // Image loading (handled gracefully)
     'Image optimization',

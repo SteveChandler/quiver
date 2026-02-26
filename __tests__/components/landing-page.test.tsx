@@ -40,8 +40,8 @@ jest.mock("@/components/landing-page/cta-section", () => ({
   CTASection: () => <div data-testid="cta-section">CTA Section</div>,
 }));
 
-jest.mock("@/components/landing-page/footer-section", () => ({
-  FooterSection: () => <div data-testid="footer-section">Footer Section</div>,
+jest.mock("@/components/shared/site-footer", () => ({
+  SiteFooter: () => <div data-testid="footer-section">Footer Section</div>,
 }));
 
 describe("LandingPage", () => {

@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -94,6 +89,87 @@ export type Database = {
           xp_reward?: number
         }
         Relationships: []
+      }
+      beach_amenity_sources: {
+        Row: {
+          beach_id: string
+          ccc_location_id: string
+          created_at: string
+          distance_m: number
+          id: string
+        }
+        Insert: {
+          beach_id: string
+          ccc_location_id: string
+          created_at?: string
+          distance_m: number
+          id?: string
+        }
+        Update: {
+          beach_id?: string
+          ccc_location_id?: string
+          created_at?: string
+          distance_m?: number
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_ccc_location_id_fkey"
+            columns: ["ccc_location_id"]
+            isOneToOne: false
+            referencedRelation: "ccc_access_locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       beach_daily_intel: {
         Row: {
@@ -1042,6 +1118,111 @@ export type Database = {
           },
         ]
       }
+      beach_water_quality: {
+        Row: {
+          beach_id: string
+          exceedance_count_30d: number
+          id: string
+          latest_enterococcus: number | null
+          latest_fecal_coliform: number | null
+          latest_sample_date: string | null
+          monitoring_station_id: string | null
+          previous_status: string | null
+          status: string
+          status_changed_at: string | null
+          status_reason: string | null
+          total_samples_30d: number
+          updated_at: string
+        }
+        Insert: {
+          beach_id: string
+          exceedance_count_30d?: number
+          id?: string
+          latest_enterococcus?: number | null
+          latest_fecal_coliform?: number | null
+          latest_sample_date?: string | null
+          monitoring_station_id?: string | null
+          previous_status?: string | null
+          status?: string
+          status_changed_at?: string | null
+          status_reason?: string | null
+          total_samples_30d?: number
+          updated_at?: string
+        }
+        Update: {
+          beach_id?: string
+          exceedance_count_30d?: number
+          id?: string
+          latest_enterococcus?: number | null
+          latest_fecal_coliform?: number | null
+          latest_sample_date?: string | null
+          monitoring_station_id?: string | null
+          previous_status?: string | null
+          status?: string
+          status_changed_at?: string | null
+          status_reason?: string | null
+          total_samples_30d?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: true
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_water_quality_monitoring_station_id_fkey"
+            columns: ["monitoring_station_id"]
+            isOneToOne: false
+            referencedRelation: "wq_monitoring_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beaches: {
         Row: {
           access_tips: string | null
@@ -1549,6 +1730,96 @@ export type Database = {
           wind_direction?: number | null
           wind_gust?: number | null
           wind_speed?: number | null
+        }
+        Relationships: []
+      }
+      ccc_access_locations: {
+        Row: {
+          ccc_id: number
+          county: string | null
+          geog: unknown
+          has_ada_access: boolean
+          has_bike_path: boolean
+          has_bluff_trail: boolean
+          has_boating: boolean
+          has_campground: boolean
+          has_dog_friendly: boolean
+          has_fee: boolean
+          has_fishing: boolean
+          has_parking: boolean
+          has_picnic_area: boolean
+          has_restrooms: boolean
+          has_rocky_shore: boolean
+          has_sandy_beach: boolean
+          has_stroller_friendly: boolean
+          has_tidepools: boolean
+          has_visitor_center: boolean
+          has_volleyball: boolean
+          has_wildlife_viewing: boolean
+          id: string
+          lat: number
+          lon: number
+          name: string
+          raw_data: Json | null
+          synced_at: string
+        }
+        Insert: {
+          ccc_id: number
+          county?: string | null
+          geog?: unknown
+          has_ada_access?: boolean
+          has_bike_path?: boolean
+          has_bluff_trail?: boolean
+          has_boating?: boolean
+          has_campground?: boolean
+          has_dog_friendly?: boolean
+          has_fee?: boolean
+          has_fishing?: boolean
+          has_parking?: boolean
+          has_picnic_area?: boolean
+          has_restrooms?: boolean
+          has_rocky_shore?: boolean
+          has_sandy_beach?: boolean
+          has_stroller_friendly?: boolean
+          has_tidepools?: boolean
+          has_visitor_center?: boolean
+          has_volleyball?: boolean
+          has_wildlife_viewing?: boolean
+          id?: string
+          lat: number
+          lon: number
+          name: string
+          raw_data?: Json | null
+          synced_at?: string
+        }
+        Update: {
+          ccc_id?: number
+          county?: string | null
+          geog?: unknown
+          has_ada_access?: boolean
+          has_bike_path?: boolean
+          has_bluff_trail?: boolean
+          has_boating?: boolean
+          has_campground?: boolean
+          has_dog_friendly?: boolean
+          has_fee?: boolean
+          has_fishing?: boolean
+          has_parking?: boolean
+          has_picnic_area?: boolean
+          has_restrooms?: boolean
+          has_rocky_shore?: boolean
+          has_sandy_beach?: boolean
+          has_stroller_friendly?: boolean
+          has_tidepools?: boolean
+          has_visitor_center?: boolean
+          has_volleyball?: boolean
+          has_wildlife_viewing?: boolean
+          id?: string
+          lat?: number
+          lon?: number
+          name?: string
+          raw_data?: Json | null
+          synced_at?: string
         }
         Relationships: []
       }
@@ -3264,6 +3535,7 @@ export type Database = {
           notif_push_enabled: boolean
           notif_reminders: boolean
           notif_session_invites: boolean
+          notif_water_quality: boolean
           notif_xp_updates: boolean
           onboarding_completed_at: string | null
           personality_type: string | null
@@ -3312,6 +3584,7 @@ export type Database = {
           notif_push_enabled?: boolean
           notif_reminders?: boolean
           notif_session_invites?: boolean
+          notif_water_quality?: boolean
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
           personality_type?: string | null
@@ -3360,6 +3633,7 @@ export type Database = {
           notif_push_enabled?: boolean
           notif_reminders?: boolean
           notif_session_invites?: boolean
+          notif_water_quality?: boolean
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
           personality_type?: string | null
@@ -5273,6 +5547,154 @@ export type Database = {
         }
         Relationships: []
       }
+      wq_monitoring_stations: {
+        Row: {
+          active: boolean
+          county: string | null
+          distance_to_beach_m: number | null
+          geog: unknown
+          id: string
+          last_sample_at: string | null
+          lat: number
+          lon: number
+          name: string
+          nearest_beach_id: string | null
+          org_id: string | null
+          org_name: string | null
+          state: string | null
+          station_id: string
+          synced_at: string
+        }
+        Insert: {
+          active?: boolean
+          county?: string | null
+          distance_to_beach_m?: number | null
+          geog?: unknown
+          id?: string
+          last_sample_at?: string | null
+          lat: number
+          lon: number
+          name: string
+          nearest_beach_id?: string | null
+          org_id?: string | null
+          org_name?: string | null
+          state?: string | null
+          station_id: string
+          synced_at?: string
+        }
+        Update: {
+          active?: boolean
+          county?: string | null
+          distance_to_beach_m?: number | null
+          geog?: unknown
+          id?: string
+          last_sample_at?: string | null
+          lat?: number
+          lon?: number
+          name?: string
+          nearest_beach_id?: string | null
+          org_id?: string | null
+          org_name?: string | null
+          state?: string | null
+          station_id?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "wq_monitoring_stations_nearest_beach_id_fkey"
+            columns: ["nearest_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
+      wq_samples: {
+        Row: {
+          characteristic: string
+          created_at: string | null
+          detection_condition: string | null
+          id: string
+          raw_data: Json | null
+          sample_date: string
+          station_id: string
+          unit: string | null
+          value: number | null
+        }
+        Insert: {
+          characteristic: string
+          created_at?: string | null
+          detection_condition?: string | null
+          id?: string
+          raw_data?: Json | null
+          sample_date: string
+          station_id: string
+          unit?: string | null
+          value?: number | null
+        }
+        Update: {
+          characteristic?: string
+          created_at?: string | null
+          detection_condition?: string | null
+          id?: string
+          raw_data?: Json | null
+          sample_date?: string
+          station_id?: string
+          unit?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wq_samples_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "wq_monitoring_stations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xp_events: {
         Row: {
           action: string
@@ -5465,6 +5887,82 @@ export type Database = {
           type?: string | null
         }
         Relationships: []
+      }
+      mv_beach_amenities: {
+        Row: {
+          beach_id: string | null
+          has_ada_access: boolean | null
+          has_bike_path: boolean | null
+          has_bluff_trail: boolean | null
+          has_boating: boolean | null
+          has_campground: boolean | null
+          has_dog_friendly: boolean | null
+          has_fee: boolean | null
+          has_fishing: boolean | null
+          has_parking: boolean | null
+          has_picnic_area: boolean | null
+          has_restrooms: boolean | null
+          has_rocky_shore: boolean | null
+          has_sandy_beach: boolean | null
+          has_stroller_friendly: boolean | null
+          has_tidepools: boolean | null
+          has_visitor_center: boolean | null
+          has_volleyball: boolean | null
+          has_wildlife_viewing: boolean | null
+          nearest_source_m: number | null
+          source_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_amenity_sources_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
       }
       observable_beaches: {
         Row: {
@@ -6435,6 +6933,7 @@ export type Database = {
           country: string
           has_advanced: boolean
           has_beginner: boolean
+          has_editorial: boolean
           state: string
         }[]
       }
@@ -6937,6 +7436,7 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      refresh_mv_beach_amenities: { Args: never; Returns: undefined }
       refresh_observable_beaches: { Args: never; Returns: undefined }
       restore_entity: {
         Args: { entity_id: string; table_name: string }

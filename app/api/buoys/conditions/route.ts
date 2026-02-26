@@ -59,20 +59,20 @@ async function conditionsHandler(request: NextRequest) {
       });
     }
 
-    if (!buoys) {
+    if (!buoys || buoys.length === 0) {
       return NextResponse.json(
         { error: "No active buoy found for location" },
         { status: 404 }
       );
     }
 
-    const buoy = buoys;
+    const buoy = buoys[0];
 
     // Transform to match Ruby controller JSON format
     const buoyJson = {
       id: buoy.buoy_uuid,
-      latitude: buoy.coordinates ? parseFloat(buoy.coordinates.coordinates[1]) : 0,
-      longitude: buoy.coordinates ? parseFloat(buoy.coordinates.coordinates[0]) : 0,
+      latitude: buoy.coordinates ? (buoy.coordinates as { coordinates: number[] }).coordinates[1] : 0,
+      longitude: buoy.coordinates ? (buoy.coordinates as { coordinates: number[] }).coordinates[0] : 0,
       name: buoy.buoy_name || buoy.buoy_uuid || "Unknown Buoy",
       distance_meters: buoy.distance_meters,
       measurements: {

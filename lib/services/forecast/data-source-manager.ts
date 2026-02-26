@@ -389,7 +389,7 @@ export class ForecastDataSourceManager {
     // Group by station, keep only most recent per station
     const result = new Map<string, typeof data[0]>();
     for (const row of data || []) {
-      if (!result.has(row.station_id)) {
+      if (row.station_id && !result.has(row.station_id)) {
         result.set(row.station_id, row);
       }
     }
@@ -565,7 +565,7 @@ export class ForecastDataSourceManager {
             water_temp_c: liveObs.waterTempC,
             wind_speed_ms: liveObs.windSpeedMS,
             wind_direction_deg: liveObs.windDirectionDeg,
-            raw_data: liveObs.raw,
+            raw_data: liveObs.raw as any,
           }, {
             onConflict: "station_id,observed_at",
             ignoreDuplicates: true,

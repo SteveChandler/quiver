@@ -342,6 +342,11 @@ const ALLOWED_CONSOLE_PATTERNS = [
   /getFreshForecastFromCache/,
   /\[EnhancedForecastService\]/,
   /Network request returned null/,
+
+  // ── Supabase client initialization (CI has no env vars) ──
+  /\[createServerClient\] Supabase configuration missing/,
+  /\[createServiceRoleClient\] Supabase service role configuration missing/,
+  /Supabase URL or Anon Key is missing/,
 ];
 
 function isAllowed(args) {

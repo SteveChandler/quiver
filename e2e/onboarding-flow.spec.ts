@@ -39,7 +39,7 @@ test.describe("Onboarding - close + view full forecast", () => {
     await expect(dialog).toBeVisible({ timeout: TIMEOUTS.long });
 
     // Confirm first step (Home Beach) is visible.
-    await expect(page.getByText(/where do you usually surf/i)).toBeVisible({
+    await expect(page.getByText(/your daily surf report starts here/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 
@@ -51,7 +51,7 @@ test.describe("Onboarding - close + view full forecast", () => {
     // Re-open and run through steps.
     await page.goto("/?showOnboarding=1&debugOnboarding=1");
     await waitForPageLoad(page);
-    await expect(page.getByText(/where do you usually surf/i)).toBeVisible({
+    await expect(page.getByText(/your daily surf report starts here/i)).toBeVisible({
       timeout: TIMEOUTS.long,
     });
 
@@ -71,8 +71,9 @@ test.describe("Onboarding - close + view full forecast", () => {
     await expect(page.getByTestId("level-and-time-step")).toBeVisible({
       timeout: TIMEOUTS.long,
     });
-    await page.getByText("Intermediate").click();
-    await page.getByRole("button", { name: /continue/i }).click();
+    const levelStep = page.getByTestId("level-and-time-step");
+    await levelStep.getByText("Intermediate").click();
+    await levelStep.getByRole("button", { name: /continue/i }).click();
 
     // Step 3: Payoff
     await expect(page.getByTestId("payoff-step")).toBeVisible({
@@ -82,13 +83,14 @@ test.describe("Onboarding - close + view full forecast", () => {
     // Debug harness bypasses save and should navigate to home page.
     await page.getByTestId("complete-onboarding-button").click();
 
-    // Wait for navigation to home page (may or may not have tab param depending on UI version)
-    await page.waitForURL(/^\/$|\?tab=/, { timeout: TIMEOUTS.long });
+    // After completing onboarding, router.push does a soft navigation.
+    // Wait for the dialog to close and home page content to appear.
+    await expect(page.getByRole("dialog")).toBeHidden({ timeout: TIMEOUTS.long });
 
     // Home screen content should be present - check for new UI elements
     // The home page now uses a time slot filter instead of tabs
     const timeSlotFilter = page.getByRole('radiogroup', { name: /time slot filter/i });
-    const hasTimeSlotFilter = await isVisibleSafe(timeSlotFilter, { timeout: TIMEOUTS.medium });
+    const hasTimeSlotFilter = await isVisibleSafe(timeSlotFilter, { timeout: TIMEOUTS.long });
 
     if (hasTimeSlotFilter) {
       // New UI with time slot filter

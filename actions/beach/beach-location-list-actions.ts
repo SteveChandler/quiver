@@ -162,7 +162,7 @@ export async function getLocationPageData(
         stateName: state,
         countryName: country,
         totalBeaches: stats[0]?.total_beaches || beaches.length,
-        averageRating: parseFloat(stats[0]?.average_rating || "0"),
+        averageRating: parseFloat(String(stats[0]?.average_rating ?? 0)),
         totalReviews: stats[0]?.total_reviews || 0,
         topBeaches: stats[0]?.top_beaches || 0,
       };
@@ -361,7 +361,7 @@ export async function getLocationPageData(
           );
         }
 
-        averageRating = parseFloat(stats[0]?.average_rating || "0");
+        averageRating = parseFloat(String(stats[0]?.average_rating ?? 0));
         totalReviews = stats[0]?.total_reviews || 0;
         topBeaches = stats[0]?.top_beaches || 0;
       }

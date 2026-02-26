@@ -8,6 +8,7 @@ The beach detail components create a comprehensive beach profile page with forec
 
 ```
 components/beach-detail/
+├── amenities-badges.tsx         # Data-driven CCC amenity badges (grouped by category)
 ├── beach-header.tsx          # Sticky navigation header with back button
 ├── beach-hero.tsx            # Hero section with map image and beach info
 ├── beach-quick-actions.tsx   # Plan/Log session buttons + favorite
@@ -15,6 +16,7 @@ components/beach-detail/
 ├── hls-video-player.tsx      # HLS video playback via hls.js / native
 ├── (deleted: todays-forecast.tsx — superseded by ConditionsTicker)
 ├── recent-sessions-section.tsx # Community sessions display
+├── water-quality-badge.tsx      # EPA water quality status badge (expandable)
 └── ...                       # Additional components for tabs and features
 ```
 
@@ -37,11 +39,23 @@ BeachDetailPage
 ├── BeachQuickActions (CTAs)
 ├── CamsSection (live camera feed)
 │   └── HLSVideoPlayer (dynamic import, SSR disabled)
+├── AmenitiesBadges (CCC amenity data)
+├── WaterQualityBadge (EPA water quality status)
 ├── TodaysForecast (forecast data)
 ├── RecentSessionsSection (social content)
 ```
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
+
+### **AmenitiesBadges**
+
+- **Purpose**: Renders data-driven amenity badges from CCC Coastal Commission data
+- **Props**: `amenities: BeachAmenities | Partial<BeachAmenities> | null`
+- **Features**:
+  - Groups active flags by category (Access, Facilities, Recreation, Terrain)
+  - Shows distance to nearest source
+  - Falls back to keyword-derived data for non-CA beaches
+- **Data Source**: `mv_beach_amenities` materialized view (SSR)
 
 ### **BeachHeader**
 
@@ -113,6 +127,17 @@ BeachDetailPage
   - Forecast calibration integration
   - Wave height, wind, water temp display
   - Fallback for missing data
+
+### **WaterQualityBadge**
+
+- **Purpose**: Displays EPA water quality status with expandable details
+- **Props**: `waterQuality: WaterQuality | null`
+- **Features**:
+  - Color-coded status (green/amber/red)
+  - Expandable details with sample data
+  - EPA source link
+  - Renders nothing for unknown/null status
+- **Data Source**: `beach_water_quality` table (SSR)
 
 ## 🔄 **DATA INTEGRATION**
 
@@ -311,6 +336,6 @@ const colorSchemes = {
 
 ---
 
-**Last Updated**: February 2025
-**Status**: Production-ready with comprehensive forecast, community features, and live HLS cam playback
+**Last Updated**: February 2026
+**Status**: Production-ready with comprehensive forecast, community features, live HLS cam playback, CCC amenities, and EPA water quality
 **Next Review**: After social sharing implementation

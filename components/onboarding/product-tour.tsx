@@ -146,7 +146,7 @@ function TourCard({
           )}
           <Button
             onClick={currentStep === totalSteps - 1 ? close : nextStep}
-            className="flex-1 bg-ocean-blue hover:bg-ocean-blue-dark"
+            className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
           >
             {currentStep === totalSteps - 1 ? "Finish Tour" : "Next"}
           </Button>

@@ -226,7 +226,10 @@ async function getLocationRoutes(): Promise<MetadataRoute.Sitemap> {
  *
  * IMPORTANT: Filters out:
  * 1. Skill-based intent pages (beginner, longboard) for cities without matching beaches
- * 2. Cities with fewer than 3 beaches (thin content)
+ * 2. Cities with fewer than 2 beaches (thin content)
+ * 3. Cities with exactly 2 beaches that lack editorial quality content
+ *    (editorial quality = description + at least one of crowd_tips/wave_tips/best_conditions_prose
+ *     on both beaches). Cities with 3+ beaches are included without this extra guard.
  *
  * This prevents empty or thin intent pages from being included in the sitemap.
  */
@@ -240,22 +243,42 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
 
   const routes: MetadataRoute.Sitemap = [];
 
+  // Track which states have beginner/longboard beaches (derived from city data below).
+  // When city data is unavailable (fetch fails or empty), we fail-open: include all
+  // state-level routes rather than accidentally removing indexed pages from the sitemap.
+  const statesWithBeginnerBeaches = new Set<string>();
+  let cityDataAvailable = false;
+
   // City-level intent pages (database-driven)
   try {
     const citiesResult = await getAllCitiesWithBeachSkills(1);
-    if (citiesResult.success && citiesResult.data) {
+    if (citiesResult.success && citiesResult.data && citiesResult.data.length > 0) {
+      cityDataAvailable = true;
+
       // Filter to US-only cities (non-US cities lack state codes for disambiguation)
       const usCities = citiesResult.data.filter(
         (c) => c.country?.toUpperCase() === "USA" || c.country?.toUpperCase() === "US"
       );
       const collisionMap = COLLISION_CITY_MAP;
 
+      // Derive which states have beginner/longboard beaches for state-level filtering below
+      for (const c of usCities) {
+        if (c.hasBeginnerBeaches && c.state) {
+          statesWithBeginnerBeaches.add(c.state.toLowerCase());
+        }
+      }
+
       for (const cityRecord of usCities) {
         const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
         if (!citySlug) continue;
 
-        // Filter out cities with fewer than 3 beaches (thin content)
-        if (cityRecord.beachCount < 3) continue;
+        // Filter out cities with fewer than 2 beaches (thin content)
+        if (cityRecord.beachCount < 2) continue;
+
+        // For cities with exactly 2 beaches, require editorial quality content
+        // (description + at least one editorial field on both beaches).
+        // Cities with 3+ beaches have sufficient content depth without this check.
+        if (cityRecord.beachCount === 2 && !cityRecord.hasEditorialContent) continue;
 
         for (const intent of intents) {
           // Filter skill-based intents to cities with matching beaches.
@@ -282,9 +305,17 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
   // State-level intent pages for major US surf markets and territories.
   // This is a curated subset (not all coastal states) focusing on states/territories with
   // significant surf communities: CA, HI, FL (Tier 1), plus East Coast, PNW, TX (Tier 2), and PR (territory).
+  //
+  // Skill-based intents (beginner, longboard) are filtered per-state using the city data
+  // already fetched above, preventing empty/thin pages from entering the sitemap.
   const usStates = ["ca", "or", "wa", "hi", "pr", "fl", "nj", "ny", "nc", "sc", "tx", "ma", "me", "nh", "ri", "ga"];
   for (const state of usStates) {
     for (const intent of intents) {
+      // Skip skill-based intents for states with no matching beaches.
+      // Fail-open: if city data was unavailable, include all routes to avoid
+      // removing indexed pages from the sitemap.
+      if (cityDataAvailable && BEGINNER_INTENTS.has(intent) && !statesWithBeginnerBeaches.has(state)) continue;
+
       routes.push({
         url: `${baseUrl}/${intent}/${state}`,
         lastModified: intentTemplateDate,
@@ -375,7 +406,8 @@ function getCamRoutes(): MetadataRoute.Sitemap {
 
 /**
  * Best-time-to-surf city pages.
- * Only includes cities with >= 3 beaches that have best_months data.
+ * Only includes cities with >= 2 beaches that have best_months data.
+ * The threshold was lowered from 3 to 2 to expand coverage to smaller high-quality markets.
  */
 async function getBestTimeToSurfRoutes(): Promise<MetadataRoute.Sitemap> {
   const bestTimeDate = "2026-02-12";

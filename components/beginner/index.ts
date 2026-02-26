@@ -7,5 +7,4 @@ export { SeasonalGuide } from "./SeasonalGuide";
 export { SafetyEssentials } from "./SafetyEssentials";
 export { GearAndLessons } from "./GearAndLessons";
 export { SessionGallery } from "./SessionGallery";
-export { BeginnerFAQ } from "./BeginnerFAQ";
 export { SectionFadeUp } from "./SectionFadeUp";

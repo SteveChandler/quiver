@@ -90,7 +90,7 @@ describe("LandingConditionsTicker", () => {
       expect(screen.getAllByText("5-7ft").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("61\u00B0F").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Blacks Beach/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Blacks Beach/ })).toBeInTheDocument();
   });
 
   it("returns null when no top beaches available", async () => {

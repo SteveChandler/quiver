@@ -3,6 +3,7 @@ import {
   createBrowserClient as createSupabaseBrowserClient,
   createServerClient as createSupabaseServerClient,
 } from "@supabase/ssr";
+import type { Database } from "@/types/database.generated";
 
 /**
  * Create a fetch wrapper that forces "no-store" semantics.
@@ -53,7 +54,7 @@ const createBrowserClient = () => {
     } as any;
   }
 
-  return createSupabaseBrowserClient(supabaseUrl, supabaseAnonKey, {
+  return createSupabaseBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
@@ -125,7 +126,7 @@ export const createServerClient = async () => {
   if (cookieStore && typeof cookieStore.getAll === "function") {
     try {
       const noStoreFetch = createNoStoreFetch(globalThis.fetch);
-      return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+      return createSupabaseServerClient<Database>(supabaseUrl, supabaseAnonKey, {
         global: {
           fetch: noStoreFetch as any,
         },
@@ -153,7 +154,7 @@ export const createServerClient = async () => {
 
   // Fallback if cookies are not available or SSR client creation failed
   const noStoreFetch = createNoStoreFetch(globalThis.fetch);
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -164,8 +165,14 @@ export const createServerClient = async () => {
   });
 };
 
-// Create a server client with service role for admin operations
+// Singleton: service-role clients are stateless (no user session, persistSession: false,
+// autoRefreshToken: false) — safe to reuse across requests. PostgREST query builders
+// are independent per .from() call. This prevents ~400 never-disposed clients per E2E run.
+let _serviceRoleClient: ReturnType<typeof createClient<Database>> | null = null;
+
 export const createServiceRoleClient = () => {
+  if (_serviceRoleClient) return _serviceRoleClient;
+
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
@@ -179,7 +186,7 @@ export const createServiceRoleClient = () => {
   }
 
   const noStoreFetch = createNoStoreFetch(globalThis.fetch);
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  _serviceRoleClient = createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -189,4 +196,6 @@ export const createServiceRoleClient = () => {
       fetch: noStoreFetch as any,
     },
   });
+
+  return _serviceRoleClient;
 };

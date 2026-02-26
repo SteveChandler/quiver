@@ -117,7 +117,7 @@ export async function createIntelPost(
 
       const { data: recentIntel, error: recentIntelError } = await supabase
         .from("intel_posts")
-        .select("id, title, description, lat, lon, created_at")
+        .select("id, title, description, latitude, longitude, created_at")
         .eq("user_id", user.id)
         .eq("tag", tag)
         .eq("beach_id", normalizedBeachId)
@@ -140,8 +140,8 @@ export async function createIntelPost(
             beachId: normalizedBeachId,
             title: existing.title,
             description: existing.description,
-            latitude: existing.lat,
-            longitude: existing.lon,
+            latitude: existing.latitude,
+            longitude: existing.longitude,
           });
           return existingHash === dedupeHash;
         });
@@ -231,7 +231,7 @@ export async function createIntelPost(
           forecast_accuracy: forecast_accuracy ?? null,
         };
 
-        const { data: fallbackReport, error: fallbackError } = await supabase
+        const { data: fallbackReport, error: fallbackError } = await (supabase as any)
           .from("condition_reports")
           .insert(conditionPayload)
           .select("id")

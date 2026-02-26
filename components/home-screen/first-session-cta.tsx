@@ -45,7 +45,7 @@ export function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
       {/* Heading */}
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-orange-400 shrink-0" />
-        <h2 className="text-base sm:text-lg font-semibold text-white">
+        <h2 className="text-base sm:text-lg font-roboto font-semibold text-white">
           Log your first session
         </h2>
       </div>
@@ -61,7 +61,7 @@ export function FirstSessionCta({ onLogSession }: FirstSessionCtaProps) {
         whileTap={reducedMotion ? undefined : HOME_HEADER_MOTION.button.tap}
         whileHover={reducedMotion ? undefined : HOME_HEADER_MOTION.button.hover}
         transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.button.spring}
-        className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-gradient-to-b from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 active:from-orange-600 active:to-orange-800 text-white font-semibold text-sm sm:text-base shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 flex items-center justify-center"
+        className="w-full h-12 sm:h-14 min-h-[44px] rounded-full bg-gradient-to-b from-ocean-blue to-blue-600 hover:from-[#006da6] hover:to-blue-700 active:from-[#005f91] active:to-blue-800 text-white font-semibold text-sm sm:text-base shadow-sm hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 flex items-center justify-center"
         aria-label="Log your first surf session"
         data-testid="first-session-cta-button"
       >

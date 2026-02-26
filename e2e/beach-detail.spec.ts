@@ -63,12 +63,14 @@ test.describe('Beach Detail Page', () => {
   });
 
   test('should display forecast information', async ({ page }) => {
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for forecast data to load
-    await page.waitForTimeout(3000);
+    // Click Forecast tab (Overview tab is active by default and doesn't show wave data)
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
+    await forecastTab.click();
+    await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Should show wave height or forecast data
-    const forecast = page.getByText(/ft|wave|swell|forecast/i).first();
-    await expect(forecast).toBeVisible({ timeout: 15000 });
+    // Today sub-tab is active by default - shows "Current Conditions" heading
+    const currentConditions = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
+    await expect(currentConditions).toBeVisible({ timeout: 15000 });
   });
 
   test('should have functional action buttons', async ({ page }) => {
@@ -211,12 +213,9 @@ test.describe('Beach Detail - Forecast Tab', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toHaveAttribute('data-state', 'inactive');
 
-    // Should show forecast data in tabpanel
-    const forecastContent = page.getByRole('tabpanel');
-    await expect(forecastContent).toBeVisible();
-
-    const forecastData = page.getByText(/wave|swell|wind|tide/i).first();
-    await expect(forecastData).toBeVisible({ timeout: 10000 });
+    // Today sub-tab should be active by default with "Current Conditions" heading
+    const currentConditions = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
+    await expect(currentConditions).toBeVisible({ timeout: 15000 });
   });
 
   test('should switch between all tabs correctly', async ({ page }) => {
@@ -255,14 +254,23 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await expect(overviewTab).toHaveAttribute('data-state', 'active');
   });
 
-  test('should display tides if available', async ({ page }) => {
-    // Look for tide information
-    const tideInfo = page.getByText(/tide|high tide|low tide/i).first();
-    const hasTide = await isVisibleSafe(tideInfo);
+  test('should display tides on forecast tab', async ({ page }) => {
+    // Click Forecast tab (Overview is active by default and has no tide data)
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
+    await forecastTab.click();
+    await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    if (!hasTide) {
-      test.skip(true, 'Tide information not visible on this beach page');
-      return;
-    }
+    // Today sub-tab shows "Current Tide" card
+    const currentTide = page.getByText(/Current Tide/i).first();
+    await expect(currentTide).toBeVisible({ timeout: 15000 });
+
+    // Switch to Tides sub-tab for the full tide chart
+    const tidesSubTab = page.getByRole('tab', { name: /tides/i });
+    await tidesSubTab.click();
+    await expect(tidesSubTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
+
+    // Tides sub-tab renders a Surf Terminal iframe
+    const tideIframe = page.locator('iframe[src*="/embed/surf-terminal/"]');
+    await expect(tideIframe).toBeVisible({ timeout: 15000 });
   });
 });

@@ -249,7 +249,7 @@ describe("getNearbyIntelPosts", () => {
 
     expect(mockServiceRoleClient.rpc).toHaveBeenCalledWith(
       "get_nearby_intel_posts",
-      expect.objectContaining({ tag_filter: null })
+      expect.objectContaining({ tag_filter: undefined })
     );
   });
 

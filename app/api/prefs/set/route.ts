@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
   const supabase = createSupabaseServiceRoleClient();
   const { error } = await supabase
     .from('user_email_prefs')
-    .upsert(updates, { onConflict: 'user_id' });
+    .upsert(updates as any, { onConflict: 'user_id' });
 
   if (error) {
     console.error('Failed to update email prefs:', error);

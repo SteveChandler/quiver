@@ -11,9 +11,9 @@ import {
   ArrowRight,
   CalendarDays,
 } from "lucide-react";
-import { slugifyAscii } from "@/lib/utils/text-utils";
 import { stateToSlug, buildCityUrl } from "@/lib/utils/beach-url-utils";
-import { getIntentSlug } from "@/lib/utils/slug-helpers";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
+import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import type { Beach } from "@/types/database";
 
 const INTENT_GUIDES = [
@@ -82,17 +82,14 @@ export function RelatedGuidesSection({
     return null;
   }
 
-  // Build city slug - use existing slug or create from city name
-  const citySlug = slugifyAscii(beach.city);
-  if (!citySlug) {
+  // Build collision-aware city slug for intent page links.
+  // Simple cities: "San Diego" → "san-diego"
+  // Collision cities: "Newport, OR" → "newport-or" (avoids ambiguity with Newport, CA etc.)
+  const stateSlug = stateToSlug(beach.state);
+  const intentSlug = buildCitySlug(beach.city, stateSlug || beach.state || "", COLLISION_CITY_MAP);
+  if (!intentSlug) {
     return null;
   }
-
-  // Use collision-aware slug for intent pages
-  // Simple cities like "San Diego" become "san-diego"
-  // Common names like "Newport" that exist in multiple states get state suffix: "newport-ca"
-  const stateSlug = stateToSlug(beach.state);
-  const intentSlug = getIntentSlug(citySlug, stateSlug) || citySlug;
 
   return (
     <section className={`${className}`}>

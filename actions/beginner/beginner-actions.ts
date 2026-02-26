@@ -48,7 +48,9 @@ async function findTopBeginnerBeach(
     )
     .eq("state", normalizedState)
     .or("is_private.is.null,is_private.eq.false")
-    .or("skill_level.ilike.%beginner%,skill_level.ilike.%longboard%")
+    // lower-intermediate is included as it represents the most accessible level
+    // above strict beginner — consistent with has_beginner flag in the RPC
+    .or("skill_level.ilike.%beginner%,skill_level.ilike.%longboard%,skill_level.eq.lower-intermediate")
     .order("average_rating", { ascending: false, nullsFirst: false })
     .limit(1);
 
@@ -311,7 +313,7 @@ export async function getBeginnerBeachesWithEditorial(
       .from("beaches")
       .select(
         `
-        id, name, slug, average_rating, review_count, skill_level, break_type,
+        id, name, slug, city, state, average_rating, review_count, skill_level, break_type,
         beach_editorial_content!left ( content_type, content )
       `
       )
@@ -320,7 +322,9 @@ export async function getBeginnerBeachesWithEditorial(
       )
       .eq("state", normalizedState)
       .or("is_private.is.null,is_private.eq.false")
-      .or("skill_level.ilike.%beginner%,skill_level.ilike.%longboard%")
+      // lower-intermediate is included as it represents the most accessible level
+      // above strict beginner — consistent with has_beginner flag in the RPC
+      .or("skill_level.ilike.%beginner%,skill_level.ilike.%longboard%,skill_level.eq.lower-intermediate")
       .order("average_rating", { ascending: false, nullsFirst: false });
 
     if (error || !beaches || beaches.length === 0) return [];
@@ -375,6 +379,8 @@ export async function getBeginnerBeachesWithEditorial(
         id: beach.id,
         name: beach.name,
         slug: beach.slug ?? "",
+        city: beach.city ?? null,
+        state: beach.state ?? null,
         rating: beach.average_rating ?? 0,
         reviewCount: beach.review_count ?? 0,
         skillLevel: beach.skill_level ?? "beginner",

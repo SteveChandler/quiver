@@ -39,7 +39,7 @@ export async function getBeachReviews(beachId: string) {
       handleSupabaseError(error, "getBeachReviews");
     }
 
-    return data as BeachReviewWithUser[];
+    return data as unknown as BeachReviewWithUser[];
   }, "fetch reviews");
 }
 
@@ -64,7 +64,7 @@ export async function getUserReviewForBeach(beachId: string, userId: string) {
       handleSupabaseError(error, "getUserReviewForBeach");
     }
 
-    return data as BeachReviewWithUser | null;
+    return data as unknown as BeachReviewWithUser | null;
   }, "fetch user review");
 }
 
@@ -118,7 +118,7 @@ export async function createBeachReview(reviewData: {
     revalidatePath(`/beach/${reviewData.beach_id}`);
     revalidatePath("/map");
 
-    return data as BeachReviewWithUser;
+    return data as unknown as BeachReviewWithUser;
   }, "create review");
 }
 
@@ -163,7 +163,7 @@ export async function updateBeachReview(
       revalidatePath("/map");
     }
 
-    return data as BeachReviewWithUser;
+    return data as unknown as BeachReviewWithUser;
   }, "update review");
 }
 

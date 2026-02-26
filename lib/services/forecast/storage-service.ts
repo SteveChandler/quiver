@@ -455,9 +455,9 @@ export class ForecastStorageService {
           const hours = ts.getUTCHours().toString().padStart(2, "0");
           const key = `${date}|${hours}:00`;
           corrections.set(key, {
-            corrected_height: row.corrected_height_m,
+            corrected_height: row.corrected_height_m ?? 0,
             model_version: row.model_version,
-            created_at: row.corrected_at,
+            created_at: row.corrected_at ?? new Date().toISOString(),
           });
         });
 

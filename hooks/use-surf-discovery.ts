@@ -179,10 +179,10 @@ export function useSurfDiscovery(
     // Build query parameters
     const params = new URLSearchParams();
 
-    // GPS parameters (Phase 2)
-    if (userLocation) {
-      params.set("lat", userLocation.lat.toString());
-      params.set("lon", userLocation.lon.toString());
+    // GPS parameters (use primitives to avoid object-identity re-renders)
+    if (userLat !== undefined && userLon !== undefined) {
+      params.set("lat", userLat.toString());
+      params.set("lon", userLon.toString());
       if (radiusMiles) {
         params.set("radius", radiusMiles.toString());
       }
@@ -244,7 +244,8 @@ export function useSurfDiscovery(
     return discoveryData;
   }, [
     user,
-    userLocation,
+    userLat,
+    userLon,
     radiusMiles,
     horizonHours,
     maxResults,

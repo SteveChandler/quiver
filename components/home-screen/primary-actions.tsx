@@ -120,13 +120,13 @@ export const PrimaryActions = React.memo(function PrimaryActions({
         transition={reducedMotion ? { duration: 0 } : HOME_HEADER_MOTION.button.spring}
         className={cn(
           "flex-1 h-12 sm:h-14 min-h-[44px] rounded-full",
-          "bg-gradient-to-b from-orange-400 to-orange-600",
-          "hover:from-orange-500 hover:to-orange-700",
-          "active:from-orange-600 active:to-orange-800",
+          "bg-gradient-to-b from-ocean-blue to-blue-600",
+          "hover:from-[#006da6] hover:to-blue-700",
+          "active:from-[#005f91] active:to-blue-800",
           "text-white font-semibold text-sm sm:text-base",
           "shadow-sm hover:shadow-md",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2",
-          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-orange-400 disabled:hover:to-orange-600 disabled:hover:shadow-sm",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2",
+          "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-ocean-blue disabled:hover:to-blue-600 disabled:hover:shadow-sm",
           "flex items-center justify-center gap-1 sm:gap-1.5"
         )}
         aria-label="Log that you are at the beach"

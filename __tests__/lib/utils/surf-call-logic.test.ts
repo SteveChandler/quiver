@@ -444,6 +444,15 @@ describe('computeSurfCall', () => {
     });
 
     describe('all three fields present — arrow format', () => {
+      // Pin Date.now() before the test dates so next_tide_at values are in the future
+      beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-22T06:00:00Z'));
+      });
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
       it('returns "Rising → High" when tide_status=Rising and next_tide_type=High', () => {
         // next_tide_at is AFTER window start → selected by the first loop.
         const forecasts = [
@@ -542,9 +551,19 @@ describe('computeSurfCall', () => {
     });
 
     describe('next_tide_at is in the past relative to window start', () => {
-      it('falls back to tide_status-only row when all next_tide_at values predate window start', () => {
+      // Pin Date.now() so all tests in this block are deterministic
+      beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-22T13:00:00Z'));
+      });
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('falls back to phase-only when next_tide_at predates window start and is in the past', () => {
         // next_tide_at is before the window start → first loop finds nothing.
-        // Fallback: first forecast with tide_status → description = phase only.
+        // Fallback: first forecast with tide_status. Since next_tide_at is also
+        // in the past relative to Date.now(), nextType/nextAt are nulled out.
         const forecasts = [
           makeForecast({
             tide_status: 'Rising',
@@ -555,12 +574,10 @@ describe('computeSurfCall', () => {
         const window = makeWindow({ score: 80 });
         const result = computeSurfCall(window, forecasts, makeBeach());
 
-        // Falls back to tide_status-only path; nextType/nextAt from the fallback row
-        // are still populated (getWindowTide reads them from the same record)
         expect(result.tidePhase).toBe('rising');
-        // nextType is 'High' and nextAt is non-null so desc uses arrow format
-        // (fallback still reads nextType/nextAt from the row — they're just past events)
-        expect(result.tideDescription).toBe('Rising → High');
+        // Past tide events are stripped — no "→ High @ time"
+        expect(result.tideDescription).toBe('rising');
+        expect(result.nextTideAt).toBeNull();
       });
 
       it('returns description as phase only when next_tide_at is past AND next_tide_type is null', () => {
@@ -579,6 +596,54 @@ describe('computeSurfCall', () => {
         expect(result.tidePhase).toBe('rising');
         expect(result.tideDescription).toBe('rising');
         expect(result.tideDescription).not.toContain('→');
+      });
+
+      it('nulls out nextTideAt when the tide event is in the past relative to now', () => {
+        // It's 1 PM (from beforeEach), forecast row says next_tide_at = 8 AM.
+        // The 8 AM tide is >= windowStart (so the first loop selects it), but
+        // it's in the past relative to Date.now() → nextTideAt should be null.
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Falling',
+            next_tide_type: 'Low',
+            next_tide_at: '2026-01-22T08:00:00Z', // 8 AM — past relative to "now"
+          } as any),
+        ];
+        const window = makeWindow({
+          score: 80,
+          start: new Date('2026-01-22T08:00:00Z'),
+          end: new Date('2026-01-22T11:00:00Z'),
+        });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        // Phase is preserved, but the stale "@ 8:00 AM" time is stripped
+        expect(result.tidePhase).toBe('falling');
+        expect(result.tideDescription).toBe('falling');
+        expect(result.tideDescription).not.toContain('→');
+        expect(result.nextTideAt).toBeNull();
+      });
+
+      it('preserves nextTideAt when the tide event is still in the future', () => {
+        // Override the shared clock to 7 AM so the 8 AM tide is still in the future
+        jest.setSystemTime(new Date('2026-01-22T07:00:00Z'));
+
+        const forecasts = [
+          makeForecast({
+            tide_status: 'Falling',
+            next_tide_type: 'Low',
+            next_tide_at: '2026-01-22T08:00:00Z', // 8 AM — still in the future
+          } as any),
+        ];
+        const window = makeWindow({
+          score: 80,
+          start: new Date('2026-01-22T07:00:00Z'),
+          end: new Date('2026-01-22T10:00:00Z'),
+        });
+        const result = computeSurfCall(window, forecasts, makeBeach());
+
+        expect(result.tidePhase).toBe('falling');
+        expect(result.tideDescription).toBe('Falling → Low');
+        expect(result.nextTideAt).toBe('2026-01-22T08:00:00Z');
       });
     });
 
@@ -602,6 +667,9 @@ describe('computeSurfCall', () => {
       });
 
       it('uses raw tide_status for non-standard value even with next event data', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-22T06:00:00Z'));
+
         const forecasts = [
           makeForecast({
             tide_status: 'slack_water',
@@ -615,6 +683,8 @@ describe('computeSurfCall', () => {
         // phase = 'slack_water' (raw), desc uses arrow format since nextType/nextAt present
         expect(result.tidePhase).toBe('slack_water');
         expect(result.tideDescription).toBe('Slack_water → High');
+
+        jest.useRealTimers();
       });
 
       it('matches "RISING" (uppercase) as normalized "rising" phase', () => {

@@ -4,7 +4,7 @@ import type { IntelPostWithUser } from "@/types/database";
 import type { MorningIntelSurfConditionsPayloadV2 } from "@/types/morning-intel";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, Waves, Wind } from "lucide-react";
+import { Clock, Waves, Wind, AlertTriangle, ShieldAlert } from "lucide-react";
 import { formatTideHeight } from "@/lib/formatters/surf-data";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -53,6 +53,27 @@ function formatScore(conditions?: MorningIntelSurfConditionsPayloadV2["condition
   return `${conditions.score}/10`;
 }
 
+function getWaterQualityBadgeConfig(status: string) {
+  switch (status) {
+    case "advisory":
+      return {
+        label: "Water Advisory",
+        className: "bg-amber-100 text-amber-800 border-amber-300",
+        Icon: AlertTriangle,
+        iconClass: "text-amber-600",
+      };
+    case "closure":
+      return {
+        label: "Water Quality Alert",
+        className: "bg-red-100 text-red-800 border-red-300",
+        Icon: ShieldAlert,
+        iconClass: "text-red-600",
+      };
+    default:
+      return null;
+  }
+}
+
 export function ConditionsIntelCard({
   post,
   variant = "feed",
@@ -64,6 +85,10 @@ export function ConditionsIntelCard({
   if (!payload) return null;
 
   const score = formatScore(payload.conditions);
+  const wqBadgeConfig =
+    payload.waterQuality && ["advisory", "closure"].includes(payload.waterQuality.status)
+      ? getWaterQualityBadgeConfig(payload.waterQuality.status)
+      : null;
 
   return (
     <div className={cn("space-y-3", variant === "feed" ? "pt-1" : "pt-0")}>
@@ -82,6 +107,15 @@ export function ConditionsIntelCard({
         <Badge variant="outline" className="text-xs">
           {payload.confidence} confidence
         </Badge>
+        {wqBadgeConfig && (
+          <Badge
+            variant="outline"
+            className={cn("text-xs font-medium flex items-center gap-1", wqBadgeConfig.className)}
+          >
+            <wqBadgeConfig.Icon className={cn("h-3 w-3", wqBadgeConfig.iconClass)} />
+            {wqBadgeConfig.label}
+          </Badge>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -135,6 +169,19 @@ export function ConditionsIntelCard({
                 : "Watch: "}
               <span className="text-foreground">
                 {payload.recommendation.reasons.join(", ")}
+              </span>
+            </p>
+          )}
+          {wqBadgeConfig && payload.waterQuality && (
+            <p className="text-sm text-muted-foreground">
+              Water quality:{" "}
+              <span className={cn("font-medium", payload.waterQuality.status === "closure" ? "text-red-700" : "text-amber-700")}>
+                {wqBadgeConfig.label}
+                {payload.waterQuality.latestSampleDate && (
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (sampled {new Date(payload.waterQuality.latestSampleDate).toLocaleDateString()})
+                  </span>
+                )}
               </span>
             </p>
           )}

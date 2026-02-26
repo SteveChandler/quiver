@@ -327,8 +327,8 @@ describe("createIntelPost", () => {
         id: "intel-existing",
         title: "Dawn patrol at La Jolla",
         description: "Clean 3-4ft waves offshore winds",
-        lat: 32.8,
-        lon: -117.3,
+        latitude: 32.8,
+        longitude: -117.3,
         created_at: new Date().toISOString(),
       };
 
@@ -363,8 +363,8 @@ describe("createIntelPost", () => {
         id: "intel-existing",
         title: "Morning session",
         description: "Choppy 1-2ft",
-        lat: 32.8,
-        lon: -117.3,
+        latitude: 32.8,
+        longitude: -117.3,
         created_at: new Date().toISOString(),
       };
 

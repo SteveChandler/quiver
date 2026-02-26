@@ -114,6 +114,9 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
       timezone: 'America/Los_Angeles',
     };
   }),
+  getLocalDateStr: jest.fn((date: Date, _tz: string) => {
+    return date.toISOString().split('T')[0];
+  }),
 }));
 
 jest.mock('@/lib/services/discovery/response-formatter', () => ({

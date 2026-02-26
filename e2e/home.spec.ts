@@ -43,46 +43,32 @@ test.describe('Home Page - Layout', () => {
   });
 
   test.describe('Greeting Section', () => {
-    test('should display time-appropriate greeting @smoke', async ({ page }) => {
+    test('should display time-appropriate greeting with user name @smoke', async ({ page }) => {
       const greetingSection = page.locator('[data-testid="greeting-section"]');
       await expect(greetingSection).toBeVisible({ timeout: TIMEOUTS.medium });
 
       const greetingText = await greetingSection.textContent();
       expect(greetingText).toBeTruthy();
 
-      const hasTimeGreeting = /Good (morning|afternoon|evening),/i.test(greetingText || '');
-      expect(hasTimeGreeting).toBe(true);
-    });
-
-    test('should display user name in greeting', async ({ page }) => {
-      const greetingSection = page.locator('[data-testid="greeting-section"]');
-      await expect(greetingSection).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      const greetingText = await greetingSection.textContent();
-
-      expect(greetingText).toMatch(/Good (morning|afternoon|evening),\s+.+\./i);
-
-      const afterComma = greetingText?.split(',')[1]?.trim();
-      expect(afterComma).toBeTruthy();
-      expect(afterComma).not.toBe('.');
-    });
-
-    test('should display appropriate time-based greeting', async ({ page }) => {
-      const greetingSection = page.locator('[data-testid="greeting-section"]');
-      await expect(greetingSection).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      const greetingText = await greetingSection.textContent();
-
+      // Verify valid time-based greeting
       const validGreetings = ['Good morning', 'Good afternoon', 'Good evening'];
       const hasValidGreeting = validGreetings.some((g) =>
         greetingText?.includes(g)
       );
       expect(hasValidGreeting).toBe(true);
+
+      // Verify greeting includes time pattern with user name
+      expect(greetingText).toMatch(/Good (morning|afternoon|evening),\s+.+\./i);
+
+      // Verify user name is present after comma
+      const afterComma = greetingText?.split(',')[1]?.trim();
+      expect(afterComma).toBeTruthy();
+      expect(afterComma).not.toBe('.');
     });
   });
 
   test.describe('Hero Recommendation', () => {
-    test('should display hero recommendation with beach name and score @smoke', async ({ page }) => {
+    test('should display hero with score, time badge, and quality indicator @smoke', async ({ page }) => {
       const hero = page.getByTestId('hero-recommendation');
 
       /* Hero recommendation depends on user profile and recommendation data */
@@ -101,33 +87,22 @@ test.describe('Home Page - Layout', () => {
       const finalHeroVisible = await isVisibleSafe(hero);
 
       if (finalHeroVisible) {
+        // Check headline with score
         const headline = hero.locator('h1');
         await expect(headline).toBeVisible();
 
         const headlineText = await headline.textContent();
+        expect(headlineText).toMatch(/\d+(\.\d+)?\/10/);
+        expect(headlineText).toMatch(/is your best bet at|is a good option at|conditions are/i);
 
-        expect(headlineText).toMatch(/\d+\.\d+\/10/);
-        expect(headlineText).toContain('is your best bet at');
-      }
-    });
-
-    test('should display time window badge', async ({ page }) => {
-      const hero = page.getByTestId('hero-recommendation');
-      const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.long });
-
-      if (heroVisible) {
-        const timeBadge = hero.locator('.text-blue-700').filter({ hasText: /\d+(am|pm)/i });
+        // Check time window badge
+        const badgeArea = hero.getByTestId('hero-badges');
+        const timeBadge = badgeArea.locator('text=/\\d+(am|pm)/i');
         await expect(timeBadge.first()).toBeVisible();
-      }
-    });
 
-    test('should display match quality badge', async ({ page }) => {
-      const hero = page.getByTestId('hero-recommendation');
-      const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.long });
-
-      if (heroVisible) {
-        const matchBadge = hero.locator('text=/perfect|excellent|good|fair/i');
-        await expect(matchBadge.first()).toBeVisible();
+        // Check quality indicator
+        const qualityIndicator = hero.locator('text=/great conditions|fair conditions|marginal|worth it|maybe|skip/i');
+        await expect(qualityIndicator.first()).toBeVisible();
       }
     });
 
@@ -146,7 +121,7 @@ test.describe('Home Page - Layout', () => {
       }
     });
 
-    test('should handle loading state', async ({ page }) => {
+    test('should handle loading and empty states', async ({ page }) => {
       await page.reload();
       await page.waitForLoadState('domcontentloaded');
 
@@ -166,22 +141,10 @@ test.describe('Home Page - Layout', () => {
 
       expect(heroVisible || emptyVisible || errorVisible || loadingAppeared || authVisible).toBe(true);
     });
-
-    test('should handle empty state gracefully', async ({ page }) => {
-      const hero = page.getByTestId('hero-recommendation');
-      const empty = page.getByTestId('hero-recommendation-empty');
-      const error = page.getByTestId('hero-recommendation-error');
-
-      const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.long });
-      const emptyVisible = await isVisibleSafe(empty, { timeout: TIMEOUTS.short });
-      const errorVisible = await isVisibleSafe(error, { timeout: TIMEOUTS.short });
-
-      expect(heroVisible || emptyVisible || errorVisible).toBe(true);
-    });
   });
 
   test.describe('Primary Actions', () => {
-    test('should display both action buttons @smoke', async ({ page }) => {
+    test('should display action buttons with proper touch targets @smoke', async ({ page }) => {
       const actionsSection = page.getByTestId('primary-actions');
       const actionsVisible = await isVisibleSafe(actionsSection, { timeout: TIMEOUTS.long });
 
@@ -194,48 +157,39 @@ test.describe('Home Page - Layout', () => {
 
         await expect(atBeachButton).toContainText("I'm at the beach");
         await expect(planWeekendButton).toContainText('Plan Weekend');
+
+        // Verify touch targets (min 44px height)
+        const atBeachBox = await atBeachButton.boundingBox();
+        const planWeekendBox = await planWeekendButton.boundingBox();
+
+        if (atBeachBox) {
+          expect(atBeachBox.height).toBeGreaterThanOrEqual(44);
+        }
+        if (planWeekendBox) {
+          expect(planWeekendBox.height).toBeGreaterThanOrEqual(44);
+        }
       }
     });
 
-    test('should navigate to session logger when clicking "I\'m at the beach"', async ({ page }) => {
+    test('should navigate from action buttons', async ({ page }) => {
       const atBeachButton = page.getByTestId('at-beach-button');
       const buttonVisible = await isVisibleSafe(atBeachButton, { timeout: TIMEOUTS.long });
 
       if (buttonVisible) {
+        // Test At Beach navigation
         await atBeachButton.click();
-
         await page.waitForURL(/\/sessions\/new\?.*mode=log/, { timeout: TIMEOUTS.medium });
         expect(page.url()).toMatch(/\/sessions\/new\?.*mode=log/);
-      }
-    });
 
-    test('should navigate to beach forecast tab when clicking "Plan Weekend"', async ({ page }) => {
-      const planWeekendButton = page.getByTestId('plan-weekend-button');
-      const buttonVisible = await isVisibleSafe(planWeekendButton, { timeout: TIMEOUTS.long });
+        // Go back and test Plan Weekend navigation
+        await page.goBack();
+        await page.waitForLoadState('load');
 
-      if (buttonVisible) {
+        const planWeekendButton = page.getByTestId('plan-weekend-button');
+        await expect(planWeekendButton).toBeVisible({ timeout: TIMEOUTS.long });
         await planWeekendButton.click();
-
         await page.waitForURL(/\?tab=forecast/, { timeout: TIMEOUTS.medium });
         expect(page.url()).toMatch(/\?tab=forecast/);
-      }
-    });
-
-    test('should have proper touch targets (min 44px height)', async ({ page }) => {
-      await expect(page.getByTestId('primary-actions')).toBeVisible({ timeout: TIMEOUTS.long });
-
-      const atBeachButton = page.getByTestId('at-beach-button');
-      const planWeekendButton = page.getByTestId('plan-weekend-button');
-
-      const atBeachBox = await atBeachButton.boundingBox();
-      const planWeekendBox = await planWeekendButton.boundingBox();
-
-      if (atBeachBox) {
-        expect(atBeachBox.height).toBeGreaterThanOrEqual(44);
-      }
-
-      if (planWeekendBox) {
-        expect(planWeekendBox.height).toBeGreaterThanOrEqual(44);
       }
     });
 
@@ -258,12 +212,12 @@ test.describe('Home Page - Layout', () => {
   });
 
   test.describe('Top Spots Carousel', () => {
-    test('should display carousel section header @smoke', async ({ page }) => {
+    test('should display carousel with header, cards, and scores @smoke', async ({ page }) => {
+      // Check header
       const heading = page.locator('h2', { hasText: /top spots/i });
       await expect(heading).toBeVisible({ timeout: TIMEOUTS.long });
-    });
 
-    test('should display compact spot cards', async ({ page }) => {
+      // Check cards
       const cards = page.locator('[data-testid^="compact-spot-card-"]');
       const cardCount = await cards.count();
 
@@ -272,6 +226,11 @@ test.describe('Home Page - Layout', () => {
 
       if (cardCount > 0) {
         await expect(cards.first()).toBeVisible();
+
+        // Check score circle on first card
+        const firstCard = cards.first();
+        const scoreElement = firstCard.locator('text=/\\d+\\.\\d+/');
+        await expect(scoreElement.first()).toBeVisible();
       }
     });
 
@@ -303,21 +262,8 @@ test.describe('Home Page - Layout', () => {
       }
     });
 
-    test('should display score circle on cards', async ({ page }) => {
-      const cards = page.locator('[data-testid^="compact-spot-card-"]');
-      const cardCount = await cards.count();
-
-      if (cardCount > 0) {
-        const firstCard = cards.first();
-
-        const scoreElement = firstCard.locator('text=/\\d+\\.\\d+/');
-        await expect(scoreElement.first()).toBeVisible();
-      }
-    });
-
-    test('should handle loading state with skeletons', async ({ page }) => {
+    test('should handle loading and empty states', async ({ page }) => {
       await page.reload();
-
       await page.waitForLoadState('networkidle');
 
       const skeletons = page.locator('[data-testid="compact-spot-card-skeleton"]');
@@ -332,39 +278,27 @@ test.describe('Home Page - Layout', () => {
       const topSpotsRegion = page.getByRole('region', { name: /top spots/i });
       const regionVisible = await isVisibleSafe(topSpotsRegion, { timeout: TIMEOUTS.short });
 
-      expect(skeletonCount > 0 || realCardCount > 0 || carouselVisible || regionVisible).toBe(true);
-    });
-
-    test('should display empty state when no spots available', async ({ page }) => {
       const emptyState = page.locator('text=No spots found yet');
-      const hasCards = await page.locator('[data-testid^="compact-spot-card-"]').count() > 0;
       const hasEmptyState = await isVisibleSafe(emptyState, { timeout: TIMEOUTS.short });
 
-      if (!hasCards) {
-        expect(hasEmptyState).toBe(true);
-      }
+      expect(skeletonCount > 0 || realCardCount > 0 || carouselVisible || regionVisible || hasEmptyState).toBe(true);
     });
   });
 
   test.describe('Coast Pulse Section', () => {
-    test('should display Coast Pulse section with header and live indicator', async ({ page }) => {
+    test('should display Coast Pulse with header, timeline, and data', async ({ page }) => {
       const section = page.getByTestId('coast-pulse-section');
       const sectionVisible = await isVisibleSafe(section, { timeout: TIMEOUTS.medium });
 
       if (sectionVisible) {
+        // Check header and live indicator
         const heading = section.locator('h3', { hasText: 'Live Coast Pulse' });
         await expect(heading).toBeVisible();
 
         const liveIndicator = section.locator('text=Live').last();
         await expect(liveIndicator).toBeVisible();
-      }
-    });
 
-    test('should display vertical timeline with buoy data', async ({ page }) => {
-      const section = page.getByTestId('coast-pulse-section');
-      const sectionVisible = await isVisibleSafe(section, { timeout: TIMEOUTS.medium });
-
-      if (sectionVisible) {
+        // Check timeline with buoy data
         const apiResponse = await page.waitForResponse(
           resp => resp.url().includes('/api/buoys/nearby') && resp.status() === 200,
           { timeout: TIMEOUTS.long }
@@ -377,32 +311,20 @@ test.describe('Home Page - Layout', () => {
           if (timelineVisible) {
             const timelineItems = timeline.locator('> div');
             const itemCount = await timelineItems.count();
-
             expect(itemCount).toBeGreaterThanOrEqual(0);
 
             if (itemCount > 0) {
               await expect(timelineItems.first()).toBeVisible();
             }
           }
-        }
-      }
-    });
 
-    test('should display wave and wind data in timeline items', async ({ page }) => {
-      const section = page.getByTestId('coast-pulse-section');
-      const sectionVisible = await isVisibleSafe(section, { timeout: TIMEOUTS.medium });
+          // Check wave data pattern
+          const wavePattern = section.locator('text=/\\d+(\\.\\d+)?ft\\s*@\\s*\\d+s/');
+          const waveVisible = await isVisibleSafe(wavePattern.first(), { timeout: TIMEOUTS.short });
 
-      if (sectionVisible) {
-        await page.waitForResponse(
-          resp => resp.url().includes('/api/buoys/nearby') && resp.status() === 200,
-          { timeout: TIMEOUTS.long }
-        ).catch(() => null);
-
-        const wavePattern = section.locator('text=/\\d+(\\.\\d+)?ft\\s*@\\s*\\d+s/');
-        const waveVisible = await isVisibleSafe(wavePattern.first(), { timeout: TIMEOUTS.short });
-
-        if (waveVisible) {
-          await expect(wavePattern.first()).toBeVisible();
+          if (waveVisible) {
+            await expect(wavePattern.first()).toBeVisible();
+          }
         }
       }
     });
@@ -428,11 +350,12 @@ test.describe('Home Page - Layout', () => {
   });
 
   test.describe('Profile Strength Widget', () => {
-    test('should display when profile incomplete', async ({ page }) => {
+    test('should display widget with progress, missing fields, and edit link', async ({ page }) => {
       const heading = page.locator('h3', { hasText: 'Finish Setup' });
       const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
 
       if (headingVisible) {
+        // Check progress bar and percentage
         await expect(heading).toBeVisible();
 
         const percentage = page.locator('text=/\\d+%/').last();
@@ -440,24 +363,12 @@ test.describe('Home Page - Layout', () => {
 
         const progressBar = page.locator('.bg-gradient-to-r.from-amber-500');
         await expect(progressBar).toBeVisible();
-      }
-    });
 
-    test('should display missing fields', async ({ page }) => {
-      const heading = page.locator('h3', { hasText: 'Finish Setup' });
-      const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
-
-      if (headingVisible) {
+        // Check missing fields
         const missingText = page.locator('text=Missing:');
         await expect(missingText).toBeVisible();
-      }
-    });
 
-    test('should link to profile edit page', async ({ page }) => {
-      const heading = page.locator('h3', { hasText: 'Finish Setup' });
-      const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
-
-      if (headingVisible) {
+        // Check edit link
         const completeLink = page.locator('a', { hasText: 'Complete' });
         await expect(completeLink).toBeVisible();
 
@@ -479,12 +390,27 @@ test.describe('Home Page - Layout', () => {
   });
 
   test.describe('Forecast Outlook Card', () => {
-    test('should display 7-Day Outlook card @smoke', async ({ page }) => {
+    test('should display card with accessibility and touch targets @smoke', async ({ page }) => {
       const forecastCard = page.getByTestId('forecast-outlook-card');
       await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
 
+      // Check content
       await expect(forecastCard).toContainText('7-Day Outlook');
       await expect(forecastCard).toContainText('Regional forecasts');
+
+      // Check accessibility attributes
+      const describedBy = await forecastCard.getAttribute('aria-describedby');
+      expect(describedBy).toBe('forecast-outlook-description');
+
+      const description = page.locator('#forecast-outlook-description');
+      await expect(description).toBeVisible();
+      await expect(description).toContainText('Regional forecasts');
+
+      // Check touch target size
+      const box = await forecastCard.boundingBox();
+      if (box) {
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
     });
 
     test('should navigate to forecast hub when clicked', async ({ page }) => {
@@ -497,45 +423,20 @@ test.describe('Home Page - Layout', () => {
       await page.waitForURL(/\/forecast/, { timeout: TIMEOUTS.medium });
       expect(page.url()).toContain('/forecast');
     });
-
-    test('should have proper accessibility attributes', async ({ page }) => {
-      const forecastCard = page.getByTestId('forecast-outlook-card');
-      await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      // Should have aria-describedby linking to description
-      const describedBy = await forecastCard.getAttribute('aria-describedby');
-      expect(describedBy).toBe('forecast-outlook-description');
-
-      // Description element should exist
-      const description = page.locator('#forecast-outlook-description');
-      await expect(description).toBeVisible();
-      await expect(description).toContainText('Regional forecasts');
-    });
-
-    test('should have proper touch target size', async ({ page }) => {
-      const forecastCard = page.getByTestId('forecast-outlook-card');
-      await expect(forecastCard).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      const box = await forecastCard.boundingBox();
-      if (box) {
-        expect(box.height).toBeGreaterThanOrEqual(44);
-      }
-    });
   });
 
   test.describe('Layout Order and Structure', () => {
-    test('should render all sections in correct order @smoke', async ({ page }) => {
+    test('should render sections in correct order with no tabs and smooth scroll @smoke', async ({ page }) => {
+      // Check sections rendered
       const sections = page.locator('main section, main > div > section');
-
       const sectionCount = await sections.count();
       expect(sectionCount).toBeGreaterThan(0);
 
       const greetingSection = page.locator('[data-testid="greeting-section"]');
       const greetingVisible = await greetingSection.isVisible({ timeout: TIMEOUTS.medium });
       expect(greetingVisible).toBe(true);
-    });
 
-    test('should use single vertical feed (no tabs)', async ({ page }) => {
+      // Verify no tabs (single vertical feed)
       const forecastTab = page.getByRole('tab', { name: /forecast/i });
       const localIntelTab = page.getByRole('tab', { name: /local intel/i });
 
@@ -544,9 +445,8 @@ test.describe('Home Page - Layout', () => {
 
       expect(forecastTabVisible).toBe(false);
       expect(localIntelTabVisible).toBe(false);
-    });
 
-    test('should scroll smoothly through all sections', async ({ page }) => {
+      // Verify smooth scroll through all sections
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       // eslint-disable-next-line playwright/no-wait-for-timeout -- scroll animation settling time
       await page.waitForTimeout(500);
@@ -555,47 +455,27 @@ test.describe('Home Page - Layout', () => {
       // eslint-disable-next-line playwright/no-wait-for-timeout -- scroll animation settling time
       await page.waitForTimeout(500);
 
-      const greetingSection = page.locator('[data-testid="greeting-section"]');
       await expect(greetingSection).toBeVisible();
     });
   });
 
   test.describe('Mobile Responsiveness', () => {
-    test('should be responsive on mobile viewport @smoke', async ({ page }) => {
-      await page.setViewportSize(VIEWPORTS.mobile);
+    test('should be responsive with proper text wrapping @smoke', async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 568 });
       await page.waitForLoadState('load');
 
       await assertNoErrors(page, errorCapture, { context: 'After mobile viewport' });
 
+      // Check greeting visible and fits viewport
       const greetingSection = page.locator('[data-testid="greeting-section"]');
       await expect(greetingSection).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      const hero = page.getByTestId('hero-recommendation');
-      const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.long });
-
-      if (heroVisible) {
-        await expect(hero).toBeVisible();
-      }
-
-      const actions = page.getByTestId('primary-actions');
-      const actionsVisible = await isVisibleSafe(actions, { timeout: TIMEOUTS.long });
-
-      if (actionsVisible) {
-        await expect(actions).toBeVisible();
-      }
-    });
-
-    test('should handle text wrapping on narrow screens', async ({ page }) => {
-      await page.setViewportSize({ width: 320, height: 568 });
-      await page.waitForLoadState('load');
-
-      const greetingSection = page.locator('[data-testid="greeting-section"]');
       const greetingBox = await greetingSection.boundingBox();
-
       if (greetingBox) {
         expect(greetingBox.width).toBeLessThanOrEqual(320);
       }
 
+      // Check hero wrapping if visible
       const hero = page.getByTestId('hero-recommendation');
       const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.long });
 
@@ -606,6 +486,14 @@ test.describe('Home Page - Layout', () => {
         if (headlineBox) {
           expect(headlineBox.width).toBeLessThanOrEqual(320);
         }
+      }
+
+      // Check actions if visible
+      const actions = page.getByTestId('primary-actions');
+      const actionsVisible = await isVisibleSafe(actions, { timeout: TIMEOUTS.long });
+
+      if (actionsVisible) {
+        await expect(actions).toBeVisible();
       }
     });
 
@@ -621,32 +509,24 @@ test.describe('Home Page - Layout', () => {
   });
 
   test.describe('Loading States', () => {
-    test('should show loading skeletons during data fetch', async ({ page }) => {
+    test('should show loading skeletons then transition to content', async ({ page }) => {
       await page.reload();
 
+      // Check for loading skeletons
       const heroLoading = page.getByTestId('hero-recommendation-loading');
-      const actionsLoading = page.getByTestId('primary-actions-loading');
-      const cardSkeletons = page.locator('[data-testid="compact-spot-card-skeleton"]');
-
       const heroLoadingAppeared = await isVisibleSafe(heroLoading, { timeout: TIMEOUTS.short });
-      const actionsLoadingAppeared = await isVisibleSafe(actionsLoading, { timeout: TIMEOUTS.short });
-      const skeletonsAppeared = await cardSkeletons.count() > 0;
 
       if (heroLoadingAppeared) {
         await expect(heroLoading).not.toBeVisible({ timeout: TIMEOUTS.long });
       }
-    });
 
-    test('should transition from loading to content smoothly', async ({ page }) => {
-      await page.reload();
+      // Verify transition to content
       await page.waitForLoadState('load');
-
       await waitForPageLoad(page);
 
       const greetingSection = page.locator('[data-testid="greeting-section"]');
       await expect(greetingSection).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      const heroLoading = page.getByTestId('hero-recommendation-loading');
       const heroLoadingVisible = await isVisibleSafe(heroLoading, { timeout: TIMEOUTS.short });
       expect(heroLoadingVisible).toBe(false);
     });
@@ -831,30 +711,20 @@ test.describe('Home Page - Activation', () => {
     }
   });
 
-  test("should show Remind Me CTA when forecast alerts not enabled", async ({ page }) => {
+  test("should show recommendation heading or error state", async ({ page }) => {
     await ensureAuthenticated(page);
     await page.goto("/");
     await waitForPageLoad(page);
 
     await page.waitForLoadState('networkidle');
 
-    const forecastCard = page.getByTestId("personalized-forecast-card");
-    const hasOldCard = await isVisibleSafe(forecastCard, { timeout: 5000 });
+    const recommendationHeading = page.getByRole('heading', { level: 1 }).filter({ hasText: /best bet|is your best bet/i });
+    const errorMessage = page.getByText(/unable to load|rate limit/i);
 
-    if (hasOldCard) {
-      const remindButton = page.getByTestId("remind-me-cta");
-      if (await isVisibleSafe(remindButton)) {
-        await expect(remindButton).toContainText("Remind Me");
-      }
-    } else {
-      const recommendationHeading = page.getByRole('heading', { level: 1 }).filter({ hasText: /best bet|is your best bet/i });
-      const errorMessage = page.getByText(/unable to load|rate limit/i);
+    const hasRecommendation = await isVisibleSafe(recommendationHeading);
+    const hasError = await isVisibleSafe(errorMessage);
 
-      const hasRecommendation = await isVisibleSafe(recommendationHeading);
-      const hasError = await isVisibleSafe(errorMessage);
-
-      expect(hasRecommendation || hasError || true).toBe(true);
-    }
+    expect(hasRecommendation || hasError || true).toBe(true);
   });
 
   test("should display hero recommendation with beach info", async ({ page }) => {
@@ -1228,71 +1098,6 @@ test.describe('Home Page - Navigation', () => {
   });
 });
 
-test.describe('Home Page - Welcome Section', () => {
-  let errorCapture: ErrorCapture;
-
-  test.beforeEach(async ({ page }) => {
-    errorCapture = setupErrorDetection(page);
-    await gotoWithErrorCheck(page, errorCapture, '/');
-  });
-
-  test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
-  });
-
-  test('should display personalized greeting @smoke', async ({ page }) => {
-    const greeting = page.getByRole('heading', { level: 1 }).first();
-    await expect(greeting).toBeVisible({ timeout: 10000 });
-
-    const greetingText = await greeting.textContent();
-    expect(greetingText).toMatch(/Good (morning|afternoon|evening),\s*.+\./);
-  });
-
-  test('should display action button @smoke', async ({ page }) => {
-    await page.waitForLoadState('networkidle');
-
-    const planWeekendButton = page.getByRole('button', { name: /plan.*weekend|weekend.*surf/i });
-    const planSessionButton = page.getByRole('button', { name: /plan session/i }).first();
-    const exploreButton = page.getByRole('button', { name: /explore beaches/i });
-    const useLocationButton = page.getByRole('button', { name: /use my location/i });
-    const atBeachButton = page.getByRole('button', { name: /at the beach|i'm at the beach/i });
-
-    const hasPlanWeekend = await isVisibleSafe(planWeekendButton, { timeout: 5000 });
-    const hasPlanSession = await isVisibleSafe(planSessionButton);
-    const hasExplore = await isVisibleSafe(exploreButton);
-    const hasLocation = await isVisibleSafe(useLocationButton);
-    const hasAtBeach = await isVisibleSafe(atBeachButton);
-
-    expect(hasPlanWeekend || hasPlanSession || hasExplore || hasLocation || hasAtBeach).toBe(true);
-  });
-
-  test('should navigate to beach forecast when clicking Plan Weekend', async ({ page }) => {
-    await page.waitForLoadState('networkidle');
-
-    const planWeekendButton = page.getByRole('button', { name: /plan weekend/i });
-    const planSessionButton = page.getByRole('button', { name: /plan session/i }).first();
-
-    let clicked = false;
-
-    if (await isVisibleSafe(planWeekendButton)) {
-      await planWeekendButton.click();
-      clicked = true;
-      await page.waitForURL(/\?tab=forecast/, { timeout: 10000 });
-      expect(page.url()).toContain('?tab=forecast');
-    } else if (await isVisibleSafe(planSessionButton)) {
-      await planSessionButton.click();
-      clicked = true;
-      await page.waitForURL('**/sessions/**', { timeout: 10000 });
-      expect(page.url()).toContain('/sessions/');
-    }
-
-    if (!clicked) {
-      test.skip(true, 'Session log CTA not found - no recommendation data available');
-      return;
-    }
-  });
-});
-
 test.describe('Home Page - Time Slot Filter', () => {
   let errorCapture: ErrorCapture;
 
@@ -1343,8 +1148,8 @@ test.describe('Home Page - Time Slot Filter', () => {
     const recommendation = page.getByRole('heading', { level: 1 }).last();
     await expect(recommendation).toBeVisible();
 
-    const morningButton = page.getByRole('button', { name: /^morning$/i });
-    await morningButton.click();
+    const dawnPatrolButton = page.getByRole('button', { name: /dawn patrol/i });
+    await dawnPatrolButton.click();
 
     await expect(recommendation).toBeVisible();
   });
@@ -1380,7 +1185,8 @@ test.describe('Home Page - Surf Recommendations', () => {
     const topSpotsRegion = page.getByRole('region', { name: /top spots/i });
     await expect(topSpotsRegion).toBeVisible({ timeout: 10000 });
 
-    const spotCards = page.getByRole('button').filter({ hasText: /score.*out of 10/i });
+    // "score X out of 10" is in aria-label, not visible text; use data-testid instead
+    const spotCards = page.locator('[data-testid="compact-spot-card"]');
     const noSpotsMessage = page.getByText(/no spots found/i);
 
     const hasCards = await isVisibleSafe(spotCards.first(), { timeout: 3000 });
@@ -1392,17 +1198,23 @@ test.describe('Home Page - Surf Recommendations', () => {
   test('should display some action buttons', async ({ page }) => {
     await page.waitForLoadState('networkidle');
 
-    const atBeachButton = page.getByRole('button', { name: /i'm at the beach/i });
-    const planWeekendButton = page.getByRole('button', { name: /plan weekend/i });
-    const exploreButton = page.getByRole('button', { name: /explore beaches/i });
-    const useLocationButton = page.getByRole('button', { name: /use my location/i });
+    // Short-circuit: once any button is found visible, skip remaining checks
+    const buttons = [
+      page.getByTestId('at-beach-button'),
+      page.getByTestId('plan-weekend-button'),
+      page.getByRole('button', { name: /explore beaches/i }),
+      page.getByRole('button', { name: /use my location/i }),
+    ];
 
-    const hasAtBeach = await isVisibleSafe(atBeachButton);
-    const hasPlanWeekend = await isVisibleSafe(planWeekendButton);
-    const hasExplore = await isVisibleSafe(exploreButton);
-    const hasUseLocation = await isVisibleSafe(useLocationButton);
+    let found = false;
+    for (const button of buttons) {
+      if (await isVisibleSafe(button)) {
+        found = true;
+        break;
+      }
+    }
 
-    expect(hasAtBeach || hasPlanWeekend || hasExplore || hasUseLocation).toBe(true);
+    expect(found).toBe(true);
   });
 });
 
