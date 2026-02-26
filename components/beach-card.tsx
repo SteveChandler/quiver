@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, memo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Star, ChevronDown, ChevronUp } from "lucide-react";
@@ -74,6 +74,7 @@ const BeachCardComponent = function BeachCard({
   affinityData,
 }: BeachCardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
   const [sessionAuthModalOpen, setSessionAuthModalOpen] = useState(false);
   const { user } = useAuth();
@@ -283,12 +284,13 @@ const BeachCardComponent = function BeachCard({
           )}
 
           {/* Auth modal for session CTA (guests only) */}
-          {!user && (
+          {!user && sessionAuthModalOpen && (
             <UnifiedAuthModal
               isOpen={sessionAuthModalOpen}
               onClose={() => setSessionAuthModalOpen(false)}
               mode="signup"
               source="session-log-cta"
+              returnTo={pathname}
               contextMessage={{
                 title: "Track Your Sessions",
                 description: `Track your sessions at ${name} and get personalized recommendations`,

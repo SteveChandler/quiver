@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import {
   Star,
@@ -78,6 +79,7 @@ export function PersonalizationShowcase() {
   const [isRevealed, setIsRevealed] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const { user } = useAuth();
+  const pathname = usePathname();
 
   // Trigger reveal ~1s after the card enters the viewport (once).
   useEffect(() => {
@@ -290,17 +292,20 @@ export function PersonalizationShowcase() {
         </div>
       </div>
 
-      <UnifiedAuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        mode="signup"
-        source="personalization-showcase"
-        contextMessage={{
-          title: "Get Personalized Match Scores",
-          description:
-            "Create a free account to see personalized match scores for every beach",
-        }}
-      />
+      {showAuth && (
+        <UnifiedAuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          mode="signup"
+          source="personalization-showcase"
+          returnTo={pathname}
+          contextMessage={{
+            title: "Get Personalized Match Scores",
+            description:
+              "Create a free account to see personalized match scores for every beach",
+          }}
+        />
+      )}
     </SectionWrapper>
   );
 }

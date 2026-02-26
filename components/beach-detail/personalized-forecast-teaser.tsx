@@ -80,17 +80,19 @@ export function PersonalizedForecastTeaser({
         </p>
       </div>
 
-      <UnifiedAuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        mode="signup"
-        source="personalized-forecast-teaser"
-        contextMessage={{
-          title: "Get Your Personalized Forecast",
-          description: `See conditions at ${beachName} matched to your skill level and preferences`,
-        }}
-        returnTo={pathname}
-      />
+      {showAuth && (
+        <UnifiedAuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          mode="signup"
+          source="personalized-forecast-teaser"
+          contextMessage={{
+            title: "Get Your Personalized Forecast",
+            description: `See conditions at ${beachName} matched to your skill level and preferences`,
+          }}
+          returnTo={pathname}
+        />
+      )}
     </div>
   );
 }

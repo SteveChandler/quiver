@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Auth modals: missing `returnTo`, stale closure risk, and unnecessary eager mounting (code review items 2, 4, 6, 7)** — `beach-card.tsx` and `beach-actions.tsx` now pass `returnTo={pathname}` to their `UnifiedAuthModal` instances so users land back on the correct page after sign-up. `favorite-button.tsx` deferred-action `useEffect` now guards on `hasInitialized` before firing `toggleFavorite()`, preventing a stale-closure call while favorites are still loading; the `eslint-disable` comment now includes the suppression reason. All seven components that render `UnifiedAuthModal` added in this feature branch now use lazy-render (`{showAuth && <UnifiedAuthModal .../>}`) to avoid mounting the modal subtree until it is actually needed. `beach-card-session-link.test.tsx` mock for `next/navigation` updated to include `usePathname`.
+
 ### Added
 
 - **Growth: Improved session logging discovery for guests (Task 8A/8B)** — Updated `BeachActions` guest-mode button labels and added per-button auth modal tracking: "Log Session" becomes "Track Your Sessions" with description "Build your surf log and unlock personalized recommendations"; "Plan Session" becomes "Plan a Session" with description "Coordinate with friends and pick the best time". Each button now opens `UnifiedAuthModal` with a distinct source (`session-log-cta` vs `session-plan-cta`) instead of delegating to the shared `onAuthRequired` callback, enabling precise analytics attribution. Added a subtle "Log a session here" link to `BeachCard` that opens the auth modal in signup mode for guests (with contextMessage "Track Your Sessions / Track your sessions at {name} and get personalized recommendations") and links directly to `/sessions/new?beach={id}` for authenticated users. 13 new TDD tests cover all label changes, description text, source props, modal interactions, and auth-state branching.

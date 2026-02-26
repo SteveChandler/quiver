@@ -75,6 +75,7 @@ jest.mock("@/components/recommendations/match-score-teaser", () => ({
 // Mock next/navigation
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
+  usePathname: () => "/ca/san-diego/ocean-beach",
 }));
 
 const defaultProps = {

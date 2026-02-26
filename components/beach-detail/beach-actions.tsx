@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Navigation, Plus, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -32,6 +33,8 @@ export function BeachActions({
 }: BeachActionsProps) {
   const hasCoordinates = Boolean(beach.lat && beach.lon);
   const directionsEnabled = canGetDirections ?? hasCoordinates;
+
+  const pathname = usePathname();
 
   // Internal modal state for per-button source tracking in public mode
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -113,12 +116,13 @@ export function BeachActions({
       </div>
 
       {/* Auth modal for public mode — per-button source tracking */}
-      {publicMode && (
+      {publicMode && authModalOpen && (
         <UnifiedAuthModal
           isOpen={authModalOpen}
           onClose={() => setAuthModalOpen(false)}
           mode="signup"
           source={authSource}
+          returnTo={pathname}
           contextMessage={
             authSource === "session-log-cta"
               ? {

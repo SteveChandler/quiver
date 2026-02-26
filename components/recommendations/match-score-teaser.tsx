@@ -58,17 +58,19 @@ export function MatchScoreTeaser({
         <span>Match: ???</span>
       </Badge>
 
-      <UnifiedAuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        mode="signup"
-        contextMessage={{
-          title: "See Your Match Score",
-          description: `See your personalized match score for ${beachName}`,
-        }}
-        source="match-score-teaser"
-        returnTo={pathname}
-      />
+      {showAuth && (
+        <UnifiedAuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          mode="signup"
+          contextMessage={{
+            title: "See Your Match Score",
+            description: `See your personalized match score for ${beachName}`,
+          }}
+          source="match-score-teaser"
+          returnTo={pathname}
+        />
+      )}
     </>
   );
 }

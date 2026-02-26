@@ -162,15 +162,11 @@ export function FavoriteButton({
 
   // Auto-complete the deferred favorite action after the user signs in
   useEffect(() => {
-    if (
-      user &&
-      pendingAction?.type === "favorite" &&
-      pendingAction.beachId === beachId
-    ) {
-      clearPendingAction();
-      toggleFavorite();
-    }
-  }, [user, pendingAction]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!user || !pendingAction || pendingAction.type !== "favorite" || pendingAction.beachId !== beachId) return;
+    if (!hasInitialized) return;
+    clearPendingAction();
+    toggleFavorite();
+  }, [user, pendingAction, hasInitialized]); // eslint-disable-line react-hooks/exhaustive-deps -- toggleFavorite and clearPendingAction excluded to prevent infinite re-trigger; effect fires once when auth + pending action + initialization all ready
 
   if (loading) {
     return (
@@ -216,17 +212,19 @@ export function FavoriteButton({
           />
         )}
       </Button>
-      <UnifiedAuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        mode="signup"
-        contextMessage={{
-          title: "Save to Your Spots",
-          description: `Save ${beachName} to your favorites`,
-        }}
-        source="favorite-button"
-        returnTo={pathname ?? undefined}
-      />
+      {showAuth && (
+        <UnifiedAuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          mode="signup"
+          contextMessage={{
+            title: "Save to Your Spots",
+            description: `Save ${beachName} to your favorites`,
+          }}
+          source="favorite-button"
+          returnTo={pathname ?? undefined}
+        />
+      )}
     </>
   );
 }

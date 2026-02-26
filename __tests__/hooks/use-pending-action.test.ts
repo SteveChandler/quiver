@@ -135,6 +135,28 @@ describe("usePendingAction", () => {
     expect(result.current.pendingAction).toBeNull();
   });
 
+  it("ignores and clears a stored object with an invalid shape", () => {
+    // Simulates another part of the app or a browser extension writing a
+    // different object to the same localStorage key.
+    const invalidShapes = [
+      { type: 123, beachId: true, beachName: null, timestamp: "now" },
+      { type: "favorite", beachId: "beach-abc" }, // missing beachName + timestamp
+      null,
+      42,
+      "just-a-string",
+    ];
+
+    for (const shape of invalidShapes) {
+      mockGetItem.mockReturnValue(JSON.stringify(shape));
+      mockRemoveItem.mockClear();
+
+      const { result } = renderHook(() => usePendingAction());
+
+      expect(result.current.pendingAction).toBeNull();
+      expect(mockRemoveItem).toHaveBeenCalledWith(STORAGE_KEY);
+    }
+  });
+
   it("is SSR-safe: handles corrupt JSON in localStorage without throwing", () => {
     // Simulates a scenario where localStorage holds corrupt data
     // (e.g., written by an older version of the app, or truncated during SSR).

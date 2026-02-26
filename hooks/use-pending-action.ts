@@ -35,12 +35,23 @@ export function usePendingAction(): UsePendingActionReturn {
     if (!raw) return;
 
     try {
-      const parsed: PendingAction = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Runtime shape validation — guard against stale/foreign writes to the key
+      if (
+        !parsed ||
+        typeof parsed.type !== "string" ||
+        typeof parsed.beachId !== "string" ||
+        typeof parsed.beachName !== "string" ||
+        typeof parsed.timestamp !== "number"
+      ) {
+        safeRemoveItem(STORAGE_KEY);
+        return;
+      }
       if (Date.now() - parsed.timestamp > EXPIRY_MS) {
         safeRemoveItem(STORAGE_KEY);
         return;
       }
-      setPendingActionState(parsed);
+      setPendingActionState(parsed as PendingAction);
     } catch {
       // Corrupt data — clear it silently
       safeRemoveItem(STORAGE_KEY);
