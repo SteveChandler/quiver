@@ -7,9 +7,13 @@ import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { usePendingAction } from "@/hooks/use-pending-action";
+import { usePathname } from "next/navigation";
 
 interface FavoriteButtonProps {
   beachId: string;
+  beachName?: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
@@ -17,6 +21,7 @@ interface FavoriteButtonProps {
 
 export function FavoriteButton({
   beachId,
+  beachName = "this beach",
   variant = "ghost",
   size = "sm",
   className,
@@ -27,7 +32,10 @@ export function FavoriteButton({
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const initialRenderRef = useRef(true);
+  const pathname = usePathname();
+  const { pendingAction, setPendingAction, clearPendingAction } = usePendingAction();
 
   // Use standard data fetching pattern for background read
   const fetchFavorites = useCallback(async () => {
@@ -90,11 +98,8 @@ export function FavoriteButton({
 
   const toggleFavorite = async () => {
     if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to favorite beaches.",
-        variant: "destructive",
-      });
+      setPendingAction({ type: "favorite", beachId, beachName });
+      setShowAuth(true);
       return;
     }
 
@@ -155,6 +160,18 @@ export function FavoriteButton({
     }
   };
 
+  // Auto-complete the deferred favorite action after the user signs in
+  useEffect(() => {
+    if (
+      user &&
+      pendingAction?.type === "favorite" &&
+      pendingAction.beachId === beachId
+    ) {
+      clearPendingAction();
+      toggleFavorite();
+    }
+  }, [user, pendingAction]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
     return (
       <Button variant={variant} size={size} disabled className={className}>
@@ -176,27 +193,40 @@ export function FavoriteButton({
     : "Add to favorites";
 
   return (
-    <Button
-      variant={variant}
-      size={size}
-      className={className}
-      onClick={toggleFavorite}
-      disabled={false}
-      aria-pressed={ariaPressed}
-      aria-label={ariaLabel}
-    >
-      <span className="sr-only">{ariaLabel}</span>
-      {isProcessing ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Heart
-          className={`h-4 w-4 transition-all duration-200 ${
-            effectiveIsFavorite
-              ? "fill-red-500 text-red-500"
-              : "text-muted-foreground hover:text-red-400 hover:scale-110"
-          }`}
-        />
-      )}
-    </Button>
+    <>
+      <Button
+        variant={variant}
+        size={size}
+        className={className}
+        onClick={toggleFavorite}
+        disabled={false}
+        aria-pressed={ariaPressed}
+        aria-label={ariaLabel}
+      >
+        <span className="sr-only">{ariaLabel}</span>
+        {isProcessing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Heart
+            className={`h-4 w-4 transition-all duration-200 ${
+              effectiveIsFavorite
+                ? "fill-red-500 text-red-500"
+                : "text-muted-foreground hover:text-red-400 hover:scale-110"
+            }`}
+          />
+        )}
+      </Button>
+      <UnifiedAuthModal
+        isOpen={showAuth}
+        onClose={() => setShowAuth(false)}
+        mode="signup"
+        contextMessage={{
+          title: "Save to Your Spots",
+          description: `Save ${beachName} to your favorites`,
+        }}
+        source="favorite-button"
+        returnTo={pathname ?? undefined}
+      />
+    </>
   );
 }

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Auth: `FavoriteButton` now opens auth modal + defers action for guests (Phase 1A)** — Replaced the dismissible "Sign in required" toast with `UnifiedAuthModal` (mode `"signup"`, contextMessage "Save to Your Spots"). Non-auth'd clicks call `setPendingAction({ type: "favorite", beachId, beachName })` from `usePendingAction` before opening the modal. A new `useEffect` watches for `user` + matching `pendingAction` and auto-fires the toggle after sign-in, then clears the pending action. Added optional `beachName` prop to `FavoriteButtonProps` (defaults to `"this beach"`). Three new TDD tests cover modal open, pending action storage, and deferred completion.
+
 - **Auth: `usePendingAction` hook for deferred post-auth actions** — Created `hooks/use-pending-action.ts` (and accompanying tests at `__tests__/hooks/use-pending-action.test.ts`). The hook stores a guest-initiated action (`"favorite"` or `"alert"`) in localStorage so it can be replayed automatically after an OAuth redirect completes. Reads on mount, auto-expires after 5 minutes, and uses `safeGetItem`/`safeSetItem`/`safeRemoveItem` wrappers for Safari private mode and SSR safety.
 
 - **Personalization: Batch personalization layer for homepage discovery** — Created `lib/services/discovery/personalization-layer.ts` with `fetchPersonalizationContext` (2 parallel DB queries: implicit prefs + batch affinity fetch) and pure-computation `calculatePersonalizationBonus`. Eliminates the N+1 pattern from `personalized-scoring-service.ts` (previously 4-6 queries per beach) for the homepage discovery flow. Exported from `lib/services/discovery/index.ts`.
