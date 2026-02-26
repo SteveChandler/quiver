@@ -21,6 +21,7 @@ import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { useBeachPersonalization } from "@/hooks/use-beach-personalization";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import { track } from "@/lib/analytics";
+import { FavoriteButton } from "@/components/favorite-button";
 
 
 interface BeachDiscoveryCardProps {
@@ -138,6 +139,13 @@ export function BeachDiscoveryCard({
                   size="sm"
                 />
               )}
+              <FavoriteButton
+                beachId={beach.id}
+                beachName={beach.name}
+                variant="ghost"
+                size="sm"
+                className="ml-auto"
+              />
             </div>
             <CardTitle className="text-xl flex items-center gap-2">
               <MapPin className="h-5 w-5 text-gray-500" />

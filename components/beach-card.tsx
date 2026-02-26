@@ -12,6 +12,7 @@ import { ForecastPreview } from "@/components/ui/forecast-preview";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { formatRatingSimple } from "@/lib/utils/rating-formatters";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { FavoriteButton } from "@/components/favorite-button";
 
 interface BeachCardProps {
   id?: string;
@@ -163,6 +164,19 @@ const BeachCardComponent = function BeachCard({
                 displayMode="score"
                 size="sm"
                 className="shadow-md backdrop-blur-sm bg-white/95"
+              />
+            </div>
+          )}
+
+          {/* Favorite Button - top-right, opposite corner from PersonalizedBadge */}
+          {id && (
+            <div className="absolute top-2 right-2 z-10">
+              <FavoriteButton
+                beachId={id}
+                beachName={name}
+                variant="ghost"
+                size="sm"
+                className="text-white drop-shadow-md hover:text-white"
               />
             </div>
           )}
