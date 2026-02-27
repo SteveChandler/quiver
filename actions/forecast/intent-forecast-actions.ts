@@ -5,6 +5,8 @@ import type { TidePoint } from "@/components/forecast/tide-chart-recharts";
 import type { TideScheduleEntry } from "@/types/forecast";
 import { parseWaterTempF, getWetsuitRecommendation } from "@/lib/utils/wetsuit-utils";
 import { TideExtremaDetector } from "@/lib/services/noaa-coops/tide-extrema-detector";
+import { getTideHeightAtTime, getTideStatusAtTime, getNextTideFromTime } from "@/lib/services/noaa-coops/tide-analysis";
+import type { TideData } from "@/lib/services/noaa-coops/types";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import { findMagicHour } from "@/lib/services/magic-hour/magic-hour-finder";
 import type { BeachMetadata, MagicHourResult } from "@/lib/services/magic-hour/types";
@@ -271,10 +273,10 @@ export async function getCityTideData(
         return null;
       }
 
-      return processTideData(altBeach);
+      return processTideData(altBeach, state);
     }
 
-    return processTideData(beachWithForecast);
+    return processTideData(beachWithForecast, state);
   } catch (error) {
     console.error("Error in getCityTideData:", error);
     return null;
@@ -282,9 +284,12 @@ export async function getCityTideData(
 }
 
 /**
- * Process raw forecast data into CityTideData
+ * Process raw forecast data into CityTideData.
+ * Dynamically computes current tide values from the tide_schedule array
+ * rather than relying on pre-computed fields (which reflect the forecast
+ * row's time slot, not the actual current time).
  */
-function processTideData(forecastData: any): CityTideData | null {
+function processTideData(forecastData: any, state: string): CityTideData | null {
   const beach = forecastData.beaches;
   const rawForecast = forecastData.raw_forecast as {
     tide_schedule?: TideScheduleEntry[];
@@ -305,19 +310,38 @@ function processTideData(forecastData: any): CityTideData | null {
     }));
   }
 
-  // If no tide schedule, try to construct from individual forecast fields
-  if (tidePoints.length === 0 && forecastData.tide_height) {
-    // Fall back to just showing current state without chart
-    // The TideChart can handle empty data gracefully
-  }
+  // Convert TideScheduleEntry[] to TideData[] for tide-analysis functions
+  const tideData: TideData[] = tideSchedule
+    ? tideSchedule.map((entry) => ({
+        time: entry.time,
+        height: entry.height,
+        type: entry.type,
+        name: entry.type === "high" ? "High Tide" : "Low Tide",
+      }))
+    : [];
+
+  // Dynamically compute current tide values from schedule
+  const now = new Date();
+  const computedHeight = getTideHeightAtTime(tideData, now);
+  const computedStatus = getTideStatusAtTime(tideData, now);
+  const nextTide = getNextTideFromTime(tideData, now);
+
+  const timeZone = getTimezoneForState(state);
+  const nextTideTimeFormatted = nextTide
+    ? new Date(nextTide.time * 1000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone,
+      })
+    : null;
 
   return {
     tidePoints,
-    currentStatus: forecastData.tide_status || null,
-    currentHeight: forecastData.tide_height || null,
-    nextTideType: forecastData.next_tide_type || null,
-    nextTideTime: forecastData.next_tide_time || null,
-    nextTideHeight: forecastData.next_tide_height || null,
+    currentStatus: computedStatus !== "Unknown" ? computedStatus : (forecastData.tide_status || null),
+    currentHeight: computedHeight != null ? `${computedHeight} ft` : (forecastData.tide_height || null),
+    nextTideType: nextTide ? (nextTide.type === "high" ? "High" : "Low") : (forecastData.next_tide_type || null),
+    nextTideTime: nextTideTimeFormatted || (forecastData.next_tide_time || null),
+    nextTideHeight: nextTide ? `${nextTide.height} ft` : (forecastData.next_tide_height || null),
     beachName: beach?.name || "Unknown Beach",
     tideStation: rawForecast?.tide_station?.name || null,
   };
