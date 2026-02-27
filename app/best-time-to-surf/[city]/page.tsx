@@ -34,7 +34,9 @@ import { INTENT_DEFINITIONS, buildCityIntentUrl } from "@/lib/constants/intent-d
 export const dynamic = "force-dynamic";
 
 // Constants
-const currentYear = new Date().getFullYear();
+const now = new Date();
+const currentYear = now.getFullYear();
+const currentMonthIndex = now.getMonth(); // 0-based
 
 const MONTH_ABBREVS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -211,29 +213,33 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               {cityName}, {stateName} &mdash; Month-by-month surf guide
             </p>
 
-            {/* Peak month hero card */}
+            {/* Current month hero card */}
             <div className="rounded-2xl bg-gradient-to-br from-ocean-blue to-blue-700 p-6 md:p-8 text-white flex flex-col md:flex-row items-center gap-6">
               <AnimatedScoreGauge
-                score={data.peakScore}
+                score={data.monthly[currentMonthIndex].score}
                 size="xl"
                 showLabel
                 variant="hero"
               />
               <div className="text-center md:text-left">
                 <p className="text-white/80 text-sm font-medium uppercase tracking-wide mb-1">
-                  Peak Surf Month
+                  Surfing in {data.monthly[currentMonthIndex].monthName}
                 </p>
                 <p className="text-3xl md:text-4xl font-bold mb-2">
-                  {data.peakMonthName}
+                  {data.monthly[currentMonthIndex].monthName}
                 </p>
                 <p className="text-white/90 max-w-md">
-                  {data.topBeaches.length} of {data.totalBeaches} beaches hit
-                  their best conditions during {data.peakMonthName}.
+                  {data.monthly[currentMonthIndex].bestMonthCount > 0
+                    ? `${data.monthly[currentMonthIndex].bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
+                    : `${cityName} is between peak seasons right now.`}
                   {stateProfile
-                    ? ` Expect ${stateProfile.monthly[data.peakMonth - 1].waveHeightRange} waves and ${stateProfile.monthly[data.peakMonth - 1].waterTemp}°F water.`
+                    ? ` Expect ${stateProfile.monthly[currentMonthIndex].waveHeightRange} waves and ${stateProfile.monthly[currentMonthIndex].waterTemp}°F water.`
                     : data.waterTempRange
                       ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
                       : ""}
+                  {data.peakMonth !== currentMonthIndex + 1
+                    ? ` Peak month: ${data.peakMonthName}.`
+                    : ""}
                 </p>
               </div>
             </div>
