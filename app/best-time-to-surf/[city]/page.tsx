@@ -15,13 +15,10 @@ import type { Metadata } from "next";
 
 import {
   getBestTimeToSurfData,
-  getCitiesWithBestMonthsData,
 } from "@/actions/city/best-time-actions";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { buildCitySlug } from "@/lib/seo/city-slug-utils";
-import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
@@ -65,23 +62,8 @@ interface PageParams {
   params: Promise<{ city: string }>;
 }
 
-export async function generateStaticParams() {
-  try {
-    const result = await getCitiesWithBestMonthsData();
-    if (!result.success || !result.data) return [];
-
-    return result.data
-      .map((c) => {
-        const citySlug = buildCitySlug(c.city, c.state, COLLISION_CITY_MAP);
-        if (!citySlug) return null;
-        return { city: citySlug };
-      })
-      .filter((p): p is { city: string } => p !== null);
-  } catch (error) {
-    console.error("Failed to generate static params for best-time-to-surf:", error);
-    return [];
-  }
-}
+// NOTE: generateStaticParams removed — this page uses force-dynamic.
+// Pages are rendered on-demand via ISR.
 
 export async function generateMetadata(props: PageParams): Promise<Metadata> {
   const { city: citySlug } = await props.params;

@@ -14,7 +14,6 @@ Displays all ranked surf beaches for a given city, with two rendering paths:
 ├── city-page-utils.ts        # Shared utilities: resolveDisplayCityName, resolveMetroConfig,
 │                              #   resolveIslandDisplayName, buildItemListItems, SITE_ORIGIN
 ├── city-page-metadata.ts     # generateMetadata (re-exported from page.tsx)
-├── city-page-static-gen.ts   # generateStaticParams (re-exported from page.tsx)
 ├── editorial-layout.tsx      # Editorial render path component
 ├── standard-layout.tsx       # Standard render path component
 ├── location-map-client.tsx   # Client wrapper for Mapbox LocationMap (dynamic import, no SSR)
@@ -43,7 +42,7 @@ page.tsx
 
 ## SEO Considerations
 
-- `generateMetadata` and `generateStaticParams` **must** be named exports from `page.tsx` (Next.js App Router requirement). They are re-exported from their respective modules.
+- `generateMetadata` **must** be a named export from `page.tsx` (Next.js App Router requirement). It is re-exported from `city-page-metadata.ts`.
 - Both layouts render JSON-LD structured data (`Place` schema) and `ItemListSchema` for carousel SERP features.
 - The standard layout includes `FAQSection` with `FAQPage` schema for rich results.
 - Canonical URLs use the pattern `/beaches/{country}/{state}/{city}`.

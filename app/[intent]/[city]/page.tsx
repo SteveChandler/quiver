@@ -24,8 +24,8 @@ import { StateMapView } from "@/components/state/state-map-view";
 import { findCityBySlug, getCityMetadata, getCityBeachEditorialData, type CityMetadata } from "@/actions/city/city-metadata-actions";
 import { buildIntentPageContent } from "@/lib/seo/intent-content-templates";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
-import { getAllCitiesWithBeachSkills, getTopCitiesInState } from "@/actions/beach/beach-location-actions";
-import { buildCitySlug, US_STATE_SLUGS } from "@/lib/seo/city-slug-utils";
+import { getTopCitiesInState } from "@/actions/beach/beach-location-actions";
+import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import {
   PopularCitiesForIntent,
@@ -175,48 +175,11 @@ function IntentEmptyState({
   );
 }
 
-const INTENT_SLUGS: SurfIntentSlug[] = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
-const US_STATES = Object.values(US_STATE_SLUGS);
-
 const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
-const ADVANCED_INTENTS = new Set(["advanced"]);
 
-export async function generateStaticParams() {
-  const params: Array<{ intent: string; city: string }> = [];
-
-  try {
-    // Get all cities with skill-level flags for intent filtering
-    const citiesResult = await getAllCitiesWithBeachSkills(1);
-    if (citiesResult.success && citiesResult.data) {
-      // Use static collision map for consistency with sitemap canonical URLs
-      const collisionMap = COLLISION_CITY_MAP;
-
-      // Generate city × intent combinations (filtered by skill availability)
-      for (const cityRecord of citiesResult.data) {
-        const citySlug = buildCitySlug(cityRecord.city, cityRecord.state, collisionMap);
-        if (!citySlug) continue;
-
-        for (const intent of INTENT_SLUGS) {
-          // Only include skill-based intents if city has matching beaches
-          if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
-          if (ADVANCED_INTENTS.has(intent) && !cityRecord.hasAdvancedBeaches) continue;
-          params.push({ intent, city: citySlug });
-        }
-      }
-    }
-  } catch (error) {
-    console.error("generateStaticParams: Failed to fetch cities", error);
-  }
-
-  // Add state-level intent params (e.g., /beginner/ca)
-  for (const state of US_STATES) {
-    for (const intent of INTENT_SLUGS) {
-      params.push({ intent, city: state });
-    }
-  }
-
-  return params;
-}
+// NOTE: generateStaticParams removed — this page uses force-dynamic.
+// Pages are rendered on-demand. State-level routes (e.g., /beginner/ca)
+// are handled by the dynamic catch-all.
 
 interface IntentPageParams {
   // NOTE: although this page is primarily for surf intents, this route also

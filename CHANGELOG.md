@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **Build: Skip Sentry source map upload on preview deployments** — Saves ~30-45s on Vercel preview builds by setting `dryRun` when `VERCEL_ENV === "preview"`
+- **Build: Remove dead `generateStaticParams` DB calls** — Removed build-time database queries from 4 `force-dynamic` pages (`[intent]/[city]`, `beaches/[country]/[state]/[city]`, `best-time-to-surf/[city]`, `beaches/mexico/[state]`) that produced unused results. Saves ~30-60s.
+- **Build: Add `.vercelignore`** — Excludes `e2e/`, `__tests__/`, `docs/`, `scripts/`, `supabase/`, `ios/`, `android/`, `.claude/` from Vercel uploads (~23MB reduction)
+- **Build: Optimize geo-tz data bundling** — Switch to `geo-tz/now` (current timezone boundaries only) and filter CopyPlugin to exclude historical datasets. Reduces data copy from 69MB to ~15MB.
+- **Build: Add `ignoreCommand` to `vercel.json`** — Skips entire Vercel build when only docs, tests, scripts, or migrations change
+- **Build: Compress large public assets** — Converted 8 PNGs to JPEG, recompressed 3 oversized JPGs. Public directory reduced from 48MB to 25MB.
+
 ### Changed
 
 - **Architecture: Reclassify intent groups from session/style to conditions/style** — `INTENT_GROUPS`, `INTENTS_BY_GROUP`, and all intent `group` fields updated. `water-temp` moved from style to conditions. Conditions group now has 4 intents (dawn-patrol, sunset, tide, water-temp); style group has 3 (beginner, longboard, least-crowded). Added `isConditionsIntent` and `isStyleIntent` helpers. `IntentGuidesGrid` grid columns updated to `md:grid-cols-4` for conditions and `md:grid-cols-3` for style.
