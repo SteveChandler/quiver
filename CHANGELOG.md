@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Best Time to Surf: Shoulder smoothing + composite surf scores** — Monthly surf scores now use a Gaussian convolution kernel for smooth shoulder months (±1 month = 50%, ±2 months = 25%) instead of binary 100/0 cliffs. Scores blend beach peak season data with state-level conditions (Tier 1), regional water temperature (Tier 2), or smoothed peaks only (Tier 3). Rincón-style cities with identical winter peaks now show a gradual bell curve.
+
 ### Performance
 
 - **Build: Skip Sentry source map upload on preview deployments** — Saves ~30-45s on Vercel preview builds by setting `dryRun` when `VERCEL_ENV === "preview"`

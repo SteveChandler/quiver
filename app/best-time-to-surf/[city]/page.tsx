@@ -247,8 +247,8 @@ export default async function BestTimeToSurfPage(props: PageParams) {
               Surf Score by Month
             </h2>
             <p className="text-sm text-gray-600 mb-4">
-              Score reflects how many {cityName} beaches are in their peak
-              season each month, normalized to 100.
+              Score reflects overall surf quality each month — combining peak
+              season activity, water temperature, and crowd levels.
             </p>
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <MonthlySurfChart monthly={data.monthly} />
