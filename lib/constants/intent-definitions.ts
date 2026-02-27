@@ -9,7 +9,7 @@
  */
 
 export const INTENT_GROUPS = {
-  session: 'Session',
+  conditions: 'Conditions',
   style: 'Style',
 } as const;
 
@@ -23,24 +23,30 @@ type IntentDefinitionShape = {
 };
 
 export const INTENT_DEFINITIONS = [
-  // SESSION GROUP
+  // CONDITIONS GROUP
   {
     key: 'dawn-patrol',
     label: 'Dawn Patrol',
     description: 'Best early morning sessions',
-    group: 'session',
+    group: 'conditions',
   },
   {
     key: 'sunset',
     label: 'Sunset Sessions',
     description: 'Evening golden hour spots',
-    group: 'session',
+    group: 'conditions',
   },
   {
     key: 'tide',
     label: 'Tide Windows',
     description: 'Optimal tidal conditions',
-    group: 'session',
+    group: 'conditions',
+  },
+  {
+    key: 'water-temp',
+    label: 'Water Temperature',
+    description: 'Conditions & wetsuit guide',
+    group: 'conditions',
   },
   // STYLE GROUP
   {
@@ -61,12 +67,6 @@ export const INTENT_DEFINITIONS = [
     description: 'Quieter lineups & backups',
     group: 'style',
   },
-  {
-    key: 'water-temp',
-    label: 'Water Temperature',
-    description: 'Conditions & wetsuit guide',
-    group: 'style',
-  },
 ] as const satisfies readonly IntentDefinitionShape[];
 
 // Derived types
@@ -75,9 +75,15 @@ export type IntentDefinitionType = (typeof INTENT_DEFINITIONS)[number];
 
 // Pre-computed groups for efficient rendering
 export const INTENTS_BY_GROUP = {
-  session: INTENT_DEFINITIONS.filter(i => i.group === 'session'),
+  conditions: INTENT_DEFINITIONS.filter(i => i.group === 'conditions'),
   style: INTENT_DEFINITIONS.filter(i => i.group === 'style'),
 } as const;
+
+export const isConditionsIntent = (key: IntentKey): boolean =>
+  INTENTS_BY_GROUP.conditions.some(i => i.key === key);
+
+export const isStyleIntent = (key: IntentKey): boolean =>
+  INTENTS_BY_GROUP.style.some(i => i.key === key);
 
 // URL builders - single source of truth
 export const buildStateIntentUrl = (intent: IntentKey, stateSlug: string): string =>

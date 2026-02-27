@@ -32,7 +32,7 @@ interface IntentGuidesGridProps {
  *
  * Features:
  * - Deterministic: always shows all 7 intents, no conditional logic
- * - Grouped by Session (3) and Style (4) categories
+ * - Grouped by Conditions (4) and Style (3) categories
  * - Polymorphic: supports both state and city locations
  * - URL format: /{intent}/{location-slug}
  */
@@ -63,13 +63,13 @@ export function IntentGuidesGrid({
         Surf Guides for {displayName}
       </h2>
 
-      {/* SESSION group */}
+      {/* CONDITIONS group */}
       <div className="space-y-3">
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          {INTENT_GROUPS.session}
+          {INTENT_GROUPS.conditions}
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {INTENTS_BY_GROUP.session.map((intent) =>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {INTENTS_BY_GROUP.conditions.map((intent) =>
             currentIntent === intent.key ? (
               <IntentCardCurrent key={intent.key} intent={intent} />
             ) : (
@@ -89,7 +89,7 @@ export function IntentGuidesGrid({
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
           {INTENT_GROUPS.style}
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {INTENTS_BY_GROUP.style.map((intent) =>
             currentIntent === intent.key ? (
               <IntentCardCurrent key={intent.key} intent={intent} />

@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Architecture: Reclassify intent groups from session/style to conditions/style** — `INTENT_GROUPS`, `INTENTS_BY_GROUP`, and all intent `group` fields updated. `water-temp` moved from style to conditions. Conditions group now has 4 intents (dawn-patrol, sunset, tide, water-temp); style group has 3 (beginner, longboard, least-crowded). Added `isConditionsIntent` and `isStyleIntent` helpers. `IntentGuidesGrid` grid columns updated to `md:grid-cols-4` for conditions and `md:grid-cols-3` for style.
+
 ### Added
 
+- **SEO: Wire intent page components into page.tsx (Phase 5)** — `/water-temp/[city]` now renders `WaterTempPageContent` with expanded data (monthly averages, per-beach comparison, wetsuit guide). `/dawn-patrol/[city]` and `/sunset/[city]` render `DawnPatrolPageContent` / `SunsetPageContent` with 7-day sun times. All three use dedicated early-exit blocks after the tide block, emit Place + ItemList + WebPage JSON-LD schemas, and fall through to the generic flow if live data is unavailable. State-level conditions pages (`/water-temp/ca`, `/dawn-patrol/ca`, etc.) now render `ConditionsStateOverview` instead of `PopularCitiesForIntent`; tide keeps `PopularCitiesForIntent`. Nine new barrel exports added to `components/intent/index.ts`.
+- **SEO: ConditionsStateOverview component (Phase 4)** — New async RSC at `components/intent/conditions-state-overview.tsx` replaces `PopularCitiesForIntent` on conditions intent state pages. Shows a data table of water temperatures (north-to-south with wetsuit recommendation) for `water-temp`, and sunrise/first-light or sunset/golden-hour times for `dawn-patrol`/`sunset`. Backed by two new batch server actions `getStateWaterTempOverview` and `getStateSunTimesOverview` in `actions/forecast/intent-forecast-actions.ts`. All city links use `buildCityIntentUrl` to preserve the SEO crawl loop.
 - **UX: Beach photos on beginner spot cards** — Spot cards now show Flickr CC thumbnails from the `beach_photos` table (full-width on mobile, 160px sidebar on desktop). Falls back to a subtle wave-icon gradient placeholder when no photo exists.
 
 ### Changed

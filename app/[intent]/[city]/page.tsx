@@ -36,11 +36,16 @@ import {
   SmartChecklist,
   MiniLogTeaser,
   BeachEditorialSection,
+  WaterTempPageContent,
+  DawnPatrolPageContent,
+  SunsetPageContent,
+  ConditionsStateOverview,
 } from "@/components/intent";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { IntentKey } from "@/lib/constants/intent-definitions";
+import { isConditionsIntent } from "@/lib/constants/intent-definitions";
 import { ContinueExploring } from "@/components/shared/continue-exploring";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { ZeroState } from "@/components/ui/zero-state";
@@ -49,9 +54,13 @@ import {
   getCityTideDataExpanded,
   getCityWaterTempHistory,
   getIntentForecastSummary,
+  getCityWaterTempExpanded,
+  getCitySunTimesData,
   type CityTideData,
   type CityTideDataExpanded,
   type CityWaterTempData,
+  type CityWaterTempExpanded,
+  type CitySunTimesData,
 } from "@/actions/forecast/intent-forecast-actions";
 import { findCitiesMatchingPattern } from "@/actions/city/city-metadata-actions";
 import {
@@ -426,41 +435,29 @@ export default async function IntentPage(props: IntentPageParams) {
           ) : (
             <>
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  {intentDefinition.label} spots in {stateName}
-                </h2>
                 <StateMapView
                   beaches={beaches}
                   ariaLabel={`${intentDefinition.label} spots in ${stateName}`}
                 />
               </section>
 
-              {/* Focus Points */}
-              <section>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  What to focus on
-                </h2>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {intentDefinition.focusPoints.map((point) => (
-                    <li
-                      key={point}
-                      className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
-                    >
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              {/* Popular Cities - Links DOWN to city intent pages */}
+              {/* Conditions overview or Popular Cities - Links DOWN to city intent pages */}
               {topCities.length > 0 && (
                 <section className="mt-8">
-                  <PopularCitiesForIntent
-                    intentKey={params.intent as IntentKey}
-                    intentLabel={intentDefinition.label}
-                    stateName={stateName}
-                    cities={topCities}
-                  />
+                  {isConditionsIntent(params.intent as IntentKey) && params.intent !== "tide" ? (
+                    <ConditionsStateOverview
+                      intentKey={params.intent as IntentKey}
+                      stateName={stateName}
+                      stateSlug={params.city}
+                    />
+                  ) : (
+                    <PopularCitiesForIntent
+                      intentKey={params.intent as IntentKey}
+                      intentLabel={intentDefinition.label}
+                      stateName={stateName}
+                      cities={topCities}
+                    />
+                  )}
                 </section>
               )}
 
@@ -651,6 +648,253 @@ export default async function IntentPage(props: IntentPageParams) {
       );
     }
     // Fall through to generic intent flow if expanded data unavailable
+  }
+
+  // Water-temp intent: use dedicated page component with expanded data
+  if (params.intent === "water-temp") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata);
+
+    const [expandedWaterTempData, waterTempBeachesResult, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
+      getCityWaterTempExpanded(cityMetadata.cityName, cityMetadata.state),
+      getBeachesByIntentAndCity("water-temp", cityMetadata.cityName, stateSlugLower),
+      getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
+      getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
+    ]);
+
+    // If expanded data available, render dedicated water-temp page
+    if (expandedWaterTempData) {
+      const waterTempBeaches = waterTempBeachesResult.success && waterTempBeachesResult.data
+        ? waterTempBeachesResult.data
+        : [];
+      const waterTempBeachesWithMetrics: BeachWithMetrics[] = waterTempBeaches.map((beach) => ({
+        ...beach,
+        compositeScore: 0,
+        recentIntelCount: 0,
+        avgConfirmations: 0,
+      }));
+      const waterTempSpots: SurfSpot[] = transformBeachesToSurfSpots(waterTempBeachesWithMetrics);
+
+      const safeBaseUrl = baseUrl.replace(/\/$/, "");
+      const waterTempPageUrl = `${safeBaseUrl}/water-temp/${params.city}`;
+
+      const waterTempPlaceSchema = buildLocationPlaceStructuredData({
+        city: cityMetadata.cityName,
+        state: cityMetadata.stateName,
+        topBeaches: waterTempBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+        })),
+        centerLat: cityMetadata.centerLat,
+        centerLon: cityMetadata.centerLon,
+        beachGeoData: waterTempBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+          lat: b.lat ?? null,
+          lon: b.lon ?? null,
+        })),
+      });
+
+      return (
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(waterTempPlaceSchema) }}
+          />
+          <ItemListSchema
+            items={waterTempBeaches.map((b, i) => ({
+              name: b.name,
+              url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+              position: i + 1,
+            }))}
+            name={`Water Temperature for ${cityMetadata.cityName} Surf Spots`}
+          />
+          <WebPageSchema
+            name={waterTempPageContent.title}
+            url={waterTempPageUrl}
+          />
+          <WaterTempPageContent
+            cityName={cityMetadata.cityName}
+            citySlug={params.city}
+            stateSlug={stateSlugLower}
+            stateName={cityMetadata.stateName}
+            regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+            pageContent={waterTempPageContent}
+            waterTempData={expandedWaterTempData}
+            spots={waterTempSpots}
+            baseUrl={baseUrl}
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
+            editorialBeaches={editorialBeaches}
+          />
+        </>
+      );
+    }
+    // Fall through to generic intent flow if expanded data unavailable
+  }
+
+  // Dawn-patrol intent: use dedicated page component with sunrise/first light times
+  if (params.intent === "dawn-patrol") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const dawnPatrolPageContent = buildIntentPageContent("dawn-patrol", cityMetadata);
+
+    const [sunTimesData, dawnPatrolBeachesResult, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
+      getCitySunTimesData(cityMetadata.cityName, cityMetadata.state),
+      getBeachesByIntentAndCity("dawn-patrol", cityMetadata.cityName, stateSlugLower),
+      getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
+      getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
+    ]);
+
+    if (sunTimesData) {
+      const dpBeaches = dawnPatrolBeachesResult.success && dawnPatrolBeachesResult.data
+        ? dawnPatrolBeachesResult.data
+        : [];
+      const dpBeachesWithMetrics: BeachWithMetrics[] = dpBeaches.map((beach) => ({
+        ...beach,
+        compositeScore: 0,
+        recentIntelCount: 0,
+        avgConfirmations: 0,
+      }));
+      const dpSpots: SurfSpot[] = transformBeachesToSurfSpots(dpBeachesWithMetrics);
+
+      const safeBaseUrl = baseUrl.replace(/\/$/, "");
+      const dpPageUrl = `${safeBaseUrl}/dawn-patrol/${params.city}`;
+
+      const dpPlaceSchema = buildLocationPlaceStructuredData({
+        city: cityMetadata.cityName,
+        state: cityMetadata.stateName,
+        topBeaches: dpBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+        })),
+        centerLat: cityMetadata.centerLat,
+        centerLon: cityMetadata.centerLon,
+        beachGeoData: dpBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+          lat: b.lat ?? null,
+          lon: b.lon ?? null,
+        })),
+      });
+
+      return (
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(dpPlaceSchema) }}
+          />
+          <ItemListSchema
+            items={dpBeaches.map((b, i) => ({
+              name: b.name,
+              url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+              position: i + 1,
+            }))}
+            name={`Dawn Patrol Spots in ${cityMetadata.cityName}`}
+          />
+          <WebPageSchema
+            name={dawnPatrolPageContent.title}
+            url={dpPageUrl}
+          />
+          <DawnPatrolPageContent
+            cityName={cityMetadata.cityName}
+            citySlug={params.city}
+            stateSlug={stateSlugLower}
+            stateName={cityMetadata.stateName}
+            regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+            pageContent={dawnPatrolPageContent}
+            sunTimesData={sunTimesData}
+            spots={dpSpots}
+            baseUrl={baseUrl}
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
+            editorialBeaches={editorialBeaches}
+          />
+        </>
+      );
+    }
+    // Fall through to generic intent flow if sun times unavailable
+  }
+
+  // Sunset intent: use dedicated page component with sunset/golden hour times
+  if (params.intent === "sunset") {
+    const stateSlugLower = cityMetadata.state.toLowerCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+    const sunsetPageContent = buildIntentPageContent("sunset", cityMetadata);
+
+    const [sunTimesData, sunsetBeachesResult, bestTimeToSurfUrl, editorialBeaches] = await Promise.all([
+      getCitySunTimesData(cityMetadata.cityName, cityMetadata.state),
+      getBeachesByIntentAndCity("sunset", cityMetadata.cityName, stateSlugLower),
+      getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
+      getCityBeachEditorialData(cityMetadata.cityName, cityMetadata.state),
+    ]);
+
+    if (sunTimesData) {
+      const sunsetBeaches = sunsetBeachesResult.success && sunsetBeachesResult.data
+        ? sunsetBeachesResult.data
+        : [];
+      const sunsetBeachesWithMetrics: BeachWithMetrics[] = sunsetBeaches.map((beach) => ({
+        ...beach,
+        compositeScore: 0,
+        recentIntelCount: 0,
+        avgConfirmations: 0,
+      }));
+      const sunsetSpots: SurfSpot[] = transformBeachesToSurfSpots(sunsetBeachesWithMetrics);
+
+      const safeBaseUrl = baseUrl.replace(/\/$/, "");
+      const sunsetPageUrl = `${safeBaseUrl}/sunset/${params.city}`;
+
+      const sunsetPlaceSchema = buildLocationPlaceStructuredData({
+        city: cityMetadata.cityName,
+        state: cityMetadata.stateName,
+        topBeaches: sunsetBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+        })),
+        centerLat: cityMetadata.centerLat,
+        centerLon: cityMetadata.centerLon,
+        beachGeoData: sunsetBeaches.map((b) => ({
+          name: b.name,
+          url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+          lat: b.lat ?? null,
+          lon: b.lon ?? null,
+        })),
+      });
+
+      return (
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(sunsetPlaceSchema) }}
+          />
+          <ItemListSchema
+            items={sunsetBeaches.map((b, i) => ({
+              name: b.name,
+              url: `${safeBaseUrl}${buildBeachUrl(b)}`,
+              position: i + 1,
+            }))}
+            name={`Sunset Spots in ${cityMetadata.cityName}`}
+          />
+          <WebPageSchema
+            name={sunsetPageContent.title}
+            url={sunsetPageUrl}
+          />
+          <SunsetPageContent
+            cityName={cityMetadata.cityName}
+            citySlug={params.city}
+            stateSlug={stateSlugLower}
+            stateName={cityMetadata.stateName}
+            regionLabel={`${cityMetadata.cityName}, ${cityMetadata.stateName}`}
+            pageContent={sunsetPageContent}
+            sunTimesData={sunTimesData}
+            spots={sunsetSpots}
+            baseUrl={baseUrl}
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
+            editorialBeaches={editorialBeaches}
+          />
+        </>
+      );
+    }
+    // Fall through to generic intent flow if sun times unavailable
   }
 
   // Generate content from templates
@@ -845,14 +1089,6 @@ export default async function IntentPage(props: IntentPageParams) {
         <div className="space-y-12">
           {/* Map & List Section */}
           <section>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              Top spot recommendations
-            </h2>
-            <p className="mb-6 text-sm text-gray-600">
-              Sort your quiver, choose the right tide window, and jot down a
-              backup in case the main peak gets stacked.
-            </p>
-
             <CityMapView
               spots={spots}
               cityName={cityMetadata.cityName}
