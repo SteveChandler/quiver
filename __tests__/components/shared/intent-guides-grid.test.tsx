@@ -61,7 +61,7 @@ describe("IntentGuidesGrid - State Location Type", () => {
     it("should render section headings", () => {
       render(<IntentGuidesGrid {...stateProps} />);
 
-      expect(screen.getByText("Session")).toBeInTheDocument();
+      expect(screen.getByText("Conditions")).toBeInTheDocument();
       expect(screen.getByText("Style")).toBeInTheDocument();
     });
   });
@@ -365,8 +365,8 @@ describe("IntentGuidesGrid - Accessibility", () => {
       />
     );
 
-    const sessionHeading = screen.getByText("Session");
-    expect(sessionHeading.tagName).toBe("H3");
+    const conditionsHeading = screen.getByText("Conditions");
+    expect(conditionsHeading.tagName).toBe("H3");
   });
 
   it("should have descriptive aria-labels with human-readable location name", () => {

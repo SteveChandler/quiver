@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
   useSearchParams: jest.fn(),
+  usePathname: jest.fn(() => "/"),
 }));
 
 jest.mock("@/context/auth-context", () => ({
@@ -45,6 +46,12 @@ jest.mock("@/components/landing-page/forecast-section", () => ({
 }));
 jest.mock("@/components/landing-page/cta-section", () => ({
   CTASection: () => <div data-testid="cta" />,
+}));
+jest.mock("@/components/landing-page/landing-interactive-sections", () => ({
+  LandingInteractiveSections: () => <div data-testid="landing-interactive-sections" />,
+}));
+jest.mock("@/components/landing-page/landing-conditions-ticker", () => ({
+  LandingConditionsTicker: () => <div data-testid="landing-conditions-ticker" />,
 }));
 
 describe("AuthAwareLandingWrapper post-signup confirm email", () => {

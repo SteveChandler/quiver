@@ -9,7 +9,7 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
 describe("generateStateSummary", () => {
   it("includes beach and city counts", () => {
     const beaches = [
-      makeBeach({ id: "1", name: "A", city: "City1", skill_level: "Beginner" }),
+      makeBeach({ id: "1", name: "A", city: "City1", skill_level: "beginner" }),
       makeBeach({ id: "2", name: "B", city: "City1" }),
       makeBeach({ id: "3", name: "C", city: "City2" }),
     ];
@@ -40,10 +40,10 @@ describe("generateStateSummary", () => {
 
   it("shows beginner percentage when beginner spots exist", () => {
     const beaches = [
-      makeBeach({ id: "1", name: "A", skill_level: "Beginner" }),
-      makeBeach({ id: "2", name: "B", skill_level: "Beginner" }),
-      makeBeach({ id: "3", name: "C", skill_level: "Advanced" }),
-      makeBeach({ id: "4", name: "D", skill_level: "Intermediate" }),
+      makeBeach({ id: "1", name: "A", skill_level: "beginner" }),
+      makeBeach({ id: "2", name: "B", skill_level: "beginner" }),
+      makeBeach({ id: "3", name: "C", skill_level: "advanced" }),
+      makeBeach({ id: "4", name: "D", skill_level: "intermediate" }),
     ];
     const summary = generateStateSummary({
       stateName: "California",
@@ -58,7 +58,7 @@ describe("generateStateSummary", () => {
 
   it("reports intermediate/advanced when no beginner spots", () => {
     const beaches = [
-      makeBeach({ id: "1", name: "A", skill_level: "Advanced" }),
+      makeBeach({ id: "1", name: "A", skill_level: "advanced" }),
     ];
     const summary = generateStateSummary({
       stateName: "Oregon",
@@ -126,7 +126,7 @@ describe("generateStateSummary", () => {
 describe("generateStateFAQ", () => {
   it("returns 4 FAQ items", () => {
     const beaches = [
-      makeBeach({ id: "1", name: "A", city: "City1", skill_level: "Beginner" }),
+      makeBeach({ id: "1", name: "A", city: "City1", skill_level: "beginner" }),
     ];
     const faqs = generateStateFAQ({
       stateName: "California",
@@ -205,10 +205,10 @@ describe("generateStateFAQ", () => {
 
   it("FAQ 4 lists top beginner cities when beginner spots exist", () => {
     const beaches = [
-      makeBeach({ id: "1", name: "A", city: "Daytona Beach", skill_level: "Beginner" }),
-      makeBeach({ id: "2", name: "B", city: "Daytona Beach", skill_level: "Beginner" }),
-      makeBeach({ id: "3", name: "C", city: "Miami Beach", skill_level: "Beginner" }),
-      makeBeach({ id: "4", name: "D", city: "Miami Beach", skill_level: "Advanced" }),
+      makeBeach({ id: "1", name: "A", city: "Daytona Beach", skill_level: "beginner" }),
+      makeBeach({ id: "2", name: "B", city: "Daytona Beach", skill_level: "beginner" }),
+      makeBeach({ id: "3", name: "C", city: "Miami Beach", skill_level: "beginner" }),
+      makeBeach({ id: "4", name: "D", city: "Miami Beach", skill_level: "advanced" }),
     ];
     const faqs = generateStateFAQ({
       stateName: "Florida",
@@ -225,7 +225,7 @@ describe("generateStateFAQ", () => {
 
   it("FAQ 4 handles no beginner spots", () => {
     const beaches = [
-      makeBeach({ id: "1", name: "A", skill_level: "Advanced" }),
+      makeBeach({ id: "1", name: "A", skill_level: "advanced" }),
     ];
     const faqs = generateStateFAQ({
       stateName: "Oregon",
