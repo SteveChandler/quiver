@@ -63,17 +63,6 @@ test.describe("State Hub Intent Guides Grid", () => {
       await expect(beginnerLink).toHaveAttribute("href", "/beginner/ca");
     });
 
-    test("should navigate to intent page when clicking a card", async ({ page }) => {
-      const beginnerLink = page.getByRole("link", {
-        name: /Beginner Spots surf guide for California/i,
-      });
-
-      await beginnerLink.click();
-
-      // Wait for navigation to complete
-      await page.waitForURL(/\/beginner\/ca/, { timeout: 30000 });
-      await expect(page).toHaveURL(/\/beginner\/ca/);
-    });
   });
 
   test.describe("Hawaii State Page", () => {

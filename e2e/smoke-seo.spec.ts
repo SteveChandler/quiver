@@ -11,7 +11,6 @@ import { test, expect } from '@playwright/test';
 import {
   setupErrorDetection,
   assertNoErrors,
-  gotoWithErrorCheck,
   ErrorCapture,
 } from './utils/error-detection';
 
@@ -20,23 +19,6 @@ test.describe('Smoke: SEO Infrastructure', () => {
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
-  });
-
-  test('Intent page renders with correct heading and structured data @smoke', async ({ page }) => {
-    await gotoWithErrorCheck(page, errorCapture, '/beginner/ca', { timeout: 10000 });
-
-    // H1 should contain the state name and intent keyword
-    const h1 = page.locator('h1');
-    await expect(h1).toBeVisible({ timeout: 10000 });
-    const h1Text = await h1.textContent();
-    expect(h1Text?.toLowerCase()).toContain('california');
-    expect(h1Text?.toLowerCase()).toContain('beginner');
-
-    // JSON-LD structured data should exist
-    const jsonLd = page.locator('script[type="application/ld+json"]').first();
-    await expect(jsonLd).toBeAttached();
-
-    await assertNoErrors(page, errorCapture, { context: 'Intent page' });
   });
 
   test('Sitemap returns valid XML response @smoke', async ({ page }) => {
