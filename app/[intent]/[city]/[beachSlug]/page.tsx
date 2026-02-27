@@ -258,7 +258,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           url={`${baseUrl}${buildBeachUrl(beach)}`}
         />
 
-        {beach.skill_level === "Beginner" && (
+        {beach.skill_level === "beginner" && (
           <HowToSurfSchema
             beachName={beach.name}
             waterTemp={null}

@@ -113,9 +113,9 @@ function buildSummary(
 
   // Sentence 1: Beach count + skill level distribution
   const skillParts: string[] = [];
-  if (skillCounts["Beginner"]) skillParts.push(`${skillCounts["Beginner"]} beginner-friendly`);
-  if (skillCounts["Intermediate"]) skillParts.push(`${skillCounts["Intermediate"]} intermediate`);
-  if (skillCounts["Advanced"]) skillParts.push(`${skillCounts["Advanced"]} advanced`);
+  if (skillCounts["beginner"]) skillParts.push(`${skillCounts["beginner"]} beginner-friendly`);
+  if (skillCounts["intermediate"]) skillParts.push(`${skillCounts["intermediate"]} intermediate`);
+  if (skillCounts["advanced"]) skillParts.push(`${skillCounts["advanced"]} advanced`);
 
   if (skillParts.length > 0) {
     const skillTotal = Object.values(skillCounts).reduce((a, b) => a + b, 0);
@@ -168,9 +168,9 @@ function buildFAQ(
 
   // FAQ 1: How many surf spots?
   const skillDetail: string[] = [];
-  if (skillCounts["Beginner"]) skillDetail.push(`${skillCounts["Beginner"]} beginner`);
-  if (skillCounts["Intermediate"]) skillDetail.push(`${skillCounts["Intermediate"]} intermediate`);
-  if (skillCounts["Advanced"]) skillDetail.push(`${skillCounts["Advanced"]} advanced`);
+  if (skillCounts["beginner"]) skillDetail.push(`${skillCounts["beginner"]} beginner`);
+  if (skillCounts["intermediate"]) skillDetail.push(`${skillCounts["intermediate"]} intermediate`);
+  if (skillCounts["advanced"]) skillDetail.push(`${skillCounts["advanced"]} advanced`);
 
   faqs.push({
     question: `How many surf spots are in ${cityName}?`,
@@ -197,10 +197,10 @@ function buildFAQ(
   }
 
   // FAQ 3: Good for beginners?
-  const beginnerCount = skillCounts["Beginner"] || 0;
+  const beginnerCount = skillCounts["beginner"] || 0;
   if (beginnerCount > 0) {
     const beginnerNames = beaches
-      .filter((b) => b.skill_level === "Beginner")
+      .filter((b) => b.skill_level === "beginner")
       .slice(0, 3)
       .map((b) => b.name);
     faqs.push({

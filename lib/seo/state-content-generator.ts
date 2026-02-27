@@ -54,7 +54,7 @@ export function generateStateSummary(input: StateContentInput): string {
 
   // Sentence 2: Skill level distribution
   const skillCounts = countValues(beaches.map((b) => b.skill_level));
-  const beginnerCount = skillCounts["Beginner"] || 0;
+  const beginnerCount = skillCounts["beginner"] || 0;
   if (beginnerCount > 0) {
     const pct = Math.round((beginnerCount / total) * 100);
     sentences.push(
@@ -142,11 +142,11 @@ export function generateStateFAQ(input: StateContentInput): FAQItem[] {
 
   // FAQ 4: Best beginner spots
   const skillCounts = total > 0 ? countValues(beaches.map((b) => b.skill_level)) : {};
-  const beginnerCount = skillCounts["Beginner"] || 0;
+  const beginnerCount = skillCounts["beginner"] || 0;
   if (beginnerCount > 0) {
     const cityBeginnerCounts: Record<string, number> = {};
     for (const b of beaches) {
-      if (b.skill_level === "Beginner" && b.city) {
+      if (b.skill_level === "beginner" && b.city) {
         cityBeginnerCounts[b.city] = (cityBeginnerCounts[b.city] || 0) + 1;
       }
     }
