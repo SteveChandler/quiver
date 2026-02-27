@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SEO: State-level intent links on beach detail pages** — `RelatedGuidesSection` now links to all 7 state-level intent pages (e.g., `/dawn-patrol/ca`) as a compact text row below the existing city-level intent cards
+- **SEO: Sibling cities section on city hub pages** — New `SiblingCitiesSection` component shows up to 8 other surf cities in the same state on both StandardLayout and EditorialLayout
+- **SEO: FAQSection on editorial city hub layout** — Editorial cities now render data-driven FAQs via `generateCityRichContent`, matching StandardLayout's FAQ coverage
+- **SEO: Editorial-backed FAQ generator** — `CityContentInput` accepts optional `editorialBeachData` to generate additional FAQs from real beach editorial content (tide, safety, crowd data)
+- **SEO: Beach highlights prep on StandardLayout** — Optional `beachHighlights` prop renders beginner/safety badges with links (awaiting content pipeline data)
+- **SEO: HowTo schema for beginner beaches** — New `HowToSurfSchema` component outputs JSON-LD for "how to surf [beach]" queries, rendered only on beginner-level beach pages
+- **SEO: Structured data on state root pages** — `/ca`, `/or`, etc. now include BreadcrumbStructuredData, ItemListSchema, and WebPageSchema
+
 ### Fixed
 
 - **Auth modals: missing `returnTo`, stale closure risk, and unnecessary eager mounting (code review items 2, 4, 6, 7)** — `beach-card.tsx` and `beach-actions.tsx` now pass `returnTo={pathname}` to their `UnifiedAuthModal` instances so users land back on the correct page after sign-up. `favorite-button.tsx` deferred-action `useEffect` now guards on `hasInitialized` before firing `toggleFavorite()`, preventing a stale-closure call while favorites are still loading; the `eslint-disable` comment now includes the suppression reason. All seven components that render `UnifiedAuthModal` added in this feature branch now use lazy-render (`{showAuth && <UnifiedAuthModal .../>}`) to avoid mounting the modal subtree until it is actually needed. `beach-card-session-link.test.tsx` mock for `next/navigation` updated to include `usePathname`.

@@ -7,6 +7,8 @@
 
 import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
+import { SiblingCitiesSection } from "@/components/shared/sibling-cities-section";
+import type { TopCityInState } from "@/actions/beach/beach-location-actions";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { getBeachHrefSafe, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
@@ -24,6 +26,13 @@ import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 
+interface BeachHighlight {
+  beachName: string;
+  beachUrl: string;
+  type: "beginner" | "safety";
+  text: string;
+}
+
 interface StandardLayoutProps {
   params: LocationPageParams;
   displayCityName: string;
@@ -34,6 +43,8 @@ interface StandardLayoutProps {
   jsonLd: object;
   itemListItems: { name: string; url: string; position: number }[];
   bestTimeToSurfUrl?: string;
+  siblingCities?: TopCityInState[];
+  beachHighlights?: BeachHighlight[];
 }
 
 export function StandardLayout({
@@ -46,6 +57,8 @@ export function StandardLayout({
   jsonLd,
   itemListItems,
   bestTimeToSurfUrl,
+  siblingCities,
+  beachHighlights,
 }: StandardLayoutProps) {
   const { summary: citySummary, faqs: cityFaqs } = generateCityRichContent({
     cityName: displayCityName,
@@ -296,8 +309,42 @@ export function StandardLayout({
           </div>
         )}
 
+        {/* Beach Highlights from editorial content */}
+        {beachHighlights && beachHighlights.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Beach Highlights</h2>
+            <div className="space-y-3">
+              {beachHighlights.map((highlight, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-sky-100 text-sky-700 whitespace-nowrap">
+                    {highlight.type === "beginner" ? "Beginner-friendly" : "Safety"}
+                  </span>
+                  <p className="text-sm text-gray-700">
+                    <Link href={highlight.beachUrl} className="font-medium text-sky-700 hover:underline">
+                      {highlight.beachName}
+                    </Link>
+                    {" — "}
+                    {highlight.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* FAQ Section for SEO */}
         <FAQSection items={cityFaqs} locationName={displayCityName} />
+
+        {/* Sibling Cities for internal linking */}
+        {siblingCities && siblingCities.length > 0 && (
+          <SiblingCitiesSection
+            currentCity={displayCityName}
+            stateSlug={params.state}
+            stateName={stateName}
+            stateUrl={stateUrl}
+            cities={siblingCities}
+          />
+        )}
 
         {/* Empty State (shouldn't happen due to notFound check above) */}
         {beaches.length === 0 && (
