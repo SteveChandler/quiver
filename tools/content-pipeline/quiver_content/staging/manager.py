@@ -207,6 +207,7 @@ def save_sources(beach_id: str, beach_info: dict, crawl_results: list[dict]) -> 
             url = cr.get("url", "")
             raw_text = cr.get("raw_text", "")
             error = cr.get("error")
+            metadata = cr.get("metadata", {})
 
             lines.append(f"## Source: {source_name}")
             lines.append(f"URL: {url}")
@@ -218,6 +219,59 @@ def save_sources(beach_id: str, beach_info: dict, crawl_results: list[dict]) -> 
                 lines.append(raw_text.strip())
             else:
                 lines.append("*(No text extracted)*")
+
+            # Render structured metadata for Wannasurf
+            if source_name == "wannasurf" and not error:
+                ws_fields = [
+                    ("break_type", "Break Type"),
+                    ("bottom_type", "Bottom"),
+                    ("swell_directions", "Swell Directions"),
+                    ("wind_directions", "Wind Directions"),
+                    ("tide_position", "Tide Position"),
+                    ("tide_movement", "Tide Movement"),
+                    ("skill_level", "Skill Level"),
+                    ("crowd_weekday", "Crowd (Weekday)"),
+                    ("crowd_weekend", "Crowd (Weekend)"),
+                    ("hazards", "Hazards"),
+                    ("wave_quality", "Wave Quality"),
+                    ("swell_range_ft", "Swell Range"),
+                    ("best_months", "Best Months"),
+                ]
+                parsed = {k: metadata.get(k) for k, _ in ws_fields if metadata.get(k)}
+                if parsed:
+                    lines.append("")
+                    lines.append("### Parsed Surf Data")
+                    lines.append("")
+                    for key, label in ws_fields:
+                        val = metadata.get(key)
+                        if val:
+                            lines.append(f"- **{label}:** {val}")
+
+            # Render structured metadata for OSM
+            if source_name == "osm" and not error:
+                lines.append("")
+                lines.append(
+                    "> **License:** ODbL - "
+                    "Data (c) OpenStreetMap contributors. "
+                    "Attribution required when publishing."
+                )
+                counts = [
+                    ("parking_count", "Parking"),
+                    ("restroom_count", "Restrooms"),
+                    ("shower_count", "Showers"),
+                    ("lifeguard_count", "Lifeguard Stations"),
+                    ("food_count", "Food/Drink"),
+                    ("shop_count", "Surf/Outdoor Shops"),
+                ]
+                has_counts = any(metadata.get(k, 0) > 0 for k, _ in counts)
+                if has_counts:
+                    lines.append("")
+                    lines.append("### Amenity Counts")
+                    lines.append("")
+                    for key, label in counts:
+                        count = metadata.get(key, 0)
+                        if count > 0:
+                            lines.append(f"- **{label}:** {count}")
 
             lines.append("")
             lines.append("---")

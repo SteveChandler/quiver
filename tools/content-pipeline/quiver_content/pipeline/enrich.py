@@ -9,6 +9,8 @@ from quiver_content.config import ensure_dirs
 from quiver_content.crawlers.base import CrawlCache
 from quiver_content.crawlers.wikipedia import WikipediaCrawler
 from quiver_content.crawlers.government import GovernmentCrawler
+from quiver_content.crawlers.wannasurf import WannasurfCrawler
+from quiver_content.crawlers.overpass import OverpassCrawler
 from quiver_content.images.discovery import discover_images
 from quiver_content.staging.manager import save_sources, save_photo_candidates
 
@@ -27,7 +29,7 @@ async def enrich_beach(
     Args:
         beach: Beach dict with keys: id, name, slug, city, state, lat, lon,
                plus gap info from get_beach_with_gaps()
-        sources: Which crawlers to use. None = all. Options: ["wikipedia", "government"]
+        sources: Which crawlers to use. None = all. Options: ["wikipedia", "government", "wannasurf", "osm"]
         skip_images: If True, skip image discovery
         force_crawl: If True, ignore cache
         verbose: Print progress
@@ -65,12 +67,16 @@ async def enrich_beach(
     cache = CrawlCache() if not force_crawl else CrawlCache(ttl_days=0)
 
     # Determine which crawlers to use
-    use_sources = sources or ["wikipedia", "government"]
+    use_sources = sources or ["wikipedia", "government", "wannasurf", "osm"]
     crawlers = []
     if "wikipedia" in use_sources:
         crawlers.append(WikipediaCrawler(cache=cache, verbose=verbose))
     if "government" in use_sources:
         crawlers.append(GovernmentCrawler(cache=cache, verbose=verbose))
+    if "wannasurf" in use_sources:
+        crawlers.append(WannasurfCrawler(cache=cache, verbose=verbose))
+    if "osm" in use_sources:
+        crawlers.append(OverpassCrawler(cache=cache, verbose=verbose))
 
     # Crawl all sources in parallel
     all_crawl_results = []
