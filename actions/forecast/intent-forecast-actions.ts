@@ -20,6 +20,7 @@ type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServiceRoleClient>
 function getTimezoneForState(state: string): string {
   const stateUpper = state.toUpperCase();
   if (stateUpper === "HI") return "Pacific/Honolulu";
+  if (stateUpper === "PR") return "America/Puerto_Rico";
   // All other in-coverage states (CA, OR, WA, Baja) use Pacific
   return "America/Los_Angeles";
 }
@@ -326,7 +327,7 @@ function processTideData(forecastData: any): CityTideData | null {
  * Format a date for day labels: "Today", "Tomorrow", or "Wed, Feb 12"
  * Uses explicit timezone to ensure deterministic server-side output.
  */
-function formatDayLabel(date: Date, today: Date, timeZone = "America/Los_Angeles"): string {
+function formatDayLabel(date: Date, today: Date, timeZone: string): string {
   const fmt = (d: Date) =>
     new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
   const todayStr = fmt(today);
@@ -353,10 +354,10 @@ async function findRepresentativeBeach(
   supabase: SupabaseClient,
   cityName: string,
   state: string,
-): Promise<{ id: string; name: string } | null> {
+): Promise<{ id: string; name: string; timezone: string | null } | null> {
   const { data } = await supabase
     .from("beaches")
-    .select("id, name")
+    .select("id, name, timezone")
     .ilike("city", cityName)
     .ilike("state", state)
     .order("name", { ascending: true })
@@ -367,7 +368,7 @@ async function findRepresentativeBeach(
 
   const { data: alt } = await supabase
     .from("beaches")
-    .select("id, name")
+    .select("id, name, timezone")
     .ilike("city", cityName)
     .order("name", { ascending: true })
     .limit(1)
@@ -412,7 +413,8 @@ export async function getCityTideDataExpanded(
     const sevenDaysLater = new Date(now);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
 
-    return fetchExpandedTideData(supabase, repBeach.id, cityName, state, baseTideData, chartStart, sevenDaysLater);
+    const timeZone = repBeach.timezone || getTimezoneForState(state);
+    return fetchExpandedTideData(supabase, repBeach.id, cityName, state, baseTideData, chartStart, sevenDaysLater, timeZone);
   } catch (error) {
     console.error("Error in getCityTideDataExpanded:", error);
     return null;
@@ -426,7 +428,8 @@ async function fetchExpandedTideData(
   state: string,
   baseTideData: CityTideData,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  timeZone: string
 ): Promise<CityTideDataExpanded> {
   // Parallel fetch: hourly tide data + beach preferences
   const [tideResult, beachesResult] = await Promise.all([
@@ -471,7 +474,6 @@ async function fetchExpandedTideData(
   const extremaRaw = detector.detectExtrema(samplesForDetector);
 
   // Group extrema by day with explicit timezone for deterministic output
-  const timeZone = "America/Los_Angeles";
   const today = new Date();
   const dateFmt = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
   const todayStr = dateFmt.format(today);
@@ -830,7 +832,7 @@ export async function getCitySunTimesData(
       return null;
     }
 
-    const timeZone = getTimezoneForState(state);
+    const timeZone = beach.timezone || getTimezoneForState(state);
     const timeFmt = new Intl.DateTimeFormat("en-US", {
       timeZone,
       hour: "numeric",
@@ -1217,7 +1219,8 @@ export async function getStateSunTimesOverview(
         beaches!inner (
           city,
           state,
-          lat
+          lat,
+          timezone
         )
       `)
       .ilike("beaches.state", stateSlug)
@@ -1226,16 +1229,10 @@ export async function getStateSunTimesOverview(
 
     if (error || !data) return [];
 
-    const timeZone = getTimezoneForState(stateSlug);
-    const timeFmt = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const fallbackTimeZone = getTimezoneForState(stateSlug);
 
     // Deduplicate by city
-    const cityMap = new Map<string, { cityName: string; state: string; lat: number; sunrise: Date; sunset: Date }>();
+    const cityMap = new Map<string, { cityName: string; state: string; lat: number; sunrise: Date; sunset: Date; timezone: string }>();
     for (const row of data) {
       const beach = row.beaches as any;
       const city = beach.city as string;
@@ -1247,6 +1244,7 @@ export async function getStateSunTimesOverview(
         lat: beach.lat ?? 0,
         sunrise: new Date(row.sunrise_utc),
         sunset: new Date(row.sunset_utc),
+        timezone: (beach.timezone as string) || fallbackTimeZone,
       });
     }
 
@@ -1255,14 +1253,22 @@ export async function getStateSunTimesOverview(
       .sort((a, b) => b.lat - a.lat)
       .slice(0, 10);
 
-    return cities.map(c => ({
-      cityName: c.cityName,
-      citySlug: buildCitySlug(c.cityName, c.state, COLLISION_CITY_MAP) || c.cityName.toLowerCase().replace(/\s+/g, "-"),
-      sunrise: timeFmt.format(c.sunrise),
-      sunset: timeFmt.format(c.sunset),
-      firstLight: timeFmt.format(new Date(c.sunrise.getTime() - 30 * 60000)),
-      goldenHourStart: timeFmt.format(new Date(c.sunset.getTime() - 60 * 60000)),
-    }));
+    return cities.map(c => {
+      const timeFmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: c.timezone,
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      return {
+        cityName: c.cityName,
+        citySlug: buildCitySlug(c.cityName, c.state, COLLISION_CITY_MAP) || c.cityName.toLowerCase().replace(/\s+/g, "-"),
+        sunrise: timeFmt.format(c.sunrise),
+        sunset: timeFmt.format(c.sunset),
+        firstLight: timeFmt.format(new Date(c.sunrise.getTime() - 30 * 60000)),
+        goldenHourStart: timeFmt.format(new Date(c.sunset.getTime() - 60 * 60000)),
+      };
+    });
   } catch (error) {
     console.error("Error in getStateSunTimesOverview:", error);
     return [];
