@@ -9,7 +9,7 @@ docs/
 scripts/
 
 # Supabase config/migrations (deployed separately)
-supabase/
+/supabase/
 
 # Mobile native shells
 ios/
