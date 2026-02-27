@@ -274,7 +274,7 @@ test.describe("Database-driven intent pages - Content structure", () => {
 
 test.describe("Database-driven intent pages - Multiple intents", () => {
   test("should work for all intents with same city", async ({ page }) => {
-    const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard"];
+    const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
     const city = "santa-cruz";
 
     for (const intent of intents) {
@@ -507,5 +507,149 @@ test.describe("Database-driven intent pages - Responsive design", () => {
     // Layout should use available space on desktop
     const container = page.locator(".container, main").first();
     await expect(container).toBeVisible();
+  });
+});
+
+test.describe("Dedicated intent pages - Water Temperature", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Water temp dedicated' });
+  });
+
+  test("water-temp city page shows temperature hero", async ({ page }) => {
+    await page.goto("/water-temp/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    const hero = page.locator('[data-testid="water-temp-hero"]');
+    await expect(hero).toBeVisible();
+    // Should show wetsuit recommendation within the hero section
+    await expect(hero.getByText(/wetsuit|mm/i).first()).toBeVisible();
+  });
+
+  test("water-temp city page shows 7-day trend", async ({ page }) => {
+    await page.goto("/water-temp/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByRole('heading', { name: /7-Day Temperature Trend/i })).toBeVisible();
+  });
+
+  test("water-temp city page has beach temperature comparison", async ({ page }) => {
+    await page.goto("/water-temp/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByRole('heading', { name: /Beach Water Temperatures/i })).toBeVisible();
+  });
+});
+
+test.describe("Dedicated intent pages - Dawn Patrol", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Dawn patrol dedicated' });
+  });
+
+  test("dawn-patrol city page shows sun times hero", async ({ page }) => {
+    await page.goto("/dawn-patrol/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    const hero = page.locator('[data-testid="sun-times-hero"]');
+    await expect(hero).toBeVisible();
+    await expect(hero.getByText(/sunrise/i).first()).toBeVisible();
+  });
+
+  test("dawn-patrol city page shows 7-day sun schedule", async ({ page }) => {
+    await page.goto("/dawn-patrol/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByRole('heading', { name: /7-Day Sun Schedule/i })).toBeVisible();
+  });
+});
+
+test.describe("Dedicated intent pages - Sunset", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Sunset dedicated' });
+  });
+
+  test("sunset city page shows sun times hero", async ({ page }) => {
+    await page.goto("/sunset/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    const hero = page.locator('[data-testid="sun-times-hero"]');
+    await expect(hero).toBeVisible();
+    await expect(hero.getByText(/sunset/i).first()).toBeVisible();
+  });
+
+  test("sunset city page shows golden hour info", async ({ page }) => {
+    await page.goto("/sunset/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    // Golden hour is shown in the hero badge
+    await expect(page.getByText(/golden hour/i).first()).toBeVisible();
+  });
+
+  test("sunset city page shows 7-day sun schedule", async ({ page }) => {
+    await page.goto("/sunset/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByRole('heading', { name: /7-Day Sun Schedule/i })).toBeVisible();
+  });
+});
+
+test.describe("Dedicated intent pages - State Level Conditions", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'State conditions' });
+  });
+
+  test("water-temp state page shows regional comparison, not 'Popular cities'", async ({ page }) => {
+    await page.goto("/water-temp/ca", { timeout: PAGE_LOAD_TIMEOUT });
+    // Should NOT show generic "Popular cities for Water Temperature" heading
+    await expect(page.getByText("Popular cities for Water Temperature")).not.toBeVisible();
+    // Should show conditions-aware heading
+    await expect(page.getByText(/Water Temperature Across/i)).toBeVisible();
+  });
+
+  test("dawn-patrol state page shows sunrise times comparison", async ({ page }) => {
+    await page.goto("/dawn-patrol/ca", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByText(/Sunrise Times Across/i)).toBeVisible();
+  });
+
+  test("sunset state page shows sunset times comparison", async ({ page }) => {
+    await page.goto("/sunset/ca", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByText(/Sunset Times Across/i)).toBeVisible();
+  });
+});
+
+test.describe("Dedicated intent pages - Functional intents unchanged", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Functional intents' });
+  });
+
+  test("beginner page does NOT show water-temp hero", async ({ page }) => {
+    await page.goto("/beginner/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.locator('[data-testid="water-temp-hero"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="sun-times-hero"]')).not.toBeVisible();
+  });
+
+  test("longboard page does NOT show conditions hero", async ({ page }) => {
+    await page.goto("/longboard/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.locator('[data-testid="water-temp-hero"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="sun-times-hero"]')).not.toBeVisible();
+  });
+
+  test("least-crowded page does NOT show conditions hero", async ({ page }) => {
+    await page.goto("/least-crowded/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.locator('[data-testid="water-temp-hero"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="sun-times-hero"]')).not.toBeVisible();
   });
 });

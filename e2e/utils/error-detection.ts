@@ -355,6 +355,10 @@ function isIgnorableConsoleError(text: string): boolean {
     'CORS policy',
     'blocked by CORS',
     'mapbox',
+
+    // WebGL initialization failures - headless Chromium may lack GPU support
+    'Failed to initialize WebGL',
+    'Map component error',
   ];
 
   return ignorable.some((pattern) => text.includes(pattern));
