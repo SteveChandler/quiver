@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- app/ components/ hooks/ lib/ types/ actions/ public/ config/ context/ state/ store/ styles/ patches/ *.ts *.mjs *.json yarn.lock",
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- app/ components/ hooks/ lib/ types/ actions/ public/ config/ context/ state/ store/ styles/ patches/ *.ts *.mjs *.json yarn.lock .vercelignore vercel.json",
   "crons": [
     {
       "path": "/api/cron/enhanced-forecast-sync-cdip",
