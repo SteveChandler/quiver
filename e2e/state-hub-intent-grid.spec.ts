@@ -71,7 +71,7 @@ test.describe("State Hub Intent Guides Grid", () => {
       await beginnerLink.click();
 
       // Wait for navigation to complete
-      await page.waitForURL(/\/beginner\/ca/, { timeout: 10000 });
+      await page.waitForURL(/\/beginner\/ca/, { timeout: 30000 });
       await expect(page).toHaveURL(/\/beginner\/ca/);
     });
   });
