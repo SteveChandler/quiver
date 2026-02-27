@@ -5,7 +5,7 @@
  * highlight sections. Shared across all intent types with conditional
  * rendering based on the current intent.
  *
- * Server Component — no client-side JS required.
+ * Server Component that renders ExpandableText client islands for prose fields.
  */
 
 import Link from "next/link";
@@ -21,6 +21,7 @@ import {
   Sunset as SunsetIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ExpandableText } from "@/components/ui/expandable-text";
 import type { BeachEditorialItem } from "@/types/location";
 import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
 
@@ -151,7 +152,7 @@ function DetailRow({
         <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {label}
         </span>
-        <p className="text-sm text-gray-700 mt-0.5">{children}</p>
+        <div className="text-sm text-gray-700 mt-0.5">{children}</div>
       </div>
     </div>
   );
@@ -174,17 +175,17 @@ function LeastCrowdedDetails({ beach }: { beach: BeachEditorialItem }) {
       )}
       {beach.crowdTips && (
         <DetailRow icon={Users} label="Crowd intel">
-          {beach.crowdTips}
+          <ExpandableText text={beach.crowdTips} />
         </DetailRow>
       )}
       {beach.parkingTips && (
         <DetailRow icon={Car} label="Parking">
-          {beach.parkingTips}
+          <ExpandableText text={beach.parkingTips} />
         </DetailRow>
       )}
       {beach.accessTips && (
         <DetailRow icon={Footprints} label="Access">
-          {beach.accessTips}
+          <ExpandableText text={beach.accessTips} />
         </DetailRow>
       )}
     </div>
@@ -199,12 +200,12 @@ function LongboardDetails({ beach }: { beach: BeachEditorialItem }) {
     <div className="space-y-3 mt-3 pt-3 border-t border-gray-100">
       {beach.waveTips && (
         <DetailRow icon={Waves} label="Wave character">
-          {beach.waveTips}
+          <ExpandableText text={beach.waveTips} />
         </DetailRow>
       )}
       {beach.bestConditionsProse && (
         <DetailRow icon={Compass} label="Best conditions">
-          {beach.bestConditionsProse}
+          <ExpandableText text={beach.bestConditionsProse} />
         </DetailRow>
       )}
     </div>
@@ -219,12 +220,12 @@ function DawnPatrolDetails({ beach }: { beach: BeachEditorialItem }) {
     <div className="space-y-3 mt-3 pt-3 border-t border-gray-100">
       {beach.accessTips && (
         <DetailRow icon={Sunrise} label="Early access">
-          {beach.accessTips}
+          <ExpandableText text={beach.accessTips} />
         </DetailRow>
       )}
       {beach.parkingTips && (
         <DetailRow icon={Car} label="Parking">
-          {beach.parkingTips}
+          <ExpandableText text={beach.parkingTips} />
         </DetailRow>
       )}
     </div>
@@ -252,7 +253,7 @@ function SunsetDetails({ beach }: { beach: BeachEditorialItem }) {
       )}
       {beach.accessTips && (
         <DetailRow icon={Footprints} label="Evening access">
-          {beach.accessTips}
+          <ExpandableText text={beach.accessTips} />
         </DetailRow>
       )}
     </div>
