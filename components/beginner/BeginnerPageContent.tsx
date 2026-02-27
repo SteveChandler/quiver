@@ -89,8 +89,6 @@ export function BeginnerPageContent({
           },
         ]}
       />
-      <FAQSection items={faqItems} locationName={cityName} />
-
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
         <nav
@@ -177,6 +175,11 @@ export function BeginnerPageContent({
               stateName={stateName}
               bestTimeToSurfUrl={bestTimeToSurfUrl}
             />
+          </SectionFadeUp>
+
+          {/* FAQ Accordion */}
+          <SectionFadeUp>
+            <FAQSection items={faqItems} locationName={cityName} />
           </SectionFadeUp>
 
           {/* Planning Checklist */}

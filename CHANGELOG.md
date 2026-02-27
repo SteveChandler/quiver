@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **UX: Beach photos on beginner spot cards** — Spot cards now show Flickr CC thumbnails from the `beach_photos` table (full-width on mobile, 160px sidebar on desktop). Falls back to a subtle wave-icon gradient placeholder when no photo exists.
+
+### Changed
+
+- **UX: FAQ accordion redesign** — `FAQSection` upgraded from flat `dl/dt/dd` markup to an interactive accordion with expand/collapse animation, chevron icons, and `aria-expanded`/`aria-controls` accessibility. First item auto-expanded. Used across all intent and city pages.
+
+### Fixed
+
+- **Layout: FAQ rendering above page content** — `FAQSection` was placed before the container div in `BeginnerPageContent` and `TidePageContent`, causing it to render above the breadcrumb and hero. Moved to near-bottom position after "Continue Exploring".
+
+### Added
+
 - **SEO: State-level intent links on beach detail pages** — `RelatedGuidesSection` now links to all 7 state-level intent pages (e.g., `/dawn-patrol/ca`) as a compact text row below the existing city-level intent cards
 - **SEO: Sibling cities section on city hub pages** — New `SiblingCitiesSection` component shows up to 8 other surf cities in the same state on both StandardLayout and EditorialLayout
 - **SEO: FAQSection on editorial city hub layout** — Editorial cities now render data-driven FAQs via `generateCityRichContent`, matching StandardLayout's FAQ coverage
