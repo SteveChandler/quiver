@@ -177,6 +177,9 @@ function IntentEmptyState({
 
 const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
 
+/** Intents that may return zero beaches and should noindex at state level when empty */
+const NOINDEX_WHEN_EMPTY_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
+
 // NOTE: generateStaticParams removed — this page uses force-dynamic.
 // Pages are rendered on-demand. State-level routes (e.g., /beginner/ca)
 // are handled by the dynamic catch-all.
@@ -203,7 +206,7 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
 
     // noindex empty state-level pages (thin content) as defense in depth.
     // Fail-open: if the DB call fails, allow indexing (sitemap already excludes these).
-    if (BEGINNER_INTENTS.has(params.intent)) {
+    if (NOINDEX_WHEN_EMPTY_INTENTS.has(params.intent)) {
       try {
         const beachesResult = await getBeachesByIntentAndState(params.intent, params.city);
         const hasBeaches = beachesResult.success && beachesResult.data && beachesResult.data.length > 0;
@@ -884,6 +887,10 @@ export default async function IntentPage(props: IntentPageParams) {
   const waterTempData: CityWaterTempData | null = params.intent === "water-temp" ? intentData as CityWaterTempData | null : null;
 
   if (!beachesResult.success || !beachesResult.data || beachesResult.data.length === 0) {
+    // least-crowded with no light/moderate beaches should 404, not show empty state
+    if (params.intent === "least-crowded") {
+      return notFound();
+    }
     return (
       <div className="bg-gradient-to-b from-white via-gray-50/30 to-white">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -900,6 +907,12 @@ export default async function IntentPage(props: IntentPageParams) {
       </div>
     );
   }
+
+  // Hide least-crowded links if city has no light/moderate crowd-level beaches
+  const hasLightModerateCrowdBeaches = beachesResult.data.some(
+    (b) => b.crowd_level && ["light", "moderate"].includes(b.crowd_level.toLowerCase())
+  );
+  const excludeIntents: IntentKey[] = hasLightModerateCrowdBeaches ? [] : ["least-crowded"];
 
   // Transform database results - add metrics fields for transformer compatibility
   const beachesWithMetrics: BeachWithMetrics[] = beachesResult.data.map(beach => ({
@@ -1108,6 +1121,7 @@ export default async function IntentPage(props: IntentPageParams) {
                 stateSlug={cityMetadata.state.toLowerCase()}
                 stateName={cityMetadata.stateName}
                 bestTimeToSurfUrl={bestTimeToSurfUrl}
+                excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
               />
             </aside>
           </div>

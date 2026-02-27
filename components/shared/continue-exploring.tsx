@@ -14,6 +14,8 @@ interface ContinueExploringProps {
   stateSlug: string;
   stateName: string;
   bestTimeToSurfUrl?: string;
+  /** Optional intent keys to exclude from the cross-navigation links */
+  excludeIntents?: IntentKey[];
 }
 
 /**
@@ -35,11 +37,13 @@ export function ContinueExploring({
   stateSlug,
   stateName,
   bestTimeToSurfUrl,
+  excludeIntents,
 }: ContinueExploringProps) {
   const currentDef = INTENT_DEFINITIONS.find((i) => i.key === currentIntent);
   const currentLabel = currentDef?.label ?? currentIntent;
+  const excludeSet = excludeIntents ? new Set(excludeIntents) : null;
   const otherIntents = INTENT_DEFINITIONS.filter(
-    (i) => i.key !== currentIntent
+    (i) => i.key !== currentIntent && (!excludeSet || !excludeSet.has(i.key))
   );
 
   return (

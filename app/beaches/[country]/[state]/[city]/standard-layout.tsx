@@ -14,6 +14,7 @@ import { RankingBadge } from "@/components/location/ranking-badge";
 import { getBeachHrefSafe, getUsStateDisplayNameFromSlug } from "@/lib/utils/beach-url-utils";
 import { sanitizeBeachDescription } from "@/lib/utils/text-utils";
 import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
+import type { IntentKey } from "@/lib/constants/intent-definitions";
 import { FAQSection } from "@/components/seo/faq-schema";
 import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -67,6 +68,12 @@ export function StandardLayout({
     stats,
     beaches,
   });
+
+  // Hide least-crowded link if no beaches have light/moderate crowd levels
+  const hasLightModerateCrowdBeaches = beaches.some(
+    (b) => b.crowd_level && ["light", "moderate"].includes(b.crowd_level.toLowerCase())
+  );
+  const excludeIntents: IntentKey[] = hasLightModerateCrowdBeaches ? [] : ["least-crowded"];
 
   const isUsa = params.country === "usa";
   const countryName = isUsa ? "United States" : "Mexico";
@@ -295,6 +302,7 @@ export function StandardLayout({
           locationName={displayCityName}
           locationType="city"
           stateAbbrev={params.state.toUpperCase()}
+          excludeIntents={excludeIntents.length > 0 ? excludeIntents : undefined}
         />
 
         {/* Best Time to Surf cross-link for SEO indexation */}

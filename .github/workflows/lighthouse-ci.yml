@@ -92,10 +92,12 @@ jobs:
                     ELAPSED=$((ELAPSED + INTERVAL))
                   done
 
-                  echo "Timed out waiting for Vercel deployment"
-                  exit 1
+                  echo "Timed out waiting for Vercel deployment — skipping lighthouse"
+                  echo "url=" >> $GITHUB_OUTPUT
+                  echo "skipped=true" >> $GITHUB_OUTPUT
 
             - name: Set deployment URL
+              if: steps.deployment.outputs.skipped != 'true'
               id: deploy_url
               run: |
                   if [ "${{ github.event_name }}" = "schedule" ]; then
@@ -105,6 +107,7 @@ jobs:
                   fi
 
             - name: Verify deployment is reachable
+              if: steps.deployment.outputs.skipped != 'true'
               env:
                   VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
               run: |
@@ -127,6 +130,7 @@ jobs:
                   fi
 
             - name: Service health check
+              if: steps.deployment.outputs.skipped != 'true'
               id: health
               run: |
                   DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
@@ -161,11 +165,13 @@ jobs:
                   VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
 
             - name: Install Playwright browsers
+              if: steps.deployment.outputs.skipped != 'true'
               run: |
                   echo "Installing Playwright Chromium browser..."
                   npx playwright install chromium --with-deps
 
             - name: Run Playwright smoke tests
+              if: steps.deployment.outputs.skipped != 'true'
               id: playwright
               run: |
                   echo "Running Playwright smoke tests against $BASE_URL..."
@@ -193,10 +199,12 @@ jobs:
                   retention-days: 7
 
             - name: Install Lighthouse CI
+              if: steps.deployment.outputs.skipped != 'true'
               run: |
                   npm install -g @lhci/cli@0.15.1
 
             - name: Run Lighthouse CI
+              if: steps.deployment.outputs.skipped != 'true'
               id: lighthouse
               run: |
                   DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
@@ -245,6 +253,15 @@ jobs:
               if: always()
               run: |
                   DEPLOY_URL="${{ steps.deploy_url.outputs.url }}"
+
+                  if [ "${{ steps.deployment.outputs.skipped }}" = "true" ]; then
+                    echo "## Lighthouse CI - Skipped" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "No Vercel deployment was found for this commit." >> $GITHUB_STEP_SUMMARY
+                    echo "This typically happens when the commit only changes files outside Vercel's watch list (e.g., migrations, docs)." >> $GITHUB_STEP_SUMMARY
+                    echo "Lighthouse will run automatically on the next commit that triggers a Vercel deployment." >> $GITHUB_STEP_SUMMARY
+                    exit 0
+                  fi
 
                   echo "## Lighthouse CI Performance Report" >> $GITHUB_STEP_SUMMARY
                   echo "**Run:** #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY

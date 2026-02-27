@@ -62,16 +62,6 @@ test.describe("Database-driven intent pages - City level", () => {
     await expect(heading).toContainText(/tide/i);
   });
 
-  test("should load Encinitas least-crowded page", async ({ page }) => {
-    await page.goto("/least-crowded/encinitas", { timeout: PAGE_LOAD_TIMEOUT });
-
-    await expect(page).not.toHaveURL(/404/);
-
-    const heading = page.locator("h1");
-    await expect(heading).toBeVisible();
-    await expect(heading).toContainText(/Encinitas/i);
-  });
-
   test("should load Newport Beach water-temp page", async ({ page }) => {
     await page.goto("/water-temp/newport-beach", { timeout: PAGE_LOAD_TIMEOUT });
 
@@ -154,6 +144,15 @@ test.describe("Database-driven intent pages - 404 handling", () => {
       timeout: PAGE_LOAD_TIMEOUT,
     });
 
+    expect(response?.status()).toBe(404);
+  });
+
+  test("should 404 least-crowded page when city has no light/moderate beaches", async ({ page }) => {
+    const response = await page.goto("/least-crowded/encinitas", {
+      timeout: PAGE_LOAD_TIMEOUT,
+    });
+
+    // Encinitas has no light/moderate crowd-level beaches, so filtering produces empty results
     expect(response?.status()).toBe(404);
   });
 });
@@ -648,7 +647,8 @@ test.describe("Dedicated intent pages - Functional intents unchanged", () => {
   });
 
   test("least-crowded page does NOT show conditions hero", async ({ page }) => {
-    await page.goto("/least-crowded/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
+    // Use santa-cruz which has light/moderate crowd-level beaches (san-diego 404s after filtering)
+    await page.goto("/least-crowded/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
     await expect(page.locator('[data-testid="water-temp-hero"]')).not.toBeVisible();
     await expect(page.locator('[data-testid="sun-times-hero"]')).not.toBeVisible();
   });

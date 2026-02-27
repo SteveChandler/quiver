@@ -62,41 +62,18 @@ const INTENT_SKILL_FILTERS: Record<string, string[]> = {
 };
 
 /**
- * Intent to crowd_level mapping for SORTING (not filtering).
- * These intents show all beaches but prioritize beaches with matching crowd levels.
+ * Crowd levels considered "uncrowded" for the least-crowded intent.
+ * Beaches without crowd_level data are excluded (no data = no guarantee of low crowds).
  */
-const INTENT_CROWD_SORT_PRIORITY: Record<string, string[]> = {
-  "least-crowded": ["light", "low"],
-};
-
-/**
- * Sort beaches by crowd_level priority.
- * Beaches with crowd_level in priorityLevels appear first, others at the end.
- * Secondary sort by name for consistent ordering.
- */
-function sortByIntentCrowdPriority(
-  beaches: Beach[],
-  priorityLevels: string[]
-): Beach[] {
-  const prioritySet = new Set(priorityLevels.map((l) => l.toLowerCase()));
-  return [...beaches].sort((a, b) => {
-    const aMatch = a.crowd_level && prioritySet.has(a.crowd_level.toLowerCase());
-    const bMatch = b.crowd_level && prioritySet.has(b.crowd_level.toLowerCase());
-    if (aMatch && !bMatch) return -1;
-    if (!aMatch && bMatch) return 1;
-    // Secondary sort by name for consistent ordering
-    return (a.name || "").localeCompare(b.name || "");
-  });
-}
+const LEAST_CROWDED_LEVELS = ["light", "moderate"];
 
 /**
  * Shared function to build intent-based beach queries.
  * Applies skill-based filters for intents that have them.
- * Crowd-based intents use post-query sorting instead of filtering.
+ * Crowd-based intents filter to only matching crowd levels.
  *
- * @param supabase - Supabase client
- * @param intent - The surf intent
  * @param baseQuery - Initial query with location filters already applied
+ * @param intent - The surf intent
  */
 function applyIntentFilters(
   baseQuery: any,
@@ -111,8 +88,11 @@ function applyIntentFilters(
     return baseQuery.or(skillConditions);
   }
 
-  // NOTE: crowd-based intents (least-crowded) use SORTING not FILTERING
-  // to ensure pages always render content even without crowd_level data
+  // Filter least-crowded to only light/moderate beaches
+  if (intent === "least-crowded") {
+    return baseQuery.in("crowd_level", LEAST_CROWDED_LEVELS);
+  }
+
   return baseQuery;
 }
 
@@ -148,15 +128,7 @@ async function _getBeachesByIntentAndCityInternal(
   const { data, error } = await query.order("name");
   if (error) throw error;
 
-  let beaches = (data ?? []) as Beach[];
-
-  // Apply post-query sorting for crowd-based intents
-  const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
-  if (crowdSortPriority) {
-    beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
-  }
-
-  return beaches;
+  return (data ?? []) as Beach[];
 }
 
 /**
@@ -279,15 +251,7 @@ async function _getBeachesByIntentAndStateInternal(
 
   if (error) throw error;
 
-  let beaches = (data ?? []) as Beach[];
-
-  // Apply post-query sorting for crowd-based intents
-  const crowdSortPriority = INTENT_CROWD_SORT_PRIORITY[intent];
-  if (crowdSortPriority) {
-    beaches = sortByIntentCrowdPriority(beaches, crowdSortPriority);
-  }
-
-  return beaches;
+  return (data ?? []) as Beach[];
 }
 
 /**
