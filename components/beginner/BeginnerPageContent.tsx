@@ -147,7 +147,7 @@ export function BeginnerPageContent({
 
           {/* Module 5: Seasonal Guide */}
           <SectionFadeUp>
-            <SeasonalGuide cityName={cityName} />
+            <SeasonalGuide cityName={cityName} stateSlug={stateSlug} />
           </SectionFadeUp>
 
           {/* Module 6: Safety Essentials */}
