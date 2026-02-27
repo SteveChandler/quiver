@@ -329,17 +329,10 @@ export async function uploadMultiplePhotos(
     );
   }
 
-  // Upload files sequentially to avoid overwhelming the storage
-  const results: UploadResult[] = [];
-  for (const file of files) {
-    const result = await uploadSessionPhoto(file, sessionId, userId, supabase);
-    results.push(result);
-
-    // If any upload fails, stop uploading more
-    if (!result.success) {
-      break;
-    }
-  }
+  // Upload files in parallel (max 5 photos per session is safe for concurrent upload)
+  const results = await Promise.all(
+    files.map((file) => uploadSessionPhoto(file, sessionId, userId, supabase))
+  );
 
   return results;
 }

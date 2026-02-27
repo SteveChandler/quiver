@@ -475,17 +475,19 @@ export function useSessionSubmission({
           });
         } catch (e) { console.error('[SessionSubmission] error:', e); }
 
-        // Handle photo uploads if any
-        if (sessionData.photos && sessionData.photos.length > 0) {
-          await handlePhotoUpload(result.data.id, sessionData.photos);
-        }
-
         // Analytics: success
         void createActivity("session_logged", "session", result.data.id, {
           hasPhotos: (sessionData.photos || []).length > 0,
         });
 
         toast.success("Session logged successfully!");
+
+        // Upload photos in background (handlePhotoUpload shows its own toast notifications)
+        if (sessionData.photos && sessionData.photos.length > 0) {
+          handlePhotoUpload(result.data.id, sessionData.photos).catch((err) =>
+            console.error("Background photo upload failed:", err)
+          );
+        }
       }
 
       // Quick mode: skip all post-submission modals and go straight to celebration
@@ -508,81 +510,8 @@ export function useSessionSubmission({
             Boolean(sessionData?.forecastAccuracy);
 
           if (hasWizardActuals) {
-            const closest = await tryLoadClosestForecastForFeedback(
-              loggedSession
-            );
-            const forecastSnapshot = closest
-              ? {
-                  wave_height: closest.wave_height,
-                  wave_period: closest.wave_period,
-                  wave_direction: closest.wave_direction,
-                  wind_speed: closest.wind_speed,
-                  wind_direction: closest.wind_direction,
-                  water_temp: closest.water_temp,
-                  air_temperature: closest.air_temperature,
-                  confidence_score: closest.confidence_score,
-                  data_source: closest.data_source,
-                  swell_1_height: closest.swell_1_height,
-                  swell_1_period: closest.swell_1_period,
-                  swell_1_direction: closest.swell_1_direction,
-                  swell_2_height: closest.swell_2_height,
-                  swell_2_period: closest.swell_2_period,
-                  swell_2_direction: closest.swell_2_direction,
-                  wind_wave_height: closest.wind_wave_height,
-                  wind_wave_period: closest.wind_wave_period,
-                  wind_wave_direction: closest.wind_wave_direction,
-                  forecast_time: closest.forecast_time,
-                  forecast_date: closest.forecast_date,
-                }
-              : {};
-
-            const accuracyToScore = (value: any): number | null => {
-              if (!value) return null;
-              if (value === "accurate") return 5;
-              if (value === "somewhat") return 3;
-              if (value === "inaccurate") return 1;
-              return null;
-            };
-
-            const actualConditions = {
-              wave_height:
-                typeof sessionData?.waveHeight === "number"
-                  ? sessionData.waveHeight
-                  : null,
-              wind_speed:
-                typeof sessionData?.windSpeed === "number"
-                  ? sessionData.windSpeed
-                  : null,
-              wind_direction: sessionData?.windDirection ?? null,
-              wave_types: Array.isArray(sessionData?.waveTypes)
-                ? sessionData.waveTypes
-                : null,
-              overall_accuracy: accuracyToScore(sessionData?.forecastAccuracy),
-              notes: null,
-              // session context
-              wave_quality: loggedSession.wave_quality ?? null,
-              water_temp: loggedSession.water_temp ?? null,
-              crowd_level: loggedSession.crowd_level ?? null,
-              parking_ease: loggedSession.parking_ease ?? null,
-              rating: loggedSession.rating ?? null,
-              duration_minutes: loggedSession.duration_minutes ?? null,
-              arrival_time: loggedSession.arrival_time ?? null,
-            };
-
-            try {
-              const snapResult = await createForecastSnapshot(
-                loggedSession.id,
-                forecastSnapshot as any,
-                actualConditions as any
-              );
-            } catch (e) {
-              console.error(
-                "Failed to save forecast snapshot from wizard actuals:",
-                e
-              );
-            }
-
-            // Instead of celebration, show review prompt (if beach_id exists)
+            // Forecast snapshot is created by DB trigger during INSERT — no client-side call needed.
+            // Show review prompt immediately (if beach_id exists)
             if (loggedSession.beach_id && sessionData?.selectedBeach) {
               reviewPrompt.showPrompt({
                 beachId: loggedSession.beach_id,
@@ -600,10 +529,10 @@ export function useSessionSubmission({
             ...loggedSession,
             beach_name: sessionData?.selectedBeach || loggedSession.beach_name,
           });
-          const closest = await tryLoadClosestForecastForFeedback(
-            loggedSession
-          );
-          setFeedbackForecast(closest);
+          // Load forecast in background — modal opens immediately
+          tryLoadClosestForecastForFeedback(loggedSession)
+            .then((closest) => setFeedbackForecast(closest))
+            .catch(() => {});
           feedbackResolvedRef.current = false;
           setFeedbackResolved(false);
           setFeedbackOpen(true);

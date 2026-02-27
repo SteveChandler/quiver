@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
@@ -372,7 +373,7 @@ export async function middleware(request: NextRequest) {
 
   // Always refresh the session to keep auth cookies fresh, regardless of route type.
   // This ensures users stay logged in even when browsing public pages.
-  await refreshSession(request, response);
+  const supabaseClient = await refreshSession(request, response);
 
   // Public routes don't require authentication
   if (!routeClassification.requiresAuth) {
@@ -380,7 +381,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protected/admin routes require authentication
-  const authResult = await authenticateRequest(request, response);
+  const authResult = await authenticateRequest(request, response, supabaseClient);
 
   if (!authResult.authenticated) {
     const signInUrl = RouteGuard.buildSignInRedirect(
@@ -572,16 +573,17 @@ function captureIPLocation(
  * Calls getSession() which will use the refresh token to obtain new
  * access/refresh tokens if the current access token is expired.
  * This does NOT make a remote auth call — it only refreshes locally.
+ * Returns the Supabase client so it can be reused by authenticateRequest().
  */
 async function refreshSession(
   request: NextRequest,
   response: NextResponse
-): Promise<void> {
+): Promise<SupabaseClient | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return;
+    return null;
   }
 
   try {
@@ -601,9 +603,11 @@ async function refreshSession(
       },
     });
 
-    await supabase.auth.getUser();
+    await supabase.auth.getSession();
+    return supabase;
   } catch (error) {
     log("[Middleware] Session refresh error", error);
+    return null;
   }
 }
 
@@ -612,24 +616,28 @@ async function refreshSession(
  */
 async function authenticateRequest(
   request: NextRequest,
-  response: NextResponse
+  response: NextResponse,
+  existingClient?: SupabaseClient | null
 ) {
+  const cookieCallbacks = {
+    getAll() {
+      return request.cookies.getAll();
+    },
+    setAll(cookiesToSet: { name: string; value: string; options: any }[]) {
+      cookiesToSet.forEach(({ name, value }) =>
+        request.cookies.set(name, value)
+      );
+      cookiesToSet.forEach(({ name, value, options }) =>
+        response.cookies.set({ name, value, ...options })
+      );
+    },
+  };
+
   const authValidator = new AuthValidator(
     request,
-    {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value)
-        );
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set({ name, value, ...options })
-        );
-      },
-    },
-    isVerbose
+    cookieCallbacks,
+    isVerbose,
+    existingClient ?? undefined
   );
 
   return await authValidator.validateAuth();
