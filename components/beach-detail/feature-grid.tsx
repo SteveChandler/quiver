@@ -1,11 +1,13 @@
 "use client";
 
-import { Check, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FeatureGridProps {
   features?: string[];
   warnings?: string[];
+  maxFeatures?: number;
+  maxWarnings?: number;
   className?: string;
 }
 
@@ -48,16 +50,21 @@ function getFeatureIcon(feature: string): string {
 export function FeatureGrid({
   features = [],
   warnings = [],
+  maxFeatures = 3,
+  maxWarnings = 3,
   className,
 }: FeatureGridProps) {
   if (!features.length && !warnings.length) return null;
 
+  const displayFeatures = features.slice(0, maxFeatures);
+  const displayWarnings = warnings.slice(0, maxWarnings);
+
   return (
     <div className={cn("space-y-3", className)}>
       {/* Features - Positive */}
-      {features.length > 0 && (
+      {displayFeatures.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {features.map((feature, idx) => {
+          {displayFeatures.map((feature, idx) => {
             const icon = getFeatureIcon(feature);
             return (
               <div
@@ -73,9 +80,9 @@ export function FeatureGrid({
       )}
 
       {/* Warnings - Caution */}
-      {warnings.length > 0 && (
+      {displayWarnings.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {warnings.map((warning, idx) => (
+          {displayWarnings.map((warning, idx) => (
             <div
               key={idx}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/10 border border-warning/20 text-sm text-warning"

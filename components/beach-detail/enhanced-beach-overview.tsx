@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { FeatureGrid } from "./feature-grid";
 import { PracticalTipsSection } from "./practical-tips-section";
@@ -41,6 +42,8 @@ export function EnhancedBeachOverview({
     beach.crowd_tips ||
     hasEnrichableData;
 
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+
   if (!hasContent) return null;
 
   const sanitizedDescription = sanitizeBeachDescription(beach.description, beach.name);
@@ -52,6 +55,8 @@ export function EnhancedBeachOverview({
   const rawDescription = enrichedContent?.description || sanitizedDescription;
   const displayDescription = rawDescription ? stripMarkdownEmphasis(rawDescription) : rawDescription;
   const highlights = enrichedContent?.highlights || [];
+  const descriptionWordCount = displayDescription ? displayDescription.trim().split(/\s+/).length : 0;
+  const showReadMore = descriptionWordCount > 40;
 
   return (
     <div className={className}>
@@ -76,9 +81,20 @@ export function EnhancedBeachOverview({
         <Card className="mb-6">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold mb-3">About This Spot</h3>
-            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-              {displayDescription}
-            </p>
+            <div className={showReadMore && !descriptionExpanded ? "line-clamp-4" : undefined}>
+              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                {displayDescription}
+              </p>
+            </div>
+            {showReadMore && (
+              <button
+                type="button"
+                onClick={() => setDescriptionExpanded((prev) => !prev)}
+                className="mt-1 text-sm font-medium text-ocean-blue hover:underline"
+              >
+                {descriptionExpanded ? "Read less" : "Read more"}
+              </button>
+            )}
             {highlights.length > 0 && (
               <ul className="mt-3 space-y-1">
                 {highlights.map((highlight, i) => (

@@ -147,9 +147,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
         const sanitizedMessage = (payload.data.bounce.message || "no details")
           .replace(/[^\x20-\x7E]/g, "")
           .slice(0, 500);
-        // Table not yet in generated types — safe to query via service role
         const { error: suppressError } = await supabase
-          // @ts-expect-error email_suppression_list not yet in generated DB types
           .from("email_suppression_list")
           .upsert(
             {
