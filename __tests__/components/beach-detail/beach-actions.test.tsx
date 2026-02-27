@@ -16,13 +16,6 @@ import '@testing-library/jest-dom';
 import { BeachActions } from '@/components/beach-detail/beach-actions';
 import type { Beach } from '@/types/database';
 
-// Mock FavoriteButton component
-jest.mock('@/components/favorite-button', () => ({
-  FavoriteButton: ({ beachId }: { beachId: string }) => (
-    <button data-testid="favorite-button">Favorite {beachId}</button>
-  ),
-}));
-
 // Mock HomeBeachBanner component
 jest.mock('@/components/home/HomeBeachBanner', () => ({
   HomeBeachBanner: ({ selectedBeachId, selectedBeachName }: any) => (

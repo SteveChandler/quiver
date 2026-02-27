@@ -14,9 +14,11 @@ import { toast } from "@/components/ui/use-toast";
 interface BeachAlertCtaProps {
   beachId: string;
   beachName: string;
+  compact?: boolean;
+  className?: string;
 }
 
-export function BeachAlertCta({ beachId, beachName }: BeachAlertCtaProps) {
+export function BeachAlertCta({ beachId, beachName, compact, className }: BeachAlertCtaProps) {
   const { user } = useAuth();
   const { pendingAction, setPendingAction, clearPendingAction } = usePendingAction();
   const pathname = usePathname();
@@ -69,22 +71,26 @@ export function BeachAlertCta({ beachId, beachName }: BeachAlertCtaProps) {
     <>
       <Button
         variant="outline"
+        size={compact ? "sm" : "default"}
         onClick={handleClick}
         disabled={isLoading}
-        className="h-12 px-6 text-base font-semibold rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
+        aria-label={compact ? "Get alerts" : undefined}
+        className={compact
+          ? className
+          : "h-12 px-6 text-base font-semibold rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"}
       >
         {isLoading ? (
-          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+          <Loader2 className={compact ? "h-4 w-4 animate-spin" : "h-5 w-5 mr-2 animate-spin"} />
         ) : (
-          <Bell className="h-5 w-5 mr-2" />
+          <Bell className={compact ? "h-4 w-4" : "h-5 w-5 mr-2"} />
         )}
-        Get Alerts
+        {!compact && "Get Alerts"}
       </Button>
 
       {showSuccess && (
         <p className="text-sm text-green-700 mt-2">
           Alerts enabled for {beachName}! Customize in{" "}
-          <Link href="/profile/settings" className="underline">
+          <Link href="/profile" className="underline">
             Settings
           </Link>
           .
