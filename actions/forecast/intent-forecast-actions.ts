@@ -1151,7 +1151,7 @@ export async function getStateWaterTempOverview(
           name,
           city,
           state,
-          center_lat,
+          lat,
           slug
         )
       `)
@@ -1177,7 +1177,7 @@ export async function getStateWaterTempOverview(
       cityMap.set(city, {
         cityName: city,
         state: beach.state as string,
-        lat: beach.center_lat ?? 0,
+        lat: beach.lat ?? 0,
         tempF,
       });
     }
@@ -1217,7 +1217,7 @@ export async function getStateSunTimesOverview(
         beaches!inner (
           city,
           state,
-          center_lat
+          lat
         )
       `)
       .ilike("beaches.state", stateSlug)
@@ -1244,7 +1244,7 @@ export async function getStateSunTimesOverview(
       cityMap.set(city, {
         cityName: city,
         state: beach.state as string,
-        lat: beach.center_lat ?? 0,
+        lat: beach.lat ?? 0,
         sunrise: new Date(row.sunrise_utc),
         sunset: new Date(row.sunset_utc),
       });
