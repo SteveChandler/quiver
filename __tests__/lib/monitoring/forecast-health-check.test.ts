@@ -166,7 +166,7 @@ describe('Forecast Health Check', () => {
   it('does not mark overall status as critical when only marine/tide are critical', async () => {
     const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
     const sevenHoursAgo = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
-    const threeDaysAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
 
     // Enhanced is fresh
     enhancedLatestMock.mockResolvedValueOnce({
@@ -188,12 +188,12 @@ describe('Forecast Health Check', () => {
       error: null,
     });
 
-    // Tide is critical-stale (>48h)
+    // Tide is critical-stale (>336h / 14 days)
     tideLatestMock.mockResolvedValueOnce({
       data: [
-        { beach_id: 'beach-1', created_at: threeDaysAgo, ts: threeDaysAgo, source: 'noaa' },
-        { beach_id: 'beach-2', created_at: threeDaysAgo, ts: threeDaysAgo, source: 'noaa' },
-        { beach_id: 'beach-3', created_at: threeDaysAgo, ts: threeDaysAgo, source: 'noaa' },
+        { beach_id: 'beach-1', created_at: fifteenDaysAgo, ts: fifteenDaysAgo, source: 'noaa' },
+        { beach_id: 'beach-2', created_at: fifteenDaysAgo, ts: fifteenDaysAgo, source: 'noaa' },
+        { beach_id: 'beach-3', created_at: fifteenDaysAgo, ts: fifteenDaysAgo, source: 'noaa' },
       ],
       error: null,
     });

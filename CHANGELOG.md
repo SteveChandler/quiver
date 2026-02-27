@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Health check: fix degraded status from tide & IOOS staleness** — Updated tide monitoring thresholds from 26h/48h to 192h/336h to match the weekly cron schedule. Fixed IOOS station discovery bug where `last_seen_at` was reset for dead stations every discovery cycle, preventing auto-deactivation. GitHub Actions workflow now fails on `degraded` (not just `critical`). Deactivated 75 dead IOOS stations in production.
 - **Auth modals: missing `returnTo`, stale closure risk, and unnecessary eager mounting (code review items 2, 4, 6, 7)** — `beach-card.tsx` and `beach-actions.tsx` now pass `returnTo={pathname}` to their `UnifiedAuthModal` instances so users land back on the correct page after sign-up. `favorite-button.tsx` deferred-action `useEffect` now guards on `hasInitialized` before firing `toggleFavorite()`, preventing a stale-closure call while favorites are still loading; the `eslint-disable` comment now includes the suppression reason. All seven components that render `UnifiedAuthModal` added in this feature branch now use lazy-render (`{showAuth && <UnifiedAuthModal .../>}`) to avoid mounting the modal subtree until it is actually needed. `beach-card-session-link.test.tsx` mock for `next/navigation` updated to include `usePathname`.
 
 ### Added
